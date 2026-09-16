@@ -1,6 +1,6 @@
 # 夜间自动推进章程（Overnight Automation Charter）
 
-> 状态：Active　版本：1.1　日期：2026-09-16　变更历史见 §12
+> 状态：Active　版本：1.2　日期：2026-09-16　变更历史见 §12
 > 上位：`AGENTS.md`、`docs/governance-ai-agent-execution.md`（gov）、`docs/subagent-orchestration.md`
 > 本文件是夜间自动化任务的**唯一权威规则源**。automation 的 prompt 只做引用，不复制规则。
 > 变更门槛：修改本章程需 ADR。
@@ -30,7 +30,7 @@
 | G2 | **当前 HEAD 是绿的** | `cargo fmt --all --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test --workspace` | 停止整夜。**必须从绿开始**，否则无法区分"我弄坏的"与"本来就坏的" |
 | G3 | 工作区干净 | `git status --porcelain` 为空 | 停止整夜（避免把人类在制品混进夜间提交） |
 | G4 | 不在 main 分支 | 当前分支 ≠ `main`；若为 main 则创建 `nightly/<date>` | 自动切到夜间分支 |
-| G5 | 存在至少一张 Ready 任务卡 | 扫描 `tasks/*.md` 的 `状态：Ready` | 停止整夜，报告"无可执行任务卡" |
+| G5 | **有可执行的工作** | 按序检查：① `tasks/*.md` 中有 `状态：Ready` 的卡 → ② §13 夜间工作单有未完成项 → ③ §2 白名单 P2~P8 中有可做项 | 三者全空才停止整夜，报告"无可执行工作"并列出三者各自为空的原因 |
 | G6 | 护栏工具可用 | `cargo run -p xtask -- hygiene` 能运行 | 停止整夜 |
 | G7 | 磁盘与时间预算充足 | 剩余磁盘 > 2 GB；当前时间 < 05:00 | 停止整夜 |
 | G8 | **无并发夜间任务** | 获取互斥锁 `.nightly.lock`（规则见 §11.2） | 锁被占用 → 本次唤醒**直接结束**，只往 `docs/nightly/<date>-skipped.md` 追加一行，不动任何代码 |
@@ -268,3 +268,101 @@ heartbeat 由 Codex 桌面应用调度：**电脑关机 / 应用退出 / 系统�
 |---|---|---|---|
 | 1.0 | 2026-09-16 | 初稿 | — |
 | 1.1 | 2026-09-16 | 新增 §11（heartbeat 适配：G8 互斥锁、当夜与轮次编号、晨间报告触发条件、机制性上报事件、通知现实、运行前提）；§1 增 G8；§6 改"每夜 ≤3 轮 / 每次唤醒 ≤2 轮"、收尾 05:30→05:00；§7 通知策略与机制对齐；§10"每轮新会话"改"每轮强制重锚" | 实测 cron 模式在本环境不可用（需 ChatGPT 鉴权），只能用挂在本 thread 的 heartbeat；原假设"每轮新会话"不成立 → 必须补并发锁与上下文累积对策，否则夜间自动化本身会成为漂移源 |
+| 1.2 | 2026-09-16 | G5 从"必须有 Ready 任务卡，否则停止整夜"放宽为**三级回退**（Ready 卡 → §13 工作单 → 白名单 P2~P8）；新增 §13「当前夜间工作单」 | 原 G5 与 §2 白名单的 P2~P8 直接矛盾：白名单说"无 Ready 卡时做这些"，G5 却说"无 Ready 卡就停"。且阶段 0 的 10 张卡**没有一张是夜间安全的**（Spike 都要真机 GUI 或新增依赖），照原 G5 会导致夜间自动化永久空转 |
+
+---
+
+## 13. 当前夜间工作单（人类维护 · G5 的第 ② 级回退）
+
+> **为什么需要工作单**：阶段 0 的 10 张卡里，**没有一张是夜间安全的** ——
+> Spike A/A2/G 要真机 GUI，Spike B/C/E/F 要新增依赖或前端工程，Spike H 要 `rusqlite`，
+> Spike D-lite 要 Linux 虚拟机；而 §3 黑名单禁止夜间新增依赖与操作真实应用。
+> 如果没有工作单，夜间自动化只能做 P2~P8 里"补测试、修告警"这类边角料，价值很低。
+>
+> **规则**：
+> 1. 工作单由**人类在白天维护**；夜间 agent 只能执行，**不得新增、改写或重排工作单**。
+> 2. 每张工作单都必须自带 write scope 与**可机器验证**的验收命令（否则夜间无法自证完成）。
+> 3. 一轮只做一张工作单，按编号顺序取第一张未完成的。
+> 4. 完成后：把本节的 `[ ]` 勾成 `[x]`，**并在同一行追加** commit 短哈希与轮次
+>    （这是本节唯一允许的夜间写入，属于"进度标记"而非"改契约"）。
+> 5. 工作单与既有任务卡**范围重叠**时，必须在轮次报告里写明重叠部分，供人类合并时核对。
+
+### W1　`rustscan` 函数扫描器（为函数级卫生规则铺路）
+
+- [ ] 未完成
+- **目标**：在 `rustscan.rs` 增加 `find_functions(code: &str) -> Vec<FunctionSpan>`，
+  基于已有的降噪视图 `Scan::code` 定位每个函数的 **名字、起止行、参数列表、函数体行数**。
+  trait/extern 里无函数体的声明（以 `;` 结束）要能识别并标记为"无函数体"。
+- **write scope**：`xtask/src/rustscan.rs`（仅此一个文件）
+- **禁止**：改 `hygiene.rs`（那是 W2）、改任何阈值、改 `deferred.rs`、动其他文件
+- **验收**（全部必须通过）：
+  ```powershell
+  cargo fmt --all --check
+  cargo clippy --all-targets -- -D warnings
+  cargo test --workspace                      # 原有 99 个测试必须仍然全绿
+  cargo run -p xtask -- hygiene               # 仍须 PASSED（含 rustscan.rs 自身）
+  ```
+  另需新增 ≥10 个针对 `find_functions` 的表驱动测试，**必须覆盖**：无函数体的 trait 声明、
+  泛型参数 `fn f<T: Trait>(...)`、多行签名、`pub(crate) async unsafe extern "C" fn`、
+  嵌套闭包中的 `fn`、行号与 `Scan::code` 一致（不变量 1）、空文件、只有注释的文件。
+- **规模上限**：diff ≤ 400 行；超出就停下并在报告里建议拆单
+
+### W2　hygiene 函数级规则三条（gov §5.4 的第 2/3/4 项）
+
+- [ ] 未完成　**依赖 W1**
+- **目标**：实现 `hygiene/function-too-long`（>80 行 Warning）、`hygiene/too-many-params`
+  （>6 个 Warning）、`hygiene/high-cyclomatic-complexity`（>15 Warning）。
+  阈值**必须复用** `clippy.toml` 里已定的数字（15 / 6 / 80），不得另立一套。
+  同步把 `deferred.rs` 里对应的三条移出未实现表，并把
+  `IMPLEMENTED_HYGIENE_RULE_COUNT` 从 3 改为 6。
+- **write scope**：`xtask/src/hygiene.rs`、`xtask/src/deferred.rs`、`xtask/README.md`
+- **禁止**：改 `rustscan.rs`（W1 的产物）、改 `clippy.toml`/`Cargo.toml` 的 lint 配置、
+  为了让本仓库通过而调高阈值
+- **验收**：W1 的四条命令 + 以下三条
+  ```powershell
+  cargo test -p xtask                         # deferred 的"数量自洽"测试必须仍然通过
+  cargo run -p xtask -- --list-deferred       # 未实现规则应从 8 条降到 5 条
+  cargo run -p xtask -- hygiene               # 对本仓库仍须 PASSED（0 error 0 warning）
+  ```
+  每条新规则 ≥5 个用例，其中**至少 2 个负向**（恰好等于阈值不告警、差一行不告警）。
+  若本仓库某个函数因此告警：**不许改阈值**，要么拆函数，要么在报告里记 DRIFT 交人类裁决。
+- **与 TASK-015 的重叠**：TASK-015 的验收含"hygiene 12 项检查全部生效"。W1+W2 完成后
+  其中 3 项已生效，人类合并时应在 TASK-015 卡里勾掉对应项（夜间 agent 只报告，不改 plans/*）。
+
+### W3　`docs/spec/testing.md` 草案（白盒测试策略）
+
+- [ ] 未完成
+- **目标**：写出白盒测试契约草案，**文件头必须标注** `状态：Draft（待人类批准）`。
+  至少覆盖：① 四类可测试性接缝（纯函数规则 / 输出注入 `&mut dyn Write` / IO 集中在边界 /
+  阈值为 `pub const`）② 测试命名 `test_<unit>_<condition>_<expected>` ③ 允许在
+  `#[cfg(test)] mod tests` 上 `#[allow]` 的 lint 白名单（`unwrap_used`/`expect_used`/`panic`）
+  及其理由 ④ 负向测试的强制要求 ⑤ 覆盖率门槛与测量工具（`cargo-llvm-cov`）
+  ⑥ trait 替身（test double）的注入方式 ⑦ 禁止真实 IO/网络/GUI ⑧ 与录制回放（TASK-034）的分工。
+  以 `xtask` 的现有测试为**实证范例**引用（它们已经满足上述大部分要求）。
+- **write scope**：`docs/spec/testing.md`（新建，仅此一个文件）
+- **禁止**：修改任何既有 spec、修改 `AGENTS.md`、把状态写成 `Accepted`
+- **验收**：文件存在且首屏含 `状态：Draft`；Markdown 代码围栏成对；
+  `cargo run -p xtask -- hygiene` 仍 PASSED；`git diff --stat` 只含该文件 + LEDGER + 夜间报告。
+- **附带收益**：解除 `docs/PARKING_LOT.md` PL-003（`report.rs` 引用了尚不存在的 testing spec）。
+
+### W4　ADR 草稿 0016~0020
+
+- [ ] 未完成
+- **目标**：把 `MEMORY.md` §3 中 ADR 待建 0016~0020 五条决策，按 gov §9.3 模板落成
+  `docs/adr/0016-*.draft.md` ~ `docs/adr/0020-*.draft.md`，状态一律 **Draft**。
+  每条必须有：背景、决策一句话、**≥2 个考虑过的选项含被否理由**、影响、风险与缓解、验证方式。
+  素材来源：`MEMORY.md` §3/§4、`tasks/TASK-001-repo-skeleton.md` §5.4、
+  `docs/overnight-automation-charter.md` §11/§12。**不得引入新的决策或改变已有决策的语义** ——
+  这是"把已做的决定写成 ADR"，不是"重新做决定"。
+- **write scope**：`docs/adr/0016-*.draft.md` ~ `docs/adr/0020-*.draft.md`（新建 5 个文件）
+- **禁止**：写 `状态：Accepted`、修改 `MEMORY.md` §3/§4、新建 0021 及以后的编号
+- **验收**：5 个文件都存在且都含 `状态：Draft`；每个都含"考虑过的选项"且 ≥2 个选项；
+  Markdown 围栏成对；`cargo run -p xtask -- hygiene` 仍 PASSED。
+
+### 优先级与排序理由
+
+`W1 → W2 → W3 → W4`。
+
+代码优先（W1/W2）：它们**可机器验证到近乎绝对**（测试通过就是通过），且直接加强护栏本身 ——
+护栏越强，之后每一夜和每一张卡的质量下限越高。
+文档其次（W3/W4）：价值高但"写得好不好"需要人类判断，夜间产出只能是 Draft。
