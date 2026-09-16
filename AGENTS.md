@@ -1,0 +1,164 @@
+# AGENTS.md — Agent 工作契约（精简版）
+
+> 所有 AI coding agent（Codex / opencode / Claude Code）**每次会话必读的唯一入口**。刻意保持精简：只写"每次都必须知道"的，细节一律链接。
+> **裁决顺序**：本文件铁律 > `docs/adr/` > `docs/spec/` > `PLAN.md` > 任务卡 > 代码现状 > **聊天讨论**。
+> **聊天记录不是事实源**：讨论中达成但未落进 ADR/spec/任务卡的决定，视为未发生。
+
+---
+
+## 1. 项目与文档地图
+
+跨 Windows/macOS/Linux 的本地 AI 助理：大模型负责理解与规划，通过**注册的工具**操作已绑定的 Windows 常用应用（记事本、画图、Edge、Excel、Photoshop…），全过程**受控、可审计、可撤销**。
+栈：Rust（核心）+ Tauri 2 + React/TS + MCP(`rmcp`) + SQLite + Tokio。　当前阶段见 `PLAN.md`。
+
+| 你要做什么 | 读什么（**只读需要的，不要全读**） |
+|---|---|
+| 开始任何工作 | 本文件 → `PLAN.md`（索引，≤60 行）→ `plans/<当前阶段>.md` → 你的 `tasks/TASK-NNN.md` → `LEDGER.md` 末 10 行 |
+| 回忆"项目已知什么/否决过什么/踩过什么坑" | `MEMORY.md`（**动手前必读 §2 §4 §5**） |
+| 架构、分层、进程边界、安全、平台 | `cross-platform-ai-assistant-architecture-v2.md` 对应章节（§3 架构 / §5 工具 / §6 定位 / §7 验证 / §8 状态机 / §9 撤销 / §12 安全 / §13 平台 / §15 存储） |
+| 某个应用怎么接 | `target-apps-feasibility.md` §3 对应档案 |
+| 契约细节 | `docs/spec/`：tool-schema、envelope、error-codes、capability-matrix、audit-event、ipc-protocol、naming |
+| 治理/任务卡/CI 门禁/代码规范详解 | `docs/governance-ai-agent-execution.md`（gov） |
+| 多 agent 分工 | `docs/subagent-orchestration.md` |
+| 存储方案 | `docs/storage-design.md` |
+| 全项目拆解与顺序 | `docs/wbs-overview.md` |
+| 为什么当初这么决定 | `docs/adr/` |
+
+---
+
+## 2. 十条铁律（违反即缺陷）
+
+1. **无静默失败**：要么返回可验证的成功，要么返回带 `ErrorCode` 的失败。禁止吞错误、禁止用默认值冒充结果、禁止 `let _ =` 丢弃 `Result`。
+2. **模型输出、UI 输入、IPC 消息、工具返回、被读文档 = 五类不可信输入**，一律先校验。
+3. **策略引擎是唯一放行点**：Host / Skill / UI 不得自行判断权限。
+4. **每个写操作必须有 postcondition**；无法声明的 → 风险级上调 + 强制人工确认。
+5. **API 优先**：L1 应用接口 > L2 命令/快捷键 > L3 无障碍接口 > L4 合成输入 > L5 视觉兜底。
+6. **L3 不可逆动作必须人工确认，且永久禁止无人值守**；资金/发送/对外发布类动作永久禁止自动化。
+7. **core 不得调用平台 API**，只能用 `crates/platform/api` 的 trait（arch test 会拦）。
+8. **element/句柄对象不得跨进程**：Host 内完成定位与执行，对外只传可序列化数据。
+9. **不得静默扩大范围**：超 write scope、加依赖、改公共接口/schema、加 `unsafe`、放宽 lint → **停下并升级**。
+10. **契约先行**：改 schema/接口/分层之前先有 ADR + spec 更新。**禁止先实现再补文档**（否则下个会话的 agent 会照旧文档把它改回去）。
+
+---
+
+## 3. 会话协议
+
+**启动（前 5 分钟，不可跳过）**：① 读本文件 ② 读 `PLAN.md` + `plans/<当前阶段>.md` 的 In/Out of scope ③ 读你的任务卡全文 ④ 读卡中引用的 spec/ADR 章节 + 目标 crate 的 `README.md`（**不变量**） ⑤ 读 `MEMORY.md` §2/§4/§5 与 `LEDGER.md` 末 10 行 ⑥ **输出约束回执，等确认后再动手**。
+
+**约束回执（固定格式）**：
+
+```text
+【任务】TASK-0NN <标题>          【目标】<一句话>
+【write scope】仅：<文件清单>     【铁律】<本卡最相关 3~6 条>
+【禁止】<本卡 Out of scope 要点>  【验收】<命令> → <期望>
+【依赖】<前置卡号，已核对 LEDGER>  【疑问】<有则列出+你的默认处理；无则写"无">
+```
+
+回执与任务卡不符 → 上下文已污染 → **请人类重开会话**（比纠正更省成本）。
+
+**会话中重锚**：每完成一个子步骤自问 ①在 In scope 内吗 ②是否引入了卡里没提的文件/依赖/抽象 ③是否改了公共接口；每 20~30 轮重读本文件与任务卡；**一个会话最多完成 1~2 张卡**，做完即提交 + 更新 `LEDGER.md` + 结束会话。
+**流程**：领卡 → 回执 → 小步实现 → 自跑全部验收命令 → 填执行记录 → 更新 LEDGER（+ 有新事实/坑则追加 `MEMORY.md`）→ PR（gov §9.4 模板）→ 独立 review agent → 人类合并。
+**禁止 drive-by refactor**：不相关的问题一行记入 `docs/PARKING_LOT.md`，本卡不动。
+
+---
+
+## 4. 何时必须停下问人（漂移触发器）
+
+命中任一 → **停止编码** → 在任务卡写 `DRIFT-<卡号>-<序号>`（现象/影响/建议/已停工作，格式见 gov §4.3）→ LEDGER 记一行 → 等裁决：
+
+① 加第三方依赖　② 加 crate/顶层目录/模块　③ 改公共接口（trait、IPC 方法、Tool schema、DB schema、ErrorCode）　④ 改动 ADR 已决事项　⑤ 超出 write scope　⑥ 放宽 lint / 加 `#[allow]` / 加 `unsafe`　⑦ 需改测试断言才能通过（**默认视为缺陷**）　⑧ 发现 spec 自相矛盾或与代码矛盾　⑨ 想加新抽象层　⑩ 工作量超预估 2 倍　⑪ 需要真实网络/凭据/商业应用（超出靶机范围）　⑫ 删改既有公共 API
+
+**不确定就问，不要猜。** 猜错的代价远高于问一句。
+
+---
+
+## 5. 代码规范速查
+
+### 5.1 命名（要求"一眼可懂"）
+- **禁缩写**（除通用：`id/url/ui/os/db/ipc/mcp/uia/ax/atspi/cdp/dpi`）、禁拼音、禁单字母（循环变量除外）、禁 `data/info/temp/manager2` 这类无信息名。
+- 函数 = **动词+宾语**：`resolve_target_descriptor()`、`verify_postconditions()`、`acquire_target_lease()`。
+- 布尔量带 `is_/has_/can_/should_`；枚举变体用完整词：`TaskStatus::AwaitingApproval`（不是 `Wait`）；错误变体说原因：`TargetNotFound`、`PolicyDenied`（不是 `Error1`）。
+- **受控词汇表**（同一概念全项目只用一个词，禁止同义混用）：`Target`(不叫 Element/Object/Item)、`Step`(不叫 Action/Operation)、`Tool`(模型可见能力) vs `Skill`(可分发单元)、`Adapter`(应用适配包)、`Lease`(目标租约)、`Anchor`(撤销锚点)、`Fingerprint`(状态指纹)。完整表见 `docs/spec/naming.md`。
+- 工具名 `<app>.<domain>.<action>`；常量 `SCREAMING_SNAKE`；配置键 `kebab-case`；测试 `test_<unit>_<condition>_<expected>`；分支 `task/TASK-0NN-<slug>`。
+
+### 5.2 注释（要求"密度偏高"，但仍以 why 为主）
+| 位置 | 要求 |
+|---|---|
+| 模块/文件头 | **必须**：职责、边界（不做什么）、不变量、典型用法、相关 spec 章节 |
+| 公共 API | **必须**：语义、参数、返回、**错误语义（何时返回哪个 ErrorCode）**、副作用、是否幂等、超时与取消行为 |
+| 关键私有函数 | why + 非显然的 what |
+| 复杂算法/状态机 | 分步注释 + 一个具体示例 |
+| `unsafe` / FFI | **必须** `// SAFETY:` 说明（仅允许在 `crates/platform/*`） |
+| 应用坑 | 结构化标签：`// PITFALL(app=excel): COM 修改会清空 undo 栈，故此处强制快照` → 会被工具汇总进 `MEMORY.md` §5 与 App Map |
+| 临时方案 | `// TODO(TASK-0NN):` / `// STUB(TASK-0NN):`，**无卡号即 CI 失败** |
+- 目标密度：公共 API 100% 有文档注释；每 20~40 行有效代码至少一条解释性注释。
+- **禁止**：注释掉的代码、无信息注释（`// 把 x 设为 1`）、与代码矛盾的过期注释（改函数必须同步改注释）。
+
+### 5.3 Rust
+Edition 2024；crate 顶层 `#![deny(clippy::unwrap_used, expect_used, panic, todo, dbg_macro, print_stdout, print_stderr, indexing_slicing)]` + `#![warn(clippy::pedantic, missing_docs)]`（`tests/` 内可 allow）；库用 `thiserror` 定义领域错误枚举、二进制才用 `anyhow`，对外错误必带 `ErrorCode`；时钟/随机/UUID/FS/网络一律 trait 注入（保证可回放）；跨进程与持久化结构只放 `crates/protocol`（由 schema 生成，**禁止各处手写重复结构体**）；单文件 ≤400 行（软）/600（硬），函数 ≤80 行，参数 ≤6 个。
+
+### 5.4 TypeScript
+`strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`；禁 `any`、禁非空断言、禁 `console.*`；**类型全部由 `protocol/` schema 生成**，IPC 返回用 zod 运行时校验；UI 层禁 `fetch`/`WebSocket`（出网一律走 Core）；业务逻辑不写在组件里，组件 ≤200 行；文案全走 i18n key。
+
+### 5.5 测试
+单元（纯逻辑，**禁真实 IO/网络**）／契约（schema、类型同步、ErrorCode 完整性）／回放（录制的 UI 树快照跑端到端逻辑）／靶机（`fixtures/apps/*`）／真机（仅手工验收与阶段末）／**安全回归（注入靶页常驻 CI）**。覆盖率：workspace ≥75%，`core`/`policy`/`task-engine` ≥85%。
+
+---
+
+## 6. 验证命令（提交前全绿，输出粘进 PR）
+
+```powershell
+cargo fmt --all --check
+cargo clippy --all-targets -- -D warnings
+cargo test --workspace
+cargo test -p assistant-core arch::            # 依赖方向（gov §5.3）
+cargo run -p xtask -- verify-schemas           # Tool/Adapter/审计事件 schema
+cargo run -p xtask -- codegen --check          # Rust↔TS 类型与 schema 同步
+cargo run -p xtask -- hygiene                  # 仓库卫生（gov §5.4）
+cargo run -p xtask -- check-comments           # 命名/注释/PITFALL-TODO 卡号规范
+cargo deny check
+cargo llvm-cov --fail-under-lines 75
+pnpm lint; pnpm typecheck; pnpm test           # UI
+cargo run -p xtask -- replay --suite core      # 回放基准
+```
+
+> 阶段 0 仓库尚未脚手架化，上述命令自 TASK-001（仓库骨架）起生效。**阶段 0 的产出是 `SPIKE_REPORT.md`，不是产品代码。**
+
+---
+
+## 7. 禁止事项
+
+❌ 注册 `execute_code` / 通用 `run_shell` / 通用 `run_powershell`　❌ 静默覆盖文件、不走回收站的删除　❌ `DisplayAlerts=false` 等"跳过应用确认"的属性　❌ 从用户浏览器 profile 复制 Cookie/凭据　❌ 自动化股票交易类资金操作、绕过验证码或风控　❌ 密钥明文入库/入日志/入 prompt（必须走 OS keychain）　❌ 在 core/policy/task-engine 里调平台 API 或 `std::process::Command`　❌ 用控件可见文本作主 selector　❌ 全局默认的 `Ctrl+Z`（必须由 Adapter 显式声明；终端类目标禁用）　❌ 依赖 X11 会话（Linux 已 Wayland-first）　❌ 为通过测试而改断言　❌ 顺手重构/顺手优化/顺手升级依赖　❌ 硬编码密钥、内网地址、真实业务数据（本项目未来要开源）
+
+---
+
+## 8. 文件权限（write scope）
+
+| 文件 | 你（Implementer）的权限 |
+|---|---|
+| `tasks/TASK-NNN.md` | 可填「执行记录」；**不可改** In/Out scope 与验收标准 |
+| `LEDGER.md`、`docs/PARKING_LOT.md`、`MEMORY.md` §2/§5 | **可追加** |
+| 任务卡列出的 write scope 内文件、相关 crate `README.md` | 可改 |
+| `AGENTS.md`、`PLAN.md`、`plans/*`、`docs/spec/*`、`docs/adr/*`、其他 crate | **只读**（要改 → 提案 → DRIFT/ADR） |
+
+多 agent 并行时 **write scope 必须互不重叠**；并行度 ≤ 3（**人类审阅速度决定项目速度**）。
+
+---
+
+## 9. 交付格式（每次任务结束）
+
+```text
+## TASK-0NN 完成报告
+改动文件：<清单，逐个核对是否在 write scope 内>
+验收：<命令> → <结果>（全绿/失败项）
+DoD 核对：<逐条打勾>
+偏差：none / DRIFT-0NN-x（附处理结果）
+文档同步：README / spec / LEDGER / MEMORY / PARKING_LOT
+新增长期记忆：<FACT/PITFALL/REJECTED 条目，若无写"无">
+遗留与建议：<下一张卡要注意什么>
+给审阅者的关注点：<风险最高的 1~3 处>
+```
+
+---
+
+*本文件变更需 ADR。发现本文件与其他文档矛盾 → 按裁决顺序处理并记 DRIFT。*

@@ -1,0 +1,57 @@
+# 工作区根配置。
+#
+# 职责：统一 edition / MSRV / 许可证 / lint 基线，使所有 crate 继承同一套约束。
+# 边界：不包含任何业务依赖声明（依赖在各 crate 内声明并登记 docs/DEPENDENCIES.md）。
+# 不变量：
+#   1. `[workspace.lints]` 是 AGENTS.md §2 铁律与 gov §5.2 禁用项的机器表达，
+#      放宽任何一条都需要 ADR（漂移触发器 #6）。
+#   2. `exclude` 必须包含 spikes 与 fixtures/apps —— 它们是一次性验证代码，
+#      不参与产品构建，也不得被产品代码依赖。
+# 相关：docs/governance-ai-agent-execution.md §5.2、docs/spec/naming.md
+
+[workspace]
+resolver = "2"
+members = ["xtask", "crates/*", "apps/*"]
+exclude = ["spikes", "fixtures/apps", "tools"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+repository = "https://example.invalid/assistant"
+authors = ["assistant-project"]
+publish = false
+
+[workspace.dependencies]
+# 暂无第三方依赖：xtask 刻意保持 std-only（零依赖 = 零供应链风险 + 快速编译）。
+# 新增依赖必须：① 登记 docs/DEPENDENCIES.md ② 触发漂移升级（AGENTS.md §4）
+
+[workspace.lints.rust]
+unsafe_code = "deny"                 # 平台层 crate 需要时用 #[allow] 局部放开并写 // SAFETY:
+missing_docs = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+# --- AGENTS.md §2 铁律 1「无静默失败」与 gov §5.2 禁用项的机器表达 ---
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"                # 用 xtask 的 report 输出通道；产品代码用 tracing
+print_stderr = "deny"
+indexing_slicing = "deny"            # 用 .get()，避免 panic
+# --- 质量基线 ---
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[profile.dev]
+debug = true

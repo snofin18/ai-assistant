@@ -1,0 +1,21 @@
+# 格式化配置。
+#
+# 为什么这里只有稳定选项：rustfmt 的 unstable 选项（wrap_comments / comment_width /
+# format_code_in_doc_comments / normalize_comments 等）在 stable 通道下**不生效且只打印
+# 一行 warning**。留着它们有两个坏处：① 让人误以为注释宽度受控（实际没有）；
+# ② 每次 fmt 都刷 warning，把 CI 输出训练成"可以忽略的噪声"。
+# 因此本文件只保留 stable 生效的选项；若将来切到 nightly 工具链，再按 ADR 加回。
+# 变更记录见 tasks/TASK-001-repo-skeleton.md 的「设计变更」一节。
+
+edition = "2024"
+max_width = 100
+hard_tabs = false
+tab_spaces = 4
+# 全仓库统一 LF（见 .gitattributes）。理由：三平台 CI 矩阵下，CRLF 会让 Linux runner 的
+# `cargo fmt --check` 必然失败；而 "Auto" 会让"文件用什么换行"变成不可预测的变量。
+newline_style = "Unix"
+use_small_heuristics = "Default"
+reorder_imports = true
+reorder_modules = true
+
+# 注释密度要求偏高（gov §6.1.2），因此刻意**不开启**任何会压缩/重排注释的选项。

@@ -1,0 +1,27 @@
+# 依赖治理（gov §5.1 门禁 #8）。当前工作区零第三方依赖，本文件在引入第一个依赖时即生效。
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+db-path = ["target/deny-db"]
+yanked = "deny"
+ignore = []
+
+[licenses]
+version = 2
+allow = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Zlib", "MPL-2.0", "Unicode-3.0"]
+confidence-threshold = 0.93
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+deny = [
+  # 明确禁用的依赖（引入即 CI 失败，需要 ADR 才能移除本条）
+  { name = "openssl", reason = "使用 rustls，避免 OpenSSL 系统依赖与许可证复杂度" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

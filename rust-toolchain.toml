@@ -1,0 +1,5 @@
+# 固定工具链，保证 CI 与本地一致（漂移防护：环境差异是最难查的一类 bug）。
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy", "llvm-tools-preview"]
+profile = "default"

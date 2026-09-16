@@ -1,0 +1,47 @@
+# 换行与文本属性策略。
+#
+# 为什么全仓库统一 LF：本项目目标是 Windows / macOS / Linux 三平台，CI 也是三平台矩阵。
+# 如果仓库里是 CRLF，那么 Linux runner 上 `cargo fmt --check`（rustfmt 期望与文件一致的
+# 换行风格）与任何 shell 脚本都会出问题；如果依赖各人本地的 core.autocrlf，
+# 就等于把"文件长什么样"交给每个人的 git 配置决定 —— 这是最难查的一类环境差异 bug。
+# 所以：**仓库内一律 LF，签出也一律 LF**，与 rustfmt.toml 的 newline_style 保持一致。
+#
+# 改动本文件 = 改动全仓库的字节表示，需要 ADR。
+
+* text=auto eol=lf
+
+# --- 明确标记二进制：绝不做换行转换 ---
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.bmp    binary
+*.webp   binary
+*.ico    binary
+*.pdf    binary
+*.zip    binary
+*.7z     binary
+*.gz     binary
+*.xz     binary
+*.exe    binary
+*.dll    binary
+*.so     binary
+*.dylib  binary
+*.db     binary
+*.sqlite binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.otf    binary
+*.mp3    binary
+*.wav    binary
+*.mp4    binary
+*.webm   binary
+
+# --- 语言归属（影响 GitHub 的语言统计与 diff 行为）---
+*.md     linguist-documentation
+docs/**  linguist-documentation
+plans/** linguist-documentation
+
+# --- 生成物：PR 里默认折叠，且不做语言统计 ---
+# 目前还没有生成文件；TASK-011 引入 codegen 后在此登记产物路径

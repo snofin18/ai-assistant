@@ -1,0 +1,166 @@
+# CI — gov §5.1 的门禁清单在机器上的表达。
+#
+# 上线策略（TASK-001）：
+#   硬门禁 6 项（任一失败即阻塞合并）：fmt / clippy(含禁用项 lint) / test / deny / build / hygiene
+#   软门禁 9 项（continue-on-error: true）：每一项都注明「启用卡号」，
+#     到了那张卡就把它改成硬门禁，并删掉 continue-on-error。
+#   为什么先软后硬：门禁必须在它检查的东西存在之后才有意义。
+#     例如 arch test 检查 crates/core 的分层，而 crates/core 要到 TASK-015 才存在；
+#     提前设成硬门禁只会得到一条永久红灯，而永久红灯会让人学会忽略 CI。
+#
+# 修改本文件的规则：把软门禁转硬 = 正常演进（在对应任务卡里做）；
+#   把硬门禁转软或删除 = **放宽护栏**，属漂移触发器，需 ADR + 人类批准。
+
+name: CI
+
+on:
+  push:
+    branches: [main, "nightly/**", "task/**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 同一分支的新推送取消旧运行：省 runner，也避免"看错了一次运行结果"
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ==========================================================================
+  # 三平台矩阵：硬门禁 1/2/3/4/10/12（gov §5.1 编号）
+  # ==========================================================================
+  check:
+    name: check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      # 工具链版本由 rust-toolchain.toml 固定，这里只负责装 rustup 与组件
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy, llvm-tools-preview
+
+      - uses: Swatinem/rust-cache@v2
+
+      # --- 硬门禁 #1：格式 ---
+      - name: "[HARD #1] cargo fmt --check"
+        run: cargo fmt --all --check
+
+      # --- 硬门禁 #2 + #3：lint 零警告（#3 的禁用项由 Cargo.toml 的 [workspace.lints] 表达）---
+      - name: "[HARD #2/#3] cargo clippy -D warnings"
+        run: cargo clippy --all-targets -- -D warnings
+
+      # --- 硬门禁 #4：单元测试 ---
+      - name: "[HARD #4] cargo test"
+        run: cargo test --workspace
+
+      # --- 硬门禁 #10：构建（release，验证 LTO/strip 配置可用）---
+      - name: "[HARD #10] cargo build --release"
+        run: cargo build --release
+
+      # --- 硬门禁 #12：仓库卫生 ---
+      # 注：TASK-001 卡面写的是"先上线 5 项"，但 hygiene 在本卡已实现且自检通过，
+      #     留作软门禁等于白白放弃一道已就绪的防线 → 记为 DRIFT-001-2，见任务卡执行记录。
+      - name: "[HARD #12] xtask hygiene"
+        run: cargo run -p xtask -- hygiene
+
+      # =========================================================================
+      # 软门禁：到了对应任务卡就转为硬门禁（删掉 continue-on-error）
+      # =========================================================================
+
+      # 启用卡号：TASK-015（需要 crates/core 存在）
+      - name: "[SOFT #5 → TASK-015] arch test（分层依赖方向）"
+        continue-on-error: true
+        run: 'cargo test -p assistant-core arch::'
+
+      # 启用卡号：TASK-011（需要 protocol crate 与五份 schema）
+      - name: "[SOFT #6 → TASK-011] verify-schemas"
+        continue-on-error: true
+        run: cargo run -p xtask -- verify-schemas
+
+      # 启用卡号：TASK-011
+      - name: "[SOFT #7 → TASK-011] codegen --check"
+        continue-on-error: true
+        run: cargo run -p xtask -- codegen --check
+
+      # 启用卡号：TASK-015（覆盖率门槛需要产品代码量足够才有意义）
+      - name: "[SOFT #9 → TASK-015] coverage ≥ 75%"
+        continue-on-error: true
+        run: |
+          cargo install cargo-llvm-cov --locked
+          cargo llvm-cov --workspace --fail-under-lines 75
+
+      # 启用卡号：TASK-015
+      - name: "[SOFT #11 → TASK-015] cargo doc --no-deps"
+        continue-on-error: true
+        run: cargo doc --no-deps --workspace
+
+      # 启用卡号：TASK-034（需要录制回放框架与快照 fixture）
+      - name: "[SOFT #13 → TASK-034] replay --suite core"
+        continue-on-error: true
+        run: cargo run -p xtask -- replay --suite core
+
+      # 启用卡号：待补卡（docs/PARKING_LOT.md PL-002）
+      - name: "[SOFT #14 → 待补卡] commitlint（提交可追溯到任务卡）"
+        continue-on-error: true
+        run: echo "commitlint 尚未接入：需要先建立 node 侧工程（TASK-006）"
+
+      # 启用卡号：待补卡（PL-002）
+      - name: "[SOFT #15 → 待补卡] check-comments"
+        continue-on-error: true
+        run: cargo run -p xtask -- check-comments
+
+      # 启用卡号：待补卡（PL-002）
+      - name: "[SOFT #16 → 待补卡] check-ledger"
+        continue-on-error: true
+        run: cargo run -p xtask -- check-ledger
+
+  # ==========================================================================
+  # 硬门禁 #8：依赖治理（平台无关，单独一个 job 跑一次即可）
+  # ==========================================================================
+  deny:
+    name: cargo deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          command: check
+          arguments: --all-features
+
+  # ==========================================================================
+  # 未实现项自检：确保 xtask 的"未实现"清单始终能被打印出来。
+  #
+  # 为什么值得单独一步：这张清单是防止「静默跳过检查」的唯一凭证。
+  # 如果哪天它打印不出来了，说明有人把显式失败改成了静默成功。
+  # ==========================================================================
+  deferred-inventory:
+    name: xtask deferred inventory
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: print deferred inventory
+        run: cargo run -p xtask -- --list-deferred
+      - name: "verify unimplemented subcommand fails loudly (exit code 3)"
+        run: |
+          set +e
+          cargo run -q -p xtask -- codegen
+          code=$?
+          set -e
+          if [ "$code" -ne 3 ]; then
+            echo "未实现的子命令必须以退出码 3 失败（铁律 1：无静默失败），实际 $code"
+            exit 1
+          fi
+          echo "OK: 未实现子命令显式失败（exit 3）"

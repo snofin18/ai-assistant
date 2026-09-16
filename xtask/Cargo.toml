@@ -1,0 +1,25 @@
+# xtask：仓库护栏与开发任务工具。
+#
+# 职责：把「靠自觉」的规范变成机器可执行的检查（gov §5.1 门禁 #12/#15/#16）。
+# 边界：不参与产品运行时；不访问网络；不修改任何文件（只读扫描 + 报告）。
+# 不变量：
+#   1. 零第三方依赖（只用 std）—— 护栏工具自身必须无供应链风险且编译极快。
+#   2. 规则判定必须是**纯函数**（输入源码文本 → 输出 Finding），IO 只在 main.rs 边界，
+#      这样每条规则都能被白盒测试覆盖（docs/spec/testing.md §4）。
+#   3. 未实现的子命令必须**显式失败**并指出对应任务卡号，禁止静默返回成功（铁律 1）。
+# 相关：docs/governance-ai-agent-execution.md §5、docs/spec/testing.md
+
+[package]
+name = "xtask"
+description = "仓库护栏与开发任务工具（hygiene / check-comments / check-ledger / card-check / verify-schemas / codegen / replay）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# 刻意留空：见上方不变量 1
+
+[lints]
+workspace = true

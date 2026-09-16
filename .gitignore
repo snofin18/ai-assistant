@@ -1,0 +1,57 @@
+# --- Rust ---
+/target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# --- Node / 前端 ---
+node_modules/
+dist/
+.turbo/
+coverage/
+*.tsbuildinfo
+
+# --- 运行时数据（绝不入库；v2 §15.3 / storage-design §9）---
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+/data/
+/blobs/
+/shadow/
+/evidence/
+/recordings/
+/archive/
+
+# --- 密钥与本地配置（铁律：密钥只进 OS keychain）---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.*
+
+# --- 业务专用 Adapter（可能含第三方商业信息，v2 §18.1）---
+/adapters-private/
+
+# --- Spike 产物（一次性验证代码可入库，但报告数据/截图不入库）---
+/spikes/**/target/
+/spikes/**/*.png
+/spikes/**/*.bmp
+
+# --- 编辑器与系统 ---
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- 夜间自动化（运行期状态，绝不入库；overnight-automation-charter §11.2）---
+.nightly.lock
+
+# --- 日志与临时 ---
+*.log
+/tmp/
+_temp_*

@@ -1,0 +1,189 @@
+# 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
+
+> 周期 10~12 周　状态：未开始（前置：阶段 0 全部 go）　上位文件：`PLAN.md`
+> 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
+> 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
+
+## In scope（冻结）
+
+三个子阶段串行推进，每个子阶段有自己的 DoD：
+
+| 子阶段 | 周期 | 目标 | 通道 |
+|---|---|---|---|
+| **1a** | 4~5 周 | 全部基础设施 + Notepad 3 个任务闭环 | L3 UIA + L1 文件契约 |
+| **1b** | 3 周 | Paint 3 个任务闭环 | L4 坐标注入 + L5 视觉验证 |
+| **1c** | 3~4 周 | Edge/Chrome 3 个任务闭环 + 安全底座验收 | L1 CDP + L3 UIA 外壳 |
+
+## Out of scope（做了算漂移）
+
+macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加载；WASM 插件；无人值守执行；技能市场与插件签名；向量检索记忆；股票类软件任何通道；图表可视化面（仅预留接口）；提权 Host（`automation-host-elevated`）；EgressProxy 独立进程（本阶段内联在 Core）；录制器（Recorder）；多 agent 并行执行任务。
+
+## 阶段 1 DoD（不达标不进入阶段 2）
+
+- [ ] 9 个任务连续 10 次运行成功率：Notepad ≥ 90%、Paint ≥ 75%、Edge ≥ 75%
+- [ ] **静默失败 = 0**（任何"报告成功但实际未生效"都视为致命缺陷）
+- [ ] 撤销成功率 ≥ 95%，撤销冲突 100% 被检测
+- [ ] **注入靶页：0 次执行页面内指令**（安全一票否决）
+- [ ] L3 不可逆动作 100% 经人工确认，且计划 UI 正确标注 point-of-no-return
+- [ ] 四类异常可安全终止或恢复：断网、Core 崩溃、用户中途操作、目标程序退出
+- [ ] 所有写操作有 postcondition 且被验证；所有失败可从时间线定位原因
+- [ ] CI 14 项门禁全绿（含 arch test、schema 校验、类型同步、hygiene、回放基准）
+- [ ] 覆盖率：workspace ≥ 75%，`core`/`policy`/`task-engine` ≥ 85%
+- [ ] 每个 crate 有 README（职责/边界/**不变量**/已知限制）
+- [ ] `MEMORY.md` 已回填阶段 1 新增的 FACT/PITFALL/REJECTED
+- [ ] 阶段末对齐审计（gov §7.2）完成且偏差项已裁决
+
+---
+
+## 子阶段 1a：基础设施 + Notepad（TASK-011 ~ TASK-039）
+
+### 批次 A1　地基层（**必须串行**，后续全部依赖）
+
+| 卡号 | 标题 | write scope | 依赖 | 预估 | 验收要点 |
+|---|---|---|---|---|---|
+| **011** | `protocol` crate：schema 单一事实源 + Rust/TS 代码生成 + `ErrorCode` 枚举 | `protocol/**`、`crates/protocol/**`、`xtask/src/codegen*` | 001 | M | `codegen --check` 在 CI 通过；ErrorCode 覆盖 v2 §8.7 全部分类；**TS 类型 100% 生成，无手写重复** |
+| **012** | 存储层：SQLite(WAL) + 迁移框架 + 核心表 + 内容寻址 blob（zstd/去重） | `crates/storage/**` | 011 | M | Spike H 的性能预算全部达标；孤儿 blob 可 GC；DB/blob 不一致可检测并标 `evidence_missing` |
+| **013** | `audit`：追加不可改 + hash chain + ring buffer 批量 flush + `durability` 可配 | `crates/audit/**` | 012 | S | 无 UPDATE/DELETE 路径；篡改可被 hash chain 检出；batched 摊销 < 1 ms/条；`immediate` 模式可用 |
+| **014** | `secrets`：OS keychain 封装（DPAPI/Keychain/Secret Service） | `crates/secrets/**` | 011 | S | 密钥不落盘明文、不入日志、不入 prompt；`zeroize` 生效；密钥访问被审计 |
+| **015** | `xtask`：hygiene + arch test + verify-schemas + replay 骨架 | `xtask/**`、`crates/core/tests/arch*` | 011 | M | **arch test 能拦住 core→platform/windows 的依赖**；hygiene 12 项检查全部生效（gov §5.4） |
+
+> ★ 015 必须早做：它是后续所有卡的护栏。护栏晚于代码 = 漂移已经发生。
+
+### 批次 A2　平台层（011/015 完成后可 2 路并行）
+
+| 卡号 | 标题 | write scope | 依赖 | 预估 | 验收要点 |
+|---|---|---|---|---|---|
+| **016** | `platform/api`：统一 trait + `CapabilityMatrix` + `TargetDescriptor` + `NormalizedPoint` + `Fingerprint` 类型 | `crates/platform/api/**`、`protocol/capability-matrix*` | 011 | M | trait 覆盖 v2 §13.1.1 全部方法（含 wait/fingerprint/capability）；**所有方法可取消且有超时** |
+| **017** | `platform/windows`：UIA provider（树快照、selector 链解析、read_text、set_value、edit_text、invoke_action、bounds、fingerprint、window 枚举与状态） | `crates/platform/windows/src/uia/**`、`.../src/window/**` | 016 | L | Spike A 指标在真实记事本上复现；树遍历符合性能预算；**歧义/未找到/无响应三类错误可区分** |
+| **018** | `platform/windows`：合成输入（SendInput）+ 焦点校验 + 坐标归一化（DPI/多屏）+ IME 处理 | `crates/platform/windows/src/input/**`、`.../src/coordinates/**` | 016 | M | 发送快捷键前 100% 校验前台窗口；Spike A2 的坐标精度矩阵全配置 ≤ 2 px；IME 开启时文本写入仍正确 |
+| **019** | `automation-host` 进程 + `ipc`（JSON-RPC/NamedPipe + token + 对端身份校验 + 心跳 + 看门狗） | `apps/automation-host/**`、`crates/ipc/**` | 016 | M | Spike B 的重解析矩阵达标（≥95%）；**element 不出进程**（arch test 校验）；host 崩溃可被检测 |
+
+### 批次 A3　内核层（016 完成后可 3 路并行，write scope 天然不重叠）
+
+| 卡号 | 标题 | write scope | 依赖 | 预估 | 验收要点 |
+|---|---|---|---|---|---|
+| **020** | `tool-bus`：MCP client(`rmcp`) + in-process server + JSON Schema 校验 + **统一返回信封**（`untrusted`/`truncated`）+ 工具集指纹 + 动态挂载 | `crates/tool-bus/**` | 011 | L | 内部工具经 MCP 表达；信封字段齐全；工具数 > 40 时告警；schema 不合法直接拒 |
+| **021** | `policy`：白名单 + 风险分级 + 参数校验（路径穿越/URL/长度/正则复杂度）+ 规则 DSL v0 + **默认拒绝** | `crates/policy/**` | 011 | L | v2 §12.2 五条示例规则全部可表达；决策是**纯函数**；每个 deny 带 `rule_id` 与可读 reason；策略判定 < 50 µs |
+| **022** | `task-engine`：12 状态机 + Plan/Step DAG + 检查点 + 恢复 + 取消 + 预算 + 看门狗 | `crates/task-engine/**` | 011,012 | L | 状态迁移全部持久化；崩溃后能恢复；**"不确定是否执行过"必须走 NeedsHuman**（禁止猜测） |
+| **023** | `verify`：后置断言引擎（11 种断言）+ 状态指纹 + 幂等判定 + `on_violation` 分派 | `crates/verify/**` | 011 | M | 断言类型齐全；**验证失败绝不返回 ok**；指纹可配置忽略字段（防抖） |
+| **024** | `undo`：可逆性四级 + 锚点（内容快照/影子副本/步数级）+ 回滚剧本执行 + 冲突检测 + incident 上报 | `crates/undo/**` | 012,023 | L | Spike F 三条路径达标；冲突 100% 检测且默认最保守；撤销失败按 incident 处理 |
+| **025** | `lease`：目标租约（exclusive/shared/intent + TTL + 续租 + 用户抢占 + 死锁避免） | `crates/lease/**` | 011 | S | 同目标同刻仅一个写租约；用户操作可强制释放；租约冲突是可读错误 |
+| **026** | `model-gateway`：Provider trait（流式/取消/用量）+ 路由器 + 降级链 + 重试退避 + prompt cache 提示 + 成本计量 | `crates/model-gateway/**` | 011 | L | v2 §11.2 路由规则可配置；**取消能在 1 s 内中止请求**；每步记录 tokens/cost/latency |
+| **027** | `hitl`：审批请求 + 授权范围（四维+TTL）+ 用户接管 + 暂停恢复 + 差异预览数据准备 | `crates/hitl/**` | 021,022 | M | 高风险禁止 persistent 授权；接管后交还需重新同步状态；审批超时行为明确 |
+| **028** | `core`：会话管理 + 上下文管理（树裁剪/压缩/预算）+ Planner + Memory(App Map 加载/FTS5 检索) + 组装 | `crates/core/**` | 020~027 | L | arch test 通过（core 只依赖 trait）；上下文预算生效；App Map 按需片段注入 |
+
+### 批次 A4　应用与 UI（028 完成后可 2 路并行）
+
+| 卡号 | 标题 | write scope | 依赖 | 预估 | 验收要点 |
+|---|---|---|---|---|---|
+| **029** | 二进制骨架：`apps/agent-core` + `apps/desktop-ui`（Tauri 2 + React + TS + Tailwind）+ capabilities 最小化 + CSP | `apps/agent-core/**`、`apps/desktop-ui/src-tauri/**`、`apps/desktop-ui/*.config.*` | 028 | M | **webview 零系统权限**；CSP 严格；禁远端内容；IPC 全部走 token |
+| **030** | UI：审批卡片（含 diff + 来源归因 + 授权范围）+ 执行时间线（含证据与撤销按钮） | `apps/desktop-ui/src/features/approval/**`、`.../timeline/**` | 029 | L | v2 §10.2 全部字段齐备；`app_content` 来源标红且默认拒绝；撤销按钮按可逆性分级禁用 |
+| **031** | UI：元素拾取器 v0（悬停高亮 + 属性面板 + 一键生成 selector 候选链）+ 目标绑定向导 | `apps/desktop-ui/src/features/picker/**`、`.../binding/**` | 029,017 | L | 能对记事本生成 ≥ 3 种候选 selector 并写回 Adapter 草稿 |
+| **032** | UI：策略面板 + **出域三档开关**（含逐应用覆盖）+ Capability Matrix 视图 + 成本面板 | `apps/desktop-ui/src/features/policy/**`、`.../capability/**`、`.../cost/**` | 029,021 | M | 三档可切换且即时生效；降级不静默；状态栏常驻显示当前出域级别 |
+
+### 批次 A5　Notepad 闭环
+
+| 卡号 | 标题 | write scope | 依赖 | 预估 | 验收要点 |
+|---|---|---|---|---|---|
+| **033** | 靶机应用 v0：`notepad-like`（WinUI/WPF，全部控件有稳定 AutomationId，CLI 可注入故障：元素消失/超时/歧义多匹配/意外弹窗/忙碌） | `fixtures/apps/notepad-like/**` | 001 | M | 故障可脚本化触发；CI 可在 windows runner 上跑 |
+| **034** | 录制回放框架 v0：树快照录制 + 离线回放（替代真实平台调用）+ `xtask replay` | `crates/replay/**`、`xtask/src/replay*`、`fixtures/recordings/**` | 017,022 | M | 逻辑层回归可在无真机的 CI 上跑；回放能复现 Spike 采集的真实快照 |
+| **035** | Notepad Adapter：`adapter.toml` + `app_map.json` + `selectors/` + `tools/`（read_text/replace_text/save/new_tab/save_as）+ `rollback/` + `interrupts/`（未保存三态对话框默认"取消"） | `adapters/com.microsoft.notepad/**` | 017,020,024 | L | schema 校验通过；**声明 Win11 版本范围**；undo 快捷键显式声明；含 `version_range` 与 known_pitfalls |
+| **036** | T1.1：打开文件 → 读全文 → 报告行数与关键词段落（只读） | `adapters/com.microsoft.notepad/tasks/**`、`eval/tasks/notepad/**` | 035 | S | 10 次连续成功率 ≥ 90%；大文件（1 MB）走 L1 文件通道降级并正确标 `truncated` |
+| **037** | T1.2：全文替换「报表」→「报告」+ 保存（含审批 diff、L0 undo + L1 快照、后置断言） | 同上 | 036 | M | 替换计数正确；保存后标题无 `*`；撤销可回到锚点；**歧义时按 `error_if_ambiguous` 报错** |
+| **038** | T1.3：新建标签 → 写入 → 另存为到指定路径（跨进程 Shell 对话框） | 同上 | 037 | M | 跨进程对话框解析成功率 ≥ 90%；**已存在文件绝不静默覆盖**（先备份 + 确认） |
+| **039** | 阶段 1a 集成验收：CI 14 项门禁全启用 + 9 项 DoD 中 1a 相关项 + 对齐审计 | `.github/workflows/**`、`docs/audits/**` | 033~038 | M | 全部绿灯；审计报告产出；偏差项已裁决 |
+
+---
+
+## 子阶段 1b：Paint（TASK-040 ~ TASK-047）
+
+| 卡号 | 标题 | write scope | 依赖 | 预估 | 验收要点 |
+|---|---|---|---|---|---|
+| **040** | 合成输入完善：拖拽（按下-移动-释放的原子性与租约独占）+ 校准流程（首次显示器组合点击已知元素验证命中） | `crates/platform/windows/src/input/**` | 018 | M | 拖拽期间禁止其他写租约；校准失败则**禁用坐标通道**并上报 |
+| **041** | 截图管线：窗口截图 + 脱敏（密码框/正则命中区域遮挡）+ 滚动清理 + 隐私模式（不保存截图） | `crates/capture/**`、`crates/dlp/src/redact*` | 017 | M | 只截目标窗口而非全屏；脱敏规则可配；存储上限与 TTL 生效 |
+| **042** | 视觉验证：容差断言 + 感知哈希(pHash/dHash) + `visual_assert` 断言类型 + `confidence_min` | `crates/verify/src/visual/**` | 023,041 | M | 能稳定区分"画对/画错/没画上"，误判率 < 5%；**低置信结果必须标注且不得单独作为成功依据** |
+| **043** | Paint Adapter：工具选择/颜色/图层（UIA）+ 画布坐标动作 + 像素快照回滚 + 缩放与滚动的坐标换算 | `adapters/com.microsoft.paint/**` | 040,042 | L | 画布坐标 ≠ 屏幕坐标的换算正确；工具状态"设置后回读"验证；图层前置条件生效 |
+| **044** | T3.1：新建画布 → 选矩形工具与颜色 → 指定画布坐标画矩形 → 截图验证形状与颜色 | `adapters/com.microsoft.paint/tasks/**`、`eval/tasks/paint/**` | 043 | M | 10 次成功率 ≥ 75%；坐标命中误差 ≤ 2 px；容差断言生效 |
+| **045** | T3.2：打开 PNG → 读尺寸与缩放 → 区域标记 → 另存为新文件 | 同上 | 044 | M | 不覆盖已有文件；缩放状态下坐标仍正确 |
+| **046** | T3.3：绘制 → 用户点撤销 → **像素级验证回到快照** | 同上 | 045 | S | 像素级回滚确认；undo 粒度实测结论回填 `MEMORY.md` |
+| **047** | 阶段 1b 集成验收 + Adapter 复用度检查（Paint 是否被迫改了平台层？改了 → 记 ADR） | `docs/audits/**` | 040~046 | S | 若 Paint 需要修改 `platform/api` trait → 必须 ADR（这是抽象是否正确的关键信号） |
+
+---
+
+## 子阶段 1c：Edge/Chrome + 安全底座（TASK-048 ~ TASK-058）
+
+| 卡号 | 标题 | write scope | 依赖 | 预估 | 验收要点 |
+|---|---|---|---|---|---|
+| **048** | CDP provider：连接管理 + DOM 读写 + 点击 + 导航 + 截图 + 下载目录控制 + load/networkIdle 判定 | `crates/platform/windows/src/cdp/**`、`crates/platform/api/src/cdp*` | 016 | L | Spike G 指标复现；**依赖登记进 `docs/DEPENDENCIES.md`** |
+| **049** | 专用 profile 管理：自定义 `--user-data-dir` 生命周期 + 独立窗口标识 + **禁止复制用户 profile** 的硬约束 + 首次登录引导 | `crates/browser-profile/**` | 048 | M | 136+ 约束正确处理；代码审查确认无任何 Cookie/凭据复制路径 |
+| **050** | `dlp`：三档出域策略（`local_only`/`redacted`/`full`）+ 逐应用与逐内容类型覆盖 + 脱敏规则 + endpoint 白名单 + **降级不静默** | `crates/dlp/**` | 014,026 | L | 选 `local_only` 而无本地模型时**明确报错**而非改走云端；策略变更写审计 |
+| **051** | 污点追踪 + 权限衰减：`untrusted` 内容引入后标记生效，宽授权降级为 `once`，高风险 deny | `crates/policy/src/taint**`、`crates/core/src/session**` | 021,020 | M | v2 §12.4 四层中第 2/3 层生效；污点只能由 SessionManager 清除（**不变量写进 README**） |
+| **052** | 来源归因：每个动作记录 `instruction_origin`（user_request/plan_derived/app_content/tool_suggestion）+ UI 展示 | `crates/core/src/origin**`、`apps/desktop-ui/src/features/approval/**` | 027,030 | M | `app_content` 来源在卡片上标红且默认拒绝 |
+| **053** | 注入靶页 fixture：可见指令 / 隐藏元素指令 / HTML 注释 / 伪系统提示 + 一个正常提取任务 | `fixtures/web/injection-target/**` | 001 | S | 页面可本地打开（`file://` 或本地 http），无需外网 |
+| **054** | 干净上下文复核（第 4 层）：高风险动作前用不含外部内容的小模型复核一致性 | `crates/core/src/verify_review**`、`crates/model-gateway/**` | 026,051 | M | 不一致 → 拒绝并告警；复核调用本身不计入污点上下文 |
+| **055** | Edge Adapter：CDP 工具集（读取/填表/导航/下载）+ 外壳 UIA 工具（地址栏/标签/下载栏）+ 站点黑名单（银行/支付/密码修改）+ interrupts（Cookie 横幅/登录墙/验证码 → NeedsHuman） | `adapters/browser.edge/**`、`adapters/browser.chrome/**` | 048,049 | L | **禁止绕过验证码**；黑名单命中即拒绝；标签身份用 URL+标题+自定义标记组合，不用 tab index |
+| **056** | T5.1：打开指定站点 → 提取列表页结构化数据 → 写入本地 CSV | `adapters/browser.edge/tasks/**`、`eval/tasks/edge/**` | 055 | M | 10 次成功率 ≥ 75%；异步加载判定误判率 < 5% |
+| **057** | T5.2：表单填写 → **停在提交前** → 展示 diff 与来源归因 → 用户确认后提交 | 同上 | 056 | M | L3 动作 100% 经确认；计划 UI 正确标注 point-of-no-return |
+| **058** | T5.3：注入靶页安全验收 + **安全回归常驻 CI** + 阶段 1c/阶段 1 总验收与对齐审计 | 同上、`.github/workflows/**`、`docs/audits/**` | 053,054,055 | M | **0 次执行页面内指令**（一票否决）；安全回归在 CI 中每次 PR 都跑；阶段 1 全部 DoD 达成 |
+
+---
+
+## 并行编排建议（write scope 不重叠，≤3 agent）
+
+```text
+批次 A1（串行，1 agent）      011 → 012 → 013 → 014 → 015
+批次 A2（2 agent 并行）       {016} → {017, 019} 并行；018 接在 017 后
+批次 A3（3 agent 并行）       {020, 021, 026} → {022, 023, 025} → {024, 027} → {028}
+批次 A4（2 agent 并行）       {029} → {030, 032} 并行；031 需 017 就绪
+批次 A5（1~2 agent）          033 ∥ 034 → 035 → 036 → 037 → 038 → 039
+批次 1b（2 agent）            {040, 041} → 042 → 043 → 044 → 045 → 046 → 047
+批次 1c（2~3 agent）          {048, 050, 053} → {049, 051, 052} → 054 → 055 → 056 → 057 → 058
+```
+
+**关键路径**：`011 → 012 → 016 → 017 → 020/021/022 → 028 → 029 → 035 → 036~038 → 039`（约 6~7 周），因此 **011/012/016/017 四张卡不得延误**，且应由最强的 agent（或人类直接审阅）负责。
+
+**人类审阅瓶颈提示**：批次 A3 有 8 张内核卡、每张 diff 可达 400 行 → 若并行 3 个 agent，人类每天需审阅约 1200 行。**建议 A3 批次并行度降为 2**，或把 022/024/028 三张最关键的卡改为人类逐行审阅。
+
+---
+
+## 完整任务卡示例（其余卡由 Orchestrator 按此格式展开）
+
+### TASK-011　`protocol` crate：schema 单一事实源与代码生成
+
+- 依赖：TASK-001　预估：M（≤1 会话）　批次：A1
+- **write scope**：`protocol/**`、`crates/protocol/**`、`xtask/src/codegen*`、`docs/spec/tool-schema.md`（仅追加"生成方式"一节，需人类批准）
+- **Out of scope**：任何业务逻辑、任何平台代码、TS 组件
+
+**In scope**
+1. `protocol/tool-schema/tool-2.0.json`：v2 附录 A 的元 schema 落地
+2. `protocol/error-codes/error-codes.json`：v2 §8.7 全部分类，每码含 `category / retryable / message_for_model / message_for_user / hint`
+3. `protocol/envelope/envelope-1.0.json`：v2 §5.3 统一返回信封
+4. `protocol/capability-matrix/capability-1.0.json`：v2 附录 C 的能力标识符目录
+5. `protocol/audit-event/audit-event-1.0.json`：v2 附录 D
+6. `crates/protocol`：由上述 schema 生成的 Rust 类型 + `ErrorCode` 枚举 + 校验入口
+7. `xtask codegen`：生成 Rust 与 TS 类型；`codegen --check` 在无差异时退出 0，有差异时列出文件与 diff 摘要
+
+**必须遵守**
+- 生成物纳入版本控制（便于 review 与离线构建），但**任何人不得手工编辑生成文件**（文件头写明 "GENERATED — DO NOT EDIT"）
+- ErrorCode 命名与 v2 §8.7 一致；新增码属契约变更 → 需 ADR
+- 所有类型 `#[non_exhaustive]`（便于向后兼容扩展）
+- 命名遵循受控词汇表（AGENTS.md §5.1）
+
+**验收命令**
+```powershell
+cargo fmt --all --check; cargo clippy --all-targets -- -D warnings; cargo test -p assistant-protocol
+cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check
+cargo run -p xtask -- hygiene; cargo test -p assistant-core arch::
+```
+
+**DoD**
+- [ ] 五份 schema 均通过 `verify-schemas`
+- [ ] `codegen --check` 干净；手工改一个生成文件后 `--check` 必须失败（**负向测试**）
+- [ ] ErrorCode 覆盖 v2 §8.7 全部 13 类，每类都有 `message_for_model` 与 `hint`
+- [ ] `crates/protocol/README.md` 含职责/边界/**不变量**（"生成物不得手工编辑"是第一条不变量）
+- [ ] LEDGER 追加一行；如有新 FACT/PITFALL 追加 `MEMORY.md`
+
+### TASK-035　Notepad Adapter（要点摘录，展开时补全）
+
+- **必须包含**：`adapter.toml`（`version_range` 限定 Win11 新版记事本、`capability_level = L3_a11y`、`os_version_range = ">=10.0.26100"`）、`app_map.json`（快捷键表、ui_map、known_pitfalls 含"另存为是 Shell 进程对话框"/"关闭未保存弹三态框"/"大文件应走文件通道"、`undo_capability` 显式声明 `Ctrl+Z` 与粒度）、`selectors/`（每个目标 ≥3 个候选且**不得以可见文本为主键**）、`tools/`（5 个工具，每个都有 postconditions 与 reversibility）、`rollback/`（L0 undo + L1 内容快照双路径）、`interrupts/`（三态对话框默认"取消"）
+- **禁止**：在本卡内修改 `crates/**`（若发现平台层缺陷 → DRIFT 升级，不得顺手改）
