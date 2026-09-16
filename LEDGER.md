@@ -18,4 +18,4 @@
 
 | 日期 | 卡号 | 状态 | commit | 验收命令结果 | 偏差 | 备注 |
 |---|---|---|---|---|---|---|
-| 2026-09-16 | TASK-001 | Review | 待填（见本卡执行记录） | 5/6 通过（`cargo deny check` 未执行：cargo-deny 未安装） | DRIFT-001-1、DRIFT-001-2、DRIFT-001-3 | 仓库骨架 + xtask 护栏 v0；详见 `tasks/TASK-001-repo-skeleton.md` |
+| 2026-09-16 | TASK-001 | Review | 58fed3d | 5/6 通过（fmt / clippy -D warnings / test 99 passed / hygiene PASSED / git status 干净；`cargo deny check` **未执行**：cargo-deny 未安装，见 PL-006） | DRIFT-001-1、DRIFT-001-2、DRIFT-001-3 | 仓库骨架 + xtask 护栏 v0 + CI（6 硬 / 9 软门禁）；commit 哈希于首次提交后回填；详见 `tasks/TASK-001-repo-skeleton.md` |

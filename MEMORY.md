@@ -31,13 +31,21 @@
 ## §1 项目当前状态快照（可覆写，最近更新：2026-09-16）
 
 ```text
-阶段        ：阶段 0（文档与 Spike），尚未创建代码仓库
-已产出文档  ：架构 v2.2、应用可行性 v1.1、AGENTS.md、gov、本文件
-待产出文档  ：PLAN.md、plans/stage-0-spikes.md、plans/stage-1-pilots.md、
-              docs/wbs-overview.md、docs/storage-design.md、docs/subagent-orchestration.md、
-              docs/spec/*（7 份）、docs/adr/*（约 15 条）
-下一步      ：生成 PLAN 与阶段 0 任务卡 → 执行 Spike A/B/C/E/F/G/H + D-lite → 出 SPIKE_REPORT
-执行方式    ：AI coding agent（Codex/opencode/Claude Code）实现，人类规划+审阅+裁决
+阶段        ：阶段 0（Spike 前的地基已完成）—— **代码仓库已建立**（git 分支 main，首提交 58fed3d）
+已产出文档  ：架构 v2.2、应用可行性 v1.1、AGENTS.md、gov、MEMORY.md、PLAN.md、
+              plans/stage-0-spikes.md（TASK-001~010）、plans/stage-1-pilots.md（TASK-011~058）、
+              docs/{governance-ai-agent-execution, subagent-orchestration, storage-design,
+              wbs-overview, overnight-automation-charter}、docs/spec/naming.md、
+              README / LEDGER / PARKING_LOT / DEPENDENCIES / xtask README
+已产出代码  ：xtask（零第三方依赖的只读护栏工具，7 个模块 ~2800 行，99 个白盒测试全绿）
+              + CI（三平台矩阵，6 硬门禁 / 9 软门禁 + deny + deferred-inventory）
+待产出文档  ：docs/spec/*（其余 6 份，含 testing.md）、docs/adr/*（约 19 条）、
+              docs/OPEN_SOURCE_CHECKLIST.md、8 份 Spike 报告
+下一步      ：① 人类审阅 TASK-001（DRIFT-001-1/2/3 待裁决）
+              ② 执行 Spike A/A2/B（TASK-002/003/004）与可并行的 C/H（TASK-005/009）
+执行方式    ：AI coding agent（Codex/opencode/Claude Code）实现，人类规划+审阅+裁决；
+              夜间由 heartbeat automation 推进（每日 23:30 与 02:30，见章程 §11）
+工具链      ：rustup/cargo/rustc 1.98.1 stable-msvc ✅；cargo-deny ❌、cargo-llvm-cov ❌（PL-006）
 平台基线    ：Windows 11 24H2/25H2（唯一正式基线）
 试点顺序    ：Notepad → Paint → Edge/Chrome（阶段 1）→ Excel（阶段 2）→ Photoshop（阶段 3）
 ```
@@ -75,6 +83,11 @@
 - [2026-09-16][FACT][src:本项目定位] 被控对象是**不可修改源码的通用 Windows 应用** → L1 通道的工作是「接口考古」而非「协商加接口」；App Adapter 是核心资产与主要工作量。
 - [2026-09-16][FACT][src:行业观察 2026 中] computer-use agent 在 OSWorld 类基准可达约 85%，但真实长流程业务失败率仍高 → **基准分 ≠ 生产可用性**；可靠性来自 App Adapter 契约，不来自模型更聪明。
 - [2026-09-16][FACT][src:v2 §21] 25 个真实场景推演中，**没有一个能靠"模型更聪明"解决**，全部依赖确定性工程机制（后置验证、租约、指纹、幂等、HITL）。
+- [2026-09-16][FACT][src:本机实测 TASK-001] Rust 工具链 1.98.1（stable-x86_64-pc-windows-msvc）+ clippy/rustfmt/llvm-tools 已就位。`winget install Rustlang.Rustup` 下载 rustup-init 耗时约 **14 分钟**（static.rust-lang.org 慢；DeliveryOptimization 先超时失败、WinINet 重试成功）→ 装工具链要预留时间，别以为卡死了。
+- [2026-09-16][FACT][src:Codex 桌面 automation 实测] `automation_update` 的 `kind="cron"`（独立项目任务、每次全新会话）在本机**创建失败**（返回 `Failed to create automation.`；日志显示非 ChatGPT 鉴权，本机用自定义 model provider）。只有 `kind="heartbeat"` 可用，且**一个 thread 只允许一个 heartbeat**、必须挂在已存在的 thread 上。
+- [2026-09-16][FACT][src:xtask 实测] `rustfmt` 的 `wrap_comments` / `comment_width` / `format_code_in_doc_comments` / `normalize_comments` 在 **stable 通道不生效**，只打印一行 warning。
+- [2026-09-16][FACT][src:xtask 实测] clippy `pedantic`+`nursery` 全开 + `-D warnings`，在约 2800 行 Rust 上产生 **12 条**必须处理的告警（`option_if_let_else`、`format_collect`、`needless_pass_by_value`、`missing_const_for_fn`、`doc_markdown`、`useless_let_if_seq`、bool→int）→ 可行，但要边写边按这些习惯来，事后收拾成本高。
+- [2026-09-16][FACT][src:xtask 实测] `cargo test` 的工作目录是 **package 根**（`xtask/`）而不是 workspace 根 → 测试里不能用相对路径假设 cwd；要仓库根就用 `env!("CARGO_MANIFEST_DIR")` 的父目录推导。
 
 ---
 
@@ -95,6 +108,11 @@
 - [2026-09-16][DECISION][ADR:待建 0013] 分发：**当前内部使用，但按开源规范建设**（建议 `MIT OR Apache-2.0`），`adapters/` 与 `adapters-private/` 从第一天分开。
 - [2026-09-16][DECISION][ADR:待建 0014] 执行模式：**AI agent 实现 + 人类裁决**；防漂移靠 SSOT 分层、任务卡 write scope、约束回执、14 项 CI 门禁、验收分离。
 - [2026-09-16][DECISION][ADR:待建 0015] 命名要求"一眼可懂"+ **受控词汇表**；注释密度偏高，公共 API 100% 文档注释，坑用 `PITFALL(app=…)` 结构化标签。
+- [2026-09-16][DECISION][ADR:待建 0016] **全仓库统一 LF**：`.gitattributes` 设 `* text=auto eol=lf` + 显式二进制标记，`rustfmt.toml` 设 `newline_style = "Unix"`。理由见 §4 的对应 REJECTED 条目。
+- [2026-09-16][DECISION][ADR:待建 0017] **未实现项必须显式登记 + 显式失败**：xtask 未实现的子命令以退出码 3 失败并打印归属卡号；`hygiene` 每次运行都声明"11 项只实现 3 项"；CI 有 `deferred-inventory` job 专门验证"未实现子命令仍然失败"。理由：一条"因为没写所以返回 0"的门禁比没有这条门禁更危险（制造虚假安全感）。
+- [2026-09-16][DECISION][ADR:待建 0018] 夜间自动化用 **heartbeat**（每日 23:30 与 02:30 唤醒当前 thread）：每夜 ≤3 轮、每次唤醒 ≤2 轮、`.nightly.lock` 互斥、只在 `nightly/<date>` 分支提交、不合并 main、不操作真实应用、仅失败时通知、晨间报告落 `docs/nightly/<date>-report.md`。详见 `docs/overnight-automation-charter.md` §11。
+- [2026-09-16][DECISION][ADR:待建 0019] **`#[allow]` 的唯一合法位置**是 `#[cfg(test)] mod tests` 上的 `clippy::unwrap_used` / `expect_used` / `panic`（gov §5.2 授权：测试失败就该炸）。产品代码里加 allow = 放宽护栏 = 漂移触发器，夜间自动化一律禁止。需写进 `docs/spec/testing.md`。
+- [2026-09-16][DECISION][ADR:待建 0020] TASK-001 先落 **MIT 单许可**（而非 gov 建议的 `MIT OR Apache-2.0`）：内部阶段不需要双许可复杂度，且该决定**可逆**（追加 Apache-2.0 是加法）。M5 仍待人类在阶段 0 结束前正式确认。
 
 ---
 
@@ -117,6 +135,10 @@
 - [2026-09-16][REJECTED][src:gov §4.4] **靠单个超长会话完成整个阶段** —— 上下文稀释导致漂移；改为一会话 1~2 张卡，**重开会话是正常操作而非失败**。
 - [2026-09-16][REJECTED][src:v2 §13.4.9] **在 GNOME 下依赖 `org.gnome.Shell.Screenshot` 做高频静默截图** —— GNOME 49 起第三方受限（gnome-screenshot 亦停止工作）；改走 portal 并接受"需授权"。
 - [2026-09-16][REJECTED][src:v2 §13.6.1] **把 Windows 10 纳入正式支持基线** —— 已 EOL，且记事本/画图结构完全不同需各写一套 Adapter；仅对跨版本一致目标提供 C 级支持。
+- [2026-09-16][REJECTED][src:TASK-001] **`rustfmt newline_style = "Windows"`（全仓库 CRLF）** —— 三平台 CI 矩阵下，Linux runner 签出的是 LF 而 rustfmt 期望 CRLF，`cargo fmt --check` 会**永久红灯**；若改为依赖各人 `core.autocrlf`，等于把"文件长什么样"交给每个人的 git 配置决定，正是 gov §0.1 里最难查的环境差异 bug。
+- [2026-09-16][REJECTED][src:TASK-001] **在 `rustfmt.toml` 保留 stable 通道无效的 unstable 选项** —— 不生效却每次刷 warning，会让人误以为注释宽度受控，并把 CI 输出训练成"可忽略的噪声"。
+- [2026-09-16][REJECTED][src:Codex automation 实测] **用 cron 型 automation 实现"每轮全新会话"的夜间任务** —— 本机创建失败（见 §2 FACT）。"每轮新会话"做不到，改为 heartbeat + **每轮强制重锚** + `.nightly.lock` 互斥 + 上下文累积到阈值就换新 thread（章程 §11.1/§11.5）。
+- [2026-09-16][REJECTED][src:TASK-001] **把 `hygiene` 做成"占位实现"以严格贴合卡面** —— 与卡面验收命令第 5 条（`xtask hygiene` 必须能跑）直接矛盾；且一个已就绪的防线留作软门禁等于白白放弃。改为实现 3/11 项 + 其余显式登记（DRIFT-001-1，待人类确认）。
 
 ---
 
@@ -143,6 +165,11 @@
 - [2026-09-16][PITFALL][src:v2 §5.5] 工具数 > 20~30 时模型选择准确率显著下降 → 按目标动态挂载 + 检索式工具选择。
 - [2026-09-16][PITFALL][src:v2 §7.1] UIA/AT-SPI 全窗口树遍历可达秒级 → 限定 scope 与 depth、缓存、批量取属性、按需展开。
 - [2026-09-16][PITFALL][src:gov §2.2] 代码先改而文档未跟上 → **下个会话的 agent 会照旧文档把新实现改回去**，形成来回震荡 → 契约必须先行。
+- [2026-09-16][PITFALL][src:TASK-001] **构造函数丢弃参数**是最隐蔽的静默失败：`Report::new(command)` 曾把 `command` 置空，编译通过、测试也通过（因为测试自己又赋了一次值），只有报告标题一直空着。→ 凡是构造函数的参数没有被存进结构体，就要停下来问"这个参数是干什么的"。已修 + 加回归测试。
+- [2026-09-16][PITFALL][src:TASK-001] 护栏工具会**先拦住自己**：`main.rs` 写到 644 行时被自己的 `file-too-long`（>600 告警）拦下。这是好事，但意味着写工具时要预留拆分成本 —— 一开始就按"IO 在边界、规则是纯函数"分层能省一次返工。
+- [2026-09-16][PITFALL][src:TASK-001] 在**文档注释**里解释"哪些标签被禁止"时，直接写出标签字面量会被自己的规则判违规（`rustscan` 只抹字符串字面量，不抹注释）。当前靠改措辞绕过；是否豁免反引号引用待裁决（PL-004）。
+- [2026-09-16][PITFALL][src:TASK-001] **PowerShell 数组扁平化会造成灾难性误替换**：`@( @('old','new') )` 会被扁平成两个元素，于是 `$pair` 变成字符串、`$pair[0]` 变成"第一个字符"，`Replace` 变成全局单字符替换（本会话真的把两个 md 文件里所有 `|` 替换成了空格）。→ 单 pair 必须写 `@( ,@($old,$new) )`；并给替换函数加三道防护：pair 必须是长度 2 的数组、锚点必须足够长、锚点必须唯一。
+- [2026-09-16][PITFALL][src:TASK-001] PowerShell here-string 里 `'@` 必须**独占行首**，数组字面量中嵌套 here-string 会解析失败；`Split-Path -LiteralPath X -Parent` 与部分参数集冲突会报 null。→ 批量改文件用"一次一个 pair 的函数 + 逐个打印 OK/MISS"，别一次塞太多。
 
 ---
 
@@ -157,6 +184,9 @@
 - [2026-09-16][OPEN][src:v2 §13.4.5] KDE Plasma 的辅助功能开关对应的底层配置键名 → Spike D。
 - [2026-09-16][OPEN][src:v2 §13.4.7] GNOME 50 的 RemoteDesktop 是否能接管当前会话（而非仅 headless）；restore_token 静默重建的实际表现 → Spike D。
 - [2026-09-16][OPEN][src:v2 §13.3.2] macOS 屏幕录制权限的周期性重授权间隔 → 阶段 5 前。
+- [2026-09-16][OPEN][M6] 夜间 automation 是否需要"晨间显式提醒"？当前策略是**仅失败时通知**，晨间报告靠人类自己打开 `docs/nightly/<date>-report.md`；若要早晨收到提醒，代价是 23:30 与 02:30 也各响一次 → 人类裁决（章程 §11.6）。
+- [2026-09-16][OPEN][M7] `check-comments` / `check-ledger` / `card-check` 三个护栏子命令**无任何任务卡认领**，gov §5.1 的 #15 #16 门禁因此无人负责 → 需补卡或并入 TASK-015（PL-002）。
+- [2026-09-16][OPEN][M8] TASK-001 的三条 DRIFT 待裁决（hygiene 范围 / CI 硬门禁数量 / 执行记录落盘位置），其中第三条会牵动 gov §3.2 任务卡模板与所有后续卡的 write scope → 阶段 0 内裁决。
 
 **ASSUMPTION（假设，未验证，不得当作结论使用）**
 - [2026-09-16][ASSUMPTION][src:feasibility §2.3] 同花顺/通达信/东方财富的行情与交易界面以 GDI 自绘为主，UIA 覆盖差 → 需 Spike 实测后升级为 FACT 或推翻。

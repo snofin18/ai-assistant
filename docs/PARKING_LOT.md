@@ -14,3 +14,7 @@
 | 2026-09-16 | TASK-001 | PL-005 `docs/OPEN_SOURCE_CHECKLIST.md` 在 gov §10 清单里被要求，但不在 TASK-001 的 write scope 内，故未创建。开源前（M5 之后）需要补 | 开源准备 | 待评审 |
 | 2026-09-16 | TASK-001 | PL-006 `cargo deny` 未在本机安装，CI 里装了但本地跑不了 → 本地验收与 CI 验收不等价。建议在 TASK-015 前把 `cargo-deny` 写进开发环境准备清单 | TASK-015 | 待评审 |
 | 2026-09-16 | TASK-001 | PL-007 `.github/workflows/.gitkeep` 在 `ci.yml` 就位后已冗余，可删（未删：删除文件不在本卡必要动作内） | — | 待评审 |
+| 2026-09-16 | TASK-001 | PL-008 git 提交身份目前是**仓库本地占位**（`Codex (ai-assistant agent)` / `codex@localhost.invalid`），本机没有任何 global gitconfig。推 GitHub 前必须设成真实身份，否则历史里全是占位作者 | 开源准备 | 待评审 |
+| 2026-09-16 | TASK-001 | PL-009 仓库根同时存在 `cross-platform-ai-assistant-architecture.md`（v1 原始规划）与 `...-v2.md`（SSOT）。AGENTS.md 只指向 v2，但两者并排放在根目录容易让新 agent 读错版本。建议把 v1 移到 `docs/history/` 并加"已被 v2 取代"横幅（v1 不在任何卡的 write scope 内，故未动） | — | 待评审 |
+| 2026-09-16 | TASK-001 | PL-010 `docs/governance-ai-agent-execution.md` §9.2 的 LEDGER 模板没有"commit 哈希在建库前无法预知"的处理约定，导致首条台账只能先写占位再回填（违反"只追加不改写"的字面要求）。建议在模板里明确：commit 列允许写 `pending`，并在下一次提交中**追加一行**回填而非改写 | TASK-015（card-check） | 待评审 |
+| 2026-09-16 | TASK-001 | PL-011 建议给 gov §5.4 增加第 12 项卫生规则：**文件不得含 CRLF**（`hygiene/crlf-line-endings`，Error 级）。本次就真实踩到了 —— 编辑脚本按旧约定写回 CRLF，`.gitattributes` 只能保证入库形态、管不住工作区，而 `cargo fmt --check` 会在 Linux runner 上因此变红。**顺带**：这可能正是 PL-001 里"hygiene 12 项"与"表格 11 行"数字不一致的来源，两条可一并裁决 | TASK-015 | 待评审 |
