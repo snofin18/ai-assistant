@@ -88,6 +88,10 @@
 - [2026-09-16][FACT][src:xtask 实测] `rustfmt` 的 `wrap_comments` / `comment_width` / `format_code_in_doc_comments` / `normalize_comments` 在 **stable 通道不生效**，只打印一行 warning。
 - [2026-09-16][FACT][src:xtask 实测] clippy `pedantic`+`nursery` 全开 + `-D warnings`，在约 2800 行 Rust 上产生 **12 条**必须处理的告警（`option_if_let_else`、`format_collect`、`needless_pass_by_value`、`missing_const_for_fn`、`doc_markdown`、`useless_let_if_seq`、bool→int）→ 可行，但要边写边按这些习惯来，事后收拾成本高。
 - [2026-09-16][FACT][src:xtask 实测] `cargo test` 的工作目录是 **package 根**（`xtask/`）而不是 workspace 根 → 测试里不能用相对路径假设 cwd；要仓库根就用 `env!("CARGO_MANIFEST_DIR")` 的父目录推导。
+- [2026-09-17][FACT][src:探针实测 2026-09-17][supersedes:2026-09-16] `automation_update` 的 `kind="cron"` 在本机**能创建也能触发**（旧条目"创建失败"的记载有误）。真实原因：cron 强制要求显式提供 `model` + `projectId` + `executionEnvironment="local"`，缺任一只回一句 `Failed to create automation.` 而不指明是哪个字段。实测两次触发（约定 11:16/11:24 → 实际 11:17:54/11:25:54，约 **+2 分钟 jitter**），各新建独立会话。
+- [2026-09-17][FACT][src:探针实测 2026-09-17] **cron 与 heartbeat 共用同一投递机制**：automation 的 prompt 一律被包装成合成 `FunctionCallOutput{id:None, call_id:None, name:"automation_update", namespace:"codex_app"}` 提交，**不是** user message。→ 换 `kind` 无法规避畸形条目问题，"每轮全新会话"能拿到、"干净投递"拿不到。
+- [2026-09-17][FACT][src:CLI 实测 2026-09-17] `codex.exe exec --skip-git-repo-check "<prompt>"`（CLI v0.154.0-alpha.6.2）走**标准 user message** 投递：实测会话 `01a0adcd-2b86-…` 的 rollout 中 `function_call_output` 计数 **0**、无 `automation_update`、无 `at_` 前缀 id、assistant 正常回复、退出码 0、19422 tokens。→ 本机唯一可行的无人值守投递方式，应由 Windows 任务计划程序调用（外部调度无 jitter，时间更准）。
+- [2026-09-17][FACT][src:实测 2026-09-17] 百炼 `/models` 返回 `{"first_id","data":[…]}`，缺 Codex 解码器要求的 `models` 字段 → `list_models` 永久失败、`models_cache.json` 解析出 0 个 id。推理不受影响（`model` 硬写在 config.toml），仅模型选择器无法在线刷新。另 CLI 警告 `Model metadata for qwen3.8-max not found`；fallback 元数据下 cron 探针会话 `task_started` 里 `model_context_window=828400`，而 config.toml 配的是 `1000000` → **fallback 可能覆盖显式配置**，需核实，否则 auto-compact 会提前触发。
 
 ---
 
@@ -140,6 +144,7 @@
 - [2026-09-16][REJECTED][src:TASK-001] **在 `rustfmt.toml` 保留 stable 通道无效的 unstable 选项** —— 不生效却每次刷 warning，会让人误以为注释宽度受控，并把 CI 输出训练成"可忽略的噪声"。
 - [2026-09-16][REJECTED][src:Codex automation 实测] **用 cron 型 automation 实现"每轮全新会话"的夜间任务** —— 本机创建失败（见 §2 FACT）。"每轮新会话"做不到，改为 heartbeat + **每轮强制重锚** + `.nightly.lock` 互斥 + 上下文累积到阈值就换新 thread（章程 §11.1/§11.5）。
 - [2026-09-16][REJECTED][src:TASK-001] **把 `hygiene` 做成"占位实现"以严格贴合卡面** —— 与卡面验收命令第 5 条（`xtask hygiene` 必须能跑）直接矛盾；且一个已就绪的防线留作软门禁等于白白放弃。改为实现 3/11 项 + 其余显式登记（DRIFT-001-1，待人类确认）。
+- [2026-09-17][REJECTED][src:探针实测 2026-09-17][supersedes:2026-09-16] **在第三方 Responses 端点上用 Codex 内置 automation（heartbeat / cron 皆然）做无人值守** —— 否决理由与旧条目**不同**：不是因为 cron 建不起来（它建得起来，旧条目记载有误），而是因为两者**共用同一投递机制**、都产生畸形 `function_call_output`。cron 首轮投递时 Codex 会临时生成非法 `at_<uuid>` id（**从不落盘** → 等长补丁法无效），两次探针均在 2.6s 内零产出失败。heartbeat 更糟：毒项沉入长驻会话 + `disable_response_storage=true` 全量重放 → 该会话**永久损坏**，连白天交互也受牵连。改为 `codex exec` CLI + Windows 任务计划程序（已实测可行，见 §2 FACT 2026-09-17）。
 
 ---
 
@@ -171,6 +176,12 @@
 - [2026-09-16][PITFALL][src:TASK-001] 在**文档注释**里解释"哪些标签被禁止"时，直接写出标签字面量会被自己的规则判违规（`rustscan` 只抹字符串字面量，不抹注释）。当前靠改措辞绕过；是否豁免反引号引用待裁决（PL-004）。
 - [2026-09-16][PITFALL][src:TASK-001] **PowerShell 数组扁平化会造成灾难性误替换**：`@( @('old','new') )` 会被扁平成两个元素，于是 `$pair` 变成字符串、`$pair[0]` 变成"第一个字符"，`Replace` 变成全局单字符替换（本会话真的把两个 md 文件里所有 `|` 替换成了空格）。→ 单 pair 必须写 `@( ,@($old,$new) )`；并给替换函数加三道防护：pair 必须是长度 2 的数组、锚点必须足够长、锚点必须唯一。
 - [2026-09-16][PITFALL][src:TASK-001] PowerShell here-string 里 `'@` 必须**独占行首**，数组字面量中嵌套 here-string 会解析失败；`Split-Path -LiteralPath X -Parent` 与部分参数集冲突会报 null。→ 批量改文件用"一次一个 pair 的函数 + 逐个打印 OK/MISS"，别一次塞太多。
+- [2026-09-17][PITFALL][src:探针实测] Codex automation 的 prompt **不是** user message，而是合成 `function_call_output`（`name=automation_update`、`namespace=codex_app`、`id=None`、`call_id=None`）。官方端点容忍，第三方严格端点 400。**两种表现要分清**：作为**历史重放** → `Invalid 'call_id': call_id is required`（落盘 id 是合法的 `fco_…`，可等长补丁修）；作为**首轮投递** → `Invalid 'id': … must start with 'msg_', got 'at_<uuid>'`（id 序列化请求时临时生成、从不落盘，**无法补丁**）。→ 换 provider 或改用 CLI，别试图修 rollout。
+- [2026-09-17][PITFALL][src:探针实测] `disable_response_storage=true` + 一条畸形历史项 = **会话永久损坏**：每轮重放全量历史，毒项每次都被重发，该 thread 之后每次提问都失败，而新开 thread 完全正常。→ 症状是"只有这一个会话坏、别的都好"，别误判成账号 / 网络 / 模型问题。
+- [2026-09-17][PITFALL][src:探针实测] 改 Codex rollout 必须**严格等字节长度**：`thread_history_1.sqlite` 的 `next_rollout_byte_offset` 记的是字节偏移，长度一变 UI 历史投影就错位。腾位办法：把对模型无用的 `,"namespace":"codex_app"`（24B）原地换成 `,"call_id":"hb_…"`。写完必须校验 `next_rollout_byte_offset == 文件实际大小`。写入用**原地 seek+write** 而非 temp+replace（Codex 运行时持有句柄，Windows 下 `os.replace` 会 PermissionError）。参考实现 `D:\csart\fix_codex_callid.py`。
+- [2026-09-17][PITFALL][src:探针实测] Codex automation 调度有约 **+2 分钟 jitter**（`~/.codex/automations/.run-jitter-salt`）：约定 11:16 实际 11:17:54 触发。→ 定时间表要留余量；外部调度（任务计划程序 + `codex exec`）无 jitter。
+- [2026-09-17][PITFALL][src:探针实测] `automation_update` 建 cron 缺必填项时只回 `Failed to create automation.`，**不说是哪个字段**（本次因此误判成"cron 需 ChatGPT 鉴权、本环境不可用"，白烧一晚）。必填：`name`/`prompt`/`rrule`/`status`/`projectId`/`model`/`reasoningEffort`/`executionEnvironment="local"`。→ 探 schema 的办法是故意只传 `kind`，让校验器把缺失字段一次性全列出来。
+- [2026-09-17][PITFALL][src:探针实测] 上下文压缩会把补丁过的自动化残留报成 `Orphan function call output for call id: hb_…`（ERROR 级，来自 `run_auto_compact`）。这是**非致命噪音**：Codex 记录后丢弃该项、turn 照常继续。→ 看到它不等于出错，但等于"这个会话里有补丁过的 automation 残留"。
 
 ---
 
