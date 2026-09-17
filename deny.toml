@@ -4,7 +4,7 @@ all-features = true
 
 [advisories]
 version = 2
-db-path = ["target/deny-db"]
+db-path = "target/deny-db"
 yanked = "deny"
 ignore = []
 
