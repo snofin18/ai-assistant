@@ -1,0 +1,90 @@
+# gate-selftest.yml — ADR-0019 的「元门禁」canary。
+#
+# 目的：证明硬门禁**在应该失败时确实会失败**。
+#   主 CI 只能证明「这次是绿的」，而「绿灯」与「门禁根本没跑」在输出上可能无法区分。
+#   真实事故（PL-016）：deny.toml 的 db-path 写成数组 → cargo-deny 配置解析失败
+#   → 整条 deny 门禁形同虚设，却没有任何红灯。
+#
+# 触发：**仅 workflow_dispatch（手工）**。故意不配 schedule ——
+#   GitHub 会在仓库 60 天无活动后自动停用定时工作流，那会造成
+#   「以为每月在自检、其实早就停了」的静默失效，正是本 workflow 要消灭的东西。
+#   规程（ADR-0019）：① 改动任何硬门禁后跑一次；② 每个阶段末评审跑一次，
+#   并把运行编号记入 LEDGER.md。
+#
+# 覆盖范围：目前只有 gov §5.1 #8（deny）。fmt / clippy / build 的 canary 缺失，
+#   见 docs/PARKING_LOT.md PL-018（归 TASK-015）。
+#
+# 修改本文件的规则：新增 canary 段 = 正常演进（须在 ADR-0019 登记表补一行）；
+#   删除或放宽断言 = 削弱护栏，属漂移触发器，需 ADR + 人类批准。
+
+name: gate-selftest
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 自检要看到每一次的结果，不做"新推送取消旧运行"
+concurrency:
+  group: gate-selftest
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # 三者必须同版本：本机开发环境 / 本 workflow / ci.yml 的 cargo-deny-action@v2.1.1。
+  # 版本不一致会重现「本地红 CI 绿」（PL-016 的根因之一）。
+  CARGO_DENY_VERSION: "0.20.2"
+
+jobs:
+  deny-gate:
+    name: "deny 门禁负向验证 (ADR-0019 N3)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # 钉版本安装：release 二进制不可用时退回源码编译（慢，但本 job 是低频手工触发）
+      - name: "install cargo-deny ${{ env.CARGO_DENY_VERSION }} (pinned)"
+        run: |
+          set -euo pipefail
+          cargo install cargo-deny --version "$CARGO_DENY_VERSION" --locked
+          cargo deny --version | tee /tmp/deny-version.txt
+          grep -q "$CARGO_DENY_VERSION" /tmp/deny-version.txt
+          echo "OK: cargo-deny 版本已钉定为 $CARGO_DENY_VERSION"
+
+      # --- 正向：仓库里的 deny.toml 必须能被解析，且检查通过 ---
+      # 只跑 licenses/bans/sources：advisories 需要联网 clone advisory-db，
+      # 而本步的目的只是「证明 deny.toml 能被当前版本的 cargo-deny 正确加载」。
+      - name: "positive: repo deny.toml parses and passes"
+        run: |
+          set -euo pipefail
+          cargo deny check licenses bans sources
+          echo "OK: 正向通过（deny.toml 解析成功，licenses / bans / sources 均 ok）"
+
+      # --- 负向：已知坏配置必须让 cargo-deny 非零退出 ---
+      # 坏样本就是 PL-016 的原始事故：db-path 写成数组。
+      # 断言两层：① 退出码非零；② stderr 含 'expected a string'。
+      # 只断言①的话，任何无关错误（网络、路径）都会让 canary「假绿」。
+      - name: "negative: broken config must fail with 'expected a string'"
+        run: |
+          set -uo pipefail
+          broken="$(mktemp -d)/broken-deny.toml"
+          printf '[advisories]\ndb-path = ["target/deny-db"]\n' > "$broken"
+          out="$(cargo deny --config "$broken" check licenses bans sources 2>&1)"
+          code=$?
+          set -e
+          echo "----- cargo-deny output (exit=$code) -----"
+          echo "$out"
+          echo "------------------------------------------"
+          if [ "$code" -eq 0 ]; then
+            echo "FAIL: 坏配置竟然通过了 —— deny 门禁的负向验证不成立 (ADR-0019)"
+            exit 1
+          fi
+          if ! echo "$out" | grep -q "expected a string"; then
+            echo "FAIL: 失败原因不是配置解析错误 —— canary 断言与真实故障模式脱钩 (ADR-0019)"
+            exit 1
+          fi
+          echo "OK: 负向通过（exit=$code，stderr 含 'expected a string'）"

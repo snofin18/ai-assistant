@@ -67,7 +67,15 @@
    > `tasks/TASK-001-repo-skeleton.md` §5.1。
 2. `rust-toolchain.toml` 固定 MSRV；`rustfmt.toml`（`max_width=100`）；`clippy.toml`
 3. `deny.toml`：许可证白名单（MIT/Apache-2.0/BSD/ISC/Zlib/MPL-2.0）、advisories、bans（重复版本告警）
-4. `.github/workflows/ci.yml`：三平台矩阵 + 先上线 5 项门禁（fmt、clippy `-D warnings`、test、deny、build）；其余 9 项标 `continue-on-error: true` 并注明启用卡号
+4. `.github/workflows/ci.yml`：三平台矩阵 + 先上线 **6** 项硬门禁（fmt、clippy `-D warnings`、test、deny、build、`xtask hygiene`）；其余 9 项标 `continue-on-error: true` 并注明启用卡号
+   > **裁决修订（2026-09-17，DRIFT-001-2-a/b，人类批准）**：硬门禁由 **5** 项改为 **6** 项 ——
+   > `xtask hygiene` 在本卡已实现且自检通过，留作软门禁等于白白放弃一道已就绪的防线。
+   > **计数口径**（此前 5+9=14 与 gov §5.1 的 16 行对不上，是 DRIFT-001-2 的真正来源）：
+   > gov §5.1 表共 **16** 行，其中 #3「禁用项 lint」由 #2 的 `-D warnings` + `[workspace.lints]`
+   > 一并覆盖，故落到 CI 上是 **6 硬 + 9 软 = 15 个步骤 ↔ 16 行清单**，不是 14。
+   > **仍未统一**：gov §5.1 的行数与 `plans/stage-1-pilots.md`「CI 14 项门禁」的表述属 **PL-001**，未裁决，本条不动它。
+   > **DRIFT-001-2-c（元门禁）**：每项硬门禁必须配「负向验证」→ 见 `docs/adr/0019-hard-gate-negative-verification.md`
+   > 与 `.github/workflows/gate-selftest.yml`；fmt / clippy / build 三项的 canary 尚缺 → **PL-018**（归 TASK-015）。
 5. `.gitignore` 必须覆盖：`*.db*`、`shadow/`、`blobs/`、`evidence/`、`.env*`、`adapters-private/`、`target/`、`node_modules/`、`dist/`
 6. `CLAUDE.md` = 一行 `See @AGENTS.md`
 7. `LEDGER.md` / `docs/PARKING_LOT.md` / `docs/DEPENDENCIES.md` 建表头

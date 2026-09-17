@@ -28,10 +28,10 @@
 
 ---
 
-## §1 项目当前状态快照（可覆写，最近更新：2026-09-16）
+## §1 项目当前状态快照（可覆写，最近更新：2026-09-17）
 
 ```text
-阶段        ：阶段 0（Spike 前的地基已完成）—— **代码仓库已建立**（git 分支 main，首提交 58fed3d）
+阶段        ：阶段 0（Spike 前的地基已完成）—— **代码仓库已建立**（git 分支 main，首提交 9d0fbee；原哈希 58fed3d 因 2026-09-17 提交身份重写而失效，映射见 §2）
 已产出文档  ：架构 v2.2、应用可行性 v1.1、AGENTS.md、gov、MEMORY.md、PLAN.md、
               plans/stage-0-spikes.md（TASK-001~010）、plans/stage-1-pilots.md（TASK-011~058）、
               docs/{governance-ai-agent-execution, subagent-orchestration, storage-design,
@@ -41,11 +41,20 @@
               + CI（三平台矩阵，6 硬门禁 / 9 软门禁 + deny + deferred-inventory）
 待产出文档  ：docs/spec/*（其余 6 份，含 testing.md）、docs/adr/*（约 19 条）、
               docs/OPEN_SOURCE_CHECKLIST.md、8 份 Spike 报告
-下一步      ：① 人类审阅 TASK-001（DRIFT-001-1/2/3 待裁决）
-              ② 执行 Spike A/A2/B（TASK-002/003/004）与可并行的 C/H（TASK-005/009）
+下一步      ：① TASK-001 收尾：DRIFT-001-1 / -2 已裁决关闭（2026-09-17），
+                仅 **DRIFT-001-3**（执行记录落盘位置，牵动 gov §3.2 模板 → 需 ADR）与
+                **M5 许可证**、**PL-001 / PL-011** 待裁决
+              ② 首次 push 后确认 GitHub Actions 三平台**真**绿 —— TASK-001 的 DoD
+                「CI 在空 workspace 上三平台全绿」此前**从未被机器验证过**（仓库从未推送，
+                见 ADR-0019 背景）
+              ③ 执行 Spike A/A2/B（TASK-002/003/004）与可并行的 C/H（TASK-005/009）
 执行方式    ：AI coding agent（Codex/opencode/Claude Code）实现，人类规划+审阅+裁决；
               夜间由 heartbeat automation 推进（每日 23:30 与 02:30，见章程 §11）
-工具链      ：rustup/cargo/rustc 1.98.1 stable-msvc ✅；cargo-deny ❌、cargo-llvm-cov ❌（PL-006）
+工具链      ：rustup/cargo/rustc 1.98.1 stable-msvc ✅；cargo-deny 0.20.2 ✅、cargo-llvm-cov 0.9.1 ✅
+              （2026-09-17 装入 ~/.cargo/bin → PL-006 解除；安装配方仍未落文档 → PL-017）
+git 远端    ：origin = https://github.com/snofin18/ai-assistant.git（公开库，2026-09-17 建）
+              提交身份 = snofin18 (via Codex) <snofin@gmail.com>（仓库本地 config，人类裁决方案 B）
+              github.com 经本地代理 http://127.0.0.1:30000（global config；**只对 HTTP/HTTPS 生效**）
 平台基线    ：Windows 11 24H2/25H2（唯一正式基线）
 试点顺序    ：Notepad → Paint → Edge/Chrome（阶段 1）→ Excel（阶段 2）→ Photoshop（阶段 3）
 ```
@@ -101,6 +110,12 @@
 - [2026-09-17][FACT][src:人类裁决 2026-09-17] **DRIFT-001-1 已裁决：接受**「`hygiene` 实现 gov §5.4 的 **3/11 项** + 其余 8 项规则与 `verify-schemas`/`codegen`/`replay` 三个子命令在 `deferred.rs` 显式登记并运行时失败（退出码 3）」这一产出边界；§4 中 2026-09-16 那条 REJECTED 的「待人类确认」到此解除。卡面已同步修订：`plans/stage-0-spikes.md` TASK-001 的 In scope #1 加裁决注记，验收命令第 5 条拆为两条独立命令并注明**判定以 `-- deferred-rules` 摘要行为准、`verdict=PASSED` 不等于 11 项全过**。**PL-001 / PL-011 未一并裁决**；若采纳 PL-011（新增 CRLF 规则）则 `3/11` 需改述为 `3/12`。
 - [2026-09-17][FACT][src:本机实测] **本机 `http://127.0.0.1:30000` 有可用 HTTP 代理，github.com 经它完全正常** —— 实测：`git clone --depth=1 https://github.com/RustSec/advisory-db` 成功取得 1265 个文件；release 资源可下载，且经代理取到的 `.sha256` 内容与直连 `api.github.com` 的 `digest` **逐字一致**；`cargo deny check` 仅靠该代理即通过（无需 `ghproxy.net` 镜像）。→ **优先用本地代理而非第三方镜像**（镜像有被替换风险，代理是直连语义）。仅代理 github 的持久写法：`git config --global http.https://github.com/.proxy http://127.0.0.1:30000`；进程级临时写法（不落盘）：`GIT_CONFIG_COUNT=1` + `GIT_CONFIG_KEY_0=http.https://github.com/.proxy` + `GIT_CONFIG_VALUE_0=http://127.0.0.1:30000`。注意本机原先**没有任何 global gitconfig**（PL-008），首次 `--global` 写入会新建该文件。
 - [2026-09-17][FACT][src:本机实测] TASK-001 的验收已从 **5/6 变为 6/6**：`cargo deny check` → `advisories ok, bans ok, licenses ok, sources ok`（退出码 0）；`cargo llvm-cov --workspace --fail-under-lines 75` → 99 passed、**行覆盖 96.31%** / 函数 94.26% / 区域 95.18%（退出码 0，阈值 75）。逐文件行覆盖：`cli.rs` 100%、`deferred.rs` 100%、`hygiene.rs` 99.17%、`report.rs` 98.70%、`rustscan.rs` 95.27%、`repowalk.rs` 93.64%、`main.rs` 90.39%。→ `tasks/TASK-001-repo-skeleton.md` §7.4 标注的「安装工具后应回填实测数字」可用此数据回填。
+### 工程护栏与仓库治理
+
+- [2026-09-17][FACT][src:人类裁决 2026-09-17] **DRIFT-001-2 已裁决：接受**，a/b/c 照建议执行 —— **a** CI 硬门禁确认为 **6 项**（fmt、clippy `-D warnings` 含 `[workspace.lints]` 禁用项、test、deny、build、`xtask hygiene`），计数口径澄清为「gov §5.1 共 **16** 行，#3 由 #2 覆盖 → **6 硬 + 9 软 = 15 个 CI 步骤 ↔ 16 行清单**」（卡面原文 5+9=14 是重复计了 #3、又漏掉了已就绪的 hygiene）；**b** `plans/stage-0-spikes.md` TASK-001 In scope #4 已改为 6 项并补口径注记；**c** 采纳**元门禁** → **ADR-0019（Accepted）**「硬门禁必须配负向验证」，定义 N1 单元负向用例 / N2 CI 显式失败步骤 / N3 canary 工作流三种形式，并规定**软门禁转硬的那张卡必须同时提交负向验证并在登记表补一行**（自 TASK-015 起适用）。**未一并处理**：PL-001（gov §5.1 行数 vs stage-1「14 项门禁」表述）、PL-011（第 12 项 CRLF 规则）、fmt/clippy/build 三项 canary 缺失 → 新登记 **PL-018**。
+- [2026-09-17][FACT][src:本机实测 cargo-deny 0.20.2] **ADR-0019 的 deny canary 双向均已验证**：正向 `cargo deny check licenses bans sources` → `bans ok, licenses ok, sources ok`，**exit 0**，且**不需要联网**（只有 `advisories` 要 clone advisory-db）；负向 `cargo deny --config <把 db-path 写成数组的坏配置> check licenses bans sources` → `error[wanted]: expected a string` + `failed to deserialize config`，**exit 1**。→ 这两条构成 `gate-selftest.yml` 的正/负断言。负向断言**必须同时校验 stderr 含 `expected a string`**：只断言"非零退出"的话，任何无关错误（网络、路径、权限）都会让 canary **假绿**。
+- [2026-09-17][FACT][src:api.github.com 实测] `EmbarkStudios/cargo-deny-action` 的 **release `v2.1.1` 标题即 "Release 2.1.1 - cargo-deny 0.20.2"**，且该 action **没有 `version` 输入**（inputs 仅 command / arguments / command-arguments / manifest-path / log-level / rust-version / credentials / ssh-key / ssh-known-hosts / use-git-cli）→ **钉 action 的 release tag 就等于钉 cargo-deny 版本**，不需要在 CI 里 `cargo install`（省 5~8 分钟）。`ci.yml` 已由 `@v1` 改为 `@v2.1.1`，与本机同版本 → **PL-016 根因关闭**。
+- [2026-09-17][FACT][src:本机 git 实测] **远端已建立、提交身份已重写（PL-008 关闭）**：`origin = https://github.com/snofin18/ai-assistant.git`（公开库，2026-09-17T07:36Z 建，建库时为空）；`git filter-branch --env-filter` 把全部 **7** 个提交的 author+committer 从占位身份 `Codex (ai-assistant agent) <codex@localhost.invalid>` 重写为 **`snofin18 (via Codex) <snofin@gmail.com>`**（人类裁决方案 B：保留 AI 溯源 + 邮箱合法），**原始 author date 全部保留**，工作树逐字节未变（`git diff backup/pre-author-rewrite-20260917 main` 为空）。哈希映射：`58fed3d→9d0fbee`、`c30c502→a03d2f9`、`bcc890e→3a90c7c`、`5cbab04→2cab794`、`d56ba6b→da3b9b1`、`2b31301→ab1068d`、`2788edd→dbbb3a0`。旧提交保留在**本地**分支 `backup/pre-author-rewrite-20260917`（不推送，确认远端无误后可删）。仓库本地 `user.name` 已设为 `snofin18 (via Codex)`（global 仍为 `snofin18`）以保持后续提交一致。
 
 ---
 
@@ -194,6 +209,9 @@
 - [2026-09-17][PITFALL][src:本机实测] **Codex 桌面应用会自动重写 `config.toml`**（把 `notify` 数组展开成多行、增删 `[projects.*]`、写 `[shell_environment_policy]`、改 pipe 名等），重写过程中**可能丢失非标准键** —— 本次就丢了 `model_catalog_json`，直接导致上下文窗口缩水 72%。→ 每次改完 config 或发现窗口/模型行为异常，先 `Compare-Object` 与备份 diff 一遍，确认关键键还在；改动前先做 `.bak`。
 - [2026-09-17][PITFALL][src:本机实测] `config.toml` 里 `model_context_window` 写得再大也**不一定生效**：桌面 app 路径以模型元数据（catalog 或 fallback）为准。→ 判断真实可用窗口不要看 config，要看 rollout 里 `task_started.model_context_window` 的实测值。
 - [2026-09-17][PITFALL][src:本机实测] CI 用 `EmbarkStudios/cargo-deny-action@v1`（该 action 最新已是 **v2.1.1**）且**未钉 cargo-deny 版本**，本地装的是 0.20.2 —— 两边版本不同会让"本地红、CI 绿"或反之。本次 `db-path` 数组写法就是被 CI 掩盖的。→ 建议 CI 显式钉版本，并把 deny.toml 能否解析纳入本地验收（PL-016）。
+- [2026-09-17][PITFALL][src:本机实测] `git remote add` 报 `fatal: not a git repository` 与网络 / 代理 / 账号 / 仓库存不存在**完全无关** —— 它是**纯本地**操作，报错只因 cwd 不在仓库内（本次在 `C:\Windows\System32` 跑的，`Test-Path C:\Windows\System32\.git` = False；仓库在 `D:\csart\ai-assistant`）。→ 任何 git 命令前先 `git rev-parse --show-toplevel` 确认。同批踩到的另两个坑：① 从文档复制命令时**把占位符的尖括号一起打进去**（`git@github.com:<账号>/...`），git 会把尖括号当字面 URL 存下来；② 本机 `~/.ssh` 只有 `known_hosts`、**没有密钥对**，且 global 配的 `http.https://github.com/.proxy` **只对 HTTP/HTTPS 生效、不覆盖 SSH 的 22 端口** → 一律走 **HTTPS**，不要走 SSH。
+- [2026-09-17][PITFALL][src:本机实测] **在非交互会话里跑 `git ls-remote` / `git push` 会挂死**：Git Credential Manager 被调起后等待 GUI/浏览器授权，命令行侧既不返回也不报错（本次挂 40s+，只能 `Stop-Process -Name git,git-credential-manager,git-remote-https -Force` 清掉）。→ 自动化脚本必须先设 `GIT_TERMINAL_PROMPT=0` 并加超时；**首次 push 交人类在自己的终端里跑**。补充事实：本机 Windows 凭据管理器里**已有** `git:https://github.com` 条目（`cmdkey /list` 可见），所以挂住更可能是 GCM 的 UI 交互流程而非"没有凭据"。
+- [2026-09-17][PITFALL][src:本机实测 cargo-deny 0.20.2] cargo-deny 的 CLI 有两个反直觉点：① **`-c` 是 `--color` 而不是 `--config`** —— 写 `cargo deny -c x.toml` 会得到 `invalid value 'x.toml' for '--color <COLOR>'`（exit 2），必须写全称 `--config`；② `cargo deny check` **不接受 `--offline`**（会提示 `to pass '--offline' as a value, use '-- --offline'`，exit 2），但 `check licenses bans sources` 本身**不需要网络**（只有 `advisories` 要 clone advisory-db）→ 离线自检直接去掉该 flag 即可。另注：正向检查会打印一条 **warning** `unmatched license allowance: BSD-3-Clause`（白名单里有但当前无依赖使用），**不影响 exit 0**，不要误判为失败。
 
 ---
 
@@ -210,7 +228,7 @@
 - [2026-09-16][OPEN][src:v2 §13.3.2] macOS 屏幕录制权限的周期性重授权间隔 → 阶段 5 前。
 - [2026-09-16][OPEN][M6] 夜间 automation 是否需要"晨间显式提醒"？当前策略是**仅失败时通知**，晨间报告靠人类自己打开 `docs/nightly/<date>-report.md`；若要早晨收到提醒，代价是 23:30 与 02:30 也各响一次 → 人类裁决（章程 §11.6）。
 - [2026-09-16][OPEN][M7] `check-comments` / `check-ledger` / `card-check` 三个护栏子命令**无任何任务卡认领**，gov §5.1 的 #15 #16 门禁因此无人负责 → 需补卡或并入 TASK-015（PL-002）。
-- [2026-09-16][OPEN][M8] TASK-001 的三条 DRIFT 待裁决（hygiene 范围 / CI 硬门禁数量 / 执行记录落盘位置），其中第三条会牵动 gov §3.2 任务卡模板与所有后续卡的 write scope → 阶段 0 内裁决。
+- [2026-09-16][OPEN][M8]（**2026-09-17 更新：前两条已裁决关闭，见 §2；仅第三条待裁决**）TASK-001 的三条 DRIFT 待裁决（hygiene 范围 / CI 硬门禁数量 / 执行记录落盘位置），其中第三条会牵动 gov §3.2 任务卡模板与所有后续卡的 write scope → 阶段 0 内裁决。
 
 **ASSUMPTION（假设，未验证，不得当作结论使用）**
 - [2026-09-16][ASSUMPTION][src:feasibility §2.3] 同花顺/通达信/东方财富的行情与交易界面以 GDI 自绘为主，UIA 覆盖差 → 需 Spike 实测后升级为 FACT 或推翻。

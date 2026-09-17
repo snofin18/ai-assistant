@@ -138,6 +138,28 @@ cargo run -p xtask -- hygiene --repo docs → exit 0，但显式告警 xtask/no-
   把已实现且自检通过的 `hygiene` 留作软门禁，等于白白放弃一道已就绪的防线。
 - **建议**：接受；并把 gov §5.1 的行数与 stage-1 里"CI 14 项门禁"的表述统一（PL-001 同类问题）。
 
+- **裁决结果（2026-09-17，人类）**：**接受**，a / b / c 三点均照建议执行。
+  - **a**　CI 硬门禁正式确认为 **6 项**：fmt、clippy `-D warnings`（含 `[workspace.lints]` 禁用项，
+    即 gov §5.1 的 #2+#3）、test、deny、build、`xtask hygiene`。**计数口径**同时澄清：
+    gov §5.1 共 16 行，#3 由 #2 覆盖，故 **6 硬 + 9 软 = 15 个 CI 步骤 ↔ 16 行清单**；
+    卡面原文的「5 + 9 = 14」是把 #3 重复计了一行、又漏掉了已就绪的 hygiene。
+  - **b**　卡面已同步修订：`plans/stage-0-spikes.md` TASK-001 的 **In scope #4** 改为「6 项硬门禁」，
+    并补上计数口径注记与「PL-001 仍未统一」的显式声明。
+  - **c**　采纳**元门禁**：新建 **ADR-0019（Accepted）**「硬门禁必须配负向验证」，
+    定义 N1 单元负向用例 / N2 CI 显式失败步骤 / N3 canary 工作流三种可接受形式，
+    并规定**软门禁转硬的那张卡必须同时提交该门禁的负向验证**（自 TASK-015 起适用）。
+    首个实例（deny，N3）已落地：新增 `.github/workflows/gate-selftest.yml`；
+    `ci.yml` 把 `cargo-deny-action@v1` 钉到 **`@v2.1.1`**（= cargo-deny 0.20.2，与本地一致，关闭 PL-016 根因）；
+    本地验收清单追加 `cargo deny check licenses bans sources`（离线可跑，专门证明 `deny.toml` 能被加载）。
+  - **实测证据（裁决时取得，本机 cargo-deny 0.20.2）**：
+    正向 `cargo deny check licenses bans sources` → `bans ok, licenses ok, sources ok`，**exit 0**；
+    负向 `cargo deny --config <db-path 写成数组的坏配置> check licenses bans sources`
+    → `error[wanted]: expected a string` + `failed to deserialize config`，**exit 1**。
+    注意两个易错点：`-c` 是 `--color` 而非 `--config`；`check` 子命令**不接受** `--offline`。
+  - **未一并处理（明确不做，避免范围蔓延）**：① gov §5.1 行数与 `plans/stage-1-pilots.md`
+    「CI 14 项门禁」表述的统一 —— 属 **PL-001**，人类未裁决；② fmt / clippy / build 三项硬门禁
+    的负向验证 —— 新登记 **PL-018**，归 TASK-015；③ **PL-011**（新增第 12 项 CRLF 规则）仍未裁决。
+
 ### 5.3 DRIFT-001-3　执行记录该写在哪？
 
 - **现象**：gov §3.2 的任务卡模板含「执行记录（agent 填写）」一节，但本项目的卡片正文写在

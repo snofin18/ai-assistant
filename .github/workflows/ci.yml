@@ -2,6 +2,9 @@
 #
 # 上线策略（TASK-001）：
 #   硬门禁 6 项（任一失败即阻塞合并）：fmt / clippy(含禁用项 lint) / test / deny / build / hygiene
+#     （DRIFT-001-2-a 裁决确认：6 项 = 卡面原定 5 项 + hygiene；计数口径见 tasks/TASK-001-repo-skeleton.md §5.2）
+#   元门禁（ADR-0019）：每项硬门禁都必须配一条「负向验证」，证明它在该红的时候真的会红。
+#     canary 在 gate-selftest.yml（手工触发）；当前登记表见 ADR-0019，缺项见 PL-018。
 #   软门禁 9 项（continue-on-error: true）：每一项都注明「启用卡号」，
 #     到了那张卡就把它改成硬门禁，并删掉 continue-on-error。
 #   为什么先软后硬：门禁必须在它检查的东西存在之后才有意义。
@@ -127,13 +130,18 @@ jobs:
 
   # ==========================================================================
   # 硬门禁 #8：依赖治理（平台无关，单独一个 job 跑一次即可）
+  # 负向验证（ADR-0019 N3）见 gate-selftest.yml：证明 deny.toml 解析失败时本 job 真的会红，
+  # 而不是「配置读不进来 → 什么都没查 → 显示通过」。
   # ==========================================================================
   deny:
     name: cargo deny
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@v1
+      # 版本钉定（ADR-0019 / PL-016）：v2.1.1 这个 release 打包的就是 cargo-deny 0.20.2，
+      # 与本地开发机、gate-selftest.yml 的 CARGO_DENY_VERSION 三者同版本。
+      # 不要写 @v1 / @v2 这类会随上游漂移的引用 —— 那正是 deny.toml 缺陷被掩盖的根因之一。
+      - uses: EmbarkStudios/cargo-deny-action@v2.1.1
         with:
           command: check
           arguments: --all-features

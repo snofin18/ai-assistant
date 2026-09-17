@@ -24,3 +24,16 @@
 | 2026-09-17 | 人类会话（非任务卡） | PL-015 **MEMORY.md §1 快照与 §3 DECISION 中有两条已被本次实测推翻、但本会话无权更正的条目**：① §1 快照「执行方式」行写「夜间由 heartbeat automation 推进（每日 23:30 与 02:30，见章程 §11）」—— heartbeat 已删除，当前夜间自动化**处于停摆状态**；② §3 `[2026-09-16][DECISION][ADR:待建 0018]`「夜间自动化用 heartbeat」—— 该决策已失效，且 ADR 0018 **尚未建立**。按 AGENTS.md §8，Implementer 对 MEMORY.md 只有 §2/§5 的追加权；§1 属 Orchestrator（阶段末更新），§3 属 DECISION、按铁律 10「契约先行」必须先有 ADR 才能改。故本次只在 §2/§4/§5 追加了带 `[supersedes:2026-09-16]` 的更正条目，**未动 §1/§3**。需要人类：建 ADR 0018（正式否决 heartbeat、采纳 `codex exec` + 外部调度），随后由 Orchestrator 覆写 §1 快照 | MEMORY.md §1/§3、ADR 0018 | 待评审 |
 | 2026-09-17 | 人类会话（非任务卡） | PL-016 **`deny.toml` 的 `db-path` 写成数组导致整条 deny 门禁从未真正跑起来（TASK-001 遗留缺陷，本次已修）**：`db-path = ["target/deny-db"]` 在 cargo-deny 0.20.2 下报 `expected a string`，配置文件直接解析失败。CI 之所以没发现，是因为它用 `EmbarkStudios/cargo-deny-action@v1`（该 action 最新已 v2.1.1）**且未钉 cargo-deny 版本**，与本地的 0.20.2 不是同一个解析器 —— 正是 PL-006「本地验收与 CI 验收不等价」的实例。已改为字符串形式 `db-path = "target/deny-db"`（新旧版本均兼容）。**建议**：① CI 显式钉 cargo-deny 版本；② 把「deny.toml 能否被解析」纳入本地验收清单；③ 与 PL-006 合并处置 | TASK-015 / CI | 待评审 |
 | 2026-09-17 | 人类会话（非任务卡） | PL-017 **缺一份《开发环境准备清单》**（PL-006 已提过，本次再次被卡）：`cargo-deny` / `cargo-llvm-cov` 的安装方式、版本、来源与校验方法目前只存在于聊天记录里，新机器或新 agent 无法复现。本次实测可用的配方：从 GitHub 官方 release 取预编译包（**注意本机 github.com 的 release 下载与 git clone 被重置，需走 `ghproxy.net` 镜像**），并用**直连可达的** `api.github.com` 的 `digest` 字段逐个校验 sha256 后装入 `~/.cargo/bin`；`cargo deny check` 另需经进程级 `GIT_CONFIG_*` 环境变量把 `RustSec/advisory-db` 的 clone 重定向到镜像。建议落成 `docs/dev-env-setup.md` 并写进 gov §10 清单 | 开发环境准备 / 开源准备 | 待评审 |
+| 2026-09-17 | 人类会话（非任务卡） | PL-018 **三项硬门禁缺「负向验证」**（ADR-0019 登记表的 ❌ 项）：gov §5.1 的 #1 `cargo fmt --all --check`、#2/#3 `cargo clippy -D warnings`（含 `[workspace.lints]` 禁用项）、#10 `cargo build --release` 目前只有"绿灯"证据，没有"该红时会红"的证据。建议在 TASK-015 把它们并入 `gate-selftest.yml` 的 canary（各自注入一个已知坏样本：格式错的 `.rs` / 含 `unwrap()`+`dbg!` 的 `.rs` / 编译不过的 `.rs`，断言 exit ≠ 0）。**规则已生效**：自 ADR-0019 起，任何"软门禁转硬"的卡必须同时提交该门禁的负向验证并在 ADR-0019 登记表补一行，否则不得转硬。附带建议：TASK-015 的 `card-check` 落地后，把"转硬必须改登记表"做成机器检查 | TASK-015 / ADR-0019 | 待评审 |
+
+## 处置追加记录（只追加；不改写上表既有行）
+
+> 上表的「处置」列按 gov §7.2 在**阶段末评审**统一填写。在那之前，若某条已被人类裁决或已落地，
+> 在这里追加一行说明，**不改写原行**（与 `LEDGER.md` 同一规矩）。
+
+| 日期 | 关联 | 处置说明 |
+|---|---|---|
+| 2026-09-17 | PL-008 | **已落地关闭**：`origin` 已建立（HTTPS + 本机代理）；全部 7 个提交的 author/committer 由占位身份重写为 `snofin18 (via Codex) <snofin@gmail.com>`（人类裁决方案 B，保留 author date）；仓库本地 `user.name` 已同步。哈希映射与证据见 `MEMORY.md` §2 与 `LEDGER.md` 2026-09-17 各行 |
+| 2026-09-17 | PL-016 | **建议 ①② 已落地**：① `ci.yml` 的 `EmbarkStudios/cargo-deny-action@v1` 钉到 **`@v2.1.1`**（该 release 打包的即 cargo-deny 0.20.2，与本机一致；该 action 无 `version` 输入，故钉 release tag 就是钉版本）；② 本地验收追加 `cargo deny check licenses bans sources`（离线可跑，专门证明 `deny.toml` 能被当前版本加载），并已建成 `gate-selftest.yml` canary 做正/负双向断言（ADR-0019 N3）。**建议 ③「与 PL-006 合并处置」仍待评审** |
+| 2026-09-17 | PL-006 | **部分解除**：本机已装 `cargo-deny 0.20.2` + `cargo-llvm-cov 0.9.1`，本地验收与 CI 已等价（TASK-001 6/6，行覆盖 96.31%）。但"把安装方式写进开发环境准备清单"仍未做 → 归 **PL-017**（`docs/dev-env-setup.md`） |
+| 2026-09-17 | PL-001 / PL-011 | **仍未裁决**。本次 DRIFT-001-2 的 a/b/c 落地时**刻意没有**顺带处理它们（避免范围蔓延）。提醒：若 PL-011 被采纳（新增第 12 项 CRLF 规则），`tasks/TASK-001-repo-skeleton.md` §5.1/§5.2 与卡面里的 `3/11` 需改述为 `3/12`；PL-001 若裁决，还需统一 gov §5.1 行数与 `plans/stage-1-pilots.md`「CI 14 项门禁」的表述 |
