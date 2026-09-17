@@ -38,6 +38,16 @@
 |---|---|---|---|---|
 | rustup / cargo / rustc | stable（`rust-toolchain.toml` 固定） | 构建与测试 | `winget install Rustlang.Rustup` | 已安装（1.98.1） |
 | clippy / rustfmt / llvm-tools | 随 toolchain | lint / 格式化 / 覆盖率 | `rustup component add` | 已安装 |
-| cargo-deny | 最新 | 依赖治理（gov §5.1 #8） | `cargo install cargo-deny --locked` | **未安装**（PL-006） |
-| cargo-llvm-cov | 最新 | 覆盖率门槛（gov §5.1 #9） | `cargo install cargo-llvm-cov` | 未安装（阶段 1 前需要） |
-| git | 系统自带 | 版本控制 | — | 已安装 |
+| cargo-deny | **0.20.2**（必须与 CI 的 `cargo-deny-action@v2.1.1` 同版本，ADR-0019） | 依赖治理（gov §5.1 #8） | GitHub release 预编译包装入 `~/.cargo/bin`；配方待落 `docs/dev-env-setup.md`（PL-017） | **已安装**（2026-09-17，PL-006 解除） |
+| cargo-llvm-cov | 0.9.1 | 覆盖率门槛（gov §5.1 #9） | 同上 | **已安装**（2026-09-17；实测 `xtask` 行覆盖 96.31%） |
+| git | 系统自带（2.51.0） | 版本控制 | — | 已安装；`origin = https://github.com/snofin18/ai-assistant.git`，经本机代理 `127.0.0.1:30000` |
+
+> **本地验收追加项（ADR-0019 落地动作 #5）**：`cargo deny check licenses bans sources`
+> —— 它**不需要联网**（只有 `advisories` 要 clone advisory-db），专门用来证明
+> `deny.toml` 能被当前版本的 cargo-deny **加载解析**。这条命令存在的理由见 PL-016：
+> 配置解析失败时，门禁会「什么都没查却显示通过」。
+> 两个 CLI 反直觉点：`-c` 是 `--color` 不是 `--config`；`check` 不接受 `--offline`。
+
+> **已知覆盖缺口（PL-019）**：`Cargo.toml` 的 `exclude = ["spikes", "fixtures/apps", "tools"]`
+> 使 `cargo deny` / fmt / clippy / test 四道硬门禁**都覆盖不到 spike 代码**。
+> 阶段 0 的 spike 引入依赖时，只有本表规则 1「先登记后引入」的政策约束、没有机器约束。
