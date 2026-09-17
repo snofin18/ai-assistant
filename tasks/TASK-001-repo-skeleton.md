@@ -115,6 +115,20 @@ cargo run -p xtask -- hygiene --repo docs → exit 0，但显式告警 xtask/no-
 - **建议**：接受该处理，并在 TASK-015 卡里明确"补齐剩余 8 项 + arch test"。
   若人类希望 TASK-001 严格只做占位，则需同时修改卡面验收命令第 5 条。
 
+- **裁决结果（2026-09-17，人类）**：**接受**上述处理，a / b 两点均照建议执行。
+  - **a**　产出边界正式确认为：`hygiene` 实现 gov §5.4 的 **3/11 项**，其余 **8 项**规则与
+    `verify-schemas` / `codegen` / `replay` 三个子命令在 `deferred.rs` 显式登记并于运行时失败（退出码 3）。
+    MEMORY.md §4 中 2026-09-16 那条 REJECTED 的「待人类确认」到此**解除**。
+  - **b**　卡面已同步修订：`plans/stage-0-spikes.md` 的 TASK-001 In scope #1 加了裁决注记，
+    验收命令第 5 条从 `cargo deny check; cargo run -p xtask -- hygiene` 拆成两条独立命令，
+    并注明判定以 `-- deferred-rules` 摘要行为准、`verdict=PASSED` 不等于 11 项全过。
+  - **未一并裁决**：PL-001（gov §5.4 表格 11 行 vs stage-1 写「12 项」）与 PL-011（是否新增第 12 项
+    CRLF 规则）仍为「待评审」。若日后采纳 PL-011，本条与卡面的 `3/11` 需改述为 `3/12`。
+  - **补充证据（裁决后取得）**：本地工具链已补齐，TASK-001 验收从 5/6 变为 **6/6** ——
+    `cargo deny check` → `advisories ok, bans ok, licenses ok, sources ok`（退出码 0）；
+    `cargo llvm-cov --workspace --fail-under-lines 75` → 99 passed，**行覆盖 96.31%**、函数 94.26%、
+    区域 95.18%（退出码 0）。§7.4 标注的「安装工具后应回填实测数字」即可用此数据回填。
+
 ### 5.2 DRIFT-001-2　CI 硬门禁是 5 项还是 6 项？
 
 - **现象**：卡面写"先上线 **5** 项门禁（fmt、clippy、test、deny、build）；其余 **9** 项

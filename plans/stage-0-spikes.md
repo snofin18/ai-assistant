@@ -60,6 +60,11 @@
 
 **In scope 清单**
 1. Cargo workspace 骨架：`crates/`（空）、`apps/`（空）、`xtask`（含 `hygiene` / `verify-schemas` / `codegen` / `replay` 四个子命令的**占位实现**，返回明确的 "not implemented (TASK-0NN)" 错误而不是静默成功）
+   > **裁决修订（2026-09-17，DRIFT-001-1-a，人类批准）**：`hygiene` **不作占位**，改为**部分实现** ——
+   > 落地 gov §5.4 的 **3/11 项**规则（文件行数、注释标签、注释掉的代码块）；其余 **8 项**规则与
+   > `verify-schemas` / `codegen` / `replay` 三个子命令仍登记在 `xtask/src/deferred.rs`，运行时**显式失败**
+   > （退出码 3，报错文本指明归属 TASK-015），不静默返回成功。理由与备选方案见
+   > `tasks/TASK-001-repo-skeleton.md` §5.1。
 2. `rust-toolchain.toml` 固定 MSRV；`rustfmt.toml`（`max_width=100`）；`clippy.toml`
 3. `deny.toml`：许可证白名单（MIT/Apache-2.0/BSD/ISC/Zlib/MPL-2.0）、advisories、bans（重复版本告警）
 4. `.github/workflows/ci.yml`：三平台矩阵 + 先上线 5 项门禁（fmt、clippy `-D warnings`、test、deny、build）；其余 9 项标 `continue-on-error: true` 并注明启用卡号
@@ -71,7 +76,13 @@
 **验收命令**
 ```powershell
 cargo fmt --all --check; cargo clippy --all-targets -- -D warnings; cargo test --workspace
-cargo deny check; cargo run -p xtask -- hygiene
+cargo deny check
+# 第 5 条（裁决修订 2026-09-17，DRIFT-001-1-b）：hygiene 是**部分实现**（gov §5.4 的 3/11 项）。
+# 判定标准以它输出的这行摘要为准：
+#   -- deferred-rules: gov §5.4 共 11 项，已实现 3 项，未实现 8 项（归属 TASK-015）
+# 退出码 0 且该行数字自洽 = 通过。**不得**把 verdict=PASSED 读成「11 项全部通过」。
+# 若 PL-011 被采纳（新增第 12 项 CRLF 规则），此处 3/11 需改述为 3/12。
+cargo run -p xtask -- hygiene
 git status --porcelain   # 应无未忽略的运行时数据文件
 ```
 
