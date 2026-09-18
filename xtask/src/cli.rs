@@ -27,7 +27,7 @@ pub const USAGE: &str = r"xtask — 仓库护栏与开发任务工具（只读�
   cargo run -p xtask -- <子命令> [选项]
 
 子命令：
-  hygiene            仓库卫生检查（gov §5.4；当前实现 3/11 项，见输出中的 deferred-rules 行）
+  hygiene            仓库卫生检查（gov §5.4；当前实现 3/13 项，见输出中的 deferred-rules 行）
   verify-schemas     [未实现 · TASK-011/015] Tool/Adapter/审计事件 schema 校验
   codegen            [未实现 · TASK-011]     由 schema 生成 Rust/TS 类型
   replay             [未实现 · TASK-034]     用录制的树快照做离线回放回归

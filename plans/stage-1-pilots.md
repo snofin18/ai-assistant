@@ -27,7 +27,8 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 - [ ] L3 不可逆动作 100% 经人工确认，且计划 UI 正确标注 point-of-no-return
 - [ ] 四类异常可安全终止或恢复：断网、Core 崩溃、用户中途操作、目标程序退出
 - [ ] 所有写操作有 postcondition 且被验证；所有失败可从时间线定位原因
-- [ ] CI 14 项门禁全绿（含 arch test、schema 校验、类型同步、hygiene、回放基准）
+- [ ] CI 门禁全绿：**gov §5.1 的 17 行清单 ↔ 16 个 CI 步骤（7 硬 + 9 软）**（含 arch test、schema 校验、类型同步、hygiene **13 项**、回放基准、spike-deny）
+      > 口径由 **ADR-0025 D4** 统一（2026-09-18，PL-001 关闭）。原写「CI 14 项门禁」是过时表述。
 - [ ] 覆盖率：workspace ≥ 75%，`core`/`policy`/`task-engine` ≥ 85%
 - [ ] 每个 crate 有 README（职责/边界/**不变量**/已知限制）
 - [ ] `MEMORY.md` 已回填阶段 1 新增的 FACT/PITFALL/REJECTED
@@ -45,7 +46,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **012** | 存储层：SQLite(WAL) + 迁移框架 + 核心表 + 内容寻址 blob（zstd/去重） | `crates/storage/**` | 011 | M | Spike H 的性能预算全部达标；孤儿 blob 可 GC；DB/blob 不一致可检测并标 `evidence_missing` |
 | **013** | `audit`：追加不可改 + hash chain + ring buffer 批量 flush + `durability` 可配 | `crates/audit/**` | 012 | S | 无 UPDATE/DELETE 路径；篡改可被 hash chain 检出；batched 摊销 < 1 ms/条；`immediate` 模式可用 |
 | **014** | `secrets`：OS keychain 封装（DPAPI/Keychain/Secret Service） | `crates/secrets/**` | 011 | S | 密钥不落盘明文、不入日志、不入 prompt；`zeroize` 生效；密钥访问被审计 |
-| **015** | `xtask`：hygiene + arch test + verify-schemas + replay 骨架 | `xtask/**`、`crates/core/tests/arch*` | 011 | M | **arch test 能拦住 core→platform/windows 的依赖**；hygiene 12 项检查全部生效（gov §5.4） |
+| **015** | `xtask`：hygiene + arch test + verify-schemas + replay 骨架 | `xtask/**`、`crates/core/tests/arch*` | 011 | M | **arch test 能拦住 core→platform/windows 的依赖**；hygiene **13** 项检查全部生效（gov §5.4；口径见 **ADR-0025**，原「12 项」为笔误） |
 
 > ★ 015 必须早做：它是后续所有卡的护栏。护栏晚于代码 = 漂移已经发生。
 
@@ -91,7 +92,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **036** | T1.1：打开文件 → 读全文 → 报告行数与关键词段落（只读） | `adapters/com.microsoft.notepad/tasks/**`、`eval/tasks/notepad/**` | 035 | S | 10 次连续成功率 ≥ 90%；大文件（1 MB）走 L1 文件通道降级并正确标 `truncated` |
 | **037** | T1.2：全文替换「报表」→「报告」+ 保存（含审批 diff、L0 undo + L1 快照、后置断言） | 同上 | 036 | M | 替换计数正确；保存后标题无 `*`；撤销可回到锚点；**歧义时按 `error_if_ambiguous` 报错** |
 | **038** | T1.3：新建标签 → 写入 → 另存为到指定路径（跨进程 Shell 对话框） | 同上 | 037 | M | 跨进程对话框解析成功率 ≥ 90%；**已存在文件绝不静默覆盖**（先备份 + 确认） |
-| **039** | 阶段 1a 集成验收：CI 14 项门禁全启用 + 9 项 DoD 中 1a 相关项 + 对齐审计 | `.github/workflows/**`、`docs/audits/**` | 033~038 | M | 全部绿灯；审计报告产出；偏差项已裁决 |
+| **039** | 阶段 1a 集成验收：CI 门禁全启用（gov §5.1 的 17 行清单 ↔ 16 个步骤：7 硬 + 9 软，ADR-0025 D4） + 9 项 DoD 中 1a 相关项 + 对齐审计 | `.github/workflows/**`、`docs/audits/**` | 033~038 | M | 全部绿灯；审计报告产出；偏差项已裁决 |
 
 ---
 

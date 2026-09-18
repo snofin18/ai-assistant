@@ -311,6 +311,7 @@ DRIFT-012-1
 | 6 | **Schema 校验** | `cargo run -p xtask -- verify-schemas` | Tool/Adapter/审计事件定义不合规 |
 | 7 | **协议类型同步** | `cargo run -p xtask -- codegen --check` | Rust 与 TS 类型与 schema 漂移 |
 | 8 | 依赖治理 | `cargo deny check` / `cargo audit` | 未登记依赖、许可证污染、已知漏洞、重复版本 |
+| **8b** | **spike 依赖治理**（ADR-0024 D2） | `cargo deny --config deny.toml --manifest-path spikes/<name>/Cargo.toml check licenses sources`（逐个枚举） | ★ `spikes/` 被 workspace `exclude` → 主 deny 门禁（#8）覆盖不到它；这条挡住「spike 里图方便 `cargo add` 一个许可证不兼容或来源不明的包」。**只查 licenses + sources**（免联网、免 advisory-db）；不查 bans（spike 之间版本重复是正常的）、不查 advisories（spike 不在发布链路上）。无 spike manifest 时必须**显式打印「无」再 exit 0**（铁律 1），否则「一个都没查到」与「查了都通过」无法区分 |
 | 9 | 覆盖率门槛 | `cargo llvm-cov --fail-under-lines 75`（core/policy/task-engine ≥ 85） | 无测试的"完成" |
 | 10 | 构建（三平台矩阵） | `cargo build --release` on win/macos/linux runner | 平台特定编译错误 |
 | 11 | 文档完整性 | `cargo doc --no-deps` + `#![warn(missing_docs)]` | 公共 API 无文档 |
@@ -319,6 +320,10 @@ DRIFT-012-1
 | 14 | 提交规范 | commitlint / 钩子 | 无法追溯到任务卡 |
 | 15 | **命名与注释规范** | `cargo run -p xtask -- check-comments` | ★ 缩写命名、公共 API 缺文档注释、`TODO`/`PITFALL` 无卡号、注释掉的代码 |
 | 16 | **台账与记忆同步** | `cargo run -p xtask -- check-ledger` | 卡已完成但未追加 LEDGER/MEMORY 条目 |
+
+> 第 **8b** 项用**子编号**而不占用新的一级行号，是为了让本表的 16 行主编号保持稳定 ——
+> 主编号被 `tasks/TASK-001-repo-skeleton.md`、`xtask/src/deferred.rs`、`ci.yml` 头部注释
+> 与 `plans/stage-1-pilots.md` 多处交叉引用，重编号会引发一轮无价值的口径漂移（PL-001 的教训）。
 
 > 第 5、6、7、12、13、15、16 项是本项目**特有**的护栏，也是防漂移最有效的一组——它们检查的是"结构"与"过程"，而不只是"功能"。
 
@@ -388,7 +393,7 @@ DRIFT-012-1
 
 ### 5.4 仓库卫生检查（`xtask hygiene`）
 
-自研的小工具，检查以下**AI 协作项目特有的退化信号**：
+自研的小工具，检查以下**AI 协作项目特有的退化信号**（共 **13** 项；口径由 **ADR-0025** 统一，本表行数即唯一事实源，`xtask/src/deferred.rs` 的 `TOTAL_HYGIENE_RULE_COUNT` 由它派生）：
 
 | 检查 | 阈值 |
 |---|---|
@@ -403,6 +408,8 @@ DRIFT-012-1
 | 新增依赖 | 必须已在 `docs/DEPENDENCIES.md` 登记，否则失败 |
 | 空实现 / `Ok(())` 直接返回的 stub | 必须带 `// STUB: TASK-NNN` 标记 |
 | 测试文件是否被跳过（`#[ignore]` / `.skip`） | 必须带原因与任务卡号 |
+| **文件不得含 CRLF**（`hygiene/crlf-line-endings`，ADR-0025 D1） | **Error**：任何文本文件的字节里出现 `\r` 即失败。`.gitattributes` 只管入库形态、**管不住工作区**，而 `cargo fmt --check` 会在 Linux runner 上因此变红 |
+| **必须以单个 `\n` 结尾**（`hygiene/missing-final-newline`，ADR-0025 D1） | 先 **Warning**，清扫完 15 个既有文件后升 **Error**。真实事故：末行无换行会让「以整行 + `\n` 为锚点」的编辑脚本断言失败，**而报错信息与真因毫无关系** |
 
 ### 5.5 提交与分支规范
 
@@ -803,7 +810,7 @@ Task: TASK-012
 - [ ] `docs/adr/0001~000N`：把 v2 与 feasibility 中的关键决策落成 ADR（语言选型、MCP-first、element 不跨进程、L1 优先、Excel 用快照不用 undo、Edge 专用 profile、股票交易 Non-goal 等）
 - [ ] `docs/DEPENDENCIES.md`（空表头 + 登记规则）
 - [ ] `tasks/` 目录 + TASK-001~0NN（阶段 1 全部任务卡，含 write scope 与验收命令）
-- [ ] CI：§5.1 的 14 项门禁（可分批上线，但第 1~5 项必须第一天就有）
+- [ ] CI：§5.1 的 **17 行清单 ↔ 16 个步骤（7 硬 + 9 软）**（口径见 ADR-0025 D4；可分批上线，但第 1~5 项必须第一天就有）
 - [ ] `xtask`：verify-schemas / codegen --check / hygiene / replay
 - [ ] arch test（§5.3 依赖方向）
 - [ ] `fixtures/apps/`：靶机应用 v0（至少一个"类记事本"应用，控件 id 稳定）
@@ -811,4 +818,3 @@ Task: TASK-012
 
 > **建议顺序**：先把 `AGENTS.md` + `PLAN.md` + 3~5 张 Spike 任务卡做出来，跑完 Spike，再写 spec 与 ADR，最后才开阶段 1 的卡。
 > **不要在没有 AGENTS.md 的情况下让 agent 写第一行产品代码。**
-

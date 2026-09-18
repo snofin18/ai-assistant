@@ -4,7 +4,7 @@
 
 把「靠自觉」的规范变成**机器可执行的检查**。当前提供：
 
-- `hygiene`：仓库卫生检查（gov §5.4 的 11 项中已实现 3 项，工具会主动声明覆盖范围）
+- `hygiene`：仓库卫生检查（gov §5.4 的 **13** 项中已实现 3 项（口径见 ADR-0025），工具会主动声明覆盖范围）
 - `--list-deferred`：打印**未实现**的子命令与规则，含归属任务卡号
 - 其余子命令（`verify-schemas` / `codegen` / `replay` / `check-comments` / `check-ledger` /
   `card-check`）已登记但**未实现**，运行会以退出码 3 显式失败

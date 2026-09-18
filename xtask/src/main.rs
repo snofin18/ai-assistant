@@ -223,7 +223,7 @@ fn run_hygiene(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Fa
         .summary_line()
         .map_err(|error| Failure::Internal(format!("生成报告摘要失败：{error}")))?;
     write_line(output, &format!("-- machine-summary: {summary}"))?;
-    // 主动声明覆盖范围，避免 PASSED 被误读成"全部 11 项都过了"
+    // 主动声明覆盖范围，避免 PASSED 被误读成"全部 13 项都过了"
     write_line(output, &deferred::hygiene_progress_note())?;
     report
         .render(output)

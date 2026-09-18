@@ -7,7 +7,7 @@
 //! 铁律 1「无静默失败」在工具链上的具体形态是：CI 里一条 `cargo run -p xtask -- check-comments`
 //! 如果因为"还没写"而返回 0，人类会以为这项检查一直在保护仓库 —— 这比没有这项检查更危险，
 //! 因为它制造了虚假的安全感。所以未实现项必须：① 登记在册 ② 运行时报错并指出归属卡号
-//! ③ 在正常运行的输出里声明"11 项规则只实现了 3 项"。
+//! ③ 在正常运行的输出里声明"13 项规则只实现了 3 项"（口径见 ADR-0025）。
 //!
 //! ## 边界（不做什么）
 //! - 不做任何 IO：所有函数返回 `String`，打印由 `main.rs` 负责。
@@ -26,8 +26,13 @@
 /// 因此仍然满足不变量 3 的意图（有人类可执行的下一步）。
 pub const UNASSIGNED_CARD: &str = "未分配（见 docs/PARKING_LOT.md PL-002，需人类补卡）";
 
-/// gov §5.4 表格中的卫生规则总项数。
-pub const TOTAL_HYGIENE_RULE_COUNT: usize = 11;
+/// gov §5.4 表格中的卫生规则总项数（**13 项**，口径由 ADR-0025 统一）。
+///
+/// 这个数字必须与 gov §5.4 的表格行数一致；不一致由下面的不变量 1 单测拦不住
+/// （单测只校验"已实现 + 未实现 == 总数"的自洽性，不校验与文档的一致性）。
+/// 因此改 gov §5.4 的行数时**必须**同步改这里 —— 让工具直接解析文档表格行数
+/// 是更彻底的做法，已记入 `docs/PARKING_LOT.md` PL-022。
+pub const TOTAL_HYGIENE_RULE_COUNT: usize = 13;
 
 /// 本卡（TASK-001）已实现的卫生规则项数：文件行数、注释标签、注释掉的代码块。
 pub const IMPLEMENTED_HYGIENE_RULE_COUNT: usize = 3;
@@ -98,7 +103,7 @@ pub const DEFERRED_COMMANDS: &[DeferredCommand] = &[
     },
 ];
 
-/// 未实现的卫生规则清单（gov §5.4 共 11 项，TASK-001 实现 3 项，其余 8 项归 TASK-015）。
+/// 未实现的卫生规则清单（gov §5.4 共 13 项，TASK-001 实现 3 项，其余 10 项归 TASK-015）。
 pub const DEFERRED_HYGIENE_RULES: &[DeferredRule] = &[
     DeferredRule {
         rule: "单函数行数 > 80 警告",
@@ -122,7 +127,7 @@ pub const DEFERRED_HYGIENE_RULES: &[DeferredRule] = &[
     },
     DeferredRule {
         rule: "新增顶层目录必须在 ADR 白名单中",
-        reason: "需要先有 ADR 白名单文件（docs/adr 目前为空）",
+        reason: "需要先有 ADR 白名单文件（docs/adr 已有 0018~0025，但白名单本身未落地；另见 PL-023 的 scripts/ 归属）",
         owning_card: "TASK-015",
     },
     DeferredRule {
@@ -138,6 +143,17 @@ pub const DEFERRED_HYGIENE_RULES: &[DeferredRule] = &[
     DeferredRule {
         rule: "被跳过的测试（#[ignore] / .skip）必须带原因与卡号",
         reason: "需要属性解析与测试函数关联",
+        owning_card: "TASK-015",
+    },
+    // 以下两条由 ADR-0025 D1 新增（关闭 PL-011 / PL-020）。
+    DeferredRule {
+        rule: "文件不得含 CRLF（hygiene/crlf-line-endings）",
+        reason: "需要先确定「文本文件」的判定方式（ADR-0025 D1 定为扩展名白名单）；Error 级，可直接上线（仓库当前 CRLF 计数为 0）",
+        owning_card: "TASK-015",
+    },
+    DeferredRule {
+        rule: "必须以单个换行结尾（hygiene/missing-final-newline）",
+        reason: "上线即为 Error 会当场红 15 处既有文件（清单见 PL-020 处置记录）→ 必须先以 Warning 上线、清扫完再升 Error（ADR-0025 D1）",
         owning_card: "TASK-015",
     },
 ];
@@ -199,7 +215,7 @@ pub fn describe_deferred_rules() -> String {
 
 /// 生成一行「进度声明」，在每次 `hygiene` 运行时打印。
 ///
-/// 为什么每次都要打印：如果不声明，`verdict: PASSED` 会被误读成"11 项卫生规则全过"。
+/// 为什么每次都要打印：如果不声明，`verdict: PASSED` 会被误读成"13 项卫生规则全过"。
 /// 让工具主动承认自己只检查了一部分，是防止虚假安全感的最低成本手段。
 #[must_use]
 pub fn hygiene_progress_note() -> String {
@@ -322,7 +338,10 @@ mod tests {
             note.contains("已实现 3 项"),
             "必须声明只实现了一部分，实际：{note}"
         );
-        assert!(note.contains("未实现 8 项"));
+        assert!(
+            note.contains("未实现 10 项"),
+            "ADR-0025：gov §5.4 为 13 项、已实现 3 项 → 未实现必须是 10 项，实际：{note}"
+        );
     }
 
     #[test]
