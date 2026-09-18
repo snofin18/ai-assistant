@@ -215,7 +215,7 @@ Orchestrator 汇总 → 人类做最终合并决定
 | 概念 | 实现方式 |
 |---|---|
 | 派单 | `spawn_agent`（**`fork_context: false`**）+ §5.3 的派单消息 |
-| 派生**任务卡会话**（人类可见的独立 Codex 任务） | ⚠️ **`create_thread` 当前不可用**（见 §10.1）→ 由**人类手工新建任务**，或 `fork_thread` |
+| 派生**任务卡会话**（人类可见的独立 Codex 任务） | ⚠️ **`create_thread` 当前不可用**（见下方 §10.1）→ 由**人类手工新建任务**，或 `fork_thread` |
 | 追问/补充上下文 | `send_input`（不中断）；需要立即改变方向时用 `interrupt: true` |
 | 等待结果 | `wait_agent` **尽量不用**（会阻塞 Orchestrator）；优先在等待期间做不重叠的工作（例如起草下一批卡） |
 | 释放并发额度 | 完成后及时 `close_agent` |
@@ -228,9 +228,8 @@ Orchestrator 汇总 → 人类做最终合并决定
 - 不要在等待 subagent 时空转：用这段时间起草下一批任务卡或整理 MEMORY；
 - 不要重复 subagent 已完成的工作（不要"我再改一下"，应退回让它改）；
 - 编排本身要留痕：每次派单在 `LEDGER.md` 记一行（卡号、角色、write scope、结果）。
----
 
-## 10.1 前置条件：派生「任务卡会话」当前不能靠 `create_thread`（2026-09-18 实证）
+### 10.1 前置条件：派生「任务卡会话」当前不能靠 `create_thread`（2026-09-18 实证）
 
 **结论：TASK-002 及后续任务卡的会话，一律由人类手工新建（或用 `fork_thread`），不由 agent 调 `create_thread` 派生。**
 

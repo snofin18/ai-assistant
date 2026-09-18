@@ -190,6 +190,7 @@ Window       aid=''                  cls=Notepad                                
 > **仍未测** → go/no-go 依然**不能**给，判据见 §3 的表格。
 > 注意本结论的适用边界：证据只覆盖记事本的 **32 节点树**；Excel / Photoshop 的树可能是数千到数万节点，
 > 阶段 2/3 必须重测（已登记为 `docs/memory/open.md` 的 ASSUMPTION）。
+
 ---
 
 ## 7. 2026-09-18 追加：Rust/COM 生产路径实证 与 EOL 契约验证
