@@ -157,10 +157,57 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 
 **已展开的卡片文件**（其余 46 张在开工前逐张展开；本表只登记已存在的文件，**不记状态** —— 状态只在卡片文件里，ADR-0031 D2）：
 
-| 卡号 | 批次 | 卡片文件（正文 ＋ 执行记录） | 备注 |
+| 卡号 | 批次 | 卡片文件（正文 + 执行记录） | 备注 |
 |---|---|---|---|
-| TASK-011 | A1 | `tasks/TASK-011-protocol-schema-codegen.md` | 完整卡（原本文件的「完整任务卡示例」，逐字搬运） |
+| TASK-011 | A1 | `tasks/TASK-011-protocol-schema-codegen.md` | 完整卡（原 plans 文件的「完整任务卡示例」，逐字搬运） |
 | TASK-035 | A5 | `tasks/TASK-035-notepad-adapter.md` | ⚠ **仅要点摘录**，展开前不得派单 |
+| TASK-012 | A1 | `tasks/TASK-012-storage-layer-sqlite-wal-blob.md` | Ready（批次表占位派单前补全） |
+| TASK-013 | A1 | `tasks/TASK-013-audit-append-hash-chain-flush.md` | Ready（批次表占位派单前补全） |
+| TASK-014 | A1 | `tasks/TASK-014-secrets-os-keychain-wrapper.md` | Ready（批次表占位派单前补全） |
+| TASK-015 | A1 | `tasks/TASK-015-xtask-hygiene-archtest-replay-skeleton.md` | Ready（批次表占位派单前补全） |
+| TASK-016 | A2 | `tasks/TASK-016-platform-api-trait-capability-matrix.md` | Ready（批次表占位派单前补全） |
+| TASK-017 | A2 | `tasks/TASK-017-platform-windows-uia-provider.md` | Ready（批次表占位派单前补全） |
+| TASK-018 | A2 | `tasks/TASK-018-platform-windows-synthetic-input-ime.md` | Ready（批次表占位派单前补全） |
+| TASK-019 | A2 | `tasks/TASK-019-automation-host-ipc-named-pipe.md` | Ready（批次表占位派单前补全） |
+| TASK-020 | A2 | `tasks/TASK-020-tool-bus-mcp-rmcp-server.md` | Ready（批次表占位派单前补全） |
+| TASK-021 | A2 | `tasks/TASK-021-policy-whitelist-risk-default-deny.md` | Ready（批次表占位派单前补全） |
+| TASK-022 | A2 | `tasks/TASK-022-task-engine-state-machine-dag-checkpoint.md` | Ready（批次表占位派单前补全） |
+| TASK-023 | A2 | `tasks/TASK-023-verify-postcondition-assertion-engine.md` | Ready（批次表占位派单前补全） |
+| TASK-024 | A2 | `tasks/TASK-024-undo-four-level-rollback-anchor.md` | Ready（批次表占位派单前补全） |
+| TASK-025 | A2 | `tasks/TASK-025-lease-target-exclusive-shared-intent.md` | Ready（批次表占位派单前补全） |
+| TASK-026 | A2 | `tasks/TASK-026-model-gateway-provider-router-fallback.md` | Ready（批次表占位派单前补全） |
+| TASK-027 | A2 | `tasks/TASK-027-hitl-approval-scope-takeover.md` | Ready（批次表占位派单前补全） |
+| TASK-028 | A2 | `tasks/TASK-028-core-session-context-planner-memory.md` | Ready（批次表占位派单前补全） |
+| TASK-029 | A3 | `tasks/TASK-029-binary-skeleton-agent-core-desktop-ui.md` | Ready（批次表占位派单前补全） |
+| TASK-030 | A3 | `tasks/TASK-030-ui-approval-card-timeline-evidence.md` | Ready（批次表占位派单前补全） |
+| TASK-031 | A3 | `tasks/TASK-031-ui-element-picker-selector-candidates.md` | Ready（批次表占位派单前补全） |
+| TASK-032 | A3 | `tasks/TASK-032-ui-policy-panel-egress-capability-cost.md` | Ready（批次表占位派单前补全） |
+| TASK-033 | A3 | `tasks/TASK-033-target-app-notepad-like-fault-injection.md` | Ready（批次表占位派单前补全） |
+| TASK-034 | A3 | `tasks/TASK-034-record-replay-framework-xtask-replay.md` | Ready（批次表占位派单前补全） |
+| TASK-036 | A5 | `tasks/TASK-036-t1-1-open-read-full-text.md` | Ready（批次表占位派单前补全） |
+| TASK-037 | A5 | `tasks/TASK-037-t1-2-replace-save-approval-diff-undo.md` | Ready（批次表占位派单前补全） |
+| TASK-038 | A5 | `tasks/TASK-038-t1-3-newtab-saveas-cross-process-dialog.md` | Ready（批次表占位派单前补全） |
+| TASK-039 | A5 | `tasks/TASK-039-stage-1a-integration-audit.md` | Ready（批次表占位派单前补全） |
+| TASK-040 | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Ready（批次表占位派单前补全） |
+| TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
+| TASK-042 | 1b | `tasks/TASK-042-visual-verify-phash-dhash-confidence.md` | Ready（批次表占位派单前补全） |
+| TASK-043 | 1b | `tasks/TASK-043-paint-adapter-tools-canvas-coords.md` | Ready（批次表占位派单前补全） |
+| TASK-044 | 1b | `tasks/TASK-044-t3-1-newcanvas-rect-color-screenshot.md` | Ready（批次表占位派单前补全） |
+| TASK-045 | 1b | `tasks/TASK-045-t3-2-png-open-read-region-saveas.md` | Ready（批次表占位派单前补全） |
+| TASK-046 | 1b | `tasks/TASK-046-t3-3-draw-undo-pixel-snapshot-verify.md` | Ready（批次表占位派单前补全） |
+| TASK-047 | 1b | `tasks/TASK-047-stage-1b-integration-adapter-reuse.md` | Ready（批次表占位派单前补全） |
+| TASK-048 | 1c | `tasks/TASK-048-cdp-provider-connect-dom-nav-download.md` | Ready（批次表占位派单前补全） |
+| TASK-049 | 1c | `tasks/TASK-049-browser-profile-no-copy-user-profile.md` | Ready（批次表占位派单前补全） |
+| TASK-050 | 1c | `tasks/TASK-050-dlp-three-tier-egress-local-only-redacted-full.md` | Ready（批次表占位派单前补全） |
+| TASK-051 | 1c | `tasks/TASK-051-taint-tracking-permission-decay.md` | Ready（批次表占位派单前补全） |
+| TASK-052 | 1c | `tasks/TASK-052-instruction-origin-attribution-ui.md` | Ready（批次表占位派单前补全） |
+| TASK-053 | 1c | `tasks/TASK-053-injection-target-fixture-visible-hidden.md` | Ready（批次表占位派单前补全） |
+| TASK-054 | 1c | `tasks/TASK-054-clean-context-review-small-model-fourth-layer.md` | Ready（批次表占位派单前补全） |
+| TASK-055 | 1c | `tasks/TASK-055-edge-adapter-cdp-ua-blacklist-interrupts.md` | Ready（批次表占位派单前补全） |
+| TASK-056 | 1c | `tasks/TASK-056-t5-1-open-site-extract-list-write-csv.md` | Ready（批次表占位派单前补全） |
+| TASK-057 | 1c | `tasks/TASK-057-t5-2-form-fill-stop-before-submit-diff-origin.md` | Ready（批次表占位派单前补全） |
+| TASK-058 | 1c | `tasks/TASK-058-t5-3-injection-target-security-ci-audit.md` | Ready（批次表占位派单前补全） |
+
 
 > **迁移零丢失核对**（ADR-0031 验证方式 3）：两段正文共 **30** 行非空内容（TASK-011 28 行 + TASK-035 2 行），
 > 迁移后逐行同序一致地出现在新卡片文件的正文区（脚本校验 missing=0、same-order=True）。

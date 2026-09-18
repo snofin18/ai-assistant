@@ -74,7 +74,7 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
               github.com 经本地代理 http://127.0.0.1:30000（global config；**只对 HTTP/HTTPS 生效**）
 已产出文档  ：架构 v2.2、应用可行性 v1.1、AGENTS.md、gov、PLAN.md、LEDGER.md、README.md、
               plans/stage-0-spikes.md ＋ plans/stage-1-pilots.md（**阶段索引与批次表**）、
-              tasks/TASK-*.md（**卡片正文 ＋ 执行记录，一卡一文件；ADR-0031**，stage-0 的 10 张已就位）、
+              tasks/TASK-*.md（**卡片正文 ＋ 执行记录，一卡一文件；ADR-0031**，stage-0 的 10 张 + stage-1 的 48 张已就位，其中 011 / 035 已含正文，其余 46 张 = 批次表占位、派单前由 Orchestrator 按 gov §3.2 模板展开实际正文）、
               docs/{governance-ai-agent-execution, subagent-orchestration, storage-design,
               wbs-overview, overnight-automation-charter, DEPENDENCIES, PARKING_LOT}、
               docs/spec/naming.md、docs/adr/**README.md（编号登记表：已存在文件 / 待建号 /
