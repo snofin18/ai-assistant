@@ -1,6 +1,6 @@
 # ADR-0018　夜间无人值守的投递机制：外部调度 + `codex exec`
 
-状态：**Accepted**（2026-09-18，人类指示 #10 / #12）　日期：2026-09-17　Supersedes：MEMORY.md §3 `[ADR:待建 0018]`「夜间自动化用 heartbeat」　Superseded by：—
+状态：**Accepted**（2026-09-18，人类指示 #10 / #12）　日期：2026-09-17　Supersedes：MEMORY.md §3 `[ADR:待建 0018]`「夜间自动化用 heartbeat」　Superseded by：ADR-0029（投递机制改回 Codex 官方 scheduled tasks；本 ADR 的纪律性内容 —— 锁 / 当夜归属 / 晨间报告 / 上报义务 —— 由章程 §11 v1.4 原样保留）
 > **生效前提**：`docs/nightly/scheduler-acceptance-test.md` 的验收清单**全绿**。在跑通之前，
 > 本 ADR 处于「设计已定、未验收」状态，章程 §11.9 已显式标注。
 >

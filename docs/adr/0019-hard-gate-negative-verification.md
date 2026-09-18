@@ -58,6 +58,7 @@
 | **8b** | `cargo deny check licenses sources`（逐个 `spikes/*/Cargo.toml`；ADR-0024 D2） | **N3** | 正：复刻 ci.yml 的枚举逻辑跑真实 `spikes/`（含 `windows =0.62.2`）→ `licenses ok, sources ok` exit 0；负：注入本地 path 依赖 + `license = "GPL-3.0-only"` 的 fixture → 断言 exit ≠ 0 **且**输出含 `license is not explicitly allowed` **且**含 `GPL-3.0-only`（本机 2026-09-18 实测 exit **4**） | ✅ 本行随 ADR-0024 落地 |
 | 10 | `cargo build --release` | — | 注入一个编译不过的 `.rs`，断言 exit ≠ 0 | ❌ **缺**（PL-018） |
 | 12 | `xtask hygiene` | N1 + N2 | 测试含三条规则各自的 通过 / 告警 / 失败 / 边界 四类用例；CI 另有 `deferred-inventory` 断言未实现子命令 exit 3 | ✅ |
+| **12b** | `xtask memory-counts` + `xtask adr-index`（文档一致性；ADR-0030 D5，**2026-09-18 追加**） | **N1** | `memory_counts.rs`（8 条规则）与 `adr_index.rs`（11 条规则）的单测里，**每条规则都有至少一个「喂不一致输入 → 必须产生该规则 id 的 Error」的负向用例**；另含两条「表结构解析不到必须失败而不是静默通过」的用例（`memory/scale-table-unparsable`、`adr/registry-section-missing`，铁律 1），与「一致输入 → 零发现项」的正向用例、以及「同一输入两次结果逐字节相同」的确定性用例。ADR-0030 验证方式 2 / 4 另给了两处**真仓库**负向实证：把规模表里 `facts.md` 的行数改成 `1` → exit 1 且输出含 `memory/line-count-mismatch`；往登记表 §2 临时加一行 `0019` → exit 1 且输出含 `adr/number-collision`（即 0019 双重占用事故的机器判据） | ✅ 本行随 ADR-0030 落地 |
 
 > **规则（自本 ADR 生效起适用于 TASK-015 及之后所有卡）**：
 > 把软门禁转硬的那张卡，**必须同时提交该门禁的负向验证**（N1 / N2 / N3 任一）并在登记表补一行，
