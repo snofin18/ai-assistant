@@ -33,12 +33,12 @@
 | `pitfalls.md` | 81 | 55 | 按主题分节；**grep 优先**，不必全读 |
 | `rejected.md` | 51 | 31 | ★ **动手前全量读**（防止同一方案被反复重新提出） |
 | `decisions.md` | 50 | 31 | 索引 → `docs/adr/NNNN-*.md` |
-| `open.md` | 44 | 23 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
+| `open.md` | 45 | 24 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
 | `apps/notepad.md` | 243 | 0 | 接记事本时**全量读**；8 个固定小节 |
 
 > **迁移核对（ADR-0021 验证方式 2）**：2026-09-18 从单体 `MEMORY.md`（256 行 / **155** 条）
 > 逐条复制到 L1，迁移后 L1 合计 200 条（≥155，差额为当日新增）→ **零丢失**。核对已记入 `LEDGER.md`。
-> 当日后续又新增 **6** 条（EOL 补测 ×2、编码假阳性与路径不一致 ×2、ADR-0025 与 §10.1 决策 ×2）→ **L1 现合计 206 条**。
+> 当日后续又新增 **7** 条（EOL 补测 ×2、编码假阳性与路径不一致 ×2、ADR-0025 与 §10.1 决策 ×2、ADR 编号冲突 N8 ×1）→ **L1 现合计 207 条**。
 > **归档触发**：任一文件 **> 400 行** → 按主题拆入 `docs/memory/archive/`（**按体积不按时间**）。
 
 ## 条目格式（单行、可 grep）
@@ -72,7 +72,8 @@ git         ：main = bc08a7e（推送前）；origin = https://github.com/snofi
               plans/stage-0-spikes.md（TASK-001~010）、plans/stage-1-pilots.md（TASK-011~058）、
               docs/{governance-ai-agent-execution, subagent-orchestration, storage-design,
               wbs-overview, overnight-automation-charter, DEPENDENCIES, PARKING_LOT}、
-              docs/spec/naming.md、docs/adr/0018~0025、docs/memory/*（ADR-0021 分层，2026-09-18 落地）、
+              docs/spec/naming.md、docs/adr/**README.md（编号登记表，ADR-0026）** + 0018/0019/0021~0026、
+              docs/memory/*（ADR-0021 分层，2026-09-18 落地）、
               docs/spike-reports/SPIKE-A.md（**PARTIAL**）
 已产出代码  ：xtask（零第三方依赖的只读护栏工具，~2800 行，99 个白盒测试全绿）
               + CI（三平台矩阵，**7 硬门禁** / 9 软门禁 + deferred-inventory；#8b spike-deny 于 2026-09-18 新增）
@@ -88,7 +89,9 @@ git         ：main = bc08a7e（推送前）；origin = https://github.com/snofi
                 第一句贴 AGENTS.md §3 的约束回执模板
               ② 夜间自动化：ADR-0018 已 Accepted，章程 §11 已重写为「任务计划程序 + codex exec」，
                 但**验收测试尚未真跑**（open.md N4）→ 需人类在场时做一次冒烟
-              ③ TASK-001 遗留裁决：DRIFT-001-3（执行记录落盘位置）、M5 许可证
+              ③ 待人类裁决：DRIFT-001-3（执行记录落盘位置）、M5 许可证、
+                **ADR-0026（Proposed：ADR 编号 0019 双重占用 → 待建号改 0027 + 章程 W4 修正）**、
+                PL-021~PL-031（护栏增强与表格转义）
 待产出文档  ：docs/spec/*（其余 6 份，含 testing.md）、docs/OPEN_SOURCE_CHECKLIST.md、
               docs/dev-env-setup.md（PL-017）、其余 7 份 Spike 报告
 执行方式    ：AI coding agent（Codex/opencode/Claude Code）实现，人类规划+审阅+裁决；
