@@ -107,7 +107,7 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
               ⑤ 待人类裁决：M5 许可证、`docs/PARKING_LOT.md` 未关闭项（护栏增强类）、
                 gov §5.4 行数口径矛盾**已裁决**（ADR-0033：写作规范 400/600 vs CI 门禆 600/900 各管一摊）、豁免机制**已裁决**（ADR-0032 Accepted，20 条基线豁免已登记于···/docs/adr/0032-doc-rule-exemption-registry.md，机器读入实现归 PL-002 / PL-015）
 待产出文档  ：docs/spec/*（其余 6 份，含 testing.md）、docs/OPEN_SOURCE_CHECKLIST.md、
-              docs/dev-env-setup.md（PL-017）、其余 7 份 Spike 报告
+              docs/dev-env-setup.md（**PL-017 已落地**，2026-09-18）、其余 7 份 Spike 报告
 执行方式    ：AI coding agent（Codex/opencode/Claude Code）实现，人类规划+审阅+裁决；
               一个会话最多 1~2 张卡（AGENTS.md §3）；并行度 ≤3（人类审阅速度决定项目速度）
 ```
