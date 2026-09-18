@@ -14,7 +14,10 @@
 | 你要做什么 | 读什么（**只读需要的，不要全读**） |
 |---|---|
 | 开始任何工作 | 本文件 → `PLAN.md`（索引，≤60 行）→ `plans/<当前阶段>.md` → 你的 `tasks/TASK-NNN.md` → `LEDGER.md` 末 10 行 |
-| 回忆"项目已知什么/否决过什么/踩过什么坑" | `MEMORY.md`（**动手前必读 §2 §4 §5**） |
+| 回忆"项目已知什么/否决过什么/踩过什么坑" | `MEMORY.md`（**L0 索引，≤150 行，含路由表**）→ 按路由跳读 `docs/memory/*` |
+| **动手前防止重复辩论**（★ 必读） | `docs/memory/rejected.md`（全量，最短的一个） |
+| 接某个应用（记事本 / 画图 / Edge…） | `docs/memory/apps/<app>.md`（全量，8 个固定小节） |
+| 记忆分层规则与读取路由 | `docs/memory/README.md`（ADR-0021） |
 | 架构、分层、进程边界、安全、平台 | `cross-platform-ai-assistant-architecture-v2.md` 对应章节（§3 架构 / §5 工具 / §6 定位 / §7 验证 / §8 状态机 / §9 撤销 / §12 安全 / §13 平台 / §15 存储） |
 | 某个应用怎么接 | `target-apps-feasibility.md` §3 对应档案 |
 | 契约细节 | `docs/spec/`：tool-schema、envelope、error-codes、capability-matrix、audit-event、ipc-protocol、naming |
@@ -43,7 +46,7 @@
 
 ## 3. 会话协议
 
-**启动（前 5 分钟，不可跳过）**：① 读本文件 ② 读 `PLAN.md` + `plans/<当前阶段>.md` 的 In/Out of scope ③ 读你的任务卡全文 ④ 读卡中引用的 spec/ADR 章节 + 目标 crate 的 `README.md`（**不变量**） ⑤ 读 `MEMORY.md` §2/§4/§5 与 `LEDGER.md` 末 10 行 ⑥ **输出约束回执，等确认后再动手**。
+**启动（前 5 分钟，不可跳过）**：① 读本文件 ② 读 `PLAN.md` + `plans/<当前阶段>.md` 的 In/Out of scope ③ 读你的任务卡全文 ④ 读卡中引用的 spec/ADR 章节 + 目标 crate 的 `README.md`（**不变量**） ⑤ 读 `MEMORY.md`（L0 索引 + §1 快照）→ **`docs/memory/rejected.md` 全量** → 本卡涉及应用的 `docs/memory/apps/<app>.md` 全量 → 其余 `docs/memory/*` **grep 命中再局部读**；再读 `LEDGER.md` 末 10 行 ⑥ **输出约束回执，等确认后再动手**。
 
 **约束回执（固定格式）**：
 
@@ -57,7 +60,7 @@
 回执与任务卡不符 → 上下文已污染 → **请人类重开会话**（比纠正更省成本）。
 
 **会话中重锚**：每完成一个子步骤自问 ①在 In scope 内吗 ②是否引入了卡里没提的文件/依赖/抽象 ③是否改了公共接口；每 20~30 轮重读本文件与任务卡；**一个会话最多完成 1~2 张卡**，做完即提交 + 更新 `LEDGER.md` + 结束会话。
-**流程**：领卡 → 回执 → 小步实现 → 自跑全部验收命令 → 填执行记录 → 更新 LEDGER（+ 有新事实/坑则追加 `MEMORY.md`）→ PR（gov §9.4 模板）→ 独立 review agent → 人类合并。
+**流程**：领卡 → 回执 → 小步实现 → 自跑全部验收命令 → 填执行记录 → 更新 LEDGER（+ 有新事实/坑则追加 `docs/memory/facts.md`｜`pitfalls.md`｜`rejected.md`；**应用专属的进 `docs/memory/apps/<app>.md`**；`MEMORY.md` 只在快照/规模表变化时才改）→ PR（gov §9.4 模板）→ 独立 review agent → 人类合并。
 **禁止 drive-by refactor**：不相关的问题一行记入 `docs/PARKING_LOT.md`，本卡不动。
 
 ---
@@ -89,7 +92,7 @@
 | 关键私有函数 | why + 非显然的 what |
 | 复杂算法/状态机 | 分步注释 + 一个具体示例 |
 | `unsafe` / FFI | **必须** `// SAFETY:` 说明（仅允许在 `crates/platform/*`） |
-| 应用坑 | 结构化标签：`// PITFALL(app=excel): COM 修改会清空 undo 栈，故此处强制快照` → 会被工具汇总进 `MEMORY.md` §5 与 App Map |
+| 应用坑 | 结构化标签：`// PITFALL(app=excel): COM 修改会清空 undo 栈，故此处强制快照` → 会被工具汇总进 `docs/memory/apps/<app>.md` §6（跨应用的进 `docs/memory/pitfalls.md`） |
 | 临时方案 | `// TODO(TASK-0NN):` / `// STUB(TASK-0NN):`，**无卡号即 CI 失败** |
 - 目标密度：公共 API 100% 有文档注释；每 20~40 行有效代码至少一条解释性注释。
 - **禁止**：注释掉的代码、无信息注释（`// 把 x 设为 1`）、与代码矛盾的过期注释（改函数必须同步改注释）。
@@ -137,9 +140,9 @@ cargo run -p xtask -- replay --suite core      # 回放基准
 | 文件 | 你（Implementer）的权限 |
 |---|---|
 | `tasks/TASK-NNN.md` | 可填「执行记录」；**不可改** In/Out scope 与验收标准 |
-| `LEDGER.md`、`docs/PARKING_LOT.md`、`MEMORY.md` §2/§5 | **可追加** |
+| `LEDGER.md`、`docs/PARKING_LOT.md`、`docs/memory/{facts,pitfalls,rejected,decisions,open}.md`、本卡涉及应用的 `docs/memory/apps/<app>.md` | **可追加**（不改写他人条目；更正用 `[supersedes:日期]`） |
 | 任务卡列出的 write scope 内文件、相关 crate `README.md` | 可改 |
-| `AGENTS.md`、`PLAN.md`、`plans/*`、`docs/spec/*`、`docs/adr/*`、其他 crate | **只读**（要改 → 提案 → DRIFT/ADR） |
+| `AGENTS.md`、`PLAN.md`、`plans/*`、`docs/spec/*`、`docs/adr/*`、`MEMORY.md`（L0 由 Orchestrator 维护）、其他 crate、**别的应用的 `apps/<app>.md`** | **只读**（要改 → 提案 → DRIFT/ADR） |
 
 多 agent 并行时 **write scope 必须互不重叠**；并行度 ≤ 3（**人类审阅速度决定项目速度**）。
 

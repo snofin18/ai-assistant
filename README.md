@@ -63,7 +63,7 @@ cargo fmt --all --check
 cargo clippy --all-targets -- -D warnings
 cargo test --workspace
 
-# 仓库卫生护栏（gov §5.4；当前实现 3/11 项，工具会自己声明）
+# 仓库卫生护栏（gov §5.4；当前实现 3/13 项，工具会自己声明 —— ADR-0025）
 cargo run -p xtask -- hygiene
 cargo run -p xtask -- --list-deferred   # 查看"还缺哪些检查、归属哪张卡"
 ```
