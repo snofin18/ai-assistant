@@ -1,6 +1,6 @@
 # 多 Agent 编排与任务分配
 
-> 版本：1.0　日期：2026-09-16　上位：`AGENTS.md`、`docs/governance-ai-agent-execution.md`（gov）§8
+> 版本：1.1　日期：2026-09-18（1.0：2026-09-16；1.1 新增 §10.1「派生任务卡会话的前置条件」）　上位：`AGENTS.md`、`docs/governance-ai-agent-execution.md`（gov）§8
 > 目的：把「主要由 AI coding agent 完成实现」这件事，从"随手叫几个 agent"变成**有角色、有边界、有交接协议、可审计**的工程流程。
 
 ---
@@ -215,6 +215,7 @@ Orchestrator 汇总 → 人类做最终合并决定
 | 概念 | 实现方式 |
 |---|---|
 | 派单 | `spawn_agent`（**`fork_context: false`**）+ §5.3 的派单消息 |
+| 派生**任务卡会话**（人类可见的独立 Codex 任务） | ⚠️ **`create_thread` 当前不可用**（见 §10.1）→ 由**人类手工新建任务**，或 `fork_thread` |
 | 追问/补充上下文 | `send_input`（不中断）；需要立即改变方向时用 `interrupt: true` |
 | 等待结果 | `wait_agent` **尽量不用**（会阻塞 Orchestrator）；优先在等待期间做不重叠的工作（例如起草下一批卡） |
 | 释放并发额度 | 完成后及时 `close_agent` |
@@ -227,3 +228,23 @@ Orchestrator 汇总 → 人类做最终合并决定
 - 不要在等待 subagent 时空转：用这段时间起草下一批任务卡或整理 MEMORY；
 - 不要重复 subagent 已完成的工作（不要"我再改一下"，应退回让它改）；
 - 编排本身要留痕：每次派单在 `LEDGER.md` 记一行（卡号、角色、write scope、结果）。
+---
+
+## 10.1 前置条件：派生「任务卡会话」当前不能靠 `create_thread`（2026-09-18 实证）
+
+**结论：TASK-002 及后续任务卡的会话，一律由人类手工新建（或用 `fork_thread`），不由 agent 调 `create_thread` 派生。**
+
+| 项 | 内容 |
+|---|---|
+| 现象 | 2026-09-17 连续 3 次调用 `create_thread` 全部返回 `create_thread received invalid arguments.`，wall time 0.048~0.056 s；同插件的 `list_threads` 正常 → 不是连通性问题 |
+| 根因（rollout 直接取证） | **不是权限，是参数结构**：前两次只给了 `prompt`、**缺 `target`**；第三次 `target` 被序列化成了 **JSON 字符串**而非对象。0.05 s 的耗时说明是**本地 schema 校验**当场拒绝，请求根本没发到服务端 |
+| 正确结构 | `target` 必须是**对象**：形如 `type=project` + `projectId`（由 `list_projects` 取）+ `environment.type=worktree 或 local`；工作区是 git 仓库时默认 `worktree`，否则 `local` |
+| 为什么仍不采用 | 上游 **openai/codex#36315**（`create_thread` 拒绝合法的 project+worktree 请求）与 **#36250**（project-aware `create_thread` 的原子性/幂等）**仍 open**；且本机从未验证过「结构写对就能成功」——验证本身会在人类侧边栏里真的建出一个任务，**代价不对称** |
+| 替代做法 | ① **人类手工新建任务**（首选）；② `fork_thread`（注意反模式 6：不要 fork 长会话历史给 subagent）；③ 会话第一句必须贴 `AGENTS.md` §3 的**约束回执**；回执与任务卡不符 = 上下文已污染 → **重开会话**，不要纠正 |
+| 跟踪 | `docs/memory/open.md` **N3** + `docs/PARKING_LOT.md` **PL-024**：#36315 关闭后重测一次；成功则把本条降级为备选 |
+
+> **勿混淆两种「派活」**：`spawn_agent`（subagent，进程内、write scope 由 Orchestrator 当场界定）
+> **可用且仍是本节主路径**；`create_thread`（在 Codex 应用里新建一个**人类可见的独立任务**）
+> 才是本条限制的对象。§2 角色矩阵、§4 分配算法、§5 派单包、§9 各阶段并行度 **全部照旧**。
+> 任务卡会话之所以要「独立任务」而不是 subagent，是因为它需要**干净的上下文**（AGENTS.md §3 启动协议）
+> 与**人类可直接接管**的会话窗口；subagent 的中间过程对人类不可见，不适合承载一张完整任务卡。

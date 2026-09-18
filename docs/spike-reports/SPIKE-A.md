@@ -5,9 +5,11 @@
 > **已完成**：卡面步骤 **1（环境记录）全部**、步骤 **2 的一部分**（窗口/编辑区/标签/菜单栏/状态栏普查；
 > **未含**菜单展开后的子项与「另存为」跨进程对话框）、步骤 **5 的一部分**（定位与遍历耗时中位数、
 > 中文 `SetValue` 正确性；**未含**大文件与 IME 两态）。
-> **未完成**：步骤 **3（Rust 生产路径，阻塞在依赖批准）**、步骤 **4（接口考古 8 步）**、
+> **未完成**：步骤 **3 的剩余部分**（Rust 侧 `SetValue` / 菜单动作 / 跨进程对话框 / `CacheRequest` 对照；
+> 依赖阻塞**已于 2026-09-18 解除**，见 §7）、步骤 **4（接口考古 8 步）**、
 > 步骤 **5 剩余**、步骤 **6（失败注入 4 种）**。
-> **执行方式**：人类会话的**先导侦察**（2026-09-17），非 TASK-002 正式执行。
+> **执行方式**：人类会话的**先导侦察**（2026-09-17）+ **依赖实证与 EOL 契约验证**（2026-09-18，见 §7），
+> 均非 TASK-002 正式执行。
 > 正式报告由 TASK-002 会话续写；续写时**不要删本文件已有内容**，按「只追加 + 标注更正」处理。
 > **复现脚本**：`spikes/spike-a-notepad/probe-01-tree-survey.ps1`、`probe-02-text-and-timing.ps1`
 > （零第三方依赖，只用 Windows 自带 UIAutomation 程序集）。
@@ -98,12 +100,32 @@ Window       aid=''                  cls=Notepad                                
 ## 4. 已发现的坑（已同步 `MEMORY.md` §5）
 
 1. **UIA 返回的文本用裸 `\r` 分行，磁盘文件是 `\r\n`** → 读回校验必须先归一化，否则必然假阴性。
+   **[2026-09-18 已升格为契约 → ADR-0023]**，并在读入（probe-03）、写回（probe-04）、
+   Rust/COM（§7 E4）三个方向独立复现；每应用实例见 `docs/memory/apps/notepad.md` §4。
 2. **打开一个已在标签页中的文件，记事本不重新加载磁盘内容** → 探针必须先杀进程 + 用带时间戳的唯一文件名；
    对产品同样重要：外部改了 `.txt`，记事本内存态不会自动更新（"文件契约"与 UI 态可能不一致）。
+   **[supersedes:2026-09-18 人类裁定]** 这**不是本项目要解决的问题** —— 用户手工双击同一个文件时
+   记事本行为完全一样，属**应用自身行为**，不是自动化引入的偏差。
+   **仍然有效的两部分**：① 探针方法论（先杀进程 + 唯一文件名，否则假阴性）；
+   ② 产品侧的 L1「文件契约」与 L3「UI 态」可能不一致，撤销/校验逻辑必须显式处理。
 3. **`Start-Process notepad` 返回的 PID ≠ 持有窗口的 PID**（实测 30464 vs 20304，事先杀干净仍如此）；
    打开第二个文件后系统里有 **3 个 Notepad 进程、1 个窗口、2 个 TabItem** → **PID 不可用于定位**。
+   **[2026-09-18 已升格为契约 → ADR-0022 D1，并在 Rust/COM 路径独立复现（§7 E3：13168 vs 2632）]**。
+   补充实测：窗口**不是立刻就有的**，Rust 侧在第 3 次枚举扫描（间隔 150 ms）后才匹配到 ≈ **450 ms** → 必须轮询。
 4. **`SetValue` 不经键盘，IME 开/关对它无影响** → 卡面的 IME 两态要求只对 **L4 合成键盘输入**有意义。
-5. **PowerShell 控制台输出中文会乱码**，但进程内字符串比较不受影响 → 判定看 `True/False` 与长度，不要肉眼看控制台。
+   **[2026-09-18 `DRIFT-002-1` 已裁决，人类指示 #4]**：卡面按「无影响」版本改述完毕
+   （`plans/stage-0-spikes.md` TASK-002 步骤 5 与 go 判据）；日后若发现例外再改回。
+5. **PowerShell 控制台输出中文会乱码**（PowerShell 控制台代码页问题），但**进程内字符串比较不受影响** → 判定看 `True/False` 与长度，不要肉眼看控制台。
+6. **[2026-09-18 新增] PowerShell 5.1 会把无 BOM 的 `.ps1` 按 GBK 解码** → **报错行号错乱**、
+   反引号转义 `` `r `` **被吞**，故障现象与真因完全无关（probe-03 实测踩过）。
+   → **`.ps1` 一律纯 ASCII**（**ADR-0024 D4**），中文说明放 `.md`。
+7. **[2026-09-18 新增] UIA 的「没找到」在 `windows`-rs 里是 `Err(HRESULT(0x00000000))`** ——
+   error 的 code 恰恰是「成功」，直接 `?` 会得到一条 `message: "操作成功完成。"` 的荒谬错误。
+   → 必须显式把 `code == 0` 映射成 `None`（`uia_dep_proof.rs` 的 `find_first()` + E6 负向对照）。
+8. **[2026-09-18 新增] 记事本文档区是 `ControlType=Document` / `ClassName=RichEditD2DPT` / `AutomationId=""`**，
+   **不是** `Edit`。只按 `Edit` 找会静默落空并触发第 7 条。→ 必须用有序候选链（ADR-0022 D5）。
+9. **[2026-09-18 新增] `notepad.exe` 必须 `Stdio::null()` 启动**：它是转交型 stub，继承父进程 stdout 后
+   会让任何「等 EOF」的管道在 `main` 返回后一直挂着（表现为"程序跑完了却一个字都看不到"）。
 
 ## 5. 未完成项、阻塞与对卡面的疑问
 
@@ -116,14 +138,27 @@ Window       aid=''                  cls=Notepad                                
 - 步骤 5 剩余：1 KB / 100 KB / 1 MB 的读写耗时与内存增量；IME 开/关两态（限 L4 路径）。
 - 步骤 6：失败注入 —— 记事本被关闭 / 最小化 / 在另一虚拟桌面 / 未保存弹窗出现。
 
-### 5.2 阻塞：需人类裁决 3 项
+### 5.2 阻塞：需人类裁决 3 项　→ **[2026-09-18 全部已裁决，见每条的 ✅]**
 
 1. **spike 依赖**：`windows` crate 已在 `docs/DEPENDENCIES.md`「计划首批」清单内，但 **`uiautomation` 不在**。
    是否批准？还是改用 `windows` crate 自带的 UIAutomation COM 绑定（少一个供应链依赖，代价是多写胶水代码）？
+   ✅ **已裁决（人类指示 #6 → ADR-0024 D1）**：用 `windows` crate 自带绑定，**否决** `uiautomation`。
+   **落地时又发现前提有误并已修正（ADR-0024 D1a）**：feature 名**不是** `Win32_UI_UIAutomation`
+   （该 feature 在 `windows` 0.62.2 里**不存在**），而是 **`Win32_UI_Accessibility`**，
+   且必须同时开 `Win32_System_Ole`（`VARIANT` 被双重 gate）。实证见 §7。
 2. **PL-019**：`Cargo.toml` 的 `exclude = ["spikes", …]` 使 deny/fmt/clippy/test 四道硬门禁**都不覆盖 spike 代码**。
    三个候选方案见 `docs/PARKING_LOT.md` PL-019。
+   ✅ **已裁决（人类指示 #7 → ADR-0024 D2）并落地**：采纳方案 ① —— `ci.yml` 新增 **`spike-deny`** 硬门禁
+   （gov §5.1 **#8b**），枚举 `spikes/*/Cargo.toml` 逐个跑 `cargo deny check licenses sources`；
+   `gate-selftest.yml` 新增对应 canary（ADR-0019 登记表已补 #8b 行）。本机双向实测：
+   负向 GPL fixture → exit **4** 且输出含 `license is not explicitly allowed`；
+   正向 `spikes/spike-a-notepad`（真实 `windows =0.62.2`）→ `licenses ok, sources ok` exit **0**。
+   fmt/clippy/test 对 spikes 的豁免是**有意的**（理由见 ADR-0024 D2 表格）。
 3. **步骤 2 指定工具**：Accessibility Insights for Windows **未安装** —— 补装（`winget install Microsoft.AccessibilityInsights`），
    还是以 `inspect.exe` + 自写 UIA 树导出替代？（本次普查已用后者完成，效果足够，可作为默认答案）
+   ✅ **已裁决（人类指示 #8 → ADR-0024 D3）**：以 **`inspect.exe` + 自写 UIA 树导出**替代，
+   **否决**补装（输出不可 diff / 不可计时 / 不可重复）。官方 `winapp ui inspect` 列为候选，试用归 TASK-003。
+   卡面步骤 2 已改述；工具用法固化在 `spikes/spike-a-notepad/README.md`。
 
 ### 5.3 对卡面措辞的疑问（**走 DRIFT/ADR，不自行改**）
 
@@ -131,6 +166,11 @@ Window       aid=''                  cls=Notepad                                
 实测表明 `SetValue` 走 UIA Pattern、**不经过键盘与 IME**，因此该两态对照对 `SetValue` 是空操作。
 建议把该条改为「**L4 合成键盘输入**路径下分别在 IME 开/关两态测中文写入；`SetValue` 路径只需单态验证」。
 → 这是卡面措辞变更，应由 TASK-002 会话记为 `DRIFT-002-x` 交人类裁决，**本次侦察不改卡面**。
+
+**[2026-09-18 已裁决]** 人类指示 #4 批准了上述建议，登记为 **`DRIFT-002-1`（已裁决，人类批准）**：
+`plans/stage-0-spikes.md` TASK-002 的步骤 5 与 go 判据均已改述为
+「`SetValue` 路径单态验证；IME 开/关两态**仅**针对 L4 合成键盘输入路径」。
+处置为「**先按无影响的版本改**，日后若发现例外再改回」。
 
 ## 6. 初步倾向（**不是结论**，待步骤 3/5/6 完成后才能定 go/no-go）
 
@@ -142,3 +182,133 @@ Window       aid=''                  cls=Notepad                                
   两者的缓存/批量取属性行为不同，耗时可能差一个数量级）。
 - 因此**在 Rust 路径跑通之前不应给 go**。若 Rust 侧性能显著劣于托管侧，需要重新评估
   架构 v2 里「Host 进程内完成定位与执行」的批量取属性策略。
+
+> **[2026-09-18 更正：第三处风险已解除]** Rust/COM 路径**已跑通并实测**（§7）：
+> 候选链定位中位数 **2.349 ms**（n=10，min 1.976 / max 3.049），对照 PowerShell 托管封装的
+> **1.5 ms** → **同一数量级，比值 ≈1.6×，不存在"差一个数量级"的风险**。
+> 因此**架构 v2 的批量取属性策略无需重估**。剩余两处风险（跨进程「另存为」对话框、1 MB 大文件）
+> **仍未测** → go/no-go 依然**不能**给，判据见 §3 的表格。
+> 注意本结论的适用边界：证据只覆盖记事本的 **32 节点树**；Excel / Photoshop 的树可能是数千到数万节点，
+> 阶段 2/3 必须重测（已登记为 `docs/memory/open.md` 的 ASSUMPTION）。
+---
+
+## 7. 2026-09-18 追加：Rust/COM 生产路径实证 与 EOL 契约验证
+
+> **性质**：仍是人类会话的产出，**不是** TASK-002 正式执行。按本文件头部规则「只追加 + 标注更正」，
+> §1~§6 的既有内容**一字未删**，被更正的地方在原位加了 `[2026-09-18 …]` 标注。
+> **复现**：`spikes/spike-a-notepad/probe-03-eol-matrix.ps1`、`probe-04-write-path-eol.ps1`、
+> `Cargo.toml` + `src/bin/uia_dep_proof.rs`（`cargo build` 后直接跑，期望 `ExitCode = 0`）。
+> **契约**：ADR-0022（定位）、ADR-0023（文本 EOL）、ADR-0024（工具链与依赖，含 **D1a 实证修正**）。
+> **应用档案**：`docs/memory/apps/notepad.md`（ADR-0021 的 L2 层，8 个固定小节）。
+
+### 7.1 依赖阻塞解除：`windows` crate 的 UIA 绑定**可用**，但 feature 名与 ADR-0024 D1 原稿不同
+
+| 项 | 结论 | 证据 |
+|---|---|---|
+| `Win32_UI_UIAutomation` | ❌ **不存在** | `windows-0.62.2.crate` 原包的 `Cargo.toml`：26 个 `Win32_UI_*` feature 里没有它；全包唯一带该字样的是 **WinRT** 的 `UI_UIAutomation` / `UI_UIAutomation_Core`（provider 侧）。crates.io 稀疏索引实测 0.62.2 **就是最新版**（81 个版本） |
+| 客户端 UIA COM 绑定的真实位置 | **`Win32::UI::Accessibility`**（feature = **`Win32_UI_Accessibility`**），与 MSAA `IAccessible` 和 provider 侧接口同住一个模块 | `windows-0.62.2/src/Windows/Win32/UI/Accessibility/mod.rs`：`CUIAutomation`(CLSID, L904)、`IUIAutomation`(L6806)、`IUIAutomationElement`、`IUIAutomationElementArray`、`IUIAutomationTreeWalker`、`IUIAutomationCondition`、`IUIAutomationCacheRequest`、`IUIAutomationValuePattern` + `UIA_*PropertyId`/`UIA_*ControlTypeId`/`UIA_*PatternId`/`TreeScope_*` 全套常量（共 1381 个条目） |
+| 还需要 `Win32_System_Ole` | ✅ **必须** | `VARIANT` 被 `#[cfg(all(feature = "Win32_System_Com", feature = "Win32_System_Ole"))]` **双重 gate**，而 `CreatePropertyCondition` 的签名要 `VARIANT`；只开 `Com` → `no VARIANT in Win32::System::Variant` |
+| `CacheRequest` 是否可用 | ✅ 可用 | `IUIAutomationCacheRequest` 与全部 `*BuildCache` 方法都在 → ADR-0024「重新评估触发条件」中的"缺 CacheRequest"**未命中** |
+| 编译 | ✅ `cargo build` **零警告**（edition 2024） | 本机 2026-09-18 |
+
+**实际启用的 7 项 feature** 及逐条理由写在 `spikes/spike-a-notepad/Cargo.toml` 的行内注释里。
+`Win32_UI_HiDpi`（ADR-0022 D8）与 `Win32_UI_Input_KeyboardAndMouse`（L4）**刻意未启用** ——
+不提前引入未验证的 feature，留到阶段 1（`docs/memory/open.md` N1）。
+
+### 7.2 `uia_dep_proof` 的六项证据（本机 2026-09-18，`ExitCode = 0`）
+
+| # | 实测输出 | 印证 |
+|---|---|---|
+| E1 | `CoCreateInstance(CLSID_CUIAutomation) -> IUIAutomation` PASS | feature 名正确、COM 类可实例化 |
+| E2 | `GetRootElement name="桌面 1" class="#32769"` | COM 调用真的打到 UIAutomationCore（不是空壳绑定） |
+| E3 | `hwnd=0x540d38 owner_pid=13168 launched_pid=2632 same_pid=false`；窗口在第 **3** 次枚举扫描后出现（间隔 150 ms → ≈**450 ms**） | **ADR-0022 D1** 在 Rust/COM 路径独立复现；且证明「启动后立刻查窗口」必然失败，**必须轮询** |
+| E4 | 命中候选链**第 1 项** `Document + RichEditD2DPT`；`aid=""`；`raw_chars=25 raw_cr=3 raw_lf=0 norm_eq=true cjk_kept=true`（磁盘 32 字节 / 28 字符 / CRLF） | **ADR-0022 D4/D5**（AutomationId 为空 → 不能当 selector；有序候选链有效）+ **ADR-0023**（28−3=25 与"3 个 CRLF 各丢 1 字符"精确吻合） |
+| E5 | 候选链定位中位数 **2349 µs**（min 1976 / max 3049，n=10） | 见 §7.3 |
+| E6 | 树中不存在的 ControlType（DataGrid）解析为 `None`（非成功、非硬错误） | 「没找到」与「出错」可区分；证明 §4 坑 7 的 `Err(HRESULT(0))` 映射写法正确 |
+
+### 7.3 ★ §6 点名的最大不确定性：**已解除**
+
+| 路径 | 定位耗时（中位数） | 采样 |
+|---|---|---|
+| PowerShell + UIAutomation **托管封装** | **1.5 ms** | n=10（probe-02） |
+| **Rust + `windows` crate COM** | **2.349 ms** | n=10（`uia_dep_proof` E5） |
+
+**比值 ≈1.6×，同一数量级。** §6 担心的「耗时可能差一个数量级」**没有出现** →
+架构 v2「Host 进程内完成定位与执行」的批量取属性策略**无需重估**。
+
+**适用边界（必须一起读）**：本结论只覆盖**记事本的 32 节点树 + 单个控件定位 + 不带 CacheRequest**。
+Excel / Photoshop 的树可能是数千到数万节点，且大树上 COM 的**跨进程 marshalling** 开销可能非线性增长
+→ 阶段 2/3 必须重测（已登记 `docs/memory/open.md` 的 ASSUMPTION）。
+`CacheRequest` 批量取属性的收益也**未测**（open.md N2）—— 若收益显著，应写进
+`crates/platform/windows` 的不变量。
+
+### 7.4 EOL 契约（ADR-0023）的双向实测
+
+**读入方向（probe-03，`D:\csart\eol-probe\RESULT.txt`）** —— 结论：**无论磁盘是什么形态，UIA 一律返回裸 CR**。
+
+| 磁盘形态 | disk_chars / bytes | uia_chars | 磁盘 EOL | UIA EOL | 状态栏 | raw_eq | **norm_eq** |
+|---|---|---|---|---|---|---|---|
+| CRLF | 15 / 15 | 12 | code10=3 code13=3 | **code13=3** | ` Windows (CRLF)` | False | **True** |
+| LF | 12 / 12 | 12 | code10=3 | **code13=3** | ` Unix (LF)` | False | **True** |
+| CR | 12 / 12 | 12 | code13=3 | code13=3 | ` Macintosh (CR)` | **True** | **True** |
+| MIXED | 13 / 13 | 12 | code10=2 code13=2 | **code13=3** | ` Windows (CRLF)` | False | **True** |
+| CRLF+CJK | 10 / **22** | 8 | code10=2 code13=2 | **code13=2** | ` Windows (CRLF)` | False | **True** |
+
+> ⚠️ **CJK 行已于 2026-09-18 补测修正**。首次跑出的 `14 / 34 / code13=1` 是**脚本编码坑造成的假数据**：
+> `probe-03` 当时直接写了 CJK 字面量，PS 5.1 按 GBK 解码无 BOM 脚本 → 字面量已被糟蹋，
+> 那一行的 `norm_eq=True` 是**假阳性**。改为纯 ASCII 脚本 + 码点构造样本后重跑，
+> 得到上表数值（与理论值 10 字符 / 22 字节 / UIA 8 字符 **完全吻合**）；其余 4 行重跑结果逐字节不变。
+> 详见 ADR-0023「证据二」的补测注记与 `docs/memory/pitfalls.md`。
+
+> 附带发现：状态栏那一列**独立**报告文件的真实 EOL 风格 → 可作为「文件契约」的旁证来源
+> （当 UIA 读到的内容与磁盘不一致时，用它判断是"记事本没重载"还是"我们归一化写错了"）。
+
+**写回方向（probe-04，`RESULT-04.txt`）** —— 两条结论：
+
+1. **`SetValue` 把任何输入（LF / CR / CRLF）一律归一成裸 CR**（与读入方向对称）；
+2. **保存后磁盘的 EOL 风格 = 文件原本的风格（5/5 保留）**，与写进去的是什么**无关**。
+   → Adapter **不需要**为 EOL 做补偿；但也**不能指望通过 UI 改变文件的 EOL 风格**
+   （要改必须走 L1 文件契约直接写盘）。
+
+| 用例 | 写入 CR/LF | SetValue 后 UIA | 保存后磁盘 | 风格保留 | 三项断言 |
+|---|---|---|---|---|---|
+| disk=CRLF, write=LF | 0/2 | **2/0** | 2/2 | ✅ | 全 True；**CJK 存活 True** |
+| disk=CRLF, write=CRLF | 2/2 | **2/0** | 2/2 | ✅ | 全 True |
+| disk=CRLF, write=CR | 2/0 | 2/0 | 2/2 | ✅ | 全 True |
+| disk=LF, write=LF | 0/2 | **2/0** | **0/2** | ✅ | 全 True |
+| disk=LF, write=CRLF | 2/2 | **2/0** | **0/2** | ✅ | 全 True |
+
+> ⚠️ **不要误读**：后 4 行的 `cjk_survived_on_disk=False` 是**预期结果，不是失败** ——
+> 那 4 个用例的输入是**纯 ASCII**（为绕开 §4 坑 6 的 PowerShell GBK 解码坑而刻意如此），
+> 输入里没有 CJK，自然"没存活"。CJK 无损的证据是第 1 行（True）与 §7.2 的 E4（`cjk_kept=true`，
+> Rust 路径独立复现）。**通用教训**：断言的 False 必须结合"输入里到底有没有被测对象"来读。
+
+**官方文档核查（人类指示 #2 要求）**：`TextPattern2.DocumentRange.GetText(TextGetOptions.UseCrlf)`
+的存在、RichEdit 控件的 EOL 处理、以及 Windows 11 记事本"扩展 EOL 支持"（状态栏可显示
+Unix LF / Macintosh CR）的官方说明，**共同指向一个结论：记事本的换行表示方式没有随版本改变** ——
+它一直是在**内部**用 CR 表示段落分隔，只在**落盘**时按文件原风格输出。
+→ 因此 ADR-0023 的规范形选 **LF**、出口按每应用习惯表转换，是稳的（不需要按版本分支）。
+
+### 7.5 门禁与登记（PL-019 关闭）
+
+| 项 | 结果 |
+|---|---|
+| `ci.yml` 新增 `spike-deny`（gov §5.1 **#8b**） | ✅ 枚举 `spikes/*/Cargo.toml` 逐个跑 `cargo deny check licenses sources`；无 manifest 时**显式打印「无」再 exit 0**（铁律 1） |
+| `gate-selftest.yml` 新增 `spike-deny-gate` canary | ✅ 正向复刻 ci 逻辑 + 负向 GPL fixture；断言钉在具体文本 `license is not explicitly allowed` 与 `GPL-3.0-only` |
+| 本机负向实测 | ✅ GPL path 依赖 fixture → exit **4**，输出含 `error[rejected]` |
+| 本机正向实测 | ✅ `spikes/spike-a-notepad`（真实 `windows =0.62.2`）→ `licenses ok, sources ok`，exit **0** |
+| ADR-0019 登记表 | ✅ 已补 #8b 行 |
+| `docs/DEPENDENCIES.md` | ✅ `windows` 行（Approved for spikes，`=0.62.2`）+ `uiautomation` 行（**Rejected**，理由 = ADR-0024 D1） |
+| **途中抓到的新坑** | ⚠️ spike 自己的 `Cargo.toml` **缺 `license` 字段** → `error[unlicensed]` exit 4（与依赖许可证无关，是**被检查的包自身**没声明）。已补 `license = "MIT"`，并建议 TASK-015 做成 hygiene 规则（PL-021） |
+
+### 7.6 本次新增/更新的文件清单
+
+| 文件 | 动作 |
+|---|---|
+| `docs/adr/0021…0025` | 新增 5 条 ADR（记忆分层 / Windows 目标身份与 selector 稳定性 / 文本 EOL 契约 / spike 工具链与门禁 / 卫生规则口径统一） |
+| `docs/adr/0018` | Proposed → **Accepted**（补本机实证） |
+| `docs/memory/**` | 新增分层结构（ADR-0021 落地）：`README.md`、5 个 L1 文件、`apps/notepad.md`、`archive/README.md`；`MEMORY.md` 256 行 → **100 行 L0 索引**，155 条条目**逐条迁移零丢失**（迁移后 L1 合计 200 条 = 155 + 当日新增 45） |
+| `spikes/spike-a-notepad/` | 新增 `probe-03`、`probe-04`、`Cargo.toml`、`src/bin/uia_dep_proof.rs`；README 重写（工具用法 / ASCII 约束 / 契约速查） |
+| `.github/workflows/{ci,gate-selftest}.yml` | 新增 `spike-deny` 硬门禁 + canary |
+| `docs/overnight-automation-charter.md` | §11 **全章重写**（v1.3）；`docs/nightly/scheduler-acceptance-test.md` 新建 |
+| `xtask/src/{deferred,hygiene,main,cli}.rs` | 卫生规则口径 11 → **13**（ADR-0025）；`cargo test --workspace` **99 passed** |
