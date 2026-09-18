@@ -316,16 +316,20 @@ DRIFT-012-1
 | 10 | 构建（三平台矩阵） | `cargo build --release` on win/macos/linux runner | 平台特定编译错误 |
 | 11 | 文档完整性 | `cargo doc --no-deps` + `#![warn(missing_docs)]` | 公共 API 无文档 |
 | 12 | **仓库卫生** | `cargo run -p xtask -- hygiene` | ★ 见 5.4 |
+| **12b** | **文档一致性**（ADR-0030） | `cargo run -p xtask -- memory-counts` + `cargo run -p xtask -- adr-index` | ★ 两处**派生事实**被手写进文档而必然漂移：① `MEMORY.md`「各文件当前规模」表的行数/条目数（8 条规则；已造成两次真实事故，第二次就发生在刚修完第一次之后）；② `docs/adr/README.md` 编号登记表 ↔ `docs/adr/NNNN-*.md` ↔ `decisions.md` 的三方一致性（11 条规则；0019 号双重占用事故的机器判据是 `adr/number-collision`）。两个子命令都**只读**，发现不一致时打印可直接粘贴的正确值让人改（ADR-0030 选项 1 已否决自动写回）；表结构解析不到必须**报错**而不是静默当作一致（`memory/scale-table-unparsable` / `adr/registry-section-missing`，铁律 1） |
 | 13 | 回放基准 | `cargo run -p xtask -- replay --suite core` | 用录制的树快照跑逻辑回归（v2 §17.4），不依赖真机 |
 | 14 | 提交规范 | commitlint / 钩子 | 无法追溯到任务卡 |
 | 15 | **命名与注释规范** | `cargo run -p xtask -- check-comments` | ★ 缩写命名、公共 API 缺文档注释、`TODO`/`PITFALL` 无卡号、注释掉的代码 |
 | 16 | **台账与记忆同步** | `cargo run -p xtask -- check-ledger` | 卡已完成但未追加 LEDGER/MEMORY 条目 |
 
-> 第 **8b** 项用**子编号**而不占用新的一级行号，是为了让本表的 16 行主编号保持稳定 ——
+> 第 **8b** 与 **12b** 项都用**子编号**而不占用新的一级行号，是为了让本表的 16 行主编号保持稳定 ——
 > 主编号被 `tasks/TASK-001-repo-skeleton.md`、`xtask/src/deferred.rs`、`ci.yml` 头部注释
 > 与 `plans/stage-1-pilots.md` 多处交叉引用，重编号会引发一轮无价值的口径漂移（PL-001 的教训）。
+> 12b **不并入 #12（hygiene）** 的理由：hygiene 的规则总数已被 ADR-0025 钉死为 13（5.4 表格行数是 SSOT），
+> 把这 19 条文档一致性规则塞进去会立刻作废那个口径并牵连 `deferred.rs` 的数量自洽测试；
+> 且两者查的对象不同 —— hygiene 查**源码形态**，12b 查**文档之间的交叉一致性**（ADR-0030 D5）。
 
-> 第 5、6、7、12、13、15、16 项是本项目**特有**的护栏，也是防漂移最有效的一组——它们检查的是"结构"与"过程"，而不只是"功能"。
+> 第 5、6、7、12、12b、13、15、16 项是本项目**特有**的护栏，也是防漂移最有效的一组——它们检查的是"结构"与"过程"，而不只是"功能"。
 
 > **元门禁（ADR-0019，2026-09-17 生效）**：上表每一项**硬**门禁都必须配一条「负向验证」——
 > 能证明它在该红的时候真的会红的机制（N1 单元负向用例 / N2 CI 显式失败步骤 / N3 canary 工作流）。
@@ -810,7 +814,7 @@ Task: TASK-012
 - [ ] `docs/adr/0001~000N`：把 v2 与 feasibility 中的关键决策落成 ADR（语言选型、MCP-first、element 不跨进程、L1 优先、Excel 用快照不用 undo、Edge 专用 profile、股票交易 Non-goal 等）
 - [ ] `docs/DEPENDENCIES.md`（空表头 + 登记规则）
 - [ ] `tasks/` 目录 + TASK-001~0NN（阶段 1 全部任务卡，含 write scope 与验收命令）
-- [ ] CI：§5.1 的 **17 行清单 ↔ 16 个步骤（7 硬 + 9 软）**（口径见 ADR-0025 D4；可分批上线，但第 1~5 项必须第一天就有）
+- [ ] CI：§5.1 的 **18 行清单 ↔ 17 个步骤（8 硬 + 9 软）**（口径见 ADR-0025 D4 与 ADR-0030 D5；可分批上线，但第 1~5 项必须第一天就有）
 - [ ] `xtask`：verify-schemas / codegen --check / hygiene / replay
 - [ ] arch test（§5.3 依赖方向）
 - [ ] `fixtures/apps/`：靶机应用 v0（至少一个"类记事本"应用，控件 id 稳定）

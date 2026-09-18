@@ -1,11 +1,13 @@
 # CI — gov §5.1 的门禁清单在机器上的表达。
 #
 # 上线策略（TASK-001）：
-#   硬门禁 7 项（任一失败即阻塞合并）：fmt / clippy(含禁用项 lint) / test / deny / build / hygiene
-#     / spike-deny
+#   硬门禁 8 项（任一失败即阻塞合并）：fmt / clippy(含禁用项 lint) / test / deny / build / hygiene
+#     / spike-deny / doc-consistency
 #     （DRIFT-001-2-a 裁决确认：前 6 项 = 卡面原定 5 项 + hygiene；计数口径见
 #      tasks/TASK-001-repo-skeleton.md §5.2。第 7 项 spike-deny 由 ADR-0024 D2 新增，
-#      对应 gov §5.1 的 #8b —— 因为 spikes/ 被 workspace exclude，主 deny job 覆盖不到它。）
+#      对应 gov §5.1 的 #8b —— 因为 spikes/ 被 workspace exclude，主 deny job 覆盖不到它。
+#      第 8 项 doc-consistency 由 ADR-0030 新增，对应 gov §5.1 的 #12b —— 同样用子编号，
+#      理由见该 job 上方的注释。）
 #   元门禁（ADR-0019）：每项硬门禁都必须配一条「负向验证」，证明它在该红的时候真的会红。
 #     canary 在 gate-selftest.yml（手工触发）；当前登记表见 ADR-0019，缺项见 PL-018。
 #   软门禁 9 项（continue-on-error: true）：每一项都注明「启用卡号」，
@@ -204,6 +206,43 @@ jobs:
             exit 1
           fi
           echo "OK: 全部 ${#manifests[@]} 个 spike manifest 的 licenses / sources 均通过"
+
+  # ==========================================================================
+  # 硬门禁 #12b：文档一致性（ADR-0030）
+  #
+  # 检查对象（共 19 条规则；工具**只读**，不会自动改写任何文件）：
+  #   ① MEMORY.md「各文件当前规模」表 ↔ docs/memory/ 的实测行数与条目数（ADR-0030 D1/D2，8 条）
+  #   ② docs/adr/README.md 编号登记表 ↔ docs/adr/NNNN-*.md ↔ docs/memory/decisions.md（ADR-0030 D3，11 条）
+  #
+  # 为什么单独一道 job 而不并入 #12（hygiene）：hygiene 的规则总数已被 ADR-0025 钉死为 13
+  #   （gov §5.4 的表格行数就是 SSOT），把这 19 条塞进去会立刻作废那个口径，并牵连 deferred.rs 的
+  #   数量自洽测试；两者查的对象也不同 —— hygiene 查**源码形态**，本 job 查**文档之间的交叉一致性**。
+  # 为什么用子编号 #12b（沿用 #8b 先例）：gov §5.1 的主编号被 tasks/TASK-001-repo-skeleton.md、
+  #   xtask/src/deferred.rs、本文件与 plans/stage-1-pilots.md 交叉引用，重编号会造成大面积口径漂移。
+  # 为什么两个子命令都跑完再判失败（而不是 set -e 一红就断）：一次运行要给审阅者**全部**发现项，
+  #   否则「修一条、跑一次」等于把 CI 变成交互式调试器。
+  # 负向验证（ADR-0019 元门禁，形式 N1）：memory_counts.rs / adr_index.rs 的单测里每条规则都有
+  #   「不一致 → 必须产生 Error」的负向用例；登记表见 docs/adr/0019-hard-gate-negative-verification.md。
+  # ==========================================================================
+  doc-consistency:
+    name: doc consistency (memory-counts + adr-index)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: "[HARD #12b] xtask memory-counts + adr-index"
+        run: |
+          set -uo pipefail
+          failed=0
+          cargo run -q -p xtask -- memory-counts || failed=1
+          cargo run -q -p xtask -- adr-index || failed=1
+          if [ "$failed" -ne 0 ]; then
+            echo "文档一致性门禁失败：按上面每条发现项消息里的「处置」修正后重跑（工具只读，不会替你改文件）"
+            exit 1
+          fi
+          echo "OK: MEMORY.md 规模表与 ADR 编号登记表均与实测一致"
 
   # ==========================================================================
   # 未实现项自检：确保 xtask 的"未实现"清单始终能被打印出来。
