@@ -1,0 +1,42 @@
+# Spike A 的 Rust 侧验证 crate（ADR-0024 D1）。
+#
+# 为什么单独一个 manifest：workspace 根 Cargo.toml 的 `exclude = ["spikes", ...]` 把 spikes/
+# 排除在产品构建之外，所以这里必须自带 `[workspace]`，否则会去认根工作区。
+# 为什么受门禁：ci.yml 的 `spike-deny` job 枚举 `spikes/*/Cargo.toml` 并跑
+# `cargo deny check licenses sources`（ADR-0024 D2 / gov §5.1 #8b）。本文件一存在，
+# 那道门禁就有真实检查对象，而不再是"无 spike manifest，显式通过"。
+#
+# 依赖登记：docs/DEPENDENCIES.md（`windows` 行）。改版本 = 漂移触发器（AGENTS.md §4 ①）。
+
+[package]
+name = "spike-a-notepad"
+version = "0.0.0"
+edition = "2024"
+publish = false
+# 必填：`cargo deny check licenses` 会把"没有 license 字段"判成 error[unlicensed]，
+# 于是 spike-deny 门禁（gov §5.1 #8b）会红。取值与仓库根 LICENSE、
+# 根 Cargo.toml 的 [workspace.package].license 一致。
+license = "MIT"
+
+[workspace]
+
+# `windows` 0.62.2 是 Microsoft 官方的 Win32/WinRT 投影。
+#
+# 关键事实（ADR-0024 D1a 实证修正）：**不存在** `Win32_UI_UIAutomation` 这个 feature。
+# UI Automation 的*客户端* COM 接口（`IUIAutomation` / `CUIAutomation` /
+# `IUIAutomationElement` / `IUIAutomationValuePattern` …）与 MSAA、provider 侧接口
+# 一起放在 `Win32::UI::Accessibility` 模块里，所以 feature 名是 `Win32_UI_Accessibility`。
+# 另外 `VARIANT` 被 `Win32_System_Ole` 双重 gate，而 `CreatePropertyCondition` 的签名需要
+# `VARIANT` —— 只开 Com 不开 Ole 会报 "no `VARIANT` in `Win32::System::Variant`"。
+# 逐条 feature 的存在理由见下表；删任何一条都必须重新跑 `cargo run --bin uia-dep-proof`。
+[dependencies.windows]
+version = "=0.62.2"
+features = [
+    "Win32_Foundation",             # HWND / LPARAM / WPARAM / CloseHandle
+    "Win32_System_Com",             # CoInitializeEx / CoCreateInstance / CLSCTX_INPROC_SERVER
+    "Win32_System_Ole",             # VARIANT（CreatePropertyCondition 的入参类型）
+    "Win32_System_Threading",       # OpenProcess / QueryFullProcessImageNameW（owner PID -> 映像名）
+    "Win32_System_Variant",         # VARIANT 所在模块
+    "Win32_UI_Accessibility",       # IUIAutomation 全套客户端 COM 绑定（不是 Win32_UI_UIAutomation！）
+    "Win32_UI_WindowsAndMessaging", # EnumWindows / GetWindowThreadProcessId / PostMessageW
+]
