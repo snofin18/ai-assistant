@@ -106,7 +106,7 @@
 - **禁止**：注释掉的代码、无信息注释（`// 把 x 设为 1`）、与代码矛盾的过期注释（改函数必须同步改注释）。
 
 ### 5.3 Rust
-Edition 2024；crate 顶层 `#![deny(clippy::unwrap_used, expect_used, panic, todo, dbg_macro, print_stdout, print_stderr, indexing_slicing)]` + `#![warn(clippy::pedantic, missing_docs)]`（`tests/` 内可 allow）；库用 `thiserror` 定义领域错误枚举、二进制才用 `anyhow`，对外错误必带 `ErrorCode`；时钟/随机/UUID/FS/网络一律 trait 注入（保证可回放）；跨进程与持久化结构只放 `crates/protocol`（由 schema 生成，**禁止各处手写重复结构体**）；单文件 ≤400 行（软）/600（硬），函数 ≤80 行，参数 ≤6 个。
+Edition 2024；crate 顶层 `#![deny(clippy::unwrap_used, expect_used, panic, todo, dbg_macro, print_stdout, print_stderr, indexing_slicing)]` + `#![warn(clippy::pedantic, missing_docs)]`（`tests/` 内可 allow）；库用 `thiserror` 定义领域错误枚举、二进制才用 `anyhow`，对外错误必带 `ErrorCode`；时钟/随机/UUID/FS/网络一律 trait 注入（保证可回放）；跨进程与持久化结构只放 `crates/protocol`（由 schema 生成，**禁止各处手写重复结构体**）；单文件 ≤400 行（软）/600（硬）**[写作规范，CI 门禆见 gov §5.4 = 600/900（ADR-0033）]**，函数 ≤80 行，参数 ≤6 个。
 
 ### 5.4 TypeScript
 `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`；禁 `any`、禁非空断言、禁 `console.*`；**类型全部由 `protocol/` schema 生成**，IPC 返回用 zod 运行时校验；UI 层禁 `fetch`/`WebSocket`（出网一律走 Core）；业务逻辑不写在组件里，组件 ≤200 行；文案全走 i18n key。
