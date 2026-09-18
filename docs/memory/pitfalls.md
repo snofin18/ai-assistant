@@ -1,0 +1,81 @@
+# pitfalls.md — 踩坑记录（PITFALL）
+
+> 标签 `[PITFALL]` = 真实踩到过、会再次踩到的坑，**必须**带「因此怎么做」。
+> 只属于某一个应用的坑进 `docs/memory/apps/<app>.md`；跨应用的才进本文件。
+> 代码里的 `// PITFALL(app=…)` 注释由 `xtask check-comments` 汇总到这里（AGENTS.md §5.2）。
+
+---
+
+> **本文件是 `MEMORY.md` 分层结构（ADR-0021）的 L1 层之一。**
+> 写入规则见 `MEMORY.md`「条目格式」与「更新职责」；路由规则见 `docs/memory/README.md`。
+> **只追加，不改写他人条目**；更正用新条目 + `[supersedes:日期]` 标注。
+> 应用专属的条目**不进本文件**，进 `docs/memory/apps/<app>.md`。
+
+- [2026-09-16][PITFALL][src:v2 §9.2] `Ctrl+Z` 在终端类目标是 **SIGTSTP（挂起前台进程）**；撤销快捷键必须由 Adapter 声明，终端/远程会话目标禁用键盘 undo。
+- [2026-09-16][PITFALL][src:v2 §9.2] 撤销会连带撤销**用户**在 Agent 之后做的改动 → 默认用"内容快照反向应用 diff"，而非"步数级 undo"。
+- [2026-09-16][PITFALL][src:v2 §9.2] 保存后 undo 仍可执行但磁盘已变 → 区分"内存态可逆"与"持久态可逆"，文件写盘一律配影子副本。
+- [2026-09-16][PITFALL][src:v2 §7.7] 点击"发送"后网络卡住 → Agent 误判失败并重试 → 发出两条。非幂等动作**验证前禁止重试**。
+- [2026-09-16][PITFALL][src:v2 §13.2.6] 中文 IME 激活时模拟键盘输入会被吞或变拼音 → 文本写入优先用 `ValuePattern.SetValue` / `AXValue` / AT-SPI `EditableText`（不经 IME）。
+- [2026-09-16][PITFALL][src:v2 §6.1] 虚拟化列表（UIA VirtualizedItems、Qt model/view、Web 虚拟列表）只实例化可见项 → 索引不可作唯一依据，需搜索或滚动加载。
+- [2026-09-16][PITFALL][src:v2 §6.9] XWayland 应用的 AT-SPI 坐标可能是 X11 逻辑坐标，与 Wayland 输出坐标在分数缩放下不一致【待 Spike D 实测】→ 首次使用某显示器组合必须校准。
+- [2026-09-16][PITFALL][src:feasibility P1] Win11 记事本"另存为"打开的是 **Shell 进程的对话框**，不属于记事本进程 → TargetDescriptor 必须支持跨进程解析。
+- [2026-09-16][PITFALL][src:feasibility P1] 关闭未保存文档会弹三态对话框（保存/不保存/取消）→ 注册为 interrupt，**默认选"取消"**，禁止 Agent 自行选"不保存"。
+- [2026-09-16][PITFALL][src:feasibility P2] Excel **Protected View**（网络来源文件）下 UI 树与 COM 行为都不同 → 必须探测；"启用编辑"是安全边界，需人工确认。
+- [2026-09-16][PITFALL][src:feasibility P2] Excel COM 对象不显式释放会残留 `EXCEL.EXE` 进程 → Host 需要 COM 生命周期管理与看门狗。
+- [2026-09-16][PITFALL][src:feasibility P2] `Range.Value` / `.Formula` / `.Text` 三者语义不同 → 断言必须指明读哪一个。
+- [2026-09-16][PITFALL][src:feasibility P3] 画图**画布无子控件结构**，且抗锯齿导致像素不精确一致 → 断言必须用容差或感知哈希，不能逐像素相等；画布坐标 ≠ 屏幕坐标（受缩放与滚动影响）。
+- [2026-09-16][PITFALL][src:feasibility P4] Photoshop 启动 10~30 s 且有首选项/登录/许可弹窗 → "进程存在"不等于"就绪"，必须做就绪探测。
+- [2026-09-16][PITFALL][src:feasibility P5] Edge/Chrome 专用 profile **没有用户登录态** → 首次需用户手动登录；禁止复制 Cookie。
+- [2026-09-16][PITFALL][src:v2 §13.4.7] Linux 锁屏会移除 libei 输入设备 → 长任务必须监听会话状态并暂停，解锁后重建会话。
+- [2026-09-16][PITFALL][src:v2 §13.4.5] 用 Tier 1（重启应用注入环境变量）激活 a11y 会**丢失用户未保存工作** → 必须先做 dirty 检查并提示保存。
+- [2026-09-16][PITFALL][src:v2 §13.4.6] Chromium/Electron 开启 a11y 会显著增加 CPU/内存，且 Web 树可达数千节点 → 必须裁剪，且只在需要时开启。
+- [2026-09-16][PITFALL][src:v2 §5.5] 工具数 > 20~30 时模型选择准确率显著下降 → 按目标动态挂载 + 检索式工具选择。
+- [2026-09-16][PITFALL][src:v2 §7.1] UIA/AT-SPI 全窗口树遍历可达秒级 → 限定 scope 与 depth、缓存、批量取属性、按需展开。
+- [2026-09-16][PITFALL][src:gov §2.2] 代码先改而文档未跟上 → **下个会话的 agent 会照旧文档把新实现改回去**，形成来回震荡 → 契约必须先行。
+- [2026-09-16][PITFALL][src:TASK-001] **构造函数丢弃参数**是最隐蔽的静默失败：`Report::new(command)` 曾把 `command` 置空，编译通过、测试也通过（因为测试自己又赋了一次值），只有报告标题一直空着。→ 凡是构造函数的参数没有被存进结构体，就要停下来问"这个参数是干什么的"。已修 + 加回归测试。
+- [2026-09-16][PITFALL][src:TASK-001] 护栏工具会**先拦住自己**：`main.rs` 写到 644 行时被自己的 `file-too-long`（>600 告警）拦下。这是好事，但意味着写工具时要预留拆分成本 —— 一开始就按"IO 在边界、规则是纯函数"分层能省一次返工。
+- [2026-09-16][PITFALL][src:TASK-001] 在**文档注释**里解释"哪些标签被禁止"时，直接写出标签字面量会被自己的规则判违规（`rustscan` 只抹字符串字面量，不抹注释）。当前靠改措辞绕过；是否豁免反引号引用待裁决（PL-004）。
+- [2026-09-16][PITFALL][src:TASK-001] **PowerShell 数组扁平化会造成灾难性误替换**：`@( @('old','new') )` 会被扁平成两个元素，于是 `$pair` 变成字符串、`$pair[0]` 变成"第一个字符"，`Replace` 变成全局单字符替换（本会话真的把两个 md 文件里所有 `|` 替换成了空格）。→ 单 pair 必须写 `@( ,@($old,$new) )`；并给替换函数加三道防护：pair 必须是长度 2 的数组、锚点必须足够长、锚点必须唯一。
+- [2026-09-16][PITFALL][src:TASK-001] PowerShell here-string 里 `'@` 必须**独占行首**，数组字面量中嵌套 here-string 会解析失败；`Split-Path -LiteralPath X -Parent` 与部分参数集冲突会报 null。→ 批量改文件用"一次一个 pair 的函数 + 逐个打印 OK/MISS"，别一次塞太多。
+- [2026-09-17][PITFALL][src:探针实测] Codex automation 的 prompt **不是** user message，而是合成 `function_call_output`（`name=automation_update`、`namespace=codex_app`、`id=None`、`call_id=None`）。官方端点容忍，第三方严格端点 400。**两种表现要分清**：作为**历史重放** → `Invalid 'call_id': call_id is required`（落盘 id 是合法的 `fco_…`，可等长补丁修）；作为**首轮投递** → `Invalid 'id': … must start with 'msg_', got 'at_<uuid>'`（id 序列化请求时临时生成、从不落盘，**无法补丁**）。→ 换 provider 或改用 CLI，别试图修 rollout。
+- [2026-09-17][PITFALL][src:探针实测] `disable_response_storage=true` + 一条畸形历史项 = **会话永久损坏**：每轮重放全量历史，毒项每次都被重发，该 thread 之后每次提问都失败，而新开 thread 完全正常。→ 症状是"只有这一个会话坏、别的都好"，别误判成账号 / 网络 / 模型问题。
+- [2026-09-17][PITFALL][src:探针实测] 改 Codex rollout 必须**严格等字节长度**：`thread_history_1.sqlite` 的 `next_rollout_byte_offset` 记的是字节偏移，长度一变 UI 历史投影就错位。腾位办法：把对模型无用的 `,"namespace":"codex_app"`（24B）原地换成 `,"call_id":"hb_…"`。写完必须校验 `next_rollout_byte_offset == 文件实际大小`。写入用**原地 seek+write** 而非 temp+replace（Codex 运行时持有句柄，Windows 下 `os.replace` 会 PermissionError）。参考实现 `D:\csart\fix_codex_callid.py`。
+- [2026-09-17][PITFALL][src:探针实测] Codex automation 调度有约 **+2 分钟 jitter**（`~/.codex/automations/.run-jitter-salt`）：约定 11:16 实际 11:17:54 触发。→ 定时间表要留余量；外部调度（任务计划程序 + `codex exec`）无 jitter。
+- [2026-09-17][PITFALL][src:探针实测] `automation_update` 建 cron 缺必填项时只回 `Failed to create automation.`，**不说是哪个字段**（本次因此误判成"cron 需 ChatGPT 鉴权、本环境不可用"，白烧一晚）。必填：`name`/`prompt`/`rrule`/`status`/`projectId`/`model`/`reasoningEffort`/`executionEnvironment="local"`。→ 探 schema 的办法是故意只传 `kind`，让校验器把缺失字段一次性全列出来。
+- [2026-09-17][PITFALL][src:探针实测] 上下文压缩会把补丁过的自动化残留报成 `Orphan function call output for call id: hb_…`（ERROR 级，来自 `run_auto_compact`）。这是**非致命噪音**：Codex 记录后丢弃该项、turn 照常继续。→ 看到它不等于出错，但等于"这个会话里有补丁过的 automation 残留"。
+- [2026-09-17][PITFALL][src:本机实测] **Codex 桌面应用会自动重写 `config.toml`**（把 `notify` 数组展开成多行、增删 `[projects.*]`、写 `[shell_environment_policy]`、改 pipe 名等），重写过程中**可能丢失非标准键** —— 本次就丢了 `model_catalog_json`，直接导致上下文窗口缩水 72%。→ 每次改完 config 或发现窗口/模型行为异常，先 `Compare-Object` 与备份 diff 一遍，确认关键键还在；改动前先做 `.bak`。
+- [2026-09-17][PITFALL][src:本机实测] `config.toml` 里 `model_context_window` 写得再大也**不一定生效**：桌面 app 路径以模型元数据（catalog 或 fallback）为准。→ 判断真实可用窗口不要看 config，要看 rollout 里 `task_started.model_context_window` 的实测值。
+- [2026-09-17][PITFALL][src:本机实测] CI 用 `EmbarkStudios/cargo-deny-action@v1`（该 action 最新已是 **v2.1.1**）且**未钉 cargo-deny 版本**，本地装的是 0.20.2 —— 两边版本不同会让"本地红、CI 绿"或反之。本次 `db-path` 数组写法就是被 CI 掩盖的。→ 建议 CI 显式钉版本，并把 deny.toml 能否解析纳入本地验收（PL-016）。
+- [2026-09-17][PITFALL][src:本机实测] `git remote add` 报 `fatal: not a git repository` 与网络 / 代理 / 账号 / 仓库存不存在**完全无关** —— 它是**纯本地**操作，报错只因 cwd 不在仓库内（本次在 `C:\Windows\System32` 跑的，`Test-Path C:\Windows\System32\.git` = False；仓库在 `D:\csart\ai-assistant`）。→ 任何 git 命令前先 `git rev-parse --show-toplevel` 确认。同批踩到的另两个坑：① 从文档复制命令时**把占位符的尖括号一起打进去**（`git@github.com:<账号>/...`），git 会把尖括号当字面 URL 存下来；② 本机 `~/.ssh` 只有 `known_hosts`、**没有密钥对**，且 global 配的 `http.https://github.com/.proxy` **只对 HTTP/HTTPS 生效、不覆盖 SSH 的 22 端口** → 一律走 **HTTPS**，不要走 SSH。
+- [2026-09-17][PITFALL][src:本机实测] **在非交互会话里跑 `git ls-remote` / `git push` 会挂死**：Git Credential Manager 被调起后等待 GUI/浏览器授权，命令行侧既不返回也不报错（本次挂 40s+，只能 `Stop-Process -Name git,git-credential-manager,git-remote-https -Force` 清掉）。→ 自动化脚本必须先设 `GIT_TERMINAL_PROMPT=0` 并加超时；**首次 push 交人类在自己的终端里跑**。补充事实：本机 Windows 凭据管理器里**已有** `git:https://github.com` 条目（`cmdkey /list` 可见），所以挂住更可能是 GCM 的 UI 交互流程而非"没有凭据"。
+- [2026-09-17][PITFALL][src:本机实测 cargo-deny 0.20.2] cargo-deny 的 CLI 有两个反直觉点：① **`-c` 是 `--color` 而不是 `--config`** —— 写 `cargo deny -c x.toml` 会得到 `invalid value 'x.toml' for '--color <COLOR>'`（exit 2），必须写全称 `--config`；② `cargo deny check` **不接受 `--offline`**（会提示 `to pass '--offline' as a value, use '-- --offline'`，exit 2），但 `check licenses bans sources` 本身**不需要网络**（只有 `advisories` 要 clone advisory-db）→ 离线自检直接去掉该 flag 即可。另注：正向检查会打印一条 **warning** `unmatched license allowance: BSD-3-Clause`（白名单里有但当前无依赖使用），**不影响 exit 0**，不要误判为失败。
+- [2026-09-17][PITFALL][src:本机实测] **`HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion` 的 `ProductName` 在 Windows 11 上仍谎报 "Windows 10 Pro"**（本机实际 25H2 / build 26200.9457，`ProductName` 却返回 `Windows 10 Pro`）。→ 判定 Windows 版本**必须用 `DisplayVersion` + `CurrentBuild`（+ `UBR`）**；`ProductName` 与 `[Environment]::OSVersion` 都不可靠。这条对本项目是**产品级**陷阱：架构 v2 的平台基线是「Windows 11 24H2+」，若拿 `ProductName` 做能力探测会把 25H2 误判成 Win10 并错误降级功能。
+- [2026-09-17][PITFALL][src:本机实测，**supersedes:2026-09-17** 上文「非交互会话里 `git ls-remote`/`git push` 会挂死」那条的推断部分] 挂住的**真因已确认**：当时远端仓库**还不存在**，GitHub 对不存在仓库的 `info/refs` 返回 **401**（不是 404，以免泄露仓库是否存在）→ GCM 转入交互式授权并等待 GUI，命令行侧永久阻塞。仓库建好后，**同一条 `git push` 在 `GIT_TERMINAL_PROMPT=0` + `GCM_INTERACTION=never` 下 3 秒内 exit 0**，凭据取自 Windows 凭据管理器既有的 `git:https://github.com` 条目。→ 结论修正：**不是「非交互会话一定挂」，而是「遇到 401 一定挂」**。自动化脚本除设这两个变量外，应先 `curl https://api.github.com/repos/<owner>/<repo>` 确认 200 再动 git。
+- [2026-09-17][PITFALL][src:仓库配置实测] **`spikes/` 被 workspace `exclude`（`Cargo.toml`：`exclude = ["spikes", "fixtures/apps", "tools"]`）→ deny / fmt / clippy / test 四道硬门禁全都覆盖不到 spike 代码**。阶段 0 这是设计意图，但意味着 spike 里加依赖只有政策约束、没有机器约束（PL-019）。→ spike 卡开工前先确认依赖已写进 `docs/DEPENDENCIES.md`；TASK-002 要用的 `windows` crate 已在「计划首批」清单里，但 **`uiautomation` 不在**，需补行并走批准。
+- [2026-09-17][PITFALL][src:本机实测] **仓库里有文件的末尾缺换行**（本次发现 `docs/DEPENDENCIES.md` 末行无 `\n`）。后果：任何以「整行 + `\n`」为锚点的批量编辑脚本都会 `count==0` 而断言失败，且失败信息与真实原因（缺换行）完全无关，极易误判成"锚点写错了"。→ 已补齐该文件末尾换行；建议把「文本文件必须以单个 `\n` 结尾」做成 `xtask hygiene` 规则（与 PL-011 的 CRLF 规则同属 gov §5.4 家族，可一并裁决）。
+- [2026-09-17][PITFALL][src:Spike A 先导实测] **记事本的 `ValuePattern` / `TextPattern` 返回的文本用裸 `\r`（CR）分行，而磁盘文件是 `\r\n`（CRLF）** —— 62 字符的 CRLF 文件读回来只有 59 字符。→ 任何「写入后读回校验」必须先把 `\r\n`、`\r`、`\n` **三者全部**归一化，否则必然假阴性；只做 `Replace("\r\n","\n")` **不够**，还要再 `Replace("\r","\n")`。第一次探针就因此得到 `value == file content ? False` 的错误结论。
+- [2026-09-17][PITFALL][src:Spike A 先导实测] **打开一个「已经在标签页里」的文件，记事本不会重新加载磁盘内容**（只切到那个标签页）→ 探针读到旧内容、产生假阴性。→ 探针必须**先杀干净所有 Notepad 进程**并使用**带时间戳的唯一文件名**。这条对产品同样关键：外部程序改了 `.txt` 之后，记事本内存态**不会自动更新** → 架构里的「文件契约（L1）」与「UI 态（L3）」可能不一致，撤销/校验逻辑必须显式处理这个偏差。
+- [2026-09-17][PITFALL][src:Spike A 先导实测] **`SetValue` 走 UIA Pattern、不经过键盘，因此 IME 开/关对它没有任何影响** → 卡面步骤 5「中文经 `SetValue` 写入，分别在 IME 开/关两态测」对 `SetValue` 路径是**空操作**；IME 两态对照真正针对的是 **L4 合成键盘输入**。→ 已记为对卡面措辞的疑问（`docs/spike-reports/SPIKE-A.md` §5.3），由 TASK-002 正式会话记 `DRIFT-002-x` 交裁决，**本次侦察未改卡面**。
+- [2026-09-17][PITFALL][src:Spike A 先导实测] **PowerShell 控制台输出中文会乱码**（控制台代码页问题），但**进程内的字符串比较不受影响**。→ 判定一律以脚本内的 `True/False` 与长度为准，不要用肉眼读控制台就断定"中文被写坏了"（本次差点因此误判 `SetValue` 破坏了中文）。同类问题也会让 Python 脚本 `print` 中文时抛 `UnicodeEncodeError: 'gbk' codec`——需要输出中文时改为写文件再读，或 `sys.stdout.reconfigure(encoding='utf-8')`。
+
+---
+
+---
+
+## 2026-09-18 追加：`windows` crate / UIA COM 胶水（跨应用通用）
+
+- [2026-09-18][PITFALL][src:`uia_dep_proof` 首次运行失败] **`IUIAutomationElement::FindFirst` 的「没找到」= `Err(HRESULT(0x00000000))`。** UIA 用 `S_OK` + **NULL 元素指针**表示无匹配，`windows`-rs 把它转成 `Err`，而这个 error 的 `code` 恰恰是「成功」→ 直接 `?` 会得到一条 `message: "操作成功完成。"` 的**荒谬错误**；按「HRESULT 是不是错误码」去分支则会**判反**。→ **必须显式把 `code == 0` 映射成 `None`，其余 HRESULT 原样上抛**；产品侧对应 `ErrorCode::TargetNotFound`，且必须与「selector 写错」「目标已消失」可区分（AGENTS.md 铁律 1）。同一模式适用于所有"返回 S_OK + NULL 表示无结果"的 UIA/COM 方法。
+- [2026-09-18][PITFALL][src:本机 `cargo deny` 实测 exit 4] **spike crate 自己的 `Cargo.toml` 必须有 `license` 字段**，否则 `cargo deny check licenses` 报 `error[unlicensed]: <crate> is unlicensed`。这与「依赖的许可证」**无关**，是**被检查的包自身**没声明 → 新建任何 `Cargo.toml` 时照抄 `license = "MIT"`（与仓库根 `LICENSE`、根 `Cargo.toml` 的 `[workspace.package].license` 一致）。已建议 TASK-015 做成 `xtask hygiene` 规则。
+- [2026-09-18][PITFALL][src:`uia_dep_proof` 首次运行"无任何输出"] **启动"转交型 stub"进程必须 `Stdio::null()`。** `notepad.exe` 只是把文件转交给打包进程然后自己退出；若它继承了父进程的 stdout 句柄，**任何"等 EOF"的管道会在 `main` 返回后一直挂着** —— 表现为"程序跑完了却一个字都看不到"。→ 凡是用 `Command::spawn` 启动 GUI/stub 进程，一律显式 `stdin/stdout/stderr` 全 `Stdio::null()`。同类风险：任何 MSIX 打包应用的启动器。
+- [2026-09-18][PITFALL][src:`windows` 0.62.2 编译报错逐条实测] **`windows` 0.62 的签名细节（照抄会踩，共 5 处）**：① **`BOOL` 已移到 `windows::core`**，写 `Win32::Foundation::BOOL` 报 `no BOOL in Win32::Foundation`；② `OpenProcess` 的 `binherithandle` 是 **`bool`**（不是 `BOOL`）；③ `QueryFullProcessImageNameW` 收 **`PWSTR`**（不是 `PCWSTR`）；④ `PostMessageW` 收 **`Option<HWND>` + `WPARAM`/`LPARAM`**（不是 `hwnd, msg, None, None`）；⑤ **edition 2024 下 `unsafe fn` 体内仍需显式 `unsafe {}` 块**（`unsafe_op_in_unsafe_fn`）。→ 引入 `windows` crate 时先跑最小可编译样例，不要凭记忆写签名。
+- [2026-09-18][PITFALL][src:ADR-0024 D4，probe-03 实测] **PowerShell 5.1 会把无 BOM 的 `.ps1` 按 GBK 解码** → 报错**行号错乱**、反引号转义 `` `r `` **被吞**，故障现象与真因完全无关。→ **仓库里的 `.ps1` 一律纯 ASCII**（中文说明放 `.md`）；判定看脚本内的 `True/False` 与写出的结果文件，不看控制台。（`.rs` 不受此限，Rust 源码默认 UTF-8。）
+- [2026-09-18][PITFALL][src:probe-04 编写过程] **PowerShell 的单引号 here-string `@'...'@` 内部不可再出现 `@'...'@` 或以 `'@` 开头的行** → 会提前终止 here-string，产生难以理解的解析错误。写多行脚本内容时改用 Python 生成文件（`newline="\n"` + `UTF8Encoding($false)` 等价物）。
+
+## 2026-09-18 追加：探针结果的"预期 False"（不要误读成失败）
+
+- [2026-09-18][PITFALL][src:probe-04 `RESULT-04.txt` 复核] **`cjk_survived_on_disk=False` 在 probe-04 的 5 个用例里有 4 个是"预期结果"，不是失败** —— 那 4 个用例的输入是**纯 ASCII**（为绕开上一条的 PS 编码坑而刻意如此），输入里没有 CJK，自然"没存活"。CJK 无损的真实证据是第 1 个用例（True）与 `uia_dep_proof` E4（`cjk_kept=true`，Rust 路径独立复现）。→ **通用教训**：断言的 False 必须结合"输入里到底有没有被测对象"来读；探针输出里应同时打印**输入侧的计数**（本例 `write_input CR/LF chars` 就是靠它才没误判）。
+
+## 2026-09-18 追加：非 ASCII 的 `.ps1` 不只是乱码，它会把测量变成**假的**
+
+- [2026-09-18][PITFALL][src:`probe-03` 改纯 ASCII 前后对比实测] **脚本编码坑的真正危险不是「看不懂」，而是「看起来全对」。** 同一个 CJK 用例，脚本含中文字面量时跑出 `disk_chars=14 / disk_bytes=34 / disk_eol=[code10=2 code13=1]`（理论值应为 10 / 22 / code10=2 code13=2），而 `norm_eq` 仍然 **True** —— 因为**写入的与比较的是同一个被糟蹋的字符串**。把脚本改为纯 ASCII + 用 `[char]0x4E2D` 等**码点**拼接样本后，数值回到理论值。→ **两条可复用的规则**：① 测试样本里的非 ASCII 字符**一律用码点构造**，不写字面量；② 断言**不得只比较「两边相等」**，必须同时断言**绝对量**（字符数/字节数/控制符计数）—— 绝对量才能揭穿「两边同样错」。
+- [2026-09-18][PITFALL][src:全仓扫描] **文档里写的产物路径与脚本实际路径不一致**：`README` 与 `SPIKE-A.md` 写的是 `%TEMP%\eol-probe\`，而 probe-03/04 实际写到 `D:\csart\eol-probe\`。后果是**读者按文档找不到证据**，于是证据等于不存在。→ 已修正两处文档；规则：**凡在文档里引用产物路径，必须从脚本里拷贝而不是凭记忆写**。更好的做法：把路径定义成脚本参数并在输出里回打（probe-03 已回打 `report written: <path>`）。
