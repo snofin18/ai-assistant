@@ -127,7 +127,7 @@ pub const DEFERRED_HYGIENE_RULES: &[DeferredRule] = &[
     },
     DeferredRule {
         rule: "新增顶层目录必须在 ADR 白名单中",
-        reason: "需要先有 ADR 白名单文件（docs/adr 已有 0018~0025，但白名单本身未落地；另见 PL-023 的 scripts/ 归属）",
+        reason: "需要先有 ADR 白名单文件（docs/adr/ 下已有多份 ADR，但白名单本身尚未落地；另见 PL-023 的 scripts/ 归属）",
         owning_card: "TASK-015",
     },
     DeferredRule {

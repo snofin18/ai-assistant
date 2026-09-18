@@ -11,14 +11,39 @@
 //! | `hygiene` | gov §5.4 的卫生规则判定 | 否 |
 //! | `deferred` | 未实现项登记表 | 否 |
 //! | `report` | 发现项模型与渲染 | 否 |
+//! | `memory_table` | `MEMORY.md` 规模表解析 + 行数/条目数判据（ADR-0030） | 否 |
+//! | `memory_counts` | 记忆规模一致性的 8 条规则（ADR-0030 D1/D2） | 否 |
+//! | `adr_registry` | ADR 登记表 / ADR 文件状态行 / 待建号解析（ADR-0030） | 否 |
+//! | `adr_registry_tests` | `adr_registry` 解析原语的私有单测（`#[path]` 外置，见下「文件长度」说明） | 否 |
+//! | `adr_index` | ADR 编号一致性的 11 条规则（ADR-0030 D3） | 否 |
+//! | `adr_index_tests` | `adr_index` 各规则的私有单测（`#[path]` 外置，见下「文件长度」说明） | 否 |
+//! | `doccheck` | `memory-counts` 与 `adr-index` 的 IO 边界 | **是**（只读） |
+//! | `guard` | 锁记录编解码、slug 派生、`decide_acquire` 判定（ADR-0028） | 否 |
+//! | `guard_tests` | `guard` 判定逻辑的私有单测（`#[path]` 外置，见下「文件长度」说明） | 否 |
+//! | `guard_store` | `LockStore` trait + 文件系统实现 + ISO-8601 时钟 | **是**（`target/locks/`） |
+//! | `guard_model` | guard 的请求/失败/三态读锁模型 | 否 |
+//! | `guard_runner` | guard 分派 + `acquire`（等待/放弃/接管/回滚） | 经 `LockStore` |
+//! | `guard_runner_tests` | `guard_runner` 各分支的私有单测（`#[path]` 外置，见下「文件长度」说明） | 否 |
+//! | `guard_release` | guard 的 `release` / `status` / `reap` | 经 `LockStore` |
+//! | `guard_testkit` | 内存锁存储替身（仅 `cfg(test)`） | 否 |
 //! | `main`（本文件） | 分派、读文件内容、呈现、退出码 | 是（只读） |
 //!
 //! 规则判定一律是纯函数，IO 集中在 `repowalk` 与本文件 —— 这是白盒测试能覆盖每条规则
 //! 而不需要造临时目录的前提。
 //!
+//! ## 文件长度与测试外置
+//! gov §5.4 对单文件行数有硬上限，而白盒测试本身也很占行数。为了让「被测模块」保持可读，
+//! 四个模块的私有单测用 `#[path]` 属性外置到同名 `*_tests.rs` 文件：
+//! `adr_index` / `adr_registry` / `guard` / `guard_runner`。外置不改变可见性语义 —— 那些文件里的 `mod tests`
+//! 仍是父模块的**私有子模块**，因此可以照常访问父模块的私有项，`use super::*;` 即可。
+//! 新增规则时：判定逻辑写进被测模块，单测写进对应 `*_tests.rs`；只有当被测模块本身没有
+//! 外置文件时，才把 `#[cfg(test)] mod tests` 直接写在模块尾部。
+//!
 //! ## 边界（不做什么）
 //! - 不做规则判定：本文件不知道"多少行算太长"，那在 `hygiene.rs`。
-//! - 不修改任何文件：xtask 是只读扫描器（写文件属于 codegen，那是 TASK-011 的事）。
+//! - 只读**仓库内容**：不创建、修改或删除任何**受版本控制**的文件（写文件属于 codegen，
+//!   那是 TASK-011 的事）。唯一例外是 `target/locks/` 下的临时锁文件与放弃日志（ADR-0028 D8），
+//!   它们不入库、由 `guard` 自己管理生命周期。
 //! - 不访问网络。
 //!
 //! ## 退出码约定（CI 与脚本依赖，改动需 ADR）
@@ -27,24 +52,41 @@
 //! - `2` 用法错误（未知子命令 / 未知选项 / 多余参数 / 缺子命令）
 //! - `3` 子命令已登记但尚未实现（见 `deferred.rs`）—— **故意不是 0**，铁律 1
 //! - `4` IO 或内部错误（读不到文件、仓库根不存在等）
+//! - `5` 锁获取超时（放弃）—— `guard acquire` 专用（ADR-0028 D5/D8）
 //!
 //! ## 不变量
 //! 1. 输出确定性：同一仓库状态两次运行输出逐字节相同。
 //! 2. 无静默失败：任何一步出错都会反映为非 0 退出码；唯一例外是 stderr 本身写不进去，
 //!    此时退出码仍是非 0。
-//! 3. 只读：本工具不创建、修改或删除任何文件。
+//! 3. 只读仓库内容：不创建、修改或删除任何**受版本控制**的文件；唯一例外见上面的「边界」
+//!    （`target/locks/` 下的锁文件与放弃日志，ADR-0028 D8）。
 //! 4. 「扫到 0 个文件」必须显式告警：否则空仓库会得到一个毫无意义的 PASSED。
 //!
 //! 相关：`docs/governance-ai-agent-execution.md` §5.1/§5.4、`docs/spec/naming.md` §10
 
+mod adr_index;
+mod adr_registry;
 mod cli;
 mod deferred;
+mod doccheck;
+mod guard;
+mod guard_model;
+mod guard_release;
+mod guard_runner;
+mod guard_store;
 mod hygiene;
+mod memory_counts;
+mod memory_table;
 mod report;
 mod repowalk;
 mod rustscan;
 
+// guard 的测试替身：只在测试构建里存在，产品构建不会编进来
+#[cfg(test)]
+mod guard_testkit;
+
 use std::io::Write;
+use std::path::Path;
 use std::process::ExitCode;
 
 use cli::{Invocation, USAGE, parse_args};
@@ -61,6 +103,12 @@ pub const EXIT_USAGE: u8 = 2;
 pub const EXIT_NOT_IMPLEMENTED: u8 = 3;
 /// IO 或内部错误。
 pub const EXIT_IO: u8 = 4;
+/// 锁获取超时（放弃）—— `guard acquire` 专用（ADR-0028 D5/D8）。
+///
+/// 为什么单独一个码：「没拿到锁」既不是"检查发现了问题"（1），也不是"工具坏了"（4），
+/// 而是**正常的协作结果**。调用方（脚本、夜间包装器、agent）需要能区分它，
+/// 才能决定是重试、换目标、还是履行台账义务。
+pub const EXIT_LOCK_TIMEOUT: u8 = 5;
 
 /// 运行失败的原因（决定退出码与 `main` 的呈现方式）。
 #[derive(Debug, PartialEq, Eq)]
@@ -73,6 +121,13 @@ enum Failure {
     Io(String),
     /// 工具自身缺陷（例如报告摘要格式化失败）。
     Internal(String),
+    /// `guard` 子命令的失败。
+    ///
+    /// 为什么不当场翻译成 `Usage`/`Io`：`GuardFailure` 自己就是退出码的唯一映射处
+    /// （`guard_model.rs` 不变量 3）。在这里再写一遍 `match` 就有了两份真相，
+    /// 将来加一个新失败类别必然只改一处，于是"锁记录损坏"会被静默归到别的退出码。
+    /// 直接委托，编译期就保证两边一致。
+    Guard(guard_model::GuardFailure),
 }
 
 impl std::fmt::Display for Failure {
@@ -83,6 +138,8 @@ impl std::fmt::Display for Failure {
             Self::Usage(message) => write!(formatter, "用法错误：{message}"),
             Self::Io(message) => write!(formatter, "IO 错误：{message}"),
             Self::Internal(message) => write!(formatter, "内部错误：{message}"),
+            // GuardFailure 的 Display 自带"guard …"前缀，这里不再叠加标签
+            Self::Guard(failure) => write!(formatter, "{failure}"),
         }
     }
 }
@@ -94,6 +151,7 @@ impl Failure {
             Self::Usage(_) => EXIT_USAGE,
             Self::NotImplemented(_) => EXIT_NOT_IMPLEMENTED,
             Self::Io(_) | Self::Internal(_) => EXIT_IO,
+            Self::Guard(failure) => failure.exit_code(),
         }
     }
 
@@ -133,7 +191,12 @@ fn main() -> ExitCode {
 /// 此时退出码仍然是非 0，因此不构成静默成功（不变量 2）。
 fn present_failure(failure: &Failure, errors: &mut dyn Write) -> ExitCode {
     writeln!(errors, "xtask: {failure}").ok();
-    if matches!(failure, Failure::Usage(_)) {
+    // guard 的用法错误同样要给出完整 USAGE：只说"--owner 必填"而不展示可选值，
+    // 等于让人去翻源码（可诊断性是护栏的一部分）
+    if matches!(
+        failure,
+        Failure::Usage(_) | Failure::Guard(guard_model::GuardFailure::Usage(_))
+    ) {
         writeln!(errors, "{USAGE}").ok();
     }
     ExitCode::from(failure.exit_code())
@@ -148,6 +211,7 @@ fn present_failure(failure: &Failure, errors: &mut dyn Write) -> ExitCode {
 /// - `Failure::NotImplemented`：子命令已登记但尚未实现
 /// - `Failure::Io`：读写文件系统失败
 /// - `Failure::Internal`：报告摘要格式化失败等工具自身缺陷
+/// - `Failure::Guard`：`guard` 子命令失败（退出码委托给 `GuardFailure::exit_code`）
 fn execute(arguments: &[String], output: &mut dyn Write) -> Result<u8, Failure> {
     let invocation = parse_args(arguments).map_err(Failure::Usage)?;
     if invocation.help {
@@ -168,6 +232,15 @@ fn execute(arguments: &[String], output: &mut dyn Write) -> Result<u8, Failure> 
     if command == "hygiene" {
         return run_hygiene(&invocation, output);
     }
+    if command == "memory-counts" {
+        return run_doc_consistency(&invocation, output, doccheck::run_memory_counts);
+    }
+    if command == "adr-index" {
+        return run_doc_consistency(&invocation, output, doccheck::run_adr_index);
+    }
+    if command == "guard" {
+        return run_guard(&invocation, output);
+    }
     if let Some(entry) = deferred::find_command(command) {
         return Err(Failure::NotImplemented(deferred::not_implemented_message(
             entry,
@@ -179,6 +252,39 @@ fn execute(arguments: &[String], output: &mut dyn Write) -> Result<u8, Failure> 
 /// 往 sink 写一行文本（统一的错误包装，避免每处都写一遍 `map_err`）。
 fn write_line(output: &mut dyn Write, text: &str) -> Result<(), Failure> {
     writeln!(output, "{text}").map_err(|error| Failure::from_io("写 stdout", &error))
+}
+
+/// 执行文档一致性检查（`memory-counts` / `adr-index` 共用同一层壳）。
+///
+/// 两个子命令的形状完全相同（定位仓库根 → 调 IO 边界函数 → 呈现），故用一个函数指针参数化，
+/// 避免复制三遍同样的样板。判定逻辑仍然在各自的纯函数模块里。
+fn run_doc_consistency(
+    invocation: &Invocation,
+    output: &mut dyn Write,
+    runner: fn(&Path, &mut dyn Write) -> Result<u8, String>,
+) -> Result<u8, Failure> {
+    // `from_walk` 收引用：`resolve_repo_root` 交出的是所有权，借一下再转换，避免为它多写一个 by-value 变体
+    let root = resolve_repo_root(invocation.repo.as_deref())
+        .map_err(|error| Failure::from_walk(&error))?;
+    runner(&root, output).map_err(Failure::Io)
+}
+
+/// 执行 `guard`：组装请求 → 造文件系统锁存储 → 交给 `guard_runner` 分派。
+///
+/// 操作数约定：`operands[0]` 是操作名（acquire/release/status/reap），其余是目标路径。
+fn run_guard(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
+    // `from_walk` 收引用：`resolve_repo_root` 交出的是所有权，借一下再转换，避免为它多写一个 by-value 变体
+    let root = resolve_repo_root(invocation.repo.as_deref())
+        .map_err(|error| Failure::from_walk(&error))?;
+    let request = guard_model::build_request(
+        invocation.operands.first().map(String::as_str),
+        invocation.operands.get(1..).unwrap_or(&[]),
+        &invocation.options,
+        invocation.has_flag("force"),
+    )
+    .map_err(Failure::Guard)?;
+    let store = guard_store::FileLockStore::new(root);
+    guard_runner::run(&request, &store, output).map_err(Failure::Guard)
 }
 
 /// 执行仓库卫生检查。
@@ -421,6 +527,57 @@ mod tests {
             "该消息已是完整说明，不加前缀"
         );
         assert_eq!(failure.exit_code(), EXIT_NOT_IMPLEMENTED);
+    }
+
+    #[test]
+    fn test_failure_guard_delegates_exit_code_instead_of_remapping() {
+        // guard_model 不变量 3：退出码只有那一处映射。
+        // 这条测试是"main 没有偷偷再判一遍"的证据 —— 把委托改回重复 match 就会红。
+        let usage = Failure::Guard(guard_model::GuardFailure::Usage("--owner 必填".to_string()));
+        assert_eq!(usage.exit_code(), EXIT_USAGE);
+        assert_eq!(
+            usage.to_string(),
+            "guard 用法错误：--owner 必填",
+            "GuardFailure 自带前缀，Failure 不再叠加标签"
+        );
+
+        let io = Failure::Guard(guard_model::GuardFailure::Io("锁目录不可写".to_string()));
+        assert_eq!(io.exit_code(), EXIT_IO);
+
+        let corrupt = Failure::Guard(guard_model::GuardFailure::Corrupt(
+            "记录不可解析".to_string(),
+        ));
+        assert_eq!(
+            corrupt.exit_code(),
+            EXIT_IO,
+            "损坏的锁是 IO 级故障，不是用法错误"
+        );
+    }
+
+    #[test]
+    fn test_present_failure_prints_usage_for_guard_usage_error() {
+        // 只说"--owner 必填"而不展示全部选项，等于让人去翻源码
+        let failure = Failure::Guard(guard_model::GuardFailure::Usage("缺少操作名".to_string()));
+        let mut errors: Vec<u8> = Vec::new();
+        let code = present_failure(&failure, &mut errors);
+        assert_eq!(code, ExitCode::from(EXIT_USAGE));
+        let text = String::from_utf8(errors).expect("应为 UTF-8");
+        assert!(
+            text.contains("退出码"),
+            "guard 的用法错误也要附完整 USAGE：{text}"
+        );
+    }
+
+    #[test]
+    fn test_present_failure_does_not_print_usage_for_guard_io_error() {
+        let failure = Failure::Guard(guard_model::GuardFailure::Io("锁目录不可写".to_string()));
+        let mut errors: Vec<u8> = Vec::new();
+        let _ = present_failure(&failure, &mut errors);
+        let text = String::from_utf8(errors).expect("应为 UTF-8");
+        assert!(
+            !text.contains("退出码"),
+            "IO 故障不该刷一屏帮助文本：{text}"
+        );
     }
 
     #[test]
