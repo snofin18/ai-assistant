@@ -1,5 +1,19 @@
 # 夜间自动化验收测试（任务计划程序 + `codex exec`）
 
+> ## ⚠ 本清单已被取代（当前**非**主方案），保留为**回退方案**的验收清单
+>
+> **ADR-0029（2026-09-18）** 把夜间自动化的投递机制**改回 Codex 原生 scheduled tasks**，
+> 本文件所依据的 **ADR-0018**（Windows 任务计划程序 + `codex exec`）状态已改为
+> `Accepted → Superseded by ADR-0029`，**但方案本身保留可用**（ADR-0029 D4）。
+>
+> - **当前主方案的验收清单在别处**：`docs/nightly/codex-automations-operations.md` §2（GATE-0）与 §8，
+>   纪律部分见 `docs/overnight-automation-charter.md` §11.9（章程 **v1.4**）。
+> - **什么时候才用本文件**：只有 GATE-0 确认「本机端点吞不下 automation 的投递方式」、
+>   人类决定启用回退方案时。**届时本清单原样可用** —— 下面 10 条 `codex exec` 本机实测
+>   已全部保留在章程 §11.8（并在表头注明归属）。
+> - **正文不改**：本文件按 ADR-0029 D4「顶部加横幅、正文不改」处理，所以下文仍然按
+>   「ADR-0018 是现行方案」的口吻书写；凡与主方案冲突处，**以本横幅与章程 §11 为准**。
+
 > **上位**：ADR-0018（Accepted，**生效前提 = 本清单全绿**）、`docs/overnight-automation-charter.md` §11。
 > **当前状态（2026-09-18）：⏳ 未验收** —— 本机还**没有**跑过一次完整的端到端运行。
 > **谁执行**：**必须人类在场**。理由：① 首次运行要现场记录退出码基线（§4）；
@@ -81,7 +95,7 @@ Register-ScheduledTask -TaskName "ai-assistant-nightly-SMOKE" `
 
 | # | 断言 | 判定方法 | 期望 |
 |---|---|---|---|
-| C1 | 注册成功且设置真的落地 | `Get-ScheduledTask -TaskName ai-assistant-nightly-SMOKE | Select -Expand Settings` | `ExecutionTimeLimit = PT1H30M`、`StartWhenAvailable = False`、`MultipleInstances = IgnoreNew`、`RestartCount = 0` |
+| C1 | 注册成功且设置真的落地 | `Get-ScheduledTask -TaskName ai-assistant-nightly-SMOKE \| Select -Expand Settings` | `ExecutionTimeLimit = PT1H30M`、`StartWhenAvailable = False`、`MultipleInstances = IgnoreNew`、`RestartCount = 0` |
 | C2 | 到点真的触发 | `Get-ScheduledTaskInfo -TaskName ai-assistant-nightly-SMOKE` | `LastRunTime` ≈ 触发时刻；`LastTaskResult` = **0** |
 | C3 | 工作目录正确 | 日志里打印 `(Get-Location).Path` | `D:\csart\ai-assistant`（**不是** `C:\Windows\System32` —— 这是 `-WorkingDirectory` 缺失时的典型症状） |
 | C4 | 端到端产物齐全 | 检查文件 | `docs/nightly/logs/<date>-<HHMM>.log` + `<date>-round-1.md` + `LEDGER.md` 追加行 + **`.nightly.lock` 不存在** |
