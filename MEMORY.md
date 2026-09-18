@@ -32,8 +32,8 @@
 | `facts.md` | 109 | 71 | 按主题分节；**grep 优先**，不必全读 |
 | `pitfalls.md` | 90 | 61 | 按主题分节；**grep 优先**，不必全读 |
 | `rejected.md` | 51 | 31 | ★ **动手前全量读**（防止同一方案被反复重新提出） |
-| `decisions.md` | 85 | 48 | 索引 → `docs/adr/NNNN-*.md` |
-| `open.md` | 50 | 25 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
+| `decisions.md` | 90 | 50 | 索引 → `docs/adr/NNNN-*.md` |
+| `open.md` | 51 | 25 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
 | `apps/notepad.md` | 243 | 0 | 接记事本时**全量读**；8 个固定小节 |
 
 > **迁移核对（ADR-0021 验证方式 2）—— 历史快照：下面三个数字是「迁移当时值」，不随后续追加变化**：
@@ -104,7 +104,7 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
                 （ADR-0028）；超时放弃（退出码 5）后必须在 LEDGER 追加一行说明
               ④ **DRIFT-001-3 已裁决关闭**（ADR-0031「一卡一文件」Accepted，stage-0 的 10 张卡已迁移，
                 零丢失核对通过）；`xtask card-check` 的四条判据已写死在 D6 / gov §3.4，**实现仍归 PL-002**
-              ⑤ 待人类裁决：M5 许可证、`docs/PARKING_LOT.md` 未关闭项（护栏增强类）、
+              ⑤ 待人类裁决：M5 许可证**已裁决关闭**（MIT OR Apache-2.0、`LICENSE` + `NOTICE` 均已落地）、`docs/PARKING_LOT.md` 未关闭项（护栏增强类）、
                 gov §5.4 行数口径矛盾**已裁决**（ADR-0033：写作规范 400/600 vs CI 门禆 600/900 各管一摊）、豁免机制**已裁决**（ADR-0032 Accepted，20 条基线豁免已登记于···/docs/adr/0032-doc-rule-exemption-registry.md，机器读入实现归 PL-002 / PL-015）
 待产出文档  ：docs/spec/*（其余 6 份，含 testing.md）、docs/OPEN_SOURCE_CHECKLIST.md、
               docs/dev-env-setup.md（**PL-017 已落地**，2026-09-18）、其余 7 份 Spike 报告（PL-026 的非 ASCII 注释已清扫，probe-01/02 现在纯 ASCII 仅 3 条 STR-LIT 豁免）

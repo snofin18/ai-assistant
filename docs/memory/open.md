@@ -17,6 +17,7 @@
 - [2026-09-16][OPEN][M3] `local_only` 档所需的本地模型选型与硬件门槛（Ollama / llama.cpp）→ 阶段 1c 前。
 - [2026-09-16][OPEN][M4] 内部是否存在必须支持的 Win10 机器 → 阶段 0。
 - [2026-09-16][OPEN][M5] 开源许可证最终选择（建议 `MIT OR Apache-2.0`）→ TASK-001。
+  - [supersedes:2026-09-18] → **本条裁决关闭**（本体本身作历史记录保留）：人类选择 **A：MIT OR Apache-2.0 双许可证**。`LICENSE` 重写为双许可证文本（顶 1 行选型声明 + MIT 全文 + Apache-2.0 全文，39 行）；`NOTICE` 新增（10 行，Apache-2.0 §4(d) 硬要求）。**不改 `deny.toml`**（其 allow 表列表已包含了两个）。上线后仅需要在第一个引入的第三方依赖里选择 MIT 或 Apache-2.0 作为其许可证名即可。详见 decisions.md 本日「2026-09-18 追加（M5）」。
 - [2026-09-16][OPEN][src:v2 §13.4.5] KDE Plasma 的辅助功能开关对应的底层配置键名 → Spike D。
 - [2026-09-16][OPEN][src:v2 §13.4.7] GNOME 50 的 RemoteDesktop 是否能接管当前会话（而非仅 headless）；restore_token 静默重建的实际表现 → Spike D。
 - [2026-09-16][OPEN][src:v2 §13.3.2] macOS 屏幕录制权限的周期性重授权间隔 → 阶段 5 前。
