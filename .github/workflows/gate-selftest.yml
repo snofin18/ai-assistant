@@ -11,8 +11,8 @@
 #   规程（ADR-0019）：① 改动任何硬门禁后跑一次；② 每个阶段末评审跑一次，
 #   并把运行编号记入 LEDGER.md。
 #
-# 覆盖范围：目前只有 gov §5.1 #8（deny）。fmt / clippy / build 的 canary 缺失，
-#   见 docs/PARKING_LOT.md PL-018（归 TASK-015）。
+# 覆盖范围：gov §5.1 #8（deny）与 #8b（spike-deny，ADR-0024 D2）。
+#   fmt / clippy / build 的 canary 缺失，见 docs/PARKING_LOT.md PL-018（归 TASK-015）。
 #
 # 修改本文件的规则：新增 canary 段 = 正常演进（须在 ADR-0019 登记表补一行）；
 #   删除或放宽断言 = 削弱护栏，属漂移触发器，需 ADR + 人类批准。
@@ -88,3 +88,97 @@ jobs:
             exit 1
           fi
           echo "OK: 负向通过（exit=$code，stderr 含 'expected a string'）"
+  # ==========================================================================
+  # spike-deny 门禁的负向验证（ADR-0024 D2 + ADR-0019 N3）
+  #
+  # 要证明的命题：ci.yml 的 spike-deny job 在「spike 引入了许可证不兼容的依赖」时真的会红，
+  #   而不是「没找到 manifest / 配置读不进来 → 什么都没查 → 显示通过」。
+  # 为什么用本地 path 依赖 + 假 GPL 许可证：不需要联网，也不需要真的发布一个坏 crate；
+  #   licenses 检查只读依赖自己的 Cargo.toml 里的 license 字段，因此一个本地 fixture 就够了。
+  # ==========================================================================
+  spike-deny-gate:
+    name: "spike-deny 门禁负向验证 (ADR-0024 D2 / ADR-0019 N3)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: "install cargo-deny (pinned)"
+        run: |
+          set -euo pipefail
+          cargo install cargo-deny --version "$CARGO_DENY_VERSION" --locked
+          cargo deny --version
+
+      # --- 正向：仓库当前状态（含真实的 spikes/）必须通过，且行为与 ci.yml 完全一致 ---
+      # 关键：必须复刻 ci.yml 的「无 manifest 时显式打印」分支，否则 canary 与真门禁行为不同，
+      #       canary 绿了也不能证明真门禁是好的。
+      - name: "positive: replicate ci.yml spike-deny logic on the real repo"
+        run: |
+          set -uo pipefail
+          shopt -s nullglob
+          manifests=(spikes/*/Cargo.toml)
+          if [ ${#manifests[@]} -eq 0 ]; then
+            echo "OK: 正向 —— 当前无 spike manifest，ci.yml 的逻辑会显式打印并通过"
+            exit 0
+          fi
+          failed=0
+          for m in "${manifests[@]}"; do
+            cargo deny --config deny.toml --manifest-path "$m" check licenses sources || failed=1
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "FAIL: 正向断言不成立 —— 仓库当前的 spike 依赖本身就过不了门禁，先修仓库再谈 canary"
+            exit 1
+          fi
+          echo "OK: 正向通过（${#manifests[@]} 个 spike manifest 的 licenses / sources 均 ok）"
+
+      # --- 负向：注入一个 GPL 许可的本地 path 依赖，断言 licenses 检查变红 ---
+      - name: "negative: GPL-licensed spike dependency must fail the licenses check"
+        run: |
+          set -uo pipefail
+          bad="$(mktemp -d)/spikes/spike-canary-bad"
+          mkdir -p "$bad/src" "$bad/deps/gpl-fixture/src"
+          cat > "$bad/deps/gpl-fixture/Cargo.toml" <<'TOML'
+          [package]
+          name = "gpl-fixture"
+          version = "0.1.0"
+          edition = "2021"
+          license = "GPL-3.0-only"
+          TOML
+          echo "// fixture" > "$bad/deps/gpl-fixture/src/lib.rs"
+          cat > "$bad/Cargo.toml" <<'TOML'
+          [package]
+          name = "spike-canary-bad"
+          version = "0.1.0"
+          edition = "2021"
+          license = "MIT"
+
+          [dependencies]
+          gpl-fixture = { path = "deps/gpl-fixture" }
+          TOML
+          echo "// fixture" > "$bad/src/main.rs"
+          # 用仓库根的 deny.toml（白名单里没有 GPL-3.0-only）
+          out="$(cargo deny --config deny.toml --manifest-path "$bad/Cargo.toml" check licenses sources 2>&1)"
+          code=$?
+          echo "----- cargo-deny output (exit=$code) -----"
+          echo "$out"
+          echo "------------------------------------------"
+          if [ "$code" -eq 0 ]; then
+            echo "FAIL: GPL 依赖竟然通过了 —— spike-deny 门禁的负向验证不成立 (ADR-0024 D2)"
+            exit 1
+          fi
+          # 断言钉在 cargo-deny 0.20.2 的**具体故障文本**上（ADR-0019：断言不能与故障模式脱钩）。
+          # 本机 2026-09-18 实测该 fixture 的输出为：
+          #   error[rejected]: failed to satisfy license requirements
+          #     5 | license = "GPL-3.0-only"
+          #       |            rejected: license is not explicitly allowed
+          #   licenses FAILED, sources ok          -> exit code 4
+          if ! echo "$out" | grep -q "license is not explicitly allowed"; then
+            echo "FAIL: 失败原因不是许可证白名单拒绝 —— canary 断言与真实故障模式脱钩 (ADR-0019)"
+            exit 1
+          fi
+          if ! echo "$out" | grep -q "GPL-3.0-only"; then
+            echo "FAIL: 输出未指名被拒的许可证 —— 断言不够具体 (ADR-0019)"
+            exit 1
+          fi
+          echo "OK: 负向通过（exit=$code，输出含 'license is not explicitly allowed' 与 'GPL-3.0-only'）"

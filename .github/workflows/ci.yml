@@ -1,8 +1,11 @@
 # CI — gov §5.1 的门禁清单在机器上的表达。
 #
 # 上线策略（TASK-001）：
-#   硬门禁 6 项（任一失败即阻塞合并）：fmt / clippy(含禁用项 lint) / test / deny / build / hygiene
-#     （DRIFT-001-2-a 裁决确认：6 项 = 卡面原定 5 项 + hygiene；计数口径见 tasks/TASK-001-repo-skeleton.md §5.2）
+#   硬门禁 7 项（任一失败即阻塞合并）：fmt / clippy(含禁用项 lint) / test / deny / build / hygiene
+#     / spike-deny
+#     （DRIFT-001-2-a 裁决确认：前 6 项 = 卡面原定 5 项 + hygiene；计数口径见
+#      tasks/TASK-001-repo-skeleton.md §5.2。第 7 项 spike-deny 由 ADR-0024 D2 新增，
+#      对应 gov §5.1 的 #8b —— 因为 spikes/ 被 workspace exclude，主 deny job 覆盖不到它。）
 #   元门禁（ADR-0019）：每项硬门禁都必须配一条「负向验证」，证明它在该红的时候真的会红。
 #     canary 在 gate-selftest.yml（手工触发）；当前登记表见 ADR-0019，缺项见 PL-018。
 #   软门禁 9 项（continue-on-error: true）：每一项都注明「启用卡号」，
@@ -145,6 +148,62 @@ jobs:
         with:
           command: check
           arguments: --all-features
+
+  # ==========================================================================
+  # 硬门禁 #8b：spike 依赖治理（ADR-0024 D2，关闭 PL-019 方案 ①）
+  #
+  # 为什么单独一道：Cargo.toml 的 exclude = ["spikes", ...] 使主 deny job 覆盖不到 spike 代码，
+  #   于是 spike 里 `cargo add` 任何依赖都只有政策约束（DEPENDENCIES.md 规则 1）、没有机器约束。
+  # 为什么只查 licenses + sources：这两项不需要联网 clone advisory-db；而 spike 最真实的风险
+  #   恰恰是「图方便引入许可证不兼容或来源不明的包」。bans 不查（spike 之间版本重复是正常的），
+  #   advisories 不查（一次性验证代码不在发布链路上）。
+  # 铁律 1：没有任何 spike manifest 时必须显式打印「无」再 exit 0，绝不静默通过。
+  # 负向验证（ADR-0019 N3）见 gate-selftest.yml 的 spike-deny canary。
+  # ==========================================================================
+  spike-deny:
+    name: cargo deny (spikes only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # 版本必须与 ci.yml 的 cargo-deny-action@v2.1.1 及本机开发环境同版本（ADR-0019 / PL-016）。
+      # 注：这里用 cargo install 从源码编译（约 5 分钟）。TASK-015 应改为下载预编译二进制，
+      #     与「软门禁 #9 覆盖率」的同类优化一起做。
+      - name: "install cargo-deny (pinned, same version as the main deny job)"
+        run: |
+          set -euo pipefail
+          cargo install cargo-deny --version 0.20.2 --locked
+          cargo deny --version
+
+      - name: "[HARD #8b] cargo deny check licenses sources (per spike manifest)"
+        run: |
+          set -uo pipefail
+          shopt -s nullglob
+          manifests=(spikes/*/Cargo.toml)
+          if [ ${#manifests[@]} -eq 0 ]; then
+            echo "OK: 无 spike manifest（spikes/ 下没有 Cargo.toml）—— 本 job 无检查对象，显式通过（不是静默跳过）"
+            exit 0
+          fi
+          echo "发现 ${#manifests[@]} 个 spike manifest："
+          printf '  %s\n' "${manifests[@]}"
+          failed=0
+          for m in "${manifests[@]}"; do
+            echo "----- checking $m -----"
+            if cargo deny --config deny.toml --manifest-path "$m" check licenses sources; then
+              echo "OK: $m licenses / sources 通过"
+            else
+              echo "FAIL: $m licenses / sources 未通过"
+              failed=1
+            fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "spike 依赖门禁失败：请在 docs/DEPENDENCIES.md 登记并确认许可证在白名单内（ADR-0024 D5）"
+            exit 1
+          fi
+          echo "OK: 全部 ${#manifests[@]} 个 spike manifest 的 licenses / sources 均通过"
 
   # ==========================================================================
   # 未实现项自检：确保 xtask 的"未实现"清单始终能被打印出来。
