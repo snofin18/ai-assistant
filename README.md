@@ -33,7 +33,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 | 了解全项目拆解顺序 | `docs/wbs-overview.md` |
 | 了解夜间无人值守自动化的边界 | `docs/overnight-automation-charter.md` |
 | 查契约细节 | `docs/spec/`（naming 已就位，其余陆续产出） |
-| 查"为什么当初这么决定" | `docs/adr/`（陆续产出） |
+| 查"为什么当初这么决定" | `docs/adr/README.md`（**编号登记表**：哪些号已有文件 / 哪些只是待建）→ 具体 `docs/adr/NNNN-*.md` |
 | 查台账 / 停车位 / 依赖登记 | `LEDGER.md` / `docs/PARKING_LOT.md` / `docs/DEPENDENCIES.md` |
 
 ---
