@@ -62,6 +62,13 @@
 **会话中重锚**：每完成一个子步骤自问 ①在 In scope 内吗 ②是否引入了卡里没提的文件/依赖/抽象 ③是否改了公共接口；每 20~30 轮重读本文件与任务卡；**一个会话最多完成 1~2 张卡**，做完即提交 + 更新 `LEDGER.md` + 结束会话。
 **流程**：领卡 → 回执 → 小步实现 → 自跑全部验收命令 → 填执行记录 → 更新 LEDGER（+ 有新事实/坑则追加 `docs/memory/facts.md`｜`pitfalls.md`｜`rejected.md`；**应用专属的进 `docs/memory/apps/<app>.md`**；`MEMORY.md` 只在快照/规模表变化时才改）→ PR（gov §9.4 模板）→ 独立 review agent → 人类合并。
 **禁止 drive-by refactor**：不相关的问题一行记入 `docs/PARKING_LOT.md`，本卡不动。
+**改公共热点文件先取锁（ADR-0028）**：写 `LEDGER.md` / `docs/memory/*` / `docs/PARKING_LOT.md` 之前必须
+`cargo run -p xtask -- guard acquire <文件> --owner <会话级唯一标识> --task TASK-0NN --intent "<一句话>"`，
+写完**立刻** `guard release`。`--owner` 必须会话级唯一（`<agent>-<thread 前 8 位>` 或 `TASK-NNN`）——
+两个会话用同一 owner 会被判为同一持有者而直接复用锁，那等于没锁。
+超时放弃（退出码 **5**）之后：① **必须在 `LEDGER.md` 追加一行**说明放弃了什么、为什么（缺这一行就只是「日志」不是「通报」）；
+② **不得**改用 `--force` 硬抢（会直接踩掉别人的改动）；③ 改做别的卡或升级给人类。
+并行分工的完整锁协议见 `docs/subagent-orchestration.md` §11。
 
 ---
 
@@ -118,6 +125,8 @@ cargo test -p assistant-core arch::            # 依赖方向（gov §5.3）
 cargo run -p xtask -- verify-schemas           # Tool/Adapter/审计事件 schema
 cargo run -p xtask -- codegen --check          # Rust↔TS 类型与 schema 同步
 cargo run -p xtask -- hygiene                  # 仓库卫生（gov §5.4）
+cargo run -p xtask -- memory-counts            # MEMORY.md 规模表 ↔ docs/memory/ 实测（ADR-0030，硬门禁 #12b）
+cargo run -p xtask -- adr-index                # ADR 登记表 ↔ docs/adr/*.md ↔ decisions.md（ADR-0030，硬门禁 #12b）
 cargo run -p xtask -- check-comments           # 命名/注释/PITFALL-TODO 卡号规范
 cargo deny check
 cargo llvm-cov --fail-under-lines 75
@@ -126,6 +135,10 @@ cargo run -p xtask -- replay --suite core      # 回放基准
 ```
 
 > 阶段 0 仓库尚未脚手架化，上述命令自 TASK-001（仓库骨架）起生效。**阶段 0 的产出是 `SPIKE_REPORT.md`，不是产品代码。**
+
+> **`memory-counts` / `adr-index` 已经生效**（不等 TASK-001）：它们只查文档，阶段 0 就有检查对象。
+> 两个子命令都**只读** —— 报错时消息里直接给出「可粘贴的正确值」，照着改文档即可，工具不会替你写。
+> **禁止**为了让它们变绿而放宽判据或删表；判据改动属漂移触发器 ④（改 ADR 已决事项）。
 
 ---
 
@@ -146,6 +159,8 @@ cargo run -p xtask -- replay --suite core      # 回放基准
 
 多 agent 并行时 **write scope 必须互不重叠**；并行度 ≤ 3（**人类审阅速度决定项目速度**）。
 
+**write scope 与 `guard` 锁的关系（ADR-0028）**：scope 是**文档约定**（事前划分），锁是**运行时机制**（事中互斥），两者拦的是不同的失效模式，**都要**。上表第 2 行那类「所有会话都可追加」的公共热点文件**天然无法用 scope 划分**，只能靠锁；而「读文件 → 想 → 写回」之间没有任何原子性，两个进程各自基于旧内容写回就是经典 lost update，**git 不会报冲突**（两次写都「成功」了）。反过来，锁是协作式的、**无法技术强制**，所以它不能替代 scope。
+
 ---
 
 ## 9. 交付格式（每次任务结束）
@@ -165,3 +180,5 @@ DoD 核对：<逐条打勾>
 ---
 
 *本文件变更需 ADR。发现本文件与其他文档矛盾 → 按裁决顺序处理并记 DRIFT。*
+
+*本版变更的 ADR 授权：§3「改公共热点文件先取锁」与 §8「锁与 scope 的关系」← **ADR-0028**（其影响表明写「`AGENTS.md` §3 / §8 … ✅ 本 ADR 即授权」）；§6 新增的两条命令 ← **ADR-0030** D5（CI 硬门禁 #12b，gov §5.1）。*
