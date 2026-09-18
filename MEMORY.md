@@ -32,8 +32,8 @@
 | `facts.md` | 109 | 71 | 按主题分节；**grep 优先**，不必全读 |
 | `pitfalls.md` | 90 | 61 | 按主题分节；**grep 优先**，不必全读 |
 | `rejected.md` | 51 | 31 | ★ **动手前全量读**（防止同一方案被反复重新提出） |
-| `decisions.md` | 63 | 38 | 索引 → `docs/adr/NNNN-*.md` |
-| `open.md` | 49 | 25 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
+| `decisions.md` | 67 | 39 | 索引 → `docs/adr/NNNN-*.md` |
+| `open.md` | 50 | 25 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
 | `apps/notepad.md` | 243 | 0 | 接记事本时**全量读**；8 个固定小节 |
 
 > **迁移核对（ADR-0021 验证方式 2）—— 历史快照：下面三个数字是「迁移当时值」，不随后续追加变化**：
@@ -73,7 +73,8 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
               提交身份 = snofin18 (via Codex) <snofin@gmail.com>（仓库本地 config，人类裁决方案 B）
               github.com 经本地代理 http://127.0.0.1:30000（global config；**只对 HTTP/HTTPS 生效**）
 已产出文档  ：架构 v2.2、应用可行性 v1.1、AGENTS.md、gov、PLAN.md、LEDGER.md、README.md、
-              plans/stage-0-spikes.md（TASK-001~010）、plans/stage-1-pilots.md（TASK-011~058）、
+              plans/stage-0-spikes.md ＋ plans/stage-1-pilots.md（**阶段索引与批次表**）、
+              tasks/TASK-*.md（**卡片正文 ＋ 执行记录，一卡一文件；ADR-0031**，stage-0 的 10 张已就位）、
               docs/{governance-ai-agent-execution, subagent-orchestration, storage-design,
               wbs-overview, overnight-automation-charter, DEPENDENCIES, PARKING_LOT}、
               docs/spec/naming.md、docs/adr/**README.md（编号登记表：已存在文件 / 待建号 /
@@ -101,8 +102,10 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
                 （open.md **N9**）→ 需人类专门安排调试时段，在此之前**禁止创建真实 automation**
               ③ 改写公共热点文件（LEDGER / docs/memory/* / PARKING_LOT）**前必须先 `xtask guard acquire`**
                 （ADR-0028）；超时放弃（退出码 5）后必须在 LEDGER 追加一行说明
-              ④ 待人类裁决：DRIFT-001-3（执行记录落盘位置）、M5 许可证、
-                `docs/PARKING_LOT.md` 未关闭项（护栏增强类）、gov §5.4 行数口径矛盾（PL-033）
+              ④ **DRIFT-001-3 已裁决关闭**（ADR-0031「一卡一文件」Accepted，stage-0 的 10 张卡已迁移，
+                零丢失核对通过）；`xtask card-check` 的四条判据已写死在 D6 / gov §3.4，**实现仍归 PL-002**
+              ⑤ 待人类裁决：M5 许可证、`docs/PARKING_LOT.md` 未关闭项（护栏增强类）、
+                gov §5.4 行数口径矛盾（PL-033）、豁免机制（PL-032 与 PL-034 是同一个问题）
 待产出文档  ：docs/spec/*（其余 6 份，含 testing.md）、docs/OPEN_SOURCE_CHECKLIST.md、
               docs/dev-env-setup.md（PL-017）、其余 7 份 Spike 报告
 执行方式    ：AI coding agent（Codex/opencode/Claude Code）实现，人类规划+审阅+裁决；
