@@ -1,13 +1,95 @@
-# TASK-001　仓库骨架与 CI 最小门禁 — 执行记录
+# TASK-001　仓库骨架与 CI 最小门禁
 
-> 卡片正文（In/Out scope、验收命令、DoD）在 `plans/stage-0-spikes.md` 的 TASK-001 一节，本文件**不复制**它，只记录执行结果。
-> 为什么单独建文件：`plans/*` 不在本卡 write scope 内，执行记录需要一个可写的位置（见 DRIFT-001-3）。
->
-> 状态：**Review（待人类审阅）**　执行日期：2026-09-16　执行者：Codex（人类规划 + 裁决）
+- 状态：**Done**
+- 阶段：0　Spike：—　依赖：M5 许可证决定　预估：0.5 天　阻塞主线：是（其他卡都要它）
+- 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
+- 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-0-spikes.md`。
 
 ---
 
-## 1. 约束回执（动手前输出，gov §4.2）
+
+- 依赖：M5（许可证选择，建议 `MIT OR Apache-2.0`）　预估：0.5 天　难度：S
+- **write scope**：仓库根（`.gitignore`、`LICENSE*`、`README.md`、`Cargo.toml` workspace、`rust-toolchain.toml`、`rustfmt.toml`、`clippy.toml`、`deny.toml`、`.github/workflows/ci.yml`、`xtask/`）、`LEDGER.md`、`docs/PARKING_LOT.md`、`docs/DEPENDENCIES.md`、`docs/spec/.gitkeep`、`docs/adr/.gitkeep`、`tasks/.gitkeep`、`spikes/.gitkeep`、`fixtures/.gitkeep`、`CLAUDE.md`
+- **Out of scope**：任何 `crates/*` 业务代码、任何 `apps/*`、spec 内容（后续卡写）
+
+**In scope 清单**
+1. Cargo workspace 骨架：`crates/`（空）、`apps/`（空）、`xtask`（含 `hygiene` / `verify-schemas` / `codegen` / `replay` 四个子命令的**占位实现**，返回明确的 "not implemented (TASK-0NN)" 错误而不是静默成功）
+   > **裁决修订（2026-09-17，DRIFT-001-1-a，人类批准）**：`hygiene` **不作占位**，改为**部分实现** ——
+   > 落地 gov §5.4 的 **3/13 项**规则（文件行数、注释标签、注释掉的代码块）；其余 **10 项**规则与
+   > （口径由 **ADR-0025** 于 2026-09-18 统一：原为 3/11 + 8 项；PL-011 禁 CRLF 与 PL-020 末行换行
+   > 一并采纳后 gov §5.4 变为 13 项。**不是**当初设想的 `3/12`。）
+   > `verify-schemas` / `codegen` / `replay` 三个子命令仍登记在 `xtask/src/deferred.rs`，运行时**显式失败**
+   > （退出码 3，报错文本指明归属 TASK-015），不静默返回成功。理由与备选方案见
+   > `tasks/TASK-001-repo-skeleton.md` §5.1。
+2. `rust-toolchain.toml` 固定 MSRV；`rustfmt.toml`（`max_width=100`）；`clippy.toml`
+3. `deny.toml`：许可证白名单（MIT/Apache-2.0/BSD/ISC/Zlib/MPL-2.0）、advisories、bans（重复版本告警）
+4. `.github/workflows/ci.yml`：三平台矩阵 + 先上线 **6** 项硬门禁（fmt、clippy `-D warnings`、test、deny、build、`xtask hygiene`）；其余 9 项标 `continue-on-error: true` 并注明启用卡号
+   > **裁决修订（2026-09-17，DRIFT-001-2-a/b，人类批准）**：硬门禁由 **5** 项改为 **6** 项 ——
+   > `xtask hygiene` 在本卡已实现且自检通过，留作软门禁等于白白放弃一道已就绪的防线。
+   > **计数口径**（此前 5+9=14 与 gov §5.1 的 16 行对不上，是 DRIFT-001-2 的真正来源）：
+   > gov §5.1 表共 **16** 行，其中 #3「禁用项 lint」由 #2 的 `-D warnings` + `[workspace.lints]`
+   > 一并覆盖，故落到 CI 上是 **6 硬 + 9 软 = 15 个步骤 ↔ 16 行清单**，不是 14。
+   > **口径已于 2026-09-18 由 ADR-0025 D4 统一**（PL-001 关闭）：gov §5.1 现为 **17 行清单**
+   > （原 16 行 + 子编号 **#8b** spike-deny，用子编号是为了不重排被多处交叉引用的主编号）；
+   > 其中 #3「禁用项 lint」由 #2 覆盖 → CI 落地为 **7 硬 + 9 软 = 16 个步骤 ↔ 17 行清单**。
+   > `plans/stage-1-pilots.md` 的「CI 14 项门禁」已同步改述。
+   > **DRIFT-001-2-c（元门禁）**：每项硬门禁必须配「负向验证」→ 见 `docs/adr/0019-hard-gate-negative-verification.md`
+   > 与 `.github/workflows/gate-selftest.yml`；fmt / clippy / build 三项的 canary 尚缺 → **PL-018**（归 TASK-015）。
+5. `.gitignore` 必须覆盖：`*.db*`、`shadow/`、`blobs/`、`evidence/`、`.env*`、`adapters-private/`、`target/`、`node_modules/`、`dist/`
+6. `CLAUDE.md` = 一行 `See @AGENTS.md`
+7. `LEDGER.md` / `docs/PARKING_LOT.md` / `docs/DEPENDENCIES.md` 建表头
+8. `README.md`：项目一句话、文档地图、当前阶段、构建方式、许可证
+
+**验收命令**
+```powershell
+cargo fmt --all --check; cargo clippy --all-targets -- -D warnings; cargo test --workspace
+cargo deny check
+# 第 5 条（裁决修订 2026-09-17，DRIFT-001-1-b；口径 2026-09-18 由 ADR-0025 统一）：
+# hygiene 是**部分实现**（gov §5.4 的 3/13 项）。判定标准以它输出的这行摘要为准（逐字符）：
+#   -- deferred-rules: gov §5.4 共 13 项，已实现 3 项，未实现 10 项（归属 TASK-015；`--list-deferred` 查看清单）
+# 退出码 0 且该行数字自洽 = 通过。**不得**把 verdict=PASSED 读成「13 项全部通过」。
+# 本机 2026-09-18 实测：该行输出与上文逐字符一致，`cargo test --workspace` 99 passed。
+cargo run -p xtask -- hygiene
+git status --porcelain   # 应无未忽略的运行时数据文件
+```
+
+**DoD**
+- [ ] CI 在空 workspace 上三平台全绿
+- [ ] `xtask` 四个子命令都存在且**未实现时明确报错**（不得静默返回成功 —— 铁律 1）
+- [ ] `.gitignore` 覆盖所有运行时数据目录
+- [ ] `LEDGER.md` 追加本卡一行；`MEMORY.md` §1 快照更新
+
+<!-- ══ 分界线：以上为**卡片正文**，Orchestrator 所有，Implementer 只读 ══
+     以下由 Implementer 填写。改动分界线以上的任何一行 = 漂移触发器 ⑤（超出 write scope），
+     并会被 `xtask card-check` 判为 Error（ADR-0031 D3 / D6）。 -->
+
+## 执行记录（Implementer 填写；9 节骨架见 gov §3.4 / ADR-0031 D4）
+
+> **迁移说明（ADR-0031，2026-09-18）**：下面第 1~7 节是 2026-09-16 的**原始执行记录**，
+> 迁移前单独放在 `tasks/TASK-001-repo-skeleton.md`（当时卡片正文还在 `plans/stage-0-spikes.md`，
+> 见下文 §5.3 的 DRIFT-001-3）。迁移时**逐字搬运**，只把小节标题降了一级（`## N.` → `### N.`，
+> 内部的 `### N.M` → `#### N.M`），编号与内容一律不变 —— 所以 `§5.3` 这类交叉引用仍然有效。
+> 第 8 / 9 节是 ADR-0031 D4 新增的约定，当时尚无此格式，故为**迁移时补记**。
+>
+> **旧格式 → 9 节骨架的对照表**（本卡当时尚无 9 节约定，**历史小节一律不改名、不重排**；
+> 下表只说明哪些旧小节承担了哪一节的职责，供 `xtask card-check` 与审阅者对照）：
+>
+> | 9 节骨架（gov §3.4） | 本卡的对应位置 |
+> |---|---|
+> | 1 约束回执 | §1（同名） |
+> | 2 实际改动文件 | **§2 产出清单**（§2.1 仓库根 / §2.2 `xtask`）—— 同一事：逐个列出改了什么 |
+> | 3 验收输出摘要 | **§3 验收结果**（含负向验证输出） |
+> | 4 DoD 逐条核对 | §4（同名） |
+> | 5 偏差 / DRIFT | §5 设计变更与偏差（§5.1 DRIFT-001-1 / §5.2 DRIFT-001-2 / §5.3 DRIFT-001-3） |
+> | 6 更合理做法 | §5.4（同名） |
+> | 7 遗留问题 | **§5.5 未做 / 受阻**（均已登记 PARKING_LOT）与 §6 需要回填的其他文档 |
+> | 8 新增长期记忆 | §8（迁移时补记） |
+> | 9 给审阅者的关注点 | §9（迁移时补记） |
+>
+> §7「白盒测试准备」是当时人类要求 #4 的额外产出，**9 节骨架里没有对应项** —— 保留原位，
+> 不强行塞进某一节（塞进去就是改写历史）。
+
+### 1. 约束回执（动手前输出，gov §4.2）
 
 ```text
 【任务】TASK-001 仓库骨架与 CI 最小门禁
@@ -27,9 +109,9 @@
 
 ---
 
-## 2. 产出清单
+### 2. 产出清单
 
-### 2.1 仓库根
+#### 2.1 仓库根
 
 | 文件 | 说明 |
 |---|---|
@@ -48,7 +130,7 @@
 | `docs/PARKING_LOT.md` | 停车位表头 + PL-001~PL-007 |
 | `docs/DEPENDENCIES.md` | 依赖登记表 + 登记规则 + 开发工具清单 |
 
-### 2.2 `xtask`（零第三方依赖的只读护栏工具）
+#### 2.2 `xtask`（零第三方依赖的只读护栏工具）
 
 | 模块 | 行数 | 职责 | 碰文件系统 |
 |---|---|---|---|
@@ -65,7 +147,7 @@
 
 ---
 
-## 3. 验收结果
+### 3. 验收结果
 
 | # | 命令 | 结果 | 说明 |
 |---|---|---|---|
@@ -89,7 +171,7 @@ cargo run -p xtask -- hygiene --repo docs → exit 0，但显式告警 xtask/no-
 
 ---
 
-## 4. DoD 核对
+### 4. DoD 核对
 
 - [x] CI 在空 workspace 上三平台全绿 —— **待推送后由 GitHub 验证**（本地无远端；工作流已通过 YAML 解析校验，硬/软门禁数与结构已核对）
 - [x] `xtask` 四个子命令都存在且**未实现时明确报错**（退出码 3 + 归属卡号；有端到端测试 `test_execute_every_deferred_command_fails_with_code_three` 覆盖全部 6 个）
@@ -99,9 +181,9 @@ cargo run -p xtask -- hygiene --repo docs → exit 0，但显式告警 xtask/no-
 
 ---
 
-## 5. 设计变更与偏差（用户要求：思路变更与更合理办法必须记录）
+### 5. 设计变更与偏差（用户要求：思路变更与更合理办法必须记录）
 
-### 5.1 DRIFT-001-1　hygiene 是"占位"还是"实现"？（**需人类裁决**）
+#### 5.1 DRIFT-001-1　hygiene 是"占位"还是"实现"？（**需人类裁决**）
 
 - **现象**：卡面 In-scope #1 要求 `hygiene`/`verify-schemas`/`codegen`/`replay` 四个子命令都是
   **占位实现（返回 not implemented）**；但卡面验收命令第 5 条又要求
@@ -142,7 +224,7 @@ cargo run -p xtask -- hygiene --repo docs → exit 0，但显式告警 xtask/no-
     `cargo llvm-cov --workspace --fail-under-lines 75` → 99 passed，**行覆盖 96.31%**、函数 94.26%、
     区域 95.18%（退出码 0）。§7.4 标注的「安装工具后应回填实测数字」即可用此数据回填。
 
-### 5.2 DRIFT-001-2　CI 硬门禁是 5 项还是 6 项？
+#### 5.2 DRIFT-001-2　CI 硬门禁是 5 项还是 6 项？
 
 - **现象**：卡面写"先上线 **5** 项门禁（fmt、clippy、test、deny、build）；其余 **9** 项
   `continue-on-error`"。5 + 9 = 14，但 gov §5.1 的表实际有 **16** 行
@@ -173,7 +255,7 @@ cargo run -p xtask -- hygiene --repo docs → exit 0，但显式告警 xtask/no-
     「CI 14 项门禁」表述的统一 —— 属 **PL-001**，人类未裁决；② fmt / clippy / build 三项硬门禁
     的负向验证 —— 新登记 **PL-018**，归 TASK-015；③ **PL-011**（新增第 12 项 CRLF 规则）仍未裁决。
 
-### 5.3 DRIFT-001-3　执行记录该写在哪？
+#### 5.3 DRIFT-001-3　执行记录该写在哪？
 
 - **现象**：gov §3.2 的任务卡模板含「执行记录（agent 填写）」一节，但本项目的卡片正文写在
   `plans/stage-0-spikes.md`，而 `plans/*` **不在** TASK-001 的 write scope 内 → 执行记录无处可写。
@@ -182,7 +264,7 @@ cargo run -p xtask -- hygiene --repo docs → exit 0，但显式告警 xtask/no-
 - **建议**：确立约定 —— **卡片正文在 `plans/<阶段>.md`，执行记录在 `tasks/TASK-NNN-<slug>.md`**，
   并把 `tasks/TASK-*.md` 默认纳入每张卡的 write scope（需改 gov §3.2 模板，属契约变更，走 ADR）。
 
-### 5.4 实施中发现的更合理做法（非漂移，已直接落地并在此说明理由）
+#### 5.4 实施中发现的更合理做法（非漂移，已直接落地并在此说明理由）
 
 **a. `rustfmt.toml` 移除 4 个 unstable 选项。**
 `wrap_comments` / `comment_width` / `format_code_in_doc_comments` / `normalize_comments`
@@ -224,7 +306,7 @@ gov §5.2 明确授权「`tests/` 中按需 allow」。测试里用 `unwrap`/`pa
 `已实现 + 未实现 == 总数`、命令名唯一、每项必须有非空归属。
 这类"登记表自身一致性"的检查成本极低，但能防止登记表悄悄过期。
 
-### 5.5 未做 / 受阻（均已登记，未静默跳过）
+#### 5.5 未做 / 受阻（均已登记，未静默跳过）
 
 | 事项 | 原因 | 去处 |
 |---|---|---|
@@ -234,7 +316,7 @@ gov §5.2 明确授权「`tests/` 中按需 allow」。测试里用 `unwrap`/`pa
 | `check-comments`/`check-ledger`/`card-check` 无归属卡 | 计划里没有这三张卡 | PL-002 |
 | `.github/workflows/.gitkeep` 冗余 | 删除文件不属本卡必要动作 | PL-007 |
 
-### 5.6 M5（许可证）的处理
+#### 5.6 M5（许可证）的处理
 
 `MEMORY.md` §6 的 M5 仍未裁决。本卡按 gov 建议先落 **MIT**（单许可，而非 `MIT OR Apache-2.0`），
 理由：① 内部阶段不需要双许可的额外复杂度；② 该决定**可逆**（追加 Apache-2.0 是加法，
@@ -243,7 +325,7 @@ README 已明确写出"M5 待裁决 + 可逆"。**请人类在阶段 0 结束前
 
 ---
 
-## 6. 需要回填的其他文档（本卡完成后）
+### 6. 需要回填的其他文档（本卡完成后）
 
 - `MEMORY.md` §1 快照：阶段 0 状态从"尚未创建代码仓库"改为"仓库已建立，TASK-001 完成"
 - `MEMORY.md` 追加：FACT（工具链版本、heartbeat/cron 机制）、DECISION（换行策略、hygiene 范围）、
@@ -252,9 +334,9 @@ README 已明确写出"M5 待裁决 + 可逆"。**请人类在阶段 0 结束前
 
 ---
 
-## 7. 白盒测试准备（用户要求 #4）
+### 7. 白盒测试准备（用户要求 #4）
 
-### 7.1 现状
+#### 7.1 现状
 
 **99 个测试，0 失败，0 ignored，运行耗时 0.02 s**（全部纯内存，无临时目录、无网络、无 GUI）。
 
@@ -268,7 +350,7 @@ README 已明确写出"M5 待裁决 + 可逆"。**请人类在阶段 0 结束前
 | `report` | 8 | `is_failure` 语义、warning 不阻塞、渲染确定性、行号 0 省略、空消息兜底、摘要单行 |
 | `main` | 12 | 分派全路径、6 个未实现子命令都返回 3、拼错命令返回 2、`--list-deferred`、hygiene 端到端、**双跑逐字节相同**、0 文件显式告警、`present_failure` 只在用法错误时附带 USAGE |
 
-### 7.2 可测试性接缝（后续 crate 应照此设计）
+#### 7.2 可测试性接缝（后续 crate 应照此设计）
 
 1. **规则 = 纯函数**：`(相对路径, 源码文本) -> Vec<Finding>`。测试直接喂字符串，不建临时文件。
 2. **输出可注入**：`execute(args, &mut dyn Write)`、`Report::render(&mut dyn Write)`。
@@ -277,14 +359,34 @@ README 已明确写出"M5 待裁决 + 可逆"。**请人类在阶段 0 结束前
 4. **阈值是 `pub const`**：测试用 `FILE_LINES_WARN + 1` 而不是硬编码 601，改阈值时测试自动跟随。
 5. **自反测试**：工具扫自己的源码（`include_str!`），以及"同一输入两次运行逐字节相同"。
 
-### 7.3 负向测试清单（证明它会拒绝该拒绝的东西）
+#### 7.3 负向测试清单（证明它会拒绝该拒绝的东西）
 
 占位卡号 `TASK-0NN` 被拒 ｜ 4 行连续注释不触发（阈值边界） ｜ 文档注释不算注释掉的代码 ｜
 生命周期 `'a` 不被当字面量抹掉 ｜ 仓库根指向文件必须失败 ｜ 拼错命令必须是"用法错误"而非"未实现" ｜
 0 个文件必须告警 ｜ 登记表数量不自洽必须测试失败。
 
-### 7.4 覆盖率
+#### 7.4 覆盖率
 
 `cargo-llvm-cov` 未安装（CI 里已配为软门禁 #9，启用卡号 TASK-015）。
 本卡**未测覆盖率数字**，但按 §7.1 的用例分布，规则模块的分支覆盖是完整的
 （每条规则都有 通过 / 告警 / 失败 / 边界 四类用例）。安装工具后应回填实测数字到本节。
+
+### 8. 新增长期记忆（FACT / PITFALL / REJECTED 条目原文；无则写"无"）
+
+**迁移时补记（ADR-0031 D4 第 8 节，当时尚无此约定）**：本卡产出的长期记忆已按 ADR-0021 分层落在
+`docs/memory/` —— `facts.md`（xtask 的分层与只读不变量、CI 门禁口径、`.gitattributes` 全仓 LF 等）、
+`pitfalls.md`（`Report::new` 丢弃参数的静默失败、`deny.toml` 的 `db-path` 写成数组导致整条门禁从未跑起来、
+PS 5.1 按 GBK 解码无 BOM 脚本等）、`rejected.md`（`uiautomation` crate、Accessibility Insights、
+X11 会话依赖等）、`open.md`（M5 许可证、N1~N9）。**本文件不复制那些条目**（同一事实两处手写必然漂移，
+ADR-0030 的整条动机）；要看原文请按 `MEMORY.md` 的路由表跳读。
+
+### 9. 给审阅者的关注点（风险最高的 1~3 处）
+
+**迁移时补记（ADR-0031 D4 第 9 节）**：以本卡当时的状态回看，风险最高的三处是 ——
+① **§5.1 DRIFT-001-1（hygiene 是"占位"还是"实现"）**：它决定了 `verdict=PASSED` 能不能被读成
+　「13 项全部通过」。已由人类裁决 + ADR-0025 统一口径（工具每次运行都打印 `deferred-rules` 摘要行），
+　但**审阅者仍须知道 PASSED ≠ 全项通过**。
+② **§5.4 b 全仓库改 LF + 新增 `.gitattributes`**：这是本卡影响面最大的一次「更合理做法」，
+　动了 33 个文件的字节。若将来在三平台 CI 上看到莫名的 `cargo fmt --check` 红，先查这里。
+③ **§5.3 DRIFT-001-3（执行记录该写在哪）**：本卡自行新建了 `tasks/` 文件绕过，属**未经裁决的契约变更**。
+　已于 2026-09-18 由 **ADR-0031** 正式裁决为「一卡一文件」，本节所在文件即为该方案的实例。

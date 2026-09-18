@@ -147,44 +147,21 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 
 ---
 
-## 完整任务卡示例（其余卡由 Orchestrator 按此格式展开）
+## 卡片正文的位置（ADR-0031：**一卡一文件**）
 
-### TASK-011　`protocol` crate：schema 单一事实源与代码生成
+> 本文件**只保留阶段级信息**：In/Out scope、阶段 DoD、批次表与并行建议。
+> 每张卡的**正文**（目标 / write scope / In scope / 必须遵守 / 验收命令 / DoD）与**执行记录**都在
+> `tasks/TASK-NNN-<slug>.md` 里，由 Orchestrator 在**开工前**按 gov §3.2 模板展开（会话启动只读自己那一个）。
+> **本文件不再放任何卡片正文** —— 出现即被 `xtask card-check` 判为 Error（ADR-0031 D6 判据 ④）。
+> 模板与填写要求见 **gov §3.2（模板）与 §3.4（9 节执行记录骨架 + 分界线原文）**。
 
-- 依赖：TASK-001　预估：M（≤1 会话）　批次：A1
-- **write scope**：`protocol/**`、`crates/protocol/**`、`xtask/src/codegen*`、`docs/spec/tool-schema.md`（仅追加"生成方式"一节，需人类批准）
-- **Out of scope**：任何业务逻辑、任何平台代码、TS 组件
+**已展开的卡片文件**（其余 46 张在开工前逐张展开；本表只登记已存在的文件，**不记状态** —— 状态只在卡片文件里，ADR-0031 D2）：
 
-**In scope**
-1. `protocol/tool-schema/tool-2.0.json`：v2 附录 A 的元 schema 落地
-2. `protocol/error-codes/error-codes.json`：v2 §8.7 全部分类，每码含 `category / retryable / message_for_model / message_for_user / hint`
-3. `protocol/envelope/envelope-1.0.json`：v2 §5.3 统一返回信封
-4. `protocol/capability-matrix/capability-1.0.json`：v2 附录 C 的能力标识符目录
-5. `protocol/audit-event/audit-event-1.0.json`：v2 附录 D
-6. `crates/protocol`：由上述 schema 生成的 Rust 类型 + `ErrorCode` 枚举 + 校验入口
-7. `xtask codegen`：生成 Rust 与 TS 类型；`codegen --check` 在无差异时退出 0，有差异时列出文件与 diff 摘要
+| 卡号 | 批次 | 卡片文件（正文 ＋ 执行记录） | 备注 |
+|---|---|---|---|
+| TASK-011 | A1 | `tasks/TASK-011-protocol-schema-codegen.md` | 完整卡（原本文件的「完整任务卡示例」，逐字搬运） |
+| TASK-035 | A5 | `tasks/TASK-035-notepad-adapter.md` | ⚠ **仅要点摘录**，展开前不得派单 |
 
-**必须遵守**
-- 生成物纳入版本控制（便于 review 与离线构建），但**任何人不得手工编辑生成文件**（文件头写明 "GENERATED — DO NOT EDIT"）
-- ErrorCode 命名与 v2 §8.7 一致；新增码属契约变更 → 需 ADR
-- 所有类型 `#[non_exhaustive]`（便于向后兼容扩展）
-- 命名遵循受控词汇表（AGENTS.md §5.1）
-
-**验收命令**
-```powershell
-cargo fmt --all --check; cargo clippy --all-targets -- -D warnings; cargo test -p assistant-protocol
-cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check
-cargo run -p xtask -- hygiene; cargo test -p assistant-core arch::
-```
-
-**DoD**
-- [ ] 五份 schema 均通过 `verify-schemas`
-- [ ] `codegen --check` 干净；手工改一个生成文件后 `--check` 必须失败（**负向测试**）
-- [ ] ErrorCode 覆盖 v2 §8.7 全部 13 类，每类都有 `message_for_model` 与 `hint`
-- [ ] `crates/protocol/README.md` 含职责/边界/**不变量**（"生成物不得手工编辑"是第一条不变量）
-- [ ] LEDGER 追加一行；如有新 FACT/PITFALL 追加 `MEMORY.md`
-
-### TASK-035　Notepad Adapter（要点摘录，展开时补全）
-
-- **必须包含**：`adapter.toml`（`version_range` 限定 Win11 新版记事本、`capability_level = L3_a11y`、`os_version_range = ">=10.0.26100"`）、`app_map.json`（快捷键表、ui_map、known_pitfalls 含"另存为是 Shell 进程对话框"/"关闭未保存弹三态框"/"大文件应走文件通道"、`undo_capability` 显式声明 `Ctrl+Z` 与粒度）、`selectors/`（每个目标 ≥3 个候选且**不得以可见文本为主键**）、`tools/`（5 个工具，每个都有 postconditions 与 reversibility）、`rollback/`（L0 undo + L1 内容快照双路径）、`interrupts/`（三态对话框默认"取消"）
-- **禁止**：在本卡内修改 `crates/**`（若发现平台层缺陷 → DRIFT 升级，不得顺手改）
+> **迁移零丢失核对**（ADR-0031 验证方式 3）：两段正文共 **30** 行非空内容（TASK-011 28 行 + TASK-035 2 行），
+> 迁移后逐行同序一致地出现在新卡片文件的正文区（脚本校验 missing=0、same-order=True）。
+> 搬运方式是**逐字节复制、不改一个字**；新增的只有元数据块、分界线注释与执行记录骨架。
