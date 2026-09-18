@@ -89,7 +89,7 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
                 #8b spike-deny 与 #12b doc-consistency 两道硬门禁）
               + spikes/spike-a-notepad：probe-01~04 + `src/bin/uia_dep_proof.rs`（Rust COM，E1~E6 全 PASS）
               ⚠ `.ps1` 纯 ASCII 合规情况（ADR-0024 D4）：probe-03 / probe-04 = **0** 非 ASCII 字节 ✅；
-                probe-01 / probe-02 仍含中文注释（788 / 941 字节，D4 之前提交）→ **PL-026 待清扫**
+                probe-01 / probe-02 中文注释已清扫（**PL-026 已关闭**，probe-01 788→10 / probe-02 941→35 字节；剩 45 字节 = 3 条 STR-LIT 测试数据的意外非 ASCII，已以 ADR-0032 豁免登记 E-021/022/023，移除触发 = 永不）
 工具链      ：rustc/cargo 1.98.1 stable-msvc ✅；cargo-deny 0.20.2 ✅；cargo-llvm-cov 0.9.1 ✅（行覆盖 96.31%）
               inspect.exe ✅（Windows Kits 10.0.26100.0）；Accessibility Insights ❌ 未装（**已否决补装**，ADR-0024 D3）
 平台基线    ：Windows 11 24H2/25H2（唯一正式基线）；本机实测 25H2 build 26200.9457，3200×2000 @200%

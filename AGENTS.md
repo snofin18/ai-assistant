@@ -61,7 +61,7 @@
 回执与任务卡不符 → 上下文已污染 → **请人类重开会话**（比纠正更省成本）。
 
 **会话中重锚**：每完成一个子步骤自问 ①在 In scope 内吗 ②是否引入了卡里没提的文件/依赖/抽象 ③是否改了公共接口；每 20~30 轮重读本文件与任务卡；**一个会话最多完成 1~2 张卡**，做完即提交 + 更新 `LEDGER.md` + 结束会话。
-**流程**：领卡 → 回执 → 小步实现 → 自跑全部验收命令 → 填执行记录 → 更新 LEDGER（+ 有新事实/坑则追加 `docs/memory/facts.md`｜`pitfalls.md`｜`rejected.md`；**应用专属的进 `docs/memory/apps/<app>.md`**；`MEMORY.md` 只在快照/规模表变化时才改）→ PR（gov §9.4 模板）→ 独立 review agent → 人类合并。
+**流程**：领卡 → 回执 → 小步实现 → 自跑全部验收命令 → 填执行记录 → 更新 LEDGER（+ 有新事实/坑则追加 `docs/memory/facts.md`｜`docs/memory/pitfalls.md`｜`docs/memory/rejected.md`；**应用专属的进 `docs/memory/apps/<app>.md`**；`MEMORY.md` 只在快照/规模表变化时才改）→ PR（gov §9.4 模板）→ 独立 review agent → 人类合并。
 **禁止 drive-by refactor**：不相关的问题一行记入 `docs/PARKING_LOT.md`，本卡不动。
 **改公共热点文件先取锁（ADR-0028）**：写 `LEDGER.md` / `docs/memory/*` / `docs/PARKING_LOT.md` 之前必须
 `cargo run -p xtask -- guard acquire <文件> --owner <会话级唯一标识> --task TASK-0NN --intent "<一句话>"`，
@@ -127,7 +127,7 @@ cargo run -p xtask -- verify-schemas           # Tool/Adapter/审计事件 schem
 cargo run -p xtask -- codegen --check          # Rust↔TS 类型与 schema 同步
 cargo run -p xtask -- hygiene                  # 仓库卫生（gov §5.4）
 cargo run -p xtask -- memory-counts            # MEMORY.md 规模表 ↔ docs/memory/ 实测（ADR-0030，硬门禁 #12b）
-cargo run -p xtask -- adr-index                # ADR 登记表 ↔ docs/adr/*.md ↔ decisions.md（ADR-0030，硬门禁 #12b）
+cargo run -p xtask -- adr-index                # ADR 登记表 ↔ docs/adr/*.md ↔ docs/memory/decisions.md（ADR-0030，硬门禁 #12b）
 cargo run -p xtask -- check-comments           # 命名/注释/PITFALL-TODO 卡号规范
 cargo deny check
 cargo llvm-cov --fail-under-lines 75
