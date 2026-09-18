@@ -1,6 +1,18 @@
 # ADR-0018　夜间无人值守的投递机制：外部调度 + `codex exec`
 
-状态：Proposed　日期：2026-09-17　Supersedes：MEMORY.md §3 `[ADR:待建 0018]`「夜间自动化用 heartbeat」　Superseded by：—
+状态：**Accepted**（2026-09-18，人类指示 #10 / #12）　日期：2026-09-17　Supersedes：MEMORY.md §3 `[ADR:待建 0018]`「夜间自动化用 heartbeat」　Superseded by：—
+> **生效前提**：`docs/nightly/scheduler-acceptance-test.md` 的验收清单**全绿**。在跑通之前，
+> 本 ADR 处于「设计已定、未验收」状态，章程 §11.9 已显式标注。
+>
+> **2026-09-18 追加的本机实证**（把原本靠推断的部分换成直接验证）：
+> ① `New-ScheduledTaskSettingsSet` 默认值 = `StartWhenAvailable:False` / `ExecutionTimeLimit:PT72H` /
+> `RestartCount:0` / `MultipleInstances:IgnoreNew`（本机 PowerShell 实测）；
+> ② `wevtutil gl Microsoft-Windows-TaskScheduler/Operational` → **`enabled: false`**；
+> ③ `codex exec --help`（`codex-cli 0.154.0-alpha.6.2`）→ **没有 `--ask-for-approval`**，
+> 沙箱与批准由 `-s/--sandbox {read-only|workspace-write|danger-full-access}` 与 `--approve-for-me` 控制；
+> 另有 `-C/--cd`、`--skip-git-repo-check`、`--ephemeral`、`--json`、`-o/--output-last-message`、
+> `--output-schema`、`-c key=value`、`--worktree`、`resume`/`fork`/`review` 子命令。
+> 全部 10 条适配要点见章程 §11.8；断言清单见 `docs/nightly/scheduler-acceptance-test.md`。
 关联：`docs/overnight-automation-charter.md` §11、MEMORY.md §2/§4/§5 的 2026-09-17 条目、`docs/PARKING_LOT.md` PL-012~PL-015
 
 ## 背景（为什么现在要决定）

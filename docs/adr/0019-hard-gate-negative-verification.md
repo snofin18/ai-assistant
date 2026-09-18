@@ -55,6 +55,7 @@
 | 2 / 3 | `cargo clippy -D warnings`（含 `[workspace.lints]` 禁用项） | — | 注入一个含 `unwrap()` / `dbg!` 的 `.rs`，断言 exit ≠ 0 | ❌ **缺**（PL-018） |
 | 4 | `cargo test --workspace` | N1 | 99 个测试中大量为负向用例（任务卡 §7.3） | ✅ |
 | 8 | `cargo deny check` | **N3** | 正：`cargo deny check licenses bans sources` → exit 0；负：`cargo deny --config <坏配置>`（`db-path` 写成数组）→ 断言 exit 1 **且** stderr 含 `expected a string` | ✅ 本 ADR 落地 |
+| **8b** | `cargo deny check licenses sources`（逐个 `spikes/*/Cargo.toml`；ADR-0024 D2） | **N3** | 正：复刻 ci.yml 的枚举逻辑跑真实 `spikes/`（含 `windows =0.62.2`）→ `licenses ok, sources ok` exit 0；负：注入本地 path 依赖 + `license = "GPL-3.0-only"` 的 fixture → 断言 exit ≠ 0 **且**输出含 `license is not explicitly allowed` **且**含 `GPL-3.0-only`（本机 2026-09-18 实测 exit **4**） | ✅ 本行随 ADR-0024 落地 |
 | 10 | `cargo build --release` | — | 注入一个编译不过的 `.rs`，断言 exit ≠ 0 | ❌ **缺**（PL-018） |
 | 12 | `xtask hygiene` | N1 + N2 | 测试含三条规则各自的 通过 / 告警 / 失败 / 边界 四类用例；CI 另有 `deferred-inventory` 断言未实现子命令 exit 3 | ✅ |
 
