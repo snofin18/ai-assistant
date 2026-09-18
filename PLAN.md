@@ -7,11 +7,11 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-16
-当前阶段    ：阶段 0（文档与 Spike）— 尚未创建代码仓库
-当前任务卡  ：无（等待生成阶段 0 任务卡）
-阻塞项      ：M5 许可证选择（阻塞 TASK-001 仓库骨架）
-下一步动作  ：① 生成 plans/stage-0-spikes.md 的任务卡 → ② 执行 Spike → ③ 出 SPIKE_REPORT → ④ 写 docs/spec/* 与 ADR → ⑤ 开阶段 1
+更新日期    ：2026-09-19（本次 = DRIFT-20260919-1 回滚 + 文档同步；详见 LEDGER）
+当前阶段    ：阶段 0（文档与 Spike + xtask 护栏 + 零产品代码）；HEAD = 3ba66dc（36 次 commit）
+当前任务卡  ：TASK-001 Done；TASK-002 InProgress（SPIKE-A PARTIAL）；TASK-015 Ready；其余 stage-1 46 张 = Ready 占位（ADR-0031）
+阻塞项      ：无（M5 已 2026-09-18 关闭：MIT OR Apache-2.0）；`create_thread` 上游 #36315/#36250 仍 open（open.md N3）→ 派生会话由人类手工建（rejected.md 2026-09-18）
+下一步动作  ：① TASK-015 升级重做（半成品在 stash@{1}；新卡待派）→ ② TASK-002 续做补完 SPIKE-A PARTIAL → ③ 其它 Spike 派单。详见 MEMORY.md §1 与本文件阶段索引表。本字段为恢复性同步，不是常规编辑（写 PLAN.md = Orchestrator 职责）
 ```
 
 ## 阶段索引（点开当前阶段那一个就够）
