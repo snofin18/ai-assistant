@@ -33,8 +33,9 @@
 | 0029 | `0029-nightly-automation-back-to-codex-scheduled-tasks.md` | Accepted | 夜间自动化的投递机制改回 **Codex 官方 scheduled tasks**（取代 ADR-0018 的任务计划程序方案） |
 | 0030 | `0030-machine-verified-memory-counts-and-adr-index.md` | Accepted | 「记忆规模计数」与「本登记表」由手工维护改为机器校验（`xtask memory-counts` / `adr-index`） |
 | 0031 | `0031-task-card-one-file-per-card.md` | Accepted | 任务卡改为**一卡一文件**：正文 + 执行记录同在 `tasks/TASK-NNN-<slug>.md`，`plans/*` 退回阶段索引（裁决 DRIFT-001-3） |
+| **0032** | `0032-doc-rule-exemption-mechanism.md` | **Accepted** | 文档护栏规则的豁免清单机制（覆盖 PL-032 / PL-034）；配套 `0032-doc-rule-exemption-registry.md` |
 
-**下一个可用编号：0032**（= §1 与 §2 已用最大号 0031 + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0033**（= §1 与 §2 已用最大号 0032 + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是可用号** —— 它是 §2 的**待建号**，已预留给「`#[allow]` 的唯一合法位置」那条决策

@@ -32,7 +32,7 @@
 | `facts.md` | 109 | 71 | 按主题分节；**grep 优先**，不必全读 |
 | `pitfalls.md` | 90 | 61 | 按主题分节；**grep 优先**，不必全读 |
 | `rejected.md` | 51 | 31 | ★ **动手前全量读**（防止同一方案被反复重新提出） |
-| `decisions.md` | 67 | 39 | 索引 → `docs/adr/NNNN-*.md` |
+| `decisions.md` | 73 | 42 | 索引 → `docs/adr/NNNN-*.md` |
 | `open.md` | 50 | 25 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
 | `apps/notepad.md` | 243 | 0 | 接记事本时**全量读**；8 个固定小节 |
 
@@ -105,7 +105,7 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
               ④ **DRIFT-001-3 已裁决关闭**（ADR-0031「一卡一文件」Accepted，stage-0 的 10 张卡已迁移，
                 零丢失核对通过）；`xtask card-check` 的四条判据已写死在 D6 / gov §3.4，**实现仍归 PL-002**
               ⑤ 待人类裁决：M5 许可证、`docs/PARKING_LOT.md` 未关闭项（护栏增强类）、
-                gov §5.4 行数口径矛盾（PL-033）、豁免机制（PL-032 与 PL-034 是同一个问题）
+                gov §5.4 行数口径矛盾（PL-033）、豁免机制**已裁决**（ADR-0032 Accepted，20 条基线豁免已登记于···/docs/adr/0032-doc-rule-exemption-registry.md，机器读入实现归 PL-002 / PL-015）
 待产出文档  ：docs/spec/*（其余 6 份，含 testing.md）、docs/OPEN_SOURCE_CHECKLIST.md、
               docs/dev-env-setup.md（PL-017）、其余 7 份 Spike 报告
 执行方式    ：AI coding agent（Codex/opencode/Claude Code）实现，人类规划+审阅+裁决；
