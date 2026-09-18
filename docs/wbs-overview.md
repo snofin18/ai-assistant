@@ -145,6 +145,6 @@
 - [ ] M5 许可证确定（阻塞 TASK-001）
 - [ ] `docs/spec/` 七份契约草案完成（tool-schema、envelope、error-codes、capability-matrix、audit-event、ipc-protocol、naming）
 - [ ] `docs/adr/0001~0015` 草稿完成并被批准（对应 `MEMORY.md` §3 的 15 条决策）
-- [ ] `plans/stage-0-spikes.md` 的 10 张卡展开为 `tasks/TASK-0NN-*.md`
+- [x] `plans/stage-0-spikes.md` 的 10 张卡展开为 `tasks/TASK-0NN-*.md`（ADR-0031，2026-09-18；零丢失核对见 `LEDGER.md`）
 - [ ] Spike 环境就绪：Win11 24H2/25H2 机器（含双屏异缩放配置）、Edge/Chrome 当前版本、Accessibility Insights + Windows SDK `inspect.exe`、模型 API key（或本地模型）、Linux 双环境（Ubuntu 26.04 GNOME + Plasma 6 KWin，可为虚拟机）
 - [ ] 人类审阅节奏确定（每天可审阅的 diff 行数上限 → 决定并行度）

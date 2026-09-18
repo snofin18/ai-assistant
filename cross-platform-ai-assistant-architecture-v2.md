@@ -3021,7 +3021,7 @@ assistant/
 ```text
 AGENTS.md（全文，~140 行）
 + plans/<当前阶段>.md 的「本卡相关段落」
-+ tasks/TASK-NNN.md（全文）
++ tasks/TASK-NNN-<slug>.md（全文：正文区 + 记录区骨架）
 + 引用的 docs/spec/*.md 相关章节
 + 目标 crate 的 README.md（职责/边界/不变量）
 + MEMORY.md 的 §2 已确认事实 与 §4 已否决方案（防止重复踩坑与重提被否方案）

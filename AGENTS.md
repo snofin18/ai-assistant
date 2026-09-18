@@ -13,10 +13,11 @@
 
 | 你要做什么 | 读什么（**只读需要的，不要全读**） |
 |---|---|
-| 开始任何工作 | 本文件 → `PLAN.md`（索引，≤60 行）→ `plans/<当前阶段>.md` → 你的 `tasks/TASK-NNN.md` → `LEDGER.md` 末 10 行 |
+| 开始任何工作 | 本文件 → `PLAN.md`（索引，≤60 行）→ `plans/<当前阶段>.md`（**阶段索引与批次表**）→ 你的 `tasks/TASK-NNN-<slug>.md`（**全文**：正文 + 执行记录）→ `LEDGER.md` 末 10 行 |
 | 回忆"项目已知什么/否决过什么/踩过什么坑" | `MEMORY.md`（**L0 索引，≤150 行，含路由表**）→ 按路由跳读 `docs/memory/*` |
 | **动手前防止重复辩论**（★ 必读） | `docs/memory/rejected.md`（全量，最短的一个） |
 | 接某个应用（记事本 / 画图 / Edge…） | `docs/memory/apps/<app>.md`（全量，8 个固定小节） |
+| 看某张卡当时怎么做的（正文 + 执行记录） | `tasks/TASK-NNN-<slug>.md`（ADR-0031「一卡一文件」；正文区**只读**、记录区由 Implementer 填） |
 | 记忆分层规则与读取路由 | `docs/memory/README.md`（ADR-0021） |
 | 架构、分层、进程边界、安全、平台 | `cross-platform-ai-assistant-architecture-v2.md` 对应章节（§3 架构 / §5 工具 / §6 定位 / §7 验证 / §8 状态机 / §9 撤销 / §12 安全 / §13 平台 / §15 存储） |
 | 某个应用怎么接 | `target-apps-feasibility.md` §3 对应档案 |
@@ -46,7 +47,7 @@
 
 ## 3. 会话协议
 
-**启动（前 5 分钟，不可跳过）**：① 读本文件 ② 读 `PLAN.md` + `plans/<当前阶段>.md` 的 In/Out of scope ③ 读你的任务卡全文 ④ 读卡中引用的 spec/ADR 章节 + 目标 crate 的 `README.md`（**不变量**） ⑤ 读 `MEMORY.md`（L0 索引 + §1 快照）→ **`docs/memory/rejected.md` 全量** → 本卡涉及应用的 `docs/memory/apps/<app>.md` 全量 → 其余 `docs/memory/*` **grep 命中再局部读**；再读 `LEDGER.md` 末 10 行 ⑥ **输出约束回执，等确认后再动手**。
+**启动（前 5 分钟，不可跳过）**：① 读本文件 ② 读 `PLAN.md` + `plans/<当前阶段>.md` 的 In/Out of scope ③ 读你的 `tasks/TASK-NNN-<slug>.md` **全文**（正文区 + 记录区 9 节骨架，gov §3.4）④ 读卡中引用的 spec/ADR 章节 + 目标 crate 的 `README.md`（**不变量**） ⑤ 读 `MEMORY.md`（L0 索引 + §1 快照）→ **`docs/memory/rejected.md` 全量** → 本卡涉及应用的 `docs/memory/apps/<app>.md` 全量 → 其余 `docs/memory/*` **grep 命中再局部读**；再读 `LEDGER.md` 末 10 行 ⑥ **输出约束回执，等确认后再动手**。
 
 **约束回执（固定格式）**：
 
@@ -152,7 +153,7 @@ cargo run -p xtask -- replay --suite core      # 回放基准
 
 | 文件 | 你（Implementer）的权限 |
 |---|---|
-| `tasks/TASK-NNN.md` | 可填「执行记录」；**不可改** In/Out scope 与验收标准 |
+| `tasks/TASK-NNN-<slug>.md`（**仅本卡号那一个文件**） | **记录区**（分界线以下的 9 节）可写；**正文区**（分界线以上：In/Out scope、必须遵守、验收命令、DoD）**只读**（ADR-0031 D3/D5） |
 | `LEDGER.md`、`docs/PARKING_LOT.md`、`docs/memory/{facts,pitfalls,rejected,decisions,open}.md`、本卡涉及应用的 `docs/memory/apps/<app>.md` | **可追加**（不改写他人条目；更正用 `[supersedes:日期]`） |
 | 任务卡列出的 write scope 内文件、相关 crate `README.md` | 可改 |
 | `AGENTS.md`、`PLAN.md`、`plans/*`、`docs/spec/*`、`docs/adr/*`、`MEMORY.md`（L0 由 Orchestrator 维护）、其他 crate、**别的应用的 `apps/<app>.md`** | **只读**（要改 → 提案 → DRIFT/ADR） |

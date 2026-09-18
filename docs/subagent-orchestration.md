@@ -91,7 +91,7 @@ fork 父会话会把大量**与当前卡无关的讨论**注入 subagent，既�
 
 ```text
 1. AGENTS.md 全文（~164 行）
-2. tasks/TASK-NNN.md 全文
+2. tasks/TASK-NNN-<slug>.md 全文（正文区 + 记录区骨架；ADR-0031）
 3. plans/stage-N.md 中该卡所属批次的段落（In/Out scope + DoD）
 4. 引用的 docs/spec/*.md 相关章节（只给章节，不给全文）
 5. 目标 crate 的 README.md（职责/边界/不变量）
@@ -104,10 +104,10 @@ fork 父会话会把大量**与当前卡无关的讨论**注入 subagent，既�
 ```text
 你是 Implementer，负责且仅负责 TASK-0NN。
 
-【必读顺序】AGENTS.md → tasks/TASK-0NN.md → 下方 spec 摘录 → crates/<x>/README.md → MEMORY.md §2/§4/§5
+【必读顺序】AGENTS.md → tasks/TASK-0NN-<slug>.md → 下方 spec 摘录 → crates/<x>/README.md → MEMORY.md §2/§4/§5
 【第一步】输出 AGENTS.md §3 的【约束回执】，然后停下等我确认。不要先写代码。
 
-【任务卡】<粘贴 tasks/TASK-0NN.md 全文>
+【任务卡】<粘贴 tasks/TASK-0NN-<slug>.md 全文>
 【write scope】<文件/目录清单>——超出即停并记 DRIFT
 【相关 spec 摘录】<章节内容>
 【不变量】<目标 crate README 的不变量清单>
