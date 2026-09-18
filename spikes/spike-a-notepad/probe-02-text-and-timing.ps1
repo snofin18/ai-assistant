@@ -1,20 +1,21 @@
 # ============================================================================
-# SPIKE-A / TASK-002 —— Notepad UIA 侦察脚本（一次性验证代码，**不是产品代码**）
+# SPIKE-A / TASK-002 -- Notepad UIA recon script (one-shot verification code, **not product code**)
 #
-# 归属：TASK-002（Spike A：Notepad UIA 实测 + 接口考古），write scope = spikes/spike-a-notepad/**
-# 为什么用 PowerShell 而不是 Rust：Windows 自带 UIAutomationClient / UIAutomationTypes
-#   程序集，**零第三方依赖**即可完成控件普查与耗时测量；而卡面步骤 3 要求的
-#   Rust `windows` crate + `uiautomation` 属「新增第三方依赖」，按 AGENTS.md §4
-#   漂移触发器①必须先登记 + 人类批准（见 docs/DEPENDENCIES.md 与 PL-019）。
-#   → 先用本脚本拿到数据，再写 Rust spike 验证**生产路径**（go/no-go 以 Rust 为准）。
+# Belongs to: TASK-002 (Spike A: Notepad UIA probe + API archeology), write scope = spikes/spike-a-notepad/**
+# Why PowerShell and not Rust: Windows ships UIAutomationClient / UIAutomationTypes
+#   assemblies out of the box, **zero 3rd-party deps** for control-tree survey + timing; whereas card step 3
+#   asks for the Rust `windows` crate + `uiautomation` = "add 3rd-party deps", which per AGENTS.md Sec.4
+#   drift trigger (1) requires registration + human approval (see docs/DEPENDENCIES.md and PL-019).
+#   -> Use this script first to collect data, then write a Rust spike to verify the **production path**
+#   (go/no-go is decided by Rust).
 #
-# 运行方式：
-#   powershell -NoProfile -ExecutionPolicy Bypass -File <本文件>
-# 副作用：会启动并**强制关闭**记事本；只在 %TEMP% 建临时 txt 并自行删除。
-# 注意：脚本会先 `Stop-Process Notepad`，**运行前请保存你手工打开的记事本内容**。
+# Usage:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File <this-file>
+# Side effects: starts and **force-closes** Notepad; only writes a temp .txt in %TEMP% and self-cleans.
+# Note: the script runs `Stop-Process Notepad` first, **save any manually-opened Notepad content before**.
 #
-# ⚠️ 控制台里的中文可能出现乱码（PowerShell 控制台代码页问题），
-#    **判定一律以脚本内的比较结果（True/False）与长度为准，不要用肉眼读控制台**。
+# !! Chinese characters in the console may render as mojibake (PowerShell console codepage issue);
+#    **judge by script-internal comparisons (True/False) and lengths, not by reading the console**.
 # ============================================================================
 
 $ErrorActionPreference = "Stop"
@@ -61,7 +62,7 @@ if ($tp) {
   Write-Output ("  == ValuePattern ? {0}" -f ($t -eq $val))
 }
 
-# ---- 中位数：10 次全树遍历 + 10 次 GetValue ----
+# ---- median: 10 full-tree walks + 10 GetValue calls ----
 function Median($a) { $s = $a | Sort-Object; $n = $s.Count; if ($n % 2) { $s[[int](($n-1)/2)] } else { ($s[$n/2-1] + $s[$n/2]) / 2 } }
 $tw = @(); $gv = @(); $fe = @()
 for ($i = 0; $i -lt 10; $i++) {
@@ -76,7 +77,7 @@ Write-Output ("median fullTreeWalk  = {0:N1} ms (nodes={1}, min={2:N1} max={3:N1
 Write-Output ("median findEdit      = {0:N1} ms (min={1:N1} max={2:N1})" -f (Median $fe), ($fe | Measure-Object -Minimum).Minimum, ($fe | Measure-Object -Maximum).Maximum)
 Write-Output ("median GetValue      = {0:N2} ms (min={1:N2} max={2:N2})" -f (Median $gv), ($gv | Measure-Object -Minimum).Minimum, ($gv | Measure-Object -Maximum).Maximum)
 
-# ---- SetValue 写中文，读回校验 ----
+# ---- SetValue writes Chinese, read back to verify ----
 $zh = "写入测试：中文、English、数字 12345、符号！@#￥%……&*（）`r`n第二行 结束"
 $sw = [Diagnostics.Stopwatch]::StartNew(); $vp.SetValue($zh); $sw.Stop()
 Start-Sleep -Milliseconds 400
@@ -86,7 +87,7 @@ Write-Output ("  readback raw = {0}" -f $rb.Replace("`r","<CR>").Replace("`n","<
 $before = (Get-Process -Id $win.Current.ProcessId).WorkingSet64
 Write-Output ("notepad WorkingSet = {0:N1} MB" -f ($before / 1MB))
 
-# ---- 单实例 / 多标签验证 ----
+# ---- single-instance / multi-tab verification ----
 $tmp2 = Join-Path $env:TEMP "spike-a-second-$stamp.txt"
 [IO.File]::WriteAllText($tmp2, "second file`r`n", (New-Object Text.UTF8Encoding($false)))
 $p2 = Start-Process notepad -ArgumentList "`"$tmp2`"" -PassThru

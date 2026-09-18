@@ -64,3 +64,11 @@
 5. `移除触发` — 一句话；「**永不**」用 `**永不**（<原因>）` 形态以供 xtask 标红
 
 分隔行（5 个 `|---|`，列数 = 5）必须与表头列数一致。
+
+### 规则 `file/pure-ascii-ps1`（ADR-0024 D4：仓库内 `.ps1` 一律纯 ASCII；PL-026 落地后剩余豁免）
+
+| ID | 规则 | 位置 | 理由 | 移除触发 |
+|---|---|---|---|---|
+| E-021 | file/pure-ascii-ps1 | `spikes/spike-a-notepad/probe-01-tree-survey.ps1:30` | **故意的非 ASCII 测试数据**——本 probe 就是要证明 UIA 能正确读写含中文文本，所以**测试数据本身**必须含非 ASCII。翻译它 = 改掉被测对象。 | **永不**（测试数据的语义就是非 ASCII） |
+| E-022 | file/pure-ascii-ps1 | `spikes/spike-a-notepad/probe-02-text-and-timing.ps1:35` | 同上（另一处故意非 ASCII 测试数据） | **永不** |
+| E-023 | file/pure-ascii-ps1 | `spikes/spike-a-notepad/probe-02-text-and-timing.ps1:81` | **故意非 ASCII 写入数据**——`$zh = "..."` 是 SetValue 写入测试，必须含中文/符号/多字节数字才能验证 UIA 的写入读回链路。 | **永不** |
