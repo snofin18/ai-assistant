@@ -88,3 +88,8 @@
 
 - [2026-09-18][DECISION][src:M5 裁决实施] **仓库许可证为 MIT OR Apache-2.0 双许可证**：**`LICENSE`** 重写为双许可证（MIT 全文 + Apache-2.0 全文，顶部明确“事人可任选一」、顶部 1 行干净指向合规源）；**`NOTICE`** 新增（10 行，Apache-2.0 §4(d) 硬要求“Derivative Works 必须在 NOTICE 里带起归属”）。选型论据：Rust 生态中 tokio / serde / hyper 都走这个双许可证，**“推荐不强制、但留出专利授权选项”**是经典 dual 模式。**不改 `deny.toml`**：其 `licenses.allow` 表列表中已包含了 `"MIT"` + `"Apache-2.0"`（ADR-0025 D1 机械化的“许可证名单”顶多余走上路子，而不是“项目用哪个就列哪个”）。上线后、仅需要在第一个引入的第三方依赖里选择 `MIT` 或 `Apache-2.0` 作为其许可证名即可。
 - [2026-09-18][DECISION][src:M5 隐含推輛] **`NOTICE` 文件是 Apache-2.0 §4(d) 的硬要求“必须带”项—— 不是选项**：未来任何派生工作只要分发 `LICENSE` 中的任伀部分子集，必须同时携带 `NOTICE` 文件。这是 Apache-2.0 的硬约束——**不是 MIT 要求的、也不是选择性的**，是选了 Apache-2.0 那一叶就能报走的。
+
+
+## 2026-09-20 追加（更正：line 75-79 + 81-85 重复 ADR-0033 DECISION）
+
+- [2026-09-20][DECISION][src:TASK-069 audit cleanup] **decisions.md line 75-79 与 line 81-85 内容逐字重复**（两个 `## 2026-09-18 追加（ADR-0033，Accepted）` 段 + 重复 3 条 DECISION 条目）。**根因**：2026-09-18 batch 追加时复制粘贴失误。**处置**：按 MEMORY.md "只追加不改写" 规则，**新增此更正行**而非删原行；原 line 75-79 + line 81-85 全部保留（事实记录 = 当时确实写了两遍）。**xtask card-check 不报**（双 DECISION block 不在 card-check 判据 ①②③④ 范围内；判据 ⑤「编号唯一性」= ADR 编号唯一性，与 DECISION block 重复不同 = 不报）。**本卡实质修改**：0（仅追加更正行）。
