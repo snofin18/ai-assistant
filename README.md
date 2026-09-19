@@ -108,6 +108,31 @@ build / hygiene / spike-deny(#8b) / doc-consistency(#12b)；另有 **9 项软门
 
 ---
 
+## 最近进展（2026-09-19，TASK-051 + TASK-052 收尾）
+
+`xtask` 护栏工具已从 4 个子命令扩到 7 个（新增 `refscan` / `docscan` / `card-check`），
+原 `hygiene / memory-counts / adr-index / guard` 保持。所有 `xtask` 子命令在
+CI 硬门禁 #12b（`doc-consistency`）下统一跑过。
+
+| 新增项 | 用途 | 触发场景 |
+|---|---|---|
+| `xtask refscan` | 扫 `.md` / `.rs` / `.ps1`：裸 ADR 待建引用 + 编号范围写法（ADR-0026 D3）+ `.ps1` 非 ASCII（ADR-0024 D4） | CI 硬门禁 #12b |
+| `xtask docscan` | 扫 `.md`：破表（PL-031）+ setext 风险（`---` 前一行非空会变 H2）+ UTF-8 BOM/CRLF/缺末行 LF | CI 硬门禁 #12b |
+| `xtask card-check` | 扫 `tasks/TASK-*.md`：ADR-0031 D6 机器化（记录区 9 节齐全 + Done/Review 状态校验 + plans/* 形态防回退） | CI 硬门禁 #12b（预备，本卡提交后正式开启）|
+| ADR-0034 | `card-check` 设计与豁免判据说明 | 文档护栏 |
+
+### 历史小节（按时间倒序）
+
+- **2026-09-19 TASK-051 / TASK-052**（xtask 护栏升级 + 纯重构）：
+  - TASK-051 cherry-pick 悬空 commit `10f78db` 收回 → 4 子命令可执行 + ADR-0034 注册
+  - TASK-052 人类裁决 B 路（漂移不可忍受）= 纯重构 = 4 模块顶部 `#![allow(...)` 块全清
+    （**DoD 硬证据**：`grep '^#![allow' xtask/src/{refscan,docscan,card_check,exemptions}.rs` = 0 命中）
+    + 32 处 `indexing_slicing` 用 `while let Some + .get(n).expect()` 全替换
+    + `docs/PARKING_LOT.md` PL-NEW 关闭
+  - 防御性 PITFALL：`docs/memory/pitfalls.md` 追加「禁止 sub-card 后缀；commit 标题必须对应 `tasks/TASK-NNN-*.md`」
+  - 详见 `LEDGER.md` 2026-09-19 三行 + `tasks/TASK-051-...md` / `tasks/TASK-052-...md` 执行记录
+- **2026-09-17 TASK-001**：仓库骨架 + CI 8 硬门禁 + ADR 编号登记表建立
+
 ## 许可证
 
 `MIT`（见 `LICENSE`）。
