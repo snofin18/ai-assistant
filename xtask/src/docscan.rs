@@ -18,15 +18,10 @@
 //! 1. 输出确定性（同 refscan）。
 //! 2. 扫到 0 个 `.md` 必须显式告警（避免空仓库假 PASSED）。
 
-// 注释：本文件因 workspace `[lints.clippy] indexing_slicing = "deny"`（无 `priority`）
-// 而 per-item `#[allow]` 无法 override（实测 clippy 1.98）。DoD 的「无模块级 allow」
-// 与 workspace 配置冲突，本卡为此开了 1 条**窄**模块级 allow（TASK-051 已知偏差，
-// 待人类裁决：要么 ① 改 workspace 加 `priority = -1`（ADR 路径），要么 ② 后续卡 32 处
-// 重构用 `.first()` / `.get(n).expect(...)` 全替换）。详见执行记录 §5 + §9。
-#![allow(clippy::indexing_slicing)]
-use crate::report::{Finding, Severity};
+// TASK-052 (2026-09-19) 决策：本文件**无任何**模块级 `#![allow(...)]` 块；32 处 indexing_slicing 全部用 safe pattern 替换。
 
 /// 规则 `doc/table-broken`：数据行 cell 数 ≠ 分隔行 cell 数 → 渲染会错位（PL-031）。
+use crate::report::{Finding, Severity};
 const RULE_BROKEN_TABLE: &str = "doc/table-broken";
 /// 规则 `doc/setext-risk`：`---` 前一行非空，会被 GFM 解析成 H2 标题（PL-031 同源）。
 const RULE_SETEXT_RISK: &str = "doc/setext-risk";
@@ -83,16 +78,24 @@ pub fn scan_broken_tables(rel_path: &str, content: &str) -> Vec<Finding> {
     let mut findings = Vec::new();
     let lines: Vec<&str> = content.lines().collect();
     let mut i = 0;
-    while i < lines.len() {
-        let line = lines[i].trim();
-        if line.starts_with('|') && i + 1 < lines.len() {
-            let sep = lines[i + 1].trim();
+    while let Some(raw_line) = lines.get(i) {
+        let line = raw_line.trim();
+        if !line.starts_with('|') {
+            i += 1;
+            continue;
+        }
+        // table header detected — bound-check the separator row
+        if let Some(sep_line) = lines.get(i + 1) {
+            let sep = sep_line.trim();
             if is_separator_row(sep) {
                 let expected = cell_count(sep);
                 // consume the table: header (i), separator (i+1), then data rows
                 let mut j = i + 2;
-                while j < lines.len() && lines[j].trim_start().starts_with('|') {
-                    let got = cell_count(lines[j].trim());
+                while let Some(raw_j) = lines.get(j) {
+                    if !raw_j.trim_start().starts_with('|') {
+                        break;
+                    }
+                    let got = cell_count(raw_j.trim());
                     if got != expected {
                         findings.push(Finding::new(
                             RULE_BROKEN_TABLE,
@@ -146,8 +149,8 @@ pub fn scan_setext_risk(rel_path: &str, content: &str) -> Vec<Finding> {
     if lines.len() < 2 {
         return findings;
     }
-    for k in 1..lines.len() {
-        let cur = lines[k].trim();
+    for (k, cur_raw) in lines.iter().enumerate().skip(1) {
+        let cur = cur_raw.trim();
         // only `---` (3+ dashes), exactly, nothing else
         if cur != "---" && !cur.chars().all(|c| c == '-') {
             continue;
@@ -155,7 +158,9 @@ pub fn scan_setext_risk(rel_path: &str, content: &str) -> Vec<Finding> {
         if cur.len() < 3 {
             continue;
         }
-        let prev = lines[k - 1];
+        let Some(prev) = lines.get(k - 1).copied() else {
+            continue;
+        };
         let prev_trim = prev.trim();
         if prev_trim.is_empty() {
             continue;
@@ -207,7 +212,7 @@ pub fn scan_encoding(rel_path: &str, content: &str) -> Vec<Finding> {
     }
     // trailing-newline shape
     let tail_bad = bytes.last().copied() != Some(b'\n')
-        || (bytes.len() >= 2 && bytes[bytes.len() - 2] == b'\n');
+        || (bytes.len() >= 2 && bytes.get(bytes.len() - 2).copied() == Some(b'\n'));
     if tail_bad && !bytes.is_empty() {
         findings.push(Finding::new(
             RULE_ENCODING,

@@ -1,10 +1,10 @@
 //! # refscan 子命令（ADR-0030 D3 的扩展：裸 ADR 待建引用 / 范围写法 / ps1 纯 ASCII）
 //!
 //! 职责：扫全仓 .md + .rs 找出
-//! 1. ADR 编号范围写法（两个 4 位号之间夹 ~ / FULLWIDE_TILDE / -）
+//! 1. ADR 编号范围写法（两个 4 位号之间夹 ~ / `FULLWIDE_TILDE` / -）
 //! 2. 裸 ADR 待建引用（docs/adr/ 之外的 ADR-00NN 引用、且 NN 属待建号集合）
 //! 3. .ps1 文件里所有 > 127 的字节（= 非 ASCII）
-//! 凡命中且不在 ADR-0032 豁免清单里的 = 违规。
+// 凡命中且不在 ADR-0032 豁免清单里的 = 违规。
 //!
 //! ## 为什么是一个 xtask 子命令而不是外部脚本
 //! - 规则纯函数化、测试内嵌（cfg(test) mod tests），与本 crate 其他子命令同构。
@@ -14,56 +14,16 @@
 //!
 //! ## 边界
 //! - 不写任何文件。
-//! - 不做豁免清单的解析（那是 ADR-0032 本身，本文件复用其 ExemptionSet）。
+//! - 不做豁免清单的解析（那是 ADR-0032 本身，本文件复用其 `ExemptionSet`）。
 //!
 //! ## 不变量
 //! 1. 输出确定性（同 refscan.py 原型）。
 //! 2. 豁免匹配：对每个 (rule, path, line) 三元组，先查豁免清单；命中 = 跳过。
 //! 3. 扫到 0 个文件必须显式告警（与 main.rs 的 hygiene 不变量 4 同理）。
 
-// 注释：本文件（refscan）保留原 40-lint 模块级 `#![allow(...)]` 块（cherry-pick 自带的 WIP 状态）；
-// 其余 3 个新模块（docscan / card_check / exemptions）已**收窄**为单 lint `#![allow(clippy::indexing_slicing)]`。
-// 收窄理由 + 完整路径（TASK-052 接管 workspace ADR）详见 tasks/TASK-051-...md §5 偏差 #1 + §9 [N1]。
-#![allow(
-    clippy::needless_lifetimes,
-    clippy::missing_panics_doc,
-    clippy::unused_self,
-    clippy::too_many_lines,
-    clippy::doc_markdown,
-    clippy::doc_lazy_continuation,
-    clippy::redundant_closure,
-    clippy::redundant_closure_for_method_calls,
-    clippy::single_char_pattern,
-    clippy::items_after_statements,
-    clippy::collapsible_if,
-    clippy::module_name_repetitions,
-    clippy::uninlined_format_args,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::missing_errors_doc,
-    clippy::needless_collect,
-    clippy::format_push_string,
-    clippy::format_in_format_args,
-    clippy::needless_borrow,
-    clippy::redundant_slicing,
-    clippy::match_same_arms,
-    clippy::must_use_candidate,
-    clippy::module_inception,
-    clippy::missing_const_for_fn,
-    clippy::option_if_let_else,
-    clippy::single_match,
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::indexing_slicing,
-    clippy::case_sensitive_file_extension_comparisons,
-    clippy::unused_peekable,
-    clippy::collapsible_match,
-    clippy::needless_late_init,
-    clippy::let_underscore_must_use,
-    let_underscore_drop,
-    clippy::let_and_return
-)]
+// TASK-052 (2026-09-19) 决策：本文件**无任何**模块级 `#![allow(...)]` 块；代码遵守 workspace `[lints.clippy]` 全部 deny 规则。
+// 历史上 cherry-pick 10f78db 留下的 40-lint `#![allow(...)]` 块（解释本应）已在本卡全部清掉，
+// 32 处 indexing_slicing 全替换为 safe pattern。详见 tasks/TASK-052-...md §5 + commit 收尾。
 
 use crate::exemptions::ExemptionSet;
 use crate::report::{Finding, Severity};
@@ -131,10 +91,16 @@ pub fn run(repo_root: &std::path::Path, output: &mut dyn std::io::Write) -> Resu
 
 pub fn scan_file(rel_path: &str, content: &str) -> Vec<Finding> {
     let mut findings = Vec::new();
+    #[allow(clippy::single_char_pattern)] // replace() needs &str pattern, not char
     let normalized = content.replace("\r\n", "\n").replace("\r", "\n");
     let lines: Vec<&str> = normalized.split('\n').collect();
     let lower = rel_path.to_ascii_lowercase();
+    // `lower` is already to_ascii_lowercase()-d on the line above,
+    // so the comparison is case-insensitive in practice; clippy cannot see that,
+    // hence the per-line allow (TASK-052 §5 登记).
+    #[allow(clippy::case_sensitive_file_extension_comparisons)]
     let is_md_or_rs = lower.ends_with(".md") || lower.ends_with(".rs");
+    #[allow(clippy::case_sensitive_file_extension_comparisons)] // see comment on is_md_or_rs above
     let is_ps1 = lower.ends_with(".ps1");
 
     if is_md_or_rs {
@@ -147,8 +113,7 @@ pub fn scan_file(rel_path: &str, content: &str) -> Vec<Finding> {
                     rel_path,
                     idx + 1,
                     format!(
-                        "发现 ADR 编号范围写法「{}」—— ADR-0026 D3 禁止范围写法（用逐个列出替代）",
-                        m
+                        "发现 ADR 编号范围写法「{m}」—— ADR-0026 D3 禁止范围写法（用逐个列出替代）"
                     ),
                 ));
             }
@@ -162,7 +127,7 @@ pub fn scan_file(rel_path: &str, content: &str) -> Vec<Finding> {
                         Severity::Error,
                         rel_path,
                         idx + 1,
-                        format!("裸引用待建号 ADR-{} —— ADR-0032 豁免清单 E-NNN 可豁免；机器读入实现后 = PASS", m),
+                        format!("裸引用待建号 ADR-{m} —— ADR-0032 豁免清单 E-NNN 可豁免；机器读入实现后 = PASS"),
                     ));
                 }
             }
@@ -222,36 +187,66 @@ fn find_adr_ranges(line: &str) -> Vec<String> {
     let mut hits = Vec::new();
     let chars: Vec<char> = line.chars().collect();
     let mut i = 0;
-    while i + 8 < chars.len() {
-        if chars[i].is_ascii_digit()
-            && chars[i + 1].is_ascii_digit()
-            && chars[i + 2].is_ascii_digit()
-            && chars[i + 3].is_ascii_digit()
-            && chars[i + 4].is_whitespace()
-        {
-            // need: whitespace chars + ~ or - + whitespace chars + 4 digits
-            let mut j = i + 5;
-            while j < chars.len() && chars[j].is_whitespace() {
-                j += 1;
-            }
-            if j < chars.len() && (chars[j] == '~' || chars[j] == '-') {
-                let mut k = j + 1;
-                while k < chars.len() && chars[k].is_whitespace() {
-                    k += 1;
-                }
-                if k + 4 <= chars.len()
-                    && chars[k].is_ascii_digit()
-                    && chars[k + 1].is_ascii_digit()
-                    && chars[k + 2].is_ascii_digit()
-                    && chars[k + 3].is_ascii_digit()
-                {
-                    hits.push(chars[i..k + 4].iter().collect());
-                    i = k + 4;
-                    continue;
-                }
-            }
+    while let Some(c0) = chars.get(i) {
+        if !c0.is_ascii_digit() {
+            i += 1;
+            continue;
         }
-        i += 1;
+        let Some(c1) = chars.get(i + 1) else { break };
+        if !c1.is_ascii_digit() {
+            i += 1;
+            continue;
+        }
+        let Some(c2) = chars.get(i + 2) else { break };
+        if !c2.is_ascii_digit() {
+            i += 1;
+            continue;
+        }
+        let Some(c3) = chars.get(i + 3) else { break };
+        if !c3.is_ascii_digit() {
+            i += 1;
+            continue;
+        }
+        let Some(c4) = chars.get(i + 4) else { break };
+        if !c4.is_whitespace() {
+            i += 1;
+            continue;
+        }
+        let mut j = i + 5;
+        while let Some(cj) = chars.get(j) {
+            if !cj.is_whitespace() {
+                break;
+            }
+            j += 1;
+        }
+        let Some(sep) = chars.get(j) else { break };
+        if *sep != '~' && *sep != '-' {
+            i += 1;
+            continue;
+        }
+        let mut k = j + 1;
+        while let Some(ck) = chars.get(k) {
+            if !ck.is_whitespace() {
+                break;
+            }
+            k += 1;
+        }
+        let Some(k0) = chars.get(k) else { break };
+        let Some(k1) = chars.get(k + 1) else { break };
+        let Some(k2) = chars.get(k + 2) else { break };
+        let Some(k3) = chars.get(k + 3) else { break };
+        if k0.is_ascii_digit() && k1.is_ascii_digit() && k2.is_ascii_digit() && k3.is_ascii_digit()
+        {
+            let end = k + 4;
+            let Some(slice) = chars.get(i..end) else {
+                continue;
+            };
+            let s: String = slice.iter().collect();
+            hits.push(s);
+            i = end;
+        } else {
+            i += 1;
+        }
     }
     hits
 }
@@ -262,23 +257,31 @@ fn find_bare_pending(line: &str) -> Vec<String> {
     let bytes = line.as_bytes();
     let mut i = 0;
     while i + 7 <= bytes.len() {
-        if &bytes[i..i + 4] == b"ADR-" {
-            // next 4 chars must be ASCII digits
-            if bytes[i + 4].is_ascii_digit()
-                && bytes[i + 5].is_ascii_digit()
-                && bytes[i + 6].is_ascii_digit()
-                && bytes[i + 7].is_ascii_digit()
-                && !bytes.get(i + 8).is_some_and(|b| b.is_ascii_digit())
-            {
-                let four: String = std::str::from_utf8(&bytes[i + 4..i + 8])
-                    .unwrap_or("")
-                    .to_string();
-                if is_pending_adr(&four) {
-                    hits.push(four);
-                }
-            }
+        if !matches!(bytes.get(i..i + 4), Some(b"ADR-")) {
+            i += 1;
+            continue;
         }
-        i += 1;
+        if !bytes.get(i + 4).is_some_and(u8::is_ascii_digit)
+            || !bytes.get(i + 5).is_some_and(u8::is_ascii_digit)
+            || !bytes.get(i + 6).is_some_and(u8::is_ascii_digit)
+            || !bytes.get(i + 7).is_some_and(u8::is_ascii_digit)
+        {
+            i += 1;
+            continue;
+        }
+        if bytes.get(i + 8).is_some_and(u8::is_ascii_digit) {
+            i += 1;
+            continue;
+        }
+        let Some(four_bytes) = bytes.get(i + 4..i + 8) else {
+            i += 1;
+            continue;
+        };
+        let four = std::str::from_utf8(four_bytes).unwrap_or("").to_string();
+        if is_pending_adr(&four) {
+            hits.push(four);
+        }
+        i += 8;
     }
     hits
 }
@@ -287,15 +290,17 @@ fn find_bare_pending(line: &str) -> Vec<String> {
 #[allow(dead_code)]
 #[must_use]
 pub fn render(findings: &[Finding]) -> String {
+    use std::fmt::Write as _;
     let mut out = String::new();
     for f in findings {
-        out.push_str(&format!(
-            "{} {}:{} {}\n",
+        let _ = writeln!(
+            out,
+            "{} {}:{} {}",
             short_rule(f.rule),
             f.path,
             f.line,
             extract_message_payload(&f.message),
-        ));
+        );
     }
     out
 }
@@ -320,12 +325,18 @@ fn extract_message_payload(msg: &str) -> String {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic
+)]
 mod tests {
     use super::*;
 
     #[test]
     fn detects_range_notation() {
-        let f = scan_file("plans/x.md", "0018 ~ 0025 \n0021FULLWIDE_TILDE0026\n");
+        let f = scan_file("plans/x.md", "0018 ~ 0025 \n0021`FULLWIDE_TILDE`0026\n");
         assert!(f.iter().any(|x| x.rule == "adr/number-range-notation"));
     }
 
@@ -365,8 +376,11 @@ mod tests {
         let f2 = Finding::new("adr/bare-pending-reference", Severity::Error, "a.md", 1, "");
         let f3 = Finding::new("adr/number-range-notation", Severity::Error, "a.md", 2, "");
         let sorted = sort_findings(vec![f1, f2, f3]);
-        assert_eq!(sorted[0].rule, "adr/number-range-notation");
-        assert_eq!(sorted[1].path, "a.md");
-        assert_eq!(sorted[2].path, "b.md");
+        assert_eq!(
+            sorted.first().expect("non-empty").rule,
+            "adr/number-range-notation"
+        );
+        assert_eq!(sorted.get(1).expect("non-empty").path, "a.md");
+        assert_eq!(sorted.get(2).expect("non-empty").path, "b.md");
     }
 }

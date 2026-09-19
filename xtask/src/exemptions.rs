@@ -15,14 +15,7 @@
 //! 2. ID 必须全局唯一（重复 → 解析报错，避免 silent 覆盖）。
 //! 3. `path:line` 必须以 `path` 起头（`docs/...` / `xtask/...` 都 OK），`line` 是正整数。
 
-// 注释：本文件因 workspace `[lints.clippy] indexing_slicing = "deny"`（无 `priority`）
-// 而 per-item `#[allow]` 无法 override（实测 clippy 1.98）。DoD 的「无模块级 allow」
-// 与 workspace 配置冲突，本卡为此开了 1 条**窄**模块级 allow（TASK-051 已知偏差，
-// 待人类裁决：要么 ① 改 workspace 加 `priority = -1`（ADR 路径），要么 ② 后续卡 32 处
-// 重构用 `.first()` / `.get(n).expect(...)` 全替换）。详见执行记录 §5 + §9。
-#![allow(clippy::indexing_slicing)]
 use std::path::Path;
-
 const REGISTRY_PATH: &str = "docs/adr/0032-doc-rule-exemption-registry.md";
 
 /// 一条豁免记录（机器可读）。
@@ -114,8 +107,8 @@ pub fn parse_registry(content: &str) -> Result<ExemptionSet, String> {
     let lines: Vec<&str> = content.lines().collect();
     let mut idx = header_idx + 2; // skip header + separator
 
-    while idx < lines.len() {
-        let line = lines[idx].trim();
+    while let Some(raw_line) = lines.get(idx) {
+        let line = raw_line.trim();
         if !line.starts_with('|') {
             idx += 1;
             continue;
@@ -131,11 +124,31 @@ pub fn parse_registry(content: &str) -> Result<ExemptionSet, String> {
             idx += 1;
             continue;
         }
-        let id = cells[0].to_string();
-        let rule = cells[1].to_string();
-        let loc = cells[2];
-        let reason = cells[3].to_string();
-        let removal = cells[4].to_string();
+        let Some(id_cell) = cells.first() else {
+            idx += 1;
+            continue;
+        };
+        let id = id_cell.to_string();
+        let Some(rule_cell) = cells.get(1) else {
+            idx += 1;
+            continue;
+        };
+        let rule = rule_cell.to_string();
+        let Some(loc_cell) = cells.get(2) else {
+            idx += 1;
+            continue;
+        };
+        let loc = loc_cell;
+        let Some(reason_cell) = cells.get(3) else {
+            idx += 1;
+            continue;
+        };
+        let reason = reason_cell.to_string();
+        let Some(removal_cell) = cells.get(4) else {
+            idx += 1;
+            continue;
+        };
+        let removal = removal_cell.to_string();
 
         // loc = "path:line"
         let Some((p, l)) = loc.rsplit_once(':') else {

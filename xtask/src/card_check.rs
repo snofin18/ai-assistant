@@ -18,11 +18,6 @@
 //! 2. 9 节标题**在源码里硬编码**为 `TITLES` static（与 ADR-0034 描述一致 —— ADR 只要求分界线现场读取，
 //!    不要求 9 节标题也现场读取）。**待改进**：`load_record_section_titles()` 已实现 gov §3.4 现场
 //!    读取版，目前 dead code（grep 全仓 0 处引用），TASK-052 接入前不要删。
-// 而 per-item `#[allow]` 无法 override（实测 clippy 1.98）。DoD 的「无模块级 allow」
-// 与 workspace 配置冲突，本卡为此开了 1 条**窄**模块级 allow（TASK-051 已知偏差，
-// 待人类裁决：要么 ① 改 workspace 加 `priority = -1`（ADR 路径），要么 ② 后续卡 32 处
-// 重构用 `.first()` / `.get(n).expect(...)` 全替换）。详见执行记录 §5 + §9。
-#![allow(clippy::indexing_slicing)]
 use crate::exemptions::ExemptionSet;
 use crate::report::{Finding, Severity};
 
@@ -146,11 +141,17 @@ pub fn load_record_section_titles(gov_content: &str) -> Result<Vec<(usize, Strin
         if cells.len() < 3 {
             continue;
         }
-        let n: usize = match cells[0].parse() {
+        let Some(n_cell) = cells.first() else {
+            continue;
+        };
+        let n: usize = match n_cell.parse() {
             Ok(n) => n,
             Err(_) => continue,
         };
-        out.push((n, cells[1].to_string()));
+        let Some(name_cell) = cells.get(1) else {
+            continue;
+        };
+        out.push((n, name_cell.to_string()));
     }
     if out.len() != 9 {
         return Err(format!("期待 9 个节标题，实际 {}个", out.len()));
