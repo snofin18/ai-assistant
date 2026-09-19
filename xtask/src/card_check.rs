@@ -1,12 +1,14 @@
 //! # card-check 子命令（ADR-0031 D6 的机器化）
 //!
 //! 职责：扫 `tasks/TASK-*.md` 与 `plans/*.md`，
-//! 校验 ADR-0031 D6 四条判据：
+//! 校验 ADR-0031 D6 + ADR-0036 D5 / ADR-0037 D4 五条判据：
 //! ① 正文区 `git diff` 非空 → Error（Implementer 不能改 In/Out scope / 验收标准）；
-//! ② 状态非 `Ready` 的卡必须有对应 `tasks/TASK-NNN-*.md` 文件 → Error；
+//! ② plans/*.md 引用的 TASK-NNN 必须在 `tasks/TASK-NNN-*.md` 存在 → Error（防 plans/tasks 不同步）；
 //! ③ 记录区 9 节标题齐全 → Warning（Ready 状态豁免；
 //!     「早于本规定的卡」用对照表豁免，见 ADR-0032 风格通道）；
-//! ④ `plans/*.md` 出现 `##/###/#### TASK-NNN` 形态 → Error（防形态回退）。
+//! ④ `plans/*.md` 出现 `##/###/#### TASK-NNN` 形态 → Error（防形态回退）；
+//! ⑤ `tasks/TASK-NNN-*.md` 同一 NNN 必须对应唯一文件 → Error（ADR-0036 D5 + ADR-0037 D4：编号唯一性）；
+//!     含子编号检测（`TASK-NNNx` sub-suffix 命名 = ADR-0031 D7 + ADR-0036 D3 永久禁用）。
 //!
 //! ## 边界（不做什么）
 //! - 不读 git 历史（diff 检测是另一条规则，本版本先做静态形态判定）。
@@ -21,13 +23,12 @@
 use crate::exemptions::ExemptionSet;
 use crate::report::{Finding, Severity};
 
-#[allow(dead_code)] // 4 rules of ADR-0031 D6 — current implementation covers only 3 (body diff, missing records, plans leak)
+// 5 rules: ADR-0031 D6 (①②③④) + ADR-0036 D5 (⑤)
 const RULE_DIFF_NOT_EMPTY: &str = "card-check/body-diff-not-empty";
-#[allow(dead_code)]
-const RULE_MISSING_TASK_FILE: &str = "card-check/status-not-ready-needs-file";
-#[allow(dead_code)]
+const RULE_NUMBER_MISSING_FILE: &str = "card-check/number-missing-file";
+const RULE_NUMBER_DUPLICATE: &str = "card-check/number-duplicate";
+const RULE_NUMBER_SUFFIX: &str = "card-check/number-sub-suffix";
 const RULE_MISSING_RECORD_SECTIONS: &str = "card-check/missing-record-sections";
-#[allow(dead_code)]
 const RULE_CARD_BODY_IN_PLANS: &str = "card-check/card-body-leaked-to-plans";
 
 #[allow(dead_code)] // 全局常量，供 run() 与未来实现使用
@@ -67,7 +68,7 @@ pub fn run(repo_root: &std::path::Path, output: &mut dyn std::io::Write) -> Resu
             continue;
         };
         let status_line = extract_status_line(&content);
-        let file_findings = scan_card_file(
+            let file_findings = scan_card_file(
             rel,
             &content,
             &divider,
@@ -77,6 +78,26 @@ pub fn run(repo_root: &std::path::Path, output: &mut dyn std::io::Write) -> Resu
         );
         findings.extend(file_findings);
     }
+    // ② plans/*.md 引用的 TASK-NNN 必须有 tasks/TASK-NNN-*.md 文件
+    let task_filenames: Vec<String> = entries
+        .iter()
+        .filter(|e| e.rel_path.starts_with("tasks/TASK-"))
+        .map(|e| {
+            let p = std::path::Path::new(&e.rel_path);
+            p.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default()
+        })
+        .filter(|n| !n.is_empty())
+        .collect();
+    let plan_entries: Vec<_> = entries
+        .iter()
+        .filter(|e| e.rel_path.starts_with("plans/"))
+        .collect();
+    for entry in &plan_entries {
+        let Ok(content) = std::fs::read_to_string(&entry.abs_path) else { continue; };
+        findings.extend(scan_plans_needs_file(&entry.rel_path, &content, &task_filenames));
+    }
+    // ⑤ tasks/TASK-*.md 编号唯一性 + sub-suffix 禁用
+    findings.extend(scan_tasks_uniqueness(&task_filenames));
     let errors = findings
         .iter()
         .filter(|f| f.severity == Severity::Error)
@@ -288,6 +309,136 @@ pub fn scan_plans(rel_path: &str, content: &str) -> Vec<Finding> {
     findings
 }
 
+/// ② 扫描 plans/*.md 引用的 TASK-NNN 必须在 tasks/TASK-NNN-*.md 存在。
+/// 兼容 ADR-0031 D6 原文（"状态非 Ready 的卡必须有对应文件"）= 当前实现 = 任何 plans/ 引用的 NNN 都查文件
+/// （因为 Ready 状态也有文件存在 = 全 plans/ 引用必须可追溯）。
+#[must_use]
+#[allow(dead_code)] // wired in next phase
+pub fn scan_plans_needs_file(rel_path: &str, content: &str, existing_files: &[String]) -> Vec<Finding> {
+    let mut findings = Vec::new();
+    for (idx, line) in content.lines().enumerate() {
+        for nnn in extract_task_nnn_in_line(line) {
+            if !existing_files.iter().any(|f| f.starts_with(&format!("TASK-{nnn}-"))) {
+                findings.push(Finding::new(
+                    RULE_NUMBER_MISSING_FILE,
+                    Severity::Error,
+                    rel_path,
+                    idx + 1,
+                    format!("plans/ 引用 TASK-{nnn}，但 `tasks/TASK-{nnn}-*.md` 不存在"),
+                ));
+            }
+        }
+    }
+    findings
+}
+
+/// ⑤ 扫描 tasks/TASK-*.md：同一 NNN 必须对应唯一文件 + sub-suffix 禁用。
+/// 实现 = 收集所有 TASK-NNN* 模式 → 按基础 NNN 分组 → 多于 1 文件 = Error；sub-suffix 检测 = Error。
+#[must_use]
+#[allow(dead_code)] // wired in next phase
+pub fn scan_tasks_uniqueness(task_files: &[String]) -> Vec<Finding> {
+    let mut findings = Vec::new();
+    let mut by_base: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    let mut by_full: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    for f in task_files {
+        // 提取 TASK-NNN-base 部分（strip .md）
+        let base = f.strip_suffix(".md").unwrap_or(f);
+        // 完整 NNN 或 NNNx
+        let m = extract_task_nnn_full_in_line(base);
+        if let Some(nnn_full) = m.into_iter().next() {
+            // 数字部分
+            let nnn_digits: String = nnn_full.chars().take_while(char::is_ascii_digit).collect();
+            if nnn_digits.len() != nnn_full.len() {
+                // sub-suffix 命名 = ADR-0031 D7 + ADR-0036 D3 永久禁用
+                findings.push(Finding::new(
+                    RULE_NUMBER_SUFFIX,
+                    Severity::Error,
+                    "",
+                    0,
+                    format!("sub-suffix 命名 `TASK-{nnn_full}.md` 永久禁用（ADR-0036 D3）"),
+                ));
+            }
+            by_base.entry(nnn_digits).or_default().push(f.clone());
+            by_full.entry(nnn_full).or_default().push(f.clone());
+        }
+    }
+    // 按基础 NNN 分组，多于 1 = 撞号
+    for (nnn, files) in &by_base {
+        if files.len() > 1 {
+            findings.push(Finding::new(
+                RULE_NUMBER_DUPLICATE,
+                Severity::Error,
+                "",
+                0,
+                format!("TASK-{nnn} 撞号：{} 个文件 = {}", files.len(), files.join(", ")),
+            ));
+        }
+    }
+    findings
+}
+
+/// 在 line 中查找 `TASK-NNN` 模式，返回所有 `NNN` 数字段（不含任何 sub-suffix）。
+/// 实现 = 朴素字符串扫描 = 零三方依赖（ADR-0021 D4）。
+fn extract_task_nnn_in_line(line: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let bytes = line.as_bytes();
+    let mut i = 0;
+    while i + 8 <= bytes.len() {
+        let prefix = bytes.get(i..i+5);
+        let d5 = bytes.get(i+5).copied();
+        let d6 = bytes.get(i+6).copied();
+        let d7 = bytes.get(i+7).copied();
+        let slice = bytes.get(i+5..i+8);
+        if prefix == Some(&b"TASK-"[..])
+            && d5.is_some_and(|c| c.is_ascii_digit())
+            && d6.is_some_and(|c| c.is_ascii_digit())
+            && d7.is_some_and(|c| c.is_ascii_digit())
+            && let Some(s) = slice
+        {
+            let nnn = std::str::from_utf8(s).unwrap_or("").to_string();
+            out.push(nnn);
+            i += 8;
+        } else {
+            i += 1;
+        }
+    }
+    out
+}
+
+/// 在 line 中查找 `TASK-NNN` 或 `TASK-NNNx` 模式，返回 `NNN` 或 `NNNx` 完整段。
+fn extract_task_nnn_full_in_line(line: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let bytes = line.as_bytes();
+    let mut i = 0;
+    while i + 5 <= bytes.len() {
+        let prefix = bytes.get(i..i+5);
+        let d5 = bytes.get(i+5).copied();
+        if prefix == Some(&b"TASK-"[..]) && d5.is_some_and(|c| c.is_ascii_digit()) {
+            let mut end = i + 5;
+            let mut digits = 0;
+            while digits < 3 {
+                match bytes.get(end).copied() {
+                    Some(c) if c.is_ascii_digit() => { end += 1; digits += 1; }
+                    _ => break,
+                }
+            }
+            if digits == 3 {
+                if matches!(bytes.get(end).copied(), Some(c) if c.is_ascii_lowercase()) {
+                    end += 1;
+                }
+                if let Some(slice) = bytes.get(i+5..end) {
+                    let nnn_full = std::str::from_utf8(slice).unwrap_or("").to_string();
+                    out.push(nnn_full);
+                    i = end;
+                    continue;
+                }
+            }
+        }
+        i += 1;
+    }
+    out
+}
+
 /// 从任务卡文件的 metadata 块提取 `- 状态：...` 行。
 #[must_use]
 pub fn extract_status_line(content: &str) -> Option<String> {
@@ -405,5 +556,75 @@ mod tests {
             "plan table rows should not trigger, got {:?}",
             f
         );
+    }
+
+    // ---- ② plans/*.md 引用的 TASK-NNN 必须有 tasks/TASK-NNN-*.md 文件 ----
+
+    #[test]
+    fn plans_referencing_existing_file_passes() {
+        let content = "see TASK-001 (already exists)";
+        let existing = vec!["TASK-001-foo.md".to_string()];
+        let f = scan_plans_needs_file("plans/x.md", content, &existing);
+        assert!(f.is_empty(), "got {:?}", f);
+    }
+
+    #[test]
+    fn plans_referencing_missing_file_errors() {
+        let content = "see TASK-999 (no file)";
+        let existing = vec!["TASK-001-foo.md".to_string()];
+        let f = scan_plans_needs_file("plans/x.md", content, &existing);
+        assert_eq!(f.len(), 1);
+        assert_eq!(f[0].rule, "card-check/number-missing-file");
+        assert_eq!(f[0].severity, Severity::Error);
+    }
+
+    // ---- ⑤ tasks/TASK-*.md 编号唯一性 + sub-suffix 检测 ----
+
+    #[test]
+    fn uniqueness_with_unique_files_passes() {
+        let files = vec![
+            "TASK-001-a.md".to_string(),
+            "TASK-002-b.md".to_string(),
+            "TASK-003-c.md".to_string(),
+        ];
+        let f = scan_tasks_uniqueness(&files);
+        assert!(f.is_empty(), "got {:?}", f);
+    }
+
+    #[test]
+    fn uniqueness_with_duplicate_nnn_errors() {
+        let files = vec![
+            "TASK-051-a.md".to_string(),
+            "TASK-051-b.md".to_string(),
+        ];
+        let f = scan_tasks_uniqueness(&files);
+        assert_eq!(f.len(), 1);
+        assert_eq!(f[0].rule, "card-check/number-duplicate");
+        assert!(f[0].message.contains("撞号"));
+    }
+
+    #[test]
+    fn uniqueness_with_sub_suffix_errors() {
+        let files = vec!["TASK-055b-legacy.md".to_string()];
+        let f = scan_tasks_uniqueness(&files);
+        assert_eq!(f.len(), 1);
+        assert_eq!(f[0].rule, "card-check/number-sub-suffix");
+        assert!(f[0].message.contains("永久禁用"));
+    }
+
+    #[test]
+    fn extract_task_nnn_parses_correctly() {
+        assert_eq!(extract_task_nnn_in_line("TASK-001 ready"), vec!["001"]);
+        assert_eq!(extract_task_nnn_in_line("see TASK-059 and TASK-060"), vec!["059", "060"]);
+        assert_eq!(extract_task_nnn_in_line("no task ref here"), Vec::<String>::new());
+        // TASK-1234: only first 3 digits consumed; remaining "4 four digits" has no TASK- prefix
+        assert_eq!(extract_task_nnn_in_line("TASK-1234 four digits"), vec!["123"]);
+    }
+
+    #[test]
+    fn extract_task_nnn_full_detects_sub_suffix() {
+        assert_eq!(extract_task_nnn_full_in_line("TASK-001 plain"), vec!["001"]);
+        assert_eq!(extract_task_nnn_full_in_line("TASK-055b sub"), vec!["055b"]);
+        assert_eq!(extract_task_nnn_full_in_line("TASK-99 not 3 digits"), Vec::<String>::new());
     }
 }
