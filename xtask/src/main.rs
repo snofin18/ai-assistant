@@ -66,6 +66,7 @@
 
 mod adr_index;
 mod adr_registry;
+mod arch;
 mod card_check;
 mod cli;
 mod deferred;
@@ -251,6 +252,9 @@ fn execute(arguments: &[String], output: &mut dyn Write) -> Result<u8, Failure> 
     if command == "card-check" {
         return run_card_check(&invocation, output);
     }
+    if command == "arch" {
+        return run_arch(&invocation, output);
+    }
     if command == "guard" {
         return run_guard(&invocation, output);
     }
@@ -298,6 +302,13 @@ fn run_guard(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Fail
     .map_err(Failure::Guard)?;
     let store = guard_store::FileLockStore::new(root);
     guard_runner::run(&request, &store, output).map_err(Failure::Guard)
+}
+
+/// 执行架构护栏检查（分层 + 零三方依赖）。
+fn run_arch(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
+    let root = resolve_repo_root(invocation.repo.as_deref())
+        .map_err(|error| Failure::from_walk(&error))?;
+    arch::run(&root, output).map_err(Failure::Io)
 }
 
 /// 执行仓库卫生检查。
