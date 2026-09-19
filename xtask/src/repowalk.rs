@@ -150,7 +150,6 @@ fn read_sorted_entries(directory: &Path) -> Result<Vec<PathBuf>, WalkError> {
 #[must_use]
 /// 仓库文件条目（相对路径 + 绝对路径）。
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[allow(dead_code)]
 pub struct RepoFileEntry {
     pub rel_path: String,
     pub abs_path: std::path::PathBuf,
@@ -159,7 +158,6 @@ pub struct RepoFileEntry {
 /// 递归收集仓库内所有指定扩展名的文件（扩展名小写、不含点）。
 /// 跳过 `target/` 与 `.git/`（与 `is_skipped_directory` 一致）。
 /// 扩展名为空数组 = 收所有文本文件（不含二进制扩展名）。
-#[allow(dead_code)] // Used by refscan/docscan/card_check once main.rs is fixed
 pub fn collect_repo_files(
     root: &std::path::Path,
     extensions: &[&str],

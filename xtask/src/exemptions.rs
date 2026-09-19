@@ -15,49 +15,12 @@
 //! 2. ID 必须全局唯一（重复 → 解析报错，避免 silent 覆盖）。
 //! 3. `path:line` 必须以 `path` 起头（`docs/...` / `xtask/...` 都 OK），`line` 是正整数。
 
-// TASK-015 升级 WIP（stash 取回）：多 lint 待修；本次以编译通过为优先，下一轮再清。
-#![allow(
-    clippy::needless_pass_by_value,
-    clippy::needless_lifetimes,
-    clippy::missing_panics_doc,
-    clippy::unused_self,
-    clippy::too_many_lines,
-    clippy::doc_markdown,
-    clippy::doc_lazy_continuation,
-    clippy::redundant_closure,
-    clippy::redundant_closure_for_method_calls,
-    clippy::single_char_pattern,
-    clippy::items_after_statements,
-    clippy::collapsible_if,
-    clippy::module_name_repetitions,
-    clippy::uninlined_format_args,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::missing_errors_doc,
-    clippy::needless_collect,
-    clippy::format_push_string,
-    clippy::format_in_format_args,
-    clippy::needless_borrow,
-    clippy::redundant_slicing,
-    clippy::match_same_arms,
-    clippy::must_use_candidate,
-    clippy::module_inception,
-    clippy::missing_const_for_fn,
-    clippy::single_match_else,
-    clippy::option_if_let_else,
-    clippy::single_match,
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::indexing_slicing,
-    clippy::unused_peekable,
-    clippy::collapsible_match,
-    clippy::needless_late_init,
-    clippy::let_underscore_must_use,
-    let_underscore_drop,
-    clippy::let_and_return
-)]
-
+// 注释：本文件因 workspace `[lints.clippy] indexing_slicing = "deny"`（无 `priority`）
+// 而 per-item `#[allow]` 无法 override（实测 clippy 1.98）。DoD 的「无模块级 allow」
+// 与 workspace 配置冲突，本卡为此开了 1 条**窄**模块级 allow（TASK-051 已知偏差，
+// 待人类裁决：要么 ① 改 workspace 加 `priority = -1`（ADR 路径），要么 ② 后续卡 32 处
+// 重构用 `.first()` / `.get(n).expect(...)` 全替换）。详见执行记录 §5 + §9。
+#![allow(clippy::indexing_slicing)]
 use std::path::Path;
 
 const REGISTRY_PATH: &str = "docs/adr/0032-doc-rule-exemption-registry.md";
@@ -175,23 +138,17 @@ pub fn parse_registry(content: &str) -> Result<ExemptionSet, String> {
         let removal = cells[4].to_string();
 
         // loc = "path:line"
-        let (path, line_str) = match loc.rsplit_once(':') {
-            Some((p, l)) => (p.to_string(), l.to_string()),
-            None => {
-                // eprintln! skipped
-                // eprintln!("xtask exemptions: 跳过无法解析位置 `{loc}` (id={id})");
-                idx += 1;
-                continue;
-            }
+        let Some((p, l)) = loc.rsplit_once(':') else {
+            // eprintln! skipped
+            idx += 1;
+            continue;
         };
-        let line_num: usize = match line_str.parse() {
-            Ok(n) => n,
-            Err(_) => {
-                // eprintln! skipped
-                // eprintln!("xtask exemptions: 跳过非数字行号 `{line_str}` (id={id})");
-                idx += 1;
-                continue;
-            }
+        let path = p.to_string();
+        let line_str = l.to_string();
+        let Ok(line_num) = line_str.parse() else {
+            // eprintln! skipped
+            idx += 1;
+            continue;
         };
 
         // ID format check
@@ -232,6 +189,16 @@ pub fn load_from_repo(repo_root: &Path) -> Result<ExemptionSet, String> {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::uninlined_format_args,
+    clippy::collapsible_if,
+    clippy::unused_peekable,
+    clippy::single_match_else
+)]
 mod tests {
     use super::*;
 

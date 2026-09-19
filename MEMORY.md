@@ -118,4 +118,3 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
 
 （**暂无**。`docs/memory/` 下还没有任何文件超过 400 行。归档规则见 `docs/memory/archive/README.md`：
 按**体积**触发、按**主题**拆分、拆出后原处留指针 + 本表登记一行 + `LEDGER.md` 追加一行。）
-

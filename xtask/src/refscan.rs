@@ -108,6 +108,13 @@ pub fn run(repo_root: &std::path::Path, output: &mut dyn std::io::Write) -> Resu
         .filter(|f| f.severity == Severity::Warning)
         .count();
     let verdict = if errors > 0 { "FAILED" } else { "PASSED" };
+    // 逐 finding 输出（铁律 ①「无静默失败」：仅 counts = 「看着像在跑」的伪完成）
+    if !findings.is_empty() {
+        output
+            .write_all(render(&findings).as_bytes())
+            .map_err(|e| e.to_string())?;
+    }
+
     let summary = format!(
         "== refscan ==\nscanned_files={scanned}\n-- summary: {errors} error(s), {warnings} warning(s)\n-- verdict: {verdict}\n"
     );

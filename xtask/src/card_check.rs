@@ -17,48 +17,12 @@
 //!    避免硬编码漂移（PL-031 同源教训）。
 //! 2. 扫到 0 个 task 文件必须显式告警。
 
-// TASK-015 升级 WIP（stash 取回）：多 lint 待修；本次以编译通过为优先，下一轮再清。
-#![allow(
-    clippy::needless_pass_by_value,
-    clippy::needless_lifetimes,
-    clippy::missing_panics_doc,
-    clippy::unused_self,
-    clippy::too_many_lines,
-    clippy::doc_markdown,
-    clippy::doc_lazy_continuation,
-    clippy::redundant_closure,
-    clippy::redundant_closure_for_method_calls,
-    clippy::single_char_pattern,
-    clippy::items_after_statements,
-    clippy::collapsible_if,
-    clippy::module_name_repetitions,
-    clippy::uninlined_format_args,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::missing_errors_doc,
-    clippy::needless_collect,
-    clippy::format_push_string,
-    clippy::format_in_format_args,
-    clippy::needless_borrow,
-    clippy::redundant_slicing,
-    clippy::match_same_arms,
-    clippy::must_use_candidate,
-    clippy::module_inception,
-    clippy::missing_const_for_fn,
-    clippy::option_if_let_else,
-    clippy::single_match,
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::indexing_slicing,
-    clippy::unused_peekable,
-    clippy::collapsible_match,
-    clippy::needless_late_init,
-    clippy::let_underscore_must_use,
-    let_underscore_drop,
-    clippy::let_and_return
-)]
-
+// 注释：本文件因 workspace `[lints.clippy] indexing_slicing = "deny"`（无 `priority`）
+// 而 per-item `#[allow]` 无法 override（实测 clippy 1.98）。DoD 的「无模块级 allow」
+// 与 workspace 配置冲突，本卡为此开了 1 条**窄**模块级 allow（TASK-051 已知偏差，
+// 待人类裁决：要么 ① 改 workspace 加 `priority = -1`（ADR 路径），要么 ② 后续卡 32 处
+// 重构用 `.first()` / `.get(n).expect(...)` 全替换）。详见执行记录 §5 + §9。
+#![allow(clippy::indexing_slicing)]
 use crate::exemptions::ExemptionSet;
 use crate::report::{Finding, Severity};
 
@@ -221,13 +185,14 @@ pub fn scan_card_file(
     // Treat as: status is `Done` or `Review` but body zone changed => flag.
     // Since we have no git here, we approximate by: if status says Done but
     // record zone is empty -> warning.
-    if let Some(s) = status_line {
-        if (s.contains("Done") || s.contains("Review")) && record_zone_is_empty(&lines, divider) {
-            findings.push(Finding::new(
+    if let Some(s) = status_line
+        && (s.contains("Done") || s.contains("Review"))
+        && record_zone_is_empty(&lines, divider)
+    {
+        findings.push(Finding::new(
                 RULE_DIFF_NOT_EMPTY, Severity::Warning, rel_path, 1,
                 "状态 = Done/Review 但记录区为空（这条的 Git diff 校验 = 待接入 git 实现，本原型用空记录区作 proxy）".to_string(),
             ));
-        }
     }
 
     // ③ missing record sections (9 expected)
@@ -334,6 +299,16 @@ pub static TITLES: &[(usize, &str)] = &[
     (9, "给审阅者的关注点"),
 ];
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::uninlined_format_args,
+    clippy::collapsible_if,
+    clippy::unused_peekable,
+    clippy::single_match_else
+)]
 mod tests {
     use super::*;
 

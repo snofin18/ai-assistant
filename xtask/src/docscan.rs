@@ -18,48 +18,12 @@
 //! 1. 输出确定性（同 refscan）。
 //! 2. 扫到 0 个 `.md` 必须显式告警（避免空仓库假 PASSED）。
 
-// TASK-015 升级 WIP（stash 取回）：多 lint 待修；本次以编译通过为优先，下一轮再清。
-#![allow(
-    clippy::needless_pass_by_value,
-    clippy::needless_lifetimes,
-    clippy::missing_panics_doc,
-    clippy::unused_self,
-    clippy::too_many_lines,
-    clippy::doc_markdown,
-    clippy::doc_lazy_continuation,
-    clippy::redundant_closure,
-    clippy::redundant_closure_for_method_calls,
-    clippy::single_char_pattern,
-    clippy::items_after_statements,
-    clippy::collapsible_if,
-    clippy::module_name_repetitions,
-    clippy::uninlined_format_args,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::missing_errors_doc,
-    clippy::needless_collect,
-    clippy::format_push_string,
-    clippy::format_in_format_args,
-    clippy::needless_borrow,
-    clippy::redundant_slicing,
-    clippy::match_same_arms,
-    clippy::must_use_candidate,
-    clippy::module_inception,
-    clippy::missing_const_for_fn,
-    clippy::option_if_let_else,
-    clippy::single_match,
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::indexing_slicing,
-    clippy::unused_peekable,
-    clippy::collapsible_match,
-    clippy::needless_late_init,
-    clippy::let_underscore_must_use,
-    let_underscore_drop,
-    clippy::let_and_return
-)]
-
+// 注释：本文件因 workspace `[lints.clippy] indexing_slicing = "deny"`（无 `priority`）
+// 而 per-item `#[allow]` 无法 override（实测 clippy 1.98）。DoD 的「无模块级 allow」
+// 与 workspace 配置冲突，本卡为此开了 1 条**窄**模块级 allow（TASK-051 已知偏差，
+// 待人类裁决：要么 ① 改 workspace 加 `priority = -1`（ADR 路径），要么 ② 后续卡 32 处
+// 重构用 `.first()` / `.get(n).expect(...)` 全替换）。详见执行记录 §5 + §9。
+#![allow(clippy::indexing_slicing)]
 use crate::report::{Finding, Severity};
 
 /// 规则 `doc/table-broken`：数据行 cell 数 ≠ 分隔行 cell 数 → 渲染会错位（PL-031）。
@@ -97,6 +61,11 @@ pub fn run(repo_root: &std::path::Path, output: &mut dyn std::io::Write) -> Resu
         .filter(|f| f.severity == Severity::Warning)
         .count();
     let verdict = if errors > 0 { "FAILED" } else { "PASSED" };
+    // 逐 finding 输出（铁律 ①「无静默失败」：仅 counts = 「看着像在跑」的伪完成）
+    for f in &findings {
+        f.render(output).map_err(|e| e.to_string())?;
+    }
+
     let summary = format!(
         "== docscan ==\nscanned_files={scanned}\n-- summary: {errors} error(s), {warnings} warning(s)\n-- verdict: {verdict}\n"
     );
@@ -158,7 +127,7 @@ fn cell_count(line: &str) -> usize {
     // We use the same regex the Python prototype uses for stability.
     // Manual cell count: walk chars, increment on unescaped |, -2 for outer pipes.
     let mut count = 0usize;
-    let mut chars = line.chars().peekable();
+    let mut chars = line.chars();
     while let Some(c) = chars.next() {
         if c == '\\' {
             chars.next();
@@ -252,6 +221,16 @@ pub fn scan_encoding(rel_path: &str, content: &str) -> Vec<Finding> {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::uninlined_format_args,
+    clippy::collapsible_if,
+    clippy::unused_peekable,
+    clippy::single_match_else
+)]
 mod tests {
     use super::*;
 
