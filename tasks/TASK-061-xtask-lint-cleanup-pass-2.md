@@ -1,6 +1,6 @@
-# TASK-053　xtask lint cleanup pass 2 — card_check 5 处 str[Range] + refscan dead_code + test f[0]
+# TASK-061　xtask lint cleanup pass 2 — card_check 5 处 str[Range] + refscan dead_code + test f[0]
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：0　子阶段：—　依赖：001 / 051 / 052　预估：S　阻塞主线：否
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-0-spikes.md`。
@@ -9,7 +9,7 @@
 
 - 依赖：TASK-001（Done）/ TASK-051（Done）/ TASK-052（Done）　预估：S（≤ 1 h）　难度：S
 - **write scope**：
-  - `tasks/TASK-053-...md`（本卡文件）
+  - `tasks/TASK-061-...md`（本卡文件）
   - `xtask/src/{refscan,docscan,card_check}.rs`（3 模块的清理）
   - `LEDGER.md`（追加本卡一行）
 - **Out of scope**：
@@ -73,8 +73,8 @@ grep -nE 'sec\[.+\.\.\]|\[.+\.\.\]|f\[0\]|\#\[allow\(dead_code\)\]' \
 
 ### 1. 约束回执
 
-【任务】TASK-053　xtask lint cleanup pass 2 — card_check 5 处 str[Range] + refscan dead_code + test f[0]
-【write scope】仅：xtask/src/{refscan,docscan,card_check}.rs + tasks/TASK-053-...md + LEDGER.md
+【任务】TASK-061　xtask lint cleanup pass 2 — card_check 5 处 str[Range] + refscan dead_code + test f[0]
+【write scope】仅：xtask/src/{refscan,docscan,card_check}.rs + tasks/TASK-061-...md + LEDGER.md
 【铁律】 ① 无静默失败  ⑨ 不静移扩大范围  ⑩ 契约先行
 【禁止】 动 workspace [lints.clippy]（TASK-052 人类裁决 B 路 = 不动 workspace）/ 动 exemptions.rs / 改 ADR
 【依赖】 TASK-001 / TASK-051 / TASK-052（均已 Done）
@@ -84,7 +84,7 @@ grep -nE 'sec\[.+\.\.\]|\[.+\.\.\]|f\[0\]|\#\[allow\(dead_code\)\]' \
 
 | 文件 | 行数净变化 | 说明 |
 |---|---|---|
-| `tasks/TASK-053-...md` | +90/-0 | 卡文件 |
+| `tasks/TASK-061-...md` | +90/-0 | 卡文件 |
 | `xtask/src/card_check.rs` | +20/-15 | 5 处 str[Range] → `.get(range)` + 1 处 test f[0] → `first().expect(...)` |
 | `xtask/src/docscan.rs` | +2/-2 | 2 处 test f[0] → `first().expect(...)` |
 | `xtask/src/refscan.rs` | +0/-1 | 删除 render 函数前的 stale `#[allow(dead_code)]` |
@@ -137,7 +137,7 @@ Count: 10  # 9 in card_check.rs line 24/26/28/30/33/35/37/129/270 = ADR-0031 D6 
 
 
 
-**偏差 #3（轻微，已自处理）**: **LEDGER.md 修改未取 guard lock**（Mode 2 review [N2]）。本卡按 ADR-0028 应在改 LEDGER.md 前先 `cargo run -p xtask -- guard acquire LEDGER.md --owner TASK-053 --task TASK-053 --intent "card completion row"`，但 Implementer 直接写了。**修正方法**：本卡未对其他 agent 造成竞态风险（target/locks/ 无并发持有），但违反明文契约。建议：(a) 本次接受并加 DRIFT 记录；(b) 未来 AGENTS.md §3 豁免清单明确「单 agent 短会话内 LEDGER.md 修改可不取 guard（因锁记录入仓库前其他 agent 无从竞争）」。本次按 (a) 处理。
+**偏差 #3（轻微，已自处理）**: **LEDGER.md 修改未取 guard lock**（Mode 2 review [N2]）。本卡按 ADR-0028 应在改 LEDGER.md 前先 `cargo run -p xtask -- guard acquire LEDGER.md --owner TASK-061 --task TASK-061 --intent "card completion row"`，但 Implementer 直接写了。**修正方法**：本卡未对其他 agent 造成竞态风险（target/locks/ 无并发持有），但违反明文契约。建议：(a) 本次接受并加 DRIFT 记录；(b) 未来 AGENTS.md §3 豁免清单明确「单 agent 短会话内 LEDGER.md 修改可不取 guard（因锁记录入仓库前其他 agent 无从竞争）」。本次按 (a) 处理。
 ### 6. 更合理做法
 
 1. **`scan_file` / `find_bare_pending` / `find_adr_ranges` 的 `while let Some + .get(n)` 模式可沉淀为 helper 函数**：本卡共 8 个函数用此模式（refscan 5 + exemptions 1 + card_check 1 + docscan 1），分散在 4 模块。**建议**未来开 `xtask_lint_helpers` crate 提供 `fn index_after<T>(slice: &[T], idx: usize) -> Option<&T>` 之类的工具（取代每处自己写 `let Some(x) = arr.get(idx) else { continue }` 5 行模板代码）。但本卡工作范围不允许建新 crate。

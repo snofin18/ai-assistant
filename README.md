@@ -108,7 +108,7 @@ build / hygiene / spike-deny(#8b) / doc-consistency(#12b)；另有 **9 项软门
 
 ---
 
-## 最近进展（2026-09-19，xtask 护栏升级收尾 = TASK-051/052/053/054/055/055b 六连发）
+## 最近进展（2026-09-19，xtask 护栏升级收尾 = TASK-059/060/061/062/063/064 六连发）
 
 `xtask` 护栏工具已从 4 个子命令扩到 7 个（新增 `refscan` / `docscan` / `card-check`），
 原 `hygiene / memory-counts / adr-index / guard` 保持。所有 `xtask` 子命令在
@@ -123,38 +123,38 @@ CI 硬门禁 #12b（`doc-consistency`）下统一跑过。
 
 ### 历史小节（按时间倒序）
 
-- **2026-09-19 TASK-055b**（promote `extension_is` helper + 收 repowalk.rs:172 per-line allow）:
+- **2026-09-19 TASK-064**（promote `extension_is` helper + 收 repowalk.rs:172 per-line allow）:
     - 新增 `pub fn extension_is(path: &Path, expected: &str) -> bool` 到 `xtask/src/repowalk.rs`（紧邻 `has_rust_extension`）；同步把 refscan.rs 的 local `ext_is` closure 删掉、import 此 helper
     - `collect_repo_files_recursively` 内 2 处 `lower.ends_with(...)` 改 `extension_is(&path, ...)`；删函数级 `#[allow(clippy::case_sensitive_file_extension_comparisons)]`
     - 加 4 条 `extension_is` 单元测试：positive match / case-insensitive / 非 UTF-8 返回 false / 无扩展名返回 false（cargo test 279 → 283 passed）
     - **副作用**（行为变化）：`.ends_with(&format!(".{ext}"))` 在 caller 传大写 ext（如 `"MD"`）时会漏匹配，`extension_is` 修复了此 bug —— **现状** caller 全部传小写（card_check `["md"]` / docscan `["md"]` / refscan `["md","rs","ps1"]`）故无回归；**测试覆盖** test_extension_is_is_case_insensitive 显式断言 4 种大小写组合
-    - ADR-0035 §1 baseline 表补登 `repowalk.rs:172` 已清 + §决策 2 加一条「抽到 `pub fn` 替代 per-line allow 必须同步登记」（教训：TASK-055 提升到 helper 后才发现 repowalk.rs:172 还有同型 allow）
+    - ADR-0035 §1 baseline 表补登 `repowalk.rs:172` 已清 + §决策 2 加一条「抽到 `pub fn` 替代 per-line allow 必须同步登记」（教训：TASK-063 提升到 helper 后才发现 repowalk.rs:172 还有同型 allow）
     - **真正的最终态**：全 xtask/src 生产代码 per-line allow = 0（refscan:0 + repowalk:0 + docscan:0 + card_check:0 + exemptions:0；保留 = test wrapper 4 处合法 + card_check 9 + exemptions 1 共 10 处 `#[allow(dead_code)]` 占位常量）
-    - 详见 `tasks/TASK-055b-promote-extension-is-helper.md` 执行记录 9 节 + LEDGER.md 2026-09-19 行
-- **2026-09-19 TASK-055**（xtask refscan 清最后 3 处 per-line allow — 达到「生产代码 per-line allow = 0」）:
+    - 详见 `tasks/TASK-064-promote-extension-is-helper.md` 执行记录 9 节 + LEDGER.md 2026-09-19 行
+- **2026-09-19 TASK-063**（xtask refscan 清最后 3 处 per-line allow — 达到「生产代码 per-line allow = 0」）:
   - refscan.rs:94 `#[allow(clippy::single_char_pattern)]` → `replace("\r", "\n")` 改 `replace('\r', "\n")`（char 字面量，触发 Pattern impl 即可）
   - refscan.rs:101/103 `#[allow(clippy::case_sensitive_file_extension_comparisons)]` → `lower.ends_with(".md"/".rs"/".ps1")` 改 `Path::extension().and_then(to_str).is_some_and(eq_ignore_ascii_case)`（closure `ext_is` 复用）
   - 删除 `let lower = rel_path.to_ascii_lowercase();` 与配套注释（5 处出现 → 0）
   - 行为不变：refscan 仍报 151 errors（baseline 一致）；UTF-8 非合法扩展名按 `to_str` 失败语义 = 与原本 `ends_with`(`&str`) 在非 UTF-8 路径上失败同形
-  - **复核 GAP**：repowalk.rs:336 `#[allow(clippy::case_sensitive_file_extension_comparisons)]` **未在本卡 scope 内**（卡面标题与 In scope 严格限制 refscan.rs），且 ADR-0035 baseline 表也漏列；建议下一卡 `TASK-055b` 或新卡处理（统一改 `Path::extension` 模式）
-  - 详见 `tasks/TASK-055-clear-last-3-per-line-allows.md` 执行记录 9 节 + LEDGER.md 2026-09-19 行
-- **2026-09-19 TASK-054**（xtask render() 返回 Result — 消除 per-line allow）:
+  - **复核 GAP**：repowalk.rs:336 `#[allow(clippy::case_sensitive_file_extension_comparisons)]` **未在本卡 scope 内**（卡面标题与 In scope 严格限制 refscan.rs），且 ADR-0035 baseline 表也漏列；建议下一卡 `TASK-064` 或新卡处理（统一改 `Path::extension` 模式）
+  - 详见 `tasks/TASK-063-clear-last-3-per-line-allows.md` 执行记录 9 节 + LEDGER.md 2026-09-19 行
+- **2026-09-19 TASK-062**（xtask render() 返回 Result — 消除 per-line allow）:
   - `pub fn render(findings: &[Finding]) -> String` → `pub fn render(findings: &[Finding]) -> Result<String, std::fmt::Error>`
-  - 删除 `#[allow(clippy::unwrap_used, clippy::expect_used)]` per-line allow（TASK-052 遗留）
+  - 删除 `#[allow(clippy::unwrap_used, clippy::expect_used)]` per-line allow（TASK-060 遗留）
   - `writeln!(..).expect("...")` → `writeln!(..)?` + `.map_err(|e| e.to_string())?` 在 `run()` 中
   - 行为不变（writeln! to String 永不失败；Result 类型强制 caller 处理 = 编译期保证）
-- **2026-09-19 TASK-053**（xtask lint cleanup pass 2 — TASK-052 遗留 5 处 str[Range] + 1 处 stale dead_code + 3 处 test f[0]）:
+- **2026-09-19 TASK-061**（xtask lint cleanup pass 2 — TASK-060 遗留 5 处 str[Range] + 1 处 stale dead_code + 3 处 test f[0]）:
   - card_check.rs 5 处 str[Range] → 全替换为 `.get(range)` + `?` operator 重构
   - refscan.rs:290 stale `#[allow(dead_code)]` 删除（render 已被 run() 调用）
   - docscan/card_check 测试代码 `f[0]` → `f.first().expect("non-empty")`（3 处）
-- **2026-09-19 TASK-051 / TASK-052**（xtask 护栏升级 + 纯重构）：
-  - TASK-051 cherry-pick 悬空 commit `10f78db` 收回 → 4 子命令可执行 + ADR-0034 注册
-  - TASK-052 人类裁决 B 路（漂移不可忍受）= 纯重构 = 4 模块顶部 `#![allow(...)` 块全清
+- **2026-09-19 TASK-059 / TASK-060**（xtask 护栏升级 + 纯重构）：
+  - TASK-059 cherry-pick 悬空 commit `10f78db` 收回 → 4 子命令可执行 + ADR-0034 注册
+  - TASK-060 人类裁决 B 路（漂移不可忍受）= 纯重构 = 4 模块顶部 `#![allow(...)` 块全清
     （**DoD 硬证据**：`grep '^#![allow' xtask/src/{refscan,docscan,card_check,exemptions}.rs` = 0 命中）
     + 32 处 `indexing_slicing` 用 `while let Some + .get(n).expect()` 全替换
     + `docs/PARKING_LOT.md` PL-NEW 关闭
   - 防御性 PITFALL：`docs/memory/pitfalls.md` 追加「禁止 sub-card 后缀；commit 标题必须对应 `tasks/TASK-NNN-*.md`」
-  - 详见 `LEDGER.md` 2026-09-19 三行 + `tasks/TASK-051-...md` / `tasks/TASK-052-...md` 执行记录
+  - 详见 `LEDGER.md` 2026-09-19 三行 + `tasks/TASK-059-...md` / `tasks/TASK-060-...md` 执行记录
 - **2026-09-17 TASK-001**：仓库骨架 + CI 8 硬门禁 + ADR 编号登记表建立
 
 ## 许可证

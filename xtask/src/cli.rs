@@ -39,7 +39,7 @@ pub const USAGE: &str = r#"xtask — 仓库护栏与开发任务工具（只读�
   adr-index          ADR 编号登记表 ↔ docs/adr/*.md ↔ decisions.md 是否一致（ADR-0030 D3）
   refscan           ADR 编号一致性扩展（ADR-0032 + ADR-0026）：范围写法 / 裁引用 / .ps1 非 ASCII
   docscan           文档结构扫描（破表 / setext 风险 / 编码形状），不免
-  card-check         任务卡格式完整性（ADR-0031 D6，**当前实现部分**）：9 节骨架齐全（Ready 豁免） + 状态=Done/Review + 记录区空 → Warning；**未实现**：状态行唯一 / 分界线唯一（计划归 TASK-052）
+  card-check         任务卡格式完整性（ADR-0031 D6，**当前实现部分**）：9 节骨架齐全（Ready 豁免） + 状态=Done/Review + 记录区空 → Warning；**未实现**：状态行唯一 / 分界线唯一（计划归 TASK-060）
   guard <操作>       文件改写互斥锁（ADR-0028）；操作 = acquire | release | status | reap
   verify-schemas     [未实现 · TASK-011/015] Tool/Adapter/审计事件 schema 校验
   codegen            [未实现 · TASK-011]     由 schema 生成 Rust/TS 类型

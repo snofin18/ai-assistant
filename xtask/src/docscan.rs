@@ -18,7 +18,7 @@
 //! 1. 输出确定性（同 refscan）。
 //! 2. 扫到 0 个 `.md` 必须显式告警（避免空仓库假 PASSED）。
 
-// TASK-052 (2026-09-19) 决策：本文件**无任何**模块级 `#![allow(...)]` 块；32 处 indexing_slicing 全部用 safe pattern 替换。
+// TASK-060 (2026-09-19) 决策：本文件**无任何**模块级 `#![allow(...)]` 块；32 处 indexing_slicing 全部用 safe pattern 替换。
 
 use crate::report::{Finding, Severity};
 

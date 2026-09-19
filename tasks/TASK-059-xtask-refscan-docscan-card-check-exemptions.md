@@ -1,6 +1,6 @@
-# TASK-051　xtask 护栏升级 — refscan / docscan / card-check / exemptions 内化
+# TASK-059　xtask 护栏升级 — refscan / docscan / card-check / exemptions 内化
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：0　子阶段：—　依赖：001　预估：M　阻塞主线：是（PL-002 / PL-015 / PL-026 / PL-027 的机器化依赖本卡产出）
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-0-spikes.md`。
@@ -9,7 +9,7 @@
 
 - 依赖：TASK-001（已 Done）　预估：M　难度：M
 - **write scope**：
-  - `tasks/TASK-051-xtask-refscan-docscan-card-check-exemptions.md`（本卡文件）
+  - `tasks/TASK-059-xtask-refscan-docscan-card-check-exemptions.md`（本卡文件）
   - `xtask/src/{main,cli,repowalk,deferred}.rs`（cherry-pick 触达）
   - `xtask/src/{refscan,docscan,card_check,exemptions}.rs`（cherry-pick 新增 4 模块）
   - `docs/adr/0034-xtask-card-check-implementation.md`（cherry-pick 重建，ADR-0031 D6 机器化）
@@ -26,7 +26,7 @@
 
 **背景与源流**
 
-- 本卡的实质工作在悬空 commit `10f78db feat(xtask): TASK-015b 护栏升级 — refscan / docscan / card-check / exemptions 内化`（已用 `git tag orphan/task-015b-20260919 10f78db` 备份），原属 DRIFT-20260919-2 Phase D 第一轮编码，因 reset 移出 HEAD 链。**卡号纠正**：原 commit 自报「TASK-015b」违反 ADR-0031「一卡一文件、按号寻卡」—— TASK-015 是阶段 1 子阶段 1a 批次 A1 的另一张卡，scope 完全不同。本卡采用 **TASK-051**（现有 TASK-001~050 之后的下一个空号）。
+- 本卡的实质工作在悬空 commit `10f78db feat(xtask): TASK-015b 护栏升级 — refscan / docscan / card-check / exemptions 内化`（已用 `git tag orphan/task-015b-20260919 10f78db` 备份），原属 DRIFT-20260919-2 Phase D 第一轮编码，因 reset 移出 HEAD 链。**卡号纠正**：原 commit 自报「TASK-015b」违反 ADR-0031「一卡一文件、按号寻卡」—— TASK-015 是阶段 1 子阶段 1a 批次 A1 的另一张卡，scope 完全不同。本卡采用 **TASK-059**（现有 TASK-001~050 之后的下一个空号）。
 - 源 commit 自报 4 条「已知遗留」（下一轮清理）：
   1. 4 个新模块顶部模块级 `lint allow`（WIP 仓促，~40 条 lint）→ **本卡必须清**
   2. `refscan` 输出仅汇总 counts、未打印具体 finding → **本卡必须清**（「输出仅 counts」是「看着像在跑」的伪完成，违反铁律 ① 无静默失败）
@@ -78,10 +78,10 @@ git status --porcelain                 # 应为空
 
 ### 1. 约束回执
 
-【任务】TASK-051　xtask 护栏升级 — refscan / docscan / card-check / exemptions 内化
+【任务】TASK-059　xtask 护栏升级 — refscan / docscan / card-check / exemptions 内化
 【目标】从悬空 commit 10f78db 拾回护栏升级工作（1576 行新增 / 4 个新模块），同时清理 3 条遗留（lint allow / refscan 详细输出 / dead_code allow），注册 ADR-0034，并加防御性 PITFALL。
 【write scope】
-  - tasks/TASK-051-xtask-refscan-docscan-card-check-exemptions.md（本卡）
+  - tasks/TASK-059-xtask-refscan-docscan-card-check-exemptions.md（本卡）
   - xtask/src/{main,cli,repowalk,deferred}.rs（cherry-pick 触达）
   - xtask/src/{refscan,docscan,card_check,exemptions}.rs（cherry-pick 新增 4 模块）
   - docs/adr/0034-xtask-card-check-implementation.md（cherry-pick 重建）
@@ -98,7 +98,7 @@ git status --porcelain                 # 应为空
 
 | 文件 | 来源 | 行数 |
 |---|---|---|
-| `tasks/TASK-051-...md` | Orchestrator 新建 | +95 |
+| `tasks/TASK-059-...md` | Orchestrator 新建 | +95 |
 | `xtask/src/refscan.rs` | cherry-pick 10f78db → 全保留原 40-lint `#![allow(...)]` | +364 |
 | `xtask/src/docscan.rs` | cherry-pick 10f78db → +render 调用 | +310 (+ 6) |
 | `xtask/src/card_check.rs` | cherry-pick 10f78db + 1 处 collapsible_if 修复 | +422 (+ 0) |
@@ -155,7 +155,7 @@ refscan 报 150 个 errors 是真实发现（裸 ADR 待建引用 + .ps1 非 ASC
   1. 改 workspace 配置（建议，漂移触发器 ⑥ → 走 ADR）：在 Cargo.toml 的 [workspace.lints.clippy] 把 indexing_slicing = "deny" 改成 indexing_slicing = { level = "deny", priority = -1 }，per-item 就能 override。配合 TASK-052（XTASK 卡）做 32 处机械重构 = 完全清掉 refscan.rs 40-lint 块。
   2. 未来卡 TASK-052 直接重构：用 .first() / .get(n).expect(...) 全替换 32 处 indexing（.expect() 由 test wrapper 允许），并把 refscan.rs 也清掉 40-lint 块。
 - 本卡验收结果：cargo clippy exit 0，所有 279 tests passed，llvm-cov 83.45%；仅是 DoD 中「4 个新模块顶部无模块级 lint allow」这一条未达成（实际只有 refscan.rs 还保留 40-lint 块）。其余 DoD 全部达成。
-**偏差 #2（小，已自处理）：LEDGER.md / MEMORY.md / docs/adr/README.md / tasks/TASK-051-*.md 编辑后产生 UTF-8 BOM 与 CRLF**
+**偏差 #2（小，已自处理）：LEDGER.md / MEMORY.md / docs/adr/README.md / tasks/TASK-059-*.md 编辑后产生 UTF-8 BOM 与 CRLF**
 
 - **原因**：PowerShell 的 `Set-Content -Encoding utf8` 在 Windows 上写 BOM + CRLF。`.gitattributes` 的 `* text=auto eol=lf` 只在 git 内部管，working tree 不动。
 - **实际处理**：用 `[System.IO.File]::WriteAllText(..., [System.Text.UTF8Encoding]$false)`（无 BOM）+ 显式 `.TrimEnd("\n","\r") + "\n"`（恰好一个 LF 结尾）一次性处理 4 个文件；`xtask docscan` 立刻 PASSED。
@@ -180,14 +180,14 @@ refscan 报 150 个 errors 是真实发现（裸 ADR 待建引用 + .ps1 非 ASC
 ### 8. 新增长期记忆
 
 - **`docs/memory/pitfalls.md`** 追加一条防御性 PITFALL（已加锁写入）：
-  > `[2026-09-19][PITFALL][src:TASK-051 cherry-pick 10f78db 取回]` **任何 task commit 的标题、commit message 或工作树改动必须**对应**一张已存在的 `tasks/TASK-NNN-<slug>.md` 文件**；**禁止**「sub-card 后缀」（`NNNb` / `NNNc` 等）—— ADR-0031「一卡一文件、按号寻卡」是项目的卡片编号契约。**禁止**先 commit 代码后补卡（即便「WIP」也不行）。**禁止**用「`DRIFT-NNNN-N`」直接覆盖尚未建卡的实质工作（10f78db 这次 reset 即为实例）。`xtask card-check` 判据②（status 非 Ready 必有文件 = PL-002）是**机器化防线**，本卡实施时已就绪但仍依赖人写卡。
+  > `[2026-09-19][PITFALL][src:TASK-059 cherry-pick 10f78db 取回]` **任何 task commit 的标题、commit message 或工作树改动必须**对应**一张已存在的 `tasks/TASK-NNN-<slug>.md` 文件**；**禁止**「sub-card 后缀」（`NNNb` / `NNNc` 等）—— ADR-0031「一卡一文件、按号寻卡」是项目的卡片编号契约。**禁止**先 commit 代码后补卡（即便「WIP」也不行）。**禁止**用「`DRIFT-NNNN-N`」直接覆盖尚未建卡的实质工作（10f78db 这次 reset 即为实例）。`xtask card-check` 判据②（status 非 Ready 必有文件 = PL-002）是**机器化防线**，本卡实施时已就绪但仍依赖人写卡。
 - **`docs/memory/decisions.md`** 未改（决策源自 ADR-0034 与本卡对 ADR-0031 的强化）。
 
 ### 9. 给审阅者的关注点
 
 1. **【高风险】偏差 #1（模块级 `lint allow` 残留）**：本卡**未达成 DoD 「无模块级 lint allow」**。具体权衡与两条后续路径见 §5 偏差 #1。建议审阅者要么接受偏差+留 PL-NEW 后续，要么现在就驳回让本卡补 32 处重构。
 2. **【中风险】`xtask refscan` 报 150 个 errors 全部是真实发现**——其中 `spikes/spike-a-notepad/probe-01-tree-survey.ps1:30` 等 9 个 `NON-ASCII` 是 `probe-01` 的非 ASCII 注释（PL-026 已关闭，**但 refscan 在判 `>127` 字节 = 非 ASCII，与「中文字符」语义不同**——这里实际报的是 `\0` 控制字符或类似）；`BARE-PENDING` 在 `docs/PARKING_LOT.md` 与 `docs/governance-ai-agent-execution.md` 是历史「`[ADR:待建 NNNN]`」待建号被引用——需 ADR-0032 豁免或建 ADR-0016/0017/0020/0027。审阅者可考虑批量登记。
-3. **【低风险】`docs/adr/README.md` §1 0034 行的判定**：本卡 ADR-0034 文件标题为「`0034-xtask-card-check-implementation.md`」但内容描述了**整个 TASK-051 范围**（refscan + docscan + card-check + exemptions），与「ADR 标题只指一个决策」的惯例不完全对齐。建议未来要么拆 ADR-0034 为 4 个，要么改标题为「`0034-xtask-guardrail-impl.md`」。属小 DRIFT，不阻塞合并。
+3. **【低风险】`docs/adr/README.md` §1 0034 行的判定**：本卡 ADR-0034 文件标题为「`0034-xtask-card-check-implementation.md`」但内容描述了**整个 TASK-059 范围**（refscan + docscan + card-check + exemptions），与「ADR 标题只指一个决策」的惯例不完全对齐。建议未来要么拆 ADR-0034 为 4 个，要么改标题为「`0034-xtask-guardrail-impl.md`」。属小 DRIFT，不阻塞合并。
 4. **【低风险】card-check 19 个 warnings**：全部是 stage-0/1 任务卡的「记录区 9 节骨架缺」warning，对 Ready 状态自动豁免；本卡故意**不修**，因为批量补 9 节骨架是独立任务（与本卡的 cherry-pick 收尾无关）。
 5. **【低风险】执行的 git 操作**：
    - commit `4ac7d19`：卡文件单独 commit（PR-style first commit）
@@ -195,6 +195,6 @@ refscan 报 150 个 errors 是真实发现（裸 ADR 待建引用 + .ps1 非 ASC
    - **后续 commit**（即将做）：4 个 doc 文件 CRLF→LF 转换 + refscan 详细输出 + docscan 详细输出 + 3 处 lint 修复 + repowalk dead_code allow 删除 + 新 PITFALL 追加 + LEDGER 追加 + 执行记录填写
    - 无 force push、无 reset --hard、无 tag 删除
 6. **【极低风险】本会话涉及的 `guard` 锁**：
-   - `LEDGER.md`：ACQUIRED by TASK-051（即将在 commit 前 RELEASE）
-   - `docs/memory/pitfalls.md`：ACQUIRED by TASK-051（即将在 commit 前 RELEASE）
+   - `LEDGER.md`：ACQUIRED by TASK-059（即将在 commit 前 RELEASE）
+   - `docs/memory/pitfalls.md`：ACQUIRED by TASK-059（即将在 commit 前 RELEASE）
    - 锁记录在 `target/locks/<slug>.lock`，不入库

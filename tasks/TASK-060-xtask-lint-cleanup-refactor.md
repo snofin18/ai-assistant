@@ -1,6 +1,6 @@
-# TASK-052　xtask lint cleanup — refscan 40-lint 块清场 + 4 模块 indexing_slicing 纯重构
+# TASK-060　xtask lint cleanup — refscan 40-lint 块清场 + 4 模块 indexing_slicing 纯重构
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：0　子阶段：—　依赖：001 / 051　预估：M　阻塞主线：否（但 PL-NEW 挂着 = 决策待执行）
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-0-spikes.md`。
@@ -9,7 +9,7 @@
 
 - 依赖：TASK-001（Done）/ TASK-051（Done）　预估：M　难度：M
 - **write scope**：
-  - `tasks/TASK-052-...md`（本卡文件）
+  - `tasks/TASK-060-...md`（本卡文件）
   - `xtask/src/{refscan,docscan,card_check,exemptions}.rs`（4 个新模块的 lint 清理 + 32 处 indexing 重构）
   - `docs/PARKING_LOT.md`（追加 `[CLOSED]` 行关闭 PL-NEW）
   - `LEDGER.md`（追加本卡一行）
@@ -68,8 +68,8 @@ grep -n '#!\[allow' xtask/src/{refscan,docscan,card_check,exemptions}.rs  # 0 �
 **约束回执（前置提示，等 Implementer 复核后填 §1）**
 
 ```text
-【任务】TASK-052 xtask lint cleanup — refscan 40-lint 块清场 + 4 模块 indexing_slicing 纯重构
-【write scope】仅：xtask/src/{refscan,docscan,card_check,exemptions}.rs + tasks/TASK-052-...md + docs/PARKING_LOT.md + LEDGER.md + MEMORY.md（按需）
+【任务】TASK-060 xtask lint cleanup — refscan 40-lint 块清场 + 4 模块 indexing_slicing 纯重构
+【write scope】仅：xtask/src/{refscan,docscan,card_check,exemptions}.rs + tasks/TASK-060-...md + docs/PARKING_LOT.md + LEDGER.md + MEMORY.md（按需）
 【铁律】 ① 无静默失败  ⑨ 不静默扩大范围  ⑩ 契约先行
 【禁止】 动 workspace [lints.clippy]（漂移 ⑥ 不可忍受）/ 动其他 crate / 改 ADR / 改 AGENTS.md
 【依赖】 TASK-001 / TASK-051（已核对 LEDGER：Done）
@@ -84,8 +84,8 @@ grep -n '#!\[allow' xtask/src/{refscan,docscan,card_check,exemptions}.rs  # 0 �
 
 ### 1. 约束回执
 
-【任务】TASK-052　xtask lint cleanup — refscan 40-lint 块清场 + 4 模块 indexing_slicing 纯重构
-【write scope】仅：xtask/src/{refscan,docscan,card_check,exemptions}.rs + tasks/TASK-052-...md + docs/PARKING_LOT.md + LEDGER.md
+【任务】TASK-060　xtask lint cleanup — refscan 40-lint 块清场 + 4 模块 indexing_slicing 纯重构
+【write scope】仅：xtask/src/{refscan,docscan,card_check,exemptions}.rs + tasks/TASK-060-...md + docs/PARKING_LOT.md + LEDGER.md
 【铁律】 ① 无静默失败  ⑨ 不静移扩大范围  ⑩ 契约先行
 【禁止】 动 workspace [lints.clippy]（人类「漂移坚决不能忍受」= 不走 A 路加 priority=-1）
 【依赖】 TASK-001（Done）/ TASK-051（Done）；ADR-0031/0032/0030 现行
@@ -95,7 +95,7 @@ grep -n '#!\[allow' xtask/src/{refscan,docscan,card_check,exemptions}.rs  # 0 �
 
 | 文件 | 行数净变化 | 说明 |
 |---|---|---|
-| `tasks/TASK-052-...md` | +101/-0 | Orchestrator 卡文件 |
+| `tasks/TASK-060-...md` | +101/-0 | Orchestrator 卡文件 |
 | `xtask/src/refscan.rs` | +147/-82 | 重构 find_adr_ranges / find_bare_pending / render + 全清 #![allow |
 | `xtask/src/docscan.rs` | +26/-13 | 重构 scan_broken_tables 内层循环 + 移 use import 到 const doc 前 |
 | `xtask/src/card_check.rs` | +15/-7 | cells[n] → cells.first()/get(n) |

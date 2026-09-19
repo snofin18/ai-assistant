@@ -17,7 +17,7 @@
 //!    避免硬编码漂移（PL-031 同源教训）。
 //! 2. 9 节标题**在源码里硬编码**为 `TITLES` static（与 ADR-0034 描述一致 —— ADR 只要求分界线现场读取，
 //!    不要求 9 节标题也现场读取）。**待改进**：`load_record_section_titles()` 已实现 gov §3.4 现场
-//!    读取版，目前 dead code（grep 全仓 0 处引用），TASK-052 接入前不要删。
+//!    读取版，目前 dead code（grep 全仓 0 处引用），TASK-060 接入前不要删。
 use crate::exemptions::ExemptionSet;
 use crate::report::{Finding, Severity};
 

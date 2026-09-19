@@ -1,6 +1,6 @@
-# TASK-054　xtask render() 返回 Result — 消除 per-line unwrap_used 允许
+# TASK-062　xtask render() 返回 Result — 消除 per-line unwrap_used 允许
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：0　子阶段：—　依赖：001 / 051 / 052 / 053　预估：S　阻塞主线：否
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。
 
@@ -8,7 +8,7 @@
 
 - 依赖：TASK-001 / TASK-051 / TASK-052 / TASK-053（均已 Done）　预估：S（≤ 30 min）　难度：S
 - **write scope**：
-  - `tasks/TASK-054-...md`（本卡文件）
+  - `tasks/TASK-062-...md`（本卡文件）
   - `xtask/src/refscan.rs`（改 `render` 签名 + `run` 适配）
   - `README.md`（同步本卡进展）
   - `LEDGER.md`（追加本卡一行）
@@ -73,8 +73,8 @@ grep -nE '\.expect\(' xtask/src/refscan.rs
 
 ### 1. 约束回执
 
-【任务】TASK-054　xtask render() 返回 Result — 消除 per-line unwrap_used 允许
-【write scope】仅：xtask/src/refscan.rs + tasks/TASK-054-...md + README.md + LEDGER.md + docs/PARKING_LOT.md
+【任务】TASK-062　xtask render() 返回 Result — 消除 per-line unwrap_used 允许
+【write scope】仅：xtask/src/refscan.rs + tasks/TASK-062-...md + README.md + LEDGER.md + docs/PARKING_LOT.md
 【铁律】 ① 无静默失败  ⑨ 不静移扩大范围  ⑩ 契约先行
 【禁止】 动 workspace [lints.clippy]（TASK-052 人类裁决 B 路 = 不动 workspace）/ 其他 xtask 子命令 / 改 ADR
 【依赖】 TASK-001 / TASK-051 / TASK-052 / TASK-053（均已 Done）
@@ -84,9 +84,9 @@ grep -nE '\.expect\(' xtask/src/refscan.rs
 
 | 文件 | 行数净变化 | 说明 |
 |---|---|---|
-| `tasks/TASK-054-...md` | +90/-0 | 卡文件 |
+| `tasks/TASK-062-...md` | +90/-0 | 卡文件 |
 | `xtask/src/refscan.rs` | +3/-6 | render 签名 String→Result + 删 `#[must_use]`（Result 自带）+ 删 per-line allow + run() 加 `.map_err(\|e\| e.to_string())?` |
-| `README.md` | +9/-0 | 「最近进展」节补 TASK-054 条目（按用户「README 漂移 = bug」反馈） |
+| `README.md` | +9/-0 | 「最近进展」节补 TASK-062 条目（按用户「README 漂移 = bug」反馈） |
 | `LEDGER.md` | +1/-0 | 本卡完成行 |
 | `docs/PARKING_LOT.md` | +0/-0 | 本卡无新条目（PL-NEW 已在 TASK-052 关闭） |
 
@@ -152,7 +152,7 @@ Count: 0  # DoD 硬证据: per-line allow 已删
 
 2. **【低风险】render 错误处理路径**：`run()` 用 `.map_err(|e| e.to_string())?` 把 `std::fmt::Error` 转成 `String` 后上抛。`Failure::Io` 已存在但本路径不经过 Failure 枚举——错误直接成 `Result::Err(String)`。审阅者请确认这个映射语义符合预期（= 与已有的 `output.write_all(...).map_err(|e| e.to_string())` 一致）。
 
-3. **【建立习惯】README 同步**：按用户反馈「README 漂移 = bug」，本卡每次完成都同步 README。本卡新增了 TASK-054 条目到「最近进展」节。建议以后每张卡完成都补 3-9 行 progress 条目（不重写整个 README，避免 diff 噪音）。
+3. **【建立习惯】README 同步**：按用户反馈「README 漂移 = bug」，本卡每次完成都同步 README。本卡新增了 TASK-062 条目到「最近进展」节。建议以后每张卡完成都补 3-9 行 progress 条目（不重写整个 README，避免 diff 噪音）。
 
 ### 风险最高的 1~3 处（供人类裁决）
 

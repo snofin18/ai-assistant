@@ -1,13 +1,13 @@
-# TASK-055　清 refscan.rs 最后 3 处 per-line allow
+# TASK-063　清 refscan.rs 最后 3 处 per-line allow
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：0　子阶段：—　依赖：001 / 051 / 052 / 053 / 054　预估：S　阻塞主线：否
 
 ---
 
 - 依赖：TASK-001 / TASK-051 / TASK-052 / TASK-053 / TASK-054（均已 Done）　预估：S（≤ 15 min）
 - **write scope**：
-  - `tasks/TASK-055-...md`（本卡文件）
+  - `tasks/TASK-063-...md`（本卡文件）
   - `xtask/src/refscan.rs`（3 处 per-line allow 消除）
   - `README.md`（同步本卡进展）
   - `LEDGER.md`（追加本卡一行）
@@ -64,9 +64,9 @@ grep -n '#\[allow(clippy::single_char_pattern|#\[allow(clippy::case_sensitive_fi
 
 ### 1. 约束回执
 
-- 任务：TASK-055 清 refscan.rs 最后 3 处 per-line allow
+- 任务：TASK-063 清 refscan.rs 最后 3 处 per-line allow
 - 目标：production code per-line allow = 0
-- write scope：仅 tasks/TASK-055-clear-last-3-per-line-allows.md / xtask/src/refscan.rs / README.md / LEDGER.md
+- write scope：仅 tasks/TASK-063-clear-last-3-per-line-allows.md / xtask/src/refscan.rs / README.md / LEDGER.md
 - 铁律相关：铁律 2（五类不可信输入）/ 7（core 不得调平台 API）/ 9（不得静默扩大范围）/ 10（契约先行）/ 6（文档与代码同步）/ §3 启动协议
 - 禁止：不动 workspace / 不改其他文件 / 不加新依赖 / 不加 unsafe / 不放宽 lint / 不加新 `#![allow]` 块 / 不改测试断言
 - 验收：cargo fmt --all --check → 0 diff；cargo clippy -p xtask --all-targets -- -D warnings → exit 0；cargo test --workspace → 279 passed；cargo deny check → 4 项 ok；xtask {refscan,hygiene,memory-counts,adr-index,docsan,card-check} → 全 PASSED；grep `single_char_pattern|case_sensitive_file_extension_comparisons` xtask/src/refscan.rs → 0 命中
@@ -76,9 +76,9 @@ grep -n '#\[allow(clippy::single_char_pattern|#\[allow(clippy::case_sensitive_fi
 ### 2. 实际改动文件
 
 - `xtask/src/refscan.rs` (+7/-11)：refscan.rs line 94 `replace("\r", "\n")` 改 `replace('\r', "\n")` + 删 line 94 per-line allow；refscan.rs line 96-106 替换为：闭包 `ext_is(expected: &str) -> bool` 用 `Path::extension().and_then(to_str).is_some_and(eq_ignore_ascii_case)` + `is_md_or_rs = ext_is("md") || ext_is("rs")` + `is_ps1 = ext_is("ps1")` + 删除 `let lower = rel_path.to_ascii_lowercase();` 与配套解释注释 + 2 处 per-line allow
-- `README.md`：新增 TASK-055 历史小节（7 行）+ 修改「最近进展」节标题为「TASK-051/052/053/054/055 五连发」
-- `LEDGER.md`：追加 TASK-055 行（1 条事件）
-- `tasks/TASK-055-clear-last-3-per-line-allows.md`：本卡执行记录 9 节（仅本节写入；卡片正文在分界线上保持原样未动）
+- `README.md`：新增 TASK-063 历史小节（7 行）+ 修改「最近进展」节标题为「TASK-051/052/053/054/055 五连发」
+- `LEDGER.md`：追加 TASK-063 行（1 条事件）
+- `tasks/TASK-063-clear-last-3-per-line-allows.md`：本卡执行记录 9 节（仅本节写入；卡片正文在分界线上保持原样未动）
 - **未改**：workspace lints（严守 ADR-0035 B 路）/ `Cargo.toml` / `docs/adr/*` / `MEMORY.md` / 其他 crate / 其他应用 `docs/memory/apps/*.md`
 
 ### 3. 验收输出摘要
@@ -103,7 +103,7 @@ grep -n '#\[allow(clippy::single_char_pattern|#\[allow(clippy::case_sensitive_fi
 - [x] `cargo clippy -p xtask --all-targets -- -D warnings` exit 0
 - [x] `cargo test --workspace` 全绿（279 passed）
 - [x] 全部 11 条 xtask 验收全绿（fmt / clippy / test / deny / refscan / hygiene / memory-counts / adr-index / docscan / card-check + DoD grep）
-- [x] `README.md` 同步本卡（新增 TASK-055 历史小节 + 修改最近进展标题）
+- [x] `README.md` 同步本卡（新增 TASK-063 历史小节 + 修改最近进展标题）
 - [x] `LEDGER.md` 追加本卡
 
 ### 5. 偏差

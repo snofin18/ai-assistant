@@ -22,9 +22,9 @@
 //! 2. 豁免匹配：对每个 (rule, path, line) 三元组，先查豁免清单；命中 = 跳过。
 //! 3. 扫到 0 个文件必须显式告警（与 main.rs 的 hygiene 不变量 4 同理）。
 
-// TASK-052 (2026-09-19) 决策：本文件**无任何**模块级 `#![allow(...)]` 块；代码遵守 workspace `[lints.clippy]` 全部 deny 规则。
+// TASK-060 (2026-09-19) 决策：本文件**无任何**模块级 `#![allow(...)]` 块；代码遵守 workspace `[lints.clippy]` 全部 deny 规则。
 // 历史上 cherry-pick 10f78db 留下的 40-lint `#![allow(...)]` 块（解释本应）已在本卡全部清掉，
-// 32 处 indexing_slicing 全替换为 safe pattern。详见 tasks/TASK-052-...md §5 + commit 收尾。
+// 32 处 indexing_slicing 全替换为 safe pattern。详见 tasks/TASK-060-...md §5 + commit 收尾。
 
 use crate::exemptions::ExemptionSet;
 use crate::report::{Finding, Severity};
@@ -96,7 +96,7 @@ pub fn scan_file(rel_path: &str, content: &str) -> Vec<Finding> {
     let normalized = content.replace("\r\n", "\n").replace('\r', "\n");
     let lines: Vec<&str> = normalized.split('\n').collect();
     // 用 repowalk::extension_is 模块级 helper 替代 refscan.rs 旧的 local ext_is closure
-    // （TASK-055 落地、TASK-055b 提升到 repowalk 后改成 import）。
+    // （TASK-063 落地、TASK-064 提升到 repowalk 后改成 import）。
     // 语义不变：MD/md/Md 都算 .md；非 UTF-8 扩展名返回 false = 与原本 ends_with 失败同形。
     let path = std::path::Path::new(rel_path);
     let is_md_or_rs = extension_is(path, "md") || extension_is(path, "rs");
@@ -289,7 +289,7 @@ fn find_bare_pending(line: &str) -> Vec<String> {
 ///
 /// 返回 `Result` 取代之前的 `String`：writeln! 到 String 仅在 OOM 时失败（进程级崩溃
 /// 由 OS 处理），错误类型 `std::fmt::Error` 直接上抛到 `run()` 的 `Result<u8, String>`。
-/// 本卡（TASK-054）消除了 TASK-052 留下的 per-line `#[allow(clippy::unwrap_used, ...)]`。
+/// 本卡（TASK-062）消除了 TASK-060 留下的 per-line `#[allow(clippy::unwrap_used, ...)]`。
 pub fn render(findings: &[Finding]) -> Result<String, std::fmt::Error> {
     use std::fmt::Write as _;
     let mut out = String::new();

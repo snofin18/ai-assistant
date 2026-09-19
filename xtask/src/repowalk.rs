@@ -173,7 +173,7 @@ pub fn collect_repo_files(
 /// `extensions` 为空数组 = 「任何文本文件」，实现 = 排除 3 种二进制图像格式
 /// （PNG / JPG / GIF；与 `hygiene` 的非代码目录跳过策略一致）。
 ///
-/// TASK-055b 落地：用 `extension_is` 替代原 `lower.ends_with(".ext")` 模式，
+/// TASK-064 落地：用 `extension_is` 替代原 `lower.ends_with(".ext")` 模式，
 /// 消除 fn 级 `#[allow(clippy::case_sensitive_file_extension_comparisons)]`。
 /// 语义变化：
 /// - 大小写不敏感扩展名匹配（如 `extensions = ["MD"]` 现在能匹配 `a.md`）—— **修复**了
@@ -232,7 +232,7 @@ fn collect_repo_files_recursively(
 /// - **大小写不敏感**：MD / md / Md 都算 `.md`。
 /// - **无扩展名**（如 `README`）返回 `false`。
 ///
-/// TASK-055b 落地（与 refscan.rs 的 local `ext_is` closure 等价但提到模块级）。
+/// TASK-064 落地（与 refscan.rs 的 local `ext_is` closure 等价但提到模块级）。
 /// ADR-0035 baseline 表同步登记。
 #[must_use]
 pub fn extension_is(path: &Path, expected: &str) -> bool {
@@ -371,7 +371,7 @@ mod tests {
         assert!(!has_rust_extension(Path::new("a/b/noext")));
     }
 
-    // ---- extension_is（TASK-055b 新增）----
+    // ---- extension_is（TASK-064 新增）----
 
     #[test]
     fn test_extension_is_matches_exactly() {
