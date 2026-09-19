@@ -41,6 +41,7 @@ const GOV_RECORD_TABLE_HEADER: &str = "| # | 小节 |";
 /// 从 gov §3.4 现场读 canonical 分界线（前后空行 + 整段 fence）。
 /// 找不到或 fence 缺失 → Err。
 /// 执行 card-check 子命令：扫 tasks/ 与 plans/，应用 ADR-0031 D6 四判据。
+#[allow(clippy::too_many_lines)]
 pub fn run(repo_root: &std::path::Path, output: &mut dyn std::io::Write) -> Result<u8, String> {
     use crate::report::Severity;
     use crate::repowalk::collect_repo_files;
