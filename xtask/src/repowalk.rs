@@ -168,7 +168,19 @@ pub fn collect_repo_files(
     Ok(out)
 }
 
-#[allow(clippy::case_sensitive_file_extension_comparisons)]
+/// 递归遍历 `directory`，把扩展名命中 `extensions` 的文件追加到 `out`。
+///
+/// `extensions` 为空数组 = 「任何文本文件」，实现 = 排除 3 种二进制图像格式
+/// （PNG / JPG / GIF；与 `hygiene` 的非代码目录跳过策略一致）。
+///
+/// TASK-055b 落地：用 `extension_is` 替代原 `lower.ends_with(".ext")` 模式，
+/// 消除 fn 级 `#[allow(clippy::case_sensitive_file_extension_comparisons)]`。
+/// 语义变化：
+/// - 大小写不敏感扩展名匹配（如 `extensions = ["MD"]` 现在能匹配 `a.md`）—— **修复**了
+///   原 `lower.ends_with(&format!(".{ext}"))` 在 ext 大写时的逻辑 bug（caller 现状全小写，
+///   故实际无回归，只是能力增强）。
+/// - 非 UTF-8 扩展名现在按 `to_str()` 失败 = `false`（与原模式在非 UTF-8 `lower: &str` 上
+///   同样失败 = 同形）。
 fn collect_repo_files_recursively(
     root: &std::path::Path,
     directory: &std::path::Path,
@@ -187,13 +199,13 @@ fn collect_repo_files_recursively(
             }
             collect_repo_files_recursively(root, &path, extensions, out)?;
         } else if path.is_file() {
-            let lower = path.to_string_lossy().to_ascii_lowercase();
             let matches = if extensions.is_empty() {
-                !lower.ends_with(".png") && !lower.ends_with(".jpg") && !lower.ends_with(".gif")
+                // 「收所有文本文件」模式 = 排除已知的二进制图像格式
+                !extension_is(&path, "png")
+                    && !extension_is(&path, "jpg")
+                    && !extension_is(&path, "gif")
             } else {
-                extensions
-                    .iter()
-                    .any(|ext| lower.ends_with(&format!(".{ext}")))
+                extensions.iter().any(|ext| extension_is(&path, ext))
             };
             if matches {
                 let rel = relative_display_path(root, &path);
@@ -207,9 +219,30 @@ fn collect_repo_files_recursively(
     Ok(())
 }
 
-pub fn has_rust_extension(path: &Path) -> bool {
+/// 路径的扩展名（最后一个 `.` 之后的部分）是否等于 `expected`，**大小写不敏感**。
+///
+/// 与 `has_rust_extension` 等价的通用版本（任何扩展名）。之所以**不**直接复用
+/// `has_rust_extension` 的实现模式（`to_string_lossy() == "rs"`），是为了让 clippy
+/// 能看到「比较前已做大小写规范化」—— 旧模式（`to_ascii_lowercase().ends_with(".ext")`）
+/// 会触发 `clippy::case_sensitive_file_extension_comparisons`，需要 per-line allow。
+///
+/// ## 语义与边界
+/// - **UTF-8 不合法**的扩展名返回 `false`（`OsStr::to_str` 返回 `None`）。
+///   这与原 `lower.ends_with(".md")` 在 `lower: &str` 上要求 UTF-8 合法的行为同形。
+/// - **大小写不敏感**：MD / md / Md 都算 `.md`。
+/// - **无扩展名**（如 `README`）返回 `false`。
+///
+/// TASK-055b 落地（与 refscan.rs 的 local `ext_is` closure 等价但提到模块级）。
+/// ADR-0035 baseline 表同步登记。
+#[must_use]
+pub fn extension_is(path: &Path, expected: &str) -> bool {
     path.extension()
-        .is_some_and(|extension| extension.to_string_lossy() == "rs")
+        .and_then(|s| s.to_str())
+        .is_some_and(|s| s.eq_ignore_ascii_case(expected))
+}
+
+pub fn has_rust_extension(path: &Path) -> bool {
+    extension_is(path, "rs")
 }
 
 /// 目录名是否在跳过清单中。
@@ -336,6 +369,45 @@ mod tests {
         assert!(!has_rust_extension(Path::new("a/b/lib.rs.bk")));
         assert!(!has_rust_extension(Path::new("a/b/README.md")));
         assert!(!has_rust_extension(Path::new("a/b/noext")));
+    }
+
+    // ---- extension_is（TASK-055b 新增）----
+
+    #[test]
+    fn test_extension_is_matches_exactly() {
+        assert!(extension_is(Path::new("a/b/README.md"), "md"));
+        assert!(extension_is(Path::new("a/b/probe.ps1"), "ps1"));
+        assert!(!extension_is(Path::new("a/b/README.md"), "rs"));
+        assert!(!extension_is(Path::new("a/b/noext"), "md"));
+    }
+
+    #[test]
+    fn test_extension_is_is_case_insensitive() {
+        // MD/md/Md 都算 .md（修复了原 lower.ends_with(&format!(".{ext}")) 在 ext 大写时的逻辑 bug）
+        assert!(extension_is(Path::new("a/b/README.MD"), "md"));
+        assert!(extension_is(Path::new("a/b/README.Md"), "md"));
+        assert!(extension_is(Path::new("a/b/README.md"), "MD"));
+        assert!(extension_is(Path::new("a/b/README.md"), "Md"));
+    }
+
+    #[test]
+    fn test_extension_is_returns_false_for_non_utf8_extension() {
+        // OsStr::to_str() 在非 UTF-8 字节序列上返回 None
+        // → is_some_and 短路 → false
+        // 与原 lower.ends_with(".md") 在 lower: &str 上同样失败的语义同形
+        // （Rust 标准库 `Path::new` 在 Linux 上原样保留字节；本机 Windows 路径均 UTF-8，
+        //  但理论上 `OsStr` 可含非 UTF-8 字节，跨平台行为仍需契约保证）
+        let path = std::path::Path::new("a/b/non_utf8.ÿþ");
+        assert!(!extension_is(path, "md"));
+    }
+
+    #[test]
+    fn test_extension_is_returns_false_for_missing_extension() {
+        // 无扩展名的路径（Path::extension 返回 None）
+        assert!(!extension_is(Path::new("a/b/README"), "md"));
+        assert!(!extension_is(Path::new("Makefile"), "mk"));
+        // 以点结尾但点后无字符也算「无扩展名」
+        assert!(!extension_is(Path::new("a/b/.hidden"), "hidden"));
     }
 
     #[test]

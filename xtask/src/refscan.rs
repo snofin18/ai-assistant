@@ -28,6 +28,7 @@
 
 use crate::exemptions::ExemptionSet;
 use crate::report::{Finding, Severity};
+use crate::repowalk::extension_is;
 
 /// 待建号集合（ADR-0026 D2 维护；机器可拍）。
 const ADR_BARE_PENDING: &[&str] = &[
@@ -94,17 +95,12 @@ pub fn scan_file(rel_path: &str, content: &str) -> Vec<Finding> {
     let mut findings = Vec::new();
     let normalized = content.replace("\r\n", "\n").replace('\r', "\n");
     let lines: Vec<&str> = normalized.split('\n').collect();
-    // 用 Path::extension() + is_some_and(eq_ignore_ascii_case) 替代 lower.ends_with，
-    // 让 clippy 能看到「已在比较前规范化」——消除 2 处 case_sensitive_file_extension_comparisons allow
-    // （TASK-055 落地；语义不变：MD/md/Md 都算 .md；非 UTF-8 扩展名按原本 ends_with 失败的行为同样返回 false）
-    let ext_is = |expected: &str| -> bool {
-        std::path::Path::new(rel_path)
-            .extension()
-            .and_then(|s| s.to_str())
-            .is_some_and(|s| s.eq_ignore_ascii_case(expected))
-    };
-    let is_md_or_rs = ext_is("md") || ext_is("rs");
-    let is_ps1 = ext_is("ps1");
+    // 用 repowalk::extension_is 模块级 helper 替代 refscan.rs 旧的 local ext_is closure
+    // （TASK-055 落地、TASK-055b 提升到 repowalk 后改成 import）。
+    // 语义不变：MD/md/Md 都算 .md；非 UTF-8 扩展名返回 false = 与原本 ends_with 失败同形。
+    let path = std::path::Path::new(rel_path);
+    let is_md_or_rs = extension_is(path, "md") || extension_is(path, "rs");
+    let is_ps1 = extension_is(path, "ps1");
 
     if is_md_or_rs {
         // Rule 1: ADR range notation (manual match)

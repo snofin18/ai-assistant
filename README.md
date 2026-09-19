@@ -108,7 +108,7 @@ build / hygiene / spike-deny(#8b) / doc-consistency(#12b)；另有 **9 项软门
 
 ---
 
-## 最近进展（2026-09-19，xtask 护栏升级收尾 = TASK-051/052/053/054/055 五连发）
+## 最近进展（2026-09-19，xtask 护栏升级收尾 = TASK-051/052/053/054/055/055b 六连发）
 
 `xtask` 护栏工具已从 4 个子命令扩到 7 个（新增 `refscan` / `docscan` / `card-check`），
 原 `hygiene / memory-counts / adr-index / guard` 保持。所有 `xtask` 子命令在
@@ -123,6 +123,14 @@ CI 硬门禁 #12b（`doc-consistency`）下统一跑过。
 
 ### 历史小节（按时间倒序）
 
+- **2026-09-19 TASK-055b**（promote `extension_is` helper + 收 repowalk.rs:172 per-line allow）:
+    - 新增 `pub fn extension_is(path: &Path, expected: &str) -> bool` 到 `xtask/src/repowalk.rs`（紧邻 `has_rust_extension`）；同步把 refscan.rs 的 local `ext_is` closure 删掉、import 此 helper
+    - `collect_repo_files_recursively` 内 2 处 `lower.ends_with(...)` 改 `extension_is(&path, ...)`；删函数级 `#[allow(clippy::case_sensitive_file_extension_comparisons)]`
+    - 加 4 条 `extension_is` 单元测试：positive match / case-insensitive / 非 UTF-8 返回 false / 无扩展名返回 false（cargo test 279 → 283 passed）
+    - **副作用**（行为变化）：`.ends_with(&format!(".{ext}"))` 在 caller 传大写 ext（如 `"MD"`）时会漏匹配，`extension_is` 修复了此 bug —— **现状** caller 全部传小写（card_check `["md"]` / docscan `["md"]` / refscan `["md","rs","ps1"]`）故无回归；**测试覆盖** test_extension_is_is_case_insensitive 显式断言 4 种大小写组合
+    - ADR-0035 §1 baseline 表补登 `repowalk.rs:172` 已清 + §决策 2 加一条「抽到 `pub fn` 替代 per-line allow 必须同步登记」（教训：TASK-055 提升到 helper 后才发现 repowalk.rs:172 还有同型 allow）
+    - **真正的最终态**：全 xtask/src 生产代码 per-line allow = 0（refscan:0 + repowalk:0 + docscan:0 + card_check:0 + exemptions:0；保留 = test wrapper 4 处合法 + card_check 9 + exemptions 1 共 10 处 `#[allow(dead_code)]` 占位常量）
+    - 详见 `tasks/TASK-055b-promote-extension-is-helper.md` 执行记录 9 节 + LEDGER.md 2026-09-19 行
 - **2026-09-19 TASK-055**（xtask refscan 清最后 3 处 per-line allow — 达到「生产代码 per-line allow = 0」）:
   - refscan.rs:94 `#[allow(clippy::single_char_pattern)]` → `replace("\r", "\n")` 改 `replace('\r', "\n")`（char 字面量，触发 Pattern impl 即可）
   - refscan.rs:101/103 `#[allow(clippy::case_sensitive_file_extension_comparisons)]` → `lower.ends_with(".md"/".rs"/".ps1")` 改 `Path::extension().and_then(to_str).is_some_and(eq_ignore_ascii_case)`（closure `ext_is` 复用）

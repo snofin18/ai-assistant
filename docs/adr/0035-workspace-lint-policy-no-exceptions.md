@@ -21,6 +21,10 @@ TASK-051 / TASK-052 / TASK-053 / TASK-054 四轮清理后（commit `4ac7d19..781
    - 在该处 `// 注释：原因` 解释（per AGENTS.md §5.2 注释密度 + ADR-0030 D3 的可审计性）
    - 在 `tasks/<card>.md` §5 偏差节登记（避免下次会话重复辩论）
    - 仅限**已发现的具体模式**，不预设白名单
+   - **新增**：凡抽到模块级 `pub fn` 作为 per-line allow 替代方案时，必须在本 ADR §baseline 表同步登记一行
+     （TASK-055b 教训：`extension_is` 从 refscan local closure 提升到 repowalk `pub fn` 后，repowalk.rs 自身的
+     fn 级 `#[allow]` 才被注意到并清掉 —— 「提升到 helper」不是「隐式清 allow」）；此条不构成对 §决策 1
+     「首选改代码」的替代，只是要求 helper 化后的 allow 也需在 baseline 表留痕。
 
 ## 当前 per-line allow 清点（2026-09-19 baseline）
 
@@ -28,11 +32,13 @@ TASK-051 / TASK-052 / TASK-053 / TASK-054 四轮清理后（commit `4ac7d19..781
 |---|---|---|---|
 | `#[cfg(test)] #[allow(clippy::unwrap_used, ...)] mod tests {` | 4 模块各 1 处 | per-mod 测试 wrapper | **保留**（per-mod ≠ workspace 级；ADR-0021 允许）|
 | `#[allow(dead_code)]` (card_check.rs line 24/26/28/30/33/35/37/129/270 + exemptions.rs line 45) | 9 + 1 | ADR-0031 D6 占位常量 + 预留函数 | **保留**（pre-existing，ADR-0031 显式要求）|
-| `#[allow(clippy::single_char_pattern)]` (refscan.rs:94) | 1 | `replace("\r", "\n")` 的 API workaround | **TASK-055 清掉**（改 API 调用）|
-| `#[allow(clippy::case_sensitive_file_extension_comparisons)]` (refscan.rs:101/103) | 2 | `lower.ends_with(".md")` 在 `to_ascii_lowercase()` 后 | **TASK-055 清掉**（改用 `Path::extension`）|
+| `#[allow(clippy::single_char_pattern)]` (refscan.rs:94) | 0 | `replace("\r", "\n")` 的 API workaround | **TASK-055 已清**（commit `cc32c1d`；改 `.replace('\r', ...)` char 字面量）|
+| `#[allow(clippy::case_sensitive_file_extension_comparisons)]` (refscan.rs:101/103) | 0 | `lower.ends_with(".md")` 在 `to_ascii_lowercase()` 后 | **TASK-055 已清**（commit `cc32c1d`；改 `Path::extension` 模式）；同步抽到 `repowalk::extension_is`（TASK-055b）|
+| `#[allow(clippy::case_sensitive_file_extension_comparisons)]` (repowalk.rs:172) | 0 | `lower.ends_with(".png")` 在 image-extension 排除 + `lower.ends_with(&format!(".{ext}"))` 在用户扩展名匹配 | **TASK-055b 已清**（commit pending；改用 `extension_is` helper；同步修复了 ext 大写时漏匹配的逻辑 bug）|
 | `#[allow(clippy::unwrap_used, clippy::expect_used)]` (refscan.rs:render) | 0 | TASK-054 已改 render 返回 `Result<String, std::fmt::Error>` | — |
 
 **清点后生产代码 per-line allow 目标 = 0**，仅保留测试 wrapper（合法）+ pre-existing dead_code（合法占位）。
+**TASK-055b 之后实际生产代码 per-line allow 数 = 0**（4 模块顶部 + 函数级 0 命中；详见 `tasks/TASK-055-clear-last-3-per-line-allows.md` §3 + `tasks/TASK-055b-...md` §3 的 grep 硬证据）。
 
 ## 不接受的反模式
 
