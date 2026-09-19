@@ -68,7 +68,7 @@ pub fn run(repo_root: &std::path::Path, output: &mut dyn std::io::Write) -> Resu
             continue;
         };
         let status_line = extract_status_line(&content);
-            let file_findings = scan_card_file(
+        let file_findings = scan_card_file(
             rel,
             &content,
             &divider,
@@ -84,7 +84,9 @@ pub fn run(repo_root: &std::path::Path, output: &mut dyn std::io::Write) -> Resu
         .filter(|e| e.rel_path.starts_with("tasks/TASK-"))
         .map(|e| {
             let p = std::path::Path::new(&e.rel_path);
-            p.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default()
+            p.file_name()
+                .map(|f| f.to_string_lossy().into_owned())
+                .unwrap_or_default()
         })
         .filter(|n| !n.is_empty())
         .collect();
@@ -93,8 +95,14 @@ pub fn run(repo_root: &std::path::Path, output: &mut dyn std::io::Write) -> Resu
         .filter(|e| e.rel_path.starts_with("plans/"))
         .collect();
     for entry in &plan_entries {
-        let Ok(content) = std::fs::read_to_string(&entry.abs_path) else { continue; };
-        findings.extend(scan_plans_needs_file(&entry.rel_path, &content, &task_filenames));
+        let Ok(content) = std::fs::read_to_string(&entry.abs_path) else {
+            continue;
+        };
+        findings.extend(scan_plans_needs_file(
+            &entry.rel_path,
+            &content,
+            &task_filenames,
+        ));
     }
     // ⑤ tasks/TASK-*.md 编号唯一性 + sub-suffix 禁用
     findings.extend(scan_tasks_uniqueness(&task_filenames));
@@ -314,11 +322,18 @@ pub fn scan_plans(rel_path: &str, content: &str) -> Vec<Finding> {
 /// （因为 Ready 状态也有文件存在 = 全 plans/ 引用必须可追溯）。
 #[must_use]
 #[allow(dead_code)] // wired in next phase
-pub fn scan_plans_needs_file(rel_path: &str, content: &str, existing_files: &[String]) -> Vec<Finding> {
+pub fn scan_plans_needs_file(
+    rel_path: &str,
+    content: &str,
+    existing_files: &[String],
+) -> Vec<Finding> {
     let mut findings = Vec::new();
     for (idx, line) in content.lines().enumerate() {
         for nnn in extract_task_nnn_in_line(line) {
-            if !existing_files.iter().any(|f| f.starts_with(&format!("TASK-{nnn}-"))) {
+            if !existing_files
+                .iter()
+                .any(|f| f.starts_with(&format!("TASK-{nnn}-")))
+            {
                 findings.push(Finding::new(
                     RULE_NUMBER_MISSING_FILE,
                     Severity::Error,
@@ -338,8 +353,10 @@ pub fn scan_plans_needs_file(rel_path: &str, content: &str, existing_files: &[St
 #[allow(dead_code)] // wired in next phase
 pub fn scan_tasks_uniqueness(task_files: &[String]) -> Vec<Finding> {
     let mut findings = Vec::new();
-    let mut by_base: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
-    let mut by_full: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    let mut by_base: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
+    let mut by_full: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
     for f in task_files {
         // 提取 TASK-NNN-base 部分（strip .md）
         let base = f.strip_suffix(".md").unwrap_or(f);
@@ -370,7 +387,11 @@ pub fn scan_tasks_uniqueness(task_files: &[String]) -> Vec<Finding> {
                 Severity::Error,
                 "",
                 0,
-                format!("TASK-{nnn} 撞号：{} 个文件 = {}", files.len(), files.join(", ")),
+                format!(
+                    "TASK-{nnn} 撞号：{} 个文件 = {}",
+                    files.len(),
+                    files.join(", ")
+                ),
             ));
         }
     }
@@ -384,11 +405,11 @@ fn extract_task_nnn_in_line(line: &str) -> Vec<String> {
     let bytes = line.as_bytes();
     let mut i = 0;
     while i + 8 <= bytes.len() {
-        let prefix = bytes.get(i..i+5);
-        let d5 = bytes.get(i+5).copied();
-        let d6 = bytes.get(i+6).copied();
-        let d7 = bytes.get(i+7).copied();
-        let slice = bytes.get(i+5..i+8);
+        let prefix = bytes.get(i..i + 5);
+        let d5 = bytes.get(i + 5).copied();
+        let d6 = bytes.get(i + 6).copied();
+        let d7 = bytes.get(i + 7).copied();
+        let slice = bytes.get(i + 5..i + 8);
         if prefix == Some(&b"TASK-"[..])
             && d5.is_some_and(|c| c.is_ascii_digit())
             && d6.is_some_and(|c| c.is_ascii_digit())
@@ -411,14 +432,17 @@ fn extract_task_nnn_full_in_line(line: &str) -> Vec<String> {
     let bytes = line.as_bytes();
     let mut i = 0;
     while i + 5 <= bytes.len() {
-        let prefix = bytes.get(i..i+5);
-        let d5 = bytes.get(i+5).copied();
+        let prefix = bytes.get(i..i + 5);
+        let d5 = bytes.get(i + 5).copied();
         if prefix == Some(&b"TASK-"[..]) && d5.is_some_and(|c| c.is_ascii_digit()) {
             let mut end = i + 5;
             let mut digits = 0;
             while digits < 3 {
                 match bytes.get(end).copied() {
-                    Some(c) if c.is_ascii_digit() => { end += 1; digits += 1; }
+                    Some(c) if c.is_ascii_digit() => {
+                        end += 1;
+                        digits += 1;
+                    }
                     _ => break,
                 }
             }
@@ -426,7 +450,7 @@ fn extract_task_nnn_full_in_line(line: &str) -> Vec<String> {
                 if matches!(bytes.get(end).copied(), Some(c) if c.is_ascii_lowercase()) {
                     end += 1;
                 }
-                if let Some(slice) = bytes.get(i+5..end) {
+                if let Some(slice) = bytes.get(i + 5..end) {
                     let nnn_full = std::str::from_utf8(slice).unwrap_or("").to_string();
                     out.push(nnn_full);
                     i = end;
@@ -593,10 +617,7 @@ mod tests {
 
     #[test]
     fn uniqueness_with_duplicate_nnn_errors() {
-        let files = vec![
-            "TASK-051-a.md".to_string(),
-            "TASK-051-b.md".to_string(),
-        ];
+        let files = vec!["TASK-051-a.md".to_string(), "TASK-051-b.md".to_string()];
         let f = scan_tasks_uniqueness(&files);
         assert_eq!(f.len(), 1);
         assert_eq!(f[0].rule, "card-check/number-duplicate");
@@ -615,16 +636,28 @@ mod tests {
     #[test]
     fn extract_task_nnn_parses_correctly() {
         assert_eq!(extract_task_nnn_in_line("TASK-001 ready"), vec!["001"]);
-        assert_eq!(extract_task_nnn_in_line("see TASK-059 and TASK-060"), vec!["059", "060"]);
-        assert_eq!(extract_task_nnn_in_line("no task ref here"), Vec::<String>::new());
+        assert_eq!(
+            extract_task_nnn_in_line("see TASK-059 and TASK-060"),
+            vec!["059", "060"]
+        );
+        assert_eq!(
+            extract_task_nnn_in_line("no task ref here"),
+            Vec::<String>::new()
+        );
         // TASK-1234: only first 3 digits consumed; remaining "4 four digits" has no TASK- prefix
-        assert_eq!(extract_task_nnn_in_line("TASK-1234 four digits"), vec!["123"]);
+        assert_eq!(
+            extract_task_nnn_in_line("TASK-1234 four digits"),
+            vec!["123"]
+        );
     }
 
     #[test]
     fn extract_task_nnn_full_detects_sub_suffix() {
         assert_eq!(extract_task_nnn_full_in_line("TASK-001 plain"), vec!["001"]);
         assert_eq!(extract_task_nnn_full_in_line("TASK-055b sub"), vec!["055b"]);
-        assert_eq!(extract_task_nnn_full_in_line("TASK-99 not 3 digits"), Vec::<String>::new());
+        assert_eq!(
+            extract_task_nnn_full_in_line("TASK-99 not 3 digits"),
+            Vec::<String>::new()
+        );
     }
 }

@@ -140,7 +140,11 @@ fn check_module_layering(repo_root: &std::path::Path) -> Vec<Finding> {
             .and_then(|s| s.to_str())
             .unwrap_or("");
         // 跳过测试文件与 main 入口
-        if file_name.ends_with("_tests") || file_name == "main" || file_name == "cli" || file_name == "deferred" {
+        if file_name.ends_with("_tests")
+            || file_name == "main"
+            || file_name == "cli"
+            || file_name == "deferred"
+        {
             continue;
         }
         if !PURE_RULE_MODULES.contains(&file_name) {

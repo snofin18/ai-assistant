@@ -82,6 +82,7 @@ mod hygiene;
 mod memory_counts;
 mod memory_table;
 mod refscan;
+mod replay;
 mod report;
 mod repowalk;
 mod rustscan;
@@ -255,6 +256,9 @@ fn execute(arguments: &[String], output: &mut dyn Write) -> Result<u8, Failure> 
     if command == "arch" {
         return run_arch(&invocation, output);
     }
+    if command == "replay" {
+        return run_replay(&invocation, output);
+    }
     if command == "guard" {
         return run_guard(&invocation, output);
     }
@@ -309,6 +313,16 @@ fn run_arch(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failu
     let root = resolve_repo_root(invocation.repo.as_deref())
         .map_err(|error| Failure::from_walk(&error))?;
     arch::run(&root, output).map_err(Failure::Io)
+}
+
+/// 执行树快照回放（replay skeleton = dry-run）。
+fn run_replay(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
+    let snapshot = invocation
+        .operands
+        .first()
+        .ok_or_else(|| Failure::Usage("replay 需要快照路径".to_string()))?;
+    let path = std::path::Path::new(snapshot);
+    replay::run(path, output).map_err(Failure::Io)
 }
 
 /// 执行仓库卫生检查。

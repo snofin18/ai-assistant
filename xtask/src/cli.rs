@@ -71,7 +71,7 @@ guard 的选项（其它子命令不接受）：
 ///
 /// 表外的子命令出现第二个位置参数仍然是用法错误 —— 这条行为有测试盯着
 /// （`test_parse_args_second_command_is_usage_error`），**不得**为了图省事把这张表放开成"全部"。
-const COMMANDS_ACCEPTING_OPERANDS: [&str; 1] = ["guard"];
+const COMMANDS_ACCEPTING_OPERANDS: [&str; 2] = ["guard", "replay"];
 
 /// 需要跟一个值的选项（不含前导 `--` 的名字会作为 `Invocation::options` 的键）。
 const VALUE_OPTIONS: [&str; 5] = [

@@ -78,10 +78,10 @@ pub const DEFERRED_COMMANDS: &[DeferredCommand] = &[
         reason: "Rust/TS 类型生成依赖 schema 成为单一事实源",
     },
     DeferredCommand {
-        command: "replay",
+        command: "replay-skeleton",
         ci_gate: "gov §5.1 #13",
-        owning_card: "TASK-034",
-        reason: "需要录制回放框架与真实树快照 fixture",
+        owning_card: "TASK-015",
+        reason: "skeleton 已实现（TASK-015-pt3，dry-run 解析+校验）；真实 fixture + diff 留待 TASK-034 完整版",
     },
     DeferredCommand {
         command: "check-comments",
@@ -295,15 +295,15 @@ mod tests {
 
     #[test]
     fn test_not_implemented_message_names_the_owning_card() {
-        let entry = find_command("replay").expect("replay 应已登记");
+        let entry = find_command("replay-skeleton").expect("replay-skeleton 应已登记");
         let message = not_implemented_message(entry);
         assert!(
-            message.contains("TASK-034"),
+            message.contains("TASK-015"),
             "报错必须指出归属卡号，实际：{message}"
         );
         assert!(message.contains("尚未实现"));
         assert!(
-            message.contains("replay"),
+            message.contains("replay-skeleton"),
             "报错必须回显命令名，便于在长日志里定位"
         );
     }
