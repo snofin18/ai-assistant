@@ -1,6 +1,6 @@
 # ADR-0025　仓库卫生规则口径统一：gov §5.4 由 11 项 → **13 项**（PL-001 / PL-011 / PL-020 一并裁决）
 
-状态：Accepted　日期：2026-09-18　Supersedes：—　Superseded by：—
+状态：Accepted　日期：2026-09-18　Supersedes：—　Superseded by：**ADR-0030**（CI 口径 = 18 行清单 ↔ 17 个步骤 = 8 硬 + 9 软；2026-09-20 由 TASK-068 显式登记；supersede 关系非「推翻」 = 0025 钉死 hygiene 13 项仍生效，0030 在其基础上扩 #12b 子编号）
 关联：`docs/governance-ai-agent-execution.md` §5.4、`xtask/src/deferred.rs`、
 `tasks/TASK-001-repo-skeleton.md` §5.1/§5.2、`plans/stage-0-spikes.md`、`plans/stage-1-pilots.md`、
 `README.md`、`docs/PARKING_LOT.md` PL-001 / PL-011 / PL-020、人类指示 #12（2026-09-18「其他按最佳方案实行」）
