@@ -148,6 +148,67 @@ fn read_sorted_entries(directory: &Path) -> Result<Vec<PathBuf>, WalkError> {
 
 /// 路径的扩展名是否为 `rs`。
 #[must_use]
+/// 仓库文件条目（相对路径 + 绝对路径）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(dead_code)]
+pub struct RepoFileEntry {
+    pub rel_path: String,
+    pub abs_path: std::path::PathBuf,
+}
+
+/// 递归收集仓库内所有指定扩展名的文件（扩展名小写、不含点）。
+/// 跳过 `target/` 与 `.git/`（与 `is_skipped_directory` 一致）。
+/// 扩展名为空数组 = 收所有文本文件（不含二进制扩展名）。
+#[allow(dead_code)] // Used by refscan/docscan/card_check once main.rs is fixed
+pub fn collect_repo_files(
+    root: &std::path::Path,
+    extensions: &[&str],
+) -> Result<Vec<RepoFileEntry>, WalkError> {
+    let mut out = Vec::new();
+    collect_repo_files_recursively(root, root, extensions, &mut out)?;
+    out.sort_by(|a, b| a.rel_path.cmp(&b.rel_path));
+    Ok(out)
+}
+
+#[allow(clippy::case_sensitive_file_extension_comparisons)]
+fn collect_repo_files_recursively(
+    root: &std::path::Path,
+    directory: &std::path::Path,
+    extensions: &[&str],
+    out: &mut Vec<RepoFileEntry>,
+) -> Result<(), WalkError> {
+    let entries = std::fs::read_dir(directory)
+        .map_err(|e| WalkError::ReadDirectory(format!("{}：{e}", directory.display())))?;
+    for entry in entries {
+        let entry = entry
+            .map_err(|e| WalkError::ReadDirectory(format!("{} 条目：{e}", directory.display())))?;
+        let path = entry.path();
+        if path.is_dir() {
+            if is_skipped_directory(&path) {
+                continue;
+            }
+            collect_repo_files_recursively(root, &path, extensions, out)?;
+        } else if path.is_file() {
+            let lower = path.to_string_lossy().to_ascii_lowercase();
+            let matches = if extensions.is_empty() {
+                !lower.ends_with(".png") && !lower.ends_with(".jpg") && !lower.ends_with(".gif")
+            } else {
+                extensions
+                    .iter()
+                    .any(|ext| lower.ends_with(&format!(".{ext}")))
+            };
+            if matches {
+                let rel = relative_display_path(root, &path);
+                out.push(RepoFileEntry {
+                    rel_path: rel,
+                    abs_path: path,
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
 pub fn has_rust_extension(path: &Path) -> bool {
     path.extension()
         .is_some_and(|extension| extension.to_string_lossy() == "rs")

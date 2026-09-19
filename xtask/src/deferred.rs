@@ -95,12 +95,6 @@ pub const DEFERRED_COMMANDS: &[DeferredCommand] = &[
         owning_card: UNASSIGNED_CARD,
         reason: "「卡已完成但未追加 LEDGER/MEMORY」的检查规则尚未拆成任务卡",
     },
-    DeferredCommand {
-        command: "card-check",
-        ci_gate: "gov §3.2",
-        owning_card: UNASSIGNED_CARD,
-        reason: "任务卡格式（write scope / 验收命令 / DoD 齐全）的校验尚未拆成任务卡",
-    },
 ];
 
 /// 未实现的卫生规则清单（gov §5.4 共 13 项，TASK-001 实现 3 项，其余 10 项归 TASK-015）。

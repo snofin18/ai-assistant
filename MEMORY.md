@@ -83,7 +83,7 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
               docs/memory/*（ADR-0021 分层，2026-09-18 落地）、
               docs/nightly/{codex-automations-operations, scheduler-acceptance-test}.md、
               docs/spike-reports/SPIKE-A.md（**PARTIAL**）
-已产出代码  ：xtask（零第三方依赖的护栏工具；子命令 = hygiene / memory-counts / adr-index / guard。
+-已产出代码  ：xtask（零第三方依赖的护栏工具；子命令 = hygiene / memory-counts / adr-index / refscan / docscan / card-check / guard 共 7 个（`exemptions` 是 helper module 不暴露为子命令）。
               **行数与测试数不写进本快照** —— 看 `cargo test -p xtask` 与 `xtask hygiene` 的输出）
               + CI（三平台矩阵；**硬/软门禁清单与数量以 gov §5.1 表为准**，2026-09-18 新增
                 #8b spike-deny 与 #12b doc-consistency 两道硬门禁）
@@ -118,3 +118,4 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
 
 （**暂无**。`docs/memory/` 下还没有任何文件超过 400 行。归档规则见 `docs/memory/archive/README.md`：
 按**体积**触发、按**主题**拆分、拆出后原处留指针 + 本表登记一行 + `LEDGER.md` 追加一行。）
+

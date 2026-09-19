@@ -66,9 +66,12 @@
 
 mod adr_index;
 mod adr_registry;
+mod card_check;
 mod cli;
 mod deferred;
 mod doccheck;
+mod docscan;
+mod exemptions;
 mod guard;
 mod guard_model;
 mod guard_release;
@@ -77,6 +80,7 @@ mod guard_store;
 mod hygiene;
 mod memory_counts;
 mod memory_table;
+mod refscan;
 mod report;
 mod repowalk;
 mod rustscan;
@@ -238,6 +242,15 @@ fn execute(arguments: &[String], output: &mut dyn Write) -> Result<u8, Failure> 
     if command == "adr-index" {
         return run_doc_consistency(&invocation, output, doccheck::run_adr_index);
     }
+    if command == "refscan" {
+        return run_refscan(&invocation, output);
+    }
+    if command == "docscan" {
+        return run_docscan(&invocation, output);
+    }
+    if command == "card-check" {
+        return run_card_check(&invocation, output);
+    }
     if command == "guard" {
         return run_guard(&invocation, output);
     }
@@ -342,6 +355,26 @@ fn run_hygiene(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Fa
     })
 }
 
+#[allow(clippy::items_after_statements)]
+fn run_refscan(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
+    let root = resolve_repo_root(invocation.repo.as_deref())
+        .map_err(|error| Failure::from_walk(&error))?;
+    refscan::run(&root, output).map_err(Failure::Io)
+}
+
+#[allow(clippy::items_after_statements)]
+fn run_docscan(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
+    let root = resolve_repo_root(invocation.repo.as_deref())
+        .map_err(|error| Failure::from_walk(&error))?;
+    docscan::run(&root, output).map_err(Failure::Io)
+}
+
+#[allow(clippy::items_after_statements)]
+fn run_card_check(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
+    let root = resolve_repo_root(invocation.repo.as_deref())
+        .map_err(|error| Failure::from_walk(&error))?;
+    card_check::run(&root, output).map_err(Failure::Io)
+}
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {

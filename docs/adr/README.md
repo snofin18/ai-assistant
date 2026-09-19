@@ -35,8 +35,9 @@
 | 0031 | `0031-task-card-one-file-per-card.md` | Accepted | 任务卡改为**一卡一文件**：正文 + 执行记录同在 `tasks/TASK-NNN-<slug>.md`，`plans/*` 退回阶段索引（裁决 DRIFT-001-3） |
 | **0032** | `0032-doc-rule-exemption-mechanism.md` | **Accepted** | 文档护栏规则的豁免清单机制（覆盖 PL-032 / PL-034）；配套 `0032-doc-rule-exemption-registry.md` |
 | **0033** | `0033-line-count-norm-vs-ci-gate.md` | **Accepted** | 单文件行数「写作规范 400/600」与「CI 门禁 600/900」的语义划分（PL-033） |
+| **0034** | `0034-xtask-card-check-implementation.md` | **Accepted** | TASK-051 xtask 护栏升级 = refscan/docscan/card-check/exemptions 内化（ADR-0031 D6 机器化；本次 DRIFT-20260919-2 实现，悬空 commit 10f78db 收编） |
 
-**下一个可用编号：0034**（= §1 与 §2 已用最大号 0033 + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0035**（= §1 与 §2 已用最大号 0034 + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是可用号** —— 它是 §2 的**待建号**，已预留给「`#[allow]` 的唯一合法位置」那条决策
@@ -121,3 +122,4 @@ ADR 文件「只增不改」，故**不直接改写**，留待阶段末评审，
 **机器检查尚未实现**：ADR-0030 D4 刻意**没有**在本轮实现裸引用规则 —— 上述 2 处违规都在「只增不改」的
 ADR 正文里，先实现规则就等于造一条**永久红灯**，而永久红灯会让人学会忽略 CI。正确顺序是「先定豁免机制
 （类似 §3 的退役清单），再实现规则」。→ **PL-028**（记录违规本身）＋ **PL-032**（记录「规则待实现」，归 TASK-015）。
+
