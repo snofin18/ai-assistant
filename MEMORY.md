@@ -100,7 +100,7 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
               ④ **TASK-002 续做补完 SPIKE-A PARTIAL**：Blocked → Ready 条件 = 人类新建会话或 `fork_thread`（rejected.md 2026-09-18 上游 `create_thread` #36315/#36250 缺陷未关闭）
               ⑤ 夜间自动化 **GATE-0 未执行**（open.md N9）→ 需人类专门安排调试时段，在此之前**禁止创建真实 automation**
               ⑥ **改写公共热点文件**（LEDGER / docs/memory/* / PARKING_LOT）**前必须先 `xtask guard acquire`**（ADR-0028）；超时放弃（退出码 5）后必须在 LEDGER 追加一行说明
-              ⑦ 待人类裁决：撞号解决已完成（ADR-0036）但 stage-1 卡的占位号段 051~055 与 xtask 重编号后号段未完全分离（未来若 xtask 继续扩展会再次撞号 = 建议 stage-1 开工时把 051~058 让给 xtask 用）
+              ⑦ ~~待人类裁决~~ **已关闭（ADR-0037 Accepted, 2026-09-20）**：撞号号段重新规划已落地。三号段分配 = XTASK 池 072~099 + 业务池 100~199 + 治理池 200~299；stage-1 051~058 / xtask 059~070 / governance 200~299 不再撞号风险。详见 docs/adr/0037-task-card-number-allocation-strategy.md
 待产出文档  ：docs/spec/*（其余 6 份，含 testing.md）、docs/OPEN_SOURCE_CHECKLIST.md、
               docs/dev-env-setup.md（**PL-017 已落地**，2026-09-18）、其余 7 份 Spike 报告（PL-026 的非 ASCII 注释已清扫，probe-01/02 现在纯 ASCII 仅 3 条 STR-LIT 豁免）
 执行方式    ：AI coding agent（Codex/opencode/Claude Code）实现，人类规划+审阅+裁决；

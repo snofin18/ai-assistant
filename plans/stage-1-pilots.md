@@ -212,3 +212,20 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 > **迁移零丢失核对**（ADR-0031 验证方式 3）：两段正文共 **30** 行非空内容（TASK-011 28 行 + TASK-035 2 行），
 > 迁移后逐行同序一致地出现在新卡片文件的正文区（脚本校验 missing=0、same-order=True）。
 > 搬运方式是**逐字节复制、不改一个字**；新增的只有元数据块、分界线注释与执行记录骨架。
+
+
+## 任务卡号段分配（ADR-0037, 2026-09-20 起生效）
+
+按 [docs/adr/0037-task-card-number-allocation-strategy.md](../../docs/adr/0037-task-card-number-allocation-strategy.md)：
+
+| 号段 | 用途 | 现状 |
+|---|---|---|
+| 001~010 | stage-0 已 Done | 10 张（TASK-001~010）|
+| 011 / 035 | stage-1 已迁正文 | 2 张（protocol / notepad-adapter）|
+| 012~034 / 036~058 | **stage-1 批次表占位**（本文件批次表）| **47 张 Ready**（保留号段，stage-1 开工时启用）|
+| 059~070 | 已用 = xtask 护栏升级（6 张）+ governance（6 张）| 12 张 Done |
+| **072~099** | **XTASK 池（未来）** | **28 个空位** |
+| 100~199 | 业务池（stage-2/3/4 未来）| 100 个空位 |
+| 200~299 | 治理池（audit/docs/memory 治理）| 100 个空位 |
+
+**未来 xtask 护栏扩张** = 用 072~099；用满后用 200~299。sub-suffix 永久禁用。
