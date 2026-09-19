@@ -3019,7 +3019,7 @@ assistant/
 **最小上下文包**（派单时给 subagent 的东西，**不要 fork 整个会话历史**，避免污染）：
 
 ```text
-AGENTS.md（全文，~140 行）
+AGENTS.md（全文，**实际 185 行**，`wc -l` = 185；不要手抄行数 = PL-035 根因；旧 ~140 为 ADR-0019 之前估算，已过期）
 + plans/<当前阶段>.md 的「本卡相关段落」
 + tasks/TASK-NNN-<slug>.md（全文：正文区 + 记录区骨架）
 + 引用的 docs/spec/*.md 相关章节

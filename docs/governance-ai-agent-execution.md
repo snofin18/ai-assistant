@@ -285,7 +285,7 @@ setext 标题（本项目已为此设了扫描判据），而 HTML 注释渲染�
 ### 4.1 会话启动协议（每个新会话 / 每个新 agent，前 5 分钟）
 
 ```text
-① 读 AGENTS.md（全文，~164 行）
+① 读 AGENTS.md（全文，**实际 185 行**，`wc -l AGENTS.md` = 185；不要手抄行数 = PL-035 根因）
 ② 读 PLAN.md（索引，≤60 行）→ 再读 plans/<当前阶段>.md（**阶段索引与批次表**）的 In/Out of scope 与本卡所属批次
 ③ 读本次要做的任务卡 tasks/TASK-NNN-<slug>.md（**全文**：正文区 + 记录区 9 节骨架，§3.4）
 ④ 读任务卡引用的 spec / ADR（只读相关章节）+ 目标 crate 的 README（**不变量**一节必读）
@@ -862,7 +862,7 @@ Task: TASK-012
 
 ## 10. 落地检查清单（本项目开工前必须就位）
 
-- [x] 根 `AGENTS.md`（精简版 ~164 行，含文档地图与验证命令）
+- [x] 根 `AGENTS.md`（实际 185 行 = `wc -l` 权威实测，含文档地图与验证命令；删旧手抄 ~164 行 = PL-035 现场修复）
 - [x] `CLAUDE.md`（仅一行转发到 AGENTS.md）
 - [x] `MEMORY.md`（§1 快照 + 首批 FACT/DECISION/REJECTED/PITFALL/OPEN 条目）
 - [x] `PLAN.md`（索引 ≤60 行）+ `plans/stage-0-spikes.md` + `plans/stage-1-pilots.md`（含 In/Out scope 冻结）

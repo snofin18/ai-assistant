@@ -90,7 +90,7 @@ fork 父会话会把大量**与当前卡无关的讨论**注入 subagent，既�
 ### 5.2 派单包内容（总量 ≤ 800 行）
 
 ```text
-1. AGENTS.md 全文（~164 行）
+1. AGENTS.md 全文（**实际 185 行**，`wc -l` = 185；不要手抄行数 = PL-035 根因）
 2. tasks/TASK-NNN-<slug>.md 全文（正文区 + 记录区骨架；ADR-0031）
 3. plans/stage-N.md 中该卡所属批次的段落（In/Out scope + DoD）
 4. 引用的 docs/spec/*.md 相关章节（只给章节，不给全文）
