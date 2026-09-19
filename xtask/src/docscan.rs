@@ -20,8 +20,9 @@
 
 // TASK-052 (2026-09-19) 决策：本文件**无任何**模块级 `#![allow(...)]` 块；32 处 indexing_slicing 全部用 safe pattern 替换。
 
-/// 规则 `doc/table-broken`：数据行 cell 数 ≠ 分隔行 cell 数 → 渲染会错位（PL-031）。
 use crate::report::{Finding, Severity};
+
+/// 规则 `doc/table-broken`：数据行 cell 数 ≠ 分隔行 cell 数 → 渲染会错位（PL-031）。
 const RULE_BROKEN_TABLE: &str = "doc/table-broken";
 /// 规则 `doc/setext-risk`：`---` 前一行非空，会被 GFM 解析成 H2 标题（PL-031 同源）。
 const RULE_SETEXT_RISK: &str = "doc/setext-risk";

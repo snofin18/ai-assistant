@@ -84,6 +84,103 @@ grep -n '#!\[allow' xtask/src/{refscan,docscan,card_check,exemptions}.rs  # 0 �
 
 ### 1. 约束回执
 
+【任务】TASK-052　xtask lint cleanup — refscan 40-lint 块清场 + 4 模块 indexing_slicing 纯重构
+【write scope】仅：xtask/src/{refscan,docscan,card_check,exemptions}.rs + tasks/TASK-052-...md + docs/PARKING_LOT.md + LEDGER.md
+【铁律】 ① 无静默失败  ⑨ 不静移扩大范围  ⑩ 契约先行
+【禁止】 动 workspace [lints.clippy]（人类「漂移坚决不能忍受」= 不走 A 路加 priority=-1）
+【依赖】 TASK-001（Done）/ TASK-051（Done）；ADR-0031/0032/0030 现行
+【疑问】 无（人类已裁决 B 路）
+
+### 2. 实际改动文件
+
+| 文件 | 行数净变化 | 说明 |
+|---|---|---|
+| `tasks/TASK-052-...md` | +101/-0 | Orchestrator 卡文件 |
+| `xtask/src/refscan.rs` | +147/-82 | 重构 find_adr_ranges / find_bare_pending / render + 全清 #![allow |
+| `xtask/src/docscan.rs` | +26/-13 | 重构 scan_broken_tables 内层循环 + 移 use import 到 const doc 前 |
+| `xtask/src/card_check.rs` | +15/-7 | cells[n] → cells.first()/get(n) |
+| `xtask/src/exemptions.rs` | +41/-16 | cells[n] → cells.first()/get(n) |
+| `docs/PARKING_LOT.md` | +3/-0 | PL-NEW supersede + 关闭 |
+| `LEDGER.md` | +1/-0 | 本卡完成行 |
+
+### 3. 验收输出摘要
+
+```
+$ grep '^#![allow' xtask/src/{refscan,docscan,card_check,exemptions}.rs
+(no output)  # 0 命中 = DoD 硬证据
+
+$ cargo fmt --all --check                          → 0 diff
+$ cargo clippy -p xtask --all-targets -- -D warnings → exit 0 (0 警告)
+$ cargo test --workspace                           → 279 passed, 0 failed
+$ cargo deny check                                 → advisories/bans/licenses/sources 全部 ok
+$ cargo run -p xtask -- hygiene                    → PASSED
+$ cargo run -p xtask -- memory-counts              → PASSED
+$ cargo run -p xtask -- adr-index                  → PASSED
+$ cargo run -p xtask -- docscan                    → PASSED
+$ cargo run -p xtask -- card-check                 → PASSED
+$ cargo run -p xtask -- refscan                   → FAILED (151 errors = 真实发现)
+```
+
+### 4. DoD 逐条核对
+
+- [x] 4 个新模块顶部**无**任何 `#![allow(...)]` 块（grep 硬证据 = 0 命中）
+- [x] `cargo clippy -p xtask --all-targets -- -D warnings` exit 0（0 警告，0 依赖模块级 allow）
+- [x] 32 处 `indexing_slicing` 全部用 `while let Some(x) = chars.get(i)` / `.get(n).expect(...)` / `match` / `slice → get(...).copied()` 替换
+- [x] 其他 pedantic lint 全部修掉（8 类）；per-item `#[allow(...)]` 4 处带卡号注释
+- [x] PL-NEW 在 `docs/PARKING_LOT.md` 标注 `[supersedes:2026-09-19]` + 关闭理由
+- [x] 全部 11 条验收命令全绿（refscan 按设计 FAILED with 151 errors）
+- [x] `LEDGER.md` 追加本卡一行；执行记录 9 节填齐（本节即填齐动作）
+
+### 5. 偏差
+
+**偏差 #1（轻微，已自处理）**: refscan.rs:7 的 `// 凡命中…` 在 clippy 修复中反复触发 `clippy::doc_lazy_continuation`（doc 列表项缩进不一致）；先改为 `//`（非 doc 注释）规避 lint，Mode 2 review [N1] 指出后**改回 `//!` 形式 + 在前面加空 `//!` 分隔**（clippy 接受的 list 终止写法）。本卡共触发 3 轮 clippy 修复才稳定。
+
+**偏差 #2（轻微，已自处理）**: docscan.rs 在删除 `#![allow(clippy::indexing_slicing)]` 块时，误把 `use crate::report::{Finding, Severity};` 一同删掉，再补回时放在 `///` 注释与 const 之间 → 编译通过但 `///` 注释 attach 到 use（rustdoc 不收录 use），const 失去文档。Mode 2 review [N2] 指出后**将 use 移到 const doc 之前**，const 文档恢复。
+
+**偏差 #3（已在 P2 [N5] 登记）**: 本卡严格只清 clippy 实际报错的 32 处 indexing_slicing（点索引 `arr[n]` 与闭区间切片 `arr[i..j]` 中 clippy 能跟踪的）。`card_check.rs` 另有 5 处 `str[Range]` 切片（line 116/132/164/165/168），clippy 1.98 未触发（usize 来自 `.find()`，clippy 无法跨函数追踪），但技术上同源 → 归后续卡清理（**不在本卡扩 scope** = 漂移触发器 ⑤）。
+
+### 6. 更合理做法
+
+1. **render 函数的 `let _ = writeln!` 与铁律 ① 的张力**：`writeln!` 到 `String` 在实践中永不失败（仅 OOM 时才走 Error 路径，OS 会处理进程崩溃）。`.unwrap()` / `.expect()` 被 workspace `unwrap_used = "deny"` / `expect_used = "deny"` 拒绝（即使 per-item allow 也可，但有 philosophic 矛盾）。本卡最终用 `#[allow(clippy::unwrap_used, clippy::expect_used)] // writeln! to String only fails on OOM (process-level crash); tests cover the write path.`.expect("…")` 解决 — 比 `let _ =` 严格，但需显式 per-item allow。**建议未来 ADR**：把 `writeln!` 到 `String` 的成功路径加入 workspace `[workspace.lints.clippy]` 的可豁免白名单（如 `[workspace.lints.clippy] unwrap_used = { level = "deny", exceptions = ["String write", "Vec grow"] }`），但此为 lint config 改动 = 漂移触发器 ⑥，必须走 ADR。
+
+2. **`case_sensitive_file_extension_comparisons` 的 per-line allow 模式**：本卡有 3 处此 lint 的 per-line allow（refscan.rs:101/103 + 注释解释「`lower` 已小写」）。**建议**未来 ADR 0034 / PL-NEW 后续卡写一个 `xtask_lint_helpers` crate 提供 `enum_or_str_eq_ignore_ascii_case()` 之类的工具函数，把这个 case-insensitive 比较语义沉淀下来，避免 per-line allow 模式扩散。
+
+3. **测试代码 safe-pattern 不一致 [P3 N7]**：本卡只 refactor 了 refscan.rs 的 `sorted[0..2]`，docscan/card_check 的 `f[0]` 未动（test wrapper 已 allow）。**建议**未来小任务统一改 `f[0]` → `f.first().expect("non-empty")`，对外表述 =「测试也走 safe pattern」而非「测试 wrapper 允许 indexing_slicing 是显式设计」。
+
+### 7. 遗留问题
+
+- **后续卡清理（PL-NEW 后续动作）**:
+  - `xtask/src/card_check.rs:116/132/164/165/168` 共 5 处 str[Range] 切片（[P2 N5]），clippy 未报但同源问题
+  - `xtask/src/refscan.rs:290` 的 `#[allow(dead_code)]`（render 现在被 run() 调用，dead 注释本身已 dead）— [P3 N6]
+  - 测试代码 `f[0]` → `f.first()` 统一 — [P3 N7]
+- **`xtask card-check` 判据②** (status 非 Ready 必有文件) 仍未实现，归 PL-002
+- **main.rs > 600 行**（ADR-0033 写作规范软上限）：不是本卡引入，但本卡新增 4 个 mod 声明让数字上去；后续卡考虑拆 `dispatch.rs`
+
+### 8. 新增长期记忆
+
+- 本卡**未新增** `docs/memory/{facts,pitfalls,rejected,open}.md` 条目（无新事实/坑/否决/未决）
+- 仅**关闭**了 `docs/PARKING_LOT.md` 的 PL-NEW（用 `[supersedes:2026-09-19]` 行）
+
+### 9. 给审阅者的关注点
+
+1. **【高风险】DoD 硬证据已通过**：`grep '^#![allow' xtask/src/{refscan,docscan,card_check,exemptions}.rs` = **0 命中**。所有模块级 `#![allow` 块已全部清除。
+2. **【中风险】per-item `#[allow(...)]` 4 处**（均带卡号注释）:
+   - `refscan.rs:94`: `single_char_pattern` (replace() needs &str pattern)
+   - `refscan.rs:101, 103`: `case_sensitive_file_extension_comparisons` (lower 已小写)
+   - `refscan.rs:~298`: `unwrap_used + expect_used` (writeln! to String only fails on OOM)
+   均非模块级，均有 why 注释。
+3. **【低风险】test wrapper**: 4 模块各 `#[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::panic)] #[cfg(test)] mod tests {` —— 这是 outer attribute（在 mod 上）而非 inner `#![...]`，**不在 DoD 「4 模块顶部无模块级 lint allow」范围内**（grep `^#![allow` 不会命中，因为 `#[` ≠ `#!`）。
+4. **【低风险】refscan.rs:7 的修复链**: 3 轮 clippy 修改才稳定（`//` → `//!` (3 spaces) → `//!` (4 spaces) → `//!` + 前空行）。最终形态见 git diff。
+5. **【极低风险】**本会话所有 git 操作均 forward-only（无 force push / reset --hard / tag 删除）。3 个 guard 锁（PARKING_LOT.md / MEMORY.md / LEDGER.md）ACQUIRED → RELEASE 完整记录。
+
+### 风险最高的 1~3 处（供人类裁决）
+
+1. **`refscan.rs:298` 的 `.expect()` + per-item allow 组合** —— 是否接受「writeln! to String 的 Result 在 xtask 用例里事实上永不出现」这一论断？如不接受，建议改成 `render()` 返回 `Result<String, std::fmt::Error>` 并把 error 上抛到 `run()` 的 `Result<u8, Failure>`。
+2. **「32 处全替换」措辞严谨性** —— [P2 N5] 指出 card_check.rs 还有 5 处 str[Range] clippy 不报；本卡已加限定语「32 处 clippy 实际报错位 = 全替换，另有 5 处 str[Range] clippy 不报故未动，归后续卡」。如果读者严格按字面理解「全部」会被这 5 处误导。
+3. **Mode 2 sub-agent 是否需要二次审** —— 本卡 amend 一次（4efcbde → e9eae0e）后 Mode 1 + Mode 2 都跑了，最终 commit `e9eae0e` 是 cleanup 后状态。如果人类希望 Mode 2 sub-agent 对最终 commit 再审一次可提出。
+
+### 1. 约束回执
+
 ### 2. 实际改动文件
 
 ### 3. 验收输出摘要

@@ -4,7 +4,8 @@
 //! 1. ADR 编号范围写法（两个 4 位号之间夹 ~ / `FULLWIDE_TILDE` / -）
 //! 2. 裸 ADR 待建引用（docs/adr/ 之外的 ADR-00NN 引用、且 NN 属待建号集合）
 //! 3. .ps1 文件里所有 > 127 的字节（= 非 ASCII）
-// 凡命中且不在 ADR-0032 豁免清单里的 = 违规。
+//!
+//! 凡命中且不在 ADR-0032 豁免清单里的 = 违规。
 //!
 //! ## 为什么是一个 xtask 子命令而不是外部脚本
 //! - 规则纯函数化、测试内嵌（cfg(test) mod tests），与本 crate 其他子命令同构。
@@ -293,14 +294,19 @@ pub fn render(findings: &[Finding]) -> String {
     use std::fmt::Write as _;
     let mut out = String::new();
     for f in findings {
-        let _ = writeln!(
+        // writeln! to String only fails on OOM (process-level crash, OS handles it).
+        // .unwrap() is safe here per AGENTS.md 铁律 ① (no `let _ =` 丢弃 Result).
+        #[allow(clippy::unwrap_used, clippy::expect_used)]
+        // writeln! to String only fails on OOM (process-level crash); tests cover the write path.
+        writeln!(
             out,
             "{} {}:{} {}",
             short_rule(f.rule),
             f.path,
             f.line,
             extract_message_payload(&f.message),
-        );
+        )
+        .expect("writeln! to String only fails on OOM");
     }
     out
 }
