@@ -37,7 +37,7 @@
 | `apps/notepad.md` | 243 | 0 | 接记事本时**全量读**；8 个固定小节 |
 
 > **迁移核对（ADR-0021 验证方式 2）—— 历史快照：下面三个数字是「迁移当时值」，不随后续追加变化**：
-> 2026-09-18 从单体 `MEMORY.md`（256 行 / **155** 条）逐条复制到 L1，迁移后 L1 合计 **200** 条
+> 2026-09-18 从单体 `MEMORY.md` 逐条复制到 L1。**L1 当前条目数与各文件行数由 `cargo run -p xtask -- memory-counts` 机器校验**（ADR-0030 D1/D2）—— 禁止在本文件手写派生合计数字（PL-022 根因）
 > （≥155，差额为当日新增）→ **零丢失**；当日后续又新增 **7** 条（EOL 补测 ×2、编码假阳性与路径不一致 ×2、
 > ADR-0025 与 §10.1 决策 ×2、ADR 编号冲突 N8 ×1）。核对已记入 `LEDGER.md`。
 > **当前规模只看上面那张表** —— 它是唯一落点，由 `cargo run -p xtask -- memory-counts` 机器校验；
@@ -64,7 +64,7 @@
 
 ---
 
-## §1 项目当前状态快照（可覆写，最近更新：**2026-09-18**）
+## §1 项目当前状态快照（可覆写，最近更新：**2026-09-20**）
 
 ```text
 阶段        ：阶段 0（纯文档 + xtask 护栏 + spike 探针，**零产品代码**）
@@ -83,7 +83,7 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
               docs/memory/*（ADR-0021 分层，2026-09-18 落地）、
               docs/nightly/{codex-automations-operations, scheduler-acceptance-test}.md、
               docs/spike-reports/SPIKE-A.md（**PARTIAL**）
--已产出代码  ：xtask（零第三方依赖的护栏工具；子命令 = hygiene / memory-counts / adr-index / refscan / docscan / card-check / guard 共 7 个（`exemptions` 是 helper module 不暴露为子命令）。
+-已产出代码  ：xtask（零第三方依赖的护栏工具）。子命令清单以 `cargo run -p xtask -- --list` 输出为权威（不要在这里手抄个数 —— 改用命令取，PL-022 根因复发）。当前已知 = hygiene / memory-counts / adr-index / refscan / docscan / card-check / guard 共 7 个 + exemptions helper module（不暴露）。
               **行数与测试数不写进本快照** —— 看 `cargo test -p xtask` 与 `xtask hygiene` 的输出）
               + CI（三平台矩阵；**硬/软门禁清单与数量以 gov §5.1 表为准**，2026-09-18 新增
                 #8b spike-deny 与 #12b doc-consistency 两道硬门禁）
@@ -94,18 +94,13 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
               inspect.exe ✅（Windows Kits 10.0.26100.0）；Accessibility Insights ❌ 未装（**已否决补装**，ADR-0024 D3）
 平台基线    ：Windows 11 24H2/25H2（唯一正式基线）；本机实测 25H2 build 26200.9457，3200×2000 @200%
 试点顺序    ：Notepad → Paint → Edge/Chrome（阶段 1）→ Excel（阶段 2）→ Photoshop（阶段 3）
-下一步      ：① **TASK-002 正式开工**（Spike A 剩余：写路径/菜单/跨进程另存为/大文件/失败注入/接口考古）
-                —— `create_thread` 不可用（见 rejected.md 2026-09-18），**由人类手工新建会话**，
-                第一句贴 AGENTS.md §3 的约束回执模板
-              ② 夜间自动化：**ADR-0029 已把机制改回 Codex 原生 scheduled tasks**（ADR-0018 降级为
-                回退方案），章程 §11 重写为 **v1.4**；操作手册已落档但 **GATE-0 未执行**
-                （open.md **N9**）→ 需人类专门安排调试时段，在此之前**禁止创建真实 automation**
-              ③ 改写公共热点文件（LEDGER / docs/memory/* / PARKING_LOT）**前必须先 `xtask guard acquire`**
-                （ADR-0028）；超时放弃（退出码 5）后必须在 LEDGER 追加一行说明
-              ④ **DRIFT-001-3 已裁决关闭**（ADR-0031「一卡一文件」Accepted，stage-0 的 10 张卡已迁移，
-                零丢失核对通过）；`xtask card-check` 的四条判据已写死在 D6 / gov §3.4，**实现仍归 PL-002**
-              ⑤ 待人类裁决：M5 许可证**已裁决关闭**（MIT OR Apache-2.0、`LICENSE` + `NOTICE` 均已落地）、`docs/PARKING_LOT.md` 未关闭项（护栏增强类）、
-                gov §5.4 行数口径矛盾**已裁决**（ADR-0033：写作规范 400/600 vs CI 门禆 600/900 各管一摊）、豁免机制**已裁决**（ADR-0032 Accepted，20 条基线豁免已登记于···/docs/adr/0032-doc-rule-exemption-registry.md，机器读入实现归 PL-002 / PL-015）
+下一步      ：① **完成本次督察派单的 6 张治理卡剩余 4 张**（TASK-068 ADR-0025 supersede + TASK-069 decisions/open/dedupe + TASK-070 facts.md supersede；TASK-067 本卡 + TASK-065/066 已完成）
+              ② **stage-0 DoD 复盘**：8 项中仅 2 项达成（CI 通 + stage-1 卡片就位），其余 6 项未达成 = 「先护栏后 spike」策略已偏离，spike 报告 0/8；详见 `plans/stage-0-spikes.md:25-34`
+              ③ **TASK-015 升级重做**（xtask hygiene arch test + replay skeleton；半成品在 stash@{1}；合并 PL-002 + PL-018 实现 card-check 判据 ② + ⑤ = ADR-0036 D5 要求）
+              ④ **TASK-002 续做补完 SPIKE-A PARTIAL**：Blocked → Ready 条件 = 人类新建会话或 `fork_thread`（rejected.md 2026-09-18 上游 `create_thread` #36315/#36250 缺陷未关闭）
+              ⑤ 夜间自动化 **GATE-0 未执行**（open.md N9）→ 需人类专门安排调试时段，在此之前**禁止创建真实 automation**
+              ⑥ **改写公共热点文件**（LEDGER / docs/memory/* / PARKING_LOT）**前必须先 `xtask guard acquire`**（ADR-0028）；超时放弃（退出码 5）后必须在 LEDGER 追加一行说明
+              ⑦ 待人类裁决：撞号解决已完成（ADR-0036）但 stage-1 卡的占位号段 051~055 与 xtask 重编号后号段未完全分离（未来若 xtask 继续扩展会再次撞号 = 建议 stage-1 开工时把 051~058 让给 xtask 用）
 待产出文档  ：docs/spec/*（其余 6 份，含 testing.md）、docs/OPEN_SOURCE_CHECKLIST.md、
               docs/dev-env-setup.md（**PL-017 已落地**，2026-09-18）、其余 7 份 Spike 报告（PL-026 的非 ASCII 注释已清扫，probe-01/02 现在纯 ASCII 仅 3 条 STR-LIT 豁免）
 执行方式    ：AI coding agent（Codex/opencode/Claude Code）实现，人类规划+审阅+裁决；

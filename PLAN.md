@@ -7,18 +7,26 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-19（本次 = DRIFT-20260919-1 回滚 + 文档同步；详见 LEDGER）
-当前阶段    ：阶段 0（文档与 Spike + xtask 护栏 + 零产品代码）；HEAD = 3ba66dc（36 次 commit）
-当前任务卡  ：TASK-001 Done；TASK-002 InProgress（SPIKE-A PARTIAL）；TASK-015 Ready；其余 stage-1 46 张 = Ready 占位（ADR-0031）
-阻塞项      ：无（M5 已 2026-09-18 关闭：MIT OR Apache-2.0）；`create_thread` 上游 #36315/#36250 仍 open（open.md N3）→ 派生会话由人类手工建（rejected.md 2026-09-18）
-下一步动作  ：① TASK-015 升级重做（半成品在 stash@{1}；新卡待派）→ ② TASK-002 续做补完 SPIKE-A PARTIAL → ③ 其它 Spike 派单。详见 MEMORY.md §1 与本文件阶段索引表。本字段为恢复性同步，不是常规编辑（写 PLAN.md = Orchestrator 职责）
+更新日期    ：2026-09-20（本次 = 项目进度督察 2026-09-19 后的文档治理批：TASK-065 撞号解决 + TASK-067 本卡）
+当前阶段    ：阶段 0（文档与 Spike + xtask 护栏 + 零产品代码）；HEAD = 436a386（59 次 commit on main = 本仓主线；`git rev-list --count --all` = 78 含 3 backup/* 分支 + 9 unreachable commits）
+当前任务卡  ：TASK-001/051~058/055b 等 6 张均已 **Done 并重编号为 TASK-059~064**（ADR-0036 落地，2026-09-20）；
+                  TASK-002 Blocked（`create_thread` 上游缺陷 + 无子会话派生）；
+                  TASK-065~070 为本轮督察派单的 6 张治理卡（TASK-067 本卡是其一，PLAN+MEMORY 刷新）；
+                  其余 stage-1 036~058 + 035 = Ready 占位（ADR-0031，48 张 + 1 已迁 = 49 张已就位）
+阻塞项      ：无（M5 已 2026-09-18 关闭：MIT OR Apache-2.0；`create_thread` 上游 #36315/#36250 仍 open（open.md N3）→ 派生会话由人类手工建（rejected.md 2026-09-18））；
+                  PL-002 / PL-018 / PL-022 等 ADR 治理类 OPEN 项合并归 TASK-015（card-check 判据 ② + ⑤ 一起实现）
+下一步动作  ：① 完成 TASK-067~070 治理卡（PLAN+MEMORY 刷新 + ADR-0025 supersede + decisions/open/dedupe + facts.md supersede）→
+                  ② 由人类裁决 stage-0 是否可以收尾（或继续追加 spike 实测）→
+                  ③ TASK-002 续做补完 SPIKE-A PARTIAL（Blocked → Ready 条件 = 人类新建会话或 `fork_thread`）→
+                  ④ 其他 Spike 派单（A2/B/C/E/F/G/H/D-lite）= 本仓 `xtask refscan` 仍报 151 errors baseline 已稳定，主要精力放在 spik e报告补齐。
+                  详见 MEMORY.md §1 与本文件阶段索引表。本字段为恢复性同步，不是常规编辑（写 PLAN.md = Orchestrator 职责）
 ```
 
 ## 阶段索引（点开当前阶段那一个就够）
 
 | 阶段 | 名称 | 周期 | 详情文件 | 状态 |
 |---|---|---|---|---|
-| 0 | Spike 技术验证（A/B/C/E/F/G/H + D-lite） | 2~3 周 | `plans/stage-0-spikes.md` | **当前** |
+| 0 | Spike 技术验证（A/B/C/E/F/G/H + D-lite） | 2~3 周（实际已运行 ~3 周：2026-09-16 起） | `plans/stage-0-spikes.md` | **当前** |
 | 1 | 三试点闭环：Notepad → Paint → Edge/Chrome | 10~12 周 | `plans/stage-1-pilots.md` | 未开始 |
 | 2 | Excel（L1 COM）+ Adapter 抽象正式化 | 6~8 周 | `plans/stage-2-excel.md`（待生成） | 未开始 |
 | 3 | Photoshop（纯脚本型）+ 评测体系 | 6~8 周 | `plans/stage-3-photoshop.md`（待生成） | 未开始 |
