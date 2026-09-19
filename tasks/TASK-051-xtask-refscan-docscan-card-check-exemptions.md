@@ -199,4 +199,3 @@ refscan 报 150 个 errors 是真实发现（裸 ADR 待建引用 + .ps1 非 ASC
    - `LEDGER.md`：ACQUIRED by TASK-051（即将在 commit 前 RELEASE）
    - `docs/memory/pitfalls.md`：ACQUIRED by TASK-051（即将在 commit 前 RELEASE）
    - 锁记录在 `target/locks/<slug>.lock`，不入库
-
