@@ -108,7 +108,7 @@ build / hygiene / spike-deny(#8b) / doc-consistency(#12b)；另有 **9 项软门
 
 ---
 
-## 最近进展（2026-09-19，TASK-051 + TASK-052 收尾）
+## 最近进展（2026-09-19，xtask 护栏升级收尾 = TASK-051/052/053/054/055 五连发）
 
 `xtask` 护栏工具已从 4 个子命令扩到 7 个（新增 `refscan` / `docscan` / `card-check`），
 原 `hygiene / memory-counts / adr-index / guard` 保持。所有 `xtask` 子命令在
@@ -123,6 +123,13 @@ CI 硬门禁 #12b（`doc-consistency`）下统一跑过。
 
 ### 历史小节（按时间倒序）
 
+- **2026-09-19 TASK-055**（xtask refscan 清最后 3 处 per-line allow — 达到「生产代码 per-line allow = 0」）:
+  - refscan.rs:94 `#[allow(clippy::single_char_pattern)]` → `replace("\r", "\n")` 改 `replace('\r', "\n")`（char 字面量，触发 Pattern impl 即可）
+  - refscan.rs:101/103 `#[allow(clippy::case_sensitive_file_extension_comparisons)]` → `lower.ends_with(".md"/".rs"/".ps1")` 改 `Path::extension().and_then(to_str).is_some_and(eq_ignore_ascii_case)`（closure `ext_is` 复用）
+  - 删除 `let lower = rel_path.to_ascii_lowercase();` 与配套注释（5 处出现 → 0）
+  - 行为不变：refscan 仍报 151 errors（baseline 一致）；UTF-8 非合法扩展名按 `to_str` 失败语义 = 与原本 `ends_with`(`&str`) 在非 UTF-8 路径上失败同形
+  - **复核 GAP**：repowalk.rs:336 `#[allow(clippy::case_sensitive_file_extension_comparisons)]` **未在本卡 scope 内**（卡面标题与 In scope 严格限制 refscan.rs），且 ADR-0035 baseline 表也漏列；建议下一卡 `TASK-055b` 或新卡处理（统一改 `Path::extension` 模式）
+  - 详见 `tasks/TASK-055-clear-last-3-per-line-allows.md` 执行记录 9 节 + LEDGER.md 2026-09-19 行
 - **2026-09-19 TASK-054**（xtask render() 返回 Result — 消除 per-line allow）:
   - `pub fn render(findings: &[Finding]) -> String` → `pub fn render(findings: &[Finding]) -> Result<String, std::fmt::Error>`
   - 删除 `#[allow(clippy::unwrap_used, clippy::expect_used)]` per-line allow（TASK-052 遗留）

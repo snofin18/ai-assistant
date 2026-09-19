@@ -92,17 +92,19 @@ pub fn run(repo_root: &std::path::Path, output: &mut dyn std::io::Write) -> Resu
 
 pub fn scan_file(rel_path: &str, content: &str) -> Vec<Finding> {
     let mut findings = Vec::new();
-    #[allow(clippy::single_char_pattern)] // replace() needs &str pattern, not char
-    let normalized = content.replace("\r\n", "\n").replace("\r", "\n");
+    let normalized = content.replace("\r\n", "\n").replace('\r', "\n");
     let lines: Vec<&str> = normalized.split('\n').collect();
-    let lower = rel_path.to_ascii_lowercase();
-    // `lower` is already to_ascii_lowercase()-d on the line above,
-    // so the comparison is case-insensitive in practice; clippy cannot see that,
-    // hence the per-line allow (TASK-052 §5 登记).
-    #[allow(clippy::case_sensitive_file_extension_comparisons)]
-    let is_md_or_rs = lower.ends_with(".md") || lower.ends_with(".rs");
-    #[allow(clippy::case_sensitive_file_extension_comparisons)] // see comment on is_md_or_rs above
-    let is_ps1 = lower.ends_with(".ps1");
+    // 用 Path::extension() + is_some_and(eq_ignore_ascii_case) 替代 lower.ends_with，
+    // 让 clippy 能看到「已在比较前规范化」——消除 2 处 case_sensitive_file_extension_comparisons allow
+    // （TASK-055 落地；语义不变：MD/md/Md 都算 .md；非 UTF-8 扩展名按原本 ends_with 失败的行为同样返回 false）
+    let ext_is = |expected: &str| -> bool {
+        std::path::Path::new(rel_path)
+            .extension()
+            .and_then(|s| s.to_str())
+            .is_some_and(|s| s.eq_ignore_ascii_case(expected))
+    };
+    let is_md_or_rs = ext_is("md") || ext_is("rs");
+    let is_ps1 = ext_is("ps1");
 
     if is_md_or_rs {
         // Rule 1: ADR range notation (manual match)
