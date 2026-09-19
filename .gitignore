@@ -55,3 +55,6 @@ desktop.ini
 *.log
 /tmp/
 _temp_*
+
+# --- cargo-deny advisory-db stray clone（deny.toml db-path 实际为 target/deny-db；advisory-db/ 为历史 stray）---
+advisory-db/
