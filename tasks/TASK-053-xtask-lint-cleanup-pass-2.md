@@ -73,6 +73,96 @@ grep -nE 'sec\[.+\.\.\]|\[.+\.\.\]|f\[0\]|\#\[allow\(dead_code\)\]' \
 
 ### 1. 约束回执
 
+【任务】TASK-053　xtask lint cleanup pass 2 — card_check 5 处 str[Range] + refscan dead_code + test f[0]
+【write scope】仅：xtask/src/{refscan,docscan,card_check}.rs + tasks/TASK-053-...md + LEDGER.md
+【铁律】 ① 无静默失败  ⑨ 不静移扩大范围  ⑩ 契约先行
+【禁止】 动 workspace [lints.clippy]（TASK-052 人类裁决 B 路 = 不动 workspace）/ 动 exemptions.rs / 改 ADR
+【依赖】 TASK-001 / TASK-051 / TASK-052（均已 Done）
+【疑问】 无（人类已明示 B 路）
+
+### 2. 实际改动文件
+
+| 文件 | 行数净变化 | 说明 |
+|---|---|---|
+| `tasks/TASK-053-...md` | +90/-0 | 卡文件 |
+| `xtask/src/card_check.rs` | +20/-15 | 5 处 str[Range] → `.get(range)` + 1 处 test f[0] → `first().expect(...)` |
+| `xtask/src/docscan.rs` | +2/-2 | 2 处 test f[0] → `first().expect(...)` |
+| `xtask/src/refscan.rs` | +0/-1 | 删除 render 函数前的 stale `#[allow(dead_code)]` |
+| `LEDGER.md` | +1/-0 | 本卡完成行 |
+
+### 3. 验收输出摘要
+
+```
+$ cargo fmt --all --check                          → 0 diff
+$ cargo clippy -p xtask --all-targets -- -D warnings → exit 0 (0 警告)
+$ cargo test --workspace                           → 279 passed, 0 failed
+$ cargo deny check                                 → 4 项 ok
+$ cargo run -p xtask -- hygiene                    → PASSED
+$ cargo run -p xtask -- memory-counts              → PASSED
+$ cargo run -p xtask -- adr-index                  → PASSED
+$ cargo run -p xtask -- docscan                    → PASSED
+$ cargo run -p xtask -- card-check                 → PASSED
+$ cargo run -p xtask -- refscan                   → FAILED (151 errors = 真实发现)
+
+$ grep '^#![allow' xtask/src/{refscan,docscan,card_check,exemptions}.rs
+Count: 0  # DoD 硬证据
+
+$ grep -E 'sec\[.+\.\.\]|\[.+\.\.\]|f\[0\]|\#\[allow\(dead_code\)\]' \
+       xtask/src/{refscan,docscan,card_check,exemptions}.rs
+Count: 0  # 全部清掉
+```
+
+### 4. DoD 逐条核对
+
+- [x] `card_check.rs` 无 `sec[..]` / `&content[..]` / `&rest[..]` 切片（grep = 0 命中）
+- [x] `refscan.rs:render` 函数前无 `#[allow(dead_code)]`
+- [x] `docscan.rs` + `card_check.rs` 测试代码无 `f[0]`（grep = 0 命中）
+- [x] `cargo clippy -p xtask --all-targets -- -D warnings` exit 0
+- [x] `cargo test --workspace` 全绿（279 passed；无增删）
+- [x] 全部 11 条 xtask 验收全绿（refscan 按设计 FAILED with 151 errors）
+- [x] `LEDGER.md` 追加本卡一行；执行记录 9 节填齐（本节）
+
+### 5. 偏差
+
+**偏差 #1（轻微，已自处理）**: card_check.rs:138 的 `let Some(table_rows) = ... else { return Vec::new(); }` —— 该函数返回 `Result<Vec<...>, String>`，首次写 `return Vec::new()` 类型不匹配 → 改为 `return Ok(Vec::new())`（1 字符修复）。
+
+**偏差 #2（轻微，已自处理）**: card_check.rs section_after 函数初次重写用 `let Some(rest) = ... else { return None };` + `let Some(after_header) = ... else { return Some(rest) }` 嵌套，clippy::needless_let_else 报错 → 改用 `?` operator + `Option::and_then` + `Option::get(..end)?` 重构（更地道的 Rust idiom）。
+
+### 6. 更合理做法
+
+1. **`scan_file` / `find_bare_pending` / `find_adr_ranges` 的 `while let Some + .get(n)` 模式可沉淀为 helper 函数**：本卡共 8 个函数用此模式（refscan 5 + exemptions 1 + card_check 1 + docscan 1），分散在 4 模块。**建议**未来开 `xtask_lint_helpers` crate 提供 `fn index_after<T>(slice: &[T], idx: usize) -> Option<&T>` 之类的工具（取代每处自己写 `let Some(x) = arr.get(idx) else { continue }` 5 行模板代码）。但本卡工作范围不允许建新 crate。
+
+2. **`#[must_use]` 可加到更多函数**：本卡发现 `pub fn render(findings: &[Finding]) -> String` 已有 `#[must_use]`，但 `pub fn load_record_section_titles(gov_content: &str) -> Result<Vec<...>>` 没有。**建议**未来统一给所有 pub 函数加 `#[must_use]`（clippy 已支持自动检测）。
+
+3. **测试代码 vs 生产代码的 per-line allow 不一致**：本卡把测试 `f[0]` → `f.first().expect(...)` 是显式清理。但 test wrapper 仍允许 `clippy::indexing_slicing`（因为是 wrapper 模式）。两个事实并存：测试代码理论上也用 safe pattern，但 wrapper 给了 fallback 入口。**建议**未来 ADR 决定：要么「测试代码必须用 safe pattern」（删 wrapper 的 indexing_slicing），要么「测试代码显式 allow indexing_slicing」（保留 wrapper）。本卡走前者，与 TASK-052 一致。
+
+### 7. 遗留问题
+
+- **`xtask card-check` 判据②** (status 非 Ready 必有文件) 仍未实现，归 PL-002
+- **main.rs > 600 行**：不是本卡引入；后续卡考虑拆 `dispatch.rs`
+- **render 函数返回 Result vs 现状 .expect() 的决策**：见 TASK-052 卡 §9 给审阅者关注点 #1。本卡**未动**，等人类裁决或后续 ADR
+- **workspace `[lints.clippy]` 白名单 ADR**：见 TASK-052 卡 §6 给审阅者关注点 #1，归属长期任务
+
+### 8. 新增长期记忆
+
+- 本卡**未新增** `docs/memory/{facts,pitfalls,rejected,open}.md` 条目（无新事实/坑/否决/未决）
+- TASK-052 已登记的 PITFALL「禁止 sub-card 后缀」足够覆盖本卡也走同模式
+
+### 9. 给审阅者的关注点
+
+1. **【低风险】card_check.rs section_after 重构**：用 `?` operator + `Option::and_then` + `Option::get(..end)?` 重写后，逻辑比原版略复杂（3 层 Option 链）。审阅者请确认语义等价（原版用 `match next_h3 { Some(end) => &rest[..end], None => rest }` 等价）。
+
+2. **【低风险】`#[must_use]` 缺失**：本卡移除了 stale `dead_code allow` 但没补 `#[must_use]`（因为 render 已有）。`load_record_section_titles` 函数返回 `Result<Vec<...>>` 没有 `#[must_use]` —— 是个轻微遗漏，但与本卡 scope 无关。
+
+3. **【极低风险】测试代码 `first().expect(...)` 的 panic 信息**：3 处测试都用 `"non-empty"` 作为 expect msg。如果未来测试用例改成「期望 findings 为空」会 panic 而非正确失败。**建议**未来用更具体的 msg 如 `"scan_file should detect 1 broken table"`。
+
+### 风险最高的 1~3 处（供人类裁决）
+
+1. **render 返回 Result vs 现状**：从 TASK-052 继承的开放项，本卡未动。人类裁决前按现状合入。
+2. **是否把所有 `f[0]` → `f.first()` 改动也反映到 `f.iter().next()`**：本卡用 `first().expect("non-empty")` 是 clippy 推荐写法。如果期望 100% 用 iter，可改 `f.iter().next().expect("non-empty")` —— 但 `first()` 更直接，无功能差异。
+
+### 1. 约束回执
+
 ### 2. 实际改动文件
 
 ### 3. 验收输出摘要

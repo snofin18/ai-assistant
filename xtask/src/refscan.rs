@@ -288,7 +288,6 @@ fn find_bare_pending(line: &str) -> Vec<String> {
 }
 
 /// 把 findings 转成 refscan.py 兼容的纯文本输出。
-#[allow(dead_code)]
 #[must_use]
 pub fn render(findings: &[Finding]) -> String {
     use std::fmt::Write as _;

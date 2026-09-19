@@ -113,10 +113,16 @@ pub fn load_canonical_divider(gov_content: &str) -> Result<String, String> {
         .find("```markdown\n")
         .ok_or_else(|| "gov §3.4 未找到 ```markdown 开始".to_string())?;
     let body_start = start + "```markdown\n".len();
-    let end_off = sec[body_start..]
+    let Some(after_body_start) = sec.get(body_start..) else {
+        return Err("gov §3.4 分界线 起点已越过文件末尾".to_string());
+    };
+    let end_off = after_body_start
         .find("```")
         .ok_or_else(|| "gov §3.4 分界线 ``` 未闭合".to_string())?;
-    Ok(sec[body_start..body_start + end_off].to_string())
+    let Some(inside) = sec.get(body_start..body_start + end_off) else {
+        return Err("gov §3.4 分界线 终点计算溢出".to_string());
+    };
+    Ok(inside.to_string())
 }
 
 /// 从 gov §3.4 现场读 9 节执行记录骨架的标题（第一列 = 编号，第二列 = 标题）。
@@ -129,7 +135,10 @@ pub fn load_record_section_titles(gov_content: &str) -> Result<Vec<(usize, Strin
         .ok_or_else(|| "9 节表头未找到".to_string())?;
     // Walk forward line by line until we exit the table (blank line or non-pipe line)
     let mut out = Vec::new();
-    for line in sec[table_start..].lines().skip(1) {
+    let Some(table_rows) = sec.get(table_start..) else {
+        return Ok(Vec::new());
+    };
+    for line in table_rows.lines().skip(1) {
         // skip the header line itself
         if line.starts_with("|---") {
             continue;
@@ -161,11 +170,13 @@ pub fn load_record_section_titles(gov_content: &str) -> Result<Vec<(usize, Strin
 
 fn section_after<'a>(content: &'a str, header: &str) -> Option<&'a str> {
     let idx = content.find(header)?;
-    let rest = &content[idx..];
-    let next_h3 = rest[header.len()..]
-        .find("\n### ")
-        .map(|o| o + header.len());
-    Some(next_h3.map_or(rest, |end| &rest[..end]))
+    let rest = content.get(idx..)?;
+    let after_header = rest.get(header.len()..);
+    let next_h3 = after_header.and_then(|s| s.find("\n### ").map(|o| o + header.len()));
+    Some(match next_h3 {
+        Some(end) => rest.get(..end)?,
+        None => rest,
+    })
 }
 
 /// 给定文件路径与内容，检测 4 条判据中的所有违规。
@@ -382,7 +393,7 @@ mod tests {
         let content = "# 阶段 1\n\n## 批次 A1\n\n### TASK-099 这是卡片正文颓\n";
         let f = scan_plans("plans/stage-x.md", content);
         assert_eq!(f.len(), 1);
-        assert_eq!(f[0].severity, Severity::Error);
+        assert_eq!(f.first().expect("non-empty").severity, Severity::Error);
     }
 
     #[test]

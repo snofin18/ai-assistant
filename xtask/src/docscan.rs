@@ -245,7 +245,7 @@ mod tests {
         let content = "| a | b | c |\n|---|---|---|\n| 1 | 2 |\n";
         let f = scan_broken_tables("x.md", content);
         assert_eq!(f.len(), 1);
-        assert_eq!(f[0].line, 3);
+        assert_eq!(f.first().expect("non-empty").line, 3);
     }
 
     #[test]
@@ -260,7 +260,7 @@ mod tests {
         let content = "hello\n---\n";
         let f = scan_setext_risk("x.md", content);
         assert_eq!(f.len(), 1);
-        assert_eq!(f[0].line, 2);
+        assert_eq!(f.first().expect("non-empty").line, 2);
     }
 
     #[test]
