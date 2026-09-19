@@ -123,6 +123,15 @@ CI 硬门禁 #12b（`doc-consistency`）下统一跑过。
 
 ### 历史小节（按时间倒序）
 
+- **2026-09-19 TASK-054**（xtask render() 返回 Result — 消除 per-line allow）:
+  - `pub fn render(findings: &[Finding]) -> String` → `pub fn render(findings: &[Finding]) -> Result<String, std::fmt::Error>`
+  - 删除 `#[allow(clippy::unwrap_used, clippy::expect_used)]` per-line allow（TASK-052 遗留）
+  - `writeln!(..).expect("...")` → `writeln!(..)?` + `.map_err(|e| e.to_string())?` 在 `run()` 中
+  - 行为不变（writeln! to String 永不失败；Result 类型强制 caller 处理 = 编译期保证）
+- **2026-09-19 TASK-053**（xtask lint cleanup pass 2 — TASK-052 遗留 5 处 str[Range] + 1 处 stale dead_code + 3 处 test f[0]）:
+  - card_check.rs 5 处 str[Range] → 全替换为 `.get(range)` + `?` operator 重构
+  - refscan.rs:290 stale `#[allow(dead_code)]` 删除（render 已被 run() 调用）
+  - docscan/card_check 测试代码 `f[0]` → `f.first().expect("non-empty")`（3 处）
 - **2026-09-19 TASK-051 / TASK-052**（xtask 护栏升级 + 纯重构）：
   - TASK-051 cherry-pick 悬空 commit `10f78db` 收回 → 4 子命令可执行 + ADR-0034 注册
   - TASK-052 人类裁决 B 路（漂移不可忍受）= 纯重构 = 4 模块顶部 `#![allow(...)` 块全清

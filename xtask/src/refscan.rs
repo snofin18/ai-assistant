@@ -73,7 +73,7 @@ pub fn run(repo_root: &std::path::Path, output: &mut dyn std::io::Write) -> Resu
     // 逐 finding 输出（铁律 ①「无静默失败」：仅 counts = 「看着像在跑」的伪完成）
     if !findings.is_empty() {
         output
-            .write_all(render(&findings).as_bytes())
+            .write_all(render(&findings).map_err(|e| e.to_string())?.as_bytes())
             .map_err(|e| e.to_string())?;
     }
 
@@ -288,15 +288,14 @@ fn find_bare_pending(line: &str) -> Vec<String> {
 }
 
 /// 把 findings 转成 refscan.py 兼容的纯文本输出。
-#[must_use]
-pub fn render(findings: &[Finding]) -> String {
+///
+/// 返回 `Result` 取代之前的 `String`：writeln! 到 String 仅在 OOM 时失败（进程级崩溃
+/// 由 OS 处理），错误类型 `std::fmt::Error` 直接上抛到 `run()` 的 `Result<u8, String>`。
+/// 本卡（TASK-054）消除了 TASK-052 留下的 per-line `#[allow(clippy::unwrap_used, ...)]`。
+pub fn render(findings: &[Finding]) -> Result<String, std::fmt::Error> {
     use std::fmt::Write as _;
     let mut out = String::new();
     for f in findings {
-        // writeln! to String only fails on OOM (process-level crash, OS handles it).
-        // .unwrap() is safe here per AGENTS.md 铁律 ① (no `let _ =` 丢弃 Result).
-        #[allow(clippy::unwrap_used, clippy::expect_used)]
-        // writeln! to String only fails on OOM (process-level crash); tests cover the write path.
         writeln!(
             out,
             "{} {}:{} {}",
@@ -304,10 +303,9 @@ pub fn render(findings: &[Finding]) -> String {
             f.path,
             f.line,
             extract_message_payload(&f.message),
-        )
-        .expect("writeln! to String only fails on OOM");
+        )?;
     }
-    out
+    Ok(out)
 }
 
 fn short_rule(rule: &str) -> &str {
