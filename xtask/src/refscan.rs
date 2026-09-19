@@ -21,9 +21,10 @@
 //! 2. 豁免匹配：对每个 (rule, path, line) 三元组，先查豁免清单；命中 = 跳过。
 //! 3. 扫到 0 个文件必须显式告警（与 main.rs 的 hygiene 不变量 4 同理）。
 
-// TASK-015 升级 WIP（stash 取回）：多 lint 待修；本次以编译通过为优先，下一轮再清。
+// 注释：本文件（refscan）保留原 40-lint 模块级 `#![allow(...)]` 块（cherry-pick 自带的 WIP 状态）；
+// 其余 3 个新模块（docscan / card_check / exemptions）已**收窄**为单 lint `#![allow(clippy::indexing_slicing)]`。
+// 收窄理由 + 完整路径（TASK-052 接管 workspace ADR）详见 tasks/TASK-051-...md §5 偏差 #1 + §9 [N1]。
 #![allow(
-    clippy::needless_pass_by_value,
     clippy::needless_lifetimes,
     clippy::missing_panics_doc,
     clippy::unused_self,

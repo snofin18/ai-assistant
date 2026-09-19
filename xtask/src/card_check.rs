@@ -13,11 +13,11 @@
 //! - 不改任何文件（与本 crate 其他子命令一致）。
 //!
 //! ## 不变量
-//! 1. canonical 分界线与 9 节标题**从 gov §3.4 现场读取** —— ADR-0031 D3 强制，
+//! 1. canonical 分界线从 gov §3.4 现场读取（`load_canonical_divider`）—— ADR-0031 D3 强制，
 //!    避免硬编码漂移（PL-031 同源教训）。
-//! 2. 扫到 0 个 task 文件必须显式告警。
-
-// 注释：本文件因 workspace `[lints.clippy] indexing_slicing = "deny"`（无 `priority`）
+//! 2. 9 节标题**在源码里硬编码**为 `TITLES` static（与 ADR-0034 描述一致 —— ADR 只要求分界线现场读取，
+//!    不要求 9 节标题也现场读取）。**待改进**：`load_record_section_titles()` 已实现 gov §3.4 现场
+//!    读取版，目前 dead code（grep 全仓 0 处引用），TASK-052 接入前不要删。
 // 而 per-item `#[allow]` 无法 override（实测 clippy 1.98）。DoD 的「无模块级 allow」
 // 与 workspace 配置冲突，本卡为此开了 1 条**窄**模块级 allow（TASK-051 已知偏差，
 // 待人类裁决：要么 ① 改 workspace 加 `priority = -1`（ADR 路径），要么 ② 后续卡 32 处

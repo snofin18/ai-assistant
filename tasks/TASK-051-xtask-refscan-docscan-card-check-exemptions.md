@@ -146,16 +146,15 @@ refscan 报 150 个 errors 是真实发现（裸 ADR 待建引用 + .ps1 非 ASC
 
 ### 5. 偏差
 
-**偏差 #1（重大，建议人类裁决）：4 个新模块顶部 `lint allow` 模块级块未清干净**
 
-- **计划**：DoD 明记「4 个新模块顶部**无**模块级 `lint allow`」；本卡应清掉原 10f78db 留下的 `#![allow(clippy::needless_pass_by_value, ..., clippy::indexing_slicing, ...)]` 40-lint 块（**遗留 #1**）。
-- **实测**：workspace `[lints.clippy] indexing_slicing = "deny"` 无 `priority = -1`，**per-item / per-function `#[allow]` 均无法 override**（clippy 1.98 实测；详见执行记录正文对话）。清掉 40-lint 块会暴露 32 处 `indexing_slicing` 报错 + 其他 pedantic 报错，机械重构工作量超预估 ~2x（漂移触发器 ⑩）。
-- **实际处理**：**保留原 40-lint `#![allow(...)]` 块**，并手动修了 4 处可快速修的 lint（collapsible_if ×1、unused_peekable ×1、single_match → if let ×2）。
-- **两条后续路径**（任一可解）：
-  1. **改 workspace 配置（建议，漂移触发器 ⑥ → 走 ADR）**：在 `Cargo.toml` 的 `[workspace.lints.clippy]` 把 `indexing_slicing = "deny"` 改成 `indexing_slicing = { level = "deny", priority = -1 }`，per-item 就能 override。配合 TASK-052（XTASK 卡）做 32 处机械重构 = 完全清掉模块级块。
-  2. **未来卡 TASK-052 直接重构**：用 `.first()` / `.get(n).expect(...)` 全替换 32 处 indexing（`.expect()` 由 test wrapper 允许），并保留 `priority = -1` 设置以保留 per-item override 能力。
-- **本卡验收结果**：cargo clippy exit 0，所有 279 tests passed，llvm-cov 83.45%；仅是 DoD 中「4 个新模块顶部无模块级 lint allow」这一条**未达成**。**其余 DoD 全部达成**。
+**偏差 #1（重大，建议人类裁决）：4 个新模块顶部 `lint allow` 块状态不一致（Mode 2 review [N1] 抓到）
 
+- 实际状态：仅 **refscan.rs** 保留原 10f78db 的 40-lint `#![allow(...)]` 块（cherry-pick 自带的 WIP）；其余 3 模块（docscan / card_check / exemptions）已**收窄**为 `#![allow(clippy::indexing_slicing)]`（1 条窄 allow + 偏差注释解释原因）。本卡当时 git restore refscan.rs 后误以为 4 模块状态一致，故 commit 26afc43 message + 执行记录 §5 都写「4 模块保留 40-lint」—— 这是文档/实现漂移（sub-agent Mode 2 review [N1] 抓到，commit 26afc43 的 message 也连带失实）。
+- 本质根因：workspace `[lints.clippy] indexing_slicing = "deny"` 无 `priority = -1`，**per-item / per-function `#[allow]` 均无法 override**（clippy 1.98 实测）。清掉 40-lint 块会暴露 32 处 `indexing_slicing` 报错 + 其他 pedantic 报错，机械重构工作量超预估 ~2x（漂移触发器 ⑩）。
+- 两条后续路径（任一可解；新登记 PL-NEW 在 docs/PARKING_LOT.md）：
+  1. 改 workspace 配置（建议，漂移触发器 ⑥ → 走 ADR）：在 Cargo.toml 的 [workspace.lints.clippy] 把 indexing_slicing = "deny" 改成 indexing_slicing = { level = "deny", priority = -1 }，per-item 就能 override。配合 TASK-052（XTASK 卡）做 32 处机械重构 = 完全清掉 refscan.rs 40-lint 块。
+  2. 未来卡 TASK-052 直接重构：用 .first() / .get(n).expect(...) 全替换 32 处 indexing（.expect() 由 test wrapper 允许），并把 refscan.rs 也清掉 40-lint 块。
+- 本卡验收结果：cargo clippy exit 0，所有 279 tests passed，llvm-cov 83.45%；仅是 DoD 中「4 个新模块顶部无模块级 lint allow」这一条未达成（实际只有 refscan.rs 还保留 40-lint 块）。其余 DoD 全部达成。
 **偏差 #2（小，已自处理）：LEDGER.md / MEMORY.md / docs/adr/README.md / tasks/TASK-051-*.md 编辑后产生 UTF-8 BOM 与 CRLF**
 
 - **原因**：PowerShell 的 `Set-Content -Encoding utf8` 在 Windows 上写 BOM + CRLF。`.gitattributes` 的 `* text=auto eol=lf` 只在 git 内部管，working tree 不动。
