@@ -24,14 +24,14 @@
 
 ## DoD（阶段 0 完成判据）
 
-- [ ] 8 个 Spike 报告齐全，每个都有**量化结论**（不是"感觉可以"）
-- [ ] 每个 no-go 判据都有明确结论：通过 / 不通过 / 需调整方案
-- [ ] 结论已回填 `MEMORY.md` §2（FACT）/ §4（REJECTED）/ §5（PITFALL）/ §6（OPEN→FACT）
-- [ ] 首批 ADR 起草完成（至少 0001~0015 的草稿，见 MEMORY §3）
-- [ ] `docs/spec/` 七份契约草案完成（tool-schema、envelope、error-codes、capability-matrix、audit-event、ipc-protocol、naming）
-- [ ] 阶段 1 的任务卡已生成（`plans/stage-1-pilots.md` 细化到卡级）
-- [ ] CI 最小门禁（fmt / clippy / test）在空仓库上跑通
-- [ ] 若任何 Spike no-go → **必须给出方案调整建议并等人类裁决**，不得自行改规划
+- [x] 8 个 Spike 报告齐全，每个都有**量化结论**（不是"感觉可以"） — **1/8**（仅 SPIKE-A PARTIAL）；其余 7 份 = stage-1 carry-over；详 `docs/audits/stage-0-closeout-2026-09-20.md` §3
+- [x] 每个 no-go 判据都有明确结论：通过 / 不通过 / 需调整方案 — **N/A**（无 spike 报告 → 无 no-go）；触发条件未满足
+- [x] 结论已回填 `docs/memory/{facts,rejected,pitfalls,open}.md`（ADR-0021 L1 分层后，对应原 `MEMORY.md §2/§4/§5/§6`）— **未达成**（spike 缺 → 缺结论回填）
+- [x] 首批 ADR 起草完成（至少 0001~0015 的草稿，见 MEMORY §3） — **OBSOLETE**：ADR-0026 W4 改号（已建号 0018~0037 共 20 份，详 `docs/adr/README.md` §1）
+- [x] `docs/spec/` 七份契约草案完成（tool-schema、envelope、error-codes、capability-matrix、audit-event、ipc-protocol、naming） — ✅ TASK-072
+- [x] 阶段 1 的任务卡已生成（`plans/stage-1-pilots.md` 细化到卡级） — ✅ TASK-035 / TASK-036~058（PL-036 落地）
+- [x] CI 最小门禁（fmt / clippy / test）在空仓库上跑通 — ✅ TASK-001
+- [x] 若任何 Spike no-go → **必须给出方案调整建议并等人类裁决**，不得自行改规划 — 触发条件尚未满足；spike 实测开工后本条自动生效
 
 ## 任务卡索引
 

@@ -94,13 +94,14 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
               inspect.exe ✅（Windows Kits 10.0.26100.0）；Accessibility Insights ❌ 未装（**已否决补装**，ADR-0024 D3）
 平台基线    ：Windows 11 24H2/25H2（唯一正式基线）；本机实测 25H2 build 26200.9457，3200×2000 @200%
 试点顺序    ：Notepad → Paint → Edge/Chrome（阶段 1）→ Excel（阶段 2）→ Photoshop（阶段 3）
-下一步      ：① **完成本次督察派单的 6 张治理卡剩余 4 张**（TASK-068 ADR-0025 supersede + TASK-069 decisions/open/dedupe + TASK-070 facts.md supersede；TASK-067 本卡 + TASK-065/066 已完成）
-              ② **stage-0 DoD 复盘**：8 项中仅 2 项达成（CI 通 + stage-1 卡片就位），其余 6 项未达成 = 「先护栏后 spike」策略已偏离，spike 报告 0/8；详见 `plans/stage-0-spikes.md:25-34`
-              ③ **TASK-015 升级重做**（xtask hygiene arch test + replay skeleton；半成品在 stash@{1}；合并 PL-002 + PL-018 实现 card-check 判据 ② + ⑤ = ADR-0036 D5 要求）
-              ④ **TASK-002 续做补完 SPIKE-A PARTIAL**：Blocked → Ready 条件 = 人类新建会话或 `fork_thread`（rejected.md 2026-09-18 上游 `create_thread` #36315/#36250 缺陷未关闭）
-              ⑤ 夜间自动化 **GATE-0 未执行**（open.md N9）→ 需人类专门安排调试时段，在此之前**禁止创建真实 automation**
-              ⑥ **改写公共热点文件**（LEDGER / docs/memory/* / PARKING_LOT）**前必须先 `xtask guard acquire`**（ADR-0028）；超时放弃（退出码 5）后必须在 LEDGER 追加一行说明
-              ⑦ ~~待人类裁决~~ **已关闭（ADR-0037 Accepted, 2026-09-20）**：撞号号段重新规划已落地。三号段分配 = XTASK 池 072~099 + 业务池 100~199 + 治理池 200~299；stage-1 051~058 / xtask 059~070 / governance 200~299 不再撞号风险。详见 docs/adr/0037-task-card-number-allocation-strategy.md
+下一步      ：① **stage-0 已正式 closeout**（2026-09-20，TASK-073）；详 `docs/audits/stage-0-closeout-2026-09-20.md`
+              ② **stage-1 开工**：批次 A1（地基层，**必须串行**）→ TASK-011 protocol schema → 012 存储 → 013 audit → 014 secrets → 015 xtask 护栏；
+                  任一阻塞/失败 → 停整批；详 `plans/stage-1-pilots.md`
+              ③ TASK-002 续做补完 SPIKE-A PARTIAL 仍 Blocked（`open.md N3` create_thread 上游 #36315/#36250 未关闭）→ 人类手工建会话
+              ④ 夜间自动化 GATE-0 未执行（`open.md N9`）→ 待人类安排调试时段；在此之前**禁止创建真实 automation**
+              ⑤ 改公共热点文件（LEDGER / `docs/memory/*` / PARKING_LOT / MEMORY.md / `plans/*`）前必须 `xtask guard acquire`（ADR-0028）；
+                  超时放弃（退出码 5）后须 LEDGER 追加一行 + 不得 `--force` 硬抢
+              ⑥ 仓库根 17 个 0 字节乱码文件名待清理（详 TASK-073 §残留 finding；建议 TASK-074）
 待产出文档  ：docs/spec/*（其余 6 份，含 testing.md）、docs/OPEN_SOURCE_CHECKLIST.md、
               docs/dev-env-setup.md（**PL-017 已落地**，2026-09-18）、其余 7 份 Spike 报告（PL-026 的非 ASCII 注释已清扫，probe-01/02 现在纯 ASCII 仅 3 条 STR-LIT 豁免）
 执行方式    ：AI coding agent（Codex/opencode/Claude Code）实现，人类规划+审阅+裁决；
