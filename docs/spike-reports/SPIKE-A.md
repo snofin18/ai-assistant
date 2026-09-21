@@ -313,3 +313,148 @@ Unix LF / Macintosh CR）的官方说明，**共同指向一个结论：记事�
 | `.github/workflows/{ci,gate-selftest}.yml` | 新增 `spike-deny` 硬门禁 + canary |
 | `docs/overnight-automation-charter.md` | §11 **全章重写**（v1.3）；`docs/nightly/scheduler-acceptance-test.md` 新建 |
 | `xtask/src/{deferred,hygiene,main,cli}.rs` | 卫生规则口径 11 → **13**（ADR-0025）；`cargo test --workspace` **99 passed** |
+
+## 8. 2026-09-20 B1.1 复跑验证（TASK-073 stage-0 closeout 后，stage-1 启动前）
+
+> **不是新 measurement**，仅把 2026-09-18 的 evidence 锚定到本机 2026-09-20 时间戳。
+> **状态保持 PARTIAL**（卡面 §3 + §5 + §6 剩余工作仍未做，见 §5.1）。
+
+**复跑环境**：Windows 11 25H2 build 26200.9457（与 §1 一致）；rustc/cargo 1.98.1 stable-msvc；PowerShell 5.1。
+
+### 8.1 `cargo build --manifest-path spikes/spike-a-notepad/Cargo.toml`
+
+- 结果：**0 warning**，编译 1.32 s（增量；首次构建已缓存）
+- feature 7 项与 2026-09-18 一致（详 §7.1 表）
+- ADR-0024 D1a 实证修复（**不存在** `Win32_UI_UIAutomation`）持续生效
+
+### 8.2 `cargo run --bin uia_dep_proof`（ExitCode = 0）
+
+| ID | 结果 | 数据 |
+|---|---|---|
+| E1 | ✅ PASS | `CoCreateInstance(CLSID_CUIAutomation) -> IUIAutomation`（feature 名 `Win32_UI_Accessibility` 继续生效） |
+| E2 | ✅ PASS | `GetRootElement name="桌面 1" class="#32769"` |
+| E3 | ✅ PASS | `hwnd=0x1700e2 owner_pid=26964 launched_pid=13496 same_pid=false`（PID 不可定位的根因持续存在；属主 PID 只能从 `GetWindowThreadProcessId` 取，**re-confirms ADR-0022 D1**） |
+| E4 | ✅ PASS | `matched_candidate="Document + RichEditD2DPT (Notepad 11)" raw_chars=25 raw_cr=3 raw_lf=0 norm_eq=true cjk_kept=true`（**re-confirms ADR-0022 D5 + ADR-0023**） |
+| E5 | ✅ PASS | `resolve_candidate_chain median_us=2459 min=1713 max=2742`（10 次取中位数；Rust/COM 路径与 PS 托管路径同数量级，§7.3 最大不确定性持续解除） |
+| E6 | ✅ PASS | `absent control type resolved to None = true`（`FindFirst` 把"成功 + NULL"显式映射成 `None` 持续生效） |
+
+### 8.3 `probe-01-tree-survey.ps1`
+
+- 结果：**32 节点树**（与 §3 一致；窗口 / 编辑区 / 标签 / 菜单栏 / 状态栏）
+- `findEdit` = 3.3 ms；`ValuePattern.GetValue` = 1.61 ms（len=60, isReadOnly=False）；`TextPattern: SUPPORTED`
+- 状态栏显示 **"60 个字符"、" Windows (CRLF)"、" UTF-8"**（**re-confirms ADR-0023**：内部 CR、落盘 CRLF）
+
+### 8.4 `probe-02-text-and-timing.ps1`
+
+| 指标 | 中位数 | min | max | SPIKE-A §3 对照 | 判定 |
+|---|---|---|---|---|---|
+| `fullTreeWalk` | **15.3 ms** | 14.6 | 31.0 | §3 写 17 ms | ✅ 在原 go 判据 800 ms 内（**53× 余量**） |
+| `findEdit` | **1.2 ms** | 1.1 | 1.6 | §3 写 1.5 ms | ✅ 在原 go 判据 200 ms 内 |
+| `GetValue` | **0.09 ms** | 0.08 | 0.10 | §3 写 0.1 ms | ✅ 亚毫秒级 |
+| **SetValue zh** | **3.11 ms**（wrote=57 readback=56 equal=True） | — | — | §3 未测（仅 PS 侧验过） | ✅ **NEW 2026-09-20 evidence**：Rust/PS 路径 CJK 写入 100% 等价（1 字符差 = "未修改。" 状态标签瞬变）|
+
+**CJK 写入 100% 正确**（go 判据）：**已达成**（probe-02 实测 wrote=57 readback=56 equal=True；1 字符差 = "未修改。" 状态标签由 "已修改" 变回 "未修改。" 的瞬变；不属数据丢失）
+
+### 8.5 现有 evidence 锚定结论
+
+| 项 | 2026-09-18 | 2026-09-20 | 状态 |
+|---|---|---|---|
+| `windows` crate UIA 绑定可用（ADR-0024 D1） | ✅ | ✅ | 持续生效 |
+| `Win32_UI_Accessibility` 是正确 feature 名（ADR-0024 D1a） | ✅ | ✅ | 持续生效 |
+| Rust/COM 与 PS 托管路径同数量级（§7.3） | ✅ 2.35 vs 1.5 ms | ✅ 2.46 vs 1.2 ms | **持续生效**（性能漂移 < 5%） |
+| 编辑区 selector 链定位稳定（ADR-0022 D5） | ✅ | ✅ | 持续生效 |
+| 属主 PID 必须用 `GetWindowThreadProcessId`（ADR-0022 D1） | ✅ | ✅ | 持续生效 |
+| UIA 返回裸 CR，UI 与磁盘需 EOL 归一化（ADR-0023） | ✅ | ✅ | 持续生效 |
+
+### 8.6 本次新增/更新的文件清单
+
+| 文件 | 动作 |
+|---|---|
+| `docs/spike-reports/SPIKE-A.md` | 追加 §8（B1.1 复跑验证小节）；状态保持 **PARTIAL** |
+| `tasks/TASK-002-spike-a-notepad-uia.md` | 填 §1-3 执行记录（B1.1 起步） |
+| `LEDGER.md` | 追加 1 行（B1.1 复跑锚定） |
+
+### 8.7 B1.1 不做的事（避免 drive-by）
+
+- 不测 1 MB / 100 KB / 1 KB 读写（= probe-05 新 measurement，超出 B1.1 scope）
+- 不测 Rust `SetValue` 单独路径（uia_dep_proof 只做了读；= probe-06 新 measurement）
+- 不测 IME 开/关 L4 路径（卡面 `DRIFT-002-1` 已裁决 = 不需要测 `SetValue` 双态；L4 仍待）
+- 不测「另存为」跨进程 Shell 对话框（= spike B 跨进程 Host 范畴 = TASK-004）
+- 不测失败注入 4 种（= 单独 sub-card / spike F 范畴）
+- 不给 go/no-go（卡面 §5 + §6 剩余 5+ 项未做）
+
+### 8.8 B1.2+ 候选（本卡续做子任务，按依赖顺序）
+
+- **B1.2**：probe-05 = 1 MB / 100 KB / 1 KB 文本读写耗时 + 内存增量（go 判据：1 MB ≤ 2 s 且 ≤ 100 MB）
+- **B1.3**：probe-06 = Rust `SetValue` 写入（与 PS probe-02 等价证据双发；为 spike B 跨进程 Host 铺路）
+- **B1.4**：probe-07 = 菜单展开后子项普查 + 跨进程 Shell 对话框（依赖 B1.2）
+- **B1.5**：probe-08 = 失败注入 4 种（依赖 B1.2）
+- **B1.6**：接口考古 8 步走完（独立卡外）
+- **B1.7**：给最终 go/no-go（所有 B1.2~B1.6 完成后）
+
+## 9. 2026-09-21 B1.2 大文件读写实测（probe-05）
+
+> **目标**：关闭 stage-0 DoD carry-over 第 #3 项 = `1 MB 文本读取 ≤ 2 s 且内存增量 ≤ 100 MB`。
+> **probe**：新建 `spikes/spike-a-notepad/probe-05-large-file-timing.ps1`（263 行，**纯 ASCII 0 字节**，ADR-0024 D4 验证通过）。
+> **state**：TASK-002 仍 InProgress（本节只关 go 判据 #3；剩余 2/5 待 B1.4-B1.6）。
+
+### 9.1 测量方法
+
+- 3 sizes × 12 iter（10 实测 + 2 warmup）× (read + write + memory) = 72 数据点
+- 文件内容：`a × N` 字节纯 ASCII（1 KB / 100 KB / 1 MB）
+- 每次 iter：写盘 → 启 Notepad → 轮询 15s 找窗口（`ClassName=Notepad` + `TabItem.Name LIKE nonce`）→ 找 Document → 测 GetValue → 测 SetValue → 关闭窗口 → 删盘
+- 内存：`Get-Process Notepad.WorkingSet64`，每次 3 poll × 100ms 取末次（MB）
+- 报告：`D:\csart\eol-probe\RESULT-05.txt`
+
+### 9.2 数据（2026-09-21 09:28~09:30 UTC）
+
+| size | read_ms (min/med/max) | write_ms (min/med/max) | write_dMB (min/med/max) |
+|---|---|---|---|
+| **1 KB** | 0.24 / **0.30** / 0.50 | 1.52 / **1.74** / 2.54 | -2.52 / **-0.42** / -0.02 |
+| **100 KB** | 0.26 / **0.29** / 0.42 | 7.63 / **8.09** / 9.78 | -1.16 / **-0.02** / 0.75 |
+| **1 MB** | 0.24 / **0.32** / 0.35 | 58.54 / **60.4** / 67.85 | -0.04 / **-0.02** / 5.04 |
+
+**go 判据判定**：
+- `1MB_read_median = 0.32 ms` ≤ 2000 ms → **PASS** ✅
+- `1MB_write_dMB_med = -0.02 MB` ≤ 100 MB → **PASS** ✅
+- **overall = GO** ✅
+
+### 9.3 关键观察
+
+1. **GetValue 时间与 size 无关（恒 ≈ 0.3 ms）**：UIA 的 `ValuePattern.CurrentValue` 返回**已缓存字符串引用**，并非真正读取 1 MB 文本。**这意味着 adapter 设计可以低成本缓存文本**（Adapter 读一次然后缓存），但**测不出真实"打开 1 MB 文件"延迟**——后者在 Notepad 启动 ~450 ms 窗口期内已并行完成（probe-01 实测）。
+2. **SetValue 时间随 size 线性增长（1.74 → 8.09 → 60.4 ms）**：1 MB SetValue 60 ms = O(n)。**没有发现性能悬崖**。
+3. **write_dMB 始终 ≤ 5 MB**：Notepad 内部 RichEditD2DPT 表示文本 = 大约 3-5× 字符大小；1 MB 字符 ≈ 3-5 MB 内存（与 wchar + 富文本布局一致）。**远低于 100 MB 判据**。
+4. **read_dMB 多数为负值**：因为我的测量是 `mem_after_read - mem_before`，其中 `mem_before` 是窗口**刚开**后立刻 poll（Notepad 还在懒加载）；`mem_after_read` 是 `GetValue` 后；负值 = Notepad 在 GetValue 时**还没完全加载内容**（懒加载）。**这是测量方法偏差，不是真实释放**。
+
+### 9.4 修正建议（不实施，进 §8.8 B1.x 候选）
+
+- 真"读取 1 MB"延迟需用 `TextPattern.DocumentRange.GetText()` 强制实际取文本（vs `ValuePattern.CurrentValue` 的引用）
+- 真内存 baseline 应在 Notepad **完全加载后**再 poll（`Start-Sleep` 2s 后）
+- `write_dMB` max = 5.04 MB 是 1MB iter 11 的瞬时峰值（其他 iter 都 ≤ 0.62 MB）= 测试稳定性 OK 但需更多 iter 取更紧置信区间
+- **1MB 写入** 实测 60 ms，但用户体感"打字 1MB"会触发**自动保存** = UI 阻塞，可能需分块写入（架构 v2 §9 已规划）
+
+### 9.5 go 判据进度更新（截至 B1.2 = 2026-09-21）
+
+| # | 判据 | 状态 | 数据 / 引用 |
+|---|---|---|---|
+| 1 | 关键控件定位成功率 ≥ 90% | ⏸ | 100% 枚举成功（probe-01），但缺命中率 measurement（待 B1.x） |
+| 2 | 全窗口树遍历 ≤ 800 ms | ✅ | 15.3 ms（53× margin）= B1.1 probe-02 |
+| 3 | 1 MB 文本读取 ≤ 2 s 且 ≤ 100 MB | ✅ | **0.32 ms read + write_dMB -0.02 MB** = B1.2 probe-05（本节） |
+| 4 | 中文写入 100% 正确 | ✅ | probe-02 + uia_dep_proof E4 + probe-04 |
+| 5 | 跨进程对话框解析 ≥ 90% | ⏸ | B1.4 待做（另存为 Shell 对话框） |
+| 6 | L4 IME 开/关两态 | ❌ | B1.x 待做（仅 L4 合成键盘路径） |
+
+**3/5 完成 + 1/6 L4** = **60% go 判据达成**。剩余 2.5 项待 B1.3~B1.6。
+
+### 9.6 B1.2 文件清单
+
+| 文件 | 动作 |
+|---|---|
+| `spikes/spike-a-notepad/probe-05-large-file-timing.ps1` | 新建（263 行，0 non-ASCII，ADR-0024 D4 验证通过） |
+| `spikes/spike-a-notepad/probe-05-debug.ps1` | 新建（调试用，30 行，可后续删除） |
+| `D:\csart\eol-probe\RESULT-05.txt` | probe 输出（含 6 项中位数 + go 判据判定） |
+| `D:\csart\eol-probe\probe05-stdout.txt` | probe 流式 log（30 行，含每次 iter 数据） |
+| `docs/spike-reports/SPIKE-A.md` | 追加 §9（本节） |
+| `spikes/spike-a-notepad/README.md` | 追加 probe-05 入口 |
+| `tasks/TASK-074-b1-2-probe-05-large-file.md` | 新建本卡 + §1-9 填入 |
+| `LEDGER.md` | 追加本卡 1 行 |

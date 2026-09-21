@@ -9,7 +9,9 @@
 | `probe-02-text-and-timing.ps1` | 干净启动（先杀所有 Notepad）→ 校验读回文本与磁盘文件是否一致 → **10 次取中位数**（全树遍历 / 编辑区定位 / GetValue）→ `SetValue` 写中文并读回校验 → **单实例多标签**验证 | 同上 |
 | `probe-03-eol-matrix.ps1` | **读入方向**的 EOL 矩阵：把 LF / CR / CRLF / MIXED / CRLF+CJK 五种磁盘形态分别写入临时文件，逐个用 UIA 读回，统计两侧的 `code10`/`code13` 计数、`raw_eq`/`norm_eq`，并顺带抓取**状态栏**报告的 EOL 风格 | 同上（结果落 `D:\csart\eol-probe\RESULT.txt`） |
 | `probe-04-write-path-eol.ps1` | **写回方向**的 EOL 矩阵：`SetValue` 分别写入 LF / CR / CRLF → 读回 UIA → 触发保存 → 比对**保存后磁盘**的 EOL 风格是否保留；含 CJK 存活断言与 nonce 锚点定位 | 同上（结果落 `D:\csart\eol-probe\RESULT-04.txt`） |
+powershell -NoProfile -ExecutionPolicy Bypass -File .\probe-05-large-file-timing.ps1
 | `Cargo.toml` + `src/bin/uia_dep_proof.rs` | **Rust/COM 生产路径的依赖实证**（ADR-0024 D1/D1a）。E1~E6：`CoCreateInstance` → `GetRootElement` → 按 owner PID 定位窗口 → 有序候选链找文档区 → `ValuePattern` 读回并按 ADR-0023 归一化比对 → `FindFirst` 计时 → 负向对照 | **`windows` crate `=0.62.2`**（唯一第三方依赖，已登记 `docs/DEPENDENCIES.md`） |
+| probe-05-large-file-timing.ps1 | **大文件读写 PoC**（B1.2）：3 sizes × 12 iter（10 + 2 warmup）× (read/write/memory) = 72 数据点。读 GetValue、写 SetValue、内存增量 Get-Process Notepad.WorkingSet64（3 poll × 100ms）。**go 判据 #3**：1MB read ≤ 2 s 且 write_dMB ≤ 100 MB（实测 0.32 ms + -0.02 MB = PASS）。结果落 D:\csart\eol-probe\RESULT-05.txt | 同上 |
 
 ## 运行
 

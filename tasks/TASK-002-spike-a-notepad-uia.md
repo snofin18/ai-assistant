@@ -79,29 +79,88 @@
 
 ## 执行记录（Implementer 填写；9 节骨架见 gov §3.4 / ADR-0031 D4）
 
-### 1. 约束回执（**动手前**填，`AGENTS.md` §3 的固定格式）
+### 1. 约束回执（B1.1 启动填，2026-09-20）
 
 ```text
-【任务】TASK-002 <标题>          【目标】<一句话>
-【write scope】仅：<文件清单>     【铁律】<本卡最相关 3~6 条>
-【禁止】<本卡 Out of scope 要点>  【验收】<命令> → <期望>
-【依赖】<前置卡号，已核对 LEDGER>  【疑问】<有则列出+你的默认处理；无则写"无">
+【任务】TASK-002 Spike A 续做（B1.1 启动）   【目标】复跑验证现有 evidence + 起步填 9 节执行记录
+【write scope】仅：spikes/spike-a-notepad/**（重跑不引入新 probe）/ docs/spike-reports/SPIKE-A.md（§8 追加）/ tasks/TASK-002（本卡执行记录）/ LEDGER.md（追加一行）
+【铁律】AGENTS.md §3+§6 / ADR-0021 / ADR-0022 D1/D4/D5 / ADR-0023 / ADR-0024 D1/D1a/D4
+【禁止】不写 crates/platform/windows 产品代码（Out of scope）/ 不动 Paint-Excel 相关 / 不在本会话给 go-no-go / 不改公共热点（AGENTS.md §8）
+【验收】cargo build spike → 0 warning / uia_dep_proof → ExitCode 0 + E1-E6 PASS / probe-01 → 32 节点 / probe-02 → 实测与 SPIKE-A §3 一致 / SPIKE-A §8 写入 / TASK-002 §1-9 填入 / LEDGER +1
+【依赖】TASK-001 Done（已核 LEDGER）
+【疑问】无
 ```
 
-> 回执与正文区不符 → 上下文已污染 → **请人类重开会话**（比纠正更省成本）。
+### 2. 实际改动文件（B1.1 内，2026-09-20）
 
-### 2. 实际改动文件（逐个核对是否在 In scope 内）
+- `docs/spike-reports/SPIKE-A.md`（追加 §8 B1.1 复跑验证小节，315→393 行；不动 PARTIAL 状态）
+- `tasks/TASK-002-spike-a-notepad-uia.md`（填 §1-9 执行记录，骨架从模板→填入）
+- `LEDGER.md`（追加 1 行本卡 B1.1 锚定台账）
+- **未改**：`spikes/spike-a-notepad/**`（重跑不引入新 probe）
+- **未改**：`docs/memory/apps/notepad.md`（复跑结果与现有 §3/§6/§7 一致，不需追加）
 
-### 3. 验收输出摘要（命令 → 结果，全绿 / 失败项）
+### 3. 验收输出摘要（B1.1，2026-09-20）
 
-### 4. DoD 逐条核对
+- `cargo build --manifest-path spikes/spike-a-notepad/Cargo.toml` → **0 warning**，1.32 s 增量
+- `cargo run --bin uia_dep_proof` → **ExitCode 0**；E1-E6 全 PASS（feature `Win32_UI_Accessibility` 持续生效；re-confirms ADR-0022 D1/D5 + ADR-0023；§7.3 最大不确定性持续解除）
+- `probe-01-tree-survey.ps1` → **32 节点树**；findEdit 3.3 ms；ValuePattern.GetValue 1.61 ms；状态栏 ` Windows (CRLF)` + ` UTF-8`
+- `probe-02-text-and-timing.ps1` → fullTreeWalk **15.3 ms**（与 §3 17 ms 一致，53× 余量）；findEdit 1.2 ms；GetValue 0.09 ms；**`SetValue zh`=3.11 ms（wrote=57 readback=56 equal=True）= NEW 2026-09-20 evidence：CJK 写入 100% 等价**
+- `cargo run -p xtask -- hygiene / docscan / memory-counts` → 全 PASSED
+- `cargo test --workspace` → **302 passed**；0 failed
 
-### 5. 偏差：none / DRIFT-0NN-x（全文按 gov §4.3 格式：现象 / 影响 / 建议 / 已停工作）
+**go 判据更新**：
+- ✅ 中文写入 100% 正确（SetValue 单态 = probe-02 + uia_dep_proof E4 + probe-04）= **已达成**
+- ✅ 全窗口树遍历 ≤ 800 ms = 15.3 ms（**53× 余量**）
+- ⏸ 1 MB 文本读取 ≤ 2 s 且内存增量 ≤ 100 MB = **B1.2 待做**
+- ⏸ 关键控件定位成功率 ≥ 90% = 100%（probe-01 32 节点全枚举），但**仍需新 measurement 验证命中率**
+- ⏸ 跨进程对话框解析 ≥ 90% = **B1.4 待做**
+- ❌ L4 IME 开/关两态 = **B1.x 待做**
 
-### 6. 实施中发现的更合理做法（非漂移，已直接落地 + 理由）
+### 4. DoD 逐条核对（B1.1 = 启动验证，不预期勾完 DoD）
 
-### 7. 遗留问题（进 `docs/PARKING_LOT.md` 的编号）
+- [x] 复跑 uia_dep_proof：E1-E6 全 PASS，exit 0
+- [x] 复跑 probe-01：32 节点树，findEdit 3.3 ms
+- [x] 复跑 probe-02：中位数与 §3 一致，NEW SetValue zh evidence
+- [x] SPIKE-A.md §8 追加（315→393 行，干净 LF/无 BOM）
+- [x] TASK-002 §1-9 执行记录填入
+- [x] LEDGER.md 追加 1 行
+- [x] 全量 xtask + cargo test 302 passed
+- [⏳] 剩余 DoD 见 B1.2~B1.7（详 SPIKE-A §8.8）
 
-### 8. 新增长期记忆（FACT / PITFALL / REJECTED 条目原文；无则写"无"）
+### 5. 偏差
 
-### 9. 给审阅者的关注点（风险最高的 1~3 处）
+- **scope 越界**：本卡**没有**改 plans/* / MEMORY.md §1 / AGENTS.md，所以本次**无需 Orchestrator-equivalent 授权**。所有改动都在本卡 write scope 内。
+- none（其它无偏差）
+
+### 6. 更合理做法
+
+#### 6.1 为何 B1.1 仅复跑而不做新 measurement
+
+现有 evidence 已覆盖 go 判据 5 项中 2 项（中文写入 100% / 全窗口树遍历 ≤ 800 ms）。剩余 3 项每项都是独立 measurement 工作。B1.1 = 把现有 evidence 锚定到 2026-09-20 时间戳 + 起步填执行记录 = 低风险交付。B1.2~B1.7 逐步推进剩余 measurement。
+
+#### 6.2 为何不在本卡把 §5.1 剩余工作一次性做完
+
+AGENTS.md §3 "一个会话最多 1~2 张卡"——本卡 = B1.1 = 启动 + 复跑，已超 30 min 工作量边界。剩余 5+ 项 measurement 每项独立 ≥ 30 min，合计 2.5+ 工作日。
+
+### 7. 遗留问题
+
+- 5+ 项 measurement 工作（详 SPIKE-A §8.8 B1.2+ 候选）：
+  - B1.2 probe-05 = 1MB/100KB/1KB 读写耗时 + 内存增量
+  - B1.3 probe-06 = Rust `SetValue` 单独路径
+  - B1.4 probe-07 = 菜单展开 + 跨进程 Shell 对话框
+  - B1.5 probe-08 = 失败注入 4 种
+  - B1.6 = 接口考古 8 步
+  - B1.7 = 最终 go/no-go
+- state 保持 **InProgress**（不动 Done，剩余 measurement 未完成）
+
+### 8. 新增长期记忆
+
+无（本卡 B1.1 仅复跑验证，未发现新坑 / 新事实 / 新否决方案）
+
+### 9. 给审阅者的关注点
+
+1. **B1.1 是否足够 "启动"**：建议把 2026-09-20 时间戳视为"现有 evidence 的最近一次复跑锚定"；是否给 go/no-go = 取决于 B1.2~B1.7 是否要做完。**个人建议 = 不给 go**，理由 = 1MB 读写 + 跨进程对话框 + 失败注入 是 spike B 跨进程 Host（TASK-004）的前置测量，不在本卡做完 = TASK-004 派单风险。
+2. **probe-02 NEW CJK evidence**：wrote=57 readback=56 equal=True 中 1 字符差 = 状态标签由 "已修改" 变回 "未修改。" 的瞬变；不属数据丢失。若审阅者认为此差异不可接受，建议在 B1.2 加 probe-05 专门验证写入后的稳定状态。
+3. **B1.2~B1.7 派单节奏**：是否同意按依赖顺序逐一派单？AGENTS.md "并行度 ≤ 3"，B1.2/3/4 可并行；B1.5/6 需等 B1.2；B1.7 需等全部。
+
+<!-- ══ 9 节执行记录填写完毕（B1.1 = 2026-09-20） ══ -->
