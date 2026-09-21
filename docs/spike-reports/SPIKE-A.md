@@ -458,3 +458,121 @@ Unix LF / Macintosh CR）的官方说明，**共同指向一个结论：记事�
 | `spikes/spike-a-notepad/README.md` | 追加 probe-05 入口 |
 | `tasks/TASK-074-b1-2-probe-05-large-file.md` | 新建本卡 + §1-9 填入 |
 | `LEDGER.md` | 追加本卡 1 行 |
+
+## 10. 2026-09-21 B1.4 跨进程 Shell 对话框 实证 + 重大架构发现
+
+> **目标**：关闭 stage-0 DoD carry-over #5 = 跨进程对话框解析 ≥ 90%。
+> **状态**：**Blocked**（PowerShell UIA1 无法测 Win11 25H2 modern Notepad 的 in-window WinUI3 FileExplorer-like panel）。
+> **重大发现**（critical for stage-1 Adapter 设计）：
+> **Win11 25H2 modern Notepad 的"另存为"不再是跨进程 dialog，而是 in-window WinUI3 FileExplorer-like panel**（+89 descendants 在 Notepad 窗口内）。
+
+### 10.1 probe-07 设计
+
+- NEW `spikes/spike-a-notepad/probe-07-cross-process-dialog.ps1`（393 行，**0 non-ASCII** ADR-0024 D4 PASSED）
+- 5 项指标：dialog_found / edit_access / set_filename / save_clicked / file_on_disk
+- 12 iter（10 + 2 warmup）× 5 指标 = 60 数据点
+- 结果落 `D:\csart\eol-probe\RESULT-07.txt`（**未生成**——probe 在 iter 1 即发现架构问题，未达统计阶段）
+
+### 10.2 实证记录（2026-09-21 09:57~ 本机）
+
+**步骤 1**：用 menu InvokePattern 触发"File > 另存为"——**成功**（probe log `[09:57:33] [iter 1] invoked File > SaveAs`）。
+
+**步骤 2**：枚举所有顶层窗口 —— **没有新窗口出现**。
+```
+name='Shell_TrayWnd'                (system tray)
+name='probe07dbg.txt - Notepad'    (existing Notepad)
+name='ChatGPT'                     (other apps)
+name='eol-probe - 文件资源管理器'    (file explorer)
+# ... 没有任何新的 SaveAs 顶层 dialog ...
+```
+
+**步骤 3**：枚举 Notepad 窗口内的 descendants —— **+89 新元素**（31 → 120）。
+```
+before Save As: 31 descendants in Notepad
+after  Save As: 120 descendants in Notepad (delta 89)
+
+top AutomationIds after Save As:
+  : 31            (unnamed)
+  System.Size: 8         (file list column)
+  System.ItemNameDisplay: 8  (file list column 名称)
+  System.DateModified: 8  (file list column 修改日期)
+  System.ItemTypeText: 8  (file list column 类型)
+  ContentTextBlock: 6
+  DropDown: 4              (筛选器下拉列表)
+  SaveDialogLabel: 2       ← 关键：AID 包含 "SaveDialog"
+  AddButton: 1             (原 Tab UI)
+  CloseButton: 1
+  SearchEditBox: 1         (搜索框)
+  FREButton: 1             (最近更新)
+  SettingsButton: 1        (设置)
+  HelpButton: 1            (帮助)
+  SplitMenuButton: 1       (视图滑块)
+```
+
+**关键元素**：SaveDialogLabel AID 出现 2 次 → **证实是 in-window Save Dialog 面板**（不是跨进程 dialog）。
+
+### 10.3 重大架构发现（critical for v2 §3.2 + stage-1 Adapter）
+
+**v2 架构原假设**（§3.2 element 不跨进程）：
+- Adapter 调用 → 触发另存为 → Explorer.exe 子进程弹出 dialog → UIA 跨进程枚举窗口 → 解析 dialog
+- 隐含假设：被控应用 = **Win32 desktop app**（如老版 Notepad、MS Office 老版）
+
+**新现实**（Win11 25H2 modern Notepad）：
+- Adapter 调用 → 触发另存为 → **同一 Notepad 进程** in-window WinUI3 panel → UIA 同进程枚举 descendants → 解析 panel
+- 实际平台：被控应用 = **WinUI3 / UWP / modern packaged app**
+- 跨进程 dialog **不存在**（panel 完全 in-process）
+
+**对 stage-1 的影响**：
+- 原计划"Notepad Adapter"用"File > 另存为" 走跨进程 dialog → **Win11 25H2 上根本不存在该 dialog** = Adapter Save-As 路径必须重设计
+- v2 §3.2 "element 不跨进程"对 WinUI3 应用**不再成立**（= in-process panel 假设被打破）
+- **必须走 ADR**：明确"被控应用 = Win32 vs WinUI3/UWP"两类的 Adapter 边界差异
+
+### 10.4 测不到原因（PowerShell UIA1 局限）
+
+**实测可达成**：
+- menu Invoke 触发 File > 另存为 ✓（PowerShell UIA1 可达）
+- 枚举 Notepad 窗口内 descendants ✓（含 +89 新元素）
+- 识别 panel 存在 ✓（AutomationId `SaveDialogLabel`）
+
+**实测做不到**：
+- 在 in-window WinUI3 panel 内找 FileName 输入框（找不到 AID 标注的 Edit）
+- 在 panel 内找"Save"按钮（找到的都是 Filter / Search / Help / Recent 等辅助按钮）
+- SetValue / InvokePattern 对 panel 内部 WinUI3 控件工作
+
+**根因**：PowerShell UIA1 = `System.Windows.Automation`（旧版 COM API）
+- 对 WinUI3 / `Microsoft.UI.Xaml` 控件支持有限
+- 看不到 UIA3 (`IUIAutomationElement9`) 才能看到的 property conditions + control patterns
+
+**解决路径**（需要新工具）：
+- **Python `uiautomation` 包**（UIA3 + WinUI3 完整支持）= 推荐（轻量、脚本化）
+- **C# `FlaUI`**（UIA3 wrapper，需 .NET 8 + WinAppSDK）
+- **Windows Application Driver**（WinAppDriver，官方测试框架）
+
+### 10.5 go 判据修订建议
+
+原 go 判据 #5：**"跨进程对话框解析 ≥ 90%"**
+- Win11 25H2 modern Notepad 上**不可测**（= 跨进程 dialog 不存在）
+- 必须**修订为**："**in-window WinUI3 panel 可达性 ≥ 90%**" + "**panel 内关键控件（FileName 输入 + Save 按钮）可解析 ≥ 90%**"
+- 走 ADR 提议
+
+### 10.6 衔接与下一步
+
+- **下一会话（B1.4 重做）**：
+  1. 开 ADR task 提议 go 判据修订 + v2 §3.2 边界修订
+  2. 用 Python `uiautomation` 或 C# `FlaUI` 重写 probe-07 的 3 个 Find 函数（`Find-SaveAsDialog` / `Find-FilenameInput` / `Find-SaveButton`）
+  3. probe-07 的 5 项指标框架 + menu Invoke 触发**保留复用**
+- **probe-07 现状**：393 行可运行，menu Invoke 工作，**只差 panel 内部控件枚举的 UIA3 工具替换**
+- **状态**：本卡 Blocked；TASK-002 仍 InProgress（剩余 1.5/5 go 判据）
+
+### 10.7 文件清单
+
+| 文件 | 动作 |
+|---|---|
+| `spikes/spike-a-notepad/probe-07-cross-process-dialog.ps1` | 新建（393 行，0 non-ASCII，clean LF/无 BOM）|
+| `spikes/spike-a-notepad/README.md` | 追加 probe-07 入口 |
+| `docs/spike-reports/SPIKE-A.md` | 追加 §10（本节）|
+| `tasks/TASK-075-b1-4-probe-07-cross-process-dialog.md` | 新建本卡 + §1-9 填入 |
+| `LEDGER.md` | 追加本卡 1 行 |
+| `docs/memory/rejected.md` | 追加 1 条 REJECTED（PowerShell UIA1 测 WinUI3 panel）|
+| `docs/memory/facts.md` | 追加 1 条 FACT（Win11 25H2 in-window panel）|
+| `docs/memory/pitfalls.md` | 追加 1 条 PITFALL（spikes CJK [char] 构造）|
