@@ -245,8 +245,9 @@ for ($i = 0; $i -lt ($Iter + $Warmup); $i++) {
   $src = New-NonceFile -Dir $WorkDir -Tag 'src' -Content $sourceContent
   $srcPath = $src.Path
   $srcBaseName = $src.BaseName
-  # Use SAME filename as source = no rename = test Save As click WITHOUT set_filename
-  $tgtPath = $srcPath
+  $tgt = New-NonceFile -Dir $WorkDir -Tag 'tgt' -Content ''  # different filename = test rename
+  Remove-Item -Path $tgt.Path -Force -ErrorAction SilentlyContinue  # delete empty tgt file before save
+  $tgtPath = $tgt.Path
 
   try {
     Log "[iter $runId] launching notepad with $srcBaseName.txt"
@@ -312,10 +313,20 @@ for ($i = 0; $i -lt ($Iter + $Warmup); $i++) {
     }
     Log "[iter $runId] FileName edit found in ${eLat}ms, hwnd=$editHwnd"
 
-    # set_filename: KNOWN LIMITATION -- DirectUI Edit rejects Win32 WM_SETTEXT and UIA ValuePattern
-    # We mark it false in modern Win11 (documented in probe header)
-    if (-not $isWarmup) { $setFilename += $false }
-    Log "[iter $runId] set_filename: FALSE (DirectUI Edit subclass limit; documented in probe header)"
+    # set_filename: actually attempt Win32 WM_SETTEXT, then verify by file existence
+    $setSw = [System.Diagnostics.Stopwatch]::StartNew()
+    $wmSetOk = [W]::SendMessageW($editHwnd, $WM_SETTEXT, [IntPtr]::Zero, $tgt.FileName)
+    Start-Sleep -Milliseconds 200
+    # Empirical verification: did WM_SETTEXT actually take effect?
+    # (Cannot reliably read back via GetWindowText -- DirectUI may not update cached buffer)
+    # Instead, we will check after Save click whether the file with new name exists
+    $setSw.Stop()
+    $setLat = [math]::Round($setSw.Elapsed.TotalMilliseconds, 2)
+    if ($wmSetOk -ne 0) {
+      Log "[iter $runId] set_filename: WM_SETTEXT returned ok (verifying via file save...)"
+    } else {
+      Log "[iter $runId] set_filename: WM_SETTEXT returned 0 (likely failed)"
+    }
 
     # Click Save button via BM_CLICK
     $saveSw = [System.Diagnostics.Stopwatch]::StartNew()
@@ -335,16 +346,24 @@ for ($i = 0; $i -lt ($Iter + $Warmup); $i++) {
       if (-not $isWarmup) { $saveClicked += $false }
     }
 
-    # Verify file on disk (should still exist with our content)
+    # Empirical verification of set_filename: did the file get saved with the NEW name?
     Start-Sleep -Milliseconds 500
     if (Test-Path $tgtPath) {
       $diskContent = Get-Content -Path $tgtPath -Raw -Encoding UTF8
       $diskOk = ($diskContent -eq $sourceContent)
       if (-not $isWarmup) { $fileOnDisk += $diskOk }
-      Log "[iter $runId] file on disk: exists=$true content_match=$diskOk"
+      if (-not $isWarmup) { $setFilename += $diskOk }  # file with new name = rename worked
+      Log "[iter $runId] file_on_disk: tgt_path exists=$true content_match=$diskOk"
+      if ($diskOk) { Log "[iter $runId] set_filename: TRUE (file saved with new name=$($tgt.FileName))" }
+      else { Log "[iter $runId] set_filename: FALSE (file exists but content wrong)" }
     } else {
-      if (-not $isWarmup) { $fileOnDisk += $false }
-      Log "[iter $runId] file on disk: exists=$false"
+      # Check if original src was saved (dialog fell back to original name)
+      if (Test-Path $srcPath) {
+        Log "[iter $runId] file_on_disk: tgt_path NOT EXISTS; src_path saved (rename failed)"
+      } else {
+        Log "[iter $runId] file_on_disk: NEITHER tgt NOR src exists"
+      }
+      if (-not $isWarmup) { $fileOnDisk += $false; $setFilename += $false }
     }
   } catch {
     Log "[iter $runId] ERROR: $($_.Exception.Message)"
@@ -355,6 +374,7 @@ for ($i = 0; $i -lt ($Iter + $Warmup); $i++) {
       if (-not $_.HasExited) { Stop-Process -Id $_.Id -Force }
     }
     Remove-Item -Path $srcPath -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path $tgtPath -Force -ErrorAction SilentlyContinue
     Start-Sleep -Milliseconds 300
   }
 }
