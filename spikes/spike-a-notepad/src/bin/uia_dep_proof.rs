@@ -216,6 +216,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &format!("E6: {}  absent control type resolved to None = {e6_ok}", if e6_ok { "PASS" } else { "FAIL" }),
     );
 
+      // ---- E7: ValuePattern.SetValue round-trip on the Rust production path ---------
+      // (Per SPIKE-A B1.3: validate Rust/COM SetValue behavior vs PowerShell UIA1. CJK
+      //  test if SetValue preserves non-ASCII; empirical ground truth for Rust path.)
+      let vp: IUIAutomationValuePattern =
+          unsafe { hit.element.GetCurrentPatternAs(UIA_ValuePatternId) }?;
+      let e7_orig = unsafe { vp.CurrentValue() }.unwrap_or_else(|_| BSTR::new());
+      let e7_orig_str = bstr_to_string(e7_orig.clone());
+      let setValueText: &str = "B1.3 probe-06 SetValue test 测试文本";
+      let sw_e7 = Instant::now();
+      let e7_setRes: Result<(), windows::core::Error> = unsafe {
+          vp.SetValue(&BSTR::from(setValueText))
+      };
+      let e7_setMs = sw_e7.elapsed().as_millis();
+      let e7_roundtrip = unsafe { vp.CurrentValue() }.unwrap_or_else(|_| BSTR::new());
+      let e7_roundtrip_str = bstr_to_string(e7_roundtrip);
+      let e7_cjkKept = e7_roundtrip_str.contains('测');
+      let e7_ok = e7_setRes.is_ok()
+          && e7_roundtrip_str.contains("B1.3 probe-06")
+          && e7_cjkKept;
+      log(
+          &mut report,
+          &format!(
+              "E7: {}  SetValue ok={} ({} ms) roundtrip chars={} contains_cjk={}",
+              if e7_ok { "PASS" } else { "FAIL" },
+              e7_setRes.is_ok(),
+              e7_setMs,
+              e7_roundtrip_str.chars().count(),
+              e7_cjkKept
+          ),
+      );
+      // Restore original content
+      let _ = unsafe { vp.SetValue(&e7_orig) };
+
+
+
+
+
+
     let _ = std::fs::remove_file(&doc_path);
     log(&mut report, "note: temp document removed");
 
