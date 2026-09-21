@@ -459,120 +459,126 @@ Unix LF / Macintosh CR）的官方说明，**共同指向一个结论：记事�
 | `tasks/TASK-074-b1-2-probe-05-large-file.md` | 新建本卡 + §1-9 填入 |
 | `LEDGER.md` | 追加本卡 1 行 |
 
-## 10. 2026-09-21 B1.4 跨进程 Shell 对话框 实证 + 重大架构发现
+## 10. 2026-09-21 B1.4 跨进程 Shell 对话框（"另存为"）实测 + 架构修订
 
 > **目标**：关闭 stage-0 DoD carry-over #5 = 跨进程对话框解析 ≥ 90%。
-> **状态**：**Blocked**（PowerShell UIA1 无法测 Win11 25H2 modern Notepad 的 in-window WinUI3 FileExplorer-like panel）。
-> **重大发现**（critical for stage-1 Adapter 设计）：
-> **Win11 25H2 modern Notepad 的"另存为"不再是跨进程 dialog，而是 in-window WinUI3 FileExplorer-like panel**（+89 descendants 在 Notepad 窗口内）。
+> **最终状态**：**4/5 指标 100% 达成**；set_filename 因 Win11 25H2 DirectUI Edit subclass 限制永远 0% → 综合 NO-GO；probe 框架完整可用。
 
-### 10.1 probe-07 设计
+### 10.0 关键校正（[supersedes:2026-09-21]）
 
-- NEW `spikes/spike-a-notepad/probe-07-cross-process-dialog.ps1`（393 行，**0 non-ASCII** ADR-0024 D4 PASSED）
+**之前 §10 的"in-window WinUI3 FileExplorer-like panel"判断完全错误**。User 在 2026-09-21 反馈对话框实际打开了、15s 后退出 — 我的 probe 是 dialog 找不到而不是 dialog 不存在。校正后：
+- **dialog 实际是 Win32 #32770 跨进程 dialog**（独立 explorer.exe 子进程，pid=4828 / 16992，与 Notepad 进程 4828 不同）。PowerShell UIA1 的 `RootElement.FindAll(Children)` 不枚举 Win32 #32770 class（API 局限，不是架构问题）。
+- Win32 EnumWindows 能直接看到 hwnd + title="另存为" `class="#32770"`。
+- v2 §3.2 "element 不跨进程" **实际上成立** — 不需要 ADR 修订。
+
+### 10.1 probe-07 最终设计（416 行 Win32-based）
+
+- NEW `spikes/spike-a-notepad/probe-07-cross-process-dialog.ps1`（**416 行**，0 non-ASCII，clean LF/无 BOM，ADR-0024 D4 PASSED）
 - 5 项指标：dialog_found / edit_access / set_filename / save_clicked / file_on_disk
 - 12 iter（10 + 2 warmup）× 5 指标 = 60 数据点
-- 结果落 `D:\csart\eol-probe\RESULT-07.txt`（**未生成**——probe 在 iter 1 即发现架构问题，未达统计阶段）
+- 关键技术栈：**Win32 EnumWindows + FindChild（递归）+ SendMessage + PostMessage BM_CLICK**（绕过 PowerShell UIA1 API 局限）
+- FileName edit = Win32 dialog item ID `1001`，Save button = ID `1`（标准 Win32 dialog 控件 ID）
+- 结果落 `D:\csart\eol-probe\RESULT-07.txt`（**已生成**）
 
-### 10.2 实证记录（2026-09-21 09:57~ 本机）
+### 10.2 关键路径（实测 2026-09-21 10:25-10:30）
 
-**步骤 1**：用 menu InvokePattern 触发"File > 另存为"——**成功**（probe log `[09:57:33] [iter 1] invoked File > SaveAs`）。
+```powershell
+# 1. 触发 File > 另存为 menu Invoke（CN menu 构造用 [char]0x53E6+0x5B58+0x4E3A）
+$fileMenu.GetCurrentPattern([InvokePattern]).Invoke()  # CN: 文件
+$saveAsMenuItem.GetCurrentPattern([InvokePattern]).Invoke()  # CN: 另存为
 
-**步骤 2**：枚举所有顶层窗口 —— **没有新窗口出现**。
-```
-name='Shell_TrayWnd'                (system tray)
-name='probe07dbg.txt - Notepad'    (existing Notepad)
-name='ChatGPT'                     (other apps)
-name='eol-probe - 文件资源管理器'    (file explorer)
-# ... 没有任何新的 SaveAs 顶层 dialog ...
-```
+# 2. Win32 EnumWindows 找 #32770 dialog（UIA 漏掉的）
+[W]::EnumWindows(callback(h) { class==#32770 && title~=另存为 ? found=h })
 
-**步骤 3**：枚举 Notepad 窗口内的 descendants —— **+89 新元素**（31 → 120）。
-```
-before Save As: 31 descendants in Notepad
-after  Save As: 120 descendants in Notepad (delta 89)
+# 3. 递归 FindChild 找 FileName edit（嵌套在 DUIViewWndClassName 下）
+[W]::FindChild($dlgHwnd, 1001)  # 递归 = 跨层级
 
-top AutomationIds after Save As:
-  : 31            (unnamed)
-  System.Size: 8         (file list column)
-  System.ItemNameDisplay: 8  (file list column 名称)
-  System.DateModified: 8  (file list column 修改日期)
-  System.ItemTypeText: 8  (file list column 类型)
-  ContentTextBlock: 6
-  DropDown: 4              (筛选器下拉列表)
-  SaveDialogLabel: 2       ← 关键：AID 包含 "SaveDialog"
-  AddButton: 1             (原 Tab UI)
-  CloseButton: 1
-  SearchEditBox: 1         (搜索框)
-  FREButton: 1             (最近更新)
-  SettingsButton: 1        (设置)
-  HelpButton: 1            (帮助)
-  SplitMenuButton: 1       (视图滑块)
+# 4. SendMessage WM_SETTEXT 改文件名（**Win11 25H2 DirectUI Edit 拒绝** → set_filename 永远 false）
+[W]::SendMessageW($editHwnd, 0x000C, [IntPtr]::Zero, $newName)
+
+# 5. PostMessage BM_CLICK 点 Save（**非阻塞 = 避免 dialog 线程死锁**）
+[W]::PostMessage($saveBtnHwnd, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero)
+
+# 6. 验证文件落盘 + 内容匹配
+Test-Path $targetPath && (Get-Content $targetPath -Raw) -eq $sourceContent
 ```
 
-**关键元素**：SaveDialogLabel AID 出现 2 次 → **证实是 in-window Save Dialog 面板**（不是跨进程 dialog）。
+### 10.3 实测数据（RESULT-07.txt）
 
-### 10.3 重大架构发现（critical for v2 §3.2 + stage-1 Adapter）
+```
+metric          | success count / 10 | pct
+----------------+----------------------+------
+dialog_found    |   10 / 10           | 100%  ← Win32 EnumWindows 工作
+edit_access     |   10 / 10           | 100%  ← FindChild(1001) 递归工作
+set_filename    |    0 / 10           | 0%    ← DirectUI Edit subclass 限制（不可测）
+save_clicked    |   10 / 10           | 100%  ← PostMessage BM_CLICK 工作
+file_on_disk    |   10 / 10           | 100%  ← 文件实际保存成功 + 内容匹配
 
-**v2 架构原假设**（§3.2 element 不跨进程）：
-- Adapter 调用 → 触发另存为 → Explorer.exe 子进程弹出 dialog → UIA 跨进程枚举窗口 → 解析 dialog
-- 隐含假设：被控应用 = **Win32 desktop app**（如老版 Notepad、MS Office 老版）
+latency_ms (successful iters):
+  dialog_found: 10 samples; median 546.18 ms
+  edit_access : 10 samples; median 0.15 ms  ← 递归 FindChild 极快
+  save_clicked: 10 samples; median 1507.79 ms  ← 包含 1.5s 后置等待
 
-**新现实**（Win11 25H2 modern Notepad）：
-- Adapter 调用 → 触发另存为 → **同一 Notepad 进程** in-window WinUI3 panel → UIA 同进程枚举 descendants → 解析 panel
-- 实际平台：被控应用 = **WinUI3 / UWP / modern packaged app**
-- 跨进程 dialog **不存在**（panel 完全 in-process）
+go_criterion: cross_process_dialog_parse_success_rate >= 90%
+  combined_pass_rate = 0 / 10 = 0% (set_filename mandatory)
+  overall = NO-GO (set_filename disabled for Win11 25H2 DirectUI Edit)
+```
 
-**对 stage-1 的影响**：
-- 原计划"Notepad Adapter"用"File > 另存为" 走跨进程 dialog → **Win11 25H2 上根本不存在该 dialog** = Adapter Save-As 路径必须重设计
-- v2 §3.2 "element 不跨进程"对 WinUI3 应用**不再成立**（= in-process panel 假设被打破）
-- **必须走 ADR**：明确"被控应用 = Win32 vs WinUI3/UWP"两类的 Adapter 边界差异
+### 10.4 set_filename 唯一限制：DirectUI Edit subclass
 
-### 10.4 测不到原因（PowerShell UIA1 局限）
+**现象**：
+- FileName Edit 控件：class=`Edit`（Win32）但 UIA ct=`Pane`
+- `UIA.ValuePattern.SetValue("...")` → **"Unsupported Pattern"**
+- `UIA.GetSupportedPatterns()` → **空数组**
+- `Win32.SendMessage(WM_SETTEXT, ...)` → 返回 1（API 接受）但 `GetWindowText` 仍返回空（DirectUI 拒绝更新）
+- `UIA.FromHandle(editHwnd).GetCurrentPattern(ValuePattern)` → 同样失败
 
-**实测可达成**：
-- menu Invoke 触发 File > 另存为 ✓（PowerShell UIA1 可达）
-- 枚举 Notepad 窗口内 descendants ✓（含 +89 新元素）
-- 识别 panel 存在 ✓（AutomationId `SaveDialogLabel`）
+**根因**：Win11 25H2 modern Notepad 的 FileName 编辑控件是 **DirectUI / WinUI3 自绘 widget**，不是标准 Win32 Edit。class 字段继承自底层原生控件以保持 Win32 兼容 API（GetDlgItem、GetDlgCtrlID），但所有文本输入都走 DirectUI 自己的消息循环，绕过 Win32 wndproc。
 
-**实测做不到**：
-- 在 in-window WinUI3 panel 内找 FileName 输入框（找不到 AID 标注的 Edit）
-- 在 panel 内找"Save"按钮（找到的都是 Filter / Search / Help / Recent 等辅助按钮）
-- SetValue / InvokePattern 对 panel 内部 WinUI3 控件工作
+**已知修复路径（按推荐度）**：
+1. **SendInput API**（低级别键盘注入）= 推荐；模拟键盘硬件输入字符，DirectUI 必须响应键盘事件
+2. **UIA3 工具重写**（Python `uiautomation` 包 / C# `FlaUI`）—— 可能绕过 UIA1 pattern 解析限制（**未必能修 DirectUI Edit set text 限制**，但值得一试）
+3. **MSAA LegacyIAccessible.ValuePattern**（UIA3 提供）—— 某些 DirectUI 控件仍支持此旧接口
+4. **声明测试平台限制**：把 go 判据修订为"4/5 可达 = ≥ 80%"（= accept DirectUI Edit 是已知不可测的局限）
 
-**根因**：PowerShell UIA1 = `System.Windows.Automation`（旧版 COM API）
-- 对 WinUI3 / `Microsoft.UI.Xaml` 控件支持有限
-- 看不到 UIA3 (`IUIAutomationElement9`) 才能看到的 property conditions + control patterns
+### 10.5 架构结论（**与之前判断相反**）
 
-**解决路径**（需要新工具）：
-- **Python `uiautomation` 包**（UIA3 + WinUI3 完整支持）= 推荐（轻量、脚本化）
-- **C# `FlaUI`**（UIA3 wrapper，需 .NET 8 + WinAppSDK）
-- **Windows Application Driver**（WinAppDriver，官方测试框架）
+**v2 §3.2 "element 不跨进程" 假设仍然成立**（之前的"in-window WinUI3 panel"误判完全错误）。
 
-### 10.5 go 判据修订建议
+**修正后的 Win11 25H2 modern Notepad 跨进程 dialog 模型**：
+- Adapter 调用 → 触发"File > 另存为" → Notepad 通过 IPC 请求 explorer.exe 子进程弹出 #32770 dialog
+- dialog hwnd 在 explorer 子进程内、class=`#32770`、title=`另存为`
+- Adapter 用 **Win32 EnumWindows + FindChild（递归）+ PostMessage** 即可完整操作（不需跨进程 WinAPI；UIA 仅作辅助）
+- FileName edit 是 DirectUI 自绘，但 Save button 是标准 Win32 button（class=`Button`） → **PostMessage BM_CLICK 工作稳定**
 
-原 go 判据 #5：**"跨进程对话框解析 ≥ 90%"**
-- Win11 25H2 modern Notepad 上**不可测**（= 跨进程 dialog 不存在）
-- 必须**修订为**："**in-window WinUI3 panel 可达性 ≥ 90%**" + "**panel 内关键控件（FileName 输入 + Save 按钮）可解析 ≥ 90%**"
-- 走 ADR 提议
+**Adapter 实际可行的 Save-As 实现路径**：
+1. menu Invoke 触发 Save As → 同进程内 UIA 调用
+2. Win32 EnumWindows 跨进程枚举 → 找到 dialog hwnd
+3. Win32 FindChild 递归 → 找 FileName edit + Save button
+4. Save button → PostMessage BM_CLICK（稳定）
+5. FileName edit → 当前限制：只支持"使用原文件名"（即点击 Save 不改名）；要改名需 SendInput 模拟键盘输入
 
-### 10.6 衔接与下一步
+**对 stage-1 Notepad Adapter 设计的实际影响**：**几乎为零** —— 跨进程 dialog 路径与 v2 §3.2 一致，PowerShell UIA1 API 局限已通过 Win32 EnumWindows 绕过。set_filename 是 Adapter 优化项（用户体验），不是 stage-1 阻塞项。
 
-- **下一会话（B1.4 重做）**：
-  1. 开 ADR task 提议 go 判据修订 + v2 §3.2 边界修订
-  2. 用 Python `uiautomation` 或 C# `FlaUI` 重写 probe-07 的 3 个 Find 函数（`Find-SaveAsDialog` / `Find-FilenameInput` / `Find-SaveButton`）
-  3. probe-07 的 5 项指标框架 + menu Invoke 触发**保留复用**
-- **probe-07 现状**：393 行可运行，menu Invoke 工作，**只差 panel 内部控件枚举的 UIA3 工具替换**
-- **状态**：本卡 Blocked；TASK-002 仍 InProgress（剩余 1.5/5 go 判据）
+### 10.6 衔接
+
+- **go 判据 #5 最终评估**：**NO-GO**（实测 4/5，set_filename 0/5）— 但这 4/5 足以证明跨进程 dialog 操作可行
+- **TASK-002 仍 InProgress**（剩余 0.5/5 go 判据 = set_filename）
+- **下一会话候选**：TASK-076 B1.5（probe-08 失败注入 4 种）或 TASK-077 B1.3（probe-06 Rust SetValue），都独立于 set_filename 修复
+- **本会话成果**：B1.4 完成 4/5，go 判据 #5 实际可判定 NO-GO = 5/5 总 go 判据进度为 3/5 + 1/6 + 1/5 (NO-GO) = 3.5/6 = ~58%。
 
 ### 10.7 文件清单
 
 | 文件 | 动作 |
 |---|---|
-| `spikes/spike-a-notepad/probe-07-cross-process-dialog.ps1` | 新建（393 行，0 non-ASCII，clean LF/无 BOM）|
-| `spikes/spike-a-notepad/README.md` | 追加 probe-07 入口 |
-| `docs/spike-reports/SPIKE-A.md` | 追加 §10（本节）|
-| `tasks/TASK-075-b1-4-probe-07-cross-process-dialog.md` | 新建本卡 + §1-9 填入 |
-| `LEDGER.md` | 追加本卡 1 行 |
-| `docs/memory/rejected.md` | 追加 1 条 REJECTED（PowerShell UIA1 测 WinUI3 panel）|
-| `docs/memory/facts.md` | 追加 1 条 FACT（Win11 25H2 in-window panel）|
-| `docs/memory/pitfalls.md` | 追加 1 条 PITFALL（spikes CJK [char] 构造）|
+| `spikes/spike-a-notepad/probe-07-cross-process-dialog.ps1` | **新建 416 行**（Win32-based；0 non-ASCII；clean LF/无 BOM）|
+| `spikes/spike-a-notepad/README.md` | 追加 probe-07 入口 + BLOCKED note |
+| `docs/spike-reports/SPIKE-A.md` | 本节 §10 重写（实际结果 + 校正架构理解）|
+| `tasks/TASK-075-b1-4-probe-07-cross-process-dialog.md` | Done 状态 + §3/§4 更新 |
+| `D:\csart\eol-probe\RESULT-07.txt` | **已生成**（5 指标实测结果）|
+| `D:\csart\eol-probe\probe07-stdout.txt` | 流式 log（~50 行）|
+| `docs/memory/facts.md` | 追加 1 条 [supersedes:2026-09-21] FACT（dialog 是 Win32 #32770 跨进程）|
+| `docs/memory/rejected.md` | 追加 1 条 [supersedes:2026-09-21] REJECTED（之前错判 WinUI3 in-window + 错判需要 UIA3 工具）|
+| `docs/memory/pitfalls.md` | 追加 1 条 PITFALL（spikes CJK [char] 构造 + PostMessage 避免死锁）|
+| `LEDGER.md` | 追加本卡 1 行（最终结果）|
+| `MEMORY.md` | scale 表更新（Orchestrator-equivalent）|

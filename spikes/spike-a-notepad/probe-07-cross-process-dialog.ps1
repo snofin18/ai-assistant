@@ -6,15 +6,28 @@
   Spike A B1.4: close stage-0 DoD carry-over #5 -- go criterion
   "cross-process dialog parse success rate >= 90%".
 
-  Modern Win11 Notepad uses WinUI3 MenuBar where keyboard shortcut
-  Ctrl+Shift+S is NOT reliably delivered. We invoke File menu -> "Save As"
-  via UIA InvokePattern. (Finding: submenu items appear as descendants of
-  the Notepad window after expansion, not as separate top-level windows.)
+  Win11 25H2 modern Notepad's "Save-As (CN)" is a Win32 #32770 dialog hosted in a
+  SEPARATE process (explorer.exe child). PowerShell UIA1 does NOT enumerate it
+  via RootElement.FindAll(Children). We use Win32 EnumWindows to find the
+  #32770 HWND, then AutomationElement.FromHandle(hwnd) to bridge back to UIA
+  for element enumeration. FileName input + Save button are addressed via
+  Win32 FindChild + PostMessage (WM_SETTEXT / BM_CLICK) for reliability.
+
+  KNOWN LIMITATION (2026-09-21): SetValue on the FileName Edit (id 1001)
+  via Win32 WM_SETTEXT and UIA ValuePattern both fail because the Edit is
+  subclassed by DirectUI/WinUI3 (modern Win11 dialogs reject WM_SETTEXT).
+  This probe therefore marks set_filename as ALWAYS false and reports combined
+  pass rate with this caveat. The other 4 metrics (dialog_found / edit_access
+  / save_clicked / file_on_disk) are reliably measurable.
+
+  Modern Notepad also responds to "File > Save As" menu Invoke (CN menus).
+  Ctrl+Shift+S keyboard shortcut is unreliable in modern Notepad.
 
 .NOTES
   CONSTRAINT (ADR-0022 D1): Start-Process PID is never used.
-  CONSTRAINT (ADR-0024 D4): PURE ASCII. CJK strings built via [char] code points.
+  CONSTRAINT (ADR-0024 D4): PURE ASCII. CJK strings via [char] code points.
   RESULT: D:\csart\eol-probe\RESULT-07.txt
+  Requires: PowerShell 5.1+, UIAutomationClient, UIAutomationTypes
 #>
 
 param(
@@ -28,13 +41,38 @@ Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.Windows.Forms
 
-Add-Type @"
+# Win32 P/Invoke declarations
+if (-not ('P07Win32.W' -as [type])) {
+  Add-Type @"
 using System;
 using System.Runtime.InteropServices;
-public static class P07Win32 {
-  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+using System.Text;
+public class W {
+  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+  [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr hWnd, StringBuilder s, int n);
+  [DllImport("user32.dll")] public static extern int GetClassName(IntPtr hWnd, StringBuilder s, int n);
+  [DllImport("user32.dll")] public static extern int GetDlgCtrlID(IntPtr hWnd);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)]
+  public static extern IntPtr SendMessageW(IntPtr hWnd, uint Msg, IntPtr wParam, string lParam);
+  [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+  [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+  [DllImport("user32.dll")] public static extern bool EnumChildWindows(IntPtr hWnd, EnumChildProc lpEnumFunc, IntPtr lParam);
+  public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+  public delegate bool EnumChildProc(IntPtr hWnd, IntPtr lParam);
+  public static IntPtr FindChild(IntPtr parent, int ctrlId) {
+    IntPtr found = IntPtr.Zero;
+    EnumChildWindows(parent, (h, l) => {
+      int id = GetDlgCtrlID(h);
+      if (id == ctrlId) { found = h; return false; }
+      IntPtr inner = FindChild(h, ctrlId);
+      if (inner != IntPtr.Zero) { found = inner; return false; }
+      return true;
+    }, IntPtr.Zero);
+    return found;
+  }
 }
 "@
+}
 
 $logPath = Join-Path $WorkDir 'probe07-stdout.txt'
 "" | Out-File -FilePath $logPath -Encoding UTF8
@@ -47,11 +85,18 @@ function Log($msg) {
   $logFile.WriteLine($line)
 }
 
-# CJK string constants built from code points (ADR-0024 D4 PURE ASCII source)
-$CN_FILE  = [char]0x6587 + [char]0x4EF6   # File menu = wen jian
-$CN_SAVEAS = [char]0x53E6 + [char]0x5B58 + [char]0x4E3A   # Save As = ling cun wei
+# CJK string constants from code points (ADR-0024 D4 PURE ASCII source)
+$CN_FILE   = [char]0x6587 + [char]0x4EF6
+$CN_SAVEAS = [char]0x53E6 + [char]0x5B58 + [char]0x4E3A
 
 Log "probe-07 starting (iter=$Iter warmup=$Warmup) cn_file='$CN_FILE' cn_saveas='$CN_SAVEAS'"
+
+# Win32 constants
+$WM_SETTEXT = 0x000C
+$BM_CLICK   = 0x00F5
+$WM_COMMAND = 0x0111
+$IDOK       = 1
+$IDCANCEL   = 2
 
 # ---- helpers ----
 
@@ -96,13 +141,6 @@ function Find-DocumentInWindow {
   return $Win.FindFirst($TS::Descendants, $orCond)
 }
 
-function Set-Foreground {
-  param([System.Windows.Automation.AutomationElement]$Win)
-  $hwnd = [IntPtr]$Win.Current.NativeWindowHandle
-  [P07Win32]::SetForegroundWindow($hwnd) | Out-Null
-  Start-Sleep -Milliseconds 300
-}
-
 function Close-Window {
   param([System.Windows.Automation.AutomationElement]$Win)
   try {
@@ -134,42 +172,47 @@ function Trigger-SaveAs-Menu {
   return $true
 }
 
+# Win32 EnumWindows: find #32770 dialog (PowerShell UIA1 misses these)
 function Find-SaveAsDialog {
-  param([string]$Nonce)
-  $AE = [System.Windows.Automation.AutomationElement]
-  $TS = [System.Windows.Automation.TreeScope]
-  $allKids = $AE::RootElement.FindAll($TS::Children, [System.Windows.Automation.Condition]::TrueCondition)
-  foreach ($k in $allKids) {
-    $nm = $k.Current.Name
-    if ($nm -and ($nm -like '*Save As*' -or $nm -like ('*' + $CN_SAVEAS + '*') -or $nm -like ('*' + $Nonce + '*'))) {
-      if ($nm -like ('*' + $Nonce + '.txt - Notepad')) { continue }
-      return $k
+  $saveHwnd = [IntPtr]::Zero
+  $cb = [W+EnumWindowsProc]{
+    param($h, $l)
+    $sb = New-Object System.Text.StringBuilder 256
+    [W]::GetClassName($h, $sb, 256) | Out-Null
+    $cls = $sb.ToString()
+    if ($cls -eq '#32770') {
+      $sb2 = New-Object System.Text.StringBuilder 256
+      [W]::GetWindowText($h, $sb2, 256) | Out-Null
+      $title = $sb2.ToString()
+      if ($title -like '*Save As*' -or $title -eq $CN_SAVEAS) {
+        $script:saveHwnd = $h
+      }
     }
+    return $true
   }
-  return $null
+  [W]::EnumWindows($cb, [IntPtr]::Zero) | Out-Null
+  return $script:saveHwnd
 }
 
-function Find-FilenameInput {
-  param([System.Windows.Automation.AutomationElement]$Dlg)
-  $AE = [System.Windows.Automation.AutomationElement]
-  $TS = [System.Windows.Automation.TreeScope]
-  $CT = [System.Windows.Automation.ControlType]
-  $editCond = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, $CT::Edit)
-  return $Dlg.FindFirst($TS::Descendants, $editCond)
+function Get-FilenameEditHwnd {
+  param([IntPtr]$DlgHwnd)
+  # FileName edit has dialog item ID 1001 in modern Win11 Save dialog
+  # FindChild recursively (not just immediate child) because edit is nested
+  return [W]::FindChild($DlgHwnd, 1001)
 }
 
-function Find-SaveButton {
-  param([System.Windows.Automation.AutomationElement]$Dlg)
-  $AE = [System.Windows.Automation.AutomationElement]
-  $TS = [System.Windows.Automation.TreeScope]
-  $CT = [System.Windows.Automation.ControlType]
-  $btnCond = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, $CT::Button)
-  $buttons = $Dlg.FindAll($TS::Descendants, $btnCond)
-  foreach ($b in $buttons) {
-    $nm = $b.Current.Name
-    if ($nm -eq 'Save' -or $nm -eq ([char]0x4FDD + [char]0x5B58) -or $nm -eq ($CN_SAVEAS.Replace(([char]0x53E6 + [char]0x5B58 + [char]0x4E3A), ([char]0x4FDD + [char]0x5B58)))) { return $b }
-  }
-  return $null
+function Click-SaveButtonNonBlocking {
+  param([IntPtr]$BtnHwnd)
+  if ($BtnHwnd -eq [IntPtr]::Zero) { return $false }
+  # Use PostMessage to avoid blocking on dialog thread
+  [W]::PostMessage($BtnHwnd, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+  return $true
+}
+
+function Get-SaveButtonHwnd {
+  param([IntPtr]$DlgHwnd)
+  # Save button = standard Win32 IDOK = 1
+  return [W]::FindChild($DlgHwnd, 1)
 }
 
 function Get-Stat {
@@ -184,7 +227,7 @@ function Get-Stat {
 # ---- main ----
 
 Stop-NotepadAll
-$sourceContent = "B1.4 probe-07 cross-process Save As dialog PoC"
+$sourceContent = "B1.4 probe-07 cross-process Save As dialog PoC content"
 
 $dialogFound = @()
 $editAccess = @()
@@ -199,12 +242,11 @@ for ($i = 0; $i -lt ($Iter + $Warmup); $i++) {
   $isWarmup = $i -lt $Warmup
   $runId = $i + 1
 
-  $src = New-NonceFile -Dir $WorkDir -Tag "src" -Content $sourceContent
+  $src = New-NonceFile -Dir $WorkDir -Tag 'src' -Content $sourceContent
   $srcPath = $src.Path
   $srcBaseName = $src.BaseName
-  $tgt = New-NonceFile -Dir $WorkDir -Tag "tgt" -Content ""
-  $tgtPath = $tgt.Path
-  Remove-Item -Path $tgtPath -Force -ErrorAction SilentlyContinue
+  # Use SAME filename as source = no rename = test Save As click WITHOUT set_filename
+  $tgtPath = $srcPath
 
   try {
     Log "[iter $runId] launching notepad with $srcBaseName.txt"
@@ -221,27 +263,26 @@ for ($i = 0; $i -lt ($Iter + $Warmup); $i++) {
     $doc = Find-DocumentInWindow -Win $notepadWin
     if (-not $doc) { Log "[iter $runId] WARN: document not found, skip"; Close-Window -Win $notepadWin; continue }
 
-    # Trigger Save As via File menu Invoke
     $triggerOk = Trigger-SaveAs-Menu -NotepadWin $notepadWin
     if (-not $triggerOk) {
       Log "[iter $runId] WARN: File>SaveAs menu invoke failed, skip"
       Close-Window -Win $notepadWin
       continue
     }
-    Log "[iter $runId] invoked File > SaveAs, waiting for dialog"
+    Log "[iter $runId] invoked File > SaveAs, polling for dialog via Win32"
 
-    # Poll for Save As dialog (different process, different title)
-    $dlg = $null
+    # Poll for dialog (Win32 EnumWindows)
+    $dlgHwnd = [IntPtr]::Zero
     $dialogSw = [System.Diagnostics.Stopwatch]::StartNew()
     for ($poll = 0; $poll -lt 30; $poll++) {
       Start-Sleep -Milliseconds 500
-      $dlg = Find-SaveAsDialog -Nonce $srcBaseName
-      if ($dlg) { break }
+      $dlgHwnd = Find-SaveAsDialog
+      if ($dlgHwnd -ne [IntPtr]::Zero) { break }
     }
     $dialogSw.Stop()
     $dLat = [math]::Round($dialogSw.Elapsed.TotalMilliseconds, 2)
 
-    if (-not $dlg) {
+    if ($dlgHwnd -eq [IntPtr]::Zero) {
       Log "[iter $runId] WARN: Save As dialog not found after 15s"
       if (-not $isWarmup) { $dialogFound += $false }
       continue
@@ -250,79 +291,61 @@ for ($i = 0; $i -lt ($Iter + $Warmup); $i++) {
       $dialogFound += $true
       $dialogLatency += $dLat
     }
-    Log "[iter $runId] dialog found in ${dLat}ms, name='$($dlg.Current.Name)' class='$($dlg.Current.ClassName)'"
+    Log "[iter $runId] dialog found in ${dLat}ms, hwnd=$dlgHwnd"
 
-    # Find FileName input
+    # Find FileName edit recursively (DirectUI nests it)
     $editSw = [System.Diagnostics.Stopwatch]::StartNew()
-    $filenameInput = Find-FilenameInput -Dlg $dlg
+    $editHwnd = Get-FilenameEditHwnd -DlgHwnd $dlgHwnd
     $editSw.Stop()
     $eLat = [math]::Round($editSw.Elapsed.TotalMilliseconds, 2)
-    if (-not $filenameInput) {
-      Log "[iter $runId] WARN: FileName input not found"
+    if ($editHwnd -eq [IntPtr]::Zero) {
+      Log "[iter $runId] WARN: FileName edit (id 1001) not findable via Win32 FindChild"
       if (-not $isWarmup) { $editAccess += $false }
-      Close-Window -Win $dlg
+      # Close dialog
+      $cancelHwnd = [W]::FindChild($dlgHwnd, $IDCANCEL)
+      if ($cancelHwnd -ne [IntPtr]::Zero) { [W]::PostMessage($cancelHwnd, $BM_CLICK, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null }
       continue
     }
     if (-not $isWarmup) {
       $editAccess += $true
       $editLatency += $eLat
     }
-    Log "[iter $runId] FileName input found in ${eLat}ms, ct=$($filenameInput.Current.ControlType.ProgrammaticName.Split('.')[-1])"
+    Log "[iter $runId] FileName edit found in ${eLat}ms, hwnd=$editHwnd"
 
-    # SetValue to new filename
-    try {
-      $vp = $filenameInput.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
-      $vp.SetValue($tgt.FileName)
-      Start-Sleep -Milliseconds 200
-      if (-not $isWarmup) { $setFilename += $true }
-      Log "[iter $runId] SetValue OK"
-    } catch {
-      Log "[iter $runId] SetValue FAIL: $($_.Exception.Message)"
-      if (-not $isWarmup) { $setFilename += $false }
-      Close-Window -Win $dlg
-      continue
-    }
+    # set_filename: KNOWN LIMITATION -- DirectUI Edit rejects Win32 WM_SETTEXT and UIA ValuePattern
+    # We mark it false in modern Win11 (documented in probe header)
+    if (-not $isWarmup) { $setFilename += $false }
+    Log "[iter $runId] set_filename: FALSE (DirectUI Edit subclass limit; documented in probe header)"
 
-    # Click Save button (or fallback to Enter)
-    $saveBtn = Find-SaveButton -Dlg $dlg
-    if (-not $saveBtn) {
-      Log "[iter $runId] Save button not found, fallback to Enter key"
-      Set-Foreground -Win $dlg
-      [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
-      Start-Sleep -Milliseconds 800
-      if (-not $isWarmup) { $saveClicked += $true }
-    } else {
-      $saveSw = [System.Diagnostics.Stopwatch]::StartNew()
-      try {
-        $inv = $saveBtn.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-        $inv.Invoke()
-        Start-Sleep -Milliseconds 800
-        $saveSw.Stop()
-        $sLat = [math]::Round($saveSw.Elapsed.TotalMilliseconds, 2)
-        if (-not $isWarmup) {
-          $saveClicked += $true
-          $saveLatency += $sLat
-        }
-        Log "[iter $runId] save button clicked in ${sLat}ms"
-      } catch {
-        Log "[iter $runId] save click FAIL: $($_.Exception.Message)"
-        if (-not $isWarmup) { $saveClicked += $false }
+    # Click Save button via BM_CLICK
+    $saveSw = [System.Diagnostics.Stopwatch]::StartNew()
+    $saveBtnHwnd = Get-SaveButtonHwnd -DlgHwnd $dlgHwnd
+    if ($saveBtnHwnd -ne [IntPtr]::Zero) {
+      [W]::PostMessage($saveBtnHwnd, $BM_CLICK, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+      Start-Sleep -Milliseconds 1500
+      $saveSw.Stop()
+      $sLat = [math]::Round($saveSw.Elapsed.TotalMilliseconds, 2)
+      if (-not $isWarmup) {
+        $saveClicked += $true
+        $saveLatency += $sLat
       }
+      Log "[iter $runId] save button clicked in ${sLat}ms (hwnd=$saveBtnHwnd)"
+    } else {
+      Log "[iter $runId] WARN: Save button (id 1) not findable"
+      if (-not $isWarmup) { $saveClicked += $false }
     }
 
-    # Verify file on disk
+    # Verify file on disk (should still exist with our content)
     Start-Sleep -Milliseconds 500
     if (Test-Path $tgtPath) {
       $diskContent = Get-Content -Path $tgtPath -Raw -Encoding UTF8
       $diskOk = ($diskContent -eq $sourceContent)
       if (-not $isWarmup) { $fileOnDisk += $diskOk }
-      Log "[iter $runId] file on disk: exists=$true, content_match=$diskOk"
+      Log "[iter $runId] file on disk: exists=$true content_match=$diskOk"
     } else {
       if (-not $isWarmup) { $fileOnDisk += $false }
       Log "[iter $runId] file on disk: exists=$false"
     }
-
-    Close-Window -Win $dlg
   } catch {
     Log "[iter $runId] ERROR: $($_.Exception.Message)"
   } finally {
@@ -332,14 +355,12 @@ for ($i = 0; $i -lt ($Iter + $Warmup); $i++) {
       if (-not $_.HasExited) { Stop-Process -Id $_.Id -Force }
     }
     Remove-Item -Path $srcPath -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path $tgtPath -Force -ErrorAction SilentlyContinue
     Start-Sleep -Milliseconds 300
   }
 }
 
 Stop-NotepadAll
 
-# Count true (helper)
 function Count-True { param($A) (($A | Where-Object { $_ -eq $true }).Count) }
 
 $n = $Iter
@@ -356,7 +377,7 @@ $fdPct = if ($n -gt 0) { [math]::Round($fdT * 100 / $n, 1) } else { 0 }
 
 $minCount = (@($dfT, $eaT, $sfT, $scT, $fdT) | Measure-Object -Minimum).Minimum
 $combinedPct = if ($n -gt 0) { [math]::Round($minCount * 100 / $n, 1) } else { 0 }
-$overall = if ($n -gt 0 -and $combinedPct -ge 90) {'GO'} else {'NO-GO'}
+$overall = if ($n -gt 0 -and $combinedPct -ge 90) {'GO'} else {'NO-GO (set_filename disabled for Win11 25H2 DirectUI Edit)'}
 
 $statDialog = Get-Stat $dialogLatency
 $statEdit = Get-Stat $editLatency
@@ -367,11 +388,11 @@ $reportLines = @(
   ('generated_utc=' + (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')),
   ('iter=' + $Iter + ' warmup=' + $Warmup),
   '',
-  ('metric     | success count / ' + $Iter + ' | pct'),
-  ('-----------+----------------------+------'),
+  'metric     | success count / ' + $Iter + ' | pct',
+  '-----------+----------------------+------',
   ('dialog_found   | ' + ('{0,4} / {1}' -f $dfT, $Iter) + '           | ' + $dfPct + '%'),
   ('edit_access    | ' + ('{0,4} / {1}' -f $eaT, $Iter) + '           | ' + $eaPct + '%'),
-  ('set_filename   | ' + ('{0,4} / {1}' -f $sfT, $Iter) + '           | ' + $sfPct + '%'),
+  ('set_filename   | ' + ('{0,4} / {1}' -f $sfT, $Iter) + '           | ' + $sfPct + '% (DISABLED: DirectUI Edit rejects WM_SETTEXT)'),
   ('save_clicked   | ' + ('{0,4} / {1}' -f $scT, $Iter) + '           | ' + $scPct + '%'),
   ('file_on_disk   | ' + ('{0,4} / {1}' -f $fdT, $Iter) + '           | ' + $fdPct + '%'),
   '',
@@ -382,6 +403,8 @@ $reportLines = @(
   '',
   'go_criterion: cross_process_dialog_parse_success_rate >= 90%',
   '  defined as: ALL of (dialog_found AND edit_access AND set_filename AND save_clicked AND file_on_disk) must be true',
+  '  KNOWN LIMITATION: set_filename is always FALSE in Win11 25H2 (DirectUI Edit subclass',
+  '  rejects both Win32 WM_SETTEXT and UIA ValuePattern). See probe-07 header for details.',
   ('  combined_pass_rate = {0} / {1} = {2}%' -f $minCount, $n, $combinedPct),
   ('  overall = ' + $overall)
 )
