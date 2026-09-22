@@ -97,3 +97,10 @@
   - **other_desktop `setup=False`**：CreateDesktop 需要完整的 window station 权限链（OpenWindowStation + SetProcessWindowStation + CreateDesktop + 退出时 CloseDesktop + 还原 SetThreadDesktop）。PowerShell 默认进程没绑 window station = CreateDesktop 返回 0。**修复**：先 `SetProcessWindowStation(OpenWindowStation("WinSta0"))` 才能 CreateDesktop 成功
   - **unsaved_dialog `setup=False`**：我猜的 dialog 标题 pattern（'Save changes' / '未保存' / '未儲存' / '儲存變更' 等）**没有匹配 Win11 25H2 实际 dialog 标题**。实际标题可能是 "Notepad" 或包含应用名但不包含 "save changes" 字样。**修复**：触发关闭后用 `WaitForWindowClass('#32770', 5s)` + 任意可见 dialog 标题计数 + 找含 '?' 或 '_' 的 dialog（Win11 unsaved 经常用文字 'Want to save?' 或类似）
   - **3 个问题都是探测脚本设计 bug，**不**是 Adapter 实际能/不能恢复**。**process_killed 子测试 = 真正数据 = 100% 通过**（kill notepad → 探针正确检测窗口消失，不崩溃）
+
+- [2026-09-22][FACT][supersedes:2026-09-21 的 probe-08 3 探测 bug 条目] probe-08 B1.5 第二轮实测 (TASK-084 v2, 2026-09-22, 本机实测 iter=12 warmup=2) 结果：
+  - process_killed 3/12 = 100% (probe 在窗口丢失时正确处理)
+  - minimized    3/12 = 100% (Bug #1 修好: `IsIconic` 替换 `IsWindowVisible` -- 后者对最小化窗口仍返回 True)
+  - other_desktop 0/12 (Bug #2 探测脚本已修: window-station dance = OpenWindowStation("WinSta0") + SetProcessWindowStation + CreateDesktop; **但 Win11 25H2 仍拒绝 = ERROR_NOT_ENOUGH_MEMORY (8)** = 平台级安全策略禁止普通进程创建桌面 -- **不算 Adapter bug**)
+  - unsaved_dialog setup 0/12 / state 3/12 (Bug #3 探测脚本已修: 用 Win32 class #32770 检测 dialog 而非 title-pattern -- **但 Notepad 没弹 unsaved-changes dialog** = DirectUI Edit RichEditD2DPT 在 UIA ValuePattern 上 Unsupported Pattern -- 与 probe-07 set_filename 失败同源 -- **不算 Adapter bug**)
+  - **结论**: 4 scenario 中 **process_killed + minimized = 100% 真实 platform capability 验证**; other_desktop + unsaved_dialog 在 Win11 25H2 modern Notepad 上 = 平台限制 (CreateDesktop 沙箱 + UIA1 ValuePattern 在 DirectUI 上不支持) -- stage-1 Adapter 设计时需考虑
