@@ -88,7 +88,7 @@ AGENTS.md §8 把 `plans/*` 与 `MEMORY.md §1` 列为 Orchestrator 维护。但
 
 ### 7. 遗留问题
 
-- **F-1**：仓库根 17 个 0 字节乱码文件名（前期脚本残留；建议 TASK-074 单独清理；audit §5 已登记）
+- **F-1**：仓库根 17 个 0 字节乱码文件名（前期脚本残留；建议 **TASK-083** 单独清理（2026-09-22 由 074 改 083 解决撞号）；audit §5 已登记）
 - **F-2**：`xtask/src/card_check.rs` 664 行 + `main.rs` 649 行（超 600 软上限；PL-033 残余；归 TASK-015）
 - **F-3**：root `cross-platform-ai-assistant-architecture.md` (v1) 应迁 `docs/history/`（PL-009；开源准备阶段处理）
 - **F-4**：TASK-070 修 PL-035 用 "185 行" 硬编码（PL-035 原建议是删数字而非修数字）；彻底改需 xtask 加规则禁止"文档手抄文件行数"；归 TASK-015

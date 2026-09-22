@@ -119,6 +119,9 @@ pub fn run(repo_root: &std::path::Path, output: &mut dyn std::io::Write) -> Resu
     let summary = format!(
         "== card-check ==\nscanned_files={scanned}\n-- summary: {errors} error(s), {warnings} warning(s)\n-- verdict: {verdict}\n"
     );
+    for f in &findings {
+        f.render(output).map_err(|e| e.to_string())?;
+    }
     output
         .write_all(summary.as_bytes())
         .map_err(|e| e.to_string())?;
