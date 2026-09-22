@@ -129,7 +129,7 @@
 
 | # | finding | 来源 | 建议归属 |
 |---|---|---|---|
-| F-1 | 仓库根 17 个 0 字节乱码文件名（前期脚本残留，git status 可见） | git status | **TASK-074** |
+| F-1 | 仓库根 17 个 0 字节乱码文件名（前期脚本残留，git status 可见） | git status | **TASK-083**（2026-09-22 由 074 改 083 解决与 B1.2 撞号） |
 | F-2 | `xtask/src/card_check.rs` 664 行 + `main.rs` 649 行（超 600 软上限） | xtask hygiene | TASK-015（PL-033 残余） |
 | F-3 | root `cross-platform-ai-assistant-architecture.md` (v1) 应迁 `docs/history/` | PL-009 | 开源准备阶段 |
 | F-4 | TASK-070 修 PL-035 用 "185 行" 硬编码（PL-035 原建议是删数字而非修数字） | PL-035 | TASK-015（加 lint rule 禁止手抄行数） |
