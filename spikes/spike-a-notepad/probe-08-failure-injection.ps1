@@ -52,6 +52,10 @@ public class W {
   [DllImport("user32.dll")] public static extern IntPtr OpenWindowStation(string lpszWinSta, bool fInherit, int dwDesiredAccess);
   [DllImport("user32.dll")] public static extern bool SetProcessWindowStation(IntPtr hWinSta);
   [DllImport("user32.dll")] public static extern bool CloseWindowStation(IntPtr hWinSta);
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+  [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+  [DllImport("user32.dll")] public static extern bool BlockInput(bool fBlockIt);
   [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd);
   [DllImport("user32.dll")] public static extern IntPtr GetParent(IntPtr hWnd);
   [DllImport("user32.dll")] public static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
