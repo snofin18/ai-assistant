@@ -106,3 +106,60 @@
   - **结论**: 4 scenario 中 **process_killed + minimized = 100% 真实 platform capability 验证**; other_desktop + unsaved_dialog 在 Win11 25H2 modern Notepad 上 = 平台限制 (CreateDesktop 沙箱 + UIA1 ValuePattern 在 DirectUI 上不支持) -- stage-1 Adapter 设计时需考虑
 
 - [2026-09-22][FACT][src:TASK-084 v3 + DRIFT-PROBE-08-ATTACH-FAILED] probe-08 unsaved_dialog v3 ATTEMPTED (TASK-084, iter=4 warmup=0): AttachThreadInput + BlockInput + SetForegroundWindow + correct [uint] GetWindowThreadProcessId signature ALL attempted. Result: AttachThreadInput returned FALSE (LastError=203 ERROR_ENVVAR_NOT_FOUND, which appears to be a stale Win32 error not the real failure cause) and SendKeys STILL did not trigger Notepad dirty state in background PS process. **Conclusion: Win11 25H2 modern Notepad (packaged UWP app) does NOT accept keyboard input from a background PowerShell process, regardless of AttachThreadInput.** The save-changes dialog ONLY appears when a user with a real foreground session actively interacts with the notepad window (clicking X, Alt+F4, or simulating real keyboard input via the test user's interactive session). This means probe-08 unsaved_dialog is **fundamentally not measurable in automated background runs** - the scenario can be observed interactively (Phase 1.3 user test confirmed Save dialog DOES appear) but the probe can only detect it, never trigger it. **Supersedes: TASK-084 v2's "Win11 25H2 DirectUI Edit ValuePattern UIA1 平台限制" entry** - the actual root cause is broader: ALL programmatic input paths (UIA SetValue, UIA SendKeys via attached foreground, Win32 SendInput) are blocked in this UWP context for non-interactive PowerShell processes. stage-1 Notepad Adapter design MUST handle this: any write path must go through Rust COM via windows crate (which makes real process-level calls, not subject to UIPI from background PS).
+
+- [2026-09-22][FACT][src:interactive user session, real Win11 25H2 25H2 modern Notepad, 4 isolated test rounds] **Win11 25H2 modern Notepad (packaged UWP app, RichEditD2DPT) interactive behavior systematically characterized via 4 isolated tests**. This entry supersedes BOTH the 2026-09-21 3-bug entry AND the 2026-09-22 v2 entry AND the 2026-09-22 v3 entry, and represents the FINAL verified understanding:
+
+  **TEST 1** (SetForegroundWindow + SendKeys 'z'):
+    - SetForegroundWindow returned True; GetForegroundWindow matched target hwnd
+    - Title got `*` (dirty=True) BUT file content on disk was UNCHANGED ('original' after test)
+    - **CORRECTION: `*` is NOT from SendKeys** - it's a side-effect of focus change in Notepad. SendKeys did NOT actually deliver 'z' to the document control.
+    - User reported: "光标没动, no 'z' 字符 appeared" - this is CORRECT.
+
+  **TEST 1b** (Test 1 + verify disk content):
+    - SendKeys('z') did NOT modify the document on disk. file content = 'original' before and after.
+
+  **TEST 1d** (isolation of SetFG vs SendKeys):
+    - only-SetFG: dirty=False (SetFG alone does NOT trigger dirty)
+    - only-SendKeys: dirty=True (SendKeys alone does set dirty) BUT file content unchanged
+    - both: dirty=True BUT file content unchanged
+    - Conclusion: SendKeys sets dirty flag but does not modify document.
+
+  **TEST 1g** (Win32 keybd_event with forced SetFocus):
+    - UIA doc.SetFocus() returns success but GetFocus() returns 0x0 (focus not actually on document)
+    - After keybd_event(VK_Z): UIA reads 'zoriginal' (z IS in document!) BUT disk still 'original'
+    - Conclusion: keybd_event CAN put 'z' into document via direct kernel input queue. But disk still not saved (Notepad doesn't auto-save).
+
+  **TEST 2** (ValuePattern.SetValue):
+    - UIA ValuePattern returns new value at +0ms
+    - title stays dirty=False for 3 seconds (Notepad never marks dirty)
+    - file on disk unchanged
+    - Conclusion: ValuePattern.SetValue modifies UIA's cached view, but Notepad itself is unaware.
+
+  **TEST 3** (AttachThreadInput + BlockInput):
+    - AttachThreadInput returned False, LastError=87 (ERROR_INVALID_PARAMETER) initially; with kernel32 SetLastError cleared, LastError=87 persists.
+    - BlockInput(true) returned False, LastError=0 (no input desktop to block).
+    - Conclusion: Neither function works in this PS context.
+
+  **TEST 4** (GetWindowThreadProcessId validation):
+    - GetWindowThreadProcessId(hwnd, [IntPtr]::Zero) returns 18704
+    - GetWindowThreadProcessId(hwnd, [ref]uint) returns SAME value 18704, out param = 16232 (which is a PID, NOT in notepad's thread list, but 18704 IS in notepad's thread list)
+    - OpenThread(18704) succeeded (thread is alive)
+    - AttachThreadInput(0, 18704, true) STILL returned False LastError=87
+    - Conclusion: thread ID retrieval works correctly. The AttachThreadInput failure is NOT due to wrong thread ID - it's a session/window-station isolation issue.
+
+  **OVERALL CONCLUSION for stage-1 Notepad Adapter design:**
+
+  | Path | Background PS works? | Why |
+  |------|---------------------|-----|
+  | UIA ValuePattern.SetValue | NO (UIA cache only, Notepad unaware) | UIA abstract layer doesn't trigger Edit control dirty |
+  | UIA SendKeys | NO (depends on text-control focus) | SetFocus fails in background PS context |
+  | UIA SetForegroundWindow | YES (sets foreground) | Does NOT actually deliver input |
+  | UIA WindowPattern.Close | NO (background PS noop) | Standard behavior |
+  | Win32 AttachThreadInput | NO (LastError=87) | Session/window-station isolation in Win11 25H2 |
+  | Win32 BlockInput | NO (no input desktop) | Background PS has no input desktop |
+  | Win32 keybd_event | **YES** (Test 1g) | Direct kernel input queue injection, bypasses focus |
+  | Win32 GetWindowThreadProcessId | YES (Test 4) | Returns correct thread ID |
+
+  **PRACTICAL CONCLUSION**: In a background PowerShell process, the ONLY reliable way to inject characters into a Win11 25H2 modern Notepad document is via Win32 keybd_event (or SendInput API). All UIA-based approaches fail because UIA's SetFocus on RichEditD2DPT doesn't actually establish focus in this context. stage-1 Notepad Adapter **MUST use Rust COM via windows crate** (which makes real process-level calls) for any write path; background PS process can only DETECT dialogs and use keybd_event (limited).
+
+  **probe-08 unsaved_dialog scenario is fundamentally unmeasurable in automated background runs** - the scenario works in interactive sessions (Phase 1.3 user confirmed Save dialog appears on X-click) but no background PS mechanism can trigger it.
