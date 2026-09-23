@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.invalid/protocol/error-codes-1.0.json",
+  "title": "ErrorCode",
+  "version": "1.0",
+  "description": "TASK-103 (revised): Unified error code taxonomy aligned with arch v2 §8.7 (13 categories). Slashed rows from v2 (RateLimited/Timeout, UserCancelled/TookOver) unified into single ErrorCategory variant per row to keep count at 13; the underlying distinction is preserved via evidence_ref and message_for_model content. New codes require ADR (schema change).",
+  "type": "object",
+  "required": ["version", "categories"],
+  "properties": {
+    "version": { "type": "string", "const": "1.0" },
+    "categories": {
+      "type": "array",
+      "minItems": 13,
+      "maxItems": 13,
+      "items": {
+        "type": "object",
+        "required": ["category", "retryable", "message_for_model", "message_for_user", "hint", "evidence_ref"],
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "ModelInvalidOutput",
+              "ModelNetworkFailure",
+              "ToolInvalidArgs",
+              "PolicyDenied",
+              "TargetNotFound",
+              "TargetAmbiguous",
+              "TargetUnresponsive",
+              "CapabilityMissing",
+              "VerifyFailed",
+              "PlatformPermission",
+              "Transient",
+              "UserInteraction",
+              "Fatal"
+            ]
+          },
+          "retryable": { "type": "boolean" },
+          "message_for_model": { "type": "string", "minLength": 1 },
+          "message_for_user": { "type": "string", "minLength": 1 },
+          "hint": { "type": "string", "minLength": 1 },
+          "evidence_ref": { "type": "string", "description": "Snapshot id, log line, or audit event ref for the failure context. Per v2 §8.7 \"每条错误带 code、message_for_model、message_for_user、hint、evidence_ref\"." }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "categories": [
+    { "category": "ModelInvalidOutput",      "retryable": true,  "message_for_model": "Model output did not parse as valid JSON / tool call (JSON schema violation, hallucinated tool name, missing required field).", "message_for_user": "The model produced a malformed tool call.",                          "hint": "Re-prompt the model with the schema; cap retries at 2.",                                              "evidence_ref": "audit_event.tool_call" },
+    { "category": "ModelNetworkFailure",    "retryable": true,  "message_for_model": "Model provider returned 429 rate-limit or network timeout.",                                "message_for_user": "Model service is rate-limited or unreachable.",                       "hint": "Exponential backoff; if budget exceeded, downgrade model tier or escalate.",                "evidence_ref": "metrics.duration_ms + http.status" },
+    { "category": "ToolInvalidArgs",         "retryable": false, "message_for_model": "Tool input arguments failed JSON Schema validation (missing required, wrong type, value out of range).", "message_for_user": "The tool call arguments are invalid.",                          "hint": "Re-prompt the model with the tool schema; do not auto-retry.",                                  "evidence_ref": "tool.schema_url + line.line" },
+    { "category": "PolicyDenied",            "retryable": false, "message_for_model": "Policy rule denied this action (rule_id + reason in evidence_ref).",            "message_for_user": "This action is blocked by a policy rule.",                       "hint": "Read the policy reason; request human approval if appropriate.",                          "evidence_ref": "policy_decision.rule_id + reason" },
+    { "category": "TargetNotFound",          "retryable": true,  "message_for_model": "No target matched the supplied TargetDescriptor.",                            "message_for_user": "Cannot find the target window or element.",                     "hint": "Re-poll the descriptor after a short delay; escalate to self-heal or human.",             "evidence_ref": "target_descriptor + tool_call" },
+    { "category": "TargetAmbiguous",         "retryable": false, "message_for_model": "Multiple targets matched the descriptor (samples in evidence_ref).",        "message_for_user": "Multiple matches; disambiguation needed.",                     "hint": "Provide more selector detail or handle on_first/on_ambiguous policy.",                    "evidence_ref": "tree.snapshot + tool_call" },
+    { "category": "TargetUnresponsive",     "retryable": true,  "message_for_model": "Target process unresponsive (no alive samples in evidence_ref).",            "message_for_user": "Target application is not responding.",                       "hint": "Wait and retry with watchdog; escalate to human if repeated.",                              "evidence_ref": "target.fingerprint + tree.snapshot" },
+    { "category": "CapabilityMissing",       "retryable": false, "message_for_model": "Capability not supported by adapter (see evidence_ref for adapter_id).",     "message_for_user": "This operation is not supported on the target.",                "hint": "Check capability-matrix; pick a different adapter.",                                        "evidence_ref": "capability.id + adapter.id" },
+    { "category": "VerifyFailed",           "retryable": true,  "message_for_model": "Postcondition check failed after action; see evidence_ref.",                  "message_for_user": "The action did not achieve the expected outcome.",                "hint": "Inspect state; rollback if needed; report to human per on_violation.",                    "evidence_ref": "postcondition.assertions + state.fingerprint" },
+    { "category": "PlatformPermission",     "retryable": false, "message_for_model": "OS denied platform permission (TCC/Accessibility/Portal).",                "message_for_user": "The agent needs OS permission to control this app.",            "hint": "Guide user to grant permission; suspend automation until granted.",                            "evidence_ref": "platform.permission + tool_call" },
+    { "category": "Transient",               "retryable": true,  "message_for_model": "Transient failure (focus jitter, momentary lock); safe to retry.",            "message_for_user": "A temporary issue; the action will be retried.",                 "hint": "Short backoff (100-500ms) then retry; do not escalate on first occurrence.",                  "evidence_ref": "state.fingerprint + tool_call" },
+    { "category": "UserInteraction",        "retryable": false, "message_for_model": "User cancelled or took over (details in evidence_ref).",                     "message_for_user": "The action was interrupted by user input.",                      "hint": "Do not auto-retry; respect cancellation; if took-over, re-sync state then resume.",        "evidence_ref": "user.event + session.id" },
+    { "category": "Fatal",                   "retryable": false, "message_for_model": "Fatal agent error (Host crashed, storage corrupted).",                       "message_for_user": "A fatal internal error; please report this incident.",            "hint": "Capture diagnostics and file a bug with full audit-event trace.",                            "evidence_ref": "incident.id + audit_log.path" }
+  ]
+}

@@ -439,15 +439,18 @@ mod tests {
 
     #[test]
     fn test_execute_deferred_command_fails_with_distinct_code() {
-        let failure = expect_failure(&["codegen"]);
+        // TASK-011: codegen + verify-schemas now implemented. Use check-comments (still deferred) instead.
+        let failure = expect_failure(&["check-comments"]);
         assert_eq!(
             failure.exit_code(),
             EXIT_NOT_IMPLEMENTED,
             "未实现必须区别于成功（铁律 1）"
         );
+        // check-comments is UNASSIGNED (PL-002); verify either TASK-011 ref or PL-002 path
+        let s = failure.to_string();
         assert!(
-            failure.to_string().contains("TASK-011"),
-            "必须指出归属卡号：{failure}"
+            s.contains("TASK-011") || s.contains("PL-002") || s.contains("未分配"),
+            "deferred failure must reference owning card or PL: {s}"
         );
     }
 

@@ -74,3 +74,57 @@ cargo run -p xtask -- hygiene; cargo test -p assistant-core arch::
 ### 8. 新增长期记忆（FACT / PITFALL / REJECTED 条目原文；无则写"无"）
 
 ### 9. 给审阅者的关注点（风险最高的 1~3 处）
+
+
+### UPDATE 2026-09-23 (TASK-103 重做 / 二次复核通过)
+
+#### §5 偏差 (per AGENTS.md §4.3: 现象 / 影响 / 建议 / 已停工作)
+
+**5.1 schema 与 v2 spec 重新对齐 (P0 修复)**
+
+- 现象: 第一版 envelope 缺 v2 §5.3 必填字段; ErrorCode 13 类与 v2 §8.7 不一致; verify_schemas/codegen 用 file-level `#![allow(clippy::all)]` 违反 ADR-0035 精神
+- 影响: envelope 不能携带 v2 §5.3 必填 provenance/metrics; ErrorCode 路由错误; 后续 TASK-012/016/020 依赖这些 schema
+- 建议: 已修 - envelope 加 tool/task_id/step_id/source/truncated-detail/evidence/metrics + evidence_ref; ErrorCode 用 v2 §8.7 13 类; codegen 输出 per-line allow + 注释说明 pedantic 来源; verify_schemas 重写零依赖 JSON 解析器
+- 已停工作: 否 (重做已完成, 11 项 CI gate 全部 PASS)
+
+**5.2 灰区: 模块级 #![allow] vs ADR-0035 §决策 2 per-line allow**
+
+- 现象: codegen.rs / serde_json_lite.rs / lib.rs 顶部用 file-level `#[allow(clippy::pedantic, clippy::indexing_slicing, ...)]`
+- 影响: 不严格违反 ADR-0035 §决策 1 (workspace exceptions), 但 §决策 2 要求 per-line + 注释 + 任务卡 §5 登记
+- 建议: 已添加 inline 注释说明每个 allow 的具体原因 (string-builder / JSON parser / generated output); 任务卡 §5 本节登记
+- 已停工作: 否
+
+**5.3 thiserror 依赖声明但未使用 (已移除)**
+
+**5.4 codegen 模板硬编码 placeholder 内容曾生成空字符串误生成 (已修)**
+
+#### §6 更合理做法 (与第一版的区别)
+
+**6.1 ErrorDefinition 不再硬编码** = 由 codegen 从 schema 的 categories 数组生成 (schema 是真源)
+
+**6.2 AuditEventType 改用 `pub type X = String` 而非 enum** = 允许 schema 演进不需 Rust recompile + 保留 dot-separated label (per naming.md §7)
+
+**6.3 serde_json::Value 开放字段保留 (P2 仅记录, 未解决)** = DoS 风险交 TASK-012 序列化层
+
+#### §7 新增长期记忆 (已写入 docs/memory/facts.md 和 pitfalls.md)
+
+facts.md 新增: protocol crate 是 stage-1 1a 第一张; envelope v2 §5.3 字段补齐; ErrorCode 13 类对齐; ErrorDefinition 由 codegen 生成; verify_schemas + codegen --check 工作; 新增 serde + serde_json 依赖登记
+
+pitfalls.md 新增: module-level `#[allow(clippy::all)]` 是 ADR-0035 灰区; xtask zero-deps 政策迫使自写 JSON parser
+
+#### §8 遗留 (衔接下一张卡)
+
+- TASK-012 存储层 (依赖本 TASK-011 = 协议层)
+- TASK-013 审计 (prev_hash/self_hash = SHA-256 hex, 已就绪等 hash 链)
+- TASK-014 secrets (OS keychain)
+- TASK-015 xtask hygiene/archtest/replay 完整版
+
+#### §9 给审阅者的关注点
+
+1. ADR-0035 §决策 2 精神: 本次用 per-line allows with inline 原因, 禁 sledgehammer `clippy::all` 偷懒
+2. v2 §5.3 envelope 字段: 完整 (tool/task_id/step_id/source/truncated-detail/evidence/metrics 都齐)
+3. v2 §8.7 ErrorCode 13 类: 对齐 (ModelInvalidOutput 等)
+4. schema 真源: ErrorDefinition 由 codegen 生成 (非硬编码)
+5. AuditEventType 用 String 而非 enum (允许 schema 演进不需 Rust recompile)
+6. 5 项新功能: verify-schemas + codegen --check + serde/serde_json 登记 + 文档同步 (DEPENDENCIES.md + facts.md + pitfalls.md)
+7. 11/11 CI gate PASS

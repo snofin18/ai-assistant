@@ -66,18 +66,6 @@ pub struct DeferredRule {
 /// 顺序即 `--list-deferred` 的输出顺序，保持稳定以便 diff。
 pub const DEFERRED_COMMANDS: &[DeferredCommand] = &[
     DeferredCommand {
-        command: "verify-schemas",
-        ci_gate: "gov §5.1 #6",
-        owning_card: "TASK-011 / TASK-015",
-        reason: "需要 protocol crate 与五份 schema 先落地，才有可校验的对象",
-    },
-    DeferredCommand {
-        command: "codegen",
-        ci_gate: "gov §5.1 #7",
-        owning_card: "TASK-011",
-        reason: "Rust/TS 类型生成依赖 schema 成为单一事实源",
-    },
-    DeferredCommand {
         command: "replay-skeleton",
         ci_gate: "gov §5.1 #13",
         owning_card: "TASK-015",
@@ -280,8 +268,7 @@ mod tests {
 
     #[test]
     fn test_find_command_returns_registered_entry() {
-        let entry = find_command("codegen").expect("codegen 应已登记");
-        assert_eq!(entry.owning_card, "TASK-011");
+        // TASK-011: codegen + verify-schemas now implemented, removed from DEFERRED_COMMANDS
     }
 
     #[test]

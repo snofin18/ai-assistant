@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.invalid/protocol/envelope-1.0.json",
+  "title": "ToolEnvelope",
+  "version": "1.0",
+  "description": "TASK-103 (revised): Unified tool return envelope per arch v2 §5.3. Carries full provenance (tool, task_id, step_id, source, evidence, metrics) so downstream consumers (model, audit, undo) can reason without re-querying. `untrusted: true` is the anti-prompt-injection flag (v2 §12.4): such content MUST NEVER be re-pasted into system prompt.",
+  "type": "object",
+  "required": ["version", "tool", "task_id", "step_id", "ok", "data"],
+  "properties": {
+    "version":   { "type": "string", "const": "1.0" },
+    "tool":      { "type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$", "description": "Tool name = `<app>.<domain>.<action>` per naming.md §7 controlled vocabulary." },
+    "task_id":   { "type": "string", "minLength": 1, "description": "Task-level identifier; every envelope belongs to one Task. Per naming.md §5 use newtype TaskId, not bare string — the schema enforces minLength only." },
+    "step_id":   { "type": "string", "minLength": 1, "description": "Step-level identifier within the Task. Per naming.md §5 use newtype StepId." },
+    "ok":        { "type": "boolean", "description": "true = tool executed successfully; false = tool returned an error (see error.code)." },
+    "data":      {
+      "oneOf": [
+        { "type": "object", "description": "Success payload (tool-specific shape validated by tool's own schema)." },
+        { "type": "null" }
+      ]
+    },
+    "untrusted": {
+      "type": "boolean",
+      "default": false,
+      "description": "true = data field contains content from an external/untrusted origin (web page, clipboard, screen OCR). Per ADR-0034 + v2 §12.4, untrusted data MUST NEVER be re-interpreted as instruction. Downstream must redact or sandbox before any further model prompt use."
+    },
+    "source": {
+      "type": "object",
+      "description": "Provenance of the data — required when untrusted=true, optional otherwise.",
+      "properties": {
+        "kind":     { "type": "string", "enum": ["app_content", "user_input", "web_content", "file_artifact", "screenshot", "ocr", "clipboard", "unknown"] },
+        "app_id":   { "type": "string", "description": "Application identifier (com.example.notepad)." },
+        "target":   { "type": "string", "description": "Target identifier within the app (doc_123, channel_42)." }
+      },
+      "required": ["kind"],
+      "additionalProperties": false
+    },
+    "truncated": {
+      "type": "object",
+      "description": "Required iff data was truncated. v2 §5.3 rule: model MUST be told content is incomplete.",
+      "properties": {
+        "occurred":       { "type": "boolean" },
+        "reason":          { "type": "string", "enum": ["max_bytes", "max_tokens", "max_lines", "timeout", "other"] },
+        "original_bytes":  { "type": "integer", "minimum": 0, "description": "Pre-truncation size, so the model can decide whether the truncation matters." }
+      },
+      "required": ["occurred", "reason"],
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "object",
+      "description": "Per v2 §7.5 Evidence: tree snapshot id, screenshot path, or any artifact that lets undo/verify/replay reference the tool's post-state.",
+      "properties": {
+        "snapshot_id": { "type": "string" },
+        "screenshot":   { "type": ["string", "null"], "description": "Path or URI to a screenshot; null if not captured." },
+        "extra":       { "type": "object", "additionalProperties": true }
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "description": "Per-tool operational metrics. duration_ms always set; attempts set when tool retried internally.",
+      "properties": {
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "attempts":     { "type": "integer", "minimum": 1, "default": 1 }
+      },
+      "required": ["duration_ms"],
+      "additionalProperties": false
+    },
+    "error": {
+      "oneOf": [
+        { "type": "object", "required": ["code", "message"], "properties": {
+            "code":     { "type": "string" },
+            "message":  { "type": "string", "minLength": 1 },
+            "evidence_ref": { "type": "string", "description": "Per v2 §8.7 every error carries an evidence_ref. Cross-ref into audit-event by self_hash." },
+            "details":  { "type": "object", "additionalProperties": true }
+          },
+          "additionalProperties": false
+        },
+        { "type": "null" }
+      ],
+      "description": "Required when ok=false; null when ok=true."
+    }
+  },
+  "additionalProperties": false
+}

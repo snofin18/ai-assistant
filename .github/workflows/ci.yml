@@ -262,7 +262,7 @@ jobs:
       - name: "verify unimplemented subcommand fails loudly (exit code 3)"
         run: |
           set +e
-          cargo run -q -p xtask -- codegen
+          cargo run -q -p xtask -- check-comments
           code=$?
           set -e
           if [ "$code" -ne 3 ]; then

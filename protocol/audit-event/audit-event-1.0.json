@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.invalid/protocol/audit-event-1.0.json",
+  "title": "AuditEvent",
+  "version": "1.0",
+  "description": "TASK-103 (revised): Schema for audit events appended to the tamper-evident audit log. Per arch v2 §8.x. Event type naming per naming.md §7 = `<noun>.<past_verb>` snake_case (e.g. `tool.called` not `ToolCall`). Hash chain uses SHA-256 hex (64 chars) per TASK-013 design.",
+  "type": "object",
+  "required": ["version", "event_type", "ts", "session_id", "actor", "action"],
+  "properties": {
+    "version":  { "type": "string", "const": "1.0" },
+    "event_type": { "type": "string", "enum": [
+      "session.started", "session.ended",
+      "tool.called", "tool.succeeded", "tool.failed",
+      "policy.evaluated", "policy.allowed", "policy.denied",
+      "approval.requested", "approval.granted", "approval.denied", "approval.timed_out",
+      "postcondition.checked", "postcondition.failed",
+      "rollback.executed",
+      "incident.reported",
+      "error.recorded"
+    ] },
+    "ts":        { "type": "string", "format": "date-time", "description": "ISO-8601 UTC with milliseconds." },
+    "session_id":{ "type": "string", "minLength": 1 },
+    "actor":     { "type": "string", "enum": ["user", "agent", "system", "tool"] },
+    "action":    { "type": "string", "minLength": 1, "description": "Tool name (for tool.* events) or internal action identifier." },
+    "target":    { "type": "object", "description": "TargetDescriptor if relevant (validated by tool's own schema).", "additionalProperties": true },
+    "args":      { "type": "object", "description": "Tool input args; redacted per ADR-0034.", "additionalProperties": true },
+    "result":    { "$ref": "envelope-1.0.json" },
+    "policy_decision": {
+      "type": "object",
+      "properties": {
+        "allow":   { "type": "boolean" },
+        "rule_id": { "type": "string" },
+        "reason":  { "type": "string" }
+      },
+      "required": ["allow"],
+      "additionalProperties": false
+    },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "cost": {
+      "type": "object",
+      "properties": {
+        "tokens_in":  { "type": "integer", "minimum": 0 },
+        "tokens_out": { "type": "integer", "minimum": 0 },
+        "usd":         { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "prev_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$|^$", "description": "SHA-256 hex of previous event in chain. Empty string for the first event." },
+    "self_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$", "description": "SHA-256 hex of this event (computed over all fields except self_hash)." }
+  },
+  "additionalProperties": false
+}

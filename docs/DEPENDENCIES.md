@@ -21,6 +21,8 @@
 | crate | 版本要求 | 使用方 | 用途（一句话） | 许可证 | 替代方案与否决理由 | 状态 | 批准 | 日期 |
 |---|---|---|---|---|---|---|---|---|
 | — | — | — | **产品 workspace 仍为零第三方依赖**：`xtask` 刻意 std-only（零供应链风险 + 编译 <1s）。下面两行属 `spikes/`（被根 `Cargo.toml` `exclude`，不在产品 workspace 内） | — | — | — | — | 2026-09-16 |
+| `serde` | **`=1.0`** | `crates/protocol` | serde derive + `serde_json::Value` for envelope.data / audit_event.target 等开放字段 | MIT OR Apache-2.0 | 替代 = 手写 Serialize/Deserialize impl = 出错率高且协议多版本难兼容 | **Approved** | 人类（chat 2026-09-23 TASK-103） | 2026-09-23 |
+| `serde_json` | **`=1.0`** | `crates/protocol` | JSON Value 类型（用于 envelope.data / error.details / metadata / audit_event.target 等开放字段） | MIT OR Apache-2.0 | 替代 = serde_json::Value 是 serde_json 生态默认；不允许直接 String 传开放字段（违反 naming.md §5 newtype 约束） | **Approved** | 人类（chat 2026-09-23 TASK-103） | 2026-09-23 |
 | `windows` | **`=0.62.2`**（精确钉定；0.x 版本间**有**破坏性变更，升级 = 漂移触发器） | `spikes/spike-a-notepad`（阶段 0）→ `crates/platform/windows`（阶段 1） | Win32/WinRT 官方投影。**Spike A 只用其 UI Automation 客户端 COM 绑定**（`IUIAutomation` / `CUIAutomation` / `IUIAutomationElement` / `IUIAutomationValuePattern`），验证「Rust 走 COM 是否与 PowerShell 走托管封装表现一致」 | MIT OR Apache-2.0（`cargo deny check licenses` 2026-09-18 本机实测 `licenses ok`，exit 0） | 替代方案 = 第三方封装 crate `uiautomation`，**已否决**（ADR-0024 D1）：封装层自带缓存会**掩盖**真实 COM 开销，污染 Spike A 的 go/no-go 判据，并把风险推迟到阶段 1；且它不在本清单内，等于多引入一个外部维护者 | **Approved for spikes**（产品侧待阶段 1 走漂移升级） | 人类（指示 #6） | 2026-09-18 |
 | `uiautomation` | — | — | （曾考虑用于 spike 的 UIA 访问） | 未核实 | **Rejected**：见 ADR-0024 D1 的对比表与裁决理由（决定性一条 = spike 必须走生产路径去撞墙） | **Rejected** | 人类（指示 #6） | 2026-09-18 |
 
