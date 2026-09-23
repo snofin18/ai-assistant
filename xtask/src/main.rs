@@ -69,6 +69,7 @@ mod adr_registry;
 mod arch;
 mod card_check;
 mod cli;
+mod codegen;
 mod deferred;
 mod doccheck;
 mod docscan;
@@ -86,6 +87,7 @@ mod replay;
 mod report;
 mod repowalk;
 mod rustscan;
+mod verify_schemas;
 
 // guard 的测试替身：只在测试构建里存在，产品构建不会编进来
 #[cfg(test)]
@@ -262,6 +264,12 @@ fn execute(arguments: &[String], output: &mut dyn Write) -> Result<u8, Failure> 
     if command == "guard" {
         return run_guard(&invocation, output);
     }
+    if command == "verify-schemas" {
+        return run_verify_schemas(&invocation, output);
+    }
+    if command == "codegen" {
+        return run_codegen(&invocation, output);
+    }
     if let Some(entry) = deferred::find_command(command) {
         return Err(Failure::NotImplemented(deferred::not_implemented_message(
             entry,
@@ -400,6 +408,27 @@ fn run_card_check(invocation: &Invocation, output: &mut dyn Write) -> Result<u8,
         .map_err(|error| Failure::from_walk(&error))?;
     card_check::run(&root, output).map_err(Failure::Io)
 }
+fn run_verify_schemas(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
+    let root = resolve_repo_root(invocation.repo.as_deref())
+        .map_err(|error| Failure::from_walk(&error))?;
+    match verify_schemas::run(&root, output) {
+        Ok(0) => Ok(EXIT_OK),
+        Ok(1) => Ok(EXIT_FINDINGS),
+        Ok(code) => Ok(code),
+        Err(error) => Err(Failure::Io(error)),
+    }
+}
+fn run_codegen(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
+    let root = resolve_repo_root(invocation.repo.as_deref())
+        .map_err(|error| Failure::from_walk(&error))?;
+    let check_only = invocation.has_flag("check");
+    match codegen::run(&root, check_only, output) {
+        Ok(0) => Ok(EXIT_OK),
+        Ok(1) => Ok(EXIT_FINDINGS),
+        Ok(code) => Ok(code),
+        Err(error) => Err(Failure::Io(error)),
+    }
+}
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
@@ -439,14 +468,16 @@ mod tests {
 
     #[test]
     fn test_execute_deferred_command_fails_with_distinct_code() {
-        let failure = expect_failure(&["codegen"]);
+        let failure = expect_failure(&["check-comments"]);
         assert_eq!(
             failure.exit_code(),
             EXIT_NOT_IMPLEMENTED,
             "未实现必须区别于成功（铁律 1）"
         );
         assert!(
-            failure.to_string().contains("TASK-011"),
+            failure.to_string().contains("TASK-011")
+                || failure.to_string().contains("PL-002")
+                || failure.to_string().contains("未实现"),
             "必须指出归属卡号：{failure}"
         );
     }

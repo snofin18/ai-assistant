@@ -11,7 +11,7 @@
 
 [workspace]
 resolver = "2"
-members = ["xtask", "crates/*", "apps/*"]
+members = ["xtask", "crates/protocol", "crates/*", "apps/*"]
 exclude = ["spikes", "fixtures/apps", "tools"]
 
 [workspace.package]

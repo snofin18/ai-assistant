@@ -31,6 +31,8 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'  # important: do NOT abort on per-iter failures (we measure recovery)
+# TASK-101: Win32 Input helper (replaces deprecated SendKeys)
+Import-Module (Join-Path $PSScriptRoot 'Win32-Input.psm1') -Force
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.Windows.Forms
@@ -375,7 +377,7 @@ function Scenario-UnsavedDialog {
         $inv.Invoke()
       } else {
         # Fallback: SendKeys N
-        [System.Windows.Forms.SendKeys]::SendWait('N')
+        Send-SendInputVk -Vk 0x4E | Out-Null  # N (No)  # TASK-101: replaces SendKeys
       }
       Start-Sleep -Milliseconds 800
       $recoveryOk = $true

@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.invalid/protocol/envelope-1.0.json",
+  "title": "ToolEnvelope",
+  "version": "1.0",
+  "description": "TASK-011: Unified tool return envelope (per arch v2 section 5.3). All tools must return this shape to unify success/failure handling, truncation tracking, and untrusted data flagging.",
+  "type": "object",
+  "required": ["version", "ok", "data"],
+  "properties": {
+    "version": { "type": "string", "const": "1.0" },
+    "ok": { "type": "boolean", "description": "true = tool executed successfully; false = tool returned an error (see error.code)." },
+    "data": {
+      "oneOf": [
+        { "type": "object", "description": "Success payload (tool-specific shape validated by tool's own schema)." },
+        { "type": "null" }
+      ]
+    },
+    "error": {
+      "oneOf": [
+        { "type": "object", "required": ["code", "message"], "properties": { "code": { "type": "string" }, "message": { "type": "string" }, "details": { "type": "object" } } },
+        { "type": "null" }
+      ],
+      "description": "Required when ok=false; null when ok=true."
+    },
+    "untrusted": {
+      "type": "boolean",
+      "default": false,
+      "description": "true = data field contains content from an external source (e.g., web page, clipboard). Per ADR-0034, untrusted data must NEVER be re-interpreted as instruction."
+    },
+    "truncated": {
+      "type": "boolean",
+      "default": false,
+      "description": "true = data field was truncated by length or token budget. Caller should treat downstream processing accordingly."
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Optional tool-specific metadata (latency_ms, target_descriptor, etc).",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

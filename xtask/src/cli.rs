@@ -41,8 +41,8 @@ pub const USAGE: &str = r#"xtask — 仓库护栏与开发任务工具（只读�
   docscan           文档结构扫描（破表 / setext 风险 / 编码形状），不免
   card-check         任务卡格式完整性（ADR-0031 D6，**当前实现部分**）：9 节骨架齐全（Ready 豁免） + 状态=Done/Review + 记录区空 → Warning；**未实现**：状态行唯一 / 分界线唯一（计划归 TASK-060）
   guard <操作>       文件改写互斥锁（ADR-0028）；操作 = acquire | release | status | reap
-  verify-schemas     [未实现 · TASK-011/015] Tool/Adapter/审计事件 schema 校验
-  codegen            [未实现 · TASK-011]     由 schema 生成 Rust/TS 类型
+  verify-schemas     5 份 JSON schema 校验（存在 + JSON 合法 + version + 13 类 ErrorCode）
+  codegen            从 protocol/*.json 生成 Rust 类型；--check 仅检测 drift 不写
   replay             [未实现 · TASK-034]     用录制的树快照做离线回放回归
   check-comments     [未实现 · 待补卡]       命名与注释规范检查（naming §10）
   check-ledger       [未实现 · 待补卡]       台账与记忆同步检查
@@ -83,7 +83,7 @@ const VALUE_OPTIONS: [&str; 5] = [
 ];
 
 /// 布尔开关（不含前导 `--` 的名字会进 `Invocation::flags`）。
-const BOOLEAN_FLAGS: [&str; 1] = ["--force"];
+const BOOLEAN_FLAGS: [&str; 2] = ["--force", "--check"];
 
 /// 一次调用的解析结果。
 #[derive(Debug, Clone, PartialEq, Eq)]

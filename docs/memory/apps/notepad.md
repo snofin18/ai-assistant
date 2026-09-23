@@ -228,6 +228,103 @@ Window       aid=''                  cls=Notepad                                
 **风险级**：读 = 低；`SetValue` 写 = 中（可撤销但会清空应用内 undo 粒度）；
 「另存为 / 覆盖保存」= **高**（落盘不可逆，须 postcondition + 人工确认）。
 
+
+## 9. Win32 Input Pipeline（`Win32-Input.psm1` = TASK-100 主交付物）
+
+> 阶段 0 派生任务。**纯 PS**（PS 5.1 + `Add-Type` Win32 P/Invoke），无第三方依赖。
+> **设计目的**：替换 `System.Windows.Forms.SendKeys::SendWait`（其内部调 `keybd_event`，微软标 deprecated）。
+> 替代路径：[`SendInput`](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-sendinput) + 显式 `SetForegroundWindow` + `SetFocus`。
+
+### 9.1 模块导出函数
+
+| 函数 | 作用 | 关键参数 |
+|---|---|---|
+| `Send-SendInputVk` | 发送一个 VK 按键 down + up；可选 modifier 数组 | `-Vk` int, `-Modifier` int[]（如 `0xA2` = LCtrl） |
+| `Send-SendInputUnicode` | 发送 Unicode 字符串（绕过 IME 与键盘布局） | `-Text` string（接受空字符串） |
+| `Set-Win32ForegroundFocus` | 调 `SetForegroundWindow` + `SetFocus`，返回诊断对象 | `-Hwnd` IntPtr |
+| `Get-VkFromChar` | ASCII 字符 → VK 数字（A-Z、0-9；a-z 自动转大写） | `-Char` char |
+
+返回类型：3 个发送函数统一返回 `[uint32]` = 实际插入 input queue 的事件数。
+`Set-Win32ForegroundFocus` 返回 `[pscustomobject]@{Success,Reason,ForegroundHwnd,FocusHwnd}`。
+
+### 9.2 实测行为（probe-11/12/13，5 iter + 1 warmup）
+
+| 环境 | Phase A 模块契约 | Phase B best-effort | Phase C UIA 控制基线 |
+|---|---|---|---|
+| **non-interactive PS**（PSexec / CI 等） | **9/9 PASS** | **char_in_doc 0%**（GetFocus 永远 0；SendInput 返回 0 + LastError=87） | **5/5 PASS** |
+| **interactive console**（手动跑） | （同 9/9） | 预期 char_in_doc 100%（probe-08 test 1g 已证 `SetFocus + keybd_event` work） | （同 5/5） |
+
+**关键结论**：在 Win11 25H2 25H2 modern Notepad 上下文，
+- 模块本身 API 契约在两种环境下都 100% 满足
+- **真实字符投递只能在 interactive session 中 work**（research §3 预测正确）
+- UIA `ValuePattern.SetValue` 不受 session 限制，是后台 PS 唯一可靠写路径
+
+### 9.3 与旧 `SendKeys` 的关系
+
+- `System.Windows.Forms.SendKeys` 内部调 `keybd_event`（SendInput 的前身）；微软标记 superseded
+- probe-08 4-test（2026-09-22）已证后台 PS + UWP 应用下 `SendKeys` 失败 3/4
+- 本模块封装 `SendInput` + 显式 focus 控制 = 等价的 modern 路径 + 显式 API
+
+### 9.5 集成回归（TASK-101 落地 2026-09-23）
+
+**probe-04/07/08/10 中 8 处 `SendKeys::SendWait` 全部替换为 `Win32-Input.psm1` 调用**（详 `spikes/spike-a-notepad/probe-14-sendinput-regression.ps1` RESULT-14.txt）。
+
+#### 9.6 ground truth 验证（TASK-102 = 用户实测 2026-09-23 11:00）
+
+人类在 interactive PS console 跑了 4 probe 完整 iter（10 + 2 warmup，**默认参数**）：
+
+| Probe | iter | 实测关键结果 | 解读 |
+|---|---|---|---|
+| probe-04 | 5 | `save=SAVED` × **5/5 100%** | ✅ **Ctrl+S 真工作**。SendInput 路径在 interactive console 部分场景 work。|
+| probe-07 | 10 | dialog10/10 + edit10/10 + save10/10 + **set_filename 0/10** + file_on_disk 0/10 | ⚠️ set_filename 0% = DirectUI Edit 限制（pre-existing，SendInput 不 work）|
+| probe-08 | 10 | process_killed 100% + minimized 100% + other_desktop 0% (platform) + unsaved_dialog state 3/10 | ⚠️ 探测脚本本身限制（pre-existing）|
+| probe-10 | 10 | VP 10/10 (UIA SetValue) + **SK 0/10** (SendInput Unicode) | ⚠️ SK 0% 与 probe-04 0% 模式相反 = SendInput 上下文敏感|
+
+**对比 pre-TASK-101 baseline（git f3a96a0 前 RESULT-XX.txt）= 实测结果相同**：
+- probe-04 baseline Ctrl+S 100% = 替换后 100% ✅
+- probe-07 baseline set_filename 0% = 替换后 0% ✅ (DirectUI 限制)
+- probe-08 baseline unsaved_dialog 0% = 替换后 0% ✅ (探测脚本限制)
+- probe-10 baseline SK 0% = 替换后 0% ✅ (SendKeys 在原版本同样 0%)
+
+**TASK-101 替换 = ground truth baseline = 无 regression** ✅
+
+**架构最终判断**（per facts.md 2026-09-23 TASK-101 + pitfalls.md 2026-09-23 TASK-101）：
+- SendInput 是 SendKeys 的**等价替换 + 显式 API + 避免 deprecated keybd_event**
+- 不是"全面升级"（仍有 DirectUI 限制 pre-existing）
+- stage-1 Adapter 写路径优先级：UIA `ValuePattern.SetValue` (主) > SendInput (主窗口 Ctrl+S 类) > SendKeys (0% 已弃用)
+#### 替换映射表
+
+| 旧 `SendWait(...)` | 新 Win32-Input 调用 | 备注 |
+|---|---|---|
+| `'^s'` (Ctrl+S) | `Send-SendInputVk -Vk 0x53 -Modifier @(0xA2)` | 0xA2 = VK_LCONTROL |
+| `'^a'` (Ctrl+A) | `Send-SendInputVk -Vk 0x41 -Modifier @(0xA2)` | 同上 |
+| `'{ESC}'` | `Send-SendInputVk -Vk 0x1B` | ESC = 0x1B |
+| `'{DEL}'` | `Send-SendInputVk -Vk 0x2E` | Delete = 0x2E |
+| `'N'` | `Send-SendInputVk -Vk 0x4E` | N = 0x4E |
+| `$chStr` (单字符) | `Send-SendInputVk -Vk $vk` 或 `Send-SendInputUnicode -Text` | $vk = Get-VkFromChar |
+| `$skContent` (字符串) | `Send-SendInputUnicode -Text $skContent` | Unicode 路径 |
+
+#### probe-14 三阶段结果
+
+- **Phase A 结构**（parse + module import + 1-iter quick run）：**4/4 PASS**（4 旧 probe 改后都仍能正常 parse + Import-Module Win32-Input + 跑完 1 iter）
+- **Phase B API 契约**：4/4 PASS（4 个 Win32-Input 函数在 probe 进程内可调）
+- **Phase C 回归**（SendKeys 移除）：**13/13 PASS**（全部 13 个 spike probe 都不含 SendKeys::SendWait）
+- **Overall**：**GO**
+
+#### 与 pitfalls.md 2026-09-23 的关系
+
+probe-14 的 **quick-run 1 iter** 用 `exit=0` 作为通过条件，但**实际 probe 内部的 SendInput 在 non-interactive session 下仍会返回 0**（per pitfalls.md 2026-09-23 = foreground lock 限制）。**probe-14 验证的是"替换后的代码结构正确"而非"end-to-end 字符投递"**——后者需在 interactive console 中由人类跑（probe 4-10 各自的 RESULT-XX.txt 可作为 ground truth）。
+
+#### stage-1 准备
+
+4 个 probe 现在可直接 `Import-Module Win32-Input.psm1` 调用，无需任何 wrapper 改造。**Rust COM via `windows` crate 是生产路径**（架构 v2 已规划；本模块仅作 spike 阶段 PS 侧的 input pipeline 验证）。
+### 9.4 引用
+
+- [`docs/memory/win32-input-research.md`](win32-input-research.md)（Step 1 研究；193 行，9 节）
+- [`spikes/spike-a-notepad/Win32-Input.psm1`](../../spikes/spike-a-notepad/Win32-Input.psm1)（主交付物；256 行，0 non-ASCII）
+- [`spikes/spike-a-notepad/probe-11-sendinput-vk.ps1`](../../spikes/spike-a-notepad/probe-11-sendinput-vk.ps1)（B-Win32.1）
+- [`spikes/spike-a-notepad/probe-12-sendinput-unicode.ps1`](../../spikes/spike-a-notepad/probe-12-sendinput-unicode.ps1)（B-Win32.2）
+- [`spikes/spike-a-notepad/probe-13-sendinput-blockinput.ps1`](../../spikes/spike-a-notepad/probe-13-sendinput-blockinput.ps1)（B-Win32.3）
 ## 8. 未测项（明确列出，防止把"没测"误读成"不行"）
 
 - 菜单**展开后**的子项普查（文件 / 编辑 / 查看）

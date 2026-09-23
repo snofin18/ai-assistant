@@ -40,6 +40,8 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.Windows.Forms
+# TASK-101: Win32 Input helper (replaces deprecated SendKeys)
+Import-Module (Join-Path $PSScriptRoot 'Win32-Input.psm1') -Force -ErrorAction Stop
 
 # Win32 P/Invoke declarations
 if (-not ('P07Win32.W' -as [type])) {
@@ -165,7 +167,7 @@ function Trigger-SaveAs-Menu {
   $allMenus2 = $NotepadWin.FindAll($TS::Descendants, $menuCond)
   $saveAs = $allMenus2 | Where-Object { $_.Current.Name -eq $CN_SAVEAS } | Select-Object -First 1
   if (-not $saveAs) {
-    [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
+    Send-SendInputVk -Vk 0x1B | Out-Null  # ESC  # TASK-101: replaces SendKeys
     return $null
   }
   $saveAs.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke() | Out-Null
@@ -334,14 +336,20 @@ for ($i = 0; $i -lt ($Iter + $Warmup); $i++) {
     Start-Sleep -Milliseconds 400
     $setKeysOk = $false
     try {
-      [System.Windows.Forms.SendKeys]::SendWait('^a')
+      Send-SendInputVk -Vk 0x41 -Modifier @(0xA2) | Out-Null  # Ctrl+A  # TASK-101: replaces SendKeys
       Start-Sleep -Milliseconds 150
       foreach ($ch in $tgt.FileName.ToCharArray()) {
         $chStr = $ch.ToString()
         if ($chStr -match '[%~^{}+()]') {
           $chStr = '{' + $chStr + '}'
         }
-        [System.Windows.Forms.SendKeys]::SendWait($chStr)
+        # TASK-101: replaces deprecated SendKeys (handles single char via VK, multi-char via Unicode)
+        if ($chStr.Length -eq 1) {
+          $vk = Get-VkFromChar -Char ([char]$chStr)
+          if ($vk -gt 0) { Send-SendInputVk -Vk $vk | Out-Null } else { Send-SendInputUnicode -Text $chStr | Out-Null }
+        } else {
+          Send-SendInputUnicode -Text $chStr | Out-Null
+        }
         Start-Sleep -Milliseconds 8
       }
       $setKeysOk = $true
