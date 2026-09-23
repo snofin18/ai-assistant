@@ -35,6 +35,7 @@
 | `decisions.md` | 95 | 51 | 索引 → `docs/adr/NNNN-*.md` |
 | `open.md` | 53 | 26 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
 | `apps/notepad.md` | 243 | 0 | 接记事本时**全量读**；8 个固定小节 |
+| win32-input-research.md | 193 | 0 | 接 Notepad Adapter + 任何 Win32 输入操作时**全量读**（SendInput / keybd_event / SendKeys / AttachThreadInput / BlockInput / SetForegroundWindow / WindowPattern.Close / UIPI / 推荐 pipeline） |
 
 
 > **迁移核对（ADR-0021 验证方式 2）—— 历史快照：下面三个数字是「迁移当时值」，不随后续追加变化**：
