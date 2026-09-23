@@ -128,3 +128,91 @@ pitfalls.md 新增: module-level `#[allow(clippy::all)]` 是 ADR-0035 灰区; xt
 5. AuditEventType 用 String 而非 enum (允许 schema 演进不需 Rust recompile)
 6. 5 项新功能: verify-schemas + codegen --check + serde/serde_json 登记 + 文档同步 (DEPENDENCIES.md + facts.md + pitfalls.md)
 7. 11/11 CI gate PASS
+
+
+### UPDATE 2026-09-23b（修订硬化 `335e1ad` + 逐文件全量复核）
+
+> 本节记录 `335e1ad` 之后的第二轮：先修「上次修复本身不可靠」的缺陷，再把二审 15 项 + 追加 13 项
+> 逐条按代码复核。上一条 UPDATE（`dc206db`）描述的是**修订前**状态，其「per-line allow」等叙述已被本节取代。
+
+#### §2 实际改动文件（`335e1ad`，15 文件，均在 write scope 内）
+
+`xtask/src/{cli,main,codegen,render,verify_schemas,serde_json_lite,deferred}.rs`、
+`crates/protocol/src/{lib.rs,generated/*.rs}`、
+`protocol/tool-schema/tool-schema-1.0.json`、`protocol/capability-matrix/capability-1.0.json`。
+
+#### §5 偏差 / 复核结论（二审 15 项 + 追加 13 项逐条）
+
+| # | 原问题 | 本次结论 | 证据 |
+|---|---|---|---|
+| **1** | envelope 缺 v2 §5.3 字段 | **确实存在 → 已修** | `protocol/envelope/envelope-1.0.json`：`required=[version,tool,task_id,step_id,ok,data]`，properties 含 `untrusted`/`source`/`truncated`/`evidence`/`metrics` |
+| **2** | ErrorCode 与 v2 §8.7 不一致 | **确实存在 → 已修** | 13 类 ↔ v2 §8.7 13 行 1:1（斜杠行 `RateLimited/Timeout`、`User.Cancelled/TookOver` 合并），理由写进 schema description + 生成物模块注释 |
+| **3** | ADR-0035 sledgehammer `#![allow(clippy::all)]` | **确实存在 → 大部已修** | `render.rs`/`codegen.rs`/`verify_schemas.rs`/`generated/*`/`lib.rs` 的模块级 allow 全清；**残留** `xtask/src/serde_json_lite.rs:8` 21 条 file-level allow（见 §5.5） |
+| **4** | verify-schemas 验证太弱 | **确实存在 → 已加强** | 发现项改 `Ok(1)`（原 `Ok(0)` 恒绿）+ 不变量 3（数据数组 ↔ enum 同序逐项一致）+ capability ≥1 / duplicate id |
+| **5** | 新依赖未登记 DEPENDENCIES.md | **确实存在 → 已修** | `docs/DEPENDENCIES.md` L24/L25 登记 serde / serde_json；`thiserror` 已从 `Cargo.toml` 删除 |
+| **6** | 测试覆盖缺口 | **确实存在 → 仅部分修** | `crates/protocol` 4→7 测（+retryable 对齐 / serde 名 / audit 哈希链 round-trip）；`tool_schema`/`capability` 仍无 round-trip；**`xtask/src/{codegen,render,verify_schemas,serde_json_lite}.rs` 约 1100 行 0 单测** |
+| **7** | `serde_json::Value` 无大小上限（DoS） | **确实存在 → 未修** | `envelope.data/error.details`、`audit_event.target/args` 仍无 cap；按 §6.3 交 TASK-012 序列化层 |
+| **8** | capability id 应为 3 段命名 | **原判断不成立** | `docs/spec/naming.md` L146 明写能力标识 = `<layer>.<capability>`（2 段），schema pattern 2 段是**正确**的 |
+| **9** | 生成物无本地（pre-commit）防护 | **确实存在 → 未修** | `.git/hooks/` 只有 `*.sample`；目前靠 CI + 手工负向验证 |
+| **10** | schema 之间 version 写法不一致 | **曾存在 → 已修** | 5 份 schema 顶层统一 `{"type":"string","const":"1.0"}` |
+| **11** | tool-schema 的 `version` 语义混乱 | **曾存在 → 已修** | schema description 显式声明：这是**元 schema 版本**，不是被描述工具自身的版本 |
+| **12** | audit-event 哈希链字段无约束 | **确实存在 → 已修** | `prev_hash: ^[a-f0-9]{64}$\|^$`、`self_hash: ^[a-f0-9]{64}$` |
+| **13** | risk_level 枚举命名 | **原判断自认 OK** | 枚举 `low/medium/high/critical` 与 v2 §10 + ADR-0021 一致，保持 |
+| **15** | `metadata` 类字段允许任意 JSON（DoS） | **与 #7 同 → 未修** | 同 #7 |
+| **16** | `lib.rs` 与 `verify_schemas.rs` 重复 `#![allow(...)]` | **确实存在 → 已修** | 两处 `#![allow]` 均已删除；`lib.rs` 现只有 `mod generated;` 上一行带原因注释的模块级 allow |
+| **17** | codegen 测试用 `assert!(text.contains("13"))` | **确实存在 → 已消失但无替代** | 该假测试随模块重写消失；**没有补上真正的单测**（见 #6） |
+| **18** | `dev-dependencies` 注释与事实不符 | **确实存在 → 已修** | 改为 `# Tests live in this crate’s lib.rs` |
+| **19** | `thiserror` 声明但零使用 | **确实存在 → 已修** | 依赖已删除（`crates/protocol/Cargo.toml` 只剩 serde / serde_json） |
+| **20** | `ErrorDefinition` 硬编码在 Rust | **确实存在 → 已修** | 改由 codegen 从 schema 的 `categories` 数据数组生成（含 `message_for_model`/`message_for_user`/`hint`/`evidence_ref`） |
+| **21** | `AuditEventType` 命名违反 naming §7 | **确实存在 → 已修** | 现为 `pub type AuditEventType = String`；schema enum 用点分标签 `tool.called` 等，符合 `<noun>.<past_verb>` |
+| **22** | `$ref` 无 base 解析 | **仍存在，且比原描述更严重** | 目标是**不存在的同级路径**：`protocol/tool-schema/` 与 `protocol/audit-event/` 下都没有 `envelope-1.0.json`（真身在 `protocol/envelope/`）→ 见 §7 ④ |
+| **23** | capability id 正则与 naming §7 一致 | **确认为 OK** | 保持 |
+| **24** | tool name 正则与 naming §7 一致 | **确认为 OK** | 保持（3 段 `<app>.<domain>.<action>`） |
+| **25** | `prev_hash`/`self_hash` 无 pattern | **确实存在 → 已修** | 同 #12 |
+| **26** | risk_level 无命名规范 | **原判断不成立** | 同 #13 |
+| **27** | verify-schemas 文档说 ≥1 capability 但代码没实现 | **确实存在 → 已修** | 代码已实现 ≥1 检查 + duplicate id 检查 |
+| **28** | `CodegenFailure::Io` 死代码变体 | **确实存在 → 已修** | 该类型随 `codegen.rs` 重写消失（错误信息统一用 `String`） |
+
+**汇总**：4 个 P0（#1 #2 #3 #20）全部已修；P1 中 #4 #5 #12 #16 #25 #27 已修，**#6（测试覆盖）只修了一半**；
+#7/#15/#9 未修（#7/#15 记 TASK-012，#9 属 infra）；#8 #26 为**原判断不成立**（naming.md L146 是 2 段）；
+#22 不仅仍在、且真因是**断链路径**。
+
+#### §5.5 残留 allow 登记（ADR-0035 §决策 2 要求）
+
+| 位置 | 允许项 | 原因 | 处置 |
+|---|---|---|---|
+| `xtask/src/serde_json_lite.rs:8` | 21 条（`indexing_slicing` / `manual_is_ascii_check` / `dead_code` / `doc_markdown` / `collapsible_if` / `use_self` …） | 手写 JSON 解析器 = 逐字节状态机，`indexing_slicing` 与若干 pedantic 噪声无法在不重写解析器的前提下清掉（xtask 零三方依赖政策禁掉 `serde_json`） | **本轮未动**（超出「修 21 条 allow」的最小改动面）。`335e1ad` 的**其他** 4 个文件的模块级 allow 已全部清除 |
+
+> 注：ADR-0035 §决策 2 的「新增模块级 allow 必须在本 ADR §baseline 表同步登记一行」**本轮无法执行**
+> —— `docs/adr/*` 对 Implementer 只读。已记入 §7 ⑥ 作为待裁决项。
+
+#### §6 更合理做法（本轮改动理由）
+
+1. **生成物不再内嵌 lint 政策**：`render.rs` 原先把 `#![allow(...)]` 写进生成物，导致 `cargo fmt --check` 在生成物上报错（CI 真因之一），且把「工具链策略」混进协议产物。现在改为**模板行不加任何 allow**。
+2. **`emit_line(out, format_args!(...))` 传播 `Result`**：取代 `push_str(&format!(...))`，同时避免 `format_push_string` 与「用 `let _ =` 吞 `Result`」（铁律 1）。
+3. **模板行打包成少数几个长字符串字面量**：rustfmt **不会**拆字符串，故打包形态天然稳定；这比「生成后再跑 `rustfmt`」少一个步骤，也没有「格式化器版本漂移」风险。
+4. **`ToolEnvelope.data/error` 去掉 `skip_serializing_if`**：v2 §5.3 的 `data` 在 `required` 内，成功时是对象、失败时必须是 `null`；若加 `skip_serializing_if` 会**整字段消失**，反而违反 schema。
+5. **`#[non_exhaustive]` 全公开类型覆盖**：修正了上一版「枚举漏加」的偏差。
+
+#### §7 遗留问题（未修，需裁决；建议登记 `docs/PARKING_LOT.md`）
+
+1. **`xtask/src/serde_json_lite.rs:8` 的 21 条 file-level allow** = 「zero allows」叙述与代码不符（ADR-0035 §baseline 表只读，无法同步）。
+2. **自写 JSON 解析器的非 ASCII 静默 mojibake**（实测 `中文§` → `ä¸æÂ§`，`codegen` 仍 exit 0）+ **不支持 `\uXXXX` 转义**。当前 5 份 schema 的非 ASCII 只在 `description` 里（不参与渲染）故未爆发，但任何中文 `message_for_model` 都会被静默写坏。
+3. **`codegen --check` 无自动化负向测试**（仅手工验证）；按 ADR-0019 元门禁，**硬门禁必须配 N1 单元负向用例**，而 `[SOFT #7 → TASK-011]` 转硬时就要交。
+4. **`protocol/{tool-schema,audit-event}/*.json` 的 `$ref: "envelope-1.0.json"` 是断链**（同级目录无该文件）→ 真正启用校验前必须改为 `../envelope/envelope-1.0.json` 或注册 `$id`。
+5. **`audit-event-1.0.json` 的 `required` 缺 `self_hash`**（Rust 侧是非 Option 字段）+ envelope 的 `error` 不在 `required`、`error.code` 只写 `type: string`（Rust 侧是 13 类枚举）= 三处 **schema ↔ Rust 语义漂移**，`verify-schemas` 目前都查不到。
+6. **`crates/protocol/README.md` 在本分支缺失**（DoD 明写要有职责/边界/不变量；main 版存在）。
+7. **CI `[SOFT #6 → TASK-011]` `verify-schemas` / `[SOFT #7 → TASK-011]` `codegen --check` 仍是 `continue-on-error: true`** —— 未按该文件自身规则「到了对应任务卡就删掉 `continue-on-error`」转硬。**注意**：`.github/workflows/ci.yml` 不在本卡 write scope 内（漂移触发器 ⑤），需另开卡或走 DRIFT。
+8. **本分支与 main 是平行实现**：本分支基于 `d56b2eb`，main 已合并 `727a886`+`e297d67`（另一版 TASK-011）。**直接合并会回退** main 的 `LEDGER.md` 4 行、`crates/protocol/README.md`、`protocol/*-values.json` → 需先 rebase 后按「硬化」形态提交，或由人类裁决以哪版为准。
+
+#### §8 新增长期记忆
+
+- `docs/memory/facts.md` +1：`codegen --check` 真门禁的负向验证实测值 + `verify-schemas` 三条不变量 + 协议侧已知漂移（`error` 不在 required、`self_hash` 不在 required、`$ref` 断链）+ 测试现状。
+- `docs/memory/pitfalls.md` +3：① 「`--check` 类门禁」的两条独立假绿通道（选项未进 `BOOLEAN_FLAGS` / `main.rs` 吞 `Ok(_)`）；② 自写 JSON 解析器 `b as char` 造成非 ASCII 静默 mojibake（附实测对照）；③ PowerShell `*> $null` 吞退出码 → 「门禁全绿」结论必须有退出码来源。
+- `MEMORY.md` §1 规模表同步（facts 123→125 / 78→79；pitfalls 167→173 / 68→71），`memory-counts` 机器校验 PASS。
+
+#### §9 给审阅者的关注点
+
+1. **最高风险**：`xtask/src/serde_json_lite.rs` 的非 ASCII 处理是**静默**错误（exit 0 + 自洽的 `--check`），一旦有人把中文写进 `message_for_model` / `hint` 就会被无声写坏 —— 建议优先补「UTF-8 整体解码 + 中文 round-trip 单测」。
+2. **第二风险**：`codegen --check` 目前只有**手工**负向验证，而 CI 里它还是软门禁 → 「drift 会拦住合并」这句话当前**只在本地成立**。
+3. **第三风险**：本分支与 main 的 TASK-011 是平行实现，合并形态（rebase / 裁决）未定；在裁决前不要把它当成 main 的直接后继。
