@@ -1,0 +1,17 @@
+{
+  "version": "1.0",
+  "capabilities": [
+    { "id": "target.list",        "description": "Enumerate currently available target descriptors (windows/tabs/documents).", "stability": "stable",       "version": "1.0" },
+    { "id": "target.resolve",     "description": "Resolve a descriptor to a unique fingerprint.",                                      "stability": "stable",       "version": "1.0" },
+    { "id": "target.fingerprint", "description": "Compute current target fingerprint (state hash).",                                 "stability": "stable",       "version": "1.0" },
+    { "id": "tree.walk",         "description": "Walk UIA/AX/AT-SPI tree and return descendant ids.",                              "stability": "stable",       "version": "1.0" },
+    { "id": "tree.snapshot",     "description": "Capture and return full tree snapshot (for replay/verify).",                      "stability": "experimental", "version": "0.2" },
+    { "id": "element.read_text", "description": "Read text/value of an element via accessibility API.",                          "stability": "stable",       "version": "1.0" },
+    { "id": "element.set_value", "description": "Set text/value of an element via accessibility API (UIA SetValue).",            "stability": "stable",       "version": "1.0" },
+    { "id": "element.invoke",    "description": "Invoke an action on an element (button click, menu select).",                    "stability": "stable",       "version": "1.0" },
+    { "id": "input.keyboard",    "description": "Synthesize keyboard input (SendInput).",                                         "stability": "experimental", "version": "0.3" },
+    { "id": "input.mouse",       "description": "Synthesize mouse input (SendInput).",                                            "stability": "experimental", "version": "0.3" },
+    { "id": "window.close",      "description": "Close a target window safely (UIA WindowPattern.Close or PostMessage WM_CLOSE).","stability": "stable",       "version": "1.0" },
+    { "id": "capability.check",  "description": "Check whether a capability is supported on a target adapter.",                    "stability": "stable",       "version": "1.0" }
+  ]
+}

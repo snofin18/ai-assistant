@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.invalid/protocol/audit-event-1.0.json",
+  "title": "AuditEvent",
+  "version": "1.0",
+  "description": "TASK-011: Schema for audit events appended to the tamper-evident audit log. Per arch v2 appendix D.",
+  "type": "object",
+  "required": ["version", "event_type", "ts", "session_id", "actor", "action"],
+  "properties": {
+    "version": { "type": "string", "const": "1.0" },
+    "event_type": { "type": "string", "enum": ["session_start", "session_end", "tool_call", "policy_decision", "approval_requested", "approval_granted", "approval_denied", "approval_timeout", "postcondition_check", "rollback", "incident", "internal_error"] },
+    "ts": { "type": "string", "format": "date-time", "description": "ISO-8601 UTC with milliseconds." },
+    "session_id": { "type": "string", "minLength": 1 },
+    "actor": { "type": "string", "enum": ["user", "agent", "system", "tool"], "description": "Who triggered this event." },
+    "action": { "type": "string", "minLength": 1, "description": "Tool name or internal action identifier." },
+    "target": { "type": "object", "description": "TargetDescriptor if relevant.", "additionalProperties": true },
+    "args": { "type": "object", "description": "Tool input args (may be redacted per ADR-0034).", "additionalProperties": true },
+    "result": { "$ref": "envelope-1.0.json" },
+    "policy_decision": { "type": "object", "properties": { "allow": { "type": "boolean" }, "rule_id": { "type": "string" }, "reason": { "type": "string" } } },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "cost": { "type": "object", "properties": { "tokens_in": { "type": "integer" }, "tokens_out": { "type": "integer" }, "usd": { "type": "number" } } },
+    "prev_hash": { "type": "string", "description": "Hash of previous event in chain (empty for first event)." },
+    "self_hash": { "type": "string", "description": "Computed hash of this event (excluding self_hash field)." }
+  },
+  "additionalProperties": false
+}

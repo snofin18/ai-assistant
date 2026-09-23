@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.invalid/protocol/error-codes-1.0.json",
+  "title": "ErrorCode",
+  "version": "1.0",
+  "description": "TASK-011: Unified error code taxonomy. 13 categories (per arch v2 section 8.7). New codes require ADR (schema change).",
+  "type": "object",
+  "required": ["version", "categories"],
+  "properties": {
+    "version": { "type": "string", "const": "1.0" },
+    "categories": {
+      "type": "array",
+      "minItems": 13,
+      "maxItems": 13,
+      "items": {
+        "type": "object",
+        "required": ["category", "retryable", "message_for_model", "message_for_user", "hint"],
+        "properties": {
+          "category": { "type": "string", "pattern": "^[A-Z][a-zA-Z0-9]+$" },
+          "retryable": { "type": "boolean" },
+          "message_for_model": { "type": "string", "minLength": 1 },
+          "message_for_user": { "type": "string", "minLength": 1 },
+          "hint": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "categories": [
+    { "category": "TargetNotFound",       "retryable": false, "message_for_model": "Target not found by descriptor.",        "message_for_user": "Cannot find the window or element.",                          "hint": "Re-poll descriptor or enumerate children; check process is alive." },
+    { "category": "TargetNotResponding",  "retryable": true,  "message_for_model": "Target process unresponsive.",            "message_for_user": "Target application is not responding.",                       "hint": "Wait and retry; escalate to human if repeated." },
+    { "category": "AmbiguousTarget",      "retryable": false, "message_for_model": "Multiple targets match descriptor.",     "message_for_user": "Multiple matches; disambiguation needed.",                     "hint": "Provide more selector detail or handle on_first/on_ambiguous policy." },
+    { "category": "PolicyDenied",         "retryable": false, "message_for_model": "Policy denied this action.",             "message_for_user": "Blocked by policy rule.",                                      "hint": "Read reason; propose a different path or request human approval." },
+    { "category": "ApprovalTimeout",      "retryable": true,  "message_for_model": "User approval timed out.",                "message_for_user": "Approval prompt timed out.",                                  "hint": "Retry with longer timeout or re-summarize the request." },
+    { "category": "ApprovalDenied",       "retryable": false, "message_for_model": "User explicitly denied approval.",         "message_for_user": "Action was denied.",                                           "hint": "Do not auto-retry; ask user for alternative approach." },
+    { "category": "PreconditionFailed",   "retryable": false, "message_for_model": "Precondition not met before action.",      "message_for_user": "Required state not present.",                                  "hint": "Run precondition verification first; fix missing state then retry." },
+    { "category": "PostconditionFailed",  "retryable": true,  "message_for_model": "Postcondition check failed after action.", "message_for_user": "Action did not achieve expected outcome.",                     "hint": "Inspect state; rollback if needed; report to human." },
+    { "category": "TimeoutExpired",       "retryable": true,  "message_for_model": "Operation exceeded time budget.",          "message_for_user": "Operation took too long.",                                     "hint": "Retry with longer budget or break into smaller steps." },
+    { "category": "Cancelled",            "retryable": false, "message_for_model": "Operation was cancelled.",                 "message_for_user": "Action was cancelled.",                                        "hint": "Do not auto-retry; respect cancellation." },
+    { "category": "InvalidArgs",          "retryable": false, "message_for_model": "Tool input arguments are invalid.",         "message_for_user": "Provided input is invalid.",                                    "hint": "Read JSON Schema; validate before retry." },
+    { "category": "UnsupportedOperation", "retryable": false, "message_for_model": "Operation not supported by adapter.",      "message_for_user": "This operation is not supported on the target.",                "hint": "Check capability-matrix; pick a different adapter." },
+    { "category": "InternalError",        "retryable": false, "message_for_model": "Internal agent error.",                    "message_for_user": "Internal error; please report this incident.",                  "hint": "Capture diagnostics; file a bug with full audit-event trace." }
+  ]
+}
