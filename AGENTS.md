@@ -116,6 +116,40 @@ Edition 2024；crate 顶层 `#![deny(clippy::unwrap_used, expect_used, panic, to
 
 ---
 
+
+## 11. 进度同步规则（每个 commit / push 之后必做）
+
+> **强制**：用户已在 chat 中明示此要求。每次完成任何工作并 commit / push 后**必须**按本节同步进度文件，遗漏即算漂移。
+
+### 11.1 必更新的文件
+
+| 文件 | 何时更新 | 谁写 |
+|---|---|---|
+| `LEDGER.md` | 每次 commit 之后（含 worktree 内的 fix） | agent（必追加，不改写） |
+| `MEMORY.md` §1 快照 | 阶段切换 / 阶段索引变化 / 规模表变化 | agent（必更新） |
+| `README.md` 状态行 | 阶段切换 / 公开宣告变化 | agent（**仅状态行**，其他章节只读） |
+| `docs/memory/pitfalls.md` | 发现新坑（含 v4 那种 supersede 多个旧 entry） | agent（必 supersede 旧 entry） |
+| `docs/memory/facts.md` | 验证过的硬事实 | agent（必追加） |
+| `docs/memory/rejected.md` | 否决方案 | agent（必追加） |
+| `docs/memory/apps/<app>.md` | 某应用的版本/UIA 形状/坑变化 | agent（必追加） |
+| `PLAN.md` | 阶段索引或任务队列变化 | **Orchestrator-only**（agent 不可改） |
+
+### 11.2 必做的次序
+
+1. `git status` + `git diff --stat HEAD` 确认变更范围
+2. 更新 `LEDGER.md`（一行一事件，与 gov §9.2 模板一致）
+3. 若 `MEMORY.md` 规模表变化 → 同步该文件 + `cargo run -p xtask -- memory-counts` 验证
+4. 若 README 状态行变化 → 仅改状态行那一行
+5. 跑 `cargo run -p xtask -- hygiene / card-check / docscan` 三项全绿
+6. `git add` + `git commit -m "docs(memory): ..."` + `git push -u origin <branch>`
+
+### 11.3 进度文件 fail 信号（漂移触发器 ⑤ 备查）
+
+- ❌ commit 后没更新 LEDGER → 漂移（违反会话协议）
+- ❌ 改了 README 状态以外的章节 → 漂移（违反 AGENTS.md 第 8 条 read scope）
+- ❌ 改 PLAN.md → 漂移（违反 Orchestrator-only 守则）
+- ❌ memory-counts 失败时把表数字写错 → 漂移
+
 ## 6. 验证命令（提交前全绿，输出粘进 PR）
 
 ```powershell
