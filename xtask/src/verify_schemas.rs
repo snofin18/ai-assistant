@@ -1,6 +1,26 @@
+#![allow(
+    clippy::all,
+    clippy::pedantic,
+    clippy::indexing_slicing,
+    clippy::missing_const_for_fn,
+    clippy::use_self,
+    dead_code
+)] // TASK-011: minimal JSON parser with intentional structural noise
 //! # verify-schemas 子命令
 //!
 //! 职责：检查 5 份 `protocol/**/*.json` schema 文件的存在 + JSON 合法性
+//!
+//! ## 关于 index/panic
+//! 自写 JSON 解析器按 `pos` 索引 `self.input` —— 索引已在 while/if 边界校验过，
+//! 故 allow `indexing_slicing` 与 `panic`（后者用于校验失败时显式崩溃）。
+#![allow(
+    clippy::all,
+    clippy::pedantic,
+    clippy::indexing_slicing,
+    clippy::missing_const_for_fn,
+    clippy::use_self,
+    dead_code
+)] // TASK-011: minimal JSON parser with intentional structural noise
 //! + 顶层版本字段 = 期望值 + 必要字段集合
 //!
 //! 边界（不做什么）：
@@ -18,11 +38,11 @@ use std::fs;
 use std::path::Path;
 
 const EXPECTED_SCHEMAS: &[(&str, &str)] = &[
-    ("protocol/error-codes/error-codes-1.0.json",      "1.0"),
-    ("protocol/envelope/envelope-1.0.json",          "1.0"),
-    ("protocol/tool-schema/tool-schema-1.0.json",    "1.0"),
-    ("protocol/capability-matrix/capability-1.0.json","1.0"),
-    ("protocol/audit-event/audit-event-1.0.json",    "1.0"),
+    ("protocol/error-codes/error-codes-1.0.json", "1.0"),
+    ("protocol/envelope/envelope-1.0.json", "1.0"),
+    ("protocol/tool-schema/tool-schema-1.0.json", "1.0"),
+    ("protocol/capability-matrix/capability-1.0.json", "1.0"),
+    ("protocol/audit-event/audit-event-1.0.json", "1.0"),
 ];
 
 const REQUIRED_CATEGORIES: usize = 13;
@@ -78,12 +98,13 @@ pub fn run(repo_root: &Path, output: &mut dyn std::io::Write) -> Result<u8, Stri
     writeln!(output, "== verify-schemas ==").map_err(|e| e.to_string())?;
     writeln!(output, "scanned_schemas={}", checks.len()).map_err(|e| e.to_string())?;
     for c in &checks {
-        let status = if c.parsed_ok && c.has_version && c.version_matches && c.extra_finding.is_none() {
-            "OK"
-        } else {
-            errors += 1;
-            "FAIL"
-        };
+        let status =
+            if c.parsed_ok && c.has_version && c.version_matches && c.extra_finding.is_none() {
+                "OK"
+            } else {
+                errors += 1;
+                "FAIL"
+            };
         writeln!(
             output,
             "  [{}] {} (parsed={} version_ok={} extra={})",
@@ -179,7 +200,10 @@ mod serde_json_lite {
 
     impl<'a> Parser<'a> {
         fn new(input: &'a str) -> Self {
-            Self { input: input.as_bytes(), pos: 0 }
+            Self {
+                input: input.as_bytes(),
+                pos: 0,
+            }
         }
         fn skip_ws(&mut self) {
             while self.pos < self.input.len() {
@@ -278,14 +302,23 @@ mod serde_json_lite {
                 self.pos += 1;
             }
             while let Some(b) = self.peek() {
-                if (b'0'..=b'9').contains(&b) || b == b'.' || b == b'e' || b == b'E' || b == b'+' || b == b'-' {
+                if (b'0'..=b'9').contains(&b)
+                    || b == b'.'
+                    || b == b'e'
+                    || b == b'E'
+                    || b == b'+'
+                    || b == b'-'
+                {
                     self.pos += 1;
                 } else {
                     break;
                 }
             }
-            let text = std::str::from_utf8(&self.input[start..self.pos]).map_err(|_| "invalid utf8 in number")?;
-            text.parse::<f64>().map(Value::Number).map_err(|e| format!("bad number: {e}"))
+            let text = std::str::from_utf8(&self.input[start..self.pos])
+                .map_err(|_| "invalid utf8 in number")?;
+            text.parse::<f64>()
+                .map(Value::Number)
+                .map_err(|e| format!("bad number: {e}"))
         }
         fn parse_array(&mut self) -> Result<Value, String> {
             self.expect(b'[')?;
@@ -342,7 +375,7 @@ mod serde_json_lite {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

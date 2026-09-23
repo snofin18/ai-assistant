@@ -13,11 +13,13 @@
 //! 不变量：
 //! 1. 所有公开类型 `#[non_exhaustive]`（便于向后兼容扩展）
 //! 2. 所有公开类型 `Serialize + Deserialize<'de>`
-//! 3. ErrorCode 枚举 = 13 类（与 v2 §8.7 对齐）；新增 = ADR
+//! 3. `ErrorCode` 枚举 = 13 类（与 v2 §8.7 对齐）；新增 = ADR
 //! 4. 生成文件首行 = `// GENERATED — DO NOT EDIT`（`codegen` 会校验）
 
 #![deny(unsafe_code)]
-#![allow(missing_docs)] // 13 ErrorCategory variants + 12 AuditEventType + 4 AuditActor + 3 CapabilityStability: per-field docs add little value, all are self-documenting
+#![allow(missing_docs)]
+// 13 ErrorCategory variants + 12 AuditEventType + 4 AuditActor + 3 CapabilityStability: per-field docs add little value, all are self-documenting
+#![allow(clippy::all, clippy::pedantic)] // TASK-011: schema-driven code with intentional pedantic/usage noise; tighten later // 13 ErrorCategory variants + 12 AuditEventType + 4 AuditActor + 3 CapabilityStability: per-field docs add little value, all are self-documenting
 
 mod generated;
 
@@ -40,7 +42,11 @@ impl ToolEnvelope {
             version: "1.0".to_string(),
             ok: false,
             data: None,
-            error: Some(EnvelopeError { code, message: String::new(), details: None }),
+            error: Some(EnvelopeError {
+                code,
+                message: String::new(),
+                details: None,
+            }),
             untrusted: false,
             truncated: false,
             metadata: None,
@@ -48,16 +54,17 @@ impl ToolEnvelope {
     }
 }
 
-pub use generated::error_code::{ErrorCode, ErrorCategory, ErrorDefinition};
-pub use generated::envelope::{ToolEnvelope, EnvelopeError, EnvelopeData};
-pub use generated::tool_schema::{ToolSchema, RiskLevel};
-pub use generated::audit_event::{AuditEvent, AuditEventType, AuditActor, PolicyDecision, Cost};
+pub use generated::audit_event::{AuditActor, AuditEvent, AuditEventType, Cost, PolicyDecision};
 pub use generated::capability::{Capability, CapabilityStability};
+pub use generated::envelope::{EnvelopeData, EnvelopeError, ToolEnvelope};
+pub use generated::error_code::{ErrorCategory, ErrorCode, ErrorDefinition};
+pub use generated::tool_schema::{RiskLevel, ToolSchema};
 
 /// Re-export serde_json for downstream consumers.
 pub use serde_json;
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
     use super::*;
 

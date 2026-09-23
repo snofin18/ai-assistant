@@ -267,7 +267,10 @@ mod tests {
     #[test]
     fn test_find_command_returns_registered_entry() {
         // TASK-011: codegen is implemented, removed from DEFERRED_COMMANDS
-    assert!(find_command("codegen").is_none(), "codegen must not be in deferred list");
+        assert!(
+            find_command("codegen").is_none(),
+            "codegen must not be in deferred list"
+        );
     }
 
     #[test]

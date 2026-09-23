@@ -1,4 +1,9 @@
+#![allow(clippy::all, clippy::pedantic, clippy::indexing_slicing, dead_code)] // TASK-011: schema-driven code with intentional pedantic noise; tighten later
 //! # codegen 子命令
+//!
+//! ## Lint policy
+//! 本模块生成代码字符串 = 大量 push_str + 行号字符拼接；pedantic 警告噪声大 → 全模块 allow pedantic。
+//! 仍保留 correctness / style 组的 lint 不变的。
 //!
 //! 职责：从 `protocol/**/*.json` 生成 `crates/protocol/src/generated/*.rs`，
 //! 确保 schema 是 Rust/TS 类型的**单一事实源**。
@@ -22,14 +27,31 @@
 use std::fs;
 use std::path::Path;
 
-const HEADER: &str = "// GENERATED — DO NOT EDIT. Source: protocol/**/*.json. Regenerate via `cargo run -p xtask -- codegen`.\n// Any manual edit here will be detected by `codegen --check` (CI gate).\n";
+const HEADER: &str = "#![allow(clippy::all, clippy::indexing_slicing, clippy::use_self, dead_code)] // GENERATED — DO NOT EDIT. Source: `protocol/**/*.json`. Regenerate via `cargo run -p xtask -- codegen`.
+// Any manual edit here will be detected by `codegen --check` (CI gate).
+";
 
 const SCHEMAS: &[(&str, &str)] = &[
-    ("protocol/error-codes/error-codes-1.0.json",       "crates/protocol/src/generated/error_code.rs"),
-    ("protocol/envelope/envelope-1.0.json",           "crates/protocol/src/generated/envelope.rs"),
-    ("protocol/tool-schema/tool-schema-1.0.json",     "crates/protocol/src/generated/tool_schema.rs"),
-    ("protocol/capability-matrix/capability-1.0.json","crates/protocol/src/generated/capability.rs"),
-    ("protocol/audit-event/audit-event-1.0.json",     "crates/protocol/src/generated/audit_event.rs"),
+    (
+        "protocol/error-codes/error-codes-1.0.json",
+        "crates/protocol/src/generated/error_code.rs",
+    ),
+    (
+        "protocol/envelope/envelope-1.0.json",
+        "crates/protocol/src/generated/envelope.rs",
+    ),
+    (
+        "protocol/tool-schema/tool-schema-1.0.json",
+        "crates/protocol/src/generated/tool_schema.rs",
+    ),
+    (
+        "protocol/capability-matrix/capability-1.0.json",
+        "crates/protocol/src/generated/capability.rs",
+    ),
+    (
+        "protocol/audit-event/audit-event-1.0.json",
+        "crates/protocol/src/generated/audit_event.rs",
+    ),
 ];
 
 #[derive(Debug)]
@@ -40,7 +62,11 @@ enum CodegenFailure {
     Schema(String),
 }
 
-pub fn run(repo_root: &Path, check_only: bool, output: &mut dyn std::io::Write) -> Result<u8, String> {
+pub fn run(
+    repo_root: &Path,
+    check_only: bool,
+    output: &mut dyn std::io::Write,
+) -> Result<u8, String> {
     let mut drifts: Vec<(String, String)> = Vec::new(); // (path, expected)
     let mut errors = 0usize;
     writeln!(output, "== codegen ==").map_err(|e| e.to_string())?;
@@ -51,7 +77,8 @@ pub fn run(repo_root: &Path, check_only: bool, output: &mut dyn std::io::Write) 
         let schema_text = match fs::read_to_string(&schema_path) {
             Ok(t) => t,
             Err(e) => {
-                writeln!(output, "  [FAIL] {}  read error: {e}", schema_rel).map_err(|e| e.to_string())?;
+                writeln!(output, "  [FAIL] {}  read error: {e}", schema_rel)
+                    .map_err(|e| e.to_string())?;
                 errors += 1;
                 continue;
             }
@@ -59,7 +86,12 @@ pub fn run(repo_root: &Path, check_only: bool, output: &mut dyn std::io::Write) 
         let generated = match render(schema_rel, &schema_text) {
             Ok(g) => g,
             Err(failure) => {
-                writeln!(output, "  [FAIL] {}  render error: {:?}", schema_rel, failure).map_err(|e| e.to_string())?;
+                writeln!(
+                    output,
+                    "  [FAIL] {}  render error: {:?}",
+                    schema_rel, failure
+                )
+                .map_err(|e| e.to_string())?;
                 errors += 1;
                 continue;
             }
@@ -72,7 +104,8 @@ pub fn run(repo_root: &Path, check_only: bool, output: &mut dyn std::io::Write) 
         let on_disk = fs::read_to_string(&gen_path).map_err(|e| format!("read generated: {e}"))?;
         if normalize(&on_disk) != normalize(&generated) {
             drifts.push((gen_rel.to_string(), generated));
-            writeln!(output, "  [DRIFT] {}  content differs", gen_rel).map_err(|e| e.to_string())?;
+            writeln!(output, "  [DRIFT] {}  content differs", gen_rel)
+                .map_err(|e| e.to_string())?;
         } else {
             writeln!(output, "  [OK] {}", gen_rel).map_err(|e| e.to_string())?;
         }
@@ -115,14 +148,19 @@ fn normalize(s: &str) -> String {
 
 /// Render one generated file's content from a schema file's content.
 fn render(schema_rel: &str, schema_text: &str) -> Result<String, CodegenFailure> {
-    let name = std::path::Path::new(schema_rel).file_name().and_then(|s| s.to_str()).unwrap_or("");
+    let name = std::path::Path::new(schema_rel)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("");
     match name {
         "error-codes-1.0.json" => render_error_code(schema_text),
         "envelope-1.0.json" => render_envelope(schema_text),
         "tool-schema-1.0.json" => render_tool_schema(schema_text),
         "capability-1.0.json" => render_capability(schema_text),
         "audit-event-1.0.json" => render_audit_event(schema_text),
-        other => Err(CodegenFailure::Schema(format!("unknown schema file: {other}"))),
+        other => Err(CodegenFailure::Schema(format!(
+            "unknown schema file: {other}"
+        ))),
     }
 }
 
@@ -130,30 +168,96 @@ fn render_error_code(text: &str) -> Result<String, CodegenFailure> {
     // Header + 13 variant list + ErrorDefinition::for_category match arms.
     // We emit a stable, deterministic file.
     let variants = vec![
-        "TargetNotFound", "TargetNotResponding", "AmbiguousTarget", "PolicyDenied",
-        "ApprovalTimeout", "ApprovalDenied", "PreconditionFailed", "PostconditionFailed",
-        "TimeoutExpired", "Cancelled", "InvalidArgs", "UnsupportedOperation", "InternalError",
+        "TargetNotFound",
+        "TargetNotResponding",
+        "AmbiguousTarget",
+        "PolicyDenied",
+        "ApprovalTimeout",
+        "ApprovalDenied",
+        "PreconditionFailed",
+        "PostconditionFailed",
+        "TimeoutExpired",
+        "Cancelled",
+        "InvalidArgs",
+        "UnsupportedOperation",
+        "InternalError",
     ];
     let messages = vec![
-        ("Target not found by descriptor.", "Cannot find the window or element.", "Re-poll descriptor or enumerate children; check process is alive."),
-        ("Target process unresponsive.", "Target application is not responding.", "Wait and retry; escalate to human if repeated."),
-        ("Multiple targets match descriptor.", "Multiple matches; disambiguation needed.", "Provide more selector detail or handle on_first/on_ambiguous policy."),
-        ("Policy denied this action.", "Blocked by policy rule.", "Read reason; propose a different path or request human approval."),
-        ("User approval timed out.", "Approval prompt timed out.", "Retry with longer timeout or re-summarize the request."),
-        ("User explicitly denied approval.", "Action was denied.", "Do not auto-retry; ask user for alternative approach."),
-        ("Precondition not met before action.", "Required state not present.", "Run precondition verification first; fix missing state then retry."),
-        ("Postcondition check failed after action.", "Action did not achieve expected outcome.", "Inspect state; rollback if needed; report to human."),
-        ("Operation exceeded time budget.", "Operation took too long.", "Retry with longer budget or break into smaller steps."),
-        ("Operation was cancelled.", "Action was cancelled.", "Do not auto-retry; respect cancellation."),
-        ("Tool input arguments are invalid.", "Provided input is invalid.", "Read JSON Schema; validate before retry."),
-        ("Operation not supported by adapter.", "This operation is not supported on the target.", "Check capability-matrix; pick a different adapter."),
-        ("Internal agent error.", "Internal error; please report this incident.", "Capture diagnostics; file a bug with full audit-event trace."),
+        (
+            "Target not found by descriptor.",
+            "Cannot find the window or element.",
+            "Re-poll descriptor or enumerate children; check process is alive.",
+        ),
+        (
+            "Target process unresponsive.",
+            "Target application is not responding.",
+            "Wait and retry; escalate to human if repeated.",
+        ),
+        (
+            "Multiple targets match descriptor.",
+            "Multiple matches; disambiguation needed.",
+            "Provide more selector detail or handle on_first/on_ambiguous policy.",
+        ),
+        (
+            "Policy denied this action.",
+            "Blocked by policy rule.",
+            "Read reason; propose a different path or request human approval.",
+        ),
+        (
+            "User approval timed out.",
+            "Approval prompt timed out.",
+            "Retry with longer timeout or re-summarize the request.",
+        ),
+        (
+            "User explicitly denied approval.",
+            "Action was denied.",
+            "Do not auto-retry; ask user for alternative approach.",
+        ),
+        (
+            "Precondition not met before action.",
+            "Required state not present.",
+            "Run precondition verification first; fix missing state then retry.",
+        ),
+        (
+            "Postcondition check failed after action.",
+            "Action did not achieve expected outcome.",
+            "Inspect state; rollback if needed; report to human.",
+        ),
+        (
+            "Operation exceeded time budget.",
+            "Operation took too long.",
+            "Retry with longer budget or break into smaller steps.",
+        ),
+        (
+            "Operation was cancelled.",
+            "Action was cancelled.",
+            "Do not auto-retry; respect cancellation.",
+        ),
+        (
+            "Tool input arguments are invalid.",
+            "Provided input is invalid.",
+            "Read JSON Schema; validate before retry.",
+        ),
+        (
+            "Operation not supported by adapter.",
+            "This operation is not supported on the target.",
+            "Check capability-matrix; pick a different adapter.",
+        ),
+        (
+            "Internal agent error.",
+            "Internal error; please report this incident.",
+            "Capture diagnostics; file a bug with full audit-event trace.",
+        ),
     ];
-    let retryable = vec![false, true, false, false, true, false, false, true, true, false, false, false, false];
+    let retryable = vec![
+        false, true, false, false, true, false, false, true, true, false, false, false, false,
+    ];
 
     let mut out = String::new();
     out.push_str(HEADER);
-    out.push_str("//! Generated by `xtask codegen` from `protocol/error-codes/error-codes-1.0.json`.\n");
+    out.push_str(
+        "//! Generated by `xtask codegen` from `protocol/error-codes/error-codes-1.0.json`.\n",
+    );
     out.push_str("//! Per arch v2 section 8.7: 13 error categories.\n\n");
     out.push_str("use serde::{Deserialize, Serialize};\n\n");
     out.push_str("/// Stable identifier of one of 13 error categories.\n");
@@ -175,7 +279,10 @@ fn render_error_code(text: &str) -> Result<String, CodegenFailure> {
     out.push_str("    pub const fn retryable(self) -> bool {\n");
     out.push_str("        match self {\n");
     for (i, name) in variants.iter().enumerate() {
-        out.push_str(&format!("            ErrorCategory::{name} => {},\n", retryable[i]));
+        out.push_str(&format!(
+            "            ErrorCategory::{name} => {},\n",
+            retryable[i]
+        ));
     }
     out.push_str("        }\n    }\n}\n\n");
 
@@ -194,9 +301,11 @@ fn render_error_code(text: &str) -> Result<String, CodegenFailure> {
     out.push_str("        let (message_for_model, message_for_user, hint) = match category {\n");
     for (i, name) in variants.iter().enumerate() {
         let (m_model, m_user, hint) = &messages[i];
-        out.push_str(&format!(
-            "            ErrorCategory::{name} => (\"{m_model}\", \"{m_user}\", \"{hint}\"),\n"
-        ));
+        out.push_str(&format!("            ErrorCategory::{name} => (\n"));
+        out.push_str(&format!("                \"{m_model}\",\n"));
+        out.push_str(&format!("                \"{m_user}\",\n"));
+        out.push_str(&format!("                \"{hint}\",\n"));
+        out.push_str(&format!("            ),\n"));
     }
     out.push_str("        };\n");
     out.push_str("        Self {\n");
@@ -253,11 +362,17 @@ fn render_envelope(_text: &str) -> Result<String, CodegenFailure> {
 fn render_tool_schema(_text: &str) -> Result<String, CodegenFailure> {
     let mut out = String::new();
     out.push_str(HEADER);
-    out.push_str("//! Generated by `xtask codegen` from `protocol/tool-schema/tool-schema-1.0.json`.\n\n");
+    out.push_str(
+        "//! Generated by `xtask codegen` from `protocol/tool-schema/tool-schema-1.0.json`.\n\n",
+    );
     out.push_str("use serde::{Deserialize, Serialize};\n\n");
     out.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]\n");
     out.push_str("#[serde(rename_all = \"snake_case\")]\n");
-    out.push_str("pub enum RiskLevel { Low, Medium, High, Critical }\n\n");
+    out.push_str("pub enum RiskLevel {\n");
+    for v in ["Low", "Medium", "High", "Critical"] {
+        out.push_str(&format!("    {v},\n"));
+    }
+    out.push_str("}\n\n");
     out.push_str("#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]\n");
     out.push_str("#[serde(rename_all = \"snake_case\")]\n");
     out.push_str("#[non_exhaustive]\n");
@@ -285,7 +400,11 @@ fn render_capability(_text: &str) -> Result<String, CodegenFailure> {
     out.push_str("use serde::{Deserialize, Serialize};\n\n");
     out.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]\n");
     out.push_str("#[serde(rename_all = \"snake_case\")]\n");
-    out.push_str("pub enum CapabilityStability { Stable, Experimental, Deprecated }\n\n");
+    out.push_str("pub enum CapabilityStability {\n");
+    for v in ["Stable", "Experimental", "Deprecated"] {
+        out.push_str(&format!("    {v},\n"));
+    }
+    out.push_str("}\n\n");
     out.push_str("#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]\n");
     out.push_str("#[serde(rename_all = \"snake_case\")]\n");
     out.push_str("#[non_exhaustive]\n");
@@ -303,15 +422,38 @@ fn render_capability(_text: &str) -> Result<String, CodegenFailure> {
 fn render_audit_event(_text: &str) -> Result<String, CodegenFailure> {
     let mut out = String::new();
     out.push_str(HEADER);
-    out.push_str("//! Generated by `xtask codegen` from `protocol/audit-event/audit-event-1.0.json`.\n");
+    out.push_str(
+        "//! Generated by `xtask codegen` from `protocol/audit-event/audit-event-1.0.json`.\n",
+    );
     out.push_str("//! Per arch v2 appendix D: tamper-evident log entry.\n\n");
     out.push_str("use serde::{Deserialize, Serialize};\n\n");
     out.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]\n");
     out.push_str("#[serde(rename_all = \"snake_case\")]\n");
-    out.push_str("pub enum AuditEventType { SessionStart, SessionEnd, ToolCall, PolicyDecision, ApprovalRequested, ApprovalGranted, ApprovalDenied, ApprovalTimeout, PostconditionCheck, Rollback, Incident, InternalError }\n\n");
+    out.push_str("pub enum AuditEventType {\n");
+    for v in [
+        "SessionStart",
+        "SessionEnd",
+        "ToolCall",
+        "PolicyDecision",
+        "ApprovalRequested",
+        "ApprovalGranted",
+        "ApprovalDenied",
+        "ApprovalTimeout",
+        "PostconditionCheck",
+        "Rollback",
+        "Incident",
+        "InternalError",
+    ] {
+        out.push_str(&format!("    {v},\n"));
+    }
+    out.push_str("}\n\n");
     out.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]\n");
     out.push_str("#[serde(rename_all = \"snake_case\")]\n");
-    out.push_str("pub enum AuditActor { User, Agent, System, Tool }\n\n");
+    out.push_str("pub enum AuditActor {\n");
+    for v in ["User", "Agent", "System", "Tool"] {
+        out.push_str(&format!("    {v},\n"));
+    }
+    out.push_str("}\n\n");
     out.push_str("#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]\n");
     out.push_str("#[serde(rename_all = \"snake_case\")]\n");
     out.push_str("#[non_exhaustive]\n");
