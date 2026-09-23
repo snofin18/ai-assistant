@@ -69,6 +69,7 @@ mod adr_registry;
 mod arch;
 mod card_check;
 mod cli;
+mod codegen;
 mod deferred;
 mod doccheck;
 mod docscan;
@@ -82,10 +83,13 @@ mod hygiene;
 mod memory_counts;
 mod memory_table;
 mod refscan;
+mod render;
 mod replay;
 mod report;
 mod repowalk;
 mod rustscan;
+mod serde_json_lite;
+mod verify_schemas;
 
 // guard 的测试替身：只在测试构建里存在，产品构建不会编进来
 #[cfg(test)]
@@ -262,6 +266,12 @@ fn execute(arguments: &[String], output: &mut dyn Write) -> Result<u8, Failure> 
     if command == "guard" {
         return run_guard(&invocation, output);
     }
+    if command == "verify-schemas" {
+        return run_verify_schemas(&invocation, output);
+    }
+    if command == "codegen" {
+        return run_codegen(&invocation, output);
+    }
     if let Some(entry) = deferred::find_command(command) {
         return Err(Failure::NotImplemented(deferred::not_implemented_message(
             entry,
@@ -313,6 +323,29 @@ fn run_arch(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failu
     let root = resolve_repo_root(invocation.repo.as_deref())
         .map_err(|error| Failure::from_walk(&error))?;
     arch::run(&root, output).map_err(Failure::Io)
+}
+
+/// 执行 JSON schema 校验（protocol/*.json：存在性 + JSON 合法性 + version + 13 类 `ErrorCode`）。
+fn run_verify_schemas(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
+    let root = resolve_repo_root(invocation.repo.as_deref())
+        .map_err(|error| Failure::from_walk(&error))?;
+    // 校验发现项用 Ok(1) 表达（阻塞级），必须原样透传，不能一律当成成功。
+    match verify_schemas::run(&root, output) {
+        Ok(exit_code) => Ok(exit_code),
+        Err(error) => Err(Failure::Io(error)),
+    }
+}
+
+/// 由 protocol/*.json 生成 Rust 类型；--check 只检测 drift，不写文件。
+fn run_codegen(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
+    let root = resolve_repo_root(invocation.repo.as_deref())
+        .map_err(|error| Failure::from_walk(&error))?;
+    let check_only = invocation.has_flag("check");
+    // 同上：`--check` 有 drift 时返回 1，必须透传给 CI。
+    match codegen::run(&root, check_only, output) {
+        Ok(exit_code) => Ok(exit_code),
+        Err(error) => Err(Failure::Io(error)),
+    }
 }
 
 /// 执行树快照回放（replay skeleton = dry-run）。

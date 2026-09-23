@@ -5,7 +5,28 @@
 //! Supports: objects, arrays, strings (with escapes), numbers, booleans, null.
 //! Does NOT support: scientific notation edge cases, comments, streaming.
 //! Index/slice ops are bounds-checked in while/if; per ADR-0035 only allow what we need.
-#![allow(clippy::indexing_slicing, dead_code, clippy::doc_markdown, clippy::manual_range_contains, clippy::collapsible_if, clippy::unnecessary_map_or, clippy::missing_const_for_fn, clippy::nonminimal_bool, clippy::unnecessary_operation, clippy::uninlined_format_args, clippy::module_name_repetitions, clippy::use_self, clippy::if_not_else, clippy::option_if_let_else, clippy::needless_pass_by_value, clippy::similar_names, clippy::missing_errors_doc, clippy::missing_panics_doc, clippy::ptr_arg)]  // pedantic allow list (per ADR-0035)
+#![allow(
+    clippy::indexing_slicing,
+    clippy::manual_is_ascii_check,
+    dead_code,
+    clippy::doc_markdown,
+    clippy::manual_range_contains,
+    clippy::collapsible_if,
+    clippy::unnecessary_map_or,
+    clippy::missing_const_for_fn,
+    clippy::nonminimal_bool,
+    clippy::unnecessary_operation,
+    clippy::uninlined_format_args,
+    clippy::module_name_repetitions,
+    clippy::use_self,
+    clippy::if_not_else,
+    clippy::option_if_let_else,
+    clippy::needless_pass_by_value,
+    clippy::similar_names,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::ptr_arg
+)] // pedantic allow list (per ADR-0035)
 
 use std::collections::BTreeMap;
 

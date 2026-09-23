@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 /// Per v2 section 10 + ADR-0021: risk level drives policy gating.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum RiskLevel {
     Low,
     Medium,

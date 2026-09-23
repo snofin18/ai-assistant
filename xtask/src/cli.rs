@@ -41,8 +41,8 @@ pub const USAGE: &str = r#"xtask — 仓库护栏与开发任务工具（只读�
   docscan           文档结构扫描（破表 / setext 风险 / 编码形状），不免
   card-check         任务卡格式完整性（ADR-0031 D6，**当前实现部分**）：9 节骨架齐全（Ready 豁免） + 状态=Done/Review + 记录区空 → Warning；**未实现**：状态行唯一 / 分界线唯一（计划归 TASK-060）
   guard <操作>       文件改写互斥锁（ADR-0028）；操作 = acquire | release | status | reap
-  verify-schemas     [未实现 · TASK-011/015] Tool/Adapter/审计事件 schema 校验
-  codegen            [未实现 · TASK-011]     由 schema 生成 Rust/TS 类型
+  verify-schemas     5 份 JSON schema 校验（存在 + JSON 合法 + version + 13 类 ErrorCode）
+  codegen            从 protocol/*.json 生成 Rust 类型；--check 仅检测 drift 不写
   replay             [未实现 · TASK-034]     用录制的树快照做离线回放回归
   check-comments     [未实现 · 待补卡]       命名与注释规范检查（naming §10）
   check-ledger       [未实现 · 待补卡]       台账与记忆同步检查
@@ -83,7 +83,12 @@ const VALUE_OPTIONS: [&str; 5] = [
 ];
 
 /// 布尔开关（不含前导 `--` 的名字会进 `Invocation::flags`）。
-const BOOLEAN_FLAGS: [&str; 1] = ["--force"];
+///
+/// 只登记**真正被某个子命令消费**的开关：`--force` 给 `guard`，
+/// `--check` 给 `codegen`（AGENTS.md §6 的验收命令 `codegen --check`）。
+/// 与 `VALUE_OPTIONS` 一样，这张表是"语法层认识"，语义层（哪个子命令真的用它）
+/// 由 `execute` 决定；表外的选项一律判用法错误。
+const BOOLEAN_FLAGS: [&str; 2] = ["--force", "--check"];
 
 /// 一次调用的解析结果。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -435,6 +440,22 @@ mod tests {
     fn test_parse_args_boolean_flag_with_value_is_usage_error() {
         let error = parse_args(&args(&["guard", "--force=yes"])).expect_err("必须报错");
         assert!(error.contains("--force=yes"), "实际：{error}");
+    }
+
+    #[test]
+    fn test_parse_args_codegen_check_flag_is_a_boolean_switch() {
+        // AGENTS.md §6 的验收命令就是 `codegen --check`：语法层必须认识它，
+        // 且必须是**布尔开关**（不带值），否则 `--check` 会被当成未知选项（退出码 2）。
+        let invocation = parse_args(&args(&["codegen", "--check"])).expect("应解析成功");
+        assert_eq!(invocation.command.as_deref(), Some("codegen"));
+        assert!(invocation.has_flag("check"), "`--check` 必须进 flags");
+        assert!(invocation.operands.is_empty());
+    }
+
+    #[test]
+    fn test_parse_args_check_flag_with_value_is_usage_error() {
+        let error = parse_args(&args(&["codegen", "--check=yes"])).expect_err("必须报错");
+        assert!(error.contains("--check"), "实际：{error}");
     }
 
     #[test]

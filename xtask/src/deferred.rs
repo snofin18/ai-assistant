@@ -268,7 +268,13 @@ mod tests {
 
     #[test]
     fn test_find_command_returns_registered_entry() {
-        // TASK-011: codegen + verify-schemas now implemented, removed from DEFERRED_COMMANDS
+        // TASK-011 之后 codegen / verify-schemas 已实现并从表里移除，改用仍待实现的 replay-skeleton。
+        let entry = find_command("replay-skeleton").expect("replay-skeleton 应在未实现表里");
+        assert_eq!(entry.command, "replay-skeleton");
+        assert!(
+            !entry.owning_card.trim().is_empty(),
+            "登记项必须写明归属卡号"
+        );
     }
 
     #[test]

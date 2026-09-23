@@ -11,6 +11,7 @@ use super::error_code::{ErrorCode, ErrorDefinition};
 /// Source provenance kind. Required when untrusted=true.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum SourceKind {
     AppContent,
     UserInput,
@@ -24,6 +25,7 @@ pub enum SourceKind {
 
 /// Provenance of the data field.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Source {
     pub kind: SourceKind,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -35,6 +37,7 @@ pub struct Source {
 /// Truncation reason. Required iff data was truncated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum TruncationReason {
     MaxBytes,
     MaxTokens,
@@ -45,6 +48,7 @@ pub enum TruncationReason {
 
 /// Truncation metadata.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Truncation {
     pub occurred: bool,
     pub reason: TruncationReason,
@@ -54,6 +58,7 @@ pub struct Truncation {
 
 /// Evidence per v2 section 7.5: tree snapshot id, screenshot, or any artifact that lets undo/verify/replay reference the tool's post-state.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Evidence {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub snapshot_id: Option<String>,
@@ -65,6 +70,7 @@ pub struct Evidence {
 
 /// Per-tool operational metrics (v2 section 5.3).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Metrics {
     pub duration_ms: u64,
     #[serde(default = "default_attempts")]
@@ -98,7 +104,6 @@ pub struct ToolEnvelope {
     pub task_id: String,
     pub step_id: String,
     pub ok: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<EnvelopeData>,
     #[serde(default)]
     pub untrusted: bool,
@@ -110,14 +115,22 @@ pub struct ToolEnvelope {
     pub evidence: Option<Evidence>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metrics: Option<Metrics>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<EnvelopeError>,
 }
 
 /// data field wrapper.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
+#[non_exhaustive]
 pub struct EnvelopeData(pub serde_json::Value);
+
+impl EnvelopeData {
+    /// Wrap a JSON payload for the v2 section 5.3 `data` field.
+    #[must_use]
+    pub fn new(value: serde_json::Value) -> Self {
+        Self(value)
+    }
+}
 
 impl ToolEnvelope {
     /// Build an ok=true envelope.

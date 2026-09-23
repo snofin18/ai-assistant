@@ -19,6 +19,7 @@ pub type AuditEventType = String;
 /// Per arch v2 section 8.x: who triggered this event.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum AuditActor {
     User,
     Agent,
@@ -28,6 +29,7 @@ pub enum AuditActor {
 
 /// Per v2 section 8.x.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct PolicyDecision {
     pub allow: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -38,6 +40,7 @@ pub struct PolicyDecision {
 
 /// Cost in tokens + USD. omits Eq (usd is f64, NaN != NaN).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Cost {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tokens_in: Option<u64>,

@@ -5,7 +5,7 @@
   "version": "1.0",
   "description": "TASK-103 (revised): Meta-schema for individual tool schemas. Every tool must have a JSON Schema conforming to this shape. Note: `version` here is the meta-schema version (1.0), NOT the tool's own version (which lives under stability/version in capability-matrix).",
   "type": "object",
-  "required": ["version", "name", "input", "output"],
+  "required": ["version", "name", "description", "input", "output", "risk_level"],
   "properties": {
     "version":          { "type": "string", "const": "1.0" },
     "name":             { "type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$", "description": "Tool name = `<app>.<domain>.<action>` per naming.md §7." },

@@ -7,33 +7,29 @@
 //! 1. 生成文件首行 = `// GENERATED — DO NOT EDIT`（手编辑会被 `codegen --check` 检测为 drift = CI 红灯）
 //! 2. 所有公开类型 `#[non_exhaustive]`（便于向后兼容扩展）
 //! 3. 所有公开类型 `Serialize + Deserialize<'de>`
-//! 4. `ErrorCode` 枚举 = 13 类（与 v2 §8.7 对齐）；新增 = ADR
-//! 5. Hash chain (audit-event prev_hash/self_hash) 使用 SHA-256 hex (64 chars lowercase)
+//! 4. `ErrorCategory` 恰好 13 类（与 v2 §8.7 对齐）；`ErrorCode` 是它的类型别名；新增 = ADR
+//! 5. 审计事件哈希链（`prev_hash` / `self_hash`）使用 SHA-256 hex（64 位小写）
 //!
-//! ## Lint policy (per ADR-0035)
-//! - workspace 继承父约束
-//! - 本 crate 顶部按需 per-line `#[allow(...)]` + 注释（**禁止** sledgehammer module-level `clippy::all`）
-//! - 见依赖登记 `docs/DEPENDENCIES.md`
+//! ## Lint 政策（ADR-0035）
+//! - 继承 workspace [lints]，本 crate 不额外放宽任何 workspace 级 lint
+//! - 手写代码**零** `#[allow]`；唯一的豁免是 `mod generated;` 上的一行，且带原因注释
+//! - 依赖登记见 `docs/DEPENDENCIES.md`
 
 #![deny(unsafe_code)]
-#![allow(clippy::doc_markdown)]
-// Chinese docs use unbackticked identifiers (intentional per ADR-0021)
-// Generated files (under generated/) need additional allows because codegen emits simple code.
-// Per ADR-0035 we can allow them at crate level since they only apply to the generated submodule.
-#![allow(
-    clippy::manual_string_new,
+
+// 生成物专用豁免（ADR-0035 §决策 2：per-line allow + 原因注释 + 任务卡 §5 登记）。
+// 为什么整块豁免而不是逐条修：`generated/**` 由 xtask codegen 从 `protocol/*.json` 产出，
+// 字段/变体的文档与标识符写法都在 schema 里，在 Rust 侧重复写一遍只会制造第二份事实源。
+// 豁免范围仅限这个模块，手写代码不受影响。
+#[allow(
+    missing_docs,
+    clippy::doc_markdown,
+    clippy::use_self,
+    clippy::too_many_lines,
     clippy::match_same_arms,
     clippy::missing_const_for_fn,
-    clippy::too_many_lines,
-    clippy::module_name_repetitions,
-    clippy::self_named_constructors,
-    clippy::enum_variant_names,
-    clippy::use_self
+    clippy::manual_string_new
 )]
-//! - 17 audit_event_type variants + 4 audit_actor + 8 source_kind + 5 truncation_reason
-//! + 4 risk_level + 13 error_category: all self-documenting, no per-field docs needed.
-#![allow(missing_docs)]
-
 mod generated;
 
 pub use generated::audit_event::{AuditActor, AuditEvent, AuditEventType, Cost, PolicyDecision};
@@ -45,7 +41,7 @@ pub use generated::envelope::{
 pub use generated::error_code::{ErrorCategory, ErrorCode, ErrorDefinition};
 pub use generated::tool_schema::{RiskLevel, ToolSchema};
 
-/// Re-export `serde_json` for downstream consumers (audit_event's open fields).
+/// Re-export `serde_json` for downstream consumers (`audit_event` 的开放字段用得到).
 pub use serde_json;
 
 #[cfg(test)]
@@ -59,7 +55,7 @@ mod tests {
         assert_eq!(ErrorCategory::ALL.len(), 13);
     }
 
-    /// 不变量 4：每类都有 message_for_model/user + hint + evidence_ref
+    /// 不变量 4：每类都有 `message_for_model` / `message_for_user` / `hint` / `evidence_ref`
     #[test]
     fn test_all_categories_have_definition() {
         for category in ErrorCategory::ALL {
@@ -108,7 +104,7 @@ mod tests {
         }
     }
 
-    /// ErrorCategory serde name = PascalCase (per naming.md §5 + ADR-0021)
+    /// `ErrorCategory` 的 serde 名字 = PascalCase（naming.md §5 + ADR-0021）
     #[test]
     fn test_error_category_serde_names() {
         let cases = [
@@ -146,7 +142,7 @@ mod tests {
         assert!(back.data.is_some());
     }
 
-    /// envelope error round-trip + evidence_ref auto-injected
+    /// envelope error round-trip + `evidence_ref` 自动注入
     #[test]
     fn test_envelope_error_roundtrip() {
         let env = ToolEnvelope::error(
@@ -164,7 +160,7 @@ mod tests {
         assert_eq!(err.evidence_ref.as_deref(), Some(def.evidence_ref.as_str()));
     }
 
-    /// 不变量 5：prev_hash 接受空串（首事件）+ self_hash 匹配 SHA-256 模式
+    /// 不变量 5：`prev_hash` 接受空串（首事件）+ `self_hash` 匹配 SHA-256 模式
     #[test]
     fn test_audit_event_hash_chain_pattern() {
         let ev = AuditEvent {
@@ -180,12 +176,12 @@ mod tests {
             policy_decision: None,
             duration_ms: Some(100),
             cost: None,
-            prev_hash: Some("".to_string()),
+            prev_hash: Some(String::new()),
             self_hash: "0".repeat(64),
         };
         let json = serde_json::to_string(&ev).expect("serialize");
         let back: AuditEvent = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back.self_hash.len(), 64);
-        assert_eq!(back.prev_hash, Some("".to_string()));
+        assert_eq!(back.prev_hash, Some(String::new()));
     }
 }
