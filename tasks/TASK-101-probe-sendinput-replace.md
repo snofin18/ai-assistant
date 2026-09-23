@@ -221,6 +221,28 @@ TASK-100 已落地 Win32-Input.psm1 + 4 个导出函数；TASK-101 把现有 spi
 5. **遗留 = TASK-102 需人类在自己 console 跑 ground truth 验证** + TASK-103 = stage-1 尝试。
    TASK-102 + TASK-103 都在本会话 Out of scope。
 
+
+### UPDATE 2026-09-23 11:00: TASK-102 ground truth 验证落地（人类在 interactive PS console 跑完整 iter 10+2，4 个 probe 默认参数）
+
+**实测结果对照 pre-TASK-101 baseline**（git history f3a96a0 前 RESULT-XX.txt）：
+
+| Probe | 替换前 baseline | 替换后实测 | 结论 |
+|---|---|---|---|
+| probe-04 | Ctrl+S 5/5 100% | save=SAVED 5/5 100% | ✅ 等价 |
+| probe-07 | set_filename 0/10 (DirectUI) | set_filename 0/10 | ✅ 等价（DirectUI 限制 pre-existing） |
+| probe-08 | unsaved_dialog 0/10 setup (探测脚本限制) | unsaved_dialog state 3/10, setup 0/10 | ✅ 等价（探测脚本限制 pre-existing）|
+| probe-10 | VP 10/10 (UIA) + SK 0/10 (SendKeys) | VP 10/10 + SK 0/10 (SendInput) | ✅ 等价（SendKeys 在原版同样 0%）|
+
+**关键发现**：probe-04 `Send-SendInputVk -Vk 0x53 -Modifier 0xA2` (Ctrl+S) 在 interactive console **真触发保存 5/5 100% PASS** = SendInput 路径在 interactive session **是工作的**（与之前 pitfalls.md 2026-09-23 "foreground lock" 假说部分矛盾）。
+
+**更新的架构判断**（per facts.md 2026-09-23 TASK-101 + pitfalls.md 2026-09-23 TASK-101）：
+- SendInput 是 SendKeys 的**等价替换 + 显式 API + 避免 deprecated keybd_event**
+- **不是全面升级**：仅在主窗口 + 标准 UIA 控件场景下 deliver（probe-04）；DirectUI / #32770 / UWP 元素仍 0%（probe-07/08/10）
+- stage-1 Adapter 写路径优先级：UIA `ValuePattern.SetValue` (主，10/10) > SendInput (主窗口加速键类，5/5 部分场景) > SendKeys (0% 已弃用)
+
+**详 notepad.md §9.6 + facts.md 2026-09-23 TASK-101 + pitfalls.md 2026-09-23 TASK-101**
+
+### TASK-102 状态：**Done**（ground truth 验证 = TASK-101 等价验证 = 无 regression）
 <!-- 9 节执行记录填写完毕（TASK-101 = 2026-09-23） -->
 
 <!-- ══ 9 节执行记录填写完毕 ══ -->

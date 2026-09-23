@@ -269,6 +269,29 @@ Window       aid=''                  cls=Notepad                                
 
 **probe-04/07/08/10 中 8 处 `SendKeys::SendWait` 全部替换为 `Win32-Input.psm1` 调用**（详 `spikes/spike-a-notepad/probe-14-sendinput-regression.ps1` RESULT-14.txt）。
 
+#### 9.6 ground truth 验证（TASK-102 = 用户实测 2026-09-23 11:00）
+
+人类在 interactive PS console 跑了 4 probe 完整 iter（10 + 2 warmup，**默认参数**）：
+
+| Probe | iter | 实测关键结果 | 解读 |
+|---|---|---|---|
+| probe-04 | 5 | `save=SAVED` × **5/5 100%** | ✅ **Ctrl+S 真工作**。SendInput 路径在 interactive console 部分场景 work。|
+| probe-07 | 10 | dialog10/10 + edit10/10 + save10/10 + **set_filename 0/10** + file_on_disk 0/10 | ⚠️ set_filename 0% = DirectUI Edit 限制（pre-existing，SendInput 不 work）|
+| probe-08 | 10 | process_killed 100% + minimized 100% + other_desktop 0% (platform) + unsaved_dialog state 3/10 | ⚠️ 探测脚本本身限制（pre-existing）|
+| probe-10 | 10 | VP 10/10 (UIA SetValue) + **SK 0/10** (SendInput Unicode) | ⚠️ SK 0% 与 probe-04 0% 模式相反 = SendInput 上下文敏感|
+
+**对比 pre-TASK-101 baseline（git f3a96a0 前 RESULT-XX.txt）= 实测结果相同**：
+- probe-04 baseline Ctrl+S 100% = 替换后 100% ✅
+- probe-07 baseline set_filename 0% = 替换后 0% ✅ (DirectUI 限制)
+- probe-08 baseline unsaved_dialog 0% = 替换后 0% ✅ (探测脚本限制)
+- probe-10 baseline SK 0% = 替换后 0% ✅ (SendKeys 在原版本同样 0%)
+
+**TASK-101 替换 = ground truth baseline = 无 regression** ✅
+
+**架构最终判断**（per facts.md 2026-09-23 TASK-101 + pitfalls.md 2026-09-23 TASK-101）：
+- SendInput 是 SendKeys 的**等价替换 + 显式 API + 避免 deprecated keybd_event**
+- 不是"全面升级"（仍有 DirectUI 限制 pre-existing）
+- stage-1 Adapter 写路径优先级：UIA `ValuePattern.SetValue` (主) > SendInput (主窗口 Ctrl+S 类) > SendKeys (0% 已弃用)
 #### 替换映射表
 
 | 旧 `SendWait(...)` | 新 Win32-Input 调用 | 备注 |

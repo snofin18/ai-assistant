@@ -29,12 +29,12 @@
 
 | 文件 | 行数 | 条目数 | 读法 |
 |---|---|---|---|
-| `facts.md` | 125 | 80 | 按主题分节；**grep 优先**，不必全读 |
-| `pitfalls.md` | 167 | 68 | 按主题分节；**grep 优先**，不必全读 |
+| `facts.md` | 128 | 82 | 按主题分节；**grep 优先**，不必全读 |
+| `pitfalls.md` | 169 | 69 | 按主题分节；**grep 优先**，不必全读 |
 | `rejected.md` | 53 | 33 | ★ **动手前全量读**（防止同一方案被反复重新提出） |
 | `decisions.md` | 95 | 51 | 索引 → `docs/adr/NNNN-*.md` |
 | `open.md` | 53 | 26 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
-| `apps/notepad.md` | 317 | 0 | 接记事本时**全量读**；8 个固定小节 |
+| `apps/notepad.md` | 340 | 0 | 接记事本时**全量读**；8 个固定小节 |
 | win32-input-research.md | 193 | 0 | 接 Notepad Adapter + 任何 Win32 输入操作时**全量读**（SendInput / keybd_event / SendKeys / AttachThreadInput / BlockInput / SetForegroundWindow / WindowPattern.Close / UIPI / 推荐 pipeline） |
 
 
