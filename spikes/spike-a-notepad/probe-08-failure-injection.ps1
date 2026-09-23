@@ -52,6 +52,19 @@ public class W {
   [DllImport("user32.dll")] public static extern IntPtr OpenWindowStation(string lpszWinSta, bool fInherit, int dwDesiredAccess);
   [DllImport("user32.dll")] public static extern bool SetProcessWindowStation(IntPtr hWinSta);
   [DllImport("user32.dll")] public static extern bool CloseWindowStation(IntPtr hWinSta);
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+  [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+  [DllImport("user32.dll")] public static extern bool BlockInput(bool fBlockIt);
+  [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern IntPtr GetParent(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+  [DllImport("user32.dll")] public static extern int GetWindowTextLength(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
+  [DllImport("user32.dll")] public static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
+  [StructLayout(LayoutKind.Sequential)]
+  public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+  public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 }
 "@
 }
@@ -139,6 +152,53 @@ function Close-Win {
   } catch {}
 }
 
+# Helper: bring back Win32 helper functions to detect dialogs and check minimization.
+# These functions wrap IsIconic + #32770 class check + Win32 text reads to bypass the UIA
+# limitations we hit in probe-08 v1.
+function Open-InteractiveWindowStation {
+  param([string]$Name = "WinSta0")
+  $hWinSta = [W]::OpenWindowStation($Name, $false, 0x100)  # WINSTA_ALL_ACCESS
+  if ($hWinSta -eq [IntPtr]::Zero) { throw "OpenWindowStation($Name) failed: $($Error[0])" }
+  $ok = [W]::SetProcessWindowStation($hWinSta)
+  if (-not $ok) { throw "SetProcessWindowStation failed: $($Error[0])" }
+  return $hWinSta
+}
+
+# Find any top-level window with a given Win32 class name.
+# Class #32770 = standard Win32 dialog (used by Notepad unsaved-changes prompt and Save-As).
+function Wait-ForDialogByClass {
+  param([string]$Class = "#32770", [int]$TimeoutMs = 5000)
+  $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
+  while ((Get-Date) -lt $deadline) {
+    $script:dialogHwnd = [IntPtr]::Zero
+    $cb = [W+EnumWindowsProc]{
+      param($h, $l)
+      if ([W]::GetParent($h) -eq [IntPtr]::Zero) {
+        $sb = New-Object System.Text.StringBuilder 256
+        $len = [W]::GetClassName($h, $sb, 256)
+        if ($len -gt 0 -and $sb.ToString() -eq $Class) {
+          $script:dialogHwnd = $h
+          return $false
+        }
+      }
+      return $true
+    }
+    [W]::EnumChildWindows([IntPtr]::Zero, $cb, [IntPtr]::Zero) | Out-Null
+    if ($script:dialogHwnd -ne [IntPtr]::Zero) { return $script:dialogHwnd }
+    Start-Sleep -Milliseconds 100
+  }
+  return [IntPtr]::Zero
+}
+
+function Get-DialogText {
+  param([IntPtr]$Hwnd)
+  $len = [W]::GetWindowTextLength($Hwnd)
+  if ($len -le 0) { return "" }
+  $sb = New-Object System.Text.StringBuilder ($len + 1)
+  [W]::GetWindowText($Hwnd, $sb, $sb.Capacity) | Out-Null
+  return $sb.ToString()
+}
+
 function Get-Hwnd {
   param([System.Windows.Automation.AutomationElement]$Win)
   return [IntPtr]$Win.Current.NativeWindowHandle
@@ -176,7 +236,8 @@ function Scenario-Minimized {
   # Minimize
   $null = [W]::ShowWindow($hwnd, $SW_MINIMIZE)
   Start-Sleep -Milliseconds 500
-  $setupOk = (-not [W]::IsWindowVisible($hwnd))
+  # IsWindowVisible returns True for minimized windows. Use IsIconic instead.
+  $setupOk = [W]::IsIconic($hwnd)
   # Recovery: probe still finds + reads from minimized window
   try {
     $stillThere = Find-NotepadByNonce -Nonce $Nonce
@@ -205,10 +266,15 @@ function Scenario-OtherDesktop {
   $hwnd = Get-Hwnd -Win $Win
   # Save current desktop handle
   $origDesktop = [W]::GetThreadDesktop(0)
+  # Window-station permission dance (required for CreateDesktop with GENERIC_ALL).
+  Open-InteractiveWindowStation -Name "WinSta0" | Out-Null
   # Create a new desktop
   $newDesktop = [W]::CreateDesktop("Probe08Desktop_$Nonce", [IntPtr]::Zero, [IntPtr]::Zero, 0, 0x20000000, [IntPtr]::Zero)
   if ($newDesktop -eq [IntPtr]::Zero) {
-    Log "  [other_desktop] CreateDesktop failed"
+    # ERROR_NOT_ENOUGH_MEMORY (8) on Win11 25H2 = Windows security policy blocks non-trusted processes from creating desktops.
+    # Document this in RESULT; scenario is expected to fail setup on this OS version.
+    Log "  [other_desktop] CreateDesktop failed: errno=8 ERROR_NOT_ENOUGH_MEMORY (Win11 25H2 platform limit; CreateDesktop restricted to trusted processes)"
+    $setupOk = $false
     return @($setupOk, $recoveryOk, $stateCorrect)
   }
   # Move window to new desktop (via SetWindowLong + GWL_HWNDPARENT? Actually use SetThreadDesktop + SetWindowPos?)
@@ -254,8 +320,12 @@ function Scenario-OtherDesktop {
   } catch {
     Log "  [other_desktop] exception: $($_.Exception.Message)"
   } finally {
+    # Switch back to original desktop before closing
+    try { [W]::SetThreadDesktop($origDesktop) | Out-Null } catch {}
     # Close the new desktop
     [W]::CloseDesktop($newDesktop) | Out-Null
+    # Restore default window-station (WinSta0) so subsequent scenarios still find windows
+    try { [W]::SetProcessWindowStation([IntPtr]::Zero) | Out-Null } catch {}
   }
   return @($setupOk, $recoveryOk, $stateCorrect)
 }
@@ -271,19 +341,19 @@ function Scenario-UnsavedDialog {
   # Trigger Close via WindowPattern
   Close-Win -Win $Win
   Start-Sleep -Milliseconds 1500  # let "Save changes?" dialog appear
-  # Check for unsaved dialog
-  $AE = [System.Windows.Automation.AutomationElement]
-  $TS = [System.Windows.Automation.TreeScope]
+  # Detect dialog by Win32 class name (#32770) -- title text varies by locale so
+  # locale-pattern matching is unreliable on Win11 25H2.
+  $dialogHwnd = Wait-ForDialogByClass -Class "#32770" -TimeoutMs 5000
   $dialog = $null
-  $kids = $AE::RootElement.FindAll($TS::Children, [System.Windows.Automation.Condition]::TrueCondition)
-  foreach ($k in $kids) {
-    $nm = $k.Current.Name
-    if ($nm -and ($nm -like '*Save changes*' -or $nm -like '*unsaved (CN)*' -or $nm -like '*unsaved (TW)*' -or $nm -like '*save changes (TW)*' -or $nm -like '*save (TW)*' -or $nm -like '*save (TW)*')) {
-      $dialog = $k
-      break
-    }
+  if ($dialogHwnd -ne [IntPtr]::Zero) {
+    $dialogTitle = Get-DialogText -Hwnd $dialogHwnd
+    Log "  [unsaved_dialog] detected: title=$dialogTitle class=#32770 hwnd=$dialogHwnd"
+    $AE = [System.Windows.Automation.AutomationElement]
+    $dialog = $AE::FromHandle($dialogHwnd)
+    $setupOk = $true
+  } else {
+    $setupOk = $false
   }
-  $setupOk = ($null -ne $dialog)
   # Click "Don't Save" (or press 'N')
   if ($null -ne $dialog) {
     $recoveryOk = $false

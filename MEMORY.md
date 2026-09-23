@@ -30,7 +30,7 @@
 | 文件 | 行数 | 条目数 | 读法 |
 |---|---|---|---|
 | `facts.md` | 121 | 77 | 按主题分节；**grep 优先**，不必全读 |
-| `pitfalls.md` | 99 | 64 | 按主题分节；**grep 优先**，不必全读 |
+| `pitfalls.md` | 165 | 67 | 按主题分节；**grep 优先**，不必全读 |
 | `rejected.md` | 53 | 33 | ★ **动手前全量读**（防止同一方案被反复重新提出） |
 | `decisions.md` | 95 | 51 | 索引 → `docs/adr/NNNN-*.md` |
 | `open.md` | 53 | 26 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
@@ -103,7 +103,7 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
               ④ 夜间自动化 GATE-0 未执行（`open.md N9`）→ 待人类安排调试时段；在此之前**禁止创建真实 automation**
               ⑤ 改公共热点文件（LEDGER / `docs/memory/*` / PARKING_LOT / MEMORY.md / `plans/*`）前必须 `xtask guard acquire`（ADR-0028）；
                   超时放弃（退出码 5）后须 LEDGER 追加一行 + 不得 `--force` 硬抢
-              ⑥ 仓库根 17 个 0 字节乱码文件名待清理（详 TASK-073 §残留 finding；建议 TASK-074）
+              ⑥ 仓库根 17 个 0 字节乱码文件名待清理（详 TASK-073 §残留 finding；建议 **TASK-083** —— F-1 卡于 2026-09-22 由 074 改 083 解决与 TASK-074-b1.2 撞号，详 docs/memory/facts.md）
 待产出文档  ：docs/spec/*（其余 6 份，含 testing.md）、docs/OPEN_SOURCE_CHECKLIST.md、
               docs/dev-env-setup.md（**PL-017 已落地**，2026-09-18）、其余 7 份 Spike 报告（PL-026 的非 ASCII 注释已清扫，probe-01/02 现在纯 ASCII 仅 3 条 STR-LIT 豁免）
 执行方式    ：AI coding agent（Codex/opencode/Claude Code）实现，人类规划+审阅+裁决；

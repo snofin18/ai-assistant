@@ -1,4 +1,4 @@
-# TASK-074　F-1 清理：根目录 17 个 octal-escaped 乱码文件名
+# TASK-083　F-1 清理：根目录 17 个 octal-escaped 乱码文件名
 
 - 状态：**InProgress**
 - 阶段：0　子任务：stage-0 收尾（不是 B 工作）　预估：XS（~10 min）　阻塞主线：否
@@ -12,7 +12,7 @@
 ### 1. 约束回执
 
 ```text
-【任务】TASK-074 F-1 root 目录清理
+【任务】TASK-083 F-1 root 目录清理
 【write scope】仅：repo root 17 个乱码 0-byte 文件 + 本卡 + commit
 【铁律】AGENTS.md §3+§6 / 不改公共热点外的文件 / 不引入新依赖
 【禁止】不要碰 spikes / crates / docs / tests / etc 任何合法文件 / 不要删除任何 git tracked 文件
