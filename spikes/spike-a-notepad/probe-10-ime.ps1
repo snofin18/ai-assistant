@@ -21,6 +21,8 @@ $ErrorActionPreference = 'Continue'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.Windows.Forms
+# TASK-101: Win32 Input helper (replaces deprecated SendKeys)
+Import-Module (Join-Path $PSScriptRoot 'Win32-Input.psm1') -Force
 
 function Stop-NotepadAll {
   Get-Process Notepad -ErrorAction SilentlyContinue | Stop-Process -Force
@@ -96,14 +98,14 @@ for ($i = 0; $i -lt ($Iter + $Warmup); $i++) {
     $vpRead = Get-DocText -Doc $doc
     $vpResult = ($vpOk -and ($vpRead -eq $vpContent))
     try {
-      [System.Windows.Forms.SendKeys]::SendWait('^a')
+      Send-SendInputVk -Vk 0x41 -Modifier @(0xA2) | Out-Null  # Ctrl+A  # TASK-101: replaces SendKeys
       Start-Sleep -Milliseconds 100
-      [System.Windows.Forms.SendKeys]::SendWait('{DEL}')
+      Send-SendInputVk -Vk 0x2E | Out-Null  # DEL  # TASK-101: replaces SendKeys
       Start-Sleep -Milliseconds 300
     } catch {}
     $skContent = 'sk_' + $mode + '_r' + $runId
     try {
-      [System.Windows.Forms.SendKeys]::SendWait($skContent)
+      Send-SendInputUnicode -Text $skContent | Out-Null  # TASK-101: replaces SendKeys (string path)
       Start-Sleep -Milliseconds 500
     } catch {}
     $skRead = Get-DocText -Doc $doc

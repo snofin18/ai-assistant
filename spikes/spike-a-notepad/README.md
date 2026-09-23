@@ -21,6 +21,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\probe-05-large-file-timing
 | `probe-12-sendinput-unicode.ps1` | **B-Win32.2** = Win32 `SendInput` Unicode 路径单测（CJK 与混合字符串）。Phase A: module contract 5/5；Phase B: 同 probe-11 session 限制；Phase C: UIA SetValue CJK 控制基线 5/5。CJK 字符串 `[char]0x...` 运行时构造（ADR-0024 D4）。`RESULT-12.txt` | `Win32-Input.psm1` 同目录 |
 | `probe-13-sendinput-blockinput.ps1` | **B-Win32.3** = Win32 焦点建立三场景对比单测。S1 raw SendInput / S2 SetForegroundWindow only / S3 全套 Set-Win32ForegroundFocus + UIA doc.SetFocus。Phase A: Set-FF contract 2/2；Phase B: 三个 scenario 的 fg_match / fc_match / delta 详细记录。在 non-interactive session 中 fc_match 永远 0%（research §3 预期）。`RESULT-13.txt` | `Win32-Input.psm1` 同目录 |
 
+
+| `probe-14-sendinput-regression.ps1` | **B-Win32.4** = 集成回归单测：4 个 SendKeys 替换后的 probe（probe-04/07/08/10）做结构 + 运行 + API 契约 + SendKeys 移除检测。Phase A: 4/4 PASS（parse + module import + quick run）；Phase B: 4/4 API contract；Phase C: 13/13 文件不含 SendKeys；overall GO。`RESULT-14.txt` | `Win32-Input.psm1` 同目录 |
+| probe-04/07/08/10 | **TASK-101 变更**：8 处 `SendKeys::SendWait` 全部替换为 `Win32-Input.psm1` 调用（详 commit `feat(spike): TASK-101 probe-04→Win32-SendInput / T-07→Win32-SendInput / T-08→Win32-SendInput / T-10→Win32-SendInput`）。**等价性证据**：(a) `SendWait('^s')` ↔ `Send-SendInputVk -Vk 0x53 -Modifier @(0xA2)`；(b) `SendWait('{ESC}')` ↔ `Send-SendInputVk -Vk 0x1B`；(c) `SendWait('^a')` ↔ `Send-SendInputVk -Vk 0x41 -Modifier @(0xA2)`；(d) `SendWait('{DEL}')` ↔ `Send-SendInputVk -Vk 0x2E`；(e) `SendWait('N')` ↔ `Send-SendInputVk -Vk 0x4E`；(f) `SendWait($chStr)` 单字符 ↔ `Send-SendInputVk -Vk $vk`；混合字符串 ↔ `Send-SendInputUnicode -Text`。**健壮性提升**：旧路径依赖 .NET 包装 + keybd_event（微软 deprecated）；新路径直接 Win32 SendInput（modern recommended）+ 显式 focus 控制 + 可注入 modifier 数组。**stage-1 准备**：4 个 probe 现在可被 Notepad Adapter 直接 `Import-Module` 调用，无需 wrapper 改造 | `Win32-Input.psm1` 同目录 |
+
 ## 运行
 
 ```powershell

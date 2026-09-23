@@ -265,6 +265,36 @@ Window       aid=''                  cls=Notepad                                
 - probe-08 4-test（2026-09-22）已证后台 PS + UWP 应用下 `SendKeys` 失败 3/4
 - 本模块封装 `SendInput` + 显式 focus 控制 = 等价的 modern 路径 + 显式 API
 
+### 9.5 集成回归（TASK-101 落地 2026-09-23）
+
+**probe-04/07/08/10 中 8 处 `SendKeys::SendWait` 全部替换为 `Win32-Input.psm1` 调用**（详 `spikes/spike-a-notepad/probe-14-sendinput-regression.ps1` RESULT-14.txt）。
+
+#### 替换映射表
+
+| 旧 `SendWait(...)` | 新 Win32-Input 调用 | 备注 |
+|---|---|---|
+| `'^s'` (Ctrl+S) | `Send-SendInputVk -Vk 0x53 -Modifier @(0xA2)` | 0xA2 = VK_LCONTROL |
+| `'^a'` (Ctrl+A) | `Send-SendInputVk -Vk 0x41 -Modifier @(0xA2)` | 同上 |
+| `'{ESC}'` | `Send-SendInputVk -Vk 0x1B` | ESC = 0x1B |
+| `'{DEL}'` | `Send-SendInputVk -Vk 0x2E` | Delete = 0x2E |
+| `'N'` | `Send-SendInputVk -Vk 0x4E` | N = 0x4E |
+| `$chStr` (单字符) | `Send-SendInputVk -Vk $vk` 或 `Send-SendInputUnicode -Text` | $vk = Get-VkFromChar |
+| `$skContent` (字符串) | `Send-SendInputUnicode -Text $skContent` | Unicode 路径 |
+
+#### probe-14 三阶段结果
+
+- **Phase A 结构**（parse + module import + 1-iter quick run）：**4/4 PASS**（4 旧 probe 改后都仍能正常 parse + Import-Module Win32-Input + 跑完 1 iter）
+- **Phase B API 契约**：4/4 PASS（4 个 Win32-Input 函数在 probe 进程内可调）
+- **Phase C 回归**（SendKeys 移除）：**13/13 PASS**（全部 13 个 spike probe 都不含 SendKeys::SendWait）
+- **Overall**：**GO**
+
+#### 与 pitfalls.md 2026-09-23 的关系
+
+probe-14 的 **quick-run 1 iter** 用 `exit=0` 作为通过条件，但**实际 probe 内部的 SendInput 在 non-interactive session 下仍会返回 0**（per pitfalls.md 2026-09-23 = foreground lock 限制）。**probe-14 验证的是"替换后的代码结构正确"而非"end-to-end 字符投递"**——后者需在 interactive console 中由人类跑（probe 4-10 各自的 RESULT-XX.txt 可作为 ground truth）。
+
+#### stage-1 准备
+
+4 个 probe 现在可直接 `Import-Module Win32-Input.psm1` 调用，无需任何 wrapper 改造。**Rust COM via `windows` crate 是生产路径**（架构 v2 已规划；本模块仅作 spike 阶段 PS 侧的 input pipeline 验证）。
 ### 9.4 引用
 
 - [`docs/memory/win32-input-research.md`](win32-input-research.md)（Step 1 研究；193 行，9 节）
