@@ -98,6 +98,13 @@ cargo run -p xtask -- hygiene; cargo test -p assistant-core arch::
 
 **5.4 codegen 模板硬编码 placeholder 内容曾生成空字符串误生成 (已修)**
 
+**5.3 write scope 的严格解读（登记以求裁决）**：卡面写的是 `xtask/src/codegen*`，而 `335e1ad` 与
+本轮实际改的是 `xtask/src/{render,serde_json_lite,verify_schemas,cli,main,deferred}.rs` —— 它们是
+`codegen` 子命令的实现部件，但**字面上**不匹配 `codegen*` 这个 glob。按最严格解读这属于漂移触发器 ⑤
+（超出 write scope）。默认处理：视为 `codegen` 子系统的一部分（`render` / `serde_json_lite` 只被
+`codegen` 与 `verify-schemas` 调用），并在此显式登记；若要严格化，应把 write scope 写成
+`xtask/src/{codegen,render,verify_schemas,serde_json_lite}*`。
+
 #### §6 更合理做法 (与第一版的区别)
 
 **6.1 ErrorDefinition 不再硬编码** = 由 codegen 从 schema 的 categories 数组生成 (schema 是真源)
@@ -216,3 +223,90 @@ pitfalls.md 新增: module-level `#[allow(clippy::all)]` 是 ADR-0035 灰区; xt
 1. **最高风险**：`xtask/src/serde_json_lite.rs` 的非 ASCII 处理是**静默**错误（exit 0 + 自洽的 `--check`），一旦有人把中文写进 `message_for_model` / `hint` 就会被无声写坏 —— 建议优先补「UTF-8 整体解码 + 中文 round-trip 单测」。
 2. **第二风险**：`codegen --check` 目前只有**手工**负向验证，而 CI 里它还是软门禁 → 「drift 会拦住合并」这句话当前**只在本地成立**。
 3. **第三风险**：本分支与 main 的 TASK-011 是平行实现，合并形态（rebase / 裁决）未定；在裁决前不要把它当成 main 的直接后继。
+
+
+### UPDATE 2026-09-23c（修复轮：把上一节 §7 里"能当场修"的都修掉）
+
+> 上一节（`2026-09-23b`）是**复核**结论；本节是**修复**记录。原则照旧：每个进仓的新代码
+> 必须先在单测/端到端实测里证明可用，才允许并入。
+
+#### §2 实际改动文件（本轮）
+
+| 文件 | 改动 |
+|---|---|
+| `xtask/src/serde_json_lite.rs` | 非 ASCII **静默 mojibake** 修复（按 UTF-8 字符宽度整体解码）+ 9 条解析器单测 |
+| `xtask/src/render.rs` | 新增 `rust_string_literal` / `doc_line_text`；schema 文本进生成物前一律转义；+6 条渲染单测 |
+| `protocol/tool-schema/tool-schema-1.0.json` | `$ref` 断链修复 |
+| `protocol/audit-event/audit-event-1.0.json` | `$ref` 断链修复 + `required` 补 `self_hash` |
+| `crates/protocol/README.md` | **新建**（DoD 明写项） |
+
+#### §3 验收输出摘要
+
+```text
+cargo fmt --all --check              → PASS（0 diff）
+cargo clippy --all-targets -- -D warnings → PASS
+cargo test --workspace               → PASS（assistant-protocol 7 + xtask 319；基线 304 → +15）
+cargo build --release                → PASS
+xtask hygiene|docscan|memory-counts|adr-index|card-check|verify-schemas → 全 PASS
+xtask codegen --check                → PASS（0 drift；加转义后生成物字节不变）
+```
+
+端到端实测（不是"看着像对"，而是跑出来的）：
+
+| # | 场景 | 结果 |
+|---|---|---|
+| 1 | schema 的 `message_for_model` 塞 `中文§` → `codegen` | 生成物**原样**中文（修复前为 `ä¸æÂ§`），`fmt --check` 仍 0 diff |
+| 2 | schema 的 `hint` 塞 `\"quotes\"` + `\\` → `codegen` + `cargo check -p assistant-protocol` | 生成物仍是**合法** Rust，`cargo check` exit 0（修复前会产出语法错误源码） |
+| 3 | 手改 `generated/tool_schema.rs` → `codegen --check` | **exit 1** + `[DRIFT] ... first difference at line 23`；还原 → 0 |
+| 4 | `$ref` 目标 `../envelope/envelope-1.0.json` | `Test-Path` = True（修复前是断链） |
+
+#### §5 偏差
+
+**5.1** `xtask/src/serde_json_lite.rs` 的 21 条 file-level `#![allow(...)]` **本轮未动**（只修 bug、不加新
+豁免）。它是 ADR-0035 baseline 里唯一"超出已登记形态"的模块级 allow 块，且 §baseline 表对 Implementer
+只读 → 已记 §7 ①。
+
+**5.2** 新增的两组单测模块各带一行 `#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]`
+—— 这与本仓既有的 4 个测试 wrapper 同形（ADR-0035 baseline「per-mod 测试 wrapper：保留」），非新政策。
+
+#### §6 更合理做法
+
+1. **解析器宁可报错也不要猜**：`utf8_char_width` 遇到非法前导字节一律返回 1，把判断交给
+   `str::from_utf8`（要么成功要么带原因失败，铁律 1）。截断/非法序列走 `Err`，绝不产出半个字符。
+2. **`\uXXXX` 不实现，但用测试锁住"显式报错"**：与其做一个可能写错的半吊子 surrogate 处理，
+   不如让当前行为可断言（`unknown_escape` 报错）—— 后续要支持时那条测试先红。
+3. **schema 文本按"不可信输入"处理**（铁律 2）：转义发生在**渲染期**而不是"生成后再修"，
+   因为 `codegen --check` 只能证明"生成物 == 渲染结果"，证明不了"生成物能编译"。
+4. **crate README 与代码同轮落地**：DoD 明写要做的东西不留到"以后补"，否则下个会话
+   （按 AGENTS.md §3 要读 crate README 的不变量）会拿不到上下文。
+
+#### §7 遗留问题（更新：①③⑤⑥ 仍未修，②④已由本节关闭）
+
+| 上节编号 | 状态 |
+|---|---|
+| ② 非 ASCII 静默 mojibake / `\uXXXX` | **已修**（mojibake 修；`\uXXXX` 保持显式报错并有测试锁住） |
+| ④ `$ref` 断链 | **已修**（改为 `../envelope/envelope-1.0.json`，实测存在） |
+| ⑤ 部分：`audit-event` `required` 缺 `self_hash` | **已修**；**仍未修**：`envelope.error.code` 仍是 `type: string`（Rust 侧是 13 类枚举）、`envelope.error` 不在 `required` |
+| ⑥ `crates/protocol/README.md` 缺失 | **已修**（新建） |
+| ① `serde_json_lite.rs` 的 21 条 file-level allow | 仍未修（需人类裁决：改代码 or 改 ADR baseline） |
+| ③ `codegen --check` 无自动化负向测试 | **仍部分未修**：渲染器/解析器已有 15 条单测，但"手改生成物 → `--check` 必须红"仍只有手工验证；按 ADR-0019 应在 `[SOFT #7]` 转硬前补 N1 用例 |
+| ⑦ CI `[SOFT #6/#7]` 未转硬 | 仍未修（`.github/workflows/ci.yml` 不在 write scope） |
+| ⑧ 本分支与 main 是平行实现 | 仍未决（需 rebase 或人类裁决） |
+| —（新增）`Value` 无大小上限（DoS） | 仍未修（交 TASK-012） |
+| —（新增）无 pre-commit 防护 | 仍未修 |
+
+#### §8 新增长期记忆
+
+- `docs/memory/facts.md` +1（修复轮：4 项已修 + 端到端实测值 + 测试基线 304→319）。
+- `docs/memory/pitfalls.md` 就地更新本轮自己写的那条：mojibake 从"未爆发"改为"已修复（附实测）"。
+- `MEMORY.md` §1 规模表同步（facts 125→127 / 79→80），`memory-counts` PASS。
+
+#### §9 给审阅者的关注点
+
+1. **解析器修复的正确性边界**：修的是"合法 UTF-8 输入不再被拆坏"；`\uXXXX` 仍是**已知不支持**
+   （显式报错、有测试锁住）。如果有人要往 schema 里写 `\u` 转义，会得到一条明确的报错而不是坏数据。
+2. **转义只覆盖 schema → Rust 字面量这一条路径**：其它"schema 值进代码"的位置（若未来新增
+   emitter 直接拼标识符）仍要各自转义 —— 目前 `EnumErrorCategory` 等**枚举变体名**是直接拼的，
+   它们依赖 schema 的 `enum` 约束 + `verify-schemas` 守门（`category` 值非法会生成非法 Rust → 编译期红）。
+3. **CI 硬门禁仍未闭合**：`verify-schemas` / `codegen --check` 在 CI 里还是软门禁，
+   所以"drift 会拦住合并"这句话目前**只在本地成立**（要改 `ci.yml` = 另一张卡）。

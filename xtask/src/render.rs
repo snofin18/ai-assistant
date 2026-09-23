@@ -63,6 +63,34 @@ fn emit_line(out: &mut String, arguments: std::fmt::Arguments<'_>) -> Result<(),
     writeln!(out, "{arguments}").map_err(|_| write_error())
 }
 
+/// 把 schema 里的字符串转成**可以安全放进 Rust 字符串字面量**的形式。
+///
+/// schema 是「被读的文档」= 铁律 2 的五类不可信输入之一：`message_for_model` /
+/// `message_for_user` / `hint` / `evidence_ref` 里出现 `"` 或 `\` 时，直接插值会产出
+/// **语法错误**的 Rust 源码（甚至注入代码）。`codegen --check` 抓不到这类问题 ——
+/// 「生成物 == 渲染结果」不等于「能编译」，所以必须在渲染期就转义。
+fn rust_string_literal(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for character in text.chars() {
+        match character {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            other => out.push(other),
+        }
+    }
+    out
+}
+
+/// 把 schema 的 `title` / `version` 清洗成可放进 `//!` **单行**注释的文本。
+///
+/// 只折掉换行（`//!` 的语义就是"这一行"），其余字符照原样保留以便溯源。
+fn doc_line_text(text: &str) -> String {
+    text.replace(['\r', '\n'], " ")
+}
+
 /// 归一化：逐行去掉行尾空白，并用 `\n` 重新拼接。
 ///
 /// 用途：`codegen --check` 比对前把两侧都过一遍，于是"只改了尾随空白"不算 drift。
@@ -201,6 +229,10 @@ fn entry_bool(entries: &[Value], index: usize, key: &str) -> Result<bool, String
 /// schema 契约（由 `verify-schemas` 不变量 2/3 守门）：`categories` 恰好 13 项，
 /// 且与 `properties.categories.items.properties.category.enum` 同序逐项一致。
 fn render_error_code(value: &Value, title: &str, version: &str) -> Result<String, String> {
+    // schema 是「被读的文档」（铁律 2）：`title` / `version` 里若含换行，直接插进
+    // `//!` 单行注释会把生成物切碎，故先清洗成单行文本。
+    let title = doc_line_text(title);
+    let version = doc_line_text(version);
     let categories = data_array(value, "categories", Some(13))?;
     let mut out = String::new();
     out.push_str(HEADER);
@@ -265,13 +297,9 @@ fn emit_error_definition(out: &mut String, categories: &[Value]) -> Result<(), S
             "hint",
             "evidence_ref",
         ] {
-            emit_line(
-                out,
-                format_args!(
-                    "                \"{}\",",
-                    entry_str(categories, index, key)?
-                ),
-            )?;
+            // 必须转义：schema 文本里的 `"` / `\` 直接插值会产出语法错误的 Rust。
+            let literal = rust_string_literal(&entry_str(categories, index, key)?);
+            emit_line(out, format_args!("                \"{literal}\","))?;
         }
         out.push_str("            ),\n");
     }
@@ -280,6 +308,10 @@ fn emit_error_definition(out: &mut String, categories: &[Value]) -> Result<(), S
 }
 /// 渲染 `generated/envelope.rs`（schema：`protocol/envelope/envelope-1.0.json`，v2 §5.3）。
 fn render_envelope(value: &Value, title: &str, version: &str) -> Result<String, String> {
+    // schema 是「被读的文档」（铁律 2）：`title` / `version` 里若含换行，直接插进
+    // `//!` 单行注释会把生成物切碎，故先清洗成单行文本。
+    let title = doc_line_text(title);
+    let version = doc_line_text(version);
     let source_kinds = extract_enum(value, "source", "kind")?;
     let truncation_reasons = extract_enum(value, "truncated", "reason")?;
     let mut out = String::new();
@@ -377,6 +409,10 @@ fn emit_tool_envelope_impl(out: &mut String) {
 
 /// 渲染 `generated/tool_schema.rs`（schema：`protocol/tool-schema/tool-schema-1.0.json`）。
 fn render_tool_schema(value: &Value, title: &str, version: &str) -> Result<String, String> {
+    // schema 是「被读的文档」（铁律 2）：`title` / `version` 里若含换行，直接插进
+    // `//!` 单行注释会把生成物切碎，故先清洗成单行文本。
+    let title = doc_line_text(title);
+    let version = doc_line_text(version);
     let risk_levels = extract_enum(value, "", "risk_level")?;
     let mut out = String::new();
     out.push_str(HEADER);
@@ -422,4 +458,112 @@ fn render_audit_event(value: &Value) -> Result<String, String> {
     }
     out.push_str("}\n\n/// Per v2 section 8.x.\n#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]\n#[non_exhaustive]\npub struct PolicyDecision {\n    pub allow: bool,\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub rule_id: Option<String>,\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub reason: Option<String>,\n}\n\n/// Cost in tokens + USD. omits Eq (usd is f64, NaN != NaN).\n#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]\n#[non_exhaustive]\npub struct Cost {\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub tokens_in: Option<u64>,\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub tokens_out: Option<u64>,\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub usd: Option<f64>,\n}\n\n/// Audit event. omits Eq because nested Cost contains f64.\n#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]\n#[serde(rename_all = \"snake_case\")]\n#[non_exhaustive]\npub struct AuditEvent {\n    pub version: String,\n    pub event_type: AuditEventType,\n    pub ts: String,\n    pub session_id: String,\n    pub actor: AuditActor,\n    pub action: String,\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub target: Option<serde_json::Value>,\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub args: Option<serde_json::Value>,\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub result: Option<ToolEnvelope>,\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub policy_decision: Option<PolicyDecision>,\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub duration_ms: Option<u64>,\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub cost: Option<Cost>,\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub prev_hash: Option<String>,\n    pub self_hash: String,\n}\n");
     Ok(out)
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    /// 构造一份最小可渲染的 error-codes schema（13 项，满足 `data_array` 的计数不变量）。
+    ///
+    /// 入参是**已经 JSON 转义过**的 hint 片段，便于构造「schema 文本里带引号/反斜杠」的用例。
+    fn error_codes_schema(hint_json: &str) -> String {
+        let mut out = String::from("{\"categories\":[");
+        for index in 0..13 {
+            if index > 0 {
+                out.push(',');
+            }
+            out.push_str("{\"category\":\"Category");
+            out.push_str(&index.to_string());
+            out.push_str(
+                "\",\"retryable\":true,\"message_for_model\":\"m\",\
+                 \"message_for_user\":\"u\",\"hint\":\"",
+            );
+            out.push_str(hint_json);
+            out.push_str("\",\"evidence_ref\":\"e\"}");
+        }
+        out.push_str("]}");
+        out
+    }
+
+    /// 渲染一份 error-codes schema（调用方保证 schema 文本合法）。
+    fn render_error_codes(schema: &str) -> String {
+        render("protocol/error-codes/error-codes-1.0.json", schema).expect("必须渲染成功")
+    }
+
+    /// 回归测试：`rust_string_literal` 必须转义 `"` / `\` / 换行 / 制表符。
+    #[test]
+    fn test_rust_string_literal_escapes_reserved_characters() {
+        assert_eq!(rust_string_literal("a\"b\\c"), "a\\\"b\\\\c");
+        assert_eq!(rust_string_literal("a\nb\tc"), "a\\nb\\tc");
+        assert_eq!(rust_string_literal("中文"), "中文", "非 ASCII 不转义");
+    }
+
+    /// 回归测试：schema 文本里的引号/反斜杠必须被转义成**合法**的 Rust 字面量。
+    ///
+    /// 旧实现直接把 `entry_str` 插进 `\"{}\",` —— 一旦 schema 里出现 `"` 就会生成
+    /// 语法错误的 Rust（而 `codegen --check` 发现不了，因为生成物与渲染结果一致）。
+    #[test]
+    fn test_render_escapes_schema_text_into_valid_rust_literal() {
+        let schema = error_codes_schema(r#"say \"hi\" \\ done"#);
+        let rendered = render_error_codes(&schema);
+        assert!(
+            rendered.contains(r#""say \"hi\" \\ done","#),
+            "schema 里的引号/反斜杠必须被转义，实际渲染：{rendered}"
+        );
+        assert!(
+            !rendered.contains(r#""say "hi" \ done","#),
+            "不得把未转义文本直接插进 Rust 字面量"
+        );
+    }
+
+    /// 回归测试：`title` 里的换行不得把 `//!` 注释切成两行（那会让生成物结构漂移）。
+    #[test]
+    fn test_render_title_newline_does_not_split_doc_comment() {
+        let control = render_error_codes(&error_codes_schema("h"));
+        let with_newline = error_codes_schema("h").replacen(
+            "{\"categories\"",
+            "{\"title\":\"a\\nb\",\"version\":\"1.0\",\"categories\"",
+            1,
+        );
+        let rendered = render_error_codes(&with_newline);
+        assert!(
+            rendered.contains("//! Schema: a b v1.0."),
+            "换行必须折成空格，实际：{rendered}"
+        );
+        assert_eq!(
+            rendered.lines().count(),
+            control.lines().count(),
+            "标题里的换行不得改变生成物行数"
+        );
+    }
+
+    /// `normalize` 只抹掉行尾空白 + 统一换行，不动其它字节（`--check` 的判据就靠它）。
+    #[test]
+    fn test_normalize_trims_trailing_whitespace_only() {
+        assert_eq!(normalize("a  \nb\t\n"), "a\nb\n");
+        assert_eq!(
+            normalize("a\n\n"),
+            "a\n\n",
+            "空行是内容，必须保留（只折行尾空白）"
+        );
+    }
+
+    /// `pascal_case`：`snake_case` / `kebab-case` → `PascalCase`，`.` 作为分段边界保留。
+    #[test]
+    fn test_pascal_case_boundaries() {
+        assert_eq!(pascal_case("max_bytes"), "MaxBytes");
+        assert_eq!(pascal_case("kebab-case"), "KebabCase");
+        // `.` 之后也会触发大写（这正是审计事件类型**不能**用 pascal_case 生成枚举的原因）
+        assert_eq!(pascal_case("tool.called"), "Tool.Called");
+    }
+
+    /// 未登记 schema 文件名必须显式报错（不得静默产出空文件）。
+    #[test]
+    fn test_render_rejects_unknown_schema_file() {
+        let error = render("protocol/unknown/unknown-1.0.json", "{}")
+            .expect_err("未登记的 schema 文件名必须报错");
+        assert!(error.contains("unknown schema file"), "实际：{error}");
+    }
 }

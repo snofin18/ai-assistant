@@ -5,7 +5,7 @@
   "version": "1.0",
   "description": "TASK-103 (revised): Schema for audit events appended to the tamper-evident audit log. Per arch v2 §8.x. Event type naming per naming.md §7 = `<noun>.<past_verb>` snake_case (e.g. `tool.called` not `ToolCall`). Hash chain uses SHA-256 hex (64 chars) per TASK-013 design.",
   "type": "object",
-  "required": ["version", "event_type", "ts", "session_id", "actor", "action"],
+  "required": ["version", "event_type", "ts", "session_id", "actor", "action", "self_hash"],
   "properties": {
     "version":  { "type": "string", "const": "1.0" },
     "event_type": { "type": "string", "enum": [
@@ -24,7 +24,7 @@
     "action":    { "type": "string", "minLength": 1, "description": "Tool name (for tool.* events) or internal action identifier." },
     "target":    { "type": "object", "description": "TargetDescriptor if relevant (validated by tool's own schema).", "additionalProperties": true },
     "args":      { "type": "object", "description": "Tool input args; redacted per ADR-0034.", "additionalProperties": true },
-    "result":    { "$ref": "envelope-1.0.json" },
+    "result":    { "$ref": "../envelope/envelope-1.0.json" },
     "policy_decision": {
       "type": "object",
       "properties": {

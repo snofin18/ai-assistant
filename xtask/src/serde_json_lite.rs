@@ -88,6 +88,22 @@ pub fn parse(input: &str) -> Result<Value, String> {
     Ok(value)
 }
 
+/// UTF-8 前导字节 → 该字符的字节宽度（1~4）。
+///
+/// 非法前导字节（或孤立续字节）一律返回 1，让紧随其后的 `str::from_utf8` 去报出真正的
+/// 错误 —— 这里不猜、不兜底（铁律 1：要么成功，要么带原因失败）。
+const fn utf8_char_width(leading_byte: u8) -> usize {
+    if leading_byte < 0x80 {
+        1
+    } else if leading_byte < 0xE0 {
+        2
+    } else if leading_byte < 0xF0 {
+        3
+    } else {
+        4
+    }
+}
+
 struct Parser<'a> {
     input: &'a [u8],
     pos: usize,
@@ -189,9 +205,31 @@ impl<'a> Parser<'a> {
                 }
             } else if b < 0x20 {
                 return Err("control char in string".to_string());
-            } else {
+            } else if b < 0x80 {
+                // ASCII 快路径：单字节直接入串。
                 out.push(b as char);
                 self.pos += 1;
+            } else {
+                // 非 ASCII：必须按 UTF-8 **整体**解码这个字符。
+                //
+                // 为什么不能沿用 `out.push(b as char)`：那会把多字节序列逐字节按 Latin-1
+                // 解释（`中文` → `ä¸æ`），而 schema 的 `message_for_model` / `hint` 允许中文。
+                // 后果是**静默**写坏生成物 —— `codegen` 仍 exit 0，`codegen --check` 也发现不了
+                //（它拿同一个渲染器比对，两边一样"错"）。所以这里宁可报错也不能猜。
+                let width = utf8_char_width(b);
+                let end = self.pos + width;
+                let slice = self
+                    .input
+                    .get(self.pos..end)
+                    .ok_or_else(|| "truncated utf-8 sequence in string".to_string())?;
+                let text = std::str::from_utf8(slice)
+                    .map_err(|_| "invalid utf-8 sequence in string".to_string())?;
+                let character = text
+                    .chars()
+                    .next()
+                    .ok_or_else(|| "empty utf-8 sequence in string".to_string())?;
+                out.push(character);
+                self.pos = end;
             }
         }
     }
@@ -269,5 +307,107 @@ impl<'a> Parser<'a> {
                 _ => return Err("expected ',' or '}' in object".to_string()),
             }
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    /// 取 `Value::Number` 的 f64（测试专用；避免直接比较 f64 触发 `clippy::float_cmp`）。
+    fn as_number(value: &Value) -> Option<f64> {
+        if let Value::Number(number) = value {
+            Some(*number)
+        } else {
+            None
+        }
+    }
+
+    /// 回归测试（2026-09-23 复核发现的静默缺陷）：非 ASCII 必须**原样**保留。
+    ///
+    /// 旧实现 `out.push(b as char)` 把多字节序列按 Latin-1 逐字节拆开（`中文` → `ä¸æ`），
+    /// 而 `xtask codegen` 仍 exit 0 —— 这是"静默写坏生成物"，比报错危险得多。
+    #[test]
+    fn test_parse_string_preserves_non_ascii() {
+        let source = "{\"message_for_model\": \"中文 § — emoji 🚀\"}";
+        let value = parse(source).expect("合法 JSON 必须解析成功");
+        assert_eq!(
+            value.get("message_for_model").and_then(Value::as_str),
+            Some("中文 § — emoji 🚀"),
+            "多字节 UTF-8 必须整体解码，不得逐字节按 Latin-1 拆开"
+        );
+    }
+
+    /// 非 ASCII 出现在**对象键**里同样不能坏（键也走 `parse_string`）。
+    #[test]
+    fn test_parse_object_key_preserves_non_ascii() {
+        let value = parse("{\"键\": 1}").expect("合法 JSON 必须解析成功");
+        assert!(value.get("键").is_some(), "非 ASCII 键必须可查");
+    }
+
+    /// 已知限制（**故意锁住行为**）：反斜杠 `u` 转义不支持，但必须**显式报错**而不是静默写错。
+    #[test]
+    fn test_parse_string_rejects_unicode_escape_loudly() {
+        let source = "\"\\u00a7\"";
+        let error = parse(source).expect_err("反斜杠-u 转义当前不支持，必须报错");
+        assert!(
+            error.contains("unknown escape"),
+            "错误信息必须点明不支持的转义，实际：{error}"
+        );
+    }
+
+    /// 转义与容器：`\n` / `\"` 混在数组与对象里，数字不得被当成字符串。
+    #[test]
+    fn test_parse_escapes_and_containers() {
+        let source = r#"{"a":[1,true,null,"x\n\"y\""],"b":{"c":1.5e2}}"#;
+        let value = parse(source).expect("合法 JSON 必须解析成功");
+        let array = value.get("a").and_then(Value::as_array).expect("a 是数组");
+        assert_eq!(array.len(), 4);
+        assert_eq!(array.get(1).and_then(Value::as_bool), Some(true));
+        assert!(
+            matches!(array.get(2), Some(Value::Null)),
+            "null 必须解析成 Value::Null"
+        );
+        assert_eq!(array.get(3).and_then(Value::as_str), Some("x\n\"y\""));
+        let nested = value.get("b").and_then(|b| b.get("c"));
+        assert!(
+            matches!(nested, Some(Value::Number(_))),
+            "1.5e2 必须解析成数字"
+        );
+        assert!(nested.and_then(as_number).is_some(), "数字必须可取");
+    }
+
+    /// 反斜杠转义 `\\` 与斜杠转义 `\/`。
+    #[test]
+    fn test_parse_string_backslash_escape() {
+        let source = r#""a\\b\/c""#;
+        let value = parse(source).expect("合法 JSON 必须解析成功");
+        assert_eq!(value.as_str(), Some("a\\b/c"));
+    }
+
+    /// 尾部垃圾必须被拒绝（否则 `parse` 会把半份文件当成功）。
+    #[test]
+    fn test_parse_rejects_trailing_garbage() {
+        assert!(parse("{} extra").is_err(), "尾随字符必须报错");
+    }
+
+    /// 未闭合字符串必须被拒绝，而不是返回半截内容。
+    #[test]
+    fn test_parse_rejects_unterminated_string() {
+        assert!(parse("\"abc").is_err(), "未闭合字符串必须报错");
+    }
+
+    /// 未闭合字符串末尾是非 ASCII 时同样必须报错（不得静默返回半截内容）。
+    #[test]
+    fn test_parse_rejects_unterminated_non_ascii_string() {
+        assert!(parse("\"中").is_err(), "非 ASCII 未闭合字符串必须报错");
+    }
+
+    /// 控制字符（未转义）必须被拒绝。
+    #[test]
+    fn test_parse_rejects_raw_control_char() {
+        let source = format!("\"{}\"", '\u{1}');
+        assert!(parse(&source).is_err(), "裸控制字符必须报错");
     }
 }

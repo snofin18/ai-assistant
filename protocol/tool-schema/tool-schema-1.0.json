@@ -11,7 +11,7 @@
     "name":             { "type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$", "description": "Tool name = `<app>.<domain>.<action>` per naming.md §7." },
     "description":     { "type": "string", "minLength": 1 },
     "input":            { "type": "object", "description": "JSON Schema (draft-07) for the tool input." },
-    "output":           { "$ref": "envelope-1.0.json", "description": "Every tool returns the unified envelope." },
+    "output":           { "$ref": "../envelope/envelope-1.0.json", "description": "Every tool returns the unified envelope." },
     "risk_level":       { "type": "string", "enum": ["low", "medium", "high", "critical"], "description": "Per v2 §10 + ADR-0021; drives policy gating." },
     "requires_approval":{ "type": "boolean", "default": false, "description": "If true, runtime MUST pause for human approval before execution." },
     "idempotent":       { "type": "boolean", "default": false, "description": "Tool is safe to retry with the same args (per HTTP RFC 7231 / idempotency-key contract)." },
