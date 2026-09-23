@@ -228,6 +228,50 @@ Window       aid=''                  cls=Notepad                                
 **风险级**：读 = 低；`SetValue` 写 = 中（可撤销但会清空应用内 undo 粒度）；
 「另存为 / 覆盖保存」= **高**（落盘不可逆，须 postcondition + 人工确认）。
 
+
+## 9. Win32 Input Pipeline（`Win32-Input.psm1` = TASK-100 主交付物）
+
+> 阶段 0 派生任务。**纯 PS**（PS 5.1 + `Add-Type` Win32 P/Invoke），无第三方依赖。
+> **设计目的**：替换 `System.Windows.Forms.SendKeys::SendWait`（其内部调 `keybd_event`，微软标 deprecated）。
+> 替代路径：[`SendInput`](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-sendinput) + 显式 `SetForegroundWindow` + `SetFocus`。
+
+### 9.1 模块导出函数
+
+| 函数 | 作用 | 关键参数 |
+|---|---|---|
+| `Send-SendInputVk` | 发送一个 VK 按键 down + up；可选 modifier 数组 | `-Vk` int, `-Modifier` int[]（如 `0xA2` = LCtrl） |
+| `Send-SendInputUnicode` | 发送 Unicode 字符串（绕过 IME 与键盘布局） | `-Text` string（接受空字符串） |
+| `Set-Win32ForegroundFocus` | 调 `SetForegroundWindow` + `SetFocus`，返回诊断对象 | `-Hwnd` IntPtr |
+| `Get-VkFromChar` | ASCII 字符 → VK 数字（A-Z、0-9；a-z 自动转大写） | `-Char` char |
+
+返回类型：3 个发送函数统一返回 `[uint32]` = 实际插入 input queue 的事件数。
+`Set-Win32ForegroundFocus` 返回 `[pscustomobject]@{Success,Reason,ForegroundHwnd,FocusHwnd}`。
+
+### 9.2 实测行为（probe-11/12/13，5 iter + 1 warmup）
+
+| 环境 | Phase A 模块契约 | Phase B best-effort | Phase C UIA 控制基线 |
+|---|---|---|---|
+| **non-interactive PS**（PSexec / CI 等） | **9/9 PASS** | **char_in_doc 0%**（GetFocus 永远 0；SendInput 返回 0 + LastError=87） | **5/5 PASS** |
+| **interactive console**（手动跑） | （同 9/9） | 预期 char_in_doc 100%（probe-08 test 1g 已证 `SetFocus + keybd_event` work） | （同 5/5） |
+
+**关键结论**：在 Win11 25H2 25H2 modern Notepad 上下文，
+- 模块本身 API 契约在两种环境下都 100% 满足
+- **真实字符投递只能在 interactive session 中 work**（research §3 预测正确）
+- UIA `ValuePattern.SetValue` 不受 session 限制，是后台 PS 唯一可靠写路径
+
+### 9.3 与旧 `SendKeys` 的关系
+
+- `System.Windows.Forms.SendKeys` 内部调 `keybd_event`（SendInput 的前身）；微软标记 superseded
+- probe-08 4-test（2026-09-22）已证后台 PS + UWP 应用下 `SendKeys` 失败 3/4
+- 本模块封装 `SendInput` + 显式 focus 控制 = 等价的 modern 路径 + 显式 API
+
+### 9.4 引用
+
+- [`docs/memory/win32-input-research.md`](win32-input-research.md)（Step 1 研究；193 行，9 节）
+- [`spikes/spike-a-notepad/Win32-Input.psm1`](../../spikes/spike-a-notepad/Win32-Input.psm1)（主交付物；256 行，0 non-ASCII）
+- [`spikes/spike-a-notepad/probe-11-sendinput-vk.ps1`](../../spikes/spike-a-notepad/probe-11-sendinput-vk.ps1)（B-Win32.1）
+- [`spikes/spike-a-notepad/probe-12-sendinput-unicode.ps1`](../../spikes/spike-a-notepad/probe-12-sendinput-unicode.ps1)（B-Win32.2）
+- [`spikes/spike-a-notepad/probe-13-sendinput-blockinput.ps1`](../../spikes/spike-a-notepad/probe-13-sendinput-blockinput.ps1)（B-Win32.3）
 ## 8. 未测项（明确列出，防止把"没测"误读成"不行"）
 
 - 菜单**展开后**的子项普查（文件 / 编辑 / 查看）

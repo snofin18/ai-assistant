@@ -15,6 +15,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\probe-05-large-file-timing
 | probe-05-large-file-timing.ps1 | **大文件读写 PoC**（B1.2）：3 sizes × 12 iter（10 + 2 warmup）× (read/write/memory) = 72 数据点。读 GetValue、写 SetValue、内存增量 Get-Process Notepad.WorkingSet64（3 poll × 100ms）。**go 判据 #3**：1MB read ≤ 2 s 且 write_dMB ≤ 100 MB（实测 0.32 ms + -0.02 MB = PASS）。结果落 D:\csart\eol-probe\RESULT-05.txt | 同上 |
 | probe-07-cross-process-dialog.ps1 | **跨进程 Shell 对话框 PoC**（B1.4）= 触发 File > 另存为，5 项指标（dialog_found/edit_access/set_filename/save_clicked/file_on_disk）。**架构发现（2026-09-21）**：Win11 25H2 modern Notepad 的另存为 = **in-window WinUI3 panel**（+89 descendants 在 Notepad 内），不是跨进程 dialog。PowerShell UIA1 不可测；下会话需 UIA3 工具（Python uiautomation / C# FlaUI）。结果本卡未生成（BLOCKED） | 同上 |
 
+
+| `Win32-Input.psm1` | **B-Win32 主交付物** = PS module 封装 Win32 `SendInput` / `SetForegroundWindow` / `SetFocus` P/Invoke。导出函数：`Send-SendInputVk` / `Send-SendInputUnicode` / `Set-Win32ForegroundFocus` / `Get-VkFromChar`。源 0 non-ASCII 字节（ADR-0024 D4）。**设计目的**：替换 `System.Windows.Forms.SendKeys`（其内部调 `keybd_event`，微软标 deprecated）。**关键发现**（probe-11/12/13 实测）：non-interactive PS 下 SendInput 返回 0（LastError=87 ERROR_INVALID_PARAMETER）= research §3 预期；interactive session 下应 work（probe-08 test 1g 已证 `SetFocus + keybd_event`）| 无第三方依赖，仅 `Add-Type` Win32 P/Invoke |
+| `probe-11-sendinput-vk.ps1` | **B-Win32.1** = Win32 `SendInput` VK 路径单测。Phase A: module contract 9/9; Phase B: best-effort delivery（non-interactive session 与 research §3 预期一致 → char_in_doc 0%；interactive 下应 100%）；Phase C: UIA SetValue 控制基线 5/5。`RESULT-11.txt` | `Win32-Input.psm1` 同目录 |
+| `probe-12-sendinput-unicode.ps1` | **B-Win32.2** = Win32 `SendInput` Unicode 路径单测（CJK 与混合字符串）。Phase A: module contract 5/5；Phase B: 同 probe-11 session 限制；Phase C: UIA SetValue CJK 控制基线 5/5。CJK 字符串 `[char]0x...` 运行时构造（ADR-0024 D4）。`RESULT-12.txt` | `Win32-Input.psm1` 同目录 |
+| `probe-13-sendinput-blockinput.ps1` | **B-Win32.3** = Win32 焦点建立三场景对比单测。S1 raw SendInput / S2 SetForegroundWindow only / S3 全套 Set-Win32ForegroundFocus + UIA doc.SetFocus。Phase A: Set-FF contract 2/2；Phase B: 三个 scenario 的 fg_match / fc_match / delta 详细记录。在 non-interactive session 中 fc_match 永远 0%（research §3 预期）。`RESULT-13.txt` | `Win32-Input.psm1` 同目录 |
+
 ## 运行
 
 ```powershell
