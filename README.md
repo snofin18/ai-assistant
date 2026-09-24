@@ -5,7 +5,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
 > 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0（文档与 Spike）已于 2026-09-20 closeout；
-> 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` 已完成，接着是审计 / 密钥 / 护栏）。**当前阶段详情以 `PLAN.md` 为准**。
+> 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架已完成，
+> 下一张是密钥 `crates/secrets`，随后是护栏）。**当前阶段详情以 `PLAN.md` 为准**。
 
 ---
 
@@ -64,7 +65,9 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ## 当前阶段
 
 **阶段 1 — 三试点闭环**（Notepad → Paint → Edge/Chrome；TASK-011 ~ TASK-058）。
-子阶段 1a 已开工：地基层（`crates/protocol` / `crates/storage` 已就位，接着是审计 / 密钥 / 护栏）＋ Notepad 的 3 个任务闭环。
+子阶段 1a 已开工：地基层的 `crates/protocol`（schema + codegen）/ `crates/storage`（SQLite WAL + 迁移注册表 + blob）/
+`crates/audit`（append-only hash chain）/ `crates/core` 骨架**均已落地**；跨阶段治理卡 TASK-200 / 201 / 202 / 203 已 Done。
+**下一张 = TASK-014（密钥 / OS keychain）**，随后 TASK-015（护栏清扫）。＋ Notepad 的 3 个任务闭环。
 阶段 0（文档与 Spike）已于 2026-09-20 closeout —— 它的产出是 Spike 报告，**不是**产品代码。
 详见 `plans/stage-1-pilots.md`。
 
@@ -110,19 +113,32 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-19，xtask 护栏升级收尾 = TASK-059/060/061/062/063/064 六连发）
+## 最近进展（2026-09-24：阶段 1 地基层 + 治理池收口 = TASK-011 / 012 / 013 / 200 / 201 / 202 / 203）
 
-`xtask` 护栏工具已从 4 个子命令扩到 7 个（新增 `refscan` / `docscan` / `card-check`），
-原 `hygiene / memory-counts / adr-index / guard` 保持。所有 `xtask` 子命令在
-CI 硬门禁 #12b（`doc-consistency`）下统一跑过。
+阶段 1 的地基层已经落地，治理池把 TASK-013 现场撞出的三个**结构性**缺陷一次性收口。
 
-| 新增项 | 用途 | 触发场景 |
+| 卡 | 内容 | 状态 |
 |---|---|---|
-| `xtask refscan` | 扫 `.md` / `.rs` / `.ps1`：裸 ADR 待建引用 + 编号范围写法（ADR-0026 D3）+ `.ps1` 非 ASCII（ADR-0024 D4） | CI 硬门禁 #12b |
-| `xtask docscan` | 扫 `.md`：破表（PL-031）+ setext 风险（`---` 前一行非空会变 H2）+ UTF-8 BOM/CRLF/缺末行 LF | CI 硬门禁 #12b |
-| `xtask card-check` | 扫 `tasks/TASK-*.md`：ADR-0031 D6 机器化（记录区 9 节齐全 + Done/Review 状态校验 + plans/* 形态防回退） | CI 硬门禁 #12b（预备，本卡提交后正式开启）|
-| ADR-0034 | `card-check` 设计与豁免判据说明 | 文档护栏 |
+| TASK-011 | `crates/protocol`：JSON Schema → Rust/TS 类型 codegen；`codegen --check` 变成**真门禁**（drift 会 exit 1） | ✅ Done |
+| TASK-012 | `crates/storage`：SQLite WAL + 迁移框架 + blob 池（zstd + sha256 内容寻址） | ✅ Done |
+| TASK-013 | `crates/audit`：append-only + SHA-256 hash chain + ring buffer 批量 flush（摊销 < 1 ms/条） | ✅ Done |
+| TASK-200 | `docs/spec/*` 7 份契约草案的系统性结构缺陷（外来模板块 / 空节 / 断链引用）—— PL-038 闭环 | ✅ Done |
+| TASK-201 | `crates/core` 骨架提前（PL-037 闭环） | ✅ Done |
+| TASK-202 | 存储**迁移注册表**：storage 只提供机制、各 crate 自持迁移 + 唯一装配点（**ADR-0038**，PL-046 闭环） | ✅ Done |
+| TASK-203 | `audit_logs` 列语义去重 + 显式链序：删与 `id` 同义的 `hash`、加 `sequence`（**ADR-0040**，PL-043 / PL-045 闭环） | ✅ Done |
 
+治理机制同步前进：**ADR-0039** 把「卡 Done = 同一 PR 内同步 `PLAN.md` + `README.md`」写成硬契约
+（DRIFT-202-2 闭环，可机器校验的新鲜度规则归 TASK-015 的 `check-ledger`）；
+**TASK-015** 的正文已由 Orchestrator 展开（`docscan` 4 条结构规则 + `crates/core` 分层断言 +
+PL-047 迁移登记表扫描 + `check-ledger`）。
+
+### 历史小节（按时间倒序）
+
+- **2026-09-19 TASK-059/060/061/062/063/064（xtask 护栏升级六连发）**：
+  `xtask` 从 4 个子命令扩到 7 个（新增 `refscan` / `docscan` / `card-check`），
+  原 `hygiene / memory-counts / adr-index / guard` 保持；全部在 CI 硬门禁 #12b（`doc-consistency`）下统一跑过。
+  `docscan` 扫破表（PL-031）+ setext 风险 + UTF-8 BOM/CRLF/缺末行 LF；`card-check` 是 ADR-0031 D6 的机器化；
+  同一批清掉了 `xtask/src` 生产代码里的全部 per-line `#[allow]`（**ADR-0034** / **ADR-0035**）。
 ### 历史小节（按时间倒序）
 
 - **2026-09-19 TASK-064**（promote `extension_is` helper + 收 repowalk.rs:172 per-line allow）:

@@ -63,7 +63,7 @@ impl AuditSubject {
 /// `audit_logs` 的一行（`detail_json` 已解析回事件）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct AuditRecord {
-    /// 主键列 `id`（v1 语义 = 本条 `self_hash`）。
+    /// `id` 列 = 本条 `self_hash`（链位置 + 内容共同决定，天然唯一；ADR-0040 D3）。
     pub id: String,
     /// 链上前一条的 `self_hash`（首条 = [`GENESIS_PREV_HASH`]）。
     pub prev_hash: String,
@@ -336,24 +336,26 @@ const fn actor_name(actor: AuditActor) -> &'static str {
     }
 }
 
+// 不写 `sequence`：它是 `INTEGER PRIMARY KEY AUTOINCREMENT`，由 SQLite 分配（ADR-0040 D2）。
+// 不写 `hash`：该列已由迁移 0003 删除（它与 `id` 语义重复 —— ADR-0040 / PL-045）。
 const INSERT_RECORD_SQL: &str = "INSERT INTO audit_logs \
-    (id, prev_hash, ts, actor, task_id, step_id, event_type, detail_json, hash) \
-    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)";
+    (id, prev_hash, ts, actor, task_id, step_id, event_type, detail_json) \
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
 
-// 读出顺序用 `rowid`（插入顺序），不是 `ts`：同一毫秒内可以写入多条，`ts` 并列时次序任意。
+// 读出顺序用 `sequence`（显式链序），不是 `ts`：同一毫秒内可以写入多条，`ts` 并列时次序任意。
 // 注意：本 crate 的**校验**不依赖行序（`verify.rs` 走链），行序只影响展示与"读链尾"。
 const SELECT_RECORDS_SQL: &str = "SELECT id, prev_hash, ts, actor, task_id, step_id, \
-    event_type, detail_json FROM audit_logs ORDER BY rowid";
+    event_type, detail_json FROM audit_logs ORDER BY sequence";
 
 // 校验专用的原始读取：**不**在 SQL 层做 JSON 解析 —— 被篡改的行可能根本不是合法 JSON，
 // 那时必须报 `UnreadablePayload` 而不是让整个 `verify_chain` 以 IO 错误告终。
 const SELECT_RAW_ROWS_SQL: &str =
-    "SELECT id, hash, prev_hash, detail_json FROM audit_logs ORDER BY rowid";
+    "SELECT id, prev_hash, detail_json FROM audit_logs ORDER BY sequence";
 
-// 链尾 = 最后插入的那一行。为什么可以依赖 `rowid`：本表 append-only（没有任何 DELETE 路径），
-// 故 rowid 顺序 == 链顺序。已知限制：`VACUUM` 理论上可能重排无 INTEGER PRIMARY KEY 表的 rowid
-// → 见 PL-043；即便真发生，`verify_chain` 也会把分叉暴露成 OrphanedRecord（不会静默）。
-const SELECT_CHAIN_TAIL_SQL: &str = "SELECT hash FROM audit_logs ORDER BY rowid DESC LIMIT 1";
+// 链尾 = 链序最大的那一行。为什么可以依赖 `sequence`：它是 `INTEGER PRIMARY KEY AUTOINCREMENT`
+// （迁移 0003 / ADR-0040 D2），单调递增且**永不复用**已用过的号，与物理存储顺序（rowid）解耦 ——
+// `VACUUM` 再也动不了它（PL-043 闭环）。
+const SELECT_CHAIN_TAIL_SQL: &str = "SELECT id FROM audit_logs ORDER BY sequence DESC LIMIT 1";
 
 /// 普通 `INSERT`（**不是** `INSERT OR REPLACE`）：主键冲突 = 报错，绝不静默覆盖已有审计行。
 fn insert_record(connection: &Connection, record: &AuditRecord) -> AuditResult<()> {
@@ -369,9 +371,6 @@ fn insert_record(connection: &Connection, record: &AuditRecord) -> AuditResult<(
             record.step_id,
             record.event_type,
             detail_json,
-            // hash 列与 id 列在 v1 语义上同为 self_hash（见卡 §5 DRIFT-013-2）：
-            // 两列都写，是为了让"只改其中一列"也能被 verify 检出。
-            record.id,
         ],
     )?;
     Ok(())
@@ -408,12 +407,13 @@ fn load_records(connection: &Connection) -> AuditResult<Vec<AuditRecord>> {
 }
 
 /// 校验专用的一行（`detail_json` **原样**，不解析）。
+///
+/// 为什么只有 `id` 一个 hash 列：迁移 0003 删掉了与它同义的 `hash` 列（ADR-0040 / PL-045），
+/// 故"两列必须一致"那条同义反复的检查随之消失 —— 权威判据只剩「重算 == `id`」。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RawAuditRow {
-    /// `id` 列。
+    /// `id` 列 = 本条 `self_hash`。
     pub id: String,
-    /// `hash` 列。
-    pub hash: String,
     /// `prev_hash` 列。
     pub prev_hash: String,
     /// `detail_json` 列（原样字符串）。
@@ -427,9 +427,8 @@ fn load_raw_rows(connection: &Connection) -> AuditResult<Vec<RawAuditRow>> {
     while let Some(row) = rows.next()? {
         out.push(RawAuditRow {
             id: row.get(0)?,
-            hash: row.get(1)?,
-            prev_hash: row.get(2)?,
-            detail_json: row.get(3)?,
+            prev_hash: row.get(1)?,
+            detail_json: row.get(2)?,
         });
     }
     Ok(out)

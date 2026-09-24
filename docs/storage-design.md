@@ -134,10 +134,15 @@ GC  ：引用计数为 0 且超过 TTL → 删除；后台低优先级任务，�
 |---|---|---|---|
 | 0001 | `crates/storage` | `crates/storage/migrations/0001_init.sql` | `tasks` / `task_steps` / `checkpoints` / `blobs` / `blob_refs` / `usage_records` |
 | 0002 | `crates/audit` | `crates/audit/migrations/0002_audit_logs.sql` | `audit_logs` + `idx_audit_ts` + 两个 append-only 触发器 |
+| 0003 | `crates/audit` | `crates/audit/migrations/0003_audit_logs_semantics.sql` | 重建 `audit_logs`：删 `hash`、加 `sequence`（+ 重建 `idx_audit_ts` 与两个触发器）—— ADR-0040 |
 
 > **为什么 0002 在 `crates/audit` 而不是 `crates/storage`**：TASK-013 曾把它放在
 > `crates/storage/migrations/`（当时迁移链没有外部入口）→ 违反「DDL 与拥有者同处」。
 > TASK-202 按 ADR-0038 把文件**移动**过去（内容一字不改 → sha256 checksum 不变 → 已有库仍可打开）。
+
+> **0003 为什么是「重建表」**（ADR-0040）：SQLite 的 `ALTER TABLE` 删列受「不能是 PRIMARY KEY / UNIQUE /
+> 被索引引用」限制，而 `hash` 恰好同时沾上 —— 重建（`CREATE audit_logs_new` → `INSERT ... SELECT ORDER BY rowid`
+> → `DROP` → `RENAME` → 重建索引与触发器）是唯一确定性的走法。`0002` **一字不改**（checksum 记账）。
 
 > **已知遗留（PL-047）**：本表仍是**手工回填**的 —— ADR-0030 的教训是「靠记得回填的护栏会失效」。
 > 机器化（xtask 扫描 `crates/*/migrations/*.sql`，校验号段唯一 + 与本表一致）归 **TASK-015**
@@ -150,7 +155,7 @@ GC  ：引用计数为 0 且超过 TTL → 删除；后台低优先级任务，�
 | 表 | 层 | 说明 |
 |---|---|---|
 | `conversations` / `tasks` / `task_steps` | L1 | 状态与检查点；`plan_json` 若 > 64 KB 则外置到 blob |
-| `audit_logs` | L1（可独立库） | 追加不可改 + `prev_hash`/`hash`；`detail_json` 大字段外置 blob |
+| `audit_logs` | L1（可独立库） | 追加不可改 + 链序 `sequence` + 链指针 `prev_hash`（`id` = 本条 self_hash；ADR-0040）；`detail_json` 大字段外置 blob |
 | `usage_records` | L1 | 批量写；按月分区视图或定期归档到 L3 |
 | `permissions` / `policy_rules` | L1 + **L0 缓存** | 热路径 |
 | `registered_apps` / `adapters` / `bound_targets` | L1 + L0 | Adapter 本体是**文件**（`adapters/*/adapter.toml`），DB 只存索引与健康度 |

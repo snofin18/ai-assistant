@@ -6,7 +6,7 @@
 //!
 //! ## 职责
 //!
-//! - 迁移 `0002_audit_logs`（[`MIGRATIONS`]，DDL 在 `crates/audit/migrations/`）：表 + `idx_audit_ts` + **数据库侧** append-only 触发器
+//! - 迁移 `0002_audit_logs` + `0003_audit_logs_semantics`（[`MIGRATIONS`]，DDL 在 `crates/audit/migrations/`）：表 + `idx_audit_ts` + **数据库侧** append-only 触发器；0003 = 列语义去重（删 `hash`）+ 显式链序 `sequence`（ADR-0040）
 //! - [`AuditLog`]：`append`（串链）→ 缓冲 → 单事务批量 `flush`
 //! - [`Durability`]：`batched`（默认 100 条 / 200 ms）/ `immediate` / `separate_db_full`
 //! - [`AuditLog::verify_chain`]：重算整条链，检出「改内容 / 改链指针 / 删中间行」
@@ -28,7 +28,10 @@
 //! 3. **flush 要么全成要么全不成**：单事务；失败时缓冲**不清空**、链尾**不前进**（不丢事件，
 //!    也不假装写过）
 //! 4. **时钟注入**：`ts` 与「200 ms 到点」都取自 [`assistant_storage::Clock`]（测试可回放）
-//! 5. **`id` = 本条 `self_hash`**：链位置 + 内容共同决定，天然唯一（见本卡 §5 DRIFT-013-2）
+//! 5. **`id` = 本条 `self_hash`**：链位置 + 内容共同决定，天然唯一；`id` 是**唯一**的
+//!    `self_hash` 落点（与之同义的 `hash` 列已由迁移 0003 删除 —— ADR-0040 D3 / PL-045 闭环）
+//! 6. **链序显式化**：`sequence INTEGER PRIMARY KEY AUTOINCREMENT` 单调且不复用，
+//!    链尾查询与读取顺序都按它 —— 不再依赖可能被 `VACUUM` 重排的 `rowid`（ADR-0040 D2 / PL-043 闭环）
 //!
 //! ## 典型用法
 //!
@@ -74,11 +77,18 @@
 /// 这**不是**全库清单：装配点必须把它与 `assistant_storage::MIGRATIONS` 等合并成一个
 /// [`MigrationSet`] 再交给 [`assistant_storage::Database::open`]（ADR-0038 D2 / D3；
 /// 版本号登记表见 `docs/storage-design.md` §3.4）。
-pub const MIGRATIONS: &[Migration] = &[Migration::new(
-    2,
-    "0002_audit_logs",
-    include_str!("../migrations/0002_audit_logs.sql"),
-)];
+pub const MIGRATIONS: &[Migration] = &[
+    Migration::new(
+        2,
+        "0002_audit_logs",
+        include_str!("../migrations/0002_audit_logs.sql"),
+    ),
+    Migration::new(
+        3,
+        "0003_audit_logs_semantics",
+        include_str!("../migrations/0003_audit_logs_semantics.sql"),
+    ),
+];
 
 mod chain;
 mod durability;

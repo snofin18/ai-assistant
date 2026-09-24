@@ -266,3 +266,55 @@ fn test_verify_chain_strict_returns_error_when_broken() {
         "断链时必须返回 ChainBroken"
     );
 }
+
+/// PL-043 的原始触发场景：`VACUUM` 之后链尾必须**仍然正确**。
+///
+/// 为什么这条能证伪旧实现：旧实现的链尾查询是 `ORDER BY rowid DESC LIMIT 1`，而本表**没有**
+/// `INTEGER PRIMARY KEY` —— SQLite 文档明说 `VACUUM` 可以重排这种表的 rowid。新实现用显式
+/// `sequence`（迁移 0003 / ADR-0040 D2），与物理存储顺序解耦。断言「VACUUM 前后链尾一致 +
+/// VACUUM 之后新行仍接得上旧链尾 + 整链自洽」。
+#[test]
+fn test_vacuum_does_not_change_chain_tail() {
+    let clock = Arc::new(FixedClock::new(1_700_000_000_000));
+    let dir = TestDir::new("vacuum");
+    let database = open_database(&dir, &clock);
+    let mut log = immediate_log(database.connection(), &clock);
+    for index in 0..3 {
+        log.append(
+            &sample_event("s_1", &format!("act_{index}"), "2026-09-24T00:00:00Z"),
+            &AuditSubject::unattached(),
+        )
+        .expect("append");
+    }
+    let tail_before = log.persisted_hash().to_owned();
+    assert_eq!(tail_before.len(), 64);
+
+    // VACUUM 不能在事务里跑；此处没有未提交事务。
+    database
+        .connection()
+        .execute_batch("VACUUM;")
+        .expect("VACUUM 审计库");
+
+    // 重开写入器：它读回的链尾必须与 VACUUM 前一致
+    let mut reopened = immediate_log(database.connection(), &clock);
+    assert_eq!(
+        reopened.persisted_hash(),
+        tail_before,
+        "VACUUM 后链尾不得改变（链序由 sequence 决定，与 rowid 无关）"
+    );
+
+    reopened
+        .append(
+            &sample_event("s_1", "act_after_vacuum", "2026-09-24T00:00:01Z"),
+            &AuditSubject::unattached(),
+        )
+        .expect("append");
+    let records = all_records(&reopened);
+    assert_eq!(
+        records.last().expect("最后一行").prev_hash,
+        tail_before,
+        "VACUUM 后新行必须接上旧链尾"
+    );
+    assert!(reopened.verify_chain().expect("verify").is_intact());
+    database.close().expect("关闭");
+}

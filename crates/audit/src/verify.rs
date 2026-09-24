@@ -31,7 +31,7 @@ use crate::log::RawAuditRow;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum TamperKind {
-    /// 本行重算的 `self_hash` 不等于存下来的值（**内容被改**），或 `id` / `hash` 两列不一致。
+    /// 本行重算的 `self_hash` 不等于 `id` 列存下来的值（**内容被改**）。
     HashMismatch,
     /// 从 [`GENESIS_PREV_HASH`] 沿链走不到本行（改了 `prev_hash`，或**中间行被删**）。
     OrphanedRecord,
@@ -107,26 +107,21 @@ impl ChainVerification {
 pub fn verify_rows(rows: &[RawAuditRow]) -> ChainVerification {
     let mut findings = Vec::new();
 
-    // ① 逐行：id 与 hash 两列必须一致；hash 必须能由 detail_json + prev_hash 重算出来。
+    // ① 逐行：`id` 必须能由 detail_json + prev_hash 重算出来。
+    //
+    // 为什么没有"两列必须一致"这一步了：迁移 0003 删掉了与 `id` 同义的 `hash` 列
+    // （ADR-0040 / PL-045），那条检查本来就是同义反复 —— 权威判据只有下面这一条。
     for row in rows {
-        if row.id != row.hash {
-            findings.push(TamperFinding {
-                id: row.id.clone(),
-                kind: TamperKind::HashMismatch,
-                expected: Some(row.id.clone()),
-                actual: Some(row.hash.clone()),
-            });
-        }
         match serde_json::from_str::<AuditEvent>(&row.detail_json) {
             Ok(event) => match canonical_payload(&event) {
                 Ok(canonical) => {
                     let recomputed = compute_self_hash(&row.prev_hash, &canonical);
-                    if recomputed != row.hash {
+                    if recomputed != row.id {
                         findings.push(TamperFinding {
                             id: row.id.clone(),
                             kind: TamperKind::HashMismatch,
                             expected: Some(recomputed),
-                            actual: Some(row.hash.clone()),
+                            actual: Some(row.id.clone()),
                         });
                     }
                 }
