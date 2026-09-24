@@ -8,8 +8,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
-> TASK-017 的 7 条 DRIFT（`unsafe_code` 放行 / workspace members / 自实现 SHA-256 / 子串匹配 / `SelectorChain` re-export /
-> 测试期望修正 / 桌面根搜索）与 PL-068 / PL-069 待裁决，
+> TASK-017 的 7 条 DRIFT 已全部裁决落地（**ADR-0043** 元素解析加 scope / **ADR-0044** 歧义策略收敛为唯一
+> `ErrorAndAsk` / **ADR-0045** 非宿主平台编译门禁进 `AGENTS.md` §6；PL-068 / 069 / 070 闭环），
 > 下一张是 `crates/platform/windows` 的合成输入与 IME（TASK-018））。**当前阶段详情以 `PLAN.md` 为准**。
 
 ---
@@ -77,7 +77,9 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / `read_text` / `set_value` /
 `edit_text` / `invoke_action` / `bounds` / `fingerprint` / 窗口枚举与状态）**均已落地**；
 跨阶段治理卡 TASK-200 / 201 / 202 / 203 已 Done；TASK-016 的能力命名歧义已由 **ADR-0042** 定案
-（`CapabilityCatalog` = 稳定标识目录 / `CapabilityMatrix` = 运行时探测结果 / `CapabilityEntry` = 风险·审批元数据）。
+（`CapabilityCatalog` = 稳定标识目录 / `CapabilityMatrix` = 运行时探测结果 / `CapabilityEntry` = 风险·审批元数据）；
+TASK-017 的 7 条 DRIFT 遗留已由 **ADR-0043 / 0044 / 0045** 裁决落地（元素解析加 scope / 歧义策略收敛为唯一
+`ErrorAndAsk` / 非宿主平台编译门禁进 `AGENTS.md` §6；PL-068 / 069 / 070 闭环）。
 **下一张 = TASK-018（`crates/platform/windows`：合成输入（SendInput）+ 焦点校验 + 坐标归一化（DPI/多屏）+ IME 处理）** —— 卡面按 gov §3.2 展开后开工。
 ＋ Notepad 的 3 个任务闭环。
 阶段 0（文档与 Spike）已于 2026-09-20 closeout —— 它的产出是 Spike 报告，**不是**产品代码。
@@ -125,7 +127,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-24：阶段 1 地基层 + 平台抽象层 + Windows UIA provider + 治理池收口 + 护栏补齐 + TASK-016 遗留裁决 = TASK-011 / 012 / 013 / 014 / 015 / 016 / 017 / 200 / 201 / 202 / 203）
+## 最近进展（2026-09-24：阶段 1 地基层 + 平台抽象层 + Windows UIA provider + 治理池收口 + 护栏补齐 + TASK-016 / TASK-017 遗留裁决 = TASK-011 / 012 / 013 / 014 / 015 / 016 / 017 / 200 / 201 / 202 / 203）
 
 阶段 1 的地基层已经落地（含密钥层），治理池把 TASK-013 现场撞出的三个**结构性**缺陷一次性收口，
 `xtask` 护栏同批补齐并把两条 CI 门禁由软转硬。
@@ -145,7 +147,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 | TASK-014 | `crates/secrets`：OS keychain 封装（`keyring` 4.2 / DPAPI·Keychain·Secret Service）+ `zeroize` + 访问审计注入点（fail-closed） | ✅ Done |
 | TASK-016 | `crates/platform/api`：**铁律 7 的唯一平台入口** —— 4 个纯类型（`TargetDescriptor` / `NormalizedPoint` / `Fingerprint` / `CapabilityMatrix`）+ 3 个 trait 形状（RPITIT，**零 `async-trait` 依赖**）+ 能力矩阵 4 条不变量的机器校验；`ResolvedWindow` / `ResolvedElement` = 不透明句柄（铁律 8 有源码扫描断言，含负向样本） | ✅ Done |
 | TASK-015 | `xtask` 护栏补齐：`docscan` 4 条结构规则（裸 NUL / 数字节号重复 / 整节为空 / 标题文字重复）+ `crates/core/tests/arch*` 分层断言（`arch::` 由 0 → 5 个测试）+ `check-ledger`（ADR-0039 D3）+ `check-migrations`（PL-047）；同批修 PL-048（flaky）与 PL-051（裸 NUL） | ✅ Done |
-| TASK-017 | `crates/platform/windows`：**铁律 7 在 Windows 侧的落地** —— `UiAutomationProvider` 全 9 方法 + `WindowProvider` 全 5 方法（UIA 树快照 / selector 链解析 / `read_text` / `set_value` / `edit_text` / `invoke_action` / `bounds` / `fingerprint` / 窗口枚举与状态）；句柄纪律（铁律 8）有源码扫描断言 + 5 个负向样本；全 crate 零 `serde`。7 条 DRIFT 待裁决（含 crate 级 `unsafe_code` 放行、`crates/platform/api` 补 `SelectorChain` re-export）+ 新提 PL-068 / PL-069 | ✅ Done |
+| TASK-017 | `crates/platform/windows`：**铁律 7 在 Windows 侧的落地** —— `UiAutomationProvider` 全 9 方法 + `WindowProvider` 全 5 方法（UIA 树快照 / selector 链解析 / `read_text` / `set_value` / `edit_text` / `invoke_action` / `bounds` / `fingerprint` / 窗口枚举与状态）；句柄纪律（铁律 8）有源码扫描断言 + 5 个负向样本；全 crate 零 `serde`。7 条 DRIFT 已全部裁决接受（含 crate 级 `unsafe_code` 放行、`crates/platform/api` 补 `SelectorChain` re-export），PL-068 / 069 / 070 闭环（**ADR-0043 / 0044 / 0045**）| ✅ Done |
 
 TASK-016 把**平台抽象层**立起来：`core` / `Host` 从此只能经 `assistant-platform-api` 的 trait 用平台能力
 （铁律 7），且**该 crate 全 crate 零 `#[allow]`、零 `unsafe`、零第三方依赖**（除已登记的 `serde`）——
@@ -161,6 +163,13 @@ TASK-017 把**平台抽象层**在 Windows 侧兑现：`assistant-platform-windo
 真机实测暴露一个**架构层缺口**（记 **PL-068**）：受 TASK-016 冻结的 trait 形状所限，`resolve_element` 只能
 从**桌面根**发 `FindAll(TreeScope_Descendants)` → 中位数 **1.53 s**（窗口子树内同一操作只要 30~40 ms）。
 本卡**没有**偷偷改搜索策略去掩盖它，而是把证据写进 `docs/PARKING_LOT.md` 等裁决。
+
+TASK-017 的遗留裁决同批收口：**ADR-0043**（元素解析必须有 scope —— `resolve_element` / `wait_for` 的首参改为
+`&ResolvedWindow`，搜索起点 = 该窗口的 UIA 根；桌面根搜索在元素解析里彻底消失，PL-068 / DRIFT-017-7 闭环）、
+**ADR-0044**（歧义策略收敛为唯一 `ErrorAndAsk`，删掉在候选链模型里不可实现的 `HighestScore`；架构 v2 §6.6 其余
+3 种策略写明归属层，PL-069 闭环）、**ADR-0045**（把「非宿主平台」`--target` clippy 写进 `AGENTS.md` §6 验收清单 ——
+`clippy` 不链接故不需要 C 交叉编译器，但 `--workspace` 会撞 `cc-rs`，须按 crate 指定；PL-070 闭环）。
+同批新提 PL-071 / PL-072 / PL-073（ADR-0035 allow 表缺口 / `*Regex` 命名与子串语义不一致 / 卡片状态行归属机制）。
 
 ### 历史小节（按时间倒序）
 

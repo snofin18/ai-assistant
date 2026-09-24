@@ -44,8 +44,11 @@
 | **0040** | `0040-audit-log-column-semantics.md` | **Accepted** | `audit_logs` 列语义去重 + 显式链序：删与 `id` 同义的 `hash` 列、加 `sequence INTEGER PRIMARY KEY AUTOINCREMENT`；迁移 0003 重建表；0002 一字不改（PL-045 + PL-043 闭环） |
 | **0041** | `0041-plan-file-write-scope-and-progress-sync.md` | **Accepted** | 计划文件的「可写面」：**只允许改完成状态与「当前进度」块**，**禁止改排期与条目正文**；打勾不得重写正文；授权修订 `AGENTS.md` §8/§11 + 章程 §3（人类 chat 2026-09-24 澄清） |
 | **0042** | `0042-capability-catalog-vs-capability-matrix.md` | **Accepted** | 能力命名三分：**`CapabilityCatalog`** = 稳定能力标识目录（schema `title` 由 `CapabilityMatrix` 改名）/ **`CapabilityMatrix`** = 运行时探测结果（保留原义，架构 v2 §13.1.2）/ **`CapabilityEntry`** = 单条能力的风险·审批元数据；目录名 `protocol/capability-matrix/` 不改（PL-064 闭环，人类 chat 2026-09-24 授权） |
+| **0043** | `0043-uia-element-resolution-scope.md` | **Accepted** | 元素解析必须有 scope（父窗口）：`resolve_element` / `wait_for` 的首参改为 `&ResolvedWindow`，搜索起点 = 该窗口的 UIA 根元素；**禁止**从桌面根搜元素（PL-068 + DRIFT-017-7 裁决；架构 v2 §13.1.1 / §6.2 已同步） |
+| **0044** | `0044-ambiguity-policy-alignment.md` | **Accepted** | 歧义策略与架构 v2 §6.6 对齐：平台层只保留 fail-closed 的 `error_and_ask`，**删除** `OnAmbiguous::HighestScore`（候选链模型里不可实现）；`require_unique` / `first_by_order` / `disambiguate_by` 的归属层写清（PL-069 闭环） |
+| **0045** | `0045-non-host-target-lint-gate.md` | **Accepted** | `#[cfg]` 分叉代码的「非宿主平台」编译门禁：Windows 开发机上用 `cargo clippy --target <非 Windows 目标> -p <纯 Rust crate>` 覆盖 `#[cfg(not(windows))]`；适用范围 = 无 C 依赖的 crate（PL-070 闭环） |
 
-**下一个可用编号：0043**（= §1 与 §2 已用最大号 0042 + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0046**（= §1 与 §2 已用最大号 0045 + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是可用号** —— 它是 §2 的**待建号**，已预留给「`#[allow]` 的唯一合法位置」那条决策

@@ -88,20 +88,19 @@
   部分遮挡 / 非矩形窗口 / 透明覆盖层会误判；它**偏保守**（宁可报"被遮挡"）。
 - **`wait_for` 不可取消**：固定 50 ms 轮询 + 显式截止时间，**没有**取消通道
   （架构 v2 §6.5 的"等待期间可取消"归 Host / TASK-019）。
-- **`resolve_element` / `wait_for` 从桌面根搜索**：trait 形状**没有** scope 参数（TASK-016 定死），
-  且两者策略**不同** —— `wait_for` 先 `TreeScope_Children` 再 `TreeScope_Descendants`（ADR-0022 E6）；
-  `resolve_element` **直接** `FindAll(TreeScope_Descendants)`，一次走遍整个桌面，
-  **实测中位数 1.53 s**（见下「性能」）。该契约缺口登记为 **PL-068**；`resolve_element`
-  与 E6 的这条偏差登记为 **DRIFT-017-7**（本卡不改搜索策略：那会改歧义判定语义）。
+- **`resolve_element` / `wait_for` 的 scope = 已解析窗口（已解决）**：按 **ADR-0043**，两个入口的
+  第一个参数都是 `&ResolvedWindow`，搜索起点是该窗口的 UIA 根元素（`ElementFromHandle`），
+  **不再**从桌面根搜。`wait_for` 仍是「先 `Children` 再 `Descendants`」，但作用域改到 scope 子树内。
+  原桌面根搜索实测中位数 1.53 s（见下「性能」）；**PL-068** / **DRIFT-017-7** 已关闭。
 - **`capture` / `pointer_action` / `key_action` 未实现**：返回 `CapabilityMissing`，
   源码标 `// STUB(TASK-041):` / `// STUB(TASK-018):`（**不是** `todo!()` / `unimplemented!()`）。
 - **非 Windows 后端**：`src/unsupported.rs` 的每个方法都返回 `CapabilityMissing`；
   平台无关的**输入校验**仍会先跑（空候选链 / 无条件 query → `ToolInvalidArgs`），
   因为坏输入在哪个平台都是坏输入。
-- **`OnAmbiguous::HighestScore` 在本层等价于"报歧义"**：本层的候选链里每个候选只有一个分数
-  （分数属于候选，不属于命中元素），因此"最高分并列"必然成立 → `HighestScore` **不会**
-  在多个命中里挑一个（这是 fail-closed 的保守解释，铁律 1）。架构 v2 §6.6 的 4 种歧义策略
-  与 `OnAmbiguous` 的 2 个变体之间的口径差异登记为 **PL-069**。
+- **歧义策略收敛为唯一一种（已解决）**：按 **ADR-0044**，`OnAmbiguous` 只保留 `ErrorAndAsk`，
+  多命中一律报 `TargetAmbiguous`（fail-closed，铁律 1）；`HighestScore` 已删除（它在候选链模型里
+  不可实现：分数属于**候选**，不属于命中元素）。架构 v2 §6.6 其余 3 种策略各有归属层
+  （见该节「各策略的归属层」）；**PL-069** 已关闭。
 
 ## 性能（实测值）
 
@@ -120,7 +119,7 @@
 |---|---|---|
 | `snapshot_tree`（**38** 节点，含离屏） | **30.5 / 39.8 ms**（n=5，min 28.8 / 32.5，max 154.1 / 144.7） | ≤ 800 ms → **20× 以上余量**；比 Spike A 的 17 ms 慢约 1.8~2.3×（同数量级；节点数也从 32 涨到 38） |
 | `fingerprint(WholeWindow)` | **28.7 / 31.6 ms** | 同上（它就是一次完整遍历 + SHA-256） |
-| `resolve_element`（`ClassAndRole` = `RichEditD2DPT` + `Document`） | **1531.5 / 1530.4 ms**（n=10，min 1520.4 / 1520.9，max 1730.9 / 1712.2） | ⚠ **超出** Spike A 的「局部搜索 ≤ 200 ms」判据 **7.6×** —— 根因是**从桌面根**搜索（PL-068 / DRIFT-017-7），**不是** UIA 本身慢 |
+| `resolve_element`（`ClassAndRole` = `RichEditD2DPT` + `Document`） | **1531.5 / 1530.4 ms**（n=10，min 1520.4 / 1520.9，max 1730.9 / 1712.2） | ⚠ **超出** Spike A 的「局部搜索 ≤ 200 ms」判据 **7.6×** —— 根因是**从桌面根**搜索（PL-068 / DRIFT-017-7），**不是** UIA 本身慢；该值是 **ADR-0043 落地前**（scope 尚未传入）的实测，落地后应复测（预期回到窗口子树量级） |
 | `read_text`（`ValuePattern`） | **0.22 ms** | 与 Spike A 的 0.11 ms 同数量级 |
 
 **失败分类在真机上各复现一例**（铁律 1：可区分、不混淆）：失效窗口句柄 → `TargetNotFound`；

@@ -7,7 +7,7 @@
 //! 1. **稳定排序**：有效分相同的候选**保持链内原顺序** → 同样的输入必得同样的顺序（可复现、可回放）。
 //! 2. **`locale_dependent` 自动降权**（§6.3：`score *= 0.5`）—— 降权只影响**顺序**，
 //!    **绝不**新增 / 删除候选（自愈不得产生不可解释的行为）。
-//! 3. **并列第一必须报歧义**：`HighestScore` 策略下若最高分有并列，**不得**取第一个 ——
+//! 3. **多命中必须报歧义**（ADR-0044）：平台层**没有**「取第一个 / 取最高分」这类策略 ——
 //!    那是「点偏了却看起来成功」的静默失败形态（铁律 1）。
 //! 4. 判定是**纯函数**：同样的 `matched_scores` + 策略必得同样的结论。
 //!
@@ -90,36 +90,23 @@ pub enum SelectionOutcome {
 
 /// 根据匹配数与歧义策略决定结论（**纯函数**）。
 ///
-/// `HighestScore` 只在最高分**唯一**时才允许择一；并列第一 → 报歧义（不变量 3）。
+/// 平台层只有**一种**歧义语义（ADR-0044 D1）：多命中 → `Ambiguous`（fail-closed，铁律 1 不猜）。
+/// `policy` 仍在签名里 —— 它是跨 crate 的 `#[non_exhaustive]` 枚举，**将来**新增策略时
+/// 唯一的判定落点就是这里（改它要 ADR）。
 #[must_use]
-pub fn decide_selection(matched_scores: &[f64], policy: OnAmbiguous) -> SelectionOutcome {
+pub const fn decide_selection(matched_scores: &[f64], policy: OnAmbiguous) -> SelectionOutcome {
+    // 用 `let … else` 而不是 `match`：两个分支若同体，`clippy::match_same_arms`（pedantic）
+    // 会在 `-D warnings` 下报错，而这里「未来变体」与 `ErrorAndAsk` 确实映射到同一结论。
+    let OnAmbiguous::ErrorAndAsk = policy else {
+        // 未知策略一律按**最保守**的「报歧义、升级给人」处理（铁律 1）。
+        return SelectionOutcome::Ambiguous {
+            matches: matched_scores.len(),
+        };
+    };
     match matched_scores.len() {
         0 => SelectionOutcome::NotFound,
         1 => SelectionOutcome::Unique,
-        matches => match policy {
-            OnAmbiguous::HighestScore => {
-                let mut best = f64::NEG_INFINITY;
-                for score in matched_scores {
-                    if score.total_cmp(&best) == Ordering::Greater {
-                        best = *score;
-                    }
-                }
-                let mut tied_at_top = 0_usize;
-                for score in matched_scores {
-                    if score.total_cmp(&best) == Ordering::Equal {
-                        tied_at_top += 1;
-                    }
-                }
-                if tied_at_top == 1 {
-                    SelectionOutcome::Unique
-                } else {
-                    SelectionOutcome::Ambiguous { matches }
-                }
-            }
-            // `OnAmbiguous::ErrorAndAsk` 与 `#[non_exhaustive]`（形状冻结在 TASK-016）下未来新增的
-            // 变体一律按**最保守**的「报歧义、升级给人」处理 —— 铁律 1「不猜」。
-            _ => SelectionOutcome::Ambiguous { matches },
-        },
+        matches => SelectionOutcome::Ambiguous { matches },
     }
 }
 
@@ -257,18 +244,15 @@ mod tests {
     }
 
     #[test]
-    fn test_decide_highest_score_with_unique_max_is_unique() {
+    fn test_decide_multiple_matches_is_ambiguous_regardless_of_scores() {
+        // ADR-0044：平台层没有「取最高分 / 取第一个」这类策略 —— 候选链的分数属于**候选**
+        // 而非命中元素，所以「不同分的多个命中」也只能报歧义（负向用例，ADR-0019 N1）。
         assert_eq!(
-            decide_selection(&[0.9, 0.8], OnAmbiguous::HighestScore),
-            SelectionOutcome::Unique
+            decide_selection(&[0.9, 0.8], OnAmbiguous::ErrorAndAsk),
+            SelectionOutcome::Ambiguous { matches: 2 }
         );
-    }
-
-    #[test]
-    fn test_decide_highest_score_with_tied_max_is_ambiguous() {
-        // 负向用例（ADR-0019 N1）：并列第一**不得**静默取第一个。
         assert_eq!(
-            decide_selection(&[0.9, 0.9], OnAmbiguous::HighestScore),
+            decide_selection(&[0.2, 0.2], OnAmbiguous::ErrorAndAsk),
             SelectionOutcome::Ambiguous { matches: 2 }
         );
     }

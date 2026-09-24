@@ -1,6 +1,6 @@
 # TASK-017　`platform/windows`：UIA provider（树快照 / selector 链解析 / read_text / set_value / edit_text / invoke_action / bounds / fingerprint / window 枚举与状态）
 
-- 状态：**Ready**
+- 状态：**Done**（2026-09-24）
 - 阶段：1　子阶段：**1a**　批次：**A2**　依赖：016　预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -195,6 +195,18 @@ cargo deny check
 | `crates/platform/api/src/lib.rs`、`src/traits/mod.rs` | 补 `SelectorChain` re-export（纯增量，不改 trait 形状） | ⚠ **write scope 外** → DRIFT-017-5 |
 | `docs/PARKING_LOT.md` | 追加 PL-068 / PL-069 主表行 + 1 条 PL-068「处置追加记录」；**CI 复核追加 PL-070 主表行与处置行**（见 §3.1）（公共热点文件，按 ADR-0028 取锁后写、写完立刻释放） | ✅（§8 允许追加） |
 | `LEDGER.md`、`PLAN.md`（仅「当前状态」块）、`README.md`（仅三处）、`plans/stage-1-pilots.md`（仅完成标记 + 进度句）、`docs/memory/{facts,pitfalls}.md`、`MEMORY.md` §1 规模表 | 按 AGENTS.md §11.1 同步（每张卡 Done 必做） | ✅ |
+| `docs/adr/0043-uia-element-resolution-scope.md` | **本批（遗留裁决）新建**：元素解析必须有 scope（PL-068 / DRIFT-017-7 的裁决） | ⚠ ADR 目录由 ADR-0043 D5 授权（先例 ADR-0041 / 0042 的 D5） |
+| `docs/adr/0044-ambiguity-policy-alignment.md` | **本批新建**：歧义策略收敛为唯一 `ErrorAndAsk`（PL-069 的裁决） | ⚠ 同上（ADR-0044 D6） |
+| `docs/adr/0045-non-host-target-lint-gate.md` | **本批新建**：非宿主平台编译门禁写进 AGENTS §6（PL-070 的裁决） | ⚠ 同上（ADR-0045 D5） |
+| `docs/adr/README.md` | **本批**：§1 登记 0043 / 0044 / 0045 + 下一可用号 → 0046 | ✅（公共热点文件，取锁后写） |
+| `AGENTS.md` | **本批**：§6 验收清单加 2 条 `--target` clippy + 适用范围段 | ⚠ ADR-0045 D5 显式授权 |
+| `cross-platform-ai-assistant-architecture-v2.md` | **本批**：§6.2 / §6.6 / §13.1.1 同步（scope 参数 + 各策略归属层） | ⚠ ADR-0043 D5 / ADR-0044 D6 显式授权 |
+| `crates/platform/api/src/{target.rs,traits/ui.rs}` | **本批**：`OnAmbiguous` 删 `HighestScore`；`resolve_element` / `wait_for` 加 `scope` 首参 | ⚠ 改公共接口 → ADR-0043 D1 / ADR-0044 D2 |
+| `crates/platform/windows/src/uia/{mod,resolve,search}.rs` | **本批**：scope 贯穿（删 `search_scope()`，`find_all` 的 `parent` 改必填 `scope`） | ✅ |
+| `crates/platform/windows/src/selector.rs` | **本批**：`decide_selection` 去 `HighestScore` 分支 + 2 条用例合并为 1 条负向用例 | ✅ |
+| `crates/platform/windows/src/unsupported.rs` | **本批**：非 Windows 签名同步（加 `_scope`） | ✅ |
+| `crates/platform/windows/README.md` | **本批**：「已知限制」两条改为「已解决」+ 性能表 1.53 s 行加注 | ✅ |
+| `docs/memory/{facts,pitfalls}.md`、`MEMORY.md` §1 规模表、`PLAN.md` 当前状态块、`README.md` 三处、`docs/PARKING_LOT.md` | **本批**：按 AGENTS §11.1 同步 + PL-068 / 069 / 070 闭环行 + PL-071 / 072 / 073 新提 | ✅ |
 
 ### 3. 验收输出摘要
 
@@ -336,6 +348,33 @@ cargo deny check
    **确认是 Win32 API** 的调用点；COM / UIA 调用点仍走 `error_from_hresult`）+ 2 个回归用例。
 3. **两条「声称遵守 ADR-0022 E6」的错误注释**（见 DRIFT-017-7）+ **2 处重复的文档段落**
    （`digest.rs` / `uia/tree.rs`）—— 文档与代码矛盾属缺陷，已改措辞使其与代码一致。
+
+**裁决落地（2026-09-24，人类 chat：「TASK-017 的 7 条 DRIFT + PL-068 / PL-069 / PL-070 按你的建议去做」）**
+
+7 条 DRIFT 全部按上表「建议裁决」接受；DRIFT-017-7 由 **ADR-0043** 处置（本批代码已改）。新增 3 个 ADR、
+关闭 3 个 PL、新提 3 个 PL：
+
+| 项 | 处置 | 依据 |
+|---|---|---|
+| **DRIFT-017-1** | **接受** crate 级 `#![allow(unsafe_code)]`（铁律 7 唯一 FFI 层；每个 `unsafe` 块均有 `// SAFETY:`）。`[lints] rust.unsafe_code = "allow"` 无法 override workspace（Cargo 报 `cannot override workspace.lints in lints`） | ADR-0035（其表只清点 `clippy::*` per-line allow，**不**覆盖 crate 级 rust lint —— 故不并入该表） |
+| **DRIFT-017-2** | **接受** 根 `Cargo.toml` members 加 `crates/platform/windows`（卡面步骤 3 显式预告；同 DRIFT-016-2） | — |
+| **DRIFT-017-3** | **接受** 自实现 SHA-256（纯函数 → 三平台 CI 都能跑 FIPS 向量，含 55/56/63/64/65 字节边界） | — |
+| **DRIFT-017-4** | **接受** `TitleRegex` / `NameRegex` = UIA 原生子串匹配（只可能漏命中，不会假命中 → 漏命中走 `TargetNotFound`） | — |
+| **DRIFT-017-5** | **接受** `crates/platform/api` 补 `SelectorChain` re-export（纯增量 `pub use`，不改形状） | — |
+| **DRIFT-017-6** | **接受** 修 2 处错误期望（56 字节真值 `b35439a4…6738a` 由 CPython 独立复算；`-1_073_741_824` 位模式 `0xC000_0000`）。**不是**为过门禁放宽判据 —— 实现是对的、期望值写错了 | — |
+| **DRIFT-017-7** | **已处置**：`resolve_element` / `wait_for` 加 `&ResolvedWindow` scope，搜索起点 = 窗口 UIA 根；桌面根搜索在元素解析里彻底消失 | **ADR-0043** |
+| **PL-068** | **已关闭**（trait 形状缺口 → scope 落地） | ADR-0043 |
+| **PL-069** | **已关闭**（`OnAmbiguous` 收敛为唯一 `ErrorAndAsk`；删 `HighestScore`） | ADR-0044 |
+| **PL-070** | **已关闭**（非宿主平台 clippy 修复 `aafcdaf`；门禁机制写进 `AGENTS.md` §6） | ADR-0045 |
+| **PL-071** | **新提**：ADR-0035 的 allow 清点表未登记 crate 级 rust `unsafe_code` allow | 需 ADR |
+| **PL-072** | **新提**：`TitleRegex` / `NameRegex` 名字带「Regex」但语义是子串 —— 待 `docs/spec/naming.md` 定案 | 需 ADR |
+| **PL-073** | **新提**：卡片自身 `- 状态：` 行在正文区（只读）与「状态唯一落点」之间无归属机制；且 ADR-0031 D6 ①（正文区 diff = Error）与 gov §3.4「状态只写在卡片 `- 状态：` 行」相矛盾。实例：`tasks/TASK-016-*.md` 仍为 `Ready`（实际已 Done） | 需 ADR / Orchestrator |
+
+**本批验收（全绿）**：`cargo fmt --all --check` · `cargo clippy --all-targets -- -D warnings` ·
+`cargo clippy --target x86_64-unknown-linux-gnu -p assistant-platform-windows --all-targets -- -D warnings` ·
+`cargo clippy --target aarch64-apple-darwin -p assistant-platform-windows --all-targets -- -D warnings` ·
+`cargo test --workspace`（31 target / 579 passed / 0 failed）· `cargo run -p xtask -- adr-index`（29 / 0e / 0w）。
+残留检查：`HighestScore` 在 `crates/` 下 **0 命中**；`search_scope` **0 命中**。
 
 ### 6. 更合理做法
 
