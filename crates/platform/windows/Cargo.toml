@@ -20,6 +20,11 @@ windows = { version = "=0.62.2", features = [
     "Win32_System_Variant",         # VARIANT 所在模块
     "Win32_UI_Accessibility",       # IUIAutomation 全套客户端 COM 绑定（**不是** Win32_UI_UIAutomation！ADR-0024 D1a）
     "Win32_UI_WindowsAndMessaging", # EnumWindows / GetWindowThreadProcessId / SetForegroundWindow / IsIconic
+    # ↓ TASK-018 新增（同一已登记依赖的 feature 开关，不是新依赖 —— 见卡 §5 Q1）
+    "Win32_UI_Input_KeyboardAndMouse", # SendInput / INPUT / KEYBDINPUT / MOUSEINPUT / KEYEVENTF_* / MOUSEEVENTF_*
+    "Win32_UI_Input_Ime",           # ImmGetContext / ImmGetOpenStatus / ImmReleaseContext（IME 开关状态）
+    "Win32_UI_HiDpi",               # GetDpiForWindow / GetDpiForMonitor / MDT_EFFECTIVE_DPI（Per-Monitor V2）
+    "Win32_Graphics_Gdi",           # EnumDisplayMonitors / GetMonitorInfoW / MonitorFromWindow / MonitorFromPoint
 ] }
 
 [dependencies.assistant-platform-api]

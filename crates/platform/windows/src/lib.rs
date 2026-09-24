@@ -73,6 +73,14 @@ mod win32;
 #[cfg(windows)]
 mod window;
 
+// 合成输入（`SendInput`）与坐标归一化（DPI / 多屏）—— TASK-018。
+// **纯逻辑部分在所有平台编译**（ADR-0045 的非宿主 clippy 门禁要覆盖它们），真实的
+// `SendInput` / 显示器枚举在各自的 `#[cfg(windows)] mod win32` 子模块里。
+// 公开这两个模块是**有意的**：`send_unicode_text` / `is_ime_open` 是 TASK-018 的交付物，
+// 而本 crate 的零 `#[allow]` 策略不允许用 `#[allow(dead_code)]` 掩盖「暂时没人调用」。
+pub mod coordinates;
+pub mod input;
+
 #[cfg(not(windows))]
 mod unsupported;
 
