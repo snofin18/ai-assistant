@@ -1,0 +1,32 @@
+[package]
+name = "assistant-audit"
+description = "Append-only audit log: SHA-256 hash chain + ring-buffer batched flush + configurable durability."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# 第三方依赖：全部是**已登记且已批准**的既有依赖（docs/DEPENDENCIES.md 的"使用方"列已追加
+# `crates/audit`）。本卡**未引入任何新依赖**（漂移触发器 ① 未触发）。
+#   rusqlite  : 与 storage 共用同一个写连接（audit_logs 就在主库里；bundled 已由 storage 启用）
+#   sha2      : hash chain 的 SHA-256（与 blob_id 同算法；架构 v2 §15.3 的既定口径）
+#   serde_json: AuditEvent ⇄ detail_json 的序列化（事件类型来自 assistant-protocol，不另造结构体）
+rusqlite = { version = "0.37", features = ["bundled"] }
+sha2 = "0.10"
+serde_json = "1.0"
+
+[dependencies.assistant-protocol]
+# 工作区内依赖（非第三方，无需登记）。必须同时写 `version`：deny.toml 的
+# `[bans] wildcards = "deny"` 会把"只有 path 没有 version"判成通配依赖（TASK-012 实测）。
+path = "../protocol"
+version = "0.1.0"
+
+[dependencies.assistant-storage]
+# 复用 storage 的 `Clock` 注入点（不为审计再造第二个时钟 trait）与它持有的写连接。
+path = "../storage"
+version = "0.1.0"
+
+[lints]
+workspace = true

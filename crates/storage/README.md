@@ -5,14 +5,14 @@
 ## 职责
 
 - **L1 主库**：连接 + PRAGMA 基线 + **只前进不回滚**的迁移框架 + 核心表
-  （`tasks` / `task_steps` / `checkpoints` / `blobs` / `blob_refs` / `usage_records`）
+  （`tasks` / `task_steps` / `checkpoints` / `blobs` / `blob_refs` / `usage_records`；`audit_logs` 由迁移 `0002` 建，见下）
 - **L2 blob 池**：zstd（level 3）压缩 + `sha256` 内容寻址 + 去重 + 引用计数 + GC + 一致性扫描
 - 提供**注入点**：`Clock`（时间）与 `StoragePaths`（数据目录根）
 
 ## 边界（不做什么）
 
 - 不含业务规则：状态机、重试、预算、撤销锚点管理、审计 hash chain 都**不**在这里
-- 不建 `audit_logs`（TASK-013）、不建 FTS5 记忆表（TASK-028）、不实现影子副本（W5）的写入策略
+- **`audit_logs` 的 DDL 走本 crate 的迁移链**（`migrations/0002_audit_logs.sql`，TASK-013），但该表的**语义与读写归 `crates/audit`**（本 crate 不碰 hash chain）；不建 FTS5 记忆表（TASK-028）、不实现影子副本（W5）的写入策略
 - 不调用任何平台 API（`arch` 护栏会拦）；不提供多写者 / 只读连接池
 - 不做加密 / SQLCipher、冷归档 L3、在线备份 CLI
 - 除 `rusqlite`(bundled) / `zstd` / `sha2` 外不引第三方依赖（登记见 `docs/DEPENDENCIES.md`）

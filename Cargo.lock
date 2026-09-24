@@ -3,6 +3,17 @@
 version = 4
 
 [[package]]
+name = "assistant-audit"
+version = "0.1.0"
+dependencies = [
+ "assistant-protocol",
+ "assistant-storage",
+ "rusqlite",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "assistant-core"
 version = "0.1.0"
 

@@ -41,7 +41,12 @@ fn test_open_fresh_database_reaches_latest_schema_version() {
         database.paths().shadow_root().is_dir(),
         "影子副本目录必须建好"
     );
-    assert_eq!(count_rows(database.connection(), "schema_migrations"), 1);
+    // 迁移记账表的行数 == 最高版本号：版本号从 1 连续递增（schema.rs 不变量 4），
+    // 所以"行数 = SCHEMA_VERSION"比写死 1 更强 —— 它同时证明了每个迁移都被记账。
+    assert_eq!(
+        count_rows(database.connection(), "schema_migrations"),
+        SCHEMA_VERSION
+    );
 }
 
 /// 幂等：对已初始化的库重复 `open()` 只做校验，不重复建表、不重复记账。
@@ -56,7 +61,10 @@ fn test_open_is_idempotent() {
 
     let second = open_database(&dir, &clock);
     assert_eq!(second.schema_version().expect("读版本"), version);
-    assert_eq!(count_rows(second.connection(), "schema_migrations"), 1);
+    assert_eq!(
+        count_rows(second.connection(), "schema_migrations"),
+        SCHEMA_VERSION
+    );
 }
 
 /// 负向用例 ①-a：有业务表却没有版本表（外来库 / 被篡改的库）→ 拒绝启动。
@@ -93,8 +101,10 @@ fn test_open_rejects_unknown_schema_version() {
     database
         .connection()
         .execute(
-            "UPDATE schema_migrations SET version = ?1",
-            rusqlite::params![SCHEMA_VERSION + 1],
+            // 只改**最高版本**那一行：多迁移库里有版本 1..SCHEMA_VERSION 各一行，
+            // 不带 WHERE 的 UPDATE 会一次改掉全部行并撞上版本号唯一约束。
+            "UPDATE schema_migrations SET version = ?1 WHERE version = ?2",
+            rusqlite::params![SCHEMA_VERSION + 1, SCHEMA_VERSION],
         )
         .expect("改坏版本号");
     database.close().expect("关闭");

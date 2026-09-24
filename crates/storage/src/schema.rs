@@ -20,7 +20,7 @@ use crate::error::{StorageError, StorageResult};
 /// 二进制期望的 schema 版本 = 内嵌迁移的最高版本。
 ///
 /// 改这个值的唯一方式 = 新增一个 `migrations/000N_*.sql` 并把它登记进 [`MIGRATIONS`]。
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
 
 /// 迁移记账表名。
 const VERSION_TABLE: &str = "schema_migrations";
@@ -37,11 +37,18 @@ struct Migration {
 }
 
 /// 全部内嵌迁移，按版本号升序。
-const MIGRATIONS: &[Migration] = &[Migration {
-    version: 1,
-    name: "0001_init",
-    sql: include_str!("../migrations/0001_init.sql"),
-}];
+const MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        name: "0001_init",
+        sql: include_str!("../migrations/0001_init.sql"),
+    },
+    Migration {
+        version: 2,
+        name: "0002_audit_logs",
+        sql: include_str!("../migrations/0002_audit_logs.sql"),
+    },
+];
 
 const CREATE_VERSION_TABLE_SQL: &str = "CREATE TABLE IF NOT EXISTS schema_migrations (
     version    INTEGER PRIMARY KEY,
