@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 A1 开工，TASK-011 / 012 / 013 Done）　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011 / 012 / 013 / 014 / **015** Done；下一张 = A2 的 TASK-016）　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -27,7 +27,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 - [ ] L3 不可逆动作 100% 经人工确认，且计划 UI 正确标注 point-of-no-return
 - [ ] 四类异常可安全终止或恢复：断网、Core 崩溃、用户中途操作、目标程序退出
 - [ ] 所有写操作有 postcondition 且被验证；所有失败可从时间线定位原因
-- [ ] CI 门禁全绿：**gov §5.1 的 17 行清单 ↔ 16 个 CI 步骤（7 硬 + 9 软）**（含 arch test、schema 校验、类型同步、hygiene **13 项**、回放基准、spike-deny）
+- [ ] CI 门禁全绿：**gov §5.1 的 17 行清单 ↔ 16 个 CI 步骤（9 硬 + 7 软）**（含 arch test、schema 校验、类型同步、hygiene **13 项**、回放基准、spike-deny）
       > 口径由 **ADR-0025 D4** 统一（2026-09-18，PL-001 关闭）。原写「CI 14 项门禁」是过时表述。
 - [ ] 覆盖率：workspace ≥ 75%，`core`/`policy`/`task-engine` ≥ 85%
 - [ ] 每个 crate 有 README（职责/边界/**不变量**/已知限制）
@@ -57,8 +57,10 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 > ✅ **PL-037 已闭环（2026-09-24，人类裁决选项 ③ → `tasks/TASK-201-core-crate-skeleton.md`）**：`crates/core` 骨架已**提前落地**
 > （`crates/core/{Cargo.toml,README.md,src/lib.rs}`；零第三方依赖、零 `pub` 项），
 > 「`crates/core` 要到 TASK-028 才存在」这个硬阻塞已消除 → **015 现在可开工**。
-> ⚠ 语义边界：`cargo test -p assistant-core arch::` 目前是「0 个测试通过」而**不是**「arch 规则已生效」——
-> 真正的 arch 断言归 **015**（它拥有 `crates/core/tests/arch*`），CI 的 `[SOFT #5]` **仍是软门禁**（转硬 = 015 的动作）。
+> ✅ **2026-09-24 TASK-015 已把这段语义边界消掉**：`cargo test -p assistant-core arch::` 现在是 **`running 5 tests`**
+> （`crates/core/tests/arch_layering.rs`：正向 2 + 负向 3），且 CI 的 `[SOFT #5]` 已**转硬**为 `[HARD #5]`
+> （负向验证 = 该文件的三条 `arch::scan_flags_*` 用例，ADR-0019 N1）。同批把 `check-ledger`（gov #16）也转硬。
+> ⚠ 上方 DoD 行的「9 硬 + 7 软」是本次转硬后的实测口径（原写「7 硬 + 9 软」）—— **只改派生计数，DoD 条目内容未动**。
 
 ### 批次 A2　平台层（011/015 完成后可 2 路并行）
 
@@ -165,16 +167,17 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 > **本文件不再放任何卡片正文** —— 出现即被 `xtask card-check` 判为 Error（ADR-0031 D6 判据 ④）。
 > 模板与填写要求见 **gov §3.2（模板）与 §3.4（9 节执行记录骨架 + 分界线原文）**。
 
-**已展开的卡片文件**（其余 46 张在开工前逐张展开；本表只登记已存在的文件，**不记状态** —— 状态只在卡片文件里，ADR-0031 D2）：
+**已展开的卡片文件**（其余 46 张在开工前逐张展开；本表只登记已存在的文件，**只记「完成标记」** —— 该卡是否 Done（**ADR-0041 D1**）；
+状态的**权威落点**仍是卡片文件自身，ADR-0031 D2）：
 
 | 卡号 | 批次 | 卡片文件（正文 + 执行记录） | 备注 |
 |---|---|---|---|
 | TASK-011 | A1 | `tasks/TASK-011-protocol-schema-codegen.md` | 完整卡（原 plans 的示例逐字搬运）；**已 Done** |
 | TASK-035 | A5 | `tasks/TASK-035-notepad-adapter.md` | ⚠ **仅要点摘录**，展开前不得派单 |
-| TASK-012 | A1 | `tasks/TASK-012-storage-layer-sqlite-wal-blob.md` | **完整卡**（2026-09-24 Orchestrator 展开） |
+| TASK-012 | A1 | `tasks/TASK-012-storage-layer-sqlite-wal-blob.md` | **完整卡**（2026-09-24 Orchestrator 展开）；**已 Done（2026-09-24）** |
 | TASK-013 | A1 | `tasks/TASK-013-audit-append-hash-chain-flush.md` | **完整卡**（2026-09-24 Orchestrator 展开；**已 Done**） |
-| TASK-014 | A1 | `tasks/TASK-014-secrets-os-keychain-wrapper.md` | **完整卡**（2026-09-24 Orchestrator 代行展开：`keyring` 4.2 后端 + `zeroize` + 访问审计注入点（fail-closed）；write scope 含 `docs/DEPENDENCIES.md` —— 登记表规则 1「先登记后引入」） |
-| TASK-015 | A1 | `tasks/TASK-015-xtask-hygiene-archtest-replay-skeleton.md` | **完整卡**（2026-09-24 Orchestrator 展开：`docscan` 4 条结构规则 + `crates/core/tests/arch*` 分层断言 + PL-047 迁移登记表扫描 + ADR-0039 D3 的 `check-ledger` 两条规则） |
+| TASK-014 | A1 | `tasks/TASK-014-secrets-os-keychain-wrapper.md` | **完整卡**（2026-09-24 Orchestrator 代行展开：`keyring` 4.2 后端 + `zeroize` + 访问审计注入点（fail-closed）；write scope 含 `docs/DEPENDENCIES.md` —— 登记表规则 1「先登记后引入」）；**已 Done（2026-09-24）** |
+| TASK-015 | A1 | `tasks/TASK-015-xtask-hygiene-archtest-replay-skeleton.md` | **完整卡**（2026-09-24 Orchestrator 展开：`docscan` 4 条结构规则 + `crates/core/tests/arch*` 分层断言 + PL-047 迁移登记表扫描 + ADR-0039 D3 的 `check-ledger` 两条规则）；**已 Done（2026-09-24）** |
 | TASK-016 | A2 | `tasks/TASK-016-platform-api-trait-capability-matrix.md` | Ready（批次表占位派单前补全） |
 | TASK-017 | A2 | `tasks/TASK-017-platform-windows-uia-provider.md` | Ready（批次表占位派单前补全） |
 | TASK-018 | A2 | `tasks/TASK-018-platform-windows-synthetic-input-ime.md` | Ready（批次表占位派单前补全） |
@@ -228,7 +231,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 
 | 卡号 | 号段 | 卡片文件 | 备注 |
 |---|---|---|---|
-| TASK-200 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-200-fix-spec-contract-drafts.md` | `docs/spec/*` 7 份契约草案的系统性缺陷（PL-038）；**已建卡、未开工** |
+| TASK-200 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-200-fix-spec-contract-drafts.md` | `docs/spec/*` 7 份契约草案的系统性缺陷（PL-038）；**已 Done（2026-09-24）** |
 | TASK-201 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-201-core-crate-skeleton.md` | `crates/core` 骨架提前（PL-037 选项 ③ 的落地物）；**已 Done（2026-09-24）** |
 | TASK-202 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-202-storage-migration-registry.md` | 存储迁移注册表（**ADR-0038**：storage 只提供机制、各 crate 自持迁移 + 唯一装配点）；PL-046 的落地物；**已 Done（2026-09-24）** |
 | TASK-203 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-203-audit-log-column-semantics.md` | `audit_logs` 列语义去重 + 显式链序（**ADR-0040**：删与 `id` 同义的 `hash`、加 `sequence`；迁移 0003 重建表）；PL-043 / PL-045 的落地物；**已 Done（2026-09-24）** |
