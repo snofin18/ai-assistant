@@ -63,7 +63,8 @@
 **会话中重锚**：每完成一个子步骤自问 ①在 In scope 内吗 ②是否引入了卡里没提的文件/依赖/抽象 ③是否改了公共接口；每 20~30 轮重读本文件与任务卡；**一个会话最多完成 1~2 张卡**，做完即提交 + 更新 `LEDGER.md` + 结束会话。
 **流程**：领卡 → 回执 → 小步实现 → 自跑全部验收命令 → 填执行记录 → 更新 LEDGER（+ 有新事实/坑则追加 `docs/memory/facts.md`｜`docs/memory/pitfalls.md`｜`docs/memory/rejected.md`；**应用专属的进 `docs/memory/apps/<app>.md`**；`MEMORY.md` 只在快照/规模表变化时才改）→ PR（gov §9.4 模板）→ 独立 review agent → 人类合并。
 **禁止 drive-by refactor**：不相关的问题一行记入 `docs/PARKING_LOT.md`，本卡不动。
-**改公共热点文件先取锁（ADR-0028）**：写 `LEDGER.md` / `docs/memory/*` / `docs/PARKING_LOT.md` 之前必须
+**改公共热点文件先取锁（ADR-0028）**：写 `LEDGER.md` / `docs/memory/*` / `docs/PARKING_LOT.md` /
+`PLAN.md` / `README.md` / `plans/*` 之前必须（后三者自 **ADR-0039** 起也在名单内 —— 它们每张卡 Done 都会被写）
 `cargo run -p xtask -- guard acquire <文件> --owner <会话级唯一标识> --task TASK-0NN --intent "<一句话>"`，
 写完**立刻** `guard release`。`--owner` 必须会话级唯一（`<agent>-<thread 前 8 位>` 或 `TASK-NNN`）——
 两个会话用同一 owner 会被判为同一持有者而直接复用锁，那等于没锁。
@@ -126,28 +127,31 @@ Edition 2024；crate 顶层 `#![deny(clippy::unwrap_used, expect_used, panic, to
 | 文件 | 何时更新 | 谁写 |
 |---|---|---|
 | `LEDGER.md` | 每次 commit 之后（含 worktree 内的 fix） | agent（必追加，不改写） |
+| `PLAN.md` 的「当前状态」块 | **每张卡 Done**（不再只是阶段切换） | Implementer 可代 Orchestrator 写（**ADR-0039 D4**；**只许改那 4 行**） |
+| `README.md` 状态行 + `## 当前阶段` + `## 最近进展` | **每张卡 Done** | agent（**仅这三处**，其余章节只读 —— ADR-0039 D5） |
 | `MEMORY.md` §1 快照 | 阶段切换 / 阶段索引变化 / 规模表变化 | agent（必更新） |
-| `README.md` 状态行 | 阶段切换 / 公开宣告变化 | agent（**仅状态行**，其他章节只读） |
 | `docs/memory/pitfalls.md` | 发现新坑（含 v4 那种 supersede 多个旧 entry） | agent（必 supersede 旧 entry） |
 | `docs/memory/facts.md` | 验证过的硬事实 | agent（必追加） |
 | `docs/memory/rejected.md` | 否决方案 | agent（必追加） |
 | `docs/memory/apps/<app>.md` | 某应用的版本/UIA 形状/坑变化 | agent（必追加） |
-| `PLAN.md` | 阶段索引或任务队列变化 | **Orchestrator-only**（agent 不可改） |
+| `PLAN.md` 的其余段落（阶段索引 / 范围冻结提示 / 关联文件 / 变更历史） | 阶段索引或任务队列变化 | **Orchestrator-only**（agent 不可改 —— ADR-0039 D4） |
 
 ### 11.2 必做的次序
 
 1. `git status` + `git diff --stat HEAD` 确认变更范围
-2. 更新 `LEDGER.md`（一行一事件，与 gov §9.2 模板一致）
-3. 若 `MEMORY.md` 规模表变化 → 同步该文件 + `cargo run -p xtask -- memory-counts` 验证
-4. 若 README 状态行变化 → 仅改状态行那一行
-5. 跑 `cargo run -p xtask -- hygiene / card-check / docscan` 三项全绿
-6. `git add` + `git commit -m "docs(memory): ..."` + `git push -u origin <branch>`
+2. 更新 `PLAN.md` 的「当前状态」块 **4 行**（**每张卡 Done 都要**，日期必须改 —— ADR-0039 D1 / D2）
+3. 更新 `README.md` 的**三处**（状态行 + `## 当前阶段` + `## 最近进展`；无阶段变化也要追加「最近进展」—— ADR-0039 D1 / D2）
+4. 更新 `LEDGER.md`（一行一事件，与 gov §9.2 模板一致）
+5. 若 `MEMORY.md` 规模表变化 → 同步该文件 + `cargo run -p xtask -- memory-counts` 验证
+6. 跑 `cargo run -p xtask -- hygiene / card-check / docscan` 三项全绿（TASK-015 起加 `check-ledger` —— 它机器校验第 2/3 步的**新鲜度**）
+7. `git add` + `git commit -m "docs(memory): ..."` + `git push -u origin <branch>`
 
 ### 11.3 进度文件 fail 信号（漂移触发器 ⑤ 备查）
 
 - ❌ commit 后没更新 LEDGER → 漂移（违反会话协议）
-- ❌ 改了 README 状态以外的章节 → 漂移（违反 AGENTS.md 第 8 条 read scope）
-- ❌ 改 PLAN.md → 漂移（违反 Orchestrator-only 守则）
+- ❌ 卡 Done 但没改 `PLAN.md` / `README.md` → 漂移（**ADR-0039 D1 / D2**；这正是 DRIFT-202-2 的形态）
+- ❌ 改了 README 三处（状态行 / `## 当前阶段` / `## 最近进展`）以外的章节 → 漂移（ADR-0039 D5）
+- ❌ 改了 `PLAN.md`「当前状态」块以外的段落 → 漂移（ADR-0039 D4）
 - ❌ memory-counts 失败时把表数字写错 → 漂移
 
 ## 6. 验证命令（提交前全绿，输出粘进 PR）
@@ -190,7 +194,7 @@ cargo run -p xtask -- replay --suite core      # 回放基准
 | `tasks/TASK-NNN-<slug>.md`（**仅本卡号那一个文件**） | **记录区**（分界线以下的 9 节）可写；**正文区**（分界线以上：In/Out scope、必须遵守、验收命令、DoD）**只读**（ADR-0031 D3/D5） |
 | `LEDGER.md`、`docs/PARKING_LOT.md`、`docs/memory/{facts,pitfalls,rejected,decisions,open}.md`、本卡涉及应用的 `docs/memory/apps/<app>.md` | **可追加**（不改写他人条目；更正用 `[supersedes:日期]`） |
 | 任务卡列出的 write scope 内文件、相关 crate `README.md` | 可改 |
-| `AGENTS.md`、`PLAN.md`、`plans/*`、`docs/spec/*`、`docs/adr/*`、`MEMORY.md`（L0 由 Orchestrator 维护）、其他 crate、**别的应用的 `apps/<app>.md`** | **只读**（要改 → 提案 → DRIFT/ADR） |
+| `AGENTS.md`、`PLAN.md`、`plans/*`、`docs/spec/*`、`docs/adr/*`、`MEMORY.md`（L0 由 Orchestrator 维护）、其他 crate、**别的应用的 `apps/<app>.md`** | **只读**（要改 → 提案 → DRIFT/ADR）。**唯一例外**：`PLAN.md` 的「当前状态」块 4 行 —— 卡 Done 时 Implementer 可代写（**ADR-0039 D4**） |
 
 多 agent 并行时 **write scope 必须互不重叠**；并行度 ≤ 3（**人类审阅速度决定项目速度**）。
 

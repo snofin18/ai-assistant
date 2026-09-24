@@ -104,7 +104,7 @@ PRAGMA wal_autocheckpoint = 1000;    -- 页；避免 WAL 无限增长
 ```
 
 - **审计表可单独放一个 DB 文件**并设 `synchronous = FULL`（若合规要求每条审计都不可丢），主库保持 `NORMAL`。这是"性能 vs 耐久性"的显式取舍，配置项：`audit.durability = batched | immediate | separate_db_full`。
-- 迁移：`sqlx migrate` 或 `refinery`，**只前进不回滚**；启动校验 `schema_version` 与二进制期望值，不匹配则拒绝启动并提示（避免静默数据损坏）。
+- 迁移：**自建**（不引 `sqlx` / `refinery`；口径见 **ADR-0038**）—— 只前进不回滚、**编译期内嵌**（`include_str!`）、sha256 记账；**每个拥有表的 crate 声明自己的迁移**（版本号登记表见 §3.4）；启动校验「库已应用的版本集合 ⊆ 装配后的 `MigrationSet`」且不高于 `expected_version()`，不符则拒绝启动并提示（避免静默数据损坏）。
 
 ### 3.3 L2：blob 存储
 
@@ -120,6 +120,34 @@ GC  ：引用计数为 0 且超过 TTL → 删除；后台低优先级任务，�
 - **目录分片**：sha256 前 2 位分片（256 个子目录），避免单目录百万文件。
 - **影子副本（W5）不进 blob 池**：因为需要按原路径/原文件名快速恢复，且可能很大 → 单独 `shadow/<task_id>/` 目录 + DB 元数据 + TTL。
 
+### 3.4 迁移登记表（版本号分配的 SSOT）
+
+**口径**（**ADR-0038**）：`crates/storage` 只提供**迁移机制**（`Migration` / `MigrationSet` /
+`Database::open` 的**必填**迁移集参数），**不拥有**表清单；每张表的 DDL 与它**拥有者 crate** 同处
+（`crates/<owner>/migrations/NNNN_<slug>.sql`），由拥有者公开 `pub const MIGRATIONS: &[Migration]`。应用侧在**唯一装配点**
+合并后开库。**加一张表 = 只改自己那个 crate。**
+
+版本号**全局唯一、从 1 连续**（`MigrationSet::register` 拦重号、`validate()` 拦缺号）。本表是
+**版本号分配的单一事实源** —— 新增迁移**先在本表占号**，再写 SQL。
+
+| 版本 | 拥有者 crate | 迁移文件 | 建出的表 / 对象 |
+|---|---|---|---|
+| 0001 | `crates/storage` | `crates/storage/migrations/0001_init.sql` | `tasks` / `task_steps` / `checkpoints` / `blobs` / `blob_refs` / `usage_records` |
+| 0002 | `crates/audit` | `crates/audit/migrations/0002_audit_logs.sql` | `audit_logs` + `idx_audit_ts` + 两个 append-only 触发器 |
+| 0003 | `crates/audit` | `crates/audit/migrations/0003_audit_logs_semantics.sql` | 重建 `audit_logs`：删 `hash`、加 `sequence`（+ 重建 `idx_audit_ts` 与两个触发器）—— ADR-0040 |
+
+> **为什么 0002 在 `crates/audit` 而不是 `crates/storage`**：TASK-013 曾把它放在
+> `crates/storage/migrations/`（当时迁移链没有外部入口）→ 违反「DDL 与拥有者同处」。
+> TASK-202 按 ADR-0038 把文件**移动**过去（内容一字不改 → sha256 checksum 不变 → 已有库仍可打开）。
+
+> **0003 为什么是「重建表」**（ADR-0040）：SQLite 的 `ALTER TABLE` 删列受「不能是 PRIMARY KEY / UNIQUE /
+> 被索引引用」限制，而 `hash` 恰好同时沾上 —— 重建（`CREATE audit_logs_new` → `INSERT ... SELECT ORDER BY rowid`
+> → `DROP` → `RENAME` → 重建索引与触发器）是唯一确定性的走法。`0002` **一字不改**（checksum 记账）。
+
+> **已知遗留（PL-047）**：本表仍是**手工回填**的 —— ADR-0030 的教训是「靠记得回填的护栏会失效」。
+> 机器化（xtask 扫描 `crates/*/migrations/*.sql`，校验号段唯一 + 与本表一致）归 **TASK-015**
+> （它才拥有 gov §5.4 规则计数与 ADR-0025 / ADR-0030 的口径）。
+
 ---
 
 ## 4. 数据到存储的映射（对应 v2 §15.1 的表）
@@ -127,7 +155,7 @@ GC  ：引用计数为 0 且超过 TTL → 删除；后台低优先级任务，�
 | 表 | 层 | 说明 |
 |---|---|---|
 | `conversations` / `tasks` / `task_steps` | L1 | 状态与检查点；`plan_json` 若 > 64 KB 则外置到 blob |
-| `audit_logs` | L1（可独立库） | 追加不可改 + `prev_hash`/`hash`；`detail_json` 大字段外置 blob |
+| `audit_logs` | L1（可独立库） | 追加不可改 + 链序 `sequence` + 链指针 `prev_hash`（`id` = 本条 self_hash；ADR-0040）；`detail_json` 大字段外置 blob |
 | `usage_records` | L1 | 批量写；按月分区视图或定期归档到 L3 |
 | `permissions` / `policy_rules` | L1 + **L0 缓存** | 热路径 |
 | `registered_apps` / `adapters` / `bound_targets` | L1 + L0 | Adapter 本体是**文件**（`adapters/*/adapter.toml`），DB 只存索引与健康度 |
