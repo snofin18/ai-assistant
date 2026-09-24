@@ -212,3 +212,63 @@ fn first_difference_line(left: &str, right: &str) -> Option<Difference> {
         }
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    //! 负向验证（ADR-0019 形式 N1）：**生成物被手改 / schema 读不到时，`--check` 必须变红**。
+    //!
+    //! 这条门禁的价值全在"该红的时候真的红"：`codegen --check` 若恒返回 0，
+    //! 生成物就可以被随意手改而无人发现（铁律 1：无静默失败）。
+
+    use super::*;
+    use crate::render::normalize;
+
+    /// 正向基线：两侧完全一致 → 没有差异（证明下面的负向断言不是恒真）。
+    #[test]
+    fn test_first_difference_line_returns_none_when_identical() {
+        let text = normalize("line one\nline two\n");
+        assert!(first_difference_line(&text, &text).is_none());
+    }
+
+    /// 负向：第 2 行被手改 → 必须报出**首个**差异行（1-based 行号 + 两侧原文）。
+    #[test]
+    fn test_first_difference_line_reports_first_differing_line() {
+        let on_disk = normalize("line one\nHAND EDITED\nline three\n");
+        let generated = normalize("line one\nline two\nline three\n");
+        let difference =
+            first_difference_line(&on_disk, &generated).expect("第 2 行不同必须被检测到");
+        assert_eq!(difference.line_number, 2);
+        assert_eq!(difference.on_disk_line, "HAND EDITED");
+        assert_eq!(difference.generated_line, "line two");
+    }
+
+    /// 负向：生成物末尾被追加一行 → 必须被检测到（不能因为前缀相同就判"一致"）。
+    #[test]
+    fn test_first_difference_line_detects_appended_trailing_line() {
+        let on_disk = normalize("a\nb\n// injected\n");
+        let generated = normalize("a\nb\n");
+        let difference =
+            first_difference_line(&on_disk, &generated).expect("多出的尾行必须被检测到");
+        assert_eq!(difference.line_number, 3);
+        assert_eq!(difference.generated_line, "<missing line>");
+    }
+
+    /// 负向：仓库根不存在 → schema 读不到 → 必须以 `Err` 收尾，
+    /// 绝不允许"什么都没读到 → 报告 0 drift → exit 0"。
+    #[test]
+    fn test_run_fails_loudly_when_schemas_unreadable() {
+        let missing = Path::new("Z:/definitely-not-a-directory-codegen");
+        let mut output: Vec<u8> = Vec::new();
+        let result = run(missing, true, &mut output);
+        assert!(
+            result.is_err(),
+            "读不到 schema 必须是错误，不能静默返回成功"
+        );
+        let text = String::from_utf8(output).expect("输出必须是 UTF-8");
+        assert!(
+            text.contains("FAILED (render error)"),
+            "必须显式打印渲染失败，实际输出：{text}"
+        );
+    }
+}

@@ -195,3 +195,142 @@ fn check_capability_matrix(value: &Value) -> Option<String> {
     }
     None
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    //! 负向验证（ADR-0019 形式 N1）：**喂坏输入必须产生阻塞级发现项**。
+    //!
+    //! 只证明"这次跑绿了"不算验收 —— 必须同时证明"该红的时候会红"。
+    //! 本模块不碰磁盘（除最后一条显式验证"读不到就是错"），全部是纯逻辑。
+
+    use super::*;
+
+    /// error-codes 夹具模板：`__DATA__` = 数据数组，`__ENUM__` = schema 的 enum 数组。
+    /// 用占位符替换而不是 `format!`，避免在 JSON 里逃逸大括号（可读性优先）。
+    const ERROR_CODES_TEMPLATE: &str = r#"{"categories":[__DATA__],"properties":{"categories":{"items":{"properties":{"category":{"enum":[__ENUM__]}}}}}}"#;
+    const CAPABILITY_TEMPLATE: &str = r#"{"capabilities":[__DATA__]}"#;
+
+    fn category_entries(names: &[&str]) -> String {
+        names
+            .iter()
+            .map(|name| format!(r#"{{"category":"{name}"}}"#))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn quoted(names: &[&str]) -> String {
+        names
+            .iter()
+            .map(|name| format!("\"{name}\""))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn error_codes_value(data: &[&str], enum_names: &[&str]) -> Value {
+        let json = ERROR_CODES_TEMPLATE
+            .replace("__DATA__", &category_entries(data))
+            .replace("__ENUM__", &quoted(enum_names));
+        serde_json_lite::parse(&json).expect("测试夹具必须是合法 JSON")
+    }
+
+    fn capability_value(ids: &[&str]) -> Value {
+        let data = ids
+            .iter()
+            .map(|id| format!(r#"{{"id":"{id}"}}"#))
+            .collect::<Vec<_>>()
+            .join(",");
+        let json = CAPABILITY_TEMPLATE.replace("__DATA__", &data);
+        serde_json_lite::parse(&json).expect("测试夹具必须是合法 JSON")
+    }
+
+    /// 13 类且数据数组与 enum 同序 → 无发现项（正向基线，证明断言不是恒真）。
+    #[test]
+    fn test_error_codes_accepts_aligned_data_and_enum() {
+        let names = [
+            "C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "C11", "C12",
+        ];
+        let value = error_codes_value(&names, &names);
+        assert!(
+            check_error_codes(&value).is_none(),
+            "同序一致的 13 类不应有发现项"
+        );
+    }
+
+    /// 负向：只有 12 类 → 必须报出数量不符。
+    #[test]
+    fn test_error_codes_rejects_wrong_category_count() {
+        let names = [
+            "C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "C11",
+        ];
+        let value = error_codes_value(&names, &names);
+        let finding = check_error_codes(&value).expect("12 类必须被拦下");
+        assert!(
+            finding.contains("count = 12"),
+            "发现项必须点明实际数量，实际：{finding}"
+        );
+    }
+
+    /// 负向：数据数组与 schema 的 enum 不同序 → 必须报出不一致（不变量 3）。
+    #[test]
+    fn test_error_codes_rejects_data_enum_disagreement() {
+        let data = [
+            "C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "C11", "C12",
+        ];
+        // 把最后两项对调：数量仍是 13，但同序一致性被破坏。
+        let mut enum_names = data;
+        enum_names.swap(11, 12);
+        let value = error_codes_value(&data, &enum_names);
+        let finding = check_error_codes(&value).expect("数据数组与 enum 不一致必须被拦下");
+        assert!(
+            finding.contains("disagree"),
+            "发现项必须点明两侧不一致，实际：{finding}"
+        );
+    }
+
+    /// 负向：`categories` 整个缺失 → 必须报出缺失，而不是当作空数组放过。
+    #[test]
+    fn test_error_codes_rejects_missing_categories() {
+        let value = serde_json_lite::parse(r#"{"version":"1.0"}"#).expect("夹具合法");
+        let finding = check_error_codes(&value).expect("缺 categories 必须被拦下");
+        assert!(finding.contains("missing"), "实际：{finding}");
+    }
+
+    /// capability：id 互不相同 → 无发现项（正向基线）。
+    #[test]
+    fn test_capability_matrix_accepts_unique_ids() {
+        let value = capability_value(&["target.list", "target.resolve"]);
+        assert!(check_capability_matrix(&value).is_none());
+    }
+
+    /// 负向：空目录 → 必须报出（否则"一条能力都没有"会被当成通过）。
+    #[test]
+    fn test_capability_matrix_rejects_empty() {
+        let value = capability_value(&[]);
+        let finding = check_capability_matrix(&value).expect("空 capabilities 必须被拦下");
+        assert!(finding.contains("empty"), "实际：{finding}");
+    }
+
+    /// 负向：重复 id → 必须报出（schema 的 `uniqueItems` 我们没实现，所以这条是唯一防线）。
+    #[test]
+    fn test_capability_matrix_rejects_duplicate_id() {
+        let value = capability_value(&["target.list", "target.list"]);
+        let finding = check_capability_matrix(&value).expect("重复 id 必须被拦下");
+        assert!(finding.contains("duplicate"), "实际：{finding}");
+    }
+
+    /// 负向（真仓库形态）：仓库根指向一个不存在的目录 → 5 份 schema 全读不到
+    /// → 必须是阻塞级退出码 1，而不是 0（铁律 1：读不到 ≠ 通过）。
+    #[test]
+    fn test_run_returns_blocking_exit_code_when_schemas_unreadable() {
+        let missing = Path::new("Z:/definitely-not-a-directory-verify-schemas");
+        let mut output: Vec<u8> = Vec::new();
+        let code = run(missing, &mut output).expect("读不到 schema 是校验结论，不是 IO 故障");
+        assert_eq!(code, 1, "读不到 schema 必须返回阻塞级退出码 1");
+        let text = String::from_utf8(output).expect("输出必须是 UTF-8");
+        assert!(
+            text.contains("verdict: FAILED"),
+            "必须显式打印 FAILED，实际输出：{text}"
+        );
+    }
+}

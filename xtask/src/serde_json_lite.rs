@@ -1,32 +1,9 @@
-//! Minimal zero-dep JSON parser (subset of serde_json semantics).
-//! Used by both `verify-schemas` and `codegen` to avoid adding serde_json to xtask
+//! Minimal zero-dep JSON parser (subset of `serde_json` semantics).
+//! Used by both `verify-schemas` and `codegen` to avoid adding `serde_json` to xtask
 //! workspace dep tree (per workspace policy ADR-0021).
 //!
 //! Supports: objects, arrays, strings (with escapes), numbers, booleans, null.
 //! Does NOT support: scientific notation edge cases, comments, streaming.
-//! Index/slice ops are bounds-checked in while/if; per ADR-0035 only allow what we need.
-#![allow(
-    clippy::indexing_slicing,
-    clippy::manual_is_ascii_check,
-    dead_code,
-    clippy::doc_markdown,
-    clippy::manual_range_contains,
-    clippy::collapsible_if,
-    clippy::unnecessary_map_or,
-    clippy::missing_const_for_fn,
-    clippy::nonminimal_bool,
-    clippy::unnecessary_operation,
-    clippy::uninlined_format_args,
-    clippy::module_name_repetitions,
-    clippy::use_self,
-    clippy::if_not_else,
-    clippy::option_if_let_else,
-    clippy::needless_pass_by_value,
-    clippy::similar_names,
-    clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
-    clippy::ptr_arg
-)] // pedantic allow list (per ADR-0035)
 
 use std::collections::BTreeMap;
 
@@ -34,43 +11,46 @@ use std::collections::BTreeMap;
 pub enum Value {
     Null,
     Bool(bool),
+    // 数字载荷当前只有单测读取（schema 校验/生成只消费 string / bool / array / object）。
+    // 保留 JSON 数字支持是为了让解析器语义完整 —— 遇到数字必须解析成功，不能当成语法错误。
+    #[allow(dead_code)] // 原因见上：产品路径不读数字载荷，测试路径读
     Number(f64),
     String(String),
-    Array(Vec<Value>),
-    Object(BTreeMap<String, Value>),
+    Array(Vec<Self>),
+    Object(BTreeMap<String, Self>),
 }
 
 impl Value {
-    pub fn get(&self, key: &str) -> Option<&Value> {
-        if let Value::Object(map) = self {
+    pub fn get(&self, key: &str) -> Option<&Self> {
+        if let Self::Object(map) = self {
             map.get(key)
         } else {
             None
         }
     }
     pub fn as_str(&self) -> Option<&str> {
-        if let Value::String(s) = self {
+        if let Self::String(s) = self {
             Some(s)
         } else {
             None
         }
     }
-    pub fn as_array(&self) -> Option<&Vec<Value>> {
-        if let Value::Array(a) = self {
+    pub const fn as_array(&self) -> Option<&Vec<Self>> {
+        if let Self::Array(a) = self {
             Some(a)
         } else {
             None
         }
     }
-    pub fn as_bool(&self) -> Option<bool> {
-        if let Value::Bool(b) = self {
+    pub const fn as_bool(&self) -> Option<bool> {
+        if let Self::Bool(b) = self {
             Some(*b)
         } else {
             None
         }
     }
-    pub fn as_object(&self) -> Option<&BTreeMap<String, Value>> {
-        if let Value::Object(map) = self {
+    pub const fn as_object(&self) -> Option<&BTreeMap<String, Self>> {
+        if let Self::Object(map) = self {
             Some(map)
         } else {
             None
@@ -110,15 +90,14 @@ struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    fn new(input: &'a str) -> Self {
+    const fn new(input: &'a str) -> Self {
         Self {
             input: input.as_bytes(),
             pos: 0,
         }
     }
     fn skip_ws(&mut self) {
-        while self.pos < self.input.len() {
-            let b = self.input[self.pos];
+        while let Some(b) = self.peek() {
             if b == b' ' || b == b'\t' || b == b'\n' || b == b'\r' {
                 self.pos += 1;
             } else {
@@ -155,20 +134,31 @@ impl<'a> Parser<'a> {
             _ => Err(format!("unexpected byte {} at pos {}", b as char, self.pos)),
         }
     }
+    /// 尝试在当前位置消费一个 JSON 字面量（`null` / `true` / `false`）。
+    ///
+    /// 返回是否命中；命中时**同时**推进 `pos`。用 `slice::get` 而不是 `self.input[self.pos..]`
+    /// 是为了让"位置越界"成为 `None` 而不是 panic（铁律 1：要么成功，要么带原因失败）。
+    fn parse_literal(&mut self, literal: &[u8]) -> bool {
+        let matched = self
+            .input
+            .get(self.pos..)
+            .is_some_and(|rest| rest.starts_with(literal));
+        if matched {
+            self.pos += literal.len();
+        }
+        matched
+    }
     fn parse_null(&mut self) -> Result<Value, String> {
-        if self.input[self.pos..].starts_with(b"null") {
-            self.pos += 4;
+        if self.parse_literal(b"null") {
             Ok(Value::Null)
         } else {
             Err("invalid null".to_string())
         }
     }
     fn parse_bool(&mut self) -> Result<Value, String> {
-        if self.input[self.pos..].starts_with(b"true") {
-            self.pos += 4;
+        if self.parse_literal(b"true") {
             Ok(Value::Bool(true))
-        } else if self.input[self.pos..].starts_with(b"false") {
-            self.pos += 5;
+        } else if self.parse_literal(b"false") {
             Ok(Value::Bool(false))
         } else {
             Err("invalid bool".to_string())
@@ -239,20 +229,17 @@ impl<'a> Parser<'a> {
             self.pos += 1;
         }
         while let Some(b) = self.peek() {
-            if (b'0'..=b'9').contains(&b)
-                || b == b'.'
-                || b == b'e'
-                || b == b'E'
-                || b == b'+'
-                || b == b'-'
-            {
+            if b.is_ascii_digit() || b == b'.' || b == b'e' || b == b'E' || b == b'+' || b == b'-' {
                 self.pos += 1;
             } else {
                 break;
             }
         }
-        let text = std::str::from_utf8(&self.input[start..self.pos])
-            .map_err(|_| "invalid utf8 in number")?;
+        let raw = self
+            .input
+            .get(start..self.pos)
+            .ok_or_else(|| "invalid number span".to_string())?;
+        let text = std::str::from_utf8(raw).map_err(|_| "invalid utf8 in number")?;
         text.parse::<f64>()
             .map(Value::Number)
             .map_err(|e| format!("bad number: {e}"))

@@ -1,16 +1,20 @@
 # CI — gov §5.1 的门禁清单在机器上的表达。
 #
 # 上线策略（TASK-001）：
-#   硬门禁 8 项（任一失败即阻塞合并）：fmt / clippy(含禁用项 lint) / test / deny / build / hygiene
-#     / spike-deny / doc-consistency
+#   硬门禁 10 项（任一失败即阻塞合并）：fmt / clippy(含禁用项 lint) / test / verify-schemas
+#     / codegen --check / deny / build / hygiene / spike-deny / doc-consistency
 #     （DRIFT-001-2-a 裁决确认：前 6 项 = 卡面原定 5 项 + hygiene；计数口径见
 #      tasks/TASK-001-repo-skeleton.md §5.2。第 7 项 spike-deny 由 ADR-0024 D2 新增，
 #      对应 gov §5.1 的 #8b —— 因为 spikes/ 被 workspace exclude，主 deny job 覆盖不到它。
 #      第 8 项 doc-consistency 由 ADR-0030 新增，对应 gov §5.1 的 #12b —— 同样用子编号，
-#      理由见该 job 上方的注释。）
+#      理由见该 job 上方的注释。
+#      第 9/10 项 verify-schemas(gov #6) 与 codegen --check(gov #7) 于 2026-09-24 随 TASK-011
+#      收尾转硬：gov §5.1 早已把这两条写成「全部必过，任一失败即阻塞合并」，而 CI 里一直是
+#      continue-on-error —— 契约与实现不一致 = 漂移。转硬时按 ADR-0019 同步补齐负向验证：
+#      N1 见 verify_schemas.rs / codegen.rs 的单测，N2 见本文件 gate-negative job。）
 #   元门禁（ADR-0019）：每项硬门禁都必须配一条「负向验证」，证明它在该红的时候真的会红。
 #     canary 在 gate-selftest.yml（手工触发）；当前登记表见 ADR-0019，缺项见 PL-018。
-#   软门禁 9 项（continue-on-error: true）：每一项都注明「启用卡号」，
+#   软门禁 7 项（continue-on-error: true）：每一项都注明「启用卡号」，
 #     到了那张卡就把它改成硬门禁，并删掉 continue-on-error。
 #   为什么先软后硬：门禁必须在它检查的东西存在之后才有意义。
 #     例如 arch test 检查 crates/core 的分层，而 crates/core 要到 TASK-015 才存在；
@@ -41,7 +45,7 @@ env:
 
 jobs:
   # ==========================================================================
-  # 三平台矩阵：硬门禁 1/2/3/4/10/12（gov §5.1 编号）
+  # 三平台矩阵：硬门禁 1/2/3/4/6/7/10/12（gov §5.1 编号）
   # ==========================================================================
   check:
     name: check (${{ matrix.os }})
@@ -91,14 +95,16 @@ jobs:
         continue-on-error: true
         run: 'cargo test -p assistant-core arch::'
 
-      # 启用卡号：TASK-011（需要 protocol crate 与五份 schema）
-      - name: "[SOFT #6 → TASK-011] verify-schemas"
-        continue-on-error: true
+      # --- 硬门禁 #6：五份 protocol schema 的结构/版本/13 类一致性 ---
+      # 2026-09-24 转硬（原 [SOFT #6 → TASK-011]）。负向验证：N1 见 xtask/src/verify_schemas.rs
+      # 的 tests 模块；N2 见本文件 gate-negative job。
+      - name: "[HARD #6] xtask verify-schemas"
         run: cargo run -p xtask -- verify-schemas
 
-      # 启用卡号：TASK-011
-      - name: "[SOFT #7 → TASK-011] codegen --check"
-        continue-on-error: true
+      # --- 硬门禁 #7：生成物与 schema 不得漂移（手改生成文件会被这里拦住）---
+      # 2026-09-24 转硬（原 [SOFT #7 → TASK-011]）。负向验证：N1 见 xtask/src/codegen.rs
+      # 的 tests 模块；N2 见本文件 gate-negative job。
+      - name: "[HARD #7] xtask codegen --check"
         run: cargo run -p xtask -- codegen --check
 
       # 启用卡号：TASK-015（覆盖率门槛需要产品代码量足够才有意义）
@@ -244,6 +250,74 @@ jobs:
           fi
           echo "OK: MEMORY.md 规模表与 ADR 编号登记表均与实测一致"
 
+  # ==========================================================================
+  # 硬门禁 #6 / #7 的负向验证（ADR-0019 形式 N2：CI 内建显式失败步骤）
+  #
+  # 为什么单独一个 job：`verify-schemas` 与 `codegen --check` 在 2026-09-24 之前挂着
+  # continue-on-error，等于"门禁永远绿"。把它们转硬只是第一步 —— 还必须证明它在该红的
+  # 时候真的会红，否则只是把"未验证的信心"从软门禁搬到了硬门禁（ADR-0019 原话）。
+  #
+  # 做法：**注入已知坏样本 → 断言退出码 → 立刻还原**（不污染后续步骤，也不提交任何改动）。
+  #   ① verify-schemas：把 error-codes schema 的顶层 version 改成 9.9 → 必须 exit 1
+  #   ② codegen --check：往生成物末尾追加一行注释 → 必须 exit 1
+  # 断言不只看"非零"，还钉在**具体退出码 1**（阻塞级发现项）：命令因用法错误 exit 2
+  # 也"非零"，但那不叫拦住漂移 —— 这正是 TASK-011 复核里发现的假绿通道之一。
+  # 单测侧的 N1（纯逻辑负向用例）见 xtask/src/{verify_schemas,codegen}.rs 的 tests 模块。
+  # ==========================================================================
+  gate-negative:
+    name: gate negative verification (#6 / #7)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: "[N2 #6] 注入坏 schema → verify-schemas 必须 exit 1"
+        run: |
+          set -uo pipefail
+          schema=protocol/error-codes/error-codes-1.0.json
+          cp "$schema" "$schema.bak"
+          sed -i 's/^  "version": "1.0",$/  "version": "9.9",/' "$schema"
+          if ! grep -q '"version": "9.9"' "$schema"; then
+            echo "FAIL: 坏样本没有注入成功（sed 没匹配到顶层 version）—— 本步会假通过，故直接失败"
+            mv "$schema.bak" "$schema"
+            exit 1
+          fi
+          set +e
+          cargo run -q -p xtask -- verify-schemas
+          code=$?
+          set -e
+          mv "$schema.bak" "$schema"
+          if [ "$code" -eq 0 ]; then
+            echo "FAIL: 注入坏 schema 后 verify-schemas 仍然 exit 0 —— 门禁形同虚设"
+            exit 1
+          fi
+          if [ "$code" -ne 1 ]; then
+            echo "FAIL: 期望阻塞级退出码 1，实际 $code（2 = 用法错误，不算拦住漂移）"
+            exit 1
+          fi
+          echo "OK: verify-schemas 对坏 schema 返回 exit 1（门禁在该红的时候会红）"
+
+      - name: "[N2 #7] 注入 drift → codegen --check 必须 exit 1"
+        run: |
+          set -uo pipefail
+          generated=crates/protocol/src/generated/tool_schema.rs
+          cp "$generated" "$generated.bak"
+          printf '\n// drift injected by CI gate-negative job (must be detected)\n' >> "$generated"
+          set +e
+          cargo run -q -p xtask -- codegen --check
+          code=$?
+          set -e
+          mv "$generated.bak" "$generated"
+          if [ "$code" -eq 0 ]; then
+            echo "FAIL: 手改生成物后 codegen --check 仍然 exit 0 —— drift 检测失效"
+            exit 1
+          fi
+          if [ "$code" -ne 1 ]; then
+            echo "FAIL: 期望阻塞级退出码 1，实际 $code"
+            exit 1
+          fi
+          echo "OK: codegen --check 对注入 drift 返回 exit 1（门禁在该红的时候会红）"
   # ==========================================================================
   # 未实现项自检：确保 xtask 的"未实现"清单始终能被打印出来。
   #

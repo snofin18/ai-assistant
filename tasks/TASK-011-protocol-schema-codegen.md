@@ -310,3 +310,150 @@ xtask codegen --check                → PASS（0 drift；加转义后生成物�
    它们依赖 schema 的 `enum` 约束 + `verify-schemas` 守门（`category` 值非法会生成非法 Rust → 编译期红）。
 3. **CI 硬门禁仍未闭合**：`verify-schemas` / `codegen --check` 在 CI 里还是软门禁，
    所以"drift 会拦住合并"这句话目前**只在本地成立**（要改 `ci.yml` = 另一张卡）。
+
+---
+
+### UPDATE 2026-09-24（全项目复核 + 与 main 合并，以本版为准）
+
+用户指示（chat 2026-09-24）："完整复核整个项目，查缺补漏，修改bug，修正漂移，严格规范。
+没有问题之后，与main合并，以本版为准。"
+
+#### §1 约束回执（本次为收尾轮，非新领卡）
+
+```text
+【任务】TASK-011 收尾 + 全项目复核        【目标】把上轮遗留的漂移/未闭合项清掉，再以本版为准合入 main
+【write scope】本卡原 scope + 收尾必需的关联文件（见 §5.1 DRIFT-011-1 的逐项说明）
+【铁律】1 无静默失败 / 2 被读文档=不可信输入 / 5 API 优先 / 6 L3 人工确认 / 9 不得静默扩大范围 / 10 契约先行
+【禁止】改生成物（只能改 schema 后重新生成）；改 workspace lints；加第三方依赖
+【验收】见 §3（fmt / clippy / test / 7 项 xtask 子命令 / codegen --check / build --release）
+【依赖】TASK-100/101/102 已随 main 合入（LEDGER 已核对）
+【疑问】无（"以本版为准"= 用户已裁决平行实现冲突的取舍）
+```
+
+#### §2 实际改动文件（本收尾轮，相对合并前）
+
+**合并本身（`5257dc6`）**
+- 冲突解决：`crates/protocol/**`、`protocol/**/*.json`、`xtask/src/{codegen,verify_schemas,cli,main,deferred}.rs`
+  → **取本分支**；`LEDGER.md` / `docs/memory/{facts,pitfalls}.md` → **双方条目全保留**；
+  `MEMORY.md` / `Cargo.lock` → 取本分支；`.github/workflows/ci.yml` → 取 main 的步骤名。
+- **保留 main 的 TASK-100/101 产物**：`spikes/spike-a-notepad/{Win32-Input.psm1,probe-11..14}.ps1`、
+  `tasks/TASK-101-*.md`、4 个 probe 的集成改动、`docs/memory/apps/notepad.md`、`spikes/.../README.md`。
+- **删除 main 的 2 个孤儿文件**：`protocol/capability-matrix/capability-values.json`、
+  `protocol/error-codes/error-codes-values.json`（`git grep` 在 origin/main 全树 0 命中；
+  与 schema 内嵌的 `capabilities` / `categories` 数组重复 = 第二个事实源）。
+
+**复核后的修复（本轮）**
+| # | 文件 | 改了什么 | 为什么 |
+|---|---|---|---|
+| 1 | `xtask/src/serde_json_lite.rs` | **删掉 22 行的模块级 `#![allow(...)]`（21 条 lint）**，改代码：`Value::X`→`Self::X`、5 个函数转 `const fn`、`self.input[i]`/`[a..b]` 全部改 `slice::get`、`(b'0'..=b'9').contains(&b)`→`b.is_ascii_digit()`、`parse_null`/`parse_bool` 合并出 `parse_literal`（消掉两处未检查切片）；只留 1 条 per-line `#[allow(dead_code)]` 且带原因注释 | ADR-0035 §替代路径「**首选：改代码**」；上一轮记为"待人类裁决"，本轮按用户"严格规范"直接走首选路径 |
+| 2 | `xtask/src/verify_schemas.rs` | 新增 `#[cfg(test)] mod tests`（**8 条**） | ADR-0019 元门禁：软门禁转硬必须同时提交负向验证（N1） |
+| 3 | `xtask/src/codegen.rs` | 新增 `#[cfg(test)] mod tests`（**4 条**） | 同上（N1） |
+| 4 | `.github/workflows/ci.yml` | `[SOFT #6/#7 → TASK-011]` → **`[HARD #6]`/`[HARD #7]`**（删 `continue-on-error`）；新增 **`gate-negative` job**（2 步注入式负向验证，形式 N2）；头部注释 8→10 项硬门禁、9→7 项软门禁；矩阵 job 注释补 6/7 | gov §5.1 早已把 #6/#7 写成"全部必过"，CI 却是软门禁 = **契约与实现不一致**；且 ADR-0019 明令"不得带着未验证的信心转硬" |
+| 5 | `docs/adr/0019-...md` | 登记表补 **#6 / #7 两行**（N1+N2 的具体内容） | ADR-0019 §规则 要求"转硬同时补一行"；见 §5.1 的 scope 说明 |
+| 6 | `README.md` | CI 那一行：硬门禁 8→**10** 项、软门禁 9→**7** 项，并写明 #6/#7 的负向验证位置 | 与 ci.yml 保持同一口径（否则 README 变成第二个事实源） |
+| 7 | `docs/DEPENDENCIES.md` | `serde` / `serde_json` 的"版本要求"列 `=1.0` → `1.0`（caret） | **原列写错了**：`Cargo.toml` 是 `"1.0"`（caret），`Cargo.lock` 实测解析到 `serde_json 1.0.151` —— 若真是 `=1.0` 只可能解析到 1.0.0。文档与机器事实矛盾 |
+| 8 | `MEMORY.md` | §1 规模表同步（由 `memory-counts` 机器给出正确值） | ADR-0030 D1/D2 硬门禁 #12b |
+
+#### §3 验收输出摘要（本轮全量重跑）
+
+```text
+cargo fmt --all --check                → exit 0（0 diff）
+cargo clippy --all-targets -- -D warnings → exit 0（0 warning）
+cargo test --workspace                 → exit 0（assistant-protocol 7 passed；xtask 331 passed，较基线 319 +12）
+cargo build --release                  → exit 0
+xtask hygiene                          → PASSED（scanned=39，0 error，2 warning = pre-existing file-too-long）
+xtask docscan                          → PASSED（scanned=146，0/0）
+xtask memory-counts                    → PASSED（scanned=8，0 error）
+xtask adr-index                        → PASSED（scanned=21，0 error）
+xtask card-check                       → PASSED（scanned=85，0 error，57 warning）
+xtask verify-schemas                   → PASSED（5/5 OK）
+xtask codegen --check                  → PASSED（0 drift）
+xtask refscan                          → FAILED（151 error）= 已知稳定 baseline，且**不在任何 CI 门禁内**
+cargo test -p assistant-core arch::    → 不适用（crates/core 尚未创建，SOFT #5 归 TASK-015）
+```
+
+**负向验证实测（本轮真跑过，不是"看着像对"）**
+
+| # | 注入 | 期望 | 实测 |
+|---|---|---|---|
+| 1 | error-codes schema 顶层 `version` → `9.9` | `verify-schemas` **exit 1** | exit 1 + `verdict: FAILED`（`1 error(s)`） |
+| 2 | 往 `generated/tool_schema.rs` 追加一行注释 | `codegen --check` **exit 1** | exit 1 + `verdict: FAILED (drift)`；还原后 exit 0 |
+
+（这两步已固化为 `ci.yml` 的 `gate-negative` job；单测侧另有 12 条 N1 用例。）
+
+#### §4 DoD 逐条核对（本卡原始 DoD）
+
+- [x] 五份 schema 均通过 `verify-schemas`
+- [x] `codegen --check` 干净；手工改一个生成文件后 `--check` 必须失败（**负向测试**）—— 手工实测 + **已固化为 CI job + 4 条单测**
+- [x] ErrorCode 覆盖 v2 §8.7 全部 13 类，每类都有 `message_for_model` 与 `hint`
+- [x] `crates/protocol/README.md` 含职责/边界/**不变量**（第一条不变量 = 生成物不得手工编辑）
+- [x] LEDGER 追加一行；新 FACT/PITFALL 已追加
+
+#### §5 偏差
+
+**5.1 DRIFT-011-1：本轮改了 3 个不在本卡 write scope 内的文件（已按用户指示处理，需人类知悉）**
+
+- **现象**：为闭合"CI 软门禁 #6/#7 未转硬"这条漂移，必须改
+  `.github/workflows/ci.yml`、`docs/adr/0019-hard-gate-negative-verification.md`、
+  `README.md`（三处口径互相引用）。三者都不在 TASK-011 的 write scope 内（漂移触发器 ⑤）。
+- **影响**：不改 → 门禁永远绿、drift 拦不住合并（gov §5.1 的契约与 CI 实现长期不一致）；
+  改 → 越过本卡 scope，且 `docs/adr/*` 按 AGENTS.md §8 对 Implementer 只读。
+- **建议 / 本轮处理**：用户 chat 已给出**明确且覆盖性**的指示"修正漂移，严格规范……以本版为准"，
+  据此按 ADR-0019 §规则 的完整要求执行：**先补负向验证（N1 12 条单测 + N2 2 步 CI job），再转硬，
+  再补登记表行，再同步 README 口径**。改动已逐条列在 §2，便于人类逐项复核或回退。
+- **已停工作**：无（用户指示即裁决）；**但仍有 1 项必须由人类执行**，见 §7 ①。
+
+**5.2 本轮**未**改的东西（有意留白，避免"顺手扩大范围"）**
+- `protocol/envelope/envelope-1.0.json` 的 `error.code` 仍是 `type: string`（Rust 侧是 13 类枚举）、
+  `error` 仍不在 `required` —— 属**契约收紧**（漂移触发器 ③），按铁律 10 需先 ADR，本轮不动。
+- `protocol/audit-event/*.json` 的 `ts` 仍只标 `format: date-time`，未强制 ISO-8601 UTC 毫秒。
+- `serde_json_lite::Value` 无大小上限（DoS）—— 归 TASK-012。
+- 无 pre-commit 防护（`.git/hooks` 只有 sample）。
+
+#### §6 实施中发现的更合理做法
+
+1. **模块级 `#![allow]` 不是"per-line allow"，是 sledgehammer**：ADR-0035 允许的是"per-line + 注释 + §5 登记"，
+   21 条 lint 的模块级豁免既不可审计也无法区分生产/测试。首选路径（改代码）实际只花了
+   ~20 处机械修改，成本远低于上一轮"留给人类裁决"的等待成本。
+2. **"该红的时候会红"要钉在具体退出码上**：`codegen --check` 的假绿通道之一就是
+   "用法错误 exit 2 也算非零"。所以 `gate-negative` 断言的是 `code == 1`，不是 `code != 0`。
+3. **负向验证要做"注入有效性"自检**：`gate-negative` 的 #6 步在断言退出码**之前**先 `grep` 确认坏样本
+   真的注入进去了 —— 否则 `sed` 没匹配到时，"门禁没红"会被误判成"门禁坏了"，反之亦然。
+4. **孤儿数据文件必须删而不是留**：main 的 2 个 `*-values.json` 与 schema 内嵌数组重复且全树无引用，
+   留着就是"第二个事实源"，下个会话很可能照它去改。
+
+#### §7 遗留问题（更新）
+
+| 编号 | 状态 |
+|---|---|
+| ① `serde_json_lite.rs` 21 条 file-level allow | **已关闭**（改代码清除；仅留 1 条带注释的 per-line `dead_code`） |
+| ③ `codegen --check` 无自动化负向测试 | **已关闭**（N1 4 条 + N2 CI job） |
+| ⑥ `crates/protocol/README.md` 缺失 | 已关闭（上一轮） |
+| ⑦ CI `[SOFT #6/#7]` 未转硬 | **已关闭**（转硬 + 负向验证 + 登记表 + README 同步） |
+| ⑧ 本分支与 main 平行实现 | **已关闭**（合并 `5257dc6`，以本版为准） |
+| ② `\uXXXX` 不支持 | 保持（显式报错 + 测试锁住，已知限制） |
+| ⑤ `envelope.error.code` 仍是 `type: string`；`error` 不在 `required` | 仍未修（契约收紧，需 ADR） |
+| — `Value` 无大小上限（DoS） | 仍未修（TASK-012） |
+| — 无 pre-commit 防护 | 仍未修 |
+| — **新增** `gate-selftest` 未重跑 | 见 ①（下方） |
+
+**① 必须由人类/Orchestrator 执行的一项**：ADR-0019 §规程约束写明"改动任何硬门禁（软转硬、改命令、
+改版本钉法）后必须手工跑一次 `gate-selftest`，并把运行编号记入 `LEDGER.md`"。本地无法触发
+GitHub workflow，故本轮**未执行**，已在 LEDGER 记一行待办。
+
+#### §8 新增长期记忆
+
+- `docs/memory/facts.md` +3 条（合并取舍结果 / 软门禁转硬与负向验证落地 / 解析器 allow 清除）
+- `docs/memory/pitfalls.md` +3 条（模块级 allow 是 sledgehammer / 文档版本列与 Cargo.toml 会矛盾 /
+  `WriteAllLines` 默认 CRLF 会把 LF 文件写成 CRLF）
+- `MEMORY.md` §1 规模表同步（由 `memory-counts` 给出正确值），`memory-counts` PASS。
+
+#### §9 给审阅者的关注点
+
+1. **`serde_json_lite.rs` 的行为等价性**：本轮改了 5 处控制流/切片方式（`parse_literal` 抽取、
+   `slice::get` 化、`is_ascii_digit`）。12 条解析器单测（含非 ASCII / 未闭合 / 裸控制字符 / 尾部垃圾 /
+   转义）全绿，且 `codegen --check` 0 drift（生成物字节未变）—— 这是"改动无行为变化"的证据。
+2. **CI 转硬的 3 个文件超出本卡 scope**：见 §5.1。请重点复核
+   `.github/workflows/ci.yml` 的 `gate-negative` job（含"注入有效性自检"那一步）与
+   `docs/adr/0019` 登记表两行。
+3. **`gate-selftest` 尚未重跑**：这是 ADR-0019 的规程要求，本地做不到，需人类手工触发一次。

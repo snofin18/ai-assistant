@@ -103,8 +103,10 @@ cargo run -p xtask -- guard release MEMORY.md --owner <同上>
 `xtask` 是**零第三方依赖**的只读护栏工具。它对未实现的子命令**显式返回失败**
 （退出码 3）并指出归属卡号 —— 本项目不允许任何形式的静默失败。
 
-CI：`.github/workflows/ci.yml`（三平台矩阵；**硬门禁 8 项**已上线 —— fmt / clippy / test / deny /
-build / hygiene / spike-deny(#8b) / doc-consistency(#12b)；另有 **9 项软门禁**标 `continue-on-error` 并注明启用卡号）。
+CI：`.github/workflows/ci.yml`（三平台矩阵；**硬门禁 10 项**已上线 —— fmt / clippy / test / verify-schemas(#6) /
+codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency(#12b)；另有 **7 项软门禁**标
+`continue-on-error` 并注明启用卡号；#6/#7 的注入式负向验证在 `gate-negative` job，单测侧负向用例在
+`xtask/src/{verify_schemas,codegen}.rs`）。
 
 ---
 
