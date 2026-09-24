@@ -3,20 +3,17 @@
 //! 职责：把 `SelectorCandidate` 变成一次 UIA 搜索，并如实区分「不支持」「没命中」「命中 n 个」。
 //! 边界：**不做**歧义裁决（`resolve` 模块用 `selector::decide_selection` 统一裁决）、**不做**缓存。
 //!
-//! ## 作用域与代价（**实测**：桌面根的 `Descendants` 很贵）
-//! 两条路径**不同**，勿混为一谈：
-//! - `find_all`（`resolve_element` 用）：无父候选时**直接**对桌面根发
-//!   `FindAll(TreeScope_Descendants)` —— 一次走遍整个桌面。2026-09-24 真机实测
-//!   **中位数 1.53 s**（对照：Spike A 在**窗口子树内**搜索是 1.2~1.5 ms）。
-//! - `find_first_children_then_descendants`（`wait_for` 用）：对根元素**先**
-//!   `TreeScope_Children`（只扫顶层窗口，廉价），**再**退回 `Descendants`（ADR-0022 E6）。
-//! - `RoleAndParent`：在**父元素子树**内搜索（有界）。
+//! ## 作用域（ADR-0043：搜索起点**只能是**已解析窗口的 UIA 根元素）
+//! - `find_all`（`resolve_element` 用）：起点是调用方传入的 scope 元素（= scope 窗口的 UIA 根，
+//!   由 `resolve::scope_root` 经 `ElementFromHandle` 取到）。**没有**「从桌面根搜元素」这条路 ——
+//!   它在 TASK-017 真机实测**中位数 1.53 s**（对照窗口子树内 1.2~1.5 ms），且与 ADR-0022 E6
+//!   引用的官方要求冲突（桌面上找顶层窗口必须 `Children`，`Descendants` 可能让 provider 栈溢出）。
+//! - `find_first_children_then_descendants`（`wait_for` 用）：同样在 scope 子树内 —— 先
+//!   `TreeScope_Children`（廉价），再退回 `Descendants`（ADR-0022 E6 的做法保留）。
+//! - `RoleAndParent`：在**父候选的子树**内搜索（有界）。
 //!
-//! ⚠ **已知偏差（DRIFT-017-7）**：ADR-0022 E6 引用的官方文档要求「在桌面上找顶层窗口必须用
-//! `TreeScope_Children`，用 `Descendants` 可能让 provider 栈溢出」，且官方最佳实践是**从应用
-//! 窗口 / 更低的容器开始搜索**。`find_all` 目前**没有**遵守 —— 根因是 `resolve_element` 的 trait
-//! 形状没有 scope 参数（**PL-068**）。本卡**不**自行改搜索策略（那会改歧义判定语义），
-//! 按漂移触发器 ⑧ 登记等裁决。
+//! 这条约束在本模块是**结构化**的：`find_all` 的起点参数是 `&IUIAutomationElement`（不是
+//! `Option`），所以「没有 scope 就退回桌面根」在类型上不可表达（ADR-0043 D3）。
 //!
 //! ## 不支持的种类**必须**返回 `Unsupported`（铁律 1）
 //! 把它当成"没命中"会让调用方看到 `TargetNotFound`，而真实原因是"这个候选种类本通道没实现"
@@ -48,11 +45,11 @@ pub(super) enum SearchOutcome {
     Matches(Vec<IUIAutomationElement>),
 }
 
-/// 搜索一个候选；`parent` 非空时在该父元素子树内搜索（`RoleAndParent` 递归用）。
+/// 搜索一个候选；`scope` 是搜索起点（**必须是已解析窗口的 UIA 根元素**，ADR-0043 D2）。
 pub(super) fn find_all(
     chain: &SelectorChain,
     candidate: &SelectorCandidate,
-    parent: Option<&IUIAutomationElement>,
+    scope: &IUIAutomationElement,
     depth: u32,
 ) -> PlatformResult<SearchOutcome> {
     if depth > MAX_PARENT_DEPTH {
@@ -63,7 +60,7 @@ pub(super) fn find_all(
     match candidate.kind() {
         assistant_platform_api::SelectorKind::AutomationId => match candidate.value() {
             SelectorValue::Text(value) => {
-                property_search(parent, UIA_AutomationIdPropertyId, value, false)
+                property_search(scope, UIA_AutomationIdPropertyId, value, false)
             }
             _ => Ok(SearchOutcome::Unsupported(
                 "AutomationId 候选必须用 SelectorValue::Text 表达取值",
@@ -71,7 +68,7 @@ pub(super) fn find_all(
         },
         assistant_platform_api::SelectorKind::ClassAndRole => match candidate.value() {
             SelectorValue::ClassAndRole { class, role } => {
-                class_and_role_search(parent, class, role)
+                class_and_role_search(scope, class, role)
             }
             _ => Ok(SearchOutcome::Unsupported(
                 "ClassAndRole 候选必须用 SelectorValue::ClassAndRole 表达取值",
@@ -79,7 +76,7 @@ pub(super) fn find_all(
         },
         assistant_platform_api::SelectorKind::RoleAndParent => match candidate.value() {
             SelectorValue::RoleAndParent { role, parent_id } => {
-                role_under_parent(chain, parent, role, parent_id, depth)
+                role_under_parent(chain, scope, role, parent_id, depth)
             }
             _ => Ok(SearchOutcome::Unsupported(
                 "RoleAndParent 候选必须用 SelectorValue::RoleAndParent 表达取值",
@@ -90,7 +87,7 @@ pub(super) fn find_all(
         assistant_platform_api::SelectorKind::NameRegex
         | assistant_platform_api::SelectorKind::TitleRegex => match candidate.value() {
             SelectorValue::Text(pattern) => {
-                property_search(parent, UIA_NamePropertyId, pattern, true)
+                property_search(scope, UIA_NamePropertyId, pattern, true)
             }
             _ => Ok(SearchOutcome::Unsupported(
                 "NameRegex / TitleRegex 候选必须用 SelectorValue::Text 表达取值",
@@ -116,7 +113,7 @@ pub(super) fn find_all(
 
 /// 单属性条件搜索（`substring = true` 时用 UIA 原生子串匹配）。
 fn property_search(
-    parent: Option<&IUIAutomationElement>,
+    scope: &IUIAutomationElement,
     property: UIA_PROPERTY_ID,
     value: &str,
     substring: bool,
@@ -145,15 +142,14 @@ fn property_search(
         .map_err(|failure| {
             error::error_from_hresult(failure.code().0, "CreatePropertyCondition")
         })?;
-        let scope = search_scope(automation, parent)?;
-        collect_matches(&scope, &condition)
+        collect_matches(scope, &condition)
     })?;
     Ok(SearchOutcome::Matches(elements))
 }
 
 /// `ClassName` + `ControlType` 组合搜索。
 fn class_and_role_search(
-    parent: Option<&IUIAutomationElement>,
+    scope: &IUIAutomationElement,
     class: &str,
     role: &str,
 ) -> PlatformResult<SearchOutcome> {
@@ -169,8 +165,7 @@ fn class_and_role_search(
         // SAFETY: 两个条件在调用期间存活，UIA 只引用它们。
         let condition = unsafe { automation.CreateAndCondition(&class_condition, &role_condition) }
             .map_err(|failure| error::error_from_hresult(failure.code().0, "CreateAndCondition"))?;
-        let scope = search_scope(automation, parent)?;
-        collect_matches(&scope, &condition)
+        collect_matches(scope, &condition)
     })?;
     Ok(SearchOutcome::Matches(elements))
 }
@@ -178,7 +173,7 @@ fn class_and_role_search(
 /// `RoleAndParent`：在**链内**解析父候选，再在父元素子树内按角色找。
 fn role_under_parent(
     chain: &SelectorChain,
-    parent: Option<&IUIAutomationElement>,
+    scope: &IUIAutomationElement,
     role: &str,
     parent_id: &str,
     depth: u32,
@@ -192,7 +187,7 @@ fn role_under_parent(
             "RoleAndParent 的 parent_id 在本链内找不到对应候选",
         ));
     };
-    let parent_element = match find_all(chain, parent_candidate, parent, depth.saturating_add(1))? {
+    let parent_element = match find_all(chain, parent_candidate, scope, depth.saturating_add(1))? {
         SearchOutcome::Unsupported(reason) => return Ok(SearchOutcome::Unsupported(reason)),
         SearchOutcome::Matches(elements) => match elements.len() {
             0 => return Ok(SearchOutcome::Matches(Vec::new())),
@@ -231,22 +226,6 @@ fn property_condition<T: Into<VARIANT>>(
     // SAFETY: `variant` 借用只在本次调用期间有效，UIA 会复制它。
     unsafe { automation.CreatePropertyCondition(property, &variant) }
         .map_err(|failure| error::error_from_hresult(failure.code().0, "CreatePropertyCondition"))
-}
-
-/// 搜索起点：有父候选用父元素，否则用桌面根。
-fn search_scope(
-    automation: &IUIAutomation,
-    parent: Option<&IUIAutomationElement>,
-) -> PlatformResult<IUIAutomationElement> {
-    // `map_or_else` 而不是 `match`：clippy 的 `option_if_let_else`（pedantic）要求这样写。
-    parent.map_or_else(
-        || {
-            // SAFETY: 只读地取桌面根元素。
-            unsafe { automation.GetRootElement() }
-                .map_err(|failure| error::error_from_hresult(failure.code().0, "GetRootElement"))
-        },
-        |parent| Ok(parent.clone()),
-    )
 }
 
 /// 取某条件下的全部匹配（`FindAll` + `Length` + `GetElement`）。
@@ -288,17 +267,18 @@ pub(super) fn find_first(
     }
 }
 
-/// 先 `Children` 再 `Descendants` 的搜索（用于 `wait_for` 的 `ElementQuery`）。
+/// 在 `scope` 子树内先 `Children` 再 `Descendants` 的搜索（用于 `wait_for` 的 `ElementQuery`）。
+///
+/// `scope` 必须是**已解析窗口的 UIA 根元素**（ADR-0043 D2 / D3）—— 本函数没有桌面根这条路径。
 pub(super) fn find_first_children_then_descendants(
-    automation: &IUIAutomation,
+    scope: &IUIAutomationElement,
     condition: &IUIAutomationCondition,
 ) -> PlatformResult<Option<IUIAutomationElement>> {
-    let root = search_scope(automation, None)?;
-    // ADR-0022 E6：对**根元素**发 FindFirst 必须先试 Children，避免一上来就走遍桌面。
-    if let Some(found) = find_first(&root, condition, TreeScope_Children)? {
+    // ADR-0022 E6：对根元素发 FindFirst 必须先试 Children，避免一上来就走遍整棵子树。
+    if let Some(found) = find_first(scope, condition, TreeScope_Children)? {
         return Ok(Some(found));
     }
-    find_first(&root, condition, TreeScope_Descendants)
+    find_first(scope, condition, TreeScope_Descendants)
 }
 
 /// 候选的人类可读描述（进 reasons，使失败可从时间线定位）。

@@ -84,18 +84,20 @@ impl UiAutomationProvider for WindowsPlatform {
 
     fn resolve_element(
         &self,
+        scope: &ResolvedWindow,
         chain: &SelectorChain,
     ) -> impl Future<Output = PlatformResult<ResolvedElement>> + Send {
-        poll_fn(move |_context| Poll::Ready(resolve::resolve_element(chain)))
+        poll_fn(move |_context| Poll::Ready(resolve::resolve_element(scope, chain)))
     }
 
     fn wait_for(
         &self,
+        scope: &ResolvedWindow,
         query: &ElementQuery,
         state: &ElementState,
         timeout: Timeout,
     ) -> impl Future<Output = PlatformResult<ResolvedElement>> + Send {
-        poll_fn(move |_context| Poll::Ready(resolve::wait_for(query, *state, timeout)))
+        poll_fn(move |_context| Poll::Ready(resolve::wait_for(scope, query, *state, timeout)))
     }
 
     fn read_text(

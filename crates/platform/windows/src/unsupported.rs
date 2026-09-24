@@ -147,6 +147,7 @@ impl UiAutomationProvider for WindowsPlatform {
 
     fn resolve_element(
         &self,
+        _scope: &ResolvedWindow,
         chain: &SelectorChain,
     ) -> impl Future<Output = PlatformResult<ResolvedElement>> + Send {
         std::future::ready(resolve_element_outcome(chain))
@@ -154,6 +155,7 @@ impl UiAutomationProvider for WindowsPlatform {
 
     fn wait_for(
         &self,
+        _scope: &ResolvedWindow,
         query: &ElementQuery,
         _state: &ElementState,
         _timeout: Timeout,

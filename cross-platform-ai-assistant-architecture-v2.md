@@ -706,6 +706,7 @@ v1 的示例用中文标题作 `accessibility_path`，这在多语言 UI、主�
 - **`locale_dependent: true`** 的选择器在多语言环境下自动降权（17 章 i18n）。
 - **`coordinate_space` 必填**：任何走合成输入的动作都必须先做坐标归一化（6.9）。
 - **`fingerprint`** 用于「这个目标还是不是刚才那个目标」的快速判定（7.3）。
+- **元素解析的 scope = 已解析的窗口**（ADR-0043）：`resolve_element` / `wait_for` 的搜索起点是该窗口的 UIA 根元素，**不**从桌面根搜（先 `resolve_window` 再定元素，见 §13.1.1）。
 
 ### 6.3 Selector 候选链与自愈定位
 
@@ -770,6 +771,8 @@ resolve(descriptor):
 | `first_by_order` | 按树顺序取第一个，并在审计中标记「使用了歧义解析」 |
 | `require_unique` | 多匹配即失败 |
 | `disambiguate_by` | 用附加条件（父容器、索引、可见性）二次筛选 |
+
+**各策略的归属层**（ADR-0044）：上表 4 种里，只有 `error_and_ask` 是**平台层**的运行时行为（`OnAmbiguous` 只保留这一个变体，多命中一律报 `TargetAmbiguous` —— 铁律 1 不猜）。其余 3 种**不是**平台层策略：`require_unique` = 调用方把平台层的 `TargetAmbiguous` 直接判失败（归 Host / task-engine）；`first_by_order` 需要审计标记（归持有审计通道的 Host 层，落地时另开 ADR）；`disambiguate_by` = Adapter 用更强的候选链表达（`RoleAndParent` 等），是**候选编写**问题而非运行时策略。
 
 真实场景：文档里有 3 个「保存」按钮（工具栏、菜单、对话框）。默默取第一个可能保存到错误位置。
 
@@ -1913,8 +1916,8 @@ pub trait WindowProvider: Send + Sync {
 #[async_trait]
 pub trait UiAutomationProvider: Send + Sync {
     async fn snapshot_tree(&self, root: &ResolvedWindow, opts: TreeOptions) -> Result<TreeSnapshot>;
-    async fn resolve_element(&self, chain: &SelectorChain) -> Result<ResolvedElement>;  // 含歧义/未找到语义
-    async fn wait_for(&self, q: ElementQuery, state: ElementState, t: Timeout) -> Result<ResolvedElement>;
+    async fn resolve_element(&self, scope: &ResolvedWindow, chain: &SelectorChain) -> Result<ResolvedElement>;  // scope = 已解析窗口（ADR-0043）；含歧义/未找到语义
+    async fn wait_for(&self, scope: &ResolvedWindow, q: ElementQuery, state: ElementState, t: Timeout) -> Result<ResolvedElement>;
 
     async fn read_text(&self, e: &ResolvedElement) -> Result<String>;
     async fn set_value(&self, e: &ResolvedElement, v: &str) -> Result<()>;      // 优先于键盘模拟
@@ -1934,6 +1937,7 @@ pub trait UiAutomationProvider: Send + Sync {
 - 所有方法都要能被取消、都有超时；
 - **`set_value` / `edit_text` / `invoke_action` 优先于 `pointer_action` / `key_action`**（前者不依赖焦点、不抢用户输入、跨平台语义一致）；
 - `fingerprint` 是一等接口，不是可选装饰（7.3）。
+- **元素解析必须有 scope**（ADR-0043）：`resolve_element` / `wait_for` 的第一个参数是 `&ResolvedWindow`，搜索起点是该窗口的 UIA 根元素；**禁止**从桌面根搜元素（代价约 1000×，且有栈溢出风险）。
 
 #### 13.1.2 Capability Matrix（能力矩阵）
 

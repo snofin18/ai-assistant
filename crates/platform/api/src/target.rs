@@ -186,15 +186,23 @@ impl SelectorCandidate {
     }
 }
 
-/// 多匹配时的语义（架构 v2 §6.6）。
+/// 多匹配时的语义（架构 v2 §6.6；平台层**只有这一种** —— ADR-0044）。
+///
+/// **为什么只有一个变体**：候选链的 `score` 属于**候选**（§6.2 的 selector 经验值 / 学习值），
+/// 不属于命中元素 —— 所以「多命中取最高分」在候选链模型里**没有定义**（TASK-017 实测：
+/// 同一候选命中的元素分数恒等 → 该策略永远只能报歧义）。
+///
+/// §6.6 的另外三种策略各有归属层，都不是平台层的运行时策略（ADR-0044 D3 / D4 / D5）：
+/// `require_unique` = 调用方把 `TargetAmbiguous` 直接判失败；`first_by_order` = Host 层
+/// （需要审计标记，而平台层没有审计通道）；`disambiguate_by` = Adapter 用更强的候选链表达。
+///
+/// 保留 `#[non_exhaustive]`：将来引入新策略时走 ADR，而不是就地加变体。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum OnAmbiguous {
-    /// 报 `TargetAmbiguous` 并升级给人 —— **默认**（铁律 1：不猜）。
+    /// 报 `TargetAmbiguous` 并升级给人 —— **唯一**语义（铁律 1：不猜）。
     ErrorAndAsk,
-    /// 取最高分候选（**仅在 Adapter 显式声明可容忍时使用**）。
-    HighestScore,
 }
 
 /// 未找到时的重试与升级策略（架构 v2 §6.2 的 `resolution_policy.on_not_found`）。

@@ -164,6 +164,8 @@ Edition 2024；crate 顶层 `#![deny(clippy::unwrap_used, expect_used, panic, to
 ```powershell
 cargo fmt --all --check
 cargo clippy --all-targets -- -D warnings
+cargo clippy --target x86_64-unknown-linux-gnu -p <纯 Rust crate> --all-targets -- -D warnings   # 非宿主平台（ADR-0045）
+cargo clippy --target aarch64-apple-darwin   -p <纯 Rust crate> --all-targets -- -D warnings   # 同上；范围 = 无 C 依赖的 crate
 cargo test --workspace
 cargo test -p assistant-core arch::            # 依赖方向（gov §5.3）
 cargo run -p xtask -- verify-schemas           # Tool/Adapter/审计事件 schema
@@ -179,6 +181,11 @@ cargo run -p xtask -- replay --suite core      # 回放基准
 ```
 
 > 阶段 0 仓库尚未脚手架化，上述命令自 TASK-001（仓库骨架）起生效。**阶段 0 的产出是 `SPIKE_REPORT.md`，不是产品代码。**
+
+> **「非宿主平台」两条 `--target` clippy 的适用范围**（ADR-0045）：只对**无 C 依赖**的 crate 有效 ——
+> `clippy` / `check` 不链接，所以不需要 C 交叉编译器；`crates/storage` 的 `zstd-sys` / `libsqlite3-sys`
+> 会卡在 `cc-rs`（实测 `--workspace` = exit 101），故**不要**写成 `--workspace`。前置一次性执行
+> `rustup target add x86_64-unknown-linux-gnu aarch64-apple-darwin`。
 
 > **`memory-counts` / `adr-index` 已经生效**（不等 TASK-001）：它们只查文档，阶段 0 就有检查对象。
 > 两个子命令都**只读** —— 报错时消息里直接给出「可粘贴的正确值」，照着改文档即可，工具不会替你写。

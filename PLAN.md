@@ -7,11 +7,11 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-24（TASK-017 `crates/platform/windows` Done：Win32 / UIA provider 落地（19 文件 / 铁律 7 + 8 的 Windows 侧实现）；7 条 DRIFT 待裁决 + 新提 PL-068 / PL-069；详 LEDGER）
+更新日期    ：2026-09-24（TASK-017 遗留裁决批次：**ADR-0043** 元素解析加 scope + **ADR-0044** 歧义策略收敛为唯一 `ErrorAndAsk` + **ADR-0045** 非宿主平台编译门禁进 `AGENTS.md` §6；7 条 DRIFT 全部裁决接受、PL-068 / 069 / 070 闭环、新提 PL-071 / 072 / 073；详 LEDGER）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
 当前任务卡  ：**A2 批次进行中**：TASK-011 ✅ / 012 ✅ / 013 ✅ / 014 ✅ / 015 ✅ / 016 ✅ / **017 ✅** → **TASK-018（`crates/platform/windows`：合成输入（SendInput）+ 焦点校验 + 坐标归一化（DPI/多屏）+ IME 处理）= 下一张**；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203** 均 Done
-阻塞项      ：① TASK-002 仍 Blocked（上游 `create_thread` 未关）；② gov §5.1 门禁清单尚未登记 `check-migrations`（PL-056，需 ADR）；③ TASK-017 的 7 条 DRIFT + PL-068（`ElementQuery` / `SelectorChain` 缺 scope 参数）/ PL-069（歧义策略口径）待人类裁决
+阻塞项      ：① TASK-002 仍 Blocked（上游 `create_thread` 未关）；② gov §5.1 门禁清单尚未登记 `check-migrations`（PL-056，需 ADR）；③ 新提 PL-071（ADR-0035 allow 表未登记 crate 级 `unsafe_code`）/ PL-072（`*Regex` 命名与子串语义不一致）/ PL-073（卡片 `- 状态：` 行归属机制）需 ADR 或 Orchestrator 处置
 下一步动作  ：① TASK-018 `crates/platform/windows` 的 `src/input/**` + `src/coordinates/**`：在 TASK-017 已落地的 `com` / `win32` 层上加 `SendInput` 封装 + 前台窗口校验 + DPI / 多屏坐标归一化 + IME 处理（铁律 5 的 L4 合成输入层）
                   → ② stage-1 后续批次；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```

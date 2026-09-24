@@ -15,6 +15,8 @@
 //!    （前者不依赖焦点、不抢用户输入、跨平台语义一致）—— 这条是**调用方**的义务。
 //! 3. `fingerprint` 是**一等接口**，不是可选装饰（§7.3）。
 //! 4. 所有方法返回 `PlatformResult`（铁律 1：不得静默失败）。
+//! 5. **元素解析必须有 scope**（ADR-0043）：`resolve_element` / `wait_for` 的搜索起点是传入的
+//!    `&ResolvedWindow`，**禁止**从桌面根搜元素（代价与栈溢出风险见 ADR-0043）。
 
 use std::future::Future;
 
@@ -389,21 +391,29 @@ pub trait UiAutomationProvider: Send + Sync {
         options: &TreeOptions,
     ) -> impl Future<Output = PlatformResult<TreeSnapshot>> + Send;
 
-    /// 按候选链解析元素。
+    /// 在 `scope` 窗口内按候选链解析元素（**ADR-0043**：元素解析必须有 scope）。
+    ///
+    /// 搜索起点是 `scope` 的 UIA 根元素，**不是**桌面根 —— 桌面级搜索的代价随桌面规模增长
+    /// （TASK-017 真机实测中位数 1.53 s），且违反 ADR-0022 E6 引用的官方要求。
+    /// 调用顺序：先 `resolve_window` 定窗口，再在这里定元素（架构 v2 §6.2）。
     ///
     /// # Errors
-    /// 未找到 → `TargetNotFound`；多匹配 → `TargetAmbiguous`；链为空 → `ToolInvalidArgs`。
+    /// 未找到 → `TargetNotFound`；多匹配 → `TargetAmbiguous`；链为空 → `ToolInvalidArgs`；
+    /// `scope` 的窗口已关闭 / 句柄失效 → `TargetNotFound`。
     fn resolve_element(
         &self,
+        scope: &ResolvedWindow,
         chain: &SelectorChain,
     ) -> impl Future<Output = PlatformResult<ResolvedElement>> + Send;
 
-    /// 等待元素进入期望状态。
+    /// 在 `scope` 窗口内等待元素进入期望状态（**ADR-0043**）。
     ///
     /// # Errors
-    /// 超时 → `TargetUnresponsive`（**不是** `TargetNotFound`：元素可能一直存在但状态没到）。
+    /// 超时 → `TargetUnresponsive`（**不是** `TargetNotFound`：元素可能一直存在但状态没到）；
+    /// `scope` 的窗口已关闭 / 句柄失效 → `TargetNotFound`。
     fn wait_for(
         &self,
+        scope: &ResolvedWindow,
         query: &ElementQuery,
         state: &ElementState,
         timeout: Timeout,
