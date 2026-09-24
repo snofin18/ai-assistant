@@ -66,26 +66,29 @@
 
 ---
 
-## §1 项目当前状态快照（可覆写，最近更新：**2026-09-20**）
+## §1 项目当前状态快照（可覆写，最近更新：**2026-09-24**）
 
 ```text
-阶段        ：阶段 0（纯文档 + xtask 护栏 + spike 探针，**零产品代码**）
-              阶段 0 的产出是 SPIKE_REPORT.md，不是产品代码（AGENTS.md §6）
+阶段        ：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）**
+              阶段 0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）；阶段 0 的产出是 SPIKE_REPORT.md，不是产品代码（AGENTS.md §6）
 git         ：main 与 origin 同步（**哈希不写进本快照** —— 它是每次提交都变的派生值，看 `git log -1`）
               提交身份 = snofin18 (via Codex) <snofin@gmail.com>（仓库本地 config，人类裁决方案 B）
               github.com 经本地代理 http://127.0.0.1:30000（global config；**只对 HTTP/HTTPS 生效**）
 已产出文档  ：架构 v2.2、应用可行性 v1.1、AGENTS.md、gov、PLAN.md、LEDGER.md、README.md、
               plans/stage-0-spikes.md ＋ plans/stage-1-pilots.md（**阶段索引与批次表**）、
-              tasks/TASK-*.md（**卡片正文 ＋ 执行记录，一卡一文件；ADR-0031**，stage-0 的 10 张 + stage-1 的 48 张已就位，其中 011 / 035 已含正文，其余 46 张 = 批次表占位、派单前由 Orchestrator 按 gov §3.2 模板展开实际正文）、
+              tasks/TASK-*.md（**卡片正文 ＋ 执行记录，一卡一文件；ADR-0031**，stage-0 的 10 张 + stage-1 的 48 张已就位，其中 011 / 012 已展开完整正文、035 = 仅要点摘录（未展开），其余 45 张 = 批次表占位、派单前由 Orchestrator 按 gov §3.2 模板展开实际正文）、
               docs/{governance-ai-agent-execution, subagent-orchestration, storage-design,
               wbs-overview, overnight-automation-charter, DEPENDENCIES, PARKING_LOT}、
-              docs/spec/naming.md、docs/adr/**README.md（编号登记表：已存在文件 / 待建号 /
+              docs/spec/**（**8 份**：`naming.md` + TASK-072 生成的 7 份 —— tool-schema / envelope /
+              error-codes / capability-matrix / audit-event / ipc-protocol / testing；后 7 份有系统性结构
+              缺陷（空 §1/§2 + 重复 §4/§5）→ 归 **TASK-200** + PL-038）、
+              docs/adr/**README.md（编号登记表：已存在文件 / 待建号 /
               已退役编号 / 下一个可用编号；ADR-0026 建立，ADR-0030 改为机器校验）**
               ＋ 各 ADR 文件（**清单以登记表 §1 为准，本快照不再抄一遍** —— 抄一份就是第二个事实源）、
               docs/memory/*（ADR-0021 分层，2026-09-18 落地）、
               docs/nightly/{codex-automations-operations, scheduler-acceptance-test}.md、
               docs/spike-reports/SPIKE-A.md（**PARTIAL**）
--已产出代码  ：xtask（零第三方依赖的护栏工具）。子命令清单以 `cargo run -p xtask -- --list` 输出为权威（不要在这里手抄个数 —— 改用命令取，PL-022 根因复发）。当前已知 = hygiene / memory-counts / adr-index / refscan / docscan / card-check / guard 共 7 个 + exemptions helper module（不暴露）。
+已产出代码  ：xtask（零第三方依赖的护栏工具）。子命令清单以 `cargo run -p xtask -- help` 输出为权威（不要在这里手抄个数 —— 改用命令取，PL-022 根因复发）。当前已实现 = hygiene / memory-counts / adr-index / refscan / docscan / card-check / guard / verify-schemas / codegen 共 9 个（+ 未实现：replay / check-comments / check-ledger）+ exemptions helper module（不暴露）。
               **行数与测试数不写进本快照** —— 看 `cargo test -p xtask` 与 `xtask hygiene` 的输出）
               + CI（三平台矩阵；**硬/软门禁清单与数量以 gov §5.1 表为准**，2026-09-18 新增
                 #8b spike-deny 与 #12b doc-consistency 两道硬门禁）
@@ -97,14 +100,16 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
 平台基线    ：Windows 11 24H2/25H2（唯一正式基线）；本机实测 25H2 build 26200.9457，3200×2000 @200%
 试点顺序    ：Notepad → Paint → Edge/Chrome（阶段 1）→ Excel（阶段 2）→ Photoshop（阶段 3）
 下一步      ：① **stage-0 已正式 closeout**（2026-09-20，TASK-073）；详 `docs/audits/stage-0-closeout-2026-09-20.md`
-              ② **stage-1 开工**：批次 A1（地基层，**必须串行**）→ TASK-011 protocol schema → 012 存储 → 013 audit → 014 secrets → 015 xtask 护栏；
-                  任一阻塞/失败 → 停整批；详 `plans/stage-1-pilots.md`
+              ② **stage-1 已开工**：1a 批次 A1（地基层）TASK-011 ✅ Done → **TASK-012 存储层 = 下一张**（正文已 2026-09-24 展开）；
+                 依赖列里只有 `013 ← 012` 真串行，`014 ← 011` / `015 ← 011` 已解锁；实际顺序 011→012→013→014→015，瓶颈 = 人类审阅带宽；
+                 ⚠ **PL-037（未决）**：015 的 arch test 依赖 `crates/core`（TASK-028）→ 015 在 028 前无法 Done；详 `plans/stage-1-pilots.md`
               ③ TASK-002 续做补完 SPIKE-A PARTIAL 仍 Blocked（`open.md N3` create_thread 上游 #36315/#36250 未关闭）→ 人类手工建会话
               ④ 夜间自动化 GATE-0 未执行（`open.md N9`）→ 待人类安排调试时段；在此之前**禁止创建真实 automation**
               ⑤ 改公共热点文件（LEDGER / `docs/memory/*` / PARKING_LOT / MEMORY.md / `plans/*`）前必须 `xtask guard acquire`（ADR-0028）；
                   超时放弃（退出码 5）后须 LEDGER 追加一行 + 不得 `--force` 硬抢
-              ⑥ 仓库根 17 个 0 字节乱码文件名待清理（详 TASK-073 §残留 finding；建议 **TASK-083** —— F-1 卡于 2026-09-22 由 074 改 083 解决与 TASK-074-b1.2 撞号，详 docs/memory/facts.md）
-待产出文档  ：docs/spec/*（其余 6 份，含 testing.md）、docs/OPEN_SOURCE_CHECKLIST.md、
+              ⑥ 仓库根乱码 0 字节文件名：**TASK-083 已 2026-09-24 收尾**（实测目标文件已不存在、`git status -uall` 干净；详 `tasks/TASK-083-*.md` §5）
+              ⑦ **TASK-012 开工前必须先取人类批准 3 个依赖**（`rusqlite` + bundled / `zstd` / `sha2`，漂移触发器 ①）并登记 `docs/DEPENDENCIES.md`；未批准前不得改任何 `Cargo.toml`
+待产出文档  ：docs/OPEN_SOURCE_CHECKLIST.md（**PL-005 未落地**）、
               docs/dev-env-setup.md（**PL-017 已落地**，2026-09-18）、其余 7 份 Spike 报告（PL-026 的非 ASCII 注释已清扫，probe-01/02 现在纯 ASCII 仅 3 条 STR-LIT 豁免）
 执行方式    ：AI coding agent（Codex/opencode/Claude Code）实现，人类规划+审阅+裁决；
               一个会话最多 1~2 张卡（AGENTS.md §3）；并行度 ≤3（人类审阅速度决定项目速度）

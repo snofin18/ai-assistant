@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：未开始（前置：阶段 0 全部 go）　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 A1 开工，TASK-011 Done）　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -49,6 +49,13 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **015** | `xtask`：hygiene + arch test + verify-schemas + replay 骨架 | `xtask/**`、`crates/core/tests/arch*` | 011 | M | **arch test 能拦住 core→platform/windows 的依赖**；hygiene **13** 项检查全部生效（gov §5.4；口径见 **ADR-0025**，原「12 项」为笔误） |
 
 > ★ 015 必须早做：它是后续所有卡的护栏。护栏晚于代码 = 漂移已经发生。
+>
+> **2026-09-24 顺序澄清（Orchestrator 代行）**：本表头写「必须串行」，但依赖列里只有 `013 ← 012` 是真串行；
+> `014 ← 011`、`015 ← 011` 在 011 完成后即解锁，且三者 write scope（`crates/storage` / `crates/secrets` / `xtask`）互不重叠。
+> **实际推进顺序仍按 011 ✅ → 012 → 013 → 014 → 015** —— 瓶颈是**人类审阅带宽**（AGENTS.md §3：并行度 ≤ 3、一会话 1~2 张卡），
+> 不是依赖本身。
+> ⚠ **已知规划缺陷 PL-037（未决）**：015 的 DoD 含「arch test 能拦住 core→platform/windows 的依赖」，而 `crates/core`
+> 要到 **TASK-028** 才存在 → **015 在 028 之前无法 Done**，这与「015 必须早做」直接冲突。裁决选项见 `docs/PARKING_LOT.md` PL-037。
 
 ### 批次 A2　平台层（011/015 完成后可 2 路并行）
 
@@ -159,9 +166,9 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 
 | 卡号 | 批次 | 卡片文件（正文 + 执行记录） | 备注 |
 |---|---|---|---|
-| TASK-011 | A1 | `tasks/TASK-011-protocol-schema-codegen.md` | 完整卡（原 plans 文件的「完整任务卡示例」，逐字搬运） |
+| TASK-011 | A1 | `tasks/TASK-011-protocol-schema-codegen.md` | 完整卡（原 plans 的示例逐字搬运）；**已 Done** |
 | TASK-035 | A5 | `tasks/TASK-035-notepad-adapter.md` | ⚠ **仅要点摘录**，展开前不得派单 |
-| TASK-012 | A1 | `tasks/TASK-012-storage-layer-sqlite-wal-blob.md` | Ready（批次表占位派单前补全） |
+| TASK-012 | A1 | `tasks/TASK-012-storage-layer-sqlite-wal-blob.md` | **完整卡**（2026-09-24 Orchestrator 展开） |
 | TASK-013 | A1 | `tasks/TASK-013-audit-append-hash-chain-flush.md` | Ready（批次表占位派单前补全） |
 | TASK-014 | A1 | `tasks/TASK-014-secrets-os-keychain-wrapper.md` | Ready（批次表占位派单前补全） |
 | TASK-015 | A1 | `tasks/TASK-015-xtask-hygiene-archtest-replay-skeleton.md` | Ready（批次表占位派单前补全） |
@@ -214,6 +221,12 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 > 搬运方式是**逐字节复制、不改一个字**；新增的只有元数据块、分界线注释与执行记录骨架。
 
 
+## 跨阶段治理卡（不在本阶段批次表内）
+
+| 卡号 | 号段 | 卡片文件 | 备注 |
+|---|---|---|---|
+| TASK-200 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-200-fix-spec-contract-drafts.md` | `docs/spec/*` 7 份契约草案的系统性缺陷（PL-038）；**已建卡、未开工** |
+
 ## 任务卡号段分配（ADR-0037, 2026-09-20 起生效）
 
 按 [docs/adr/0037-task-card-number-allocation-strategy.md](../../docs/adr/0037-task-card-number-allocation-strategy.md)：
@@ -221,11 +234,12 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | 号段 | 用途 | 现状 |
 |---|---|---|
 | 001~010 | stage-0 已 Done | 10 张（TASK-001~010）|
-| 011 / 035 | stage-1 已迁正文 | 2 张（protocol / notepad-adapter）|
-| 012~034 / 036~058 | **stage-1 批次表占位**（本文件批次表）| **47 张 Ready**（保留号段，stage-1 开工时启用）|
+| 011 / 012 / 035 | stage-1 已迁入卡片文件 | 3 张（011 protocol / 012 storage = **完整正文**；035 notepad-adapter = **仅要点摘录、未展开**）|
+| 013~034 / 036~058 | **stage-1 批次表占位**（本文件批次表）| **45 张 Ready**（开工前由 Orchestrator 逐张展开正文）|
 | 059~070 | 已用 = xtask 护栏升级（6 张）+ governance（6 张）| 12 张 Done |
-| **072~099** | **XTASK 池（未来）** | **28 个空位** |
-| 100~199 | 业务池（stage-2/3/4 未来）| 100 个空位 |
-| 200~299 | 治理池（audit/docs/memory 治理）| 100 个空位 |
+| 071 | ADR-0037 实施卡（号段分配策略；本 ADR 生效前建的治理卡）| 1 张 Done |
+| 072~099 | XTASK 池 | 已用 072~079（stage-0 b1 探针卡）+ 083 / 084 = **10 张**；**空位 080~082 / 085~099** |
+| 100~199 | 业务池 | 已用 100 / 101（Win32-Input + probe 替换）；空位 102~199 |
+| 200~299 | 治理池（audit/docs/memory 治理）| 已用 200（spec 修复卡）；空位 201~299 |
 
 **未来 xtask 护栏扩张** = 用 072~099；用满后用 200~299。sub-suffix 永久禁用。
