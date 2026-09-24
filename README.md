@@ -5,7 +5,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
 > 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0（文档与 Spike）已于 2026-09-20 closeout；
-> 产品代码自阶段 1 起才落地（`crates/protocol` 已完成，接着是存储层 / 审计 / 密钥 / 护栏）。**当前阶段详情以 `PLAN.md` 为准**。
+> 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` 已完成，接着是审计 / 密钥 / 护栏）。**当前阶段详情以 `PLAN.md` 为准**。
 
 ---
 
@@ -63,10 +63,10 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 ## 当前阶段
 
-**阶段 0 — Spike 技术验证**（10 张卡，TASK-001 ~ TASK-010）。
-目标不是产出代码，而是**用最小成本证伪关键假设**：UIA 定位精度、跨进程句柄传递、
-工具选择准确率、撤销闭环、CDP 反注入、存储性能预算、Linux/Wayland 可行性。
-详见 `plans/stage-0-spikes.md`。
+**阶段 1 — 三试点闭环**（Notepad → Paint → Edge/Chrome；TASK-011 ~ TASK-058）。
+子阶段 1a 已开工：地基层（`crates/protocol` / `crates/storage` 已就位，接着是审计 / 密钥 / 护栏）＋ Notepad 的 3 个任务闭环。
+阶段 0（文档与 Spike）已于 2026-09-20 closeout —— 它的产出是 Spike 报告，**不是**产品代码。
+详见 `plans/stage-1-pilots.md`。
 
 平台基线：**Windows 11 24H2+**（唯一正式基线；Windows 10 已 EOL，仅 C 级尽力）。
 Linux 侧 **Wayland-first**（GNOME 50 已移除 X11 后端）。
