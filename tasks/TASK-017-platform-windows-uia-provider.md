@@ -193,7 +193,7 @@ cargo deny check
 | `docs/DEPENDENCIES.md` | 改 `windows` 行：状态 `Approved for spikes` → **`Approved`**（产品侧）；使用方补 `crates/platform/windows`（阶段 1）；批准人 / 日期追加 | ✅（卡面显式列入） |
 | 根 `Cargo.toml` | `members` 加 `crates/platform/windows` | ⚠ **write scope 外** → DRIFT-017-2（卡面步骤 3 已显式预告此形态） |
 | `crates/platform/api/src/lib.rs`、`src/traits/mod.rs` | 补 `SelectorChain` re-export（纯增量，不改 trait 形状） | ⚠ **write scope 外** → DRIFT-017-5 |
-| `docs/PARKING_LOT.md` | 追加 PL-068 / PL-069 主表行 + 1 条 PL-068「处置追加记录」（公共热点文件，按 ADR-0028 取锁后写、写完立刻释放） | ✅（§8 允许追加） |
+| `docs/PARKING_LOT.md` | 追加 PL-068 / PL-069 主表行 + 1 条 PL-068「处置追加记录」；**CI 复核追加 PL-070 主表行与处置行**（见 §3.1）（公共热点文件，按 ADR-0028 取锁后写、写完立刻释放） | ✅（§8 允许追加） |
 | `LEDGER.md`、`PLAN.md`（仅「当前状态」块）、`README.md`（仅三处）、`plans/stage-1-pilots.md`（仅完成标记 + 进度句）、`docs/memory/{facts,pitfalls}.md`、`MEMORY.md` §1 规模表 | 按 AGENTS.md §11.1 同步（每张卡 Done 必做） | ✅ |
 
 ### 3. 验收输出摘要
@@ -245,6 +245,32 @@ cargo deny check
 | 未知角色名（`role = "NotARole"`） | `CapabilityMissing` ✅（配置错误 ≠ 找不到） |
 | 低质量兜底 selector（`TitleRegex` 子串 `e`）多命中 | **`TargetAmbiguous`** ✅（不静默取第一个） |
 | `wait_for` 超时（120 ms，`AutomationId` 不存在） | `TargetUnresponsive` ✅ |
+
+#### 3.1 CI 复核（2026-09-24 追加，同一张卡的修复）
+
+首次推送后 **CI run 35815168167 on `cf44b49` = 6/8**：`check (ubuntu-latest)` 与 `check (macos-latest)` **红**
+（`could not compile assistant-platform-windows (lib) due to 20 previous errors`），`check (windows-latest)`
+与其余 6 个 job 绿。**根因**：`src/unsupported.rs` 是 `#[cfg(not(windows))]` → **Windows 上从不编译**，
+所以上面那些本地门禁（全在 Windows 上跑）覆盖不到它 —— 19 处无 `.await` 的 `async fn` 触发
+`clippy::unused_async_trait_impl`，1 处 `DoD` 缺反引号触发 `clippy::doc_markdown`。
+
+**修复**（全部在 write scope 内，**无新增 DRIFT**）：把 20 个 impl 方法从 `async fn` 改为
+**与 trait 同一 RPITIT 形状** —— `fn … -> impl Future<Output = PlatformResult<…>> + Send { std::future::ready(…) }`
+（与同 crate 的 `window/mod.rs` / `uia/mod.rs` 完全一致；**零 `#[allow]`**）；
+`resolve_window` / `resolve_element` / `wait_for` 的「平台无关前半段」抽成 3 个私有同步辅助函数
+（`ToolInvalidArgs` 的判据与 Windows 后端逐字一致，语义未变）。
+
+**修复后复核**（`clippy` / `check` 不链接，故 `--target` 检查**不需要 C 交叉编译器**）：
+
+| 命令 | 结果 |
+|---|---|
+| `rustup target add x86_64-unknown-linux-gnu aarch64-apple-darwin` | 成功 |
+| `cargo clippy --target x86_64-unknown-linux-gnu -p assistant-platform-windows --all-targets -- -D warnings` | **exit 0** |
+| `cargo clippy --target aarch64-apple-darwin -p assistant-platform-windows --all-targets -- -D warnings` | **exit 0** |
+| `cargo test --workspace`（Windows） | **31 / 579 / 0**（未变） |
+| `cargo fmt --all --check` / `xtask hygiene` / `xtask docscan` | 0 diff / PASSED（115·0e·3w）/ PASSED（163·0e·563w） |
+
+新提 **PL-070**（`#[cfg(not(windows))]` 的代码缺「非宿主平台」编译门禁）；教训已入 `docs/memory/pitfalls.md`。
 
 ### 4. DoD 逐条核对
 
@@ -347,6 +373,11 @@ cargo deny check
 8. **本卡的实测值只覆盖记事本的 38 节点树**：Excel / Photoshop 的树可能是数千到数万节点
    （`MAX_TRAVERSAL_NODES = 20_000` 是防御性上界，超限报 `TargetUnresponsive`，**不**返回部分快照）。
    大树上的真实代价**未测**。
+
+9. **PL-070（本卡 CI 复核新提）**：`#[cfg(not(windows))]` 的代码在 Windows 上从不编译 →
+   本地 `cargo clippy` 覆盖不到，只有 CI 三平台矩阵会抓到（本卡即被 CI 抓到）。已按
+   `cargo clippy --target x86_64-unknown-linux-gnu / aarch64-apple-darwin -p assistant-platform-windows --all-targets -- -D warnings`
+   跑成 exit 0。是否把这条「非宿主平台」检查写进 `AGENTS.md` §6 的验收清单 → **待人类裁决**。
 
 ### 8. 新增长期记忆
 

@@ -1,4 +1,4 @@
-//! 非 Windows 平台的后端：**每个方法都返回明确的 `CapabilityMissing`**（铁律 1 + 本卡 DoD）。
+//! 非 Windows 平台的后端：**每个方法都返回明确的 `CapabilityMissing`**（铁律 1 + 本卡 `DoD`）。
 //!
 //! 职责：让 `crates/platform/windows` 在 macOS / Linux 的 CI runner 上**能编译、能跑测试**，
 //! 并让误在非 Windows 上调用它的代码得到**可解释的失败**，而不是链接错误或 panic。
@@ -14,7 +14,19 @@
 //! 两者都会 panic；本 crate 的 workspace lint 把 `todo` / `unimplemented` 设为 **deny**，
 //! 而且 panic 是"没有 `ErrorCode` 的失败"，违反铁律 1。
 //!
+//! ## 为什么 impl 写 `fn -> impl Future + Send` 而不是 `async fn`
+//! `crates/platform/api` 的 trait 用 RPITIT 声明（`-> impl Future<Output = …> + Send`，
+//! 理由见 `traits/mod.rs` 的「为什么用 RPITIT」）。impl 侧若写 `async fn` 而函数体里
+//! **没有 `.await`**（本文件全部如此 —— 每个方法只是立刻返回 `Err`），会触发
+//! `clippy::unused_async_trait_impl`（pedantic + CI 的 `-D warnings` = 错误），
+//! 压住它只能加 `#[allow]`（漂移触发器 ⑥ 禁止）。
+//! 因此这里与同 crate 的 `window/mod.rs` / `uia/mod.rs` **保持同一形状**：显式返回
+//! `std::future::ready(…)`（与那两处的 `poll_fn(|_| Poll::Ready(…))` 语义等价，只是更短），
+//! 既如实表达"立即就绪"，也不需要任何 `#[allow]`。
+//!
 //! 相关：`crates/platform/api/src/traits/**`、AGENTS.md 铁律 1 / 7、`tasks/TASK-017-*.md` Q2/Q3。
+
+use std::future::Future;
 
 use assistant_platform_api::{
     CapabilityMatrix, CaptureOptions, ElementQuery, ElementState, ErrorCode, Fingerprint,
@@ -50,143 +62,188 @@ fn requires_windows(operation: &str) -> PlatformError {
     )
 }
 
+/// `resolve_window` 的**平台无关前半段**。
+///
+/// 描述自身的校验是**平台无关**的纯逻辑：坏输入在哪个平台都该得到 `ToolInvalidArgs`，
+/// 而不是被"平台不可用"掩盖（否则调用方会去排查平台而不是修描述）。
+fn resolve_window_outcome(
+    descriptor: &assistant_platform_api::TargetDescriptor,
+) -> PlatformResult<ResolvedWindow> {
+    descriptor.validate()?;
+    Err(requires_windows("WindowProvider::resolve_window"))
+}
+
+/// `resolve_element` 的**平台无关前半段**：空链在任何平台都是 `ToolInvalidArgs`
+/// （与 Windows 后端同一判据）。
+fn resolve_element_outcome(chain: &SelectorChain) -> PlatformResult<ResolvedElement> {
+    if chain.candidates().is_empty() {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "resolve_element: selector chain is empty (an empty chain can never resolve)",
+        ));
+    }
+    Err(requires_windows("UiAutomationProvider::resolve_element"))
+}
+
+/// `wait_for` 的**平台无关前半段**：既无 `automation_id` 也无 `role` 的查询在任何平台都是
+/// `ToolInvalidArgs`（与 Windows 后端同一判据）。
+fn wait_for_outcome(query: &ElementQuery) -> PlatformResult<ResolvedElement> {
+    if query.automation_id().is_none() && query.role().is_none() {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "wait_for: query must specify automation_id and/or role",
+        ));
+    }
+    Err(requires_windows("UiAutomationProvider::wait_for"))
+}
+
 impl WindowProvider for WindowsPlatform {
-    async fn list_windows(&self, _filter: &WindowFilter) -> PlatformResult<Vec<WindowInfo>> {
-        Err(requires_windows("WindowProvider::list_windows"))
+    fn list_windows(
+        &self,
+        _filter: &WindowFilter,
+    ) -> impl Future<Output = PlatformResult<Vec<WindowInfo>>> + Send {
+        std::future::ready(Err(requires_windows("WindowProvider::list_windows")))
     }
 
-    async fn resolve_window(
+    fn resolve_window(
         &self,
         descriptor: &assistant_platform_api::TargetDescriptor,
-    ) -> PlatformResult<ResolvedWindow> {
-        // 描述自身的校验是**平台无关**的纯逻辑：坏输入在哪个平台都该得到 `ToolInvalidArgs`，
-        // 而不是被"平台不可用"掩盖（否则调用方会去排查平台而不是修描述）。
-        descriptor.validate()?;
-        Err(requires_windows("WindowProvider::resolve_window"))
+    ) -> impl Future<Output = PlatformResult<ResolvedWindow>> + Send {
+        std::future::ready(resolve_window_outcome(descriptor))
     }
 
-    async fn window_state(&self, _window: &ResolvedWindow) -> PlatformResult<WindowState> {
-        Err(requires_windows("WindowProvider::window_state"))
+    fn window_state(
+        &self,
+        _window: &ResolvedWindow,
+    ) -> impl Future<Output = PlatformResult<WindowState>> + Send {
+        std::future::ready(Err(requires_windows("WindowProvider::window_state")))
     }
 
-    async fn bring_to_front(
+    fn bring_to_front(
         &self,
         _window: &ResolvedWindow,
         _policy: FocusPolicy,
-    ) -> PlatformResult<()> {
-        Err(requires_windows("WindowProvider::bring_to_front"))
+    ) -> impl Future<Output = PlatformResult<()>> + Send {
+        std::future::ready(Err(requires_windows("WindowProvider::bring_to_front")))
     }
 
-    async fn capture(
+    fn capture(
         &self,
         _window: &ResolvedWindow,
         _options: &CaptureOptions,
-    ) -> PlatformResult<ImageRef> {
-        Err(requires_windows("WindowProvider::capture"))
+    ) -> impl Future<Output = PlatformResult<ImageRef>> + Send {
+        std::future::ready(Err(requires_windows("WindowProvider::capture")))
     }
 }
 
 impl UiAutomationProvider for WindowsPlatform {
-    async fn snapshot_tree(
+    fn snapshot_tree(
         &self,
         _root: &ResolvedWindow,
         _options: &TreeOptions,
-    ) -> PlatformResult<TreeSnapshot> {
-        Err(requires_windows("UiAutomationProvider::snapshot_tree"))
+    ) -> impl Future<Output = PlatformResult<TreeSnapshot>> + Send {
+        std::future::ready(Err(requires_windows("UiAutomationProvider::snapshot_tree")))
     }
 
-    async fn resolve_element(&self, chain: &SelectorChain) -> PlatformResult<ResolvedElement> {
-        // 空链是**平台无关**的输入错误（与 Windows 后端同一判据）。
-        if chain.candidates().is_empty() {
-            return Err(PlatformError::new(
-                ErrorCode::ToolInvalidArgs,
-                "resolve_element: selector chain is empty (an empty chain can never resolve)",
-            ));
-        }
-        Err(requires_windows("UiAutomationProvider::resolve_element"))
+    fn resolve_element(
+        &self,
+        chain: &SelectorChain,
+    ) -> impl Future<Output = PlatformResult<ResolvedElement>> + Send {
+        std::future::ready(resolve_element_outcome(chain))
     }
 
-    async fn wait_for(
+    fn wait_for(
         &self,
         query: &ElementQuery,
         _state: &ElementState,
         _timeout: Timeout,
-    ) -> PlatformResult<ResolvedElement> {
-        if query.automation_id().is_none() && query.role().is_none() {
-            return Err(PlatformError::new(
-                ErrorCode::ToolInvalidArgs,
-                "wait_for: query must specify automation_id and/or role",
-            ));
-        }
-        Err(requires_windows("UiAutomationProvider::wait_for"))
+    ) -> impl Future<Output = PlatformResult<ResolvedElement>> + Send {
+        std::future::ready(wait_for_outcome(query))
     }
 
-    async fn read_text(&self, _element: &ResolvedElement) -> PlatformResult<String> {
-        Err(requires_windows("UiAutomationProvider::read_text"))
+    fn read_text(
+        &self,
+        _element: &ResolvedElement,
+    ) -> impl Future<Output = PlatformResult<String>> + Send {
+        std::future::ready(Err(requires_windows("UiAutomationProvider::read_text")))
     }
 
-    async fn set_value(&self, _element: &ResolvedElement, _value: &str) -> PlatformResult<()> {
-        Err(requires_windows("UiAutomationProvider::set_value"))
+    fn set_value(
+        &self,
+        _element: &ResolvedElement,
+        _value: &str,
+    ) -> impl Future<Output = PlatformResult<()>> + Send {
+        std::future::ready(Err(requires_windows("UiAutomationProvider::set_value")))
     }
 
-    async fn edit_text(
+    fn edit_text(
         &self,
         _element: &ResolvedElement,
         _operation: &TextEditOp,
-    ) -> PlatformResult<()> {
-        Err(requires_windows("UiAutomationProvider::edit_text"))
+    ) -> impl Future<Output = PlatformResult<()>> + Send {
+        std::future::ready(Err(requires_windows("UiAutomationProvider::edit_text")))
     }
 
-    async fn invoke_action(&self, _element: &ResolvedElement, _action: &str) -> PlatformResult<()> {
-        Err(requires_windows("UiAutomationProvider::invoke_action"))
+    fn invoke_action(
+        &self,
+        _element: &ResolvedElement,
+        _action: &str,
+    ) -> impl Future<Output = PlatformResult<()>> + Send {
+        std::future::ready(Err(requires_windows("UiAutomationProvider::invoke_action")))
     }
 
-    async fn select(
+    fn select(
         &self,
         _element: &ResolvedElement,
         _selection: &Selection,
-    ) -> PlatformResult<()> {
-        Err(requires_windows("UiAutomationProvider::select"))
+    ) -> impl Future<Output = PlatformResult<()>> + Send {
+        std::future::ready(Err(requires_windows("UiAutomationProvider::select")))
     }
 
-    async fn scroll(
+    fn scroll(
         &self,
         _element: &ResolvedElement,
         _target: &ScrollTarget,
-    ) -> PlatformResult<()> {
-        Err(requires_windows("UiAutomationProvider::scroll"))
+    ) -> impl Future<Output = PlatformResult<()>> + Send {
+        std::future::ready(Err(requires_windows("UiAutomationProvider::scroll")))
     }
 
-    async fn pointer_action(
+    fn pointer_action(
         &self,
         _point: NormalizedPoint,
         _action: &PointerAction,
-    ) -> PlatformResult<()> {
-        Err(requires_windows("UiAutomationProvider::pointer_action"))
+    ) -> impl Future<Output = PlatformResult<()>> + Send {
+        std::future::ready(Err(requires_windows(
+            "UiAutomationProvider::pointer_action",
+        )))
     }
 
-    async fn key_action(&self, _chord: &KeyChord, _target: &KeyTarget) -> PlatformResult<()> {
-        Err(requires_windows("UiAutomationProvider::key_action"))
+    fn key_action(
+        &self,
+        _chord: &KeyChord,
+        _target: &KeyTarget,
+    ) -> impl Future<Output = PlatformResult<()>> + Send {
+        std::future::ready(Err(requires_windows("UiAutomationProvider::key_action")))
     }
 
-    async fn fingerprint(
+    fn fingerprint(
         &self,
         _window: &ResolvedWindow,
         _scope: &FingerprintScope,
-    ) -> PlatformResult<Fingerprint> {
-        Err(requires_windows("UiAutomationProvider::fingerprint"))
+    ) -> impl Future<Output = PlatformResult<Fingerprint>> + Send {
+        std::future::ready(Err(requires_windows("UiAutomationProvider::fingerprint")))
     }
 }
 
 /// `PlatformService` 在非 Windows 上同样只报"通道不可用"（不返回空矩阵 —— 空矩阵会被
 /// 下游误读成"什么都不能做"而不是"没探测"）。
 impl assistant_platform_api::PlatformService for WindowsPlatform {
-    async fn probe_capabilities(&self) -> PlatformResult<CapabilityMatrix> {
-        Err(requires_windows("PlatformService::probe_capabilities"))
+    fn probe_capabilities(&self) -> impl Future<Output = PlatformResult<CapabilityMatrix>> + Send {
+        std::future::ready(Err(requires_windows("PlatformService::probe_capabilities")))
     }
 
-    async fn session_state(&self) -> PlatformResult<SessionState> {
-        Err(requires_windows("PlatformService::session_state"))
+    fn session_state(&self) -> impl Future<Output = PlatformResult<SessionState>> + Send {
+        std::future::ready(Err(requires_windows("PlatformService::session_state")))
     }
 }
 
