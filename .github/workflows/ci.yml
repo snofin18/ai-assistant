@@ -1,8 +1,9 @@
 # CI — gov §5.1 的门禁清单在机器上的表达。
 #
 # 上线策略（TASK-001）：
-#   硬门禁 10 项（任一失败即阻塞合并）：fmt / clippy(含禁用项 lint) / test / verify-schemas
+#   硬门禁 12 项（任一失败即阻塞合并）：fmt / clippy(含禁用项 lint) / test / verify-schemas
 #     / codegen --check / deny / build / hygiene / spike-deny / doc-consistency
+#     / arch test(gov #5，2026-09-24 TASK-015 转硬) / check-ledger(gov #16，同日转硬)
 #     （DRIFT-001-2-a 裁决确认：前 6 项 = 卡面原定 5 项 + hygiene；计数口径见
 #      tasks/TASK-001-repo-skeleton.md §5.2。第 7 项 spike-deny 由 ADR-0024 D2 新增，
 #      对应 gov §5.1 的 #8b —— 因为 spikes/ 被 workspace exclude，主 deny job 覆盖不到它。
@@ -90,9 +91,13 @@ jobs:
       # 软门禁：到了对应任务卡就转为硬门禁（删掉 continue-on-error）
       # =========================================================================
 
-      # 启用卡号：TASK-015（需要 crates/core 存在）
-      - name: "[SOFT #5 → TASK-015] arch test（分层依赖方向）"
-        continue-on-error: true
+      # --- 硬门禁 #5：架构依赖方向（core 不得依赖平台实现，铁律 7）---
+      # 2026-09-24 由软转硬（原 [SOFT #5 → TASK-015]）：TASK-015 落地
+      # crates/core/tests/arch_layering.rs，`arch::` 过滤下的用例从 0 个变成 5 个真断言。
+      # 负向验证（ADR-0019 N1，见该文件 arch::scan_flags_* 三条用例）：喂已知坏样本
+      # （`windows::` 引用 / `windows = "0.62"` 依赖 / `[dependencies.winapi]` 表头形态）→
+      # 断言扫描器必须报；反向用例证明 `assistant-platform-api` 与文档注释里的目录名不被误报。
+      - name: "[HARD #5] arch test（分层依赖方向）"
         run: 'cargo test -p assistant-core arch::'
 
       # --- 硬门禁 #6：五份 protocol schema 的结构/版本/13 类一致性 ---
@@ -134,9 +139,14 @@ jobs:
         continue-on-error: true
         run: cargo run -p xtask -- check-comments
 
-      # 启用卡号：待补卡（PL-002）
-      - name: "[SOFT #16 → 待补卡] check-ledger"
-        continue-on-error: true
+      # --- 硬门禁 #16：台账新鲜度（PLAN.md 更新日期 ≥ LEDGER.md 末行日期 + README.md 状态行）---
+      # 2026-09-24 由软转硬（原 [SOFT #16 → 待补卡]）：TASK-015 落地 `check-ledger`（ADR-0039 D3），
+      # 且 ADR-0039 的「验证方式 2」原文要求「TASK-015 落地 check-ledger 后由 CI 硬拦」——
+      # 停在软门禁等于让该 ADR 的机器判据永远不生效。
+      # 负向验证（ADR-0019 N1，见 xtask/src/ledger_check.rs 的 tests 模块）：4 条负向用例 ——
+      # PLAN 日期落后于 LEDGER 末行 / README 缺 `> 状态：` 行 / 状态行阶段名不符 /
+      # 解析不到「更新日期 / 末行日期 / 当前阶段」时必须报错而不是静默通过（铁律 1）。
+      - name: "[HARD #16] check-ledger"
         run: cargo run -p xtask -- check-ledger
 
   # ==========================================================================

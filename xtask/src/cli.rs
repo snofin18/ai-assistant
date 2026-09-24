@@ -43,9 +43,13 @@ pub const USAGE: &str = r#"xtask — 仓库护栏与开发任务工具（只读�
   guard <操作>       文件改写互斥锁（ADR-0028）；操作 = acquire | release | status | reap
   verify-schemas     5 份 JSON schema 校验（存在 + JSON 合法 + version + 13 类 ErrorCode）
   codegen            从 protocol/*.json 生成 Rust 类型；--check 仅检测 drift 不写
-  replay             [未实现 · TASK-034]     用录制的树快照做离线回放回归
+  replay             用录制的树快照做离线回放回归（骨架 = dry-run 解析 + 校验；
+                     真实 fixture + diff 归 TASK-034 完整版）
+  check-ledger       台账与状态同步的新鲜度检查（ADR-0039 D3：PLAN.md 更新日期 ≥
+                     LEDGER.md 末行日期 + README.md 有 `> 状态：` 行且含当前阶段名）
+  check-migrations   迁移登记表一致性（PL-047：号段全局唯一 + 与
+                     docs/storage-design.md §3.4 逐行一致 + 含迁移的 crate 公开 MIGRATIONS）
   check-comments     [未实现 · 待补卡]       命名与注释规范检查（naming §10）
-  check-ledger       [未实现 · 待补卡]       台账与记忆同步检查
 
 guard 的选项（其它子命令不接受）：
   --owner <标识>     持有者；acquire/release **必填**，且必须会话级唯一

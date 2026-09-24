@@ -77,12 +77,6 @@ pub const DEFERRED_COMMANDS: &[DeferredCommand] = &[
         owning_card: UNASSIGNED_CARD,
         reason: "naming §10 的 8 条注释/命名规则尚未拆成任务卡",
     },
-    DeferredCommand {
-        command: "check-ledger",
-        ci_gate: "gov §5.1 #16",
-        owning_card: UNASSIGNED_CARD,
-        reason: "「卡已完成但未追加 LEDGER/MEMORY」的检查规则尚未拆成任务卡",
-    },
 ];
 
 /// 未实现的卫生规则清单（gov §5.4 共 13 项，TASK-001 实现 3 项，其余 10 项归 TASK-015）。

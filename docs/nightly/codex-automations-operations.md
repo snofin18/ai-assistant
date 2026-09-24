@@ -27,9 +27,15 @@
 
 ---
 
-## 2. ⚠ 启用前置门禁（GATE-0）：先证明端点吞得下 automation 的投递方式
+## 2. ✅ 启用前置门禁（GATE-0）：**已通过（2026-09-24）** —— 先证明端点吞得下 automation 的投递方式
 
 **一句话：在「端点兼容性实测通过」之前，禁止创建任何真实 automation —— cron 与 heartbeat 都禁。**
+
+> **状态（2026-09-24）**：✅ **GATE-0 已通过**（执行人 = 本项目 agent，人类已授权本次调试时段）。
+> GATE-0.1 ~ GATE-0.4 四条全部实测成立；结论、证据与「哪些断言**没有**测」见 **§8.2 基线表 2026-09-24 行**与 §8.3。
+> 机制**已可用**；**尚未排期** —— 正式排期由人类另行说明后再创建（人类 2026-09-24 指示）。
+> 下文的四条「为什么」是 2026-09-17 的原始实测记录（**只追加原则，保留不改**）；
+> 其中 E1 的投递形态已在 2026-09-24 改变 —— 见**下文四条之后的更新块**。
 
 为什么（ADR-0018 的实测结论，在被新实测推翻之前仍然成立）：
 
@@ -38,6 +44,13 @@
 - 本机使用第三方 Responses 兼容端点（阿里云百炼 compatible-mode，`model = qwen3.8-max`；连接串与令牌在本机 `~/.codex/config.toml` 的 `[model_providers.custom]`，**本手册不复制其中任何值**），它对请求体做严格校验 → **400 拒绝** `[实测·探针]`
 - 首轮投递时 Codex 还会临时生成非法 id `at_<uuid>`（该端点要求 `msg_` 前缀），而这个 id **从不落盘** → 「等长补丁修 rollout」的办法无效 `[实测·探针]`
 - **heartbeat 的额外毒性**：毒项沉入长驻 thread，加上 `disable_response_storage = true` 每轮重放全量历史 → 该 thread **此后每次提问都失败**，等于永久报废（新开 thread 正常）`[实测·探针]`。ADR-0018 已经为此付过一个 thread 的代价。
+
+> **2026-09-24 更新（GATE-0 实测，推翻 E1 的形态）**：automation 现在把 prompt 当作**正常 user message** 投递
+> （`role = "user"`、`msg_…` 前缀的合法 id，正文前缀为 `Automation: <name>` / `Automation ID:` /
+> `Automation memory:` / `Last run:`），**不再注入 `call_id: None` 的合成 `function_call_output`** `[实测·探针]`。
+> 后果：① 端点 400 的根因**消失**；② 「毒项沉入长驻会话」的失效模式**未复现**（heartbeat 探针跑完后同一 thread 仍能正常回答）。
+> **上面的旧条目按只追加原则原样保留** —— 它们仍是回退方案（ADR-0018）的历史依据，也是「为什么当初要设这道门禁」的记录。
+> 本机端点与模型同期也换了（阿里云百炼 `qwen3.8-max` → `opencode_go` / `deepseek-v4.1-flash`），见 §8.2。
 
 门禁规则：
 
@@ -55,6 +68,9 @@
 1. 触发后目标 thread 出现**真实的模型回复**（不是 2.6 秒零产出失败）；
 2. 触发后在同一 thread 再手工发一条消息，**仍能正常回答**（证明没中毒）；
 3. 该会话 rollout 里的合成项要么带合法 `call_id`，要么根本不出现 `at_` 前缀 id。
+
+**2026-09-24 实测结果：三条全中**（cron 2 个 + heartbeat 5 个 `function_call_output` **全部**带合法 `call_id`，
+`at_` 前缀 id **0 个**，无 400）→ **GATE-0 通过**。
 
 **不通过怎么办**：回落到 ADR-0018 的路径（Windows 任务计划程序 + `codex exec`，验收清单见 `docs/nightly/scheduler-acceptance-test.md`），或直接暂停夜间自动化、回到纯白天推进。ADR-0029 D4 已把 ADR-0018 定为「Superseded 但**保留**」的回退方案，那份清单不删除；启用它之前先按 GATE-0.6 停掉 automation。**不要试图改 rollout 来「修毒项」** —— 首轮投递的 `at_` id 从不落盘，无从修补 `[实测·探针]`。
 
@@ -96,13 +112,15 @@
 | `name` | 人类可读、可 grep 的名字，例：`ai-assistant-nightly-2330` | 必填 `[实测·探针]`（2026-09-17 探明，记录于 `docs/memory/pitfalls.md`） |
 | `prompt` | 每次运行重放的指令。**用户可见**，写成连贯散文；**通知偏好不要写进来**（用 `notificationPolicy`） | 必填 `[实测·探针]`；写法要求 `[实测·声明]` |
 | `rrule` | RFC 5545 递推规则。本项目「每夜 23:30 与 02:30」怎么写见 §6 第 12 行 | 字段必填 `[实测·探针]`；RRULE 语法 `[官方]` |
-| `status` | **取值集合未探明**（从 §4.6 的暂停语义推测是 active / paused 之类） | 字段必填 `[实测·探针]`；取值 `[未验证]` |
-| `projectId` | 用 `list_projects` 查本项目的 id；顺带确认 `isGitRepository` | 必填 `[实测·探针]`；查法 `[实测·声明]` |
+| `status` | **取值 = `ACTIVE` / `PAUSED`**（2026-09-24 实测） | 字段必填 `[实测·探针]`；取值 `[实测·探针]`（2026-09-24） |
+| `projectId` | 用 `list_projects` 查本项目的 id；顺带确认 `isGitRepository`。⚠ **必须用 legacy project id** —— 本机 `ai-assistant` = `5b628eec-9ca4-4768-8891-c7744a9dab5e`；app-server id（`01a0a80a-d1e7-7551-9d27-6518a58b78ed`）会被拒且只回 `Failed to create automation.` | 必填 `[实测·探针]`；查法 `[实测·声明]`；legacy 口径 `[实测·探针]`（2026-09-24） |
 | `model` | **不要留默认**。本机走第三方端点，默认值可能是官方模型名 → 端点不认识。填本机 `~/.codex/config.toml` 里的 `model` 值 | 必填 `[实测·探针]`；「可留默认」是官方说法 `[官方]`；「本机必须显式填」是推论 |
 | `reasoningEffort` | 显式给，避免默认值随版本漂移 | 必填 `[实测·探针]` |
-| `executionEnvironment` | `"local"`（对应官方的「跑在本地项目或 worktree」） | 必填 `[实测·探针]` |
+| `executionEnvironment` | `"local"`（对应官方的「跑在本地项目或 worktree」）。**本机实测只接受 `"local"`** —— 经工具选 worktree 的写法未找到 | 必填 `[实测·探针]`；取值 `[实测·探针]`（2026-09-24） |
 
-**仍然是 `[未验证]` 的字段**（不要猜着填）：local 与 worktree 的选择由哪个字段表达、`notificationPolicy` 的确切取值集、时区、单次运行时长上限、并发实例策略、失败重试策略。
+**仍然是 `[未验证]` 的字段**（不要猜着填）：`notificationPolicy` 的确切取值集、时区、单次运行时长上限、并发实例策略、失败重试策略。
+**2026-09-24 已探明**（从上面这份「未验证」清单里移出）：`status` = `ACTIVE` / `PAUSED`；
+`executionEnvironment` 只接受 `"local"`；`projectId` 必须用 **legacy id**。`destination` **不是**必填（2026-09-17 记的「八字段」口径成立）。
 
 > **探 schema 的办法**（下次补字段时用）：故意只传 `kind`，让校验器把缺失字段一次性全列出来 `[实测·探针]`。这比逐个猜快得多 —— 2026-09-17 那次就是因为不知道这招，把「缺字段」误判成「cron 需要 ChatGPT 鉴权、本环境不可用」，白烧一晚。
 
@@ -120,9 +138,14 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 
 **走工具** `[实测·声明]`：`mode = "create"` + `kind = "heartbeat"`。heartbeat 是「挂在**当前本地 thread** 上的主动跟进」，也是循环性请求的默认形态；工具声明还要求：除非用户明确要「每次一个新任务」，否则不要拿 cron 去变通实现 thread heartbeat。
 
-**具体字段名（thread 标识叫什么、间隔字段叫什么、间隔单位）本机未探明** `[未验证]`。已确知的只有：`kind` 的判别式取值是 `cron` / `heartbeat` `[实测·探针]`；以及**一个 thread 只允许一个 heartbeat** `[实测·探针]`（2026-09-16 记录于 `docs/memory/facts.md`；注意同一条里「cron 创建失败」的记载已被 2026-09-17 的探针推翻，别一起采信）。
+**具体字段名（2026-09-24 已探明）** `[实测·探针]`：`mode = "create"` + `kind = "heartbeat"` + **`targetThreadId`**（挂载目标 thread）+ **`rrule`**（节奏）；
+落盘到 `automation.toml` 时字段名是 **`target_thread_id`**；**其余字段可省**（这与 cron 的「八个必填」相反，是本手册里最容易踩的差异）。
+另有两条已确知：`kind` 的判别式取值是 `cron` / `heartbeat` `[实测·探针]`；**一个 thread 只允许一个 heartbeat** `[实测·探针]`
+（2026-09-16 记录于 `docs/memory/facts.md`；注意同一条里「cron 创建失败」的记载已被 2026-09-17 的探针推翻，别一起采信）。
 
-⚠ **本项目额外禁令**：主线工作 thread **永久禁止**挂 heartbeat，除非 GATE-0 已通过（§2）。
+⚠ **本项目额外禁令**：① **GATE-0 的验证**绝不许挂在主线工作 thread 上（GATE-0.3，与门禁是否已过无关）；
+② 夜间主方案**永久不用** heartbeat（章程 §11.1）—— 理由是**上下文累积漂移**，与 2026-09-24 已推翻的「中毒」不是同一件事，
+所以「GATE-0 已通过」**不等于**「可以在主线 thread 上挂 heartbeat」。
 
 **本项目定位（ADR-0029 D1）**：夜间主方案是 **standalone（cron）**；heartbeat **不作为夜间主方案** —— 它复用既有 chat 的上下文，一旦端点问题复现就是「毒项沉入长驻会话」的完整重演。heartbeat 在本项目只有一个合法用途：**GATE-0 的最小探针**（§2、§8 的 D1）。
 
@@ -143,6 +166,7 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 - **工具** `[实测·探针]`：`mode = "delete"` + `id`（string，必填）。这是少数几个**报错会说清缺什么**的地方 —— 缺 `id` 时校验器明确回「`id` 必填（string）」。
 - **UI**：官方页**没有**给逐步点击路径，全文甚至没有出现 "delete" 一词 `[官方未写]` → 具体步骤 `[未验证]`。**Scheduled** 视图里可编辑、暂停、归档（见 §4.7）；「删除」是否等同「归档」，未知。
 - **删除后自检**：`Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"` 应回到只剩 `.run-jitter-salt`；被删任务关联的 worktree / 分支是否一并清理 `[未验证]`（官方只说 worktree 会堆积、要归档 run，没说删除任务会回收 worktree）→ 删完顺手 `git worktree list` 核对。
+- **2026-09-24 实测** `[实测·探针]`：删除后目录**确实**回到只剩 `.run-jitter-salt`，`git worktree list` 无新增；且 **automation 自己（心跳 run）也能调 `mode = "delete"` 把自己删掉**（GATE-0.4 的清理就是这样完成的）。
 
 ### 4.5 立即运行（run now）
 
@@ -160,7 +184,8 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 ### 4.6 暂停
 
 - **UI** `[官方]`：侧边栏 **Scheduled** 视图有 All / Active / Paused 三个分组（官方页附有该视图的示意图说明），说明暂停控件存在；但官方**没有写逐步点击路径** → 具体步骤 `[未验证]`。
-- **工具**：没有 `pause` 模式 `[实测·探针]`。推测走 `mode = "update"` 改 `status` 字段（`status` 是 cron 必填项 `[实测·探针]`），但取值集合 `[未验证]`。
+- **工具**：没有 `pause` 模式 `[实测·探针]`。走 `mode = "update"` 改 `status` 字段（`status` 是 cron 必填项 `[实测·探针]`），**取值 = `ACTIVE` / `PAUSED`** `[实测·探针]`（2026-09-24）。
+  ⚠ 「暂停 / 恢复」这条路径本身**仍未端到端实测**（§8 的 D7 没跑）→ 正式排期启用前补测。
 - **本项目约定**：夜间 automation 一旦连续两夜 0 产出（章程 §11.5 的上报条件），**先暂停再排查**，不要边跑边改 —— 边跑边改会让你分不清「失败是旧配置造成的还是新配置造成的」。
 
 ### 4.7 恢复 / 停止 / 归档
@@ -187,10 +212,14 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 | 路径 | 内容 | 证据 |
 |---|---|---|
 | `~/.codex/automations/` | automation 的落盘根目录（即 `$CODEX_HOME/automations`） | 路径来自工具声明 `[实测·声明]`；目录存在 `[实测·探针]`（本轮） |
-| `~/.codex/automations/<id>/automation.toml` | 单个 automation 的定义文件。找 id、以及 §4.3 要求的「改前抄全量字段」都读它 | 路径 `[实测·声明]`；**内部 schema `[未验证]`** —— 本机当前一个 automation 都没有，无从观察 |
+| `~/.codex/automations/<id>/automation.toml` | 单个 automation 的定义文件。找 id、以及 §4.3 要求的「改前抄全量字段」都读它 | 路径 `[实测·声明]`；**内部 schema 已可观察** `[实测·探针]`（2026-09-24）—— 含 `target = { type = "project", project_id = "<legacy id>" }`、heartbeat 的 `target_thread_id` 等；字段名与取值见 §8.2 |
 | `~/.codex/automations/.run-jitter-salt` | 一个 UUID（本机 37 字节），用于给触发时刻加随机抖动 | `[实测·探针]`（本轮 `Get-ChildItem -Force` 确认它是该目录下**唯一**条目） |
+| `~/.codex/automations/<id>/memory.md` | automation 的**跨轮记忆**文件（自动创建，agent 每轮可读写）。与仓库内的 `docs/memory/*` 是两回事，**不得**拿它承载项目结论 | `[实测·探针]`（2026-09-24） |
 
 **触发抖动 ≈ +2 分钟** `[实测·探针]`：2026-09-17 的 cron 探针约定 11:16 / 11:24，实际 11:17:54 / 11:25:54 触发。抖动由上面那个 salt 决定；**是否可配置、算法是什么，官方未写** `[未验证]`。
+
+**2026-09-24 复测（数值已变，与上面那次不矛盾 —— salt 换了）** `[实测·探针]`：cron 约定 17:40:00 → 实际 **17:40:46（+46 s）**；
+heartbeat 约定 18:04:23 → 实际 **18:04:24（约 +1 s）**。→ 计划时刻仍应**避开 00:00 与整点边界至少 10 分钟**（章程 §11.3）。
 
 **本项目纪律：不得靠手改这些文件来管理 automation。** 三条理由：
 
@@ -204,7 +233,7 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 
 ## 6. 与本项目夜间章程的映射
 
-现行章程 = `docs/overnight-automation-charter.md` §11（v1.3）。**注意它是按 ADR-0018 的 CLI 路径写的**；ADR-0029 把机制换回 Codex automation，所以逐条重新对表。下表的「机制缺口」= automation 表达不了、必须靠 prompt 纪律或人类审查兜住的部分。
+现行章程 = `docs/overnight-automation-charter.md` §11（**v1.5**，2026-09-24；机制 = Codex 原生 scheduled tasks）。ADR-0029 把机制从 ADR-0018 的 CLI 路径换回 Codex automation，下表据此逐条对表。下表的「机制缺口」= automation 表达不了、必须靠 prompt 纪律或人类审查兜住的部分。
 
 | # | 章程要求（出处） | 在 automation 机制下怎么表达 | 结论 |
 |---|---|---|---|
@@ -231,8 +260,8 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 
 | # | 缺口 / 风险 | 影响 | 证据 | 缓解或处置 |
 |---|---|---|---|---|
-| R1 | 端点 400 拒绝 automation 注入的合成工具结果项 | automation 完全不可用；heartbeat 还会永久毒死所挂 thread | `[实测·探针]`（ADR-0018） | **GATE-0**（§2）。门禁未过禁止创建任何真实 automation |
-| R2 | 触发有约 +2 分钟随机抖动 | 定时不准；贴近午夜会把「当夜日期」算错 | `[实测·探针]` | 计划时刻避开 00:00 与整点边界至少 10 分钟；日期归属规则写进 prompt（§6 第 1 行） |
+| R1 | 端点 400 拒绝 automation 注入的合成工具结果项 | automation 完全不可用；heartbeat 还会永久毒死所挂 thread | `[实测·探针]`（ADR-0018） | **→ 2026-09-24：根因已消失** —— 投递形态改为正常 user message，合成项不再出现（§2 更新块 / §8.2）。本条**保留**为历史记录与回退方案（ADR-0018）的依据；GATE-0 仍是「换端点 / 升级 Codex 后必须重跑」的门禁 |
+| R2 | 触发有随机抖动（2026-09-17 记 ≈ +2 分钟；**2026-09-24 复测 cron +46 s、heartbeat 约 +1 s**） | 定时不准；贴近午夜会把「当夜日期」算错 | `[实测·探针]` | 计划时刻避开 00:00 与整点边界至少 10 分钟；日期归属规则写进 prompt（§6 第 1 行） |
 | R3 | 创建失败只回 `Failed to create automation.`，不指明字段 | 排错成本高；曾因此误判「cron 需 ChatGPT 鉴权、本环境不可用」，白烧一晚 | `[实测·探针]` | 按 §4.1 的八个必填字段一次给全；仍失败就用「只传 `kind`」让校验器把缺失项全列出来 |
 | R4 | `mode = "view"` 对不存在的 id 渲染空卡而不报错 | agent 自检会被骗，以为 automation 还在 | `[实测·探针]` | 存在性判断一律看磁盘 `automation.toml`，不看 view（§4.8） |
 | R5 | 没有机器可读的「上次运行结果」（无退出码） | 失败可能无声无息；章程 §11.6 的第①层信号消失 | `[官方]` 只提供 Scheduled 视图与未读标记；细节 `[未验证]` | 人类每天先看 Scheduled 未读；报告 §① 强制自述结果；**登记为 OPEN**（`docs/memory/open.md`） |
@@ -244,14 +273,16 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 | R11 | 组织策略允许时 automation 用 `approval_policy = "never"` | 无人值守时不会向任何人确认，与 AGENTS.md 铁律 6 直接冲突 | `[官方]` | 夜间白名单只留可逆的文档/测试类工作；沙箱取最窄；真实应用与资金/发送类永久排除 |
 | R12 | 官方模型退役时间线（GPT-5.5 → 2026-10-14；GPT-5.4 / 5.4-mini → 2026-08-31） | 若 `model` 填了将退役的官方模型，任务会在退役后失效 | `[官方]` | 本机走第三方端点、`model` 必填且显式 → 不受该时间线影响；但**每次升级 Codex 后重跑 §8** |
 | R13 | CLI 侧没有 automation 子命令 | 无法用脚本或 CI 管理 automation，不能纳入 `xtask` 门禁 | `[实测·探针]`（本轮 `codex --help`，`codex-cli 0.154.0-alpha.6.2` 的子命令列表里没有任何 automation 相关项） | 接受现实：automation 只能在应用内管理，因此天然不可 CI 化 → 台账义务落到本手册与 LEDGER |
-| R14 | heartbeat 的具体字段未探明 | 手拼必失败，且失败不指字段 | `[未验证]` | 用自然语言让 Codex 自己组装（§4.0 规则 1）；不要在门禁未过时反复试错 |
+| R14 | ~~heartbeat 的具体字段未探明~~ **→ 2026-09-24 已探明**：`kind = "heartbeat"` + `targetThreadId` + `rrule`（落盘 `target_thread_id`） | 原风险：手拼必失败，且失败不指字段 | `[实测·探针]`（2026-09-24） | 按 §4.2 的字段清单给全；仍优先用自然语言让 Codex 自己组装（§4.0 规则 1） |
+| R15 | **沙箱开关不在 `config.toml`**：应用 UI 的权限模式（`~/.codex/.codex-global-state.json` → `permission-selection-by-host-id:local`）覆盖 `sandbox_mode` | 以为改了 `config.toml` 就收紧了沙箱 → **实际仍是 full access**（静默地不安全）；且 automation 用「你的默认沙箱设置」，所以夜间也照此 | `[实测·探针]`（2026-09-24：改 `config.toml` 后新建的 run 仍报 `sandbox=dangerFullAccess`，工作区外写入成功） | **收紧沙箱必须去应用 UI 改权限模式**（config.toml 不够）；改完用「工作区外写入应失败」做**负向验证**。另注：`workspace-write` 下需要联网的工具调用会失败（§6 第 9 行）→ 先 `cargo fetch` 预热 |
 
 ---
 
-## 8. 验证清单（本轮**不执行**，留给专门的调试时段）
+## 8. 验证清单（**2026-09-24 已执行** —— 结论见 §8.2 / §8.3）
 
 > 断言对象换成 Codex automation；格式沿用 `docs/nightly/scheduler-acceptance-test.md`。按 ADR-0029 D4，那份清单**不删除**，改挂「已被取代（当前非主方案），保留为回退方案验收清单」横幅 —— 该标注由主会话执行，**不在本手册的 write scope 内**。
 > **谁执行：必须人类在场** —— 首次要现场记录字段名与触发时刻，异常时要能立刻停。**GATE-0 通过前不得建正式排期。**
+> **2026-09-24 执行记录**：人类授权调试时段，由本项目 agent 执行；触发时刻与字段名已落进 §8.2 基线表。
 
 ### 8.0 前置条件
 
@@ -289,11 +320,43 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 | 触发抖动 | 约 +2 分钟（约定 11:16 → 实际 11:17:54；约定 11:24 → 实际 11:25:54） | 2026-09-17 |
 | `mode = "view"` 的返回 | `Rendered automation card in the app.`（不存在的 id 也返回同一句） | 2026-09-18 |
 | 本机 automation 定义文件数量 | 0 | 2026-09-18 |
+| `codex --version` | `codex-cli 0.155.0-alpha.16.3`（2026-09-18 记的 `0.154.0-alpha.6.2` 已过时） | 2026-09-24 |
+| 桌面应用版本 | `26.917.51856` | 2026-09-24 |
+| 端点 / 模型 | 端点 `opencode_go`，`model = deepseek-v4.1-flash`（**已不是** 2026-09-17 记的阿里云百炼 `qwen3.8-max`） | 2026-09-24 |
+| **投递形态** | prompt 以**正常 user message** 投递（`role = "user"`、`msg_…` id、正文前缀 `Automation: <name>` / `Automation ID:` / `Automation memory:` / `Last run:`）；**不再**注入 `call_id: None` 的合成 `function_call_output` | 2026-09-24 |
+| 触发抖动（cron / standalone） | **+46 s**（约定 17:40:00 → 实际 17:40:46） | 2026-09-24 |
+| 触发抖动（heartbeat） | **约 +1 s**（约定 18:04:23 → 实际 18:04:24） | 2026-09-24 |
+| cron 必填字段（实测） | 8 个：`kind` / `name` / `prompt` / `rrule` / `status` / `projectId` / `model` / `reasoningEffort` / `executionEnvironment`（`destination` **不需要**） | 2026-09-24 |
+| `projectId` 取值口径 | **必须用 legacy project id**（本项目 `ai-assistant` = `5b628eec-9ca4-4768-8891-c7744a9dab5e`）；app-server id（`01a0a80a-d1e7-7551-9d27-6518a58b78ed`）会被拒，只回 `Failed to create automation.` | 2026-09-24 |
+| `executionEnvironment` 取值 | 只接受 `"local"` | 2026-09-24 |
+| `status` 取值 | `ACTIVE` / `PAUSED` | 2026-09-24 |
+| heartbeat 必填字段（实测） | `kind = "heartbeat"` + `targetThreadId` + `rrule`（落盘字段名 `target_thread_id`）；其余字段可省 | 2026-09-24 |
+| `automation.toml` 内部 schema | 可观察（原 `[未验证]`）：含 `target = { type = "project", project_id = "<legacy id>" }` 等 | 2026-09-24 |
+| 运行位置（cron + local 模式） | 每次 run 开**全新 chat**；产物落在 **`cwd = D:\csart\ai-assistant`（主 checkout，非 worktree）** | 2026-09-24 |
+| automation 跨轮记忆 | `~/.codex/automations/<id>/memory.md` 自动创建，agent 每轮可读写 | 2026-09-24 |
+| 心跳 agent 能否删掉自己 | **能**（实测调 `automation_update(mode = "delete")` 成功） | 2026-09-24 |
+| `::inbox-item` 指令 | `::inbox-item{title="…" summary="…"}` → 把「有发现」推进 Scheduled 收件箱（章程 §11.6 依赖的未读通道） | 2026-09-24 |
+| `model_context_window` | 实际 **950000**（≠ `config.toml` 里写的 1000000） | 2026-09-24 |
+| 沙箱开关的**实际位置** | **应用 UI 的权限模式**（`~/.codex/.codex-global-state.json` → `permission-selection-by-host-id:local`）**覆盖** `config.toml` 的 `sandbox_mode`；只改 `config.toml` **不生效**（实测：改后新建的 run 仍报 `sandbox=dangerFullAccess`，且工作区外写入成功） | 2026-09-24 |
 
 ### 8.3 判定与后续
 
 - **全绿** → ① 把 §2 的 GATE-0 标为已通过 + 日期 + 执行人；② ADR-0029 的「生效前提」标为已满足；③ 章程 §11 按 §6 的映射表重写（改章程需 ADR，ADR-0029 即该授权）；④ 才可创建**正式**的夜间排期；⑤ `LEDGER.md` 追加一行；⑥ 把 D2–D6 的实测结论回填本手册，替换相应的 `[未验证]` 标签。
 - **任一项失败** → 不建正式排期；失败项与证据记入 `docs/PARKING_LOT.md`；判断是回落到 ADR-0018 的 CLI 路径，还是触发「连续失败即暂停夜间自动化、回到纯白天推进」的同类条款。
+
+**2026-09-24 执行结果：全绿**（证据 = §8.2 的 2026-09-24 行）。已按上面的「全绿」分支执行：
+
+1. §2 的 GATE-0 已标为**已通过（2026-09-24）**；
+2. ADR-0029 的「生效前提」标为已满足（依据其「验证方式」7①）；
+3. 章程状态字段回填 → `docs/overnight-automation-charter.md` **v1.5**（§11.1「主方案」现状 + §11.9 当前状态；
+   授权来源 = ADR-0029「验证方式」7① 与 **ADR-0041 D5**）；
+4. **未创建任何正式排期** —— 人类 2026-09-24 指示「何时排期另行说明」；
+5. `LEDGER.md` 已追加一行；
+6. D2 / D5 / D6（部分）的实测结论已回填本手册 §4.1 / §4.2 / §5 / §8.2。
+
+**诚实标注：本轮没有测的断言** —— D3（`suggested_create` 语义）、D4（`notificationPolicy = failed_runs_only`
+是否真的只在失败时通知）、D7（暂停 / 恢复路径）、D6 的「错过触发是否补跑」→ **仍为 `[未验证]`**。
+正式排期启用前应补测这几条（它们不影响「机制可用」这个结论，但影响「失败可见性」的可靠性）。
 
 ---
 
@@ -302,3 +365,4 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 | 版本 | 日期 | 变更 | 依据 |
 |---|---|---|---|
 | 1.0 | 2026-09-18 | 初稿：证据分级图例与术语对齐、GATE-0 端点兼容性门禁、两类任务对照、八类操作的逐条做法（建立 cron / 建立 heartbeat / 修改 / 删除 / 立即运行 / 暂停 / 恢复与归档 / 查看）、磁盘形态与「不许手改」纪律、章程 14 条映射（4 ✅ / 6 ⚠ / 4 ❌）、14 条风险、验证清单 P1–P5 与 D1–D8 | ADR-0029；官方文档副本 `cx_automations.md`（2026-09-18 抓取）；ADR-0018 及其 2026-09-17 探针实测；`docs/overnight-automation-charter.md` §11（v1.3）；本轮 `codex --help` 与 `~/.codex/automations/` 目录实测；`docs/memory/facts.md`、`pitfalls.md`、`rejected.md` 的 2026-09-16 / 09-17 条目 |
+| 1.1 | 2026-09-24 | **GATE-0 执行结果回填**：§2 标为**已通过（2026-09-24）** + 追加「投递形态已变」的更新块 + 硬标准三条全中的结论；§4.1 `status` / `projectId`（legacy id）/ `executionEnvironment` 三个字段从 `[未验证]` 升级为 `[实测·探针]`；§4.2 heartbeat 字段清单（`targetThreadId` + `rrule`）从 `[未验证]` 升级为 `[实测·探针]`，并把「额外禁令」写准（验证禁挂主线 / 夜间永久不用）；§4.4 删除路径补实测确认；§4.6 `status` 取值 = `ACTIVE` / `PAUSED`；§5 `automation.toml` schema 与 `memory.md` 补实测、抖动补 2026-09-24 复测值；§6 章程版本引用 v1.3 → v1.5；§7 R1（端点 400）标为「根因已消失」、R2 补复测值、R14 升级为已探明、**新增 R15（沙箱开关在应用 UI）**；§8 标为已执行 + §8.2 追加 18 行基线 + §8.3 写「全绿」分支的执行记录与**未测断言清单** | ADR-0029「验证方式」7①（GATE-0 实测通过 → 状态改 ✅、断言结果落基线）；人类 2026-09-24 授权调试时段并指示「何时排期另行说明」 |

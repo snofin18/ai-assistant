@@ -29,11 +29,11 @@
 
 | 文件 | 行数 | 条目数 | 读法 |
 |---|---|---|---|
-| `facts.md` | 147 | 97 | 按主题分节；**grep 优先**，不必全读 |
-| `pitfalls.md` | 197 | 92 | 按主题分节；**grep 优先**，不必全读 |
+| `facts.md` | 157 | 106 | 按主题分节；**grep 优先**，不必全读 |
+| `pitfalls.md` | 205 | 99 | 按主题分节；**grep 优先**，不必全读 |
 | `rejected.md` | 53 | 33 | ★ **动手前全量读**（防止同一方案被反复重新提出） |
-| `decisions.md` | 101 | 54 | 索引 → `docs/adr/NNNN-*.md` |
-| `open.md` | 53 | 26 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
+| `decisions.md` | 106 | 55 | 索引 → `docs/adr/NNNN-*.md` |
+| `open.md` | 57 | 26 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
 | `apps/notepad.md` | 340 | 0 | 接记事本时**全量读**；8 个固定小节 |
 | win32-input-research.md | 193 | 0 | 接 Notepad Adapter + 任何 Win32 输入操作时**全量读**（SendInput / keybd_event / SendKeys / AttachThreadInput / BlockInput / SetForegroundWindow / WindowPattern.Close / UIPI / 推荐 pipeline） |
 
@@ -88,7 +88,7 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
               docs/memory/*（ADR-0021 分层，2026-09-18 落地）、
               docs/nightly/{codex-automations-operations, scheduler-acceptance-test}.md、
               docs/spike-reports/SPIKE-A.md（**PARTIAL**）
-已产出代码  ：xtask（零第三方依赖的护栏工具）。子命令清单以 `cargo run -p xtask -- help` 输出为权威（不要在这里手抄个数 —— 改用命令取，PL-022 根因复发）。当前已实现 = hygiene / memory-counts / adr-index / refscan / docscan / card-check / guard / verify-schemas / codegen 共 9 个（+ 未实现：replay / check-comments / check-ledger）+ exemptions helper module（不暴露）。
+已产出代码  ：xtask（零第三方依赖的护栏工具）。**子命令清单以 `cargo run -p xtask -- help` 输出为权威** —— 2026-09-24 起**不再在此手抄子命令个数与名单**：手抄的派生值必然漂移（PL-022 的根因；2026-09-24 TASK-015 新增 `check-ledger` / `check-migrations` 时当场证实这句「9 个」已过时）。另有 exemptions helper module（不暴露）。
               **行数与测试数不写进本快照** —— 看 `cargo test -p xtask` 与 `xtask hygiene` 的输出）
               + CI（三平台矩阵；**硬/软门禁清单与数量以 gov §5.1 表为准**，2026-09-18 新增
                 #8b spike-deny 与 #12b doc-consistency 两道硬门禁）

@@ -80,8 +80,10 @@ mod guard_release;
 mod guard_runner;
 mod guard_store;
 mod hygiene;
+mod ledger_check;
 mod memory_counts;
 mod memory_table;
+mod migration_registry;
 mod refscan;
 mod render;
 mod replay;
@@ -256,6 +258,12 @@ fn execute(arguments: &[String], output: &mut dyn Write) -> Result<u8, Failure> 
     }
     if command == "card-check" {
         return run_card_check(&invocation, output);
+    }
+    if command == "check-ledger" {
+        return run_check_ledger(&invocation, output);
+    }
+    if command == "check-migrations" {
+        return run_check_migrations(&invocation, output);
     }
     if command == "arch" {
         return run_arch(&invocation, output);
@@ -432,6 +440,20 @@ fn run_card_check(invocation: &Invocation, output: &mut dyn Write) -> Result<u8,
     let root = resolve_repo_root(invocation.repo.as_deref())
         .map_err(|error| Failure::from_walk(&error))?;
     card_check::run(&root, output).map_err(Failure::Io)
+}
+
+/// 执行台账新鲜度检查（ADR-0039 D3 的两条规则：`PLAN.md` 日期 + `README.md` 状态行）。
+fn run_check_ledger(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
+    let root = resolve_repo_root(invocation.repo.as_deref())
+        .map_err(|error| Failure::from_walk(&error))?;
+    ledger_check::run(&root, output).map_err(Failure::Io)
+}
+
+/// 执行迁移登记表一致性检查（PL-047 的三条判据；SSOT = `docs/storage-design.md` §3.4）。
+fn run_check_migrations(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
+    let root = resolve_repo_root(invocation.repo.as_deref())
+        .map_err(|error| Failure::from_walk(&error))?;
+    migration_registry::run(&root, output).map_err(Failure::Io)
 }
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
