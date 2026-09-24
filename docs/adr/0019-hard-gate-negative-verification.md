@@ -141,3 +141,8 @@ spike 负向 exit 0（内层 exit 4）。
 **对本 ADR 判据的修正**：登记表里的 ✅ 只应读作「**canary 已落地**」，**不等于**「canary 已跑过且为绿」。
 补强判据：**canary 类护栏（N3）的 ✅ 必须以「一次成功的 `run_number`」为证据**，仅"文件存在 +
 本地通过"不足。运行编号按本 ADR 规程 ② 记入 `LEDGER.md`。
+
+**run 2 = SUCCESS**（`run_number=2`、id `35943777578`、`workflow_dispatch` on main@`a3694ae`）：
+两个 job 的**全部步骤 success**，含此前失败的两个负向步；同 commit 的主 CI（push 事件，
+id `35943752487`）亦 success。至此 #8 / #8b 的 N3 canary 有了**一次成功 `run_number`** 作为证据，
+本次元门禁自检闭环。

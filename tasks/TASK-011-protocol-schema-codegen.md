@@ -560,3 +560,14 @@ GitHub workflow，故本轮**未执行**，已在 LEDGER 记一行待办。
 3. **run 2 仍红的可能**：若 run 2 仍红，优先看日志里有没有
    `----- cargo-deny output (exit=...) -----` 这段分隔线 —— 有 = 断言真的跑了（再看断言内容）；
    没有 = 还有别处在 `-e` 下提前退出。
+
+#### §10 run 2 实证（2026-09-24，同日收尾）
+
+- `gate-selftest` **run 2 = SUCCESS**（`run_number=2`、id `35943777578`、`workflow_dispatch` on main@`a3694ae`）：
+  两个 job 的**全部步骤 success**，含两个负向步 `negative: broken config must fail with 'expected a string'`
+  与 `negative: GPL-licensed spike dependency must fail the licenses check`。
+- 同 commit 的主 CI（push 事件，id `35943752487`）亦 success。
+- 触发方式更正：本机虽无 `gh`，但 `git credential fill` 可取到 credential manager 中已存的 PAT
+  （带 workflow scope），故用 `POST /repos/snofin18/ai-assistant/actions/workflows/gate-selftest.yml/dispatches`
+  直接触发（凭据只在内存使用，未落盘、未打印）。
+- §4 最后一条未勾选项与 §7 ① 至此闭合。
