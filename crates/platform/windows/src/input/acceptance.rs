@@ -15,6 +15,12 @@
 //! 按 TASK-018 的 Q3 裁决，真机验收是**人类在本机跑的手工验收**，结果贴进
 //! `tasks/TASK-018-platform-windows-synthetic-input-ime.md` §3，**不作为 CI 门禁**。
 //!
+//! ## 它开出来的记事本会自己收掉
+//! 记事本那一条会**开一个真窗口**。Win11 的 `notepad.exe` 只是启动器存根（真正的应用是打包的
+//! MSIX `Microsoft.WindowsNotepad`），所以 `Child::kill()` **关不掉窗口**。测试末尾按「启动前快照」
+//! 与「标题含本次临时文件名」两条判据，**只关它自己创建的那个窗口**（详见
+//! [`close_notepad_windows_created_by_this_test`]；关不掉时会**打印**残留，不静默）。
+//!
 //! ## 前置条件（架构 v2 §6.9）
 //! 坐标通道要求进程声明 **Per-Monitor V2** DPI 感知，否则 Win32 会把坐标**虚拟化**，
 //! 「物理像素」这个前提就不成立。测试二进制没有 manifest，因此本模块在运行时显式声明
@@ -29,11 +35,11 @@ use assistant_platform_api::{
     PlatformResult, PointerAction, ResolvedWindow, UiAutomationProvider, WindowFilter,
     WindowProvider,
 };
-use windows::Win32::Foundation::{HWND, POINT};
+use windows::Win32::Foundation::{HWND, LPARAM, POINT, WPARAM};
 use windows::Win32::UI::HiDpi::{
     DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext,
 };
-use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
+use windows::Win32::UI::WindowsAndMessaging::{GetCursorPos, PostMessageW, WM_CLOSE};
 
 use super::{is_ime_open, send_unicode_text};
 use crate::WindowsPlatform;
@@ -41,6 +47,9 @@ use crate::coordinates::{MonitorRecord, coordinate_space_for_monitor, enumerate_
 
 /// 坐标精度判据（架构 v2 §6.9 / 批次表 A2：≤ 2 px）。
 const MAXIMUM_PIXEL_ERROR: i32 = 2;
+
+/// 关窗超时：`WM_CLOSE` 之后等窗口消失的上限（超时**打印残留**，不静默通过）。
+const CLEANUP_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// 把一条说明写到 stderr。用 `writeln!` 而不是 `eprintln!`：workspace 把
 /// `clippy::print_stderr` 定为 deny（AGENTS.md §5.2），而**跳过原因必须可见**（不静默通过）。
@@ -103,6 +112,9 @@ fn primary_display(displays: &[MonitorRecord]) -> &MonitorRecord {
 }
 
 /// 启动记事本打开 `path`；失败返回 `None` 并**打印原因**（不静默跳过）。
+///
+/// **注意**：返回的 `Child` 只是**启动器存根**，不是显示窗口的那个进程（见
+/// [`close_notepad_windows_created_by_this_test`]）。`Child::kill()` 因此**不足以**关掉窗口。
 fn launch_notepad(path: &Path) -> Option<std::process::Child> {
     match std::process::Command::new("notepad.exe").arg(path).spawn() {
         Ok(child) => Some(child),
@@ -110,6 +122,135 @@ fn launch_notepad(path: &Path) -> Option<std::process::Child> {
             note(format_args!("SKIP: 启动 notepad.exe 失败（{failure}）"));
             None
         }
+    }
+}
+
+/// 列举当前桌面上 `notepad.exe` 的窗口（窗口句柄 + 标题）。枚举失败 → `None` 并**打印原因**。
+///
+/// 用途有两个：① 启动**前**取快照；② 清理时做差集。`None` 一律意味着「本轮不做自动清理」——
+/// 宁可在桌面上留下一个记事本并**说明**，也不要在信息不全时去关别人的窗口（铁律 1：不猜）。
+fn notepad_windows(platform: WindowsPlatform) -> Option<Vec<(u64, String)>> {
+    match block_on(WindowProvider::list_windows(
+        &platform,
+        &WindowFilter::for_app("notepad.exe"),
+    )) {
+        Ok(windows) => Some(
+            windows
+                .into_iter()
+                .map(|window| (window.window().id().value(), window.title().to_string()))
+                .collect(),
+        ),
+        Err(failure) => {
+            note(format_args!(
+                "WARN: 枚举记事本窗口失败（{failure}）—— 本轮不做自动清理"
+            ));
+            None
+        }
+    }
+}
+
+/// 本测试创建、且**当前仍存在**的记事本窗口句柄 —— 判据：不在 `preexisting` 快照里 **且**
+/// 标题含本次独一无二的临时文件名。枚举失败 → `None`（调用方**必须**显式处理，
+/// 不得把「查不到」当成「没有残留」）。
+fn notepad_windows_created_by_this_test(
+    platform: WindowsPlatform,
+    expected: &str,
+    preexisting: &[(u64, String)],
+) -> Option<Vec<u64>> {
+    let current = notepad_windows(platform)?;
+    Some(
+        current
+            .into_iter()
+            .filter(|(id, title)| {
+                !preexisting.iter().any(|(known, _)| known == id) && title.contains(expected)
+            })
+            .map(|(id, _)| id)
+            .collect(),
+    )
+}
+
+/// `u64` 句柄值 → `HWND`（放不进 `usize` → `None`，**不 panic**）。
+fn hwnd_from_handle_value(value: u64) -> Option<HWND> {
+    let raw = usize::try_from(value).ok()?;
+    Some(HWND(raw as *mut core::ffi::c_void))
+}
+
+/// 关掉**本次测试自己打开**的记事本窗口，并轮询确认它真的消失。
+///
+/// ## 为什么不能只 `Child::kill()`
+/// Windows 11 25H2 的记事本是**打包 MSIX 应用**（本机实测 `Microsoft.WindowsNotepad` 11.2607.14.0），
+/// `C:\Windows\System32\notepad.exe` 只是启动器存根。2026-09-25 本机实测：
+/// 启动一次会创建**两个**进程（存根 + 真正的打包进程），`Child::kill()` **只杀得掉存根** ——
+/// 窗口不会关，于是每跑一次真机验收都会在桌面上留下一个记事本（第一轮验收后的现场残留就是这么来的）。
+///
+/// ## 判据（三条**全部**满足才动那个窗口）
+/// ① 属于 `notepad.exe`；② **不在**启动前的快照里（= 本次新建）；③ 标题含本次独一无二的临时文件名。
+/// 任何一条不满足都**不碰** —— 用户自己也开着记事本时，他的窗口至少缺两条。
+///
+/// ## 返回值
+/// `true` = 已确认没有残留（含「本来就没有」）；`false` = 有残留或信息不足。
+/// 两种失败都**打印原因**，绝不静默通过（铁律 1）。
+fn close_notepad_windows_created_by_this_test(
+    platform: WindowsPlatform,
+    path: &Path,
+    preexisting: Option<&[(u64, String)]>,
+    timeout: Duration,
+) -> bool {
+    let Some(preexisting) = preexisting else {
+        note(format_args!(
+            "WARN: 启动前的记事本窗口快照不可用 —— 跳过自动清理；请手动关掉含 {} 的记事本",
+            path.display()
+        ));
+        return false;
+    };
+    let expected = path
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let Some(targets) = notepad_windows_created_by_this_test(platform, &expected, preexisting)
+    else {
+        note(format_args!(
+            "WARN: 清理时无法枚举记事本窗口 —— 请手动关掉含 {expected} 的记事本"
+        ));
+        return false;
+    };
+    if targets.is_empty() {
+        return true;
+    }
+    for id in &targets {
+        let Some(hwnd) = hwnd_from_handle_value(*id) else {
+            continue;
+        };
+        // SAFETY: `PostMessageW` 只把 `WM_CLOSE` **投递**进目标窗口的消息队列（异步、不阻塞、
+        // 不读也不写任何指针）；句柄来自上面刚枚举到的记事本窗口，即本测试自己打开的那一个。
+        // 用 `WM_CLOSE`（正常关闭请求）而不是强杀：给目标应用走自己的收尾路径的机会。
+        if let Err(failure) = unsafe { PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0)) } {
+            note(format_args!(
+                "WARN: 给记事本窗口 {id:#x} 发 WM_CLOSE 失败（{failure}）"
+            ));
+        }
+    }
+    let deadline = Instant::now() + timeout;
+    loop {
+        match notepad_windows_created_by_this_test(platform, &expected, preexisting) {
+            Some(remaining) if remaining.is_empty() => return true,
+            Some(remaining) => {
+                if Instant::now() >= deadline {
+                    note(format_args!(
+                        "WARN: {} s 内记事本窗口仍未关闭（可能弹了「是否保存」对话框）：{remaining:x?}                          —— 请手动关掉",
+                        timeout.as_secs()
+                    ));
+                    return false;
+                }
+            }
+            None => {
+                note(format_args!(
+                    "WARN: 清理时无法枚举记事本窗口 —— 请手动关掉含 {expected} 的记事本"
+                ));
+                return false;
+            }
+        }
+        std::thread::sleep(Duration::from_millis(100));
     }
 }
 
@@ -181,19 +322,32 @@ fn test_unicode_text_and_ctrl_s_round_trip_through_real_notepad() {
         return;
     }
 
+    let platform = WindowsPlatform::new();
+    // 启动**前**的快照：清理时只动「快照里没有」的窗口 —— 这样即使用户自己也开着记事本，
+    // 也不会碰到他的窗口（见 `close_notepad_windows_created_by_this_test` 的三条判据）。
+    let preexisting = notepad_windows(platform);
+
     let Some(mut child) = launch_notepad(&path) else {
         remove_quietly(&path);
         return;
     };
 
-    let platform = WindowsPlatform::new();
     let Some(window) = wait_for_notepad_window(platform, &path, Duration::from_secs(15)) else {
         note(format_args!(
             "SKIP: 15 s 内没有等到记事本窗口（标题里应含 {}）",
             path.display()
         ));
+        let cleaned = close_notepad_windows_created_by_this_test(
+            platform,
+            &path,
+            preexisting.as_deref(),
+            CLEANUP_TIMEOUT,
+        );
         let _killed = child.kill();
         remove_quietly(&path);
+        if !cleaned {
+            note(format_args!("SKIP 之后仍有记事本窗口残留（见上面的 WARN）"));
+        }
         return;
     };
 
@@ -231,6 +385,14 @@ fn test_unicode_text_and_ctrl_s_round_trip_through_real_notepad() {
     )));
 
     let saved = wait_for_file_to_contain(&path, marker, Duration::from_secs(10));
+    // 清理顺序 = **先关窗口、再杀存根**：`Child::kill()` 只杀得掉启动器存根，
+    // 显示窗口的是另一个进程（见 `close_notepad_windows_created_by_this_test`）。
+    let cleaned = close_notepad_windows_created_by_this_test(
+        platform,
+        &path,
+        preexisting.as_deref(),
+        CLEANUP_TIMEOUT,
+    );
     let _killed = child.kill();
     let content = match std::fs::read(&path) {
         Ok(bytes) => String::from_utf8_lossy(&bytes).to_string(),
@@ -238,6 +400,7 @@ fn test_unicode_text_and_ctrl_s_round_trip_through_real_notepad() {
     };
     remove_quietly(&path);
     note(format_args!("notepad: disk content = {content:?}"));
+    note(format_args!("notepad: 窗口清理完成（无残留） = {cleaned}"));
     assert!(
         saved && content.contains(marker),
         "磁盘内容里没有 `{marker}`（Ctrl+S 或 Unicode 写入没有生效）: {content:?}"

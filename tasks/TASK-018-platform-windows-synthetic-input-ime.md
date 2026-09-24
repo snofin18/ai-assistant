@@ -265,11 +265,14 @@ test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 81 filtered out
 4. **`pointer_action` 抢用户的鼠标**（L4 的本质）：真机验收会移动光标并短暂抢前台焦点。README 已写明调用方必须先试 L1 ~ L3。
 5. **`KeyTarget::Element` 的焦点链路只在真机上间接验证**：本卡的记事本验收走的是 `KeyTarget::Window`（+ `Ctrl+S`）。`Element` 路径（UIA `SetFocus` + 回读 `CurrentHasKeyboardFocus`）只有单测覆盖分支，**没有真机用例** —— 建议 TASK-035（Notepad Adapter）把它纳入验收。
 
+6. **真机验收会留下一个记事本窗口（2026-09-25 现场观察 → 已修）**：Win11 25H2 的记事本是**打包 MSIX 应用**，`notepad.exe` 只是启动器存根 —— 一次启动产生**两个**进程，`Child::kill()` 只杀得掉存根，**窗口不会关**。首轮验收后桌面上因此留下了一个记事本（用户报告「弹出过两次 notepad」）。**已修**（本 PR 的补丁提交）：验收改为按**窗口**关（`PostMessageW(WM_CLOSE)`），判据 = 「启动前窗口快照」∩「标题含本次临时文件名」，即使用户自己也开着记事本也不会误关；关不掉时**打印**残留（不静默）。复跑实测 `notepad after: 0`，并打印 `窗口清理完成（无残留） = true`。坑已入 `docs/memory/pitfalls.md`。
+7. **PR 合并流程缺陷（2026-09-25 实际发生 → 已登记 PL-075）**：栈式 PR 的 base 依赖人工切回，本次漏做，导致 **PR #19 被合进 base 分支而不是 `main`**（`main` 上从未有 TASK-018，而 GitHub 显示 Merged、CI 全绿）。已用 **PR #20**（`base = main`）补合。修法待裁决，见 `docs/PARKING_LOT.md` PL-075。
+
 ### 8. 新增长期记忆
 
 - **FACT ×4**（`docs/memory/facts.md`）：① WinUI 目标没有 Win32 IME 上下文 → `is_ime_open` 必须两级查询（实测第二级返回 0）；② 四个符号的位置与缺失（`SendMessageW` / `WM_IME_CONTROL` 在 `WindowsAndMessaging`；`MONITORINFOF_PRIMARY` / `IMC_GETOPENSTATUS` 未导出；`EnumDisplayMonitors` 返回 `BOOL`；`*_FLAGS` 的 `BitOr` 不是 `const fn`）；③ 新基线 32 target / 607 passed（+28）；④ `SendInput` 绝对坐标标志组合与公式 + 实测 0 px。
-- **PITFALL ×2**（`docs/memory/pitfalls.md`）：① `hygiene/missing-card-reference` 会拦**普通 `//` 注释**里裸写的标记词（第 3 次踩到 —— 写规则说明时必须绕开字面量）；② WinUI 上单级 `ImmGetContext` 会把「查询层次不够」伪装成「平台能力缺失」。
-- **PL ×1**（`docs/PARKING_LOT.md`）：**PL-074**（`pointer_action` 无目标窗口 → 混合 DPI 归属歧义 + 跨显示器拖拽偏差）。
+- **PITFALL ×3**（`docs/memory/pitfalls.md`）：① `hygiene/missing-card-reference` 会拦**普通 `//` 注释**里裸写的标记词（第 3 次踩到 —— 写规则说明时必须绕开字面量）；② WinUI 上单级 `ImmGetContext` 会把「查询层次不够」伪装成「平台能力缺失」；③ **Win11 的 `notepad.exe` 只是启动器存根** —— `Child::kill()` 关不掉窗口（一次启动 = 两个进程），按进程杀既不够也不安全，应按**窗口**关并加「启动前快照」判据。
+- **PL ×2**（`docs/PARKING_LOT.md`）：**PL-074**（`pointer_action` 无目标窗口 → 混合 DPI 归属歧义 + 跨显示器拖拽偏差）；**PL-075**（栈式 PR 的 base 漏切回 → GitHub 会把子 PR 静默合进父分支，`main` 上其实没有那张卡，而 PR 页面照样显示 Merged）。
 - **无新增 ADR**（本卡没有改 ADR 已决事项；Q1 ~ Q3 都按「不扩范围」的建议默认执行）。
 
 ### 9. 给审阅者的关注点
