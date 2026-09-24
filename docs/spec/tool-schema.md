@@ -10,7 +10,19 @@
 
 ## 1. 目标
 
+Tool / Adapter / 审计事件三类实体的 **JSON Schema 单一事实源**：本项目所有跨 crate / 跨语言边界的类型都由这些 schema 生成或校验，禁止在 Rust / TS 侧手写重复结构体（ADR-0030 同源动机）。
+本 spec 回答三个问题：① 三类实体各自有哪些字段；② 命名与 capability 如何受控；③ schema 自身如何演进（版本、必填、时间戳口径）。
+
 ## 2. 范围
+
+**管**：Tool / Adapter / 审计事件的字段构成与命名空间、schema 演进规则（版本 / 必填 / 时间戳），以及 `protocol/**/*.json` 与其生成物的一致性口径。
+
+**不管（不做清单）**：
+- 不定义具体工具的**业务语义**：每个 Tool 的 `inputs` / `outputs` 由各 Adapter 的 schema 实例给出，本 spec 只管骨架与约束
+- 不定义 capability 的**取值表**（归 `docs/spec/capability-matrix.md`）
+- 不定义错误码取值（归 `docs/spec/error-codes.md`）
+- 不定义消息包装（归 `docs/spec/envelope.md`）与传输（归 `docs/spec/ipc-protocol.md`）
+- 不定义测试分层与覆盖率（归 `docs/spec/testing.md`）
 
 ## 3. 类型定义
 
@@ -44,55 +56,35 @@ struct AuditEventSchema {
 }
 ```
 
-## 4. 不变量
-
-1. **name 反向 DNS**：`name` 必须 `<app>.<domain>.<action>` 三段式；与 ADR-0021 §3 受控词一致。
-2. **capability 子集**：Tool schema 声明的 capability 必须是 capability-matrix 中**已存在**的；否则报 ErrorCode::CapabilityUndeclared。
-3. **postcondition 必填**：每个 Tool 至少 1 条 postcondition（= 强制可校验）。
-4. **risk_class 单调**：L3+ 必有 `requires_human_approval=true` 字段（policy 引擎强制）。
-
----
-
-## 5. 与其他 spec 的关系
-
-(本节 = ADR-0021 D7 受控词引用 + capability-matrix + error-codes)
-
-### 字段
-### 字段
-
-| 字段 | 类型 | 必选 | 说明 |
-|---|---|---|---|
-| `schema_version` | integer | ✓ | 当前 = 1（schema 升级时递增） |
-
 ### 命名空间
 
 - Tool：`tool.<app>.<domain>.<action>`（与 ADR-0021 受控词一致）
 - Adapter：`adapter.<app>.<version>`
 - AuditEvent：`audit.<event_kind>`
 
----
-
 ## 4. 不变量
 
-1. **schema_version 单调递增**：从 1 起；任何字段重命名/类型变化 → 新增 version，旧字段标记 `@deprecated` 保留 ≥2 个版本。
-2. **必选字段不可为空**：`required` 列表中的字段在所有实例中**非 null / 非空字符串 / 非空数组**。
-3. **时间戳用 ISO-8601**：所有时间字段（`captured_at` / `occurred_at` / `timestamp`）= UTC + RFC 3339（= `2026-09-19T12:34:56Z` 形式）。
-4. **ID 用 u64**：所有 `id` 字段类型 = unsigned 64-bit（= 本机跨进程传递稳定）。
-5. **错误用 ErrorCode 枚举**：见 `docs/spec/error-codes.md`；禁止字符串自定义错误码。
+1. **name 反向 DNS**：`name` 必须 `<app>.<domain>.<action>` 三段式；与 ADR-0021 §3 受控词一致。
+2. **capability 子集**：Tool schema 声明的 capability 必须是 capability-matrix 中**已存在**的；否则报 ErrorCode::CapabilityUndeclared。
+3. **postcondition 必填**：每个 Tool 至少 1 条 postcondition（= 强制可校验）。
+4. **risk_class 单调**：L3+ 必有 `requires_human_approval=true` 字段（policy 引擎强制）。
+5. **schema_version 单调递增**：schema 从 1 起；字段重命名 / 类型变化 → 新增 version，旧字段标 `@deprecated` 并保留 ≥2 个版本（= 无破坏性变更）
+6. **必选字段不可为空**：`required` 列出的字段在所有实例中**非 null / 非空字符串 / 非空数组**
+7. **时间戳用 ISO-8601**：所有时间字段一律 UTC + RFC 3339（形如 `2026-09-19T12:34:56Z`）
 
 ---
 
 ## 5. 与其他 spec 的关系
 
-| 引用方向 | 来源 spec | 关系 |
+| 引用方向 | spec | 关系 |
 |---|---|---|
-| 依赖 | `docs/spec/error-codes.md` | 所有错误字段用 ErrorCode 枚举 |
-| 依赖 | `docs/spec/envelope.md` | 大消息包 `envelope` 内含本 schema 实例 |
-| 依赖 | `docs/spec/capability-matrix.md` | Tool schema 必须含 capability 字段声明 |
-| 依赖 | `docs/spec/audit-event.md` | Tool 调用结果必须产出 audit event |
-| 依赖 | `docs/spec/ipc-protocol.md` | 跨进程传输用 envelope 包 Tool 输入/输出 |
-| 依赖 | `docs/spec/naming.md` | 字段命名遵守命名规范 |
-| 依赖 | `docs/spec/testing.md` | 测试用例覆盖 schema 边界 |
+| 依赖 | `docs/spec/naming.md` | `name` 反向 DNS 三段式与受控词汇表（ADR-0021 D7） |
+| 依赖 | `docs/spec/capability-matrix.md` | Tool 声明的 capability 必须是矩阵中**已存在**的项 |
+| 依赖 | `docs/spec/error-codes.md` | `postconditions` 与一切错误字段只用 ErrorCode 枚举 |
+| 被依赖 | `docs/spec/envelope.md` | Tool 输入 / 输出作为 envelope 的 payload 传输 |
+| 被依赖 | `docs/spec/audit-event.md` | 每次 Tool 调用结果必须产出 audit event |
+| 被依赖 | `docs/spec/ipc-protocol.md` | 跨进程时 Tool 消息体经 envelope 走该协议 |
+| 相关 | `docs/spec/testing.md` | contract 测试覆盖 schema 边界（空 / null / 重复 ID / 超大值） |
 
 ---
 

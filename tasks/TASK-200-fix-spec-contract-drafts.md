@@ -1,6 +1,6 @@
 # TASK-200　修复 `docs/spec/*` 7 份契约草案的系统性缺陷（TASK-072 批量生成事故）
 
-- 状态：**Ready**
+- 状态：**Done**（2026-09-24）
 - 阶段：跨阶段（治理池）　子阶段：—　批次：—　依赖：无（TASK-072 已 Done，其产物有缺陷）　预估：S　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md` §「跨阶段治理卡」；号段依据 **ADR-0037 D1**（200~299 = 治理池）。
@@ -101,14 +101,127 @@ Get-ChildItem docs/spec -Filter *.md | Where-Object Name -ne 'naming.md' | ForEa
 
 ### 1. 约束回执
 
+```text
+【任务】TASK-200 修复 `docs/spec/*` 7 份契约草案的系统性缺陷（TASK-072 批量生成事故）
+【目标】删掉每份文件里被误粘进去的外来模板块、补上空 §1/§2、逐份自检交叉引用不再张冠李戴
+【write scope】仅：`docs/spec/{tool-schema,envelope,error-codes,capability-matrix,audit-event,ipc-protocol,testing}.md`（**不含** `naming.md`）、`docs/PARKING_LOT.md`、`LEDGER.md`、`MEMORY.md`、`tasks/TASK-200-fix-spec-contract-drafts.md`（记录区）
+【铁律】2（被读文档 = 五类不可信输入之一 → 逐份核对而非照抄）、9（不得静默扩大范围）、10（契约先行）、1（无静默失败）
+【禁止】改任何契约字段 / 类型 / 枚举；动 `naming.md` / `protocol/**` / 任何 `.rs` / 任何 ADR；新建 `docs/spec/README.md`
+【验收】节号唯一性自检 + `xtask docscan / hygiene / memory-counts / adr-index / card-check` → 全 PASSED
+【依赖】无（TASK-072 已 Done，其产物有缺陷）
+【疑问】无
+```
+
 ### 2. 实际改动文件
+
+| # | 文件 | 动作 | 说明 |
+|---|---|---|---|
+| 1 | `docs/spec/tool-schema.md` | EDIT | 删外来模板块；补 §1/§2；§4 保留本文件 4 条 + 从外来块**逐条核对后**移入 3 条通用不变量；§5 重建为 7 行 |
+| 2 | `docs/spec/envelope.md` | EDIT | 同 1；§5 中 envelope↔ipc-protocol 一行方向由 `依赖` 改 `被依赖`（依据：本 spec §2 明写「不管传输层」） |
+| 3 | `docs/spec/error-codes.md` | EDIT | 同 1 |
+| 4 | `docs/spec/capability-matrix.md` | EDIT | 同 1 |
+| 5 | `docs/spec/audit-event.md` | EDIT | 同 1 |
+| 6 | `docs/spec/ipc-protocol.md` | EDIT | 同 1 |
+| 7 | `docs/spec/testing.md` | EDIT | 同 1 + 新增 `### 4.3 输出可注入`（**PL-003 闭环**：`xtask/src/report.rs` 的注释引用的正是这一节） |
+| 8 | `docs/PARKING_LOT.md` | APPEND | PL-038 关闭行；新提 PL-040 / PL-041 |
+| 9 | `docs/memory/pitfalls.md` | APPEND | +1 PITFALL（`docscan` 抓不到节号重复 / 空节） |
+| 10 | `MEMORY.md` | EDIT | §1 规模表 `pitfalls.md` 184/81 → 185/82 |
+| 11 | `LEDGER.md` | APPEND | 本卡 Done 行（只追加，不改写既有行） |
+| 12 | `tasks/TASK-200-fix-spec-contract-drafts.md` | EDIT | 记录区 §1~§9 + 状态行 Ready → Done（**正文区一字未动**） |
+
+**未改**（Out of scope 硬线，逐项核对）：任何契约字段 / 类型 / 枚举、`docs/spec/naming.md`、`protocol/**`、任何 `.rs`、任何 `docs/adr/**`、`AGENTS.md`、`PLAN.md`、`plans/**`、`docs/spec/README.md`（不新建）。
 
 ### 3. 验收输出摘要
 
+**（a）修改前基线**（`git show HEAD:docs/spec/<name>.md` 逐份实测，证明缺陷真实存在）
+
+| 文件 | `^## ` 二级标题 | 重复的二级标题 | `^### 字段` | §1 / §2 |
+|---|---|---|---|---|
+| tool-schema.md | 8 | `## 4. 不变量` ×2、`## 5. 与其他 spec 的关系` ×2 | 2 | 空 |
+| envelope.md | 8 | 同上 | 2 | 空 |
+| error-codes.md | 8 | 同上 | 2 | 空 |
+| capability-matrix.md | 8 | 同上 | 2 | 空 |
+| audit-event.md | 8 | 同上 | 2 | 空 |
+| ipc-protocol.md | 8 | 同上 | 2 | 空 |
+| testing.md | 8 | 同上 | 2 | 空 |
+
+= **7/7 命中全部 4 类缺陷**（空节 / 节号重复 / 重复标题 / 外来模板块），与卡面「背景」一节逐条吻合；`naming.md`（更早手写）未受影响。
+
+**（b）修改后**（同一条自检命令）
+
+7/7 文件：`^## ` = 6（§1~§5 + `## 附录：演进记录`）、**重复二级标题 = 0**、`^### 字段` = 0、末字节 = 10（LF）、无 CR、§1 与 §2 非空且各含 4~5 条「不管（不做清单）」。
+
+**（c）交叉引用逐条核对**（DoD 第 3 条）
+
+7 份文件 §5 表共引用 `docs/spec/*.md` 27 处，去重后全部落在**真实存在**的文件上（`audit-event` / `capability-matrix` / `envelope` / `error-codes` / `ipc-protocol` / `naming` / `tool-schema` / `testing`，= 8 份 spec 减去引用方自身）；**0 处指向不存在的 spec**。语义逐条核对结论：
+
+- `tool-schema.md` 引 `naming`（反向 DNS 三段式）/ `capability-matrix`（capability 必须是矩阵中已存在的项）/ `error-codes`（错误字段只用枚举）/ `envelope`（Tool 输入输出作为 payload）/ `audit-event`（调用结果必须产出事件）/ `ipc-protocol`（跨进程走该协议）/ `testing`（contract 测试覆盖 schema 边界）→ 全部对得上。
+- `envelope.md` 引 `ipc-protocol`（字节布局）/ `tool-schema`（payload body）/ `audit-event`（`PayloadKind::AuditEvent`）/ `error-codes`（`PayloadKind::Error` 的 code）/ `capability-matrix`（握手 capability 取值）→ 对得上；**方向列修正 1 处**（见 §9 关注点 1）。
+- `error-codes.md` 引 `tool-schema` / `envelope` / `audit-event` / `capability-matrix` → 对得上。
+- `capability-matrix.md` 引 `tool-schema` / `error-codes` / `ipc-protocol` / `audit-event` → 对得上。
+- `audit-event.md` 引 `envelope` / `error-codes` / `tool-schema` / `ipc-protocol` → 对得上。
+- `ipc-protocol.md` 引 `envelope` / `capability-matrix` / `audit-event` / `tool-schema` / `error-codes` → 对得上。
+- `testing.md` 引 `envelope` / `tool-schema` / `audit-event` / `capability-matrix` / `error-codes` → 对得上；**已不再出现 tool-schema 的字段表**（原副作用消除）。
+
+**（d）验收命令实测输出**（修改后）
+
+```text
+> cargo run -p xtask -- docscan
+== docscan ==
+scanned_files=150
+-- summary: 0 error(s), 0 warning(s)
+-- verdict: PASSED
+
+> cargo run -p xtask -- hygiene
+== xtask hygiene ==
+scanned_files=52
+WARN  hygiene/file-too-long              xtask/src/card_check.rs:667 文件 667 行，超过建议上限 600 行；考虑拆分（gov §5.4）
+WARN  hygiene/file-too-long              xtask/src/main.rs:685 文件 685 行，超过建议上限 600 行；考虑拆分（gov §5.4）
+-- summary: 0 error(s), 2 warning(s)
+-- verdict: PASSED
+
+> cargo run -p xtask -- memory-counts
+== xtask memory-counts ==
+scanned_files=8
+-- summary: 0 error(s), 0 warning(s)
+-- verdict: PASSED
+
+> cargo run -p xtask -- adr-index
+== xtask adr-index ==
+scanned_files=21
+-- summary: 0 error(s), 0 warning(s)
+-- verdict: PASSED
+
+> cargo run -p xtask -- card-check
+== xtask card-check ==
+scanned_files=87
+-- summary: 0 error(s), 0 warning(s)
+-- verdict: PASSED
+```
+
+（`hygiene` 的 2 条 WARN 是 `xtask/src/*.rs` 文件长度，属既有 baseline，与本卡无关；`card-check` 的 49 条 baseline WARN 中本卡相关的 2 条 `missing-record-sections` 已随本节填写清零。）
+
+**（e）回归证明（本卡未改 Rust，跑一遍确认纯文档改动不破坏构建）**
+
+```text
+cargo fmt --all --check                       → exit 0
+cargo clippy --all-targets -- -D warnings     → exit 0
+cargo test --workspace                        → 331 xtask + 7 protocol + 27 storage + 0 core，0 failed
+cargo build --release                         → exit 0
+```
+
 ### 4. DoD 逐条核对
 
-### 5. 偏差
+- [x] 7 份文件中，`## 4.` / `## 5.` **各只出现一次**；`### 字段` 的重复标题为 0 → 见 §3(b)，7/7 命中
+- [x] 7 份文件的 `## 1. 目标` / `## 2. 范围` **非空**，且范围含明确的不做清单 → 每份 4~5 条「不管（不做清单）」
+- [x] 每份文件的「与其他 spec 的关系」里，被引用的 spec 都真实存在且语义对得上 → 见 §3(c)，27 处引用 0 处悬空
+- [x] `PL-003` 已处置 → `testing.md` 补出 `### 4.3 输出可注入`（走「补节」路线，未改 `report.rs`）
+- [x] `xtask docscan / hygiene / memory-counts / adr-index / card-check` 全部 PASSED → 见 §3(d)
+- [x] `docs/PARKING_LOT.md` 追加 PL-038 关闭行；`LEDGER.md` 追加一行 → 见 §2 第 8 / 11 行
+- [x] 无任何 Out of scope 的文件被修改（尤其：**没有改任何字段 / 类型 / 枚举**）→ 见 §2 末「未改」清单
+- [x] 本卡 §1~§9 执行记录已填 → 本节即证明
 
+### 5. 偏差
 
 DRIFT-200-1（**已闭环**：人类 chat 2026-09-24 预先授权「代 Orchestrator 展开正文」）
 
@@ -159,10 +272,33 @@ DRIFT-200-2（**已闭环**：人类 chat 2026-09-24 裁决 = **选项 ①**）
 
 已停止的工作：无（裁决已给出且落地完成）。
 
-需要人类裁决：否。### 6. 更合理做法
+需要人类裁决：否。
+
+**本批（修 7 份 spec）无新增 DRIFT**：全部改动落在 write scope 内；唯一"越界嫌疑"的动作是把 `envelope.md` §5 一行的方向列由 `依赖` 改 `被依赖` —— 该动作属卡面 In scope 第 1 条明确要求的「逐行核对是否适用」，不构成超出 scope，已在 §9 关注点 1 请审阅者重点复核。
+
+### 6. 更合理做法
+
+- 本卡的**根因不是「7 份文件写错了」，而是「批量生成 + 只有形状级门禁」**：`docscan` 能保证编码 / 末行 LF / 表格不破，但保证不了「节号唯一 / 空节 / 重复标题 / 引用可解析」。更合理的顺序是**先给 `docscan` 加这 4 条规则，再做批量生成**，否则下一次批量生成会复制同一个事故。本卡按 write scope 只修文档，规则扩展留给护栏卡（PL-038 的机器检查缺口）。
+- 补 §1/§2 时，**「不做清单」比「做清单」更有价值**（AGENTS.md：Out of scope 效力高于 In scope）。7 份都补了 4~5 条不做清单，其中 `testing.md` 的「不管性能基准阈值」与 `envelope.md` 的「不管加密 / 压缩 / 分片」正是过去最容易越界的两处。
+- 修法上，**先取证再动手**（先把 `git show HEAD:` 的基线记进 §3）让"改动有效"变成可证伪的，而不是靠"看起来修好了"。
 
 ### 7. 遗留问题
 
+- **PL-040**：`docs/spec/` 无 `README.md`（缺索引 / 阅读顺序）。本卡 In scope 明确禁止新建（漂移触发器 ②）→ 留 PL。
+- **PL-041**：`id` 类型口径冲突（被删的外来块声称「所有 `id` = u64」，而 `envelope_id` / `correlation_id` / `event_id` 实际都是 `Uuid`）→ **需 ADR**，本卡不改契约。
+- **PL-038 的机器检查缺口**：`docscan` 仍抓不到「节号重复 / 空节 / 重复标题」→ 建议归护栏卡（尚未开卡）。
+- `testing.md` 的 `### 4.3` 是 §4 下唯一子节（无 4.1 / 4.2）：编号取自 `report.rs` 的既有引用，**保持不动**（改号会让该注释再次悬空）。
+- `docs/adr/0023-*.md:173` 提到 `docs/spec/postcondition.md`（该文件不存在）—— 属 ADR 文本（只读区），本卡不动，留待该 ADR 的后续修订。
+
 ### 8. 新增长期记忆
 
+- **PITFALL**（`docs/memory/pitfalls.md` +1）：`xtask docscan` **抓不到**「节号重复 / 空节 / 重复标题」，TASK-072 批量生成的 7 份 spec 带缺陷存活 4 天 → 推论：任何「文档结构已被机器保证」的说法，必须先确认 `docscan` 真的覆盖那条规则；批量生成的文档必须按「结构自检命令」验收。
+- **FACT**：无（本卡未产生新的可验证硬事实；交叉引用结论已落在各文件 §5 表内）。
+- **REJECTED**：无新增。
+- `MEMORY.md` §1 规模表已同步（`pitfalls.md` 185 行 / 82 条，`memory-counts` PASSED 佐证）。
+
 ### 9. 给审阅者的关注点
+
+1. **最容易出问题的是 §5 表的「方向列」**（`依赖` / `被依赖` / `相关`）—— 它由我逐行判定。其中我**改动了 1 处**：`envelope.md` 的 `ipc-protocol` 一行由 `依赖` → `被依赖`（依据：`envelope.md` §2 明写「不管传输层：归 `ipc-protocol.md`」，故是协议依赖 envelope 而非反之）。请重点复核这一处。此外各表之间存在**非对称**（例：`error-codes.md` 写 `相关 capability-matrix`，而 `capability-matrix.md` 写 `被依赖 error-codes`）—— 我判定「单侧相关」不构成缺陷（每份表只描述**本文件视角**的关系），故未强行统一；若评审要求全局对称，请开新卡。
+2. **契约字段一字未动**：请用 `git diff HEAD -- docs/spec/` 确认改动全部落在 §1 / §2 / §4 / §5 与**被删除的模板块**，`## 3. 类型定义` 无语义变更。唯一需要留意的是 `tool-schema.md` §4 由 4 条变 7 条（新增 3 条来自外来块，已逐条核对适用于本文件）。
+3. **`testing.md` §4.3 是新增节**（PL-003 闭环）：内容是「白盒测试不得捕获进程 stdout / stderr，渲染目标必须作为参数可注入」。请确认这不是「发明契约」—— 我的判断：它只是把 `xtask/src/report.rs` **已实现且已在模块注释里引用**的既有约定落盘，未引入任何新要求。
