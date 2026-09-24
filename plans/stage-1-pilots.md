@@ -173,7 +173,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-035 | A5 | `tasks/TASK-035-notepad-adapter.md` | ⚠ **仅要点摘录**，展开前不得派单 |
 | TASK-012 | A1 | `tasks/TASK-012-storage-layer-sqlite-wal-blob.md` | **完整卡**（2026-09-24 Orchestrator 展开） |
 | TASK-013 | A1 | `tasks/TASK-013-audit-append-hash-chain-flush.md` | **完整卡**（2026-09-24 Orchestrator 展开；**已 Done**） |
-| TASK-014 | A1 | `tasks/TASK-014-secrets-os-keychain-wrapper.md` | Ready（批次表占位派单前补全） |
+| TASK-014 | A1 | `tasks/TASK-014-secrets-os-keychain-wrapper.md` | **完整卡**（2026-09-24 Orchestrator 代行展开：`keyring` 4.2 后端 + `zeroize` + 访问审计注入点（fail-closed）；write scope 含 `docs/DEPENDENCIES.md` —— 登记表规则 1「先登记后引入」） |
 | TASK-015 | A1 | `tasks/TASK-015-xtask-hygiene-archtest-replay-skeleton.md` | **完整卡**（2026-09-24 Orchestrator 展开：`docscan` 4 条结构规则 + `crates/core/tests/arch*` 分层断言 + PL-047 迁移登记表扫描 + ADR-0039 D3 的 `check-ledger` 两条规则） |
 | TASK-016 | A2 | `tasks/TASK-016-platform-api-trait-capability-matrix.md` | Ready（批次表占位派单前补全） |
 | TASK-017 | A2 | `tasks/TASK-017-platform-windows-uia-provider.md` | Ready（批次表占位派单前补全） |
