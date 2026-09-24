@@ -10,7 +10,17 @@
 
 ## 1. 目标
 
+定义测试**分层与覆盖率口径**：unit / contract / replay / target-machine 四类各自管什么、禁什么，以及 workspace 与关键 crate 的覆盖率阈值。
+
 ## 2. 范围
+
+**管**：四类测试的边界（IO 要求 / 速度）、覆盖率阈值（workspace ≥ 75%，`core` / `policy` / `task-engine` ≥ 85%）、白盒测试的输出可注入要求（§4.3）。
+
+**不管（不做清单）**：
+- 不管**具体用例**（各 crate 的 `tests/**` 自己写）
+- 不管 CI 编排（归 `.github/workflows/ci.yml` 与 `docs/governance-ai-agent-execution.md` §5）
+- 不管靶机 fixture 的**内容**（归 `fixtures/apps/**` 与各 Adapter 卡）
+- 不管性能基准阈值（归各卡验收要点与 `docs/storage-design.md` 等专项文档）
 
 ## 3. 类型定义
 
@@ -35,49 +45,23 @@ Coverage thresholds:
 2. **contract 测试必须覆盖 schema 边界**：空字段 / null / 重复 ID / 超大值。
 3. **replay 测试必须用真实 fixture**：合成 fixture = 失败（= 不验证真实树形态）。
 4. **target-machine 测试必须 human gate**：CI 不跑，需要人工本地运行（= 节省 CI 时间 + 防副作用）。
+### 4.3 输出可注入
+
+白盒测试**不得**捕获进程 stdout / stderr 来做断言：报告 / 日志的渲染目标必须作为参数可注入
+（例：`xtask` 的 `report` 模块把 sink 作为参数传入），测试直接传 `Vec<u8>` 并断言输出文本。
+理由：捕获进程级输出会让测试依赖运行时环境（编码 / 缓冲 / 并发），且无法在 unit 层回放。
 
 ---
 
 ## 5. 与其他 spec 的关系
 
-(本节 = envelope 的反序列化 + tool-schema 的契约测试 + audit-event 的 hash chain 单元测试 + capability-matrix 的策略引擎单测)
-
-### 字段
-### 字段
-
-| 字段 | 类型 | 必选 | 说明 |
-|---|---|---|---|
-| `schema_version` | integer | ✓ | 当前 = 1（schema 升级时递增） |
-
-### 命名空间
-
-- Tool：`tool.<app>.<domain>.<action>`（与 ADR-0021 受控词一致）
-- Adapter：`adapter.<app>.<version>`
-- AuditEvent：`audit.<event_kind>`
-
----
-
-## 4. 不变量
-
-1. **schema_version 单调递增**：从 1 起；任何字段重命名/类型变化 → 新增 version，旧字段标记 `@deprecated` 保留 ≥2 个版本。
-2. **必选字段不可为空**：`required` 列表中的字段在所有实例中**非 null / 非空字符串 / 非空数组**。
-3. **时间戳用 ISO-8601**：所有时间字段（`captured_at` / `occurred_at` / `timestamp`）= UTC + RFC 3339（= `2026-09-19T12:34:56Z` 形式）。
-4. **ID 用 u64**：所有 `id` 字段类型 = unsigned 64-bit（= 本机跨进程传递稳定）。
-5. **错误用 ErrorCode 枚举**：见 `docs/spec/error-codes.md`；禁止字符串自定义错误码。
-
----
-
-## 5. 与其他 spec 的关系
-
-| 引用方向 | 来源 spec | 关系 |
+| 引用方向 | spec | 关系 |
 |---|---|---|
-| 依赖 | `docs/spec/error-codes.md` | 所有错误字段用 ErrorCode 枚举 |
-| 依赖 | `docs/spec/envelope.md` | 大消息包 `envelope` 内含本 schema 实例 |
-| 依赖 | `docs/spec/capability-matrix.md` | Tool schema 必须含 capability 字段声明 |
-| 依赖 | `docs/spec/audit-event.md` | Tool 调用结果必须产出 audit event |
-| 依赖 | `docs/spec/ipc-protocol.md` | 跨进程传输用 envelope 包 Tool 输入/输出 |
-| 依赖 | `docs/spec/naming.md` | 字段命名遵守命名规范 |
-| 依赖 | `docs/spec/testing.md` | 测试用例覆盖 schema 边界 |
+| 相关 | `docs/spec/envelope.md` | contract 测试覆盖 envelope 的反序列化边界 |
+| 相关 | `docs/spec/tool-schema.md` | contract 测试覆盖 Tool schema 边界（空 / null / 重复 ID / 超大值） |
+| 相关 | `docs/spec/audit-event.md` | unit 测试覆盖 hash chain 的篡改检测 |
+| 相关 | `docs/spec/capability-matrix.md` | policy 引擎单测覆盖矩阵的风险级与 Approval 列 |
+| 相关 | `docs/spec/error-codes.md` | contract 测试校验 ErrorCode 完整性（13 类） |
 
 ---
 

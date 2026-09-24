@@ -10,7 +10,17 @@
 
 ## 1. 目标
 
+定义本项目**唯一的错误码枚举** `ErrorCode`（u16 + 命名空间分组，借鉴 RFC 7807 的分组思路），使错误在 Host ↔ Agent ↔ Platform 之间稳定可比、可审计、可国际化。
+
 ## 2. 范围
+
+**管**：错误码的数值区间与分组语义、跨进程稳定性要求、错误实例必带 `message` 的约束、新增错误码的门槛。
+
+**不管（不做清单）**：
+- 不管错误到**领域错误类型**的映射（各 crate 的 `error.rs` 负责映射，本 spec 只给枚举）
+- 不管重试 / 降级 / 审批策略（归 `docs/spec/capability-matrix.md` 的风险级与 policy 引擎）
+- 不管 HTTP 状态码或 RFC 7807 的具体载体（本 spec 只借其分组思路）
+- 不管日志与事件格式（归 `docs/spec/audit-event.md`）
 
 ## 3. 类型定义
 
@@ -52,49 +62,18 @@ enum ErrorCode {
 2. **错误码与文档同步**：本枚举必须有 ADR 批准才能新增；`xtask verify-schemas` 强制 schema 与代码一致。
 3. **错误码跨进程稳定**：u16 数值在所有跨进程边界（Host ↔ Agent ↔ Platform）保持不变；命名空间允许重排但数值不变。
 4. **错误必带 message**：所有 ErrorCode 实例化时必带人可读 `message` 字段（= 多语言友好）。
+5. **错误用 ErrorCode 枚举**：`outcome` / `postconditions` / 协议错误等**一切**错误字段只能用本枚举；禁止字符串自定义错误码
 
 ---
 
 ## 5. 与其他 spec 的关系
 
-(本节 = tool-schema 的 postconditions 字段 + envelope 的 PayloadKind::Error + audit-event 的 outcome)
-
-### 字段
-### 字段
-
-| 字段 | 类型 | 必选 | 说明 |
-|---|---|---|---|
-| `schema_version` | integer | ✓ | 当前 = 1（schema 升级时递增） |
-
-### 命名空间
-
-- Tool：`tool.<app>.<domain>.<action>`（与 ADR-0021 受控词一致）
-- Adapter：`adapter.<app>.<version>`
-- AuditEvent：`audit.<event_kind>`
-
----
-
-## 4. 不变量
-
-1. **schema_version 单调递增**：从 1 起；任何字段重命名/类型变化 → 新增 version，旧字段标记 `@deprecated` 保留 ≥2 个版本。
-2. **必选字段不可为空**：`required` 列表中的字段在所有实例中**非 null / 非空字符串 / 非空数组**。
-3. **时间戳用 ISO-8601**：所有时间字段（`captured_at` / `occurred_at` / `timestamp`）= UTC + RFC 3339（= `2026-09-19T12:34:56Z` 形式）。
-4. **ID 用 u64**：所有 `id` 字段类型 = unsigned 64-bit（= 本机跨进程传递稳定）。
-5. **错误用 ErrorCode 枚举**：见 `docs/spec/error-codes.md`；禁止字符串自定义错误码。
-
----
-
-## 5. 与其他 spec 的关系
-
-| 引用方向 | 来源 spec | 关系 |
+| 引用方向 | spec | 关系 |
 |---|---|---|
-| 依赖 | `docs/spec/error-codes.md` | 所有错误字段用 ErrorCode 枚举 |
-| 依赖 | `docs/spec/envelope.md` | 大消息包 `envelope` 内含本 schema 实例 |
-| 依赖 | `docs/spec/capability-matrix.md` | Tool schema 必须含 capability 字段声明 |
-| 依赖 | `docs/spec/audit-event.md` | Tool 调用结果必须产出 audit event |
-| 依赖 | `docs/spec/ipc-protocol.md` | 跨进程传输用 envelope 包 Tool 输入/输出 |
-| 依赖 | `docs/spec/naming.md` | 字段命名遵守命名规范 |
-| 依赖 | `docs/spec/testing.md` | 测试用例覆盖 schema 边界 |
+| 被依赖 | `docs/spec/tool-schema.md` | Tool 的 `postconditions` 用 ErrorCode |
+| 被依赖 | `docs/spec/envelope.md` | `PayloadKind::Error` 的 code 用 ErrorCode |
+| 被依赖 | `docs/spec/audit-event.md` | `outcome.code` 必须是本枚举的 u16 |
+| 相关 | `docs/spec/capability-matrix.md` | `PolicyDenied` / `ApprovalRequired` 由矩阵的风险级与 Approval 列触发 |
 
 ---
 

@@ -10,7 +10,18 @@
 
 ## 1. 目标
 
+定义 Host / Agent / Platform 之间**唯一**的消息包装（envelope）：单根 envelope = `header` + `payload`，payload 由 `header.kind` 判别。
+目标：任何跨进程 / 跨 crate / 跨语言的消息都走同一形状，使调试追踪、审计关联、版本协商有统一落点。
+
 ## 2. 范围
+
+**管**：envelope 的 `header` 字段与语义、`PayloadKind` 判别方式、关联 ID（`correlation_id`）规则、schema 版本的拒绝策略。
+
+**不管（不做清单）**：
+- 不管**传输层**：字节布局 / magic / CRC32 / 握手 归 `docs/spec/ipc-protocol.md`
+- 不管 payload **内容**：Tool 输入输出归 `docs/spec/tool-schema.md`，事件归 `docs/spec/audit-event.md`
+- 不管错误码取值（归 `docs/spec/error-codes.md`）
+- 不管加密 / 压缩 / 分片（后续卡）
 
 ## 3. 类型定义
 
@@ -57,44 +68,13 @@ struct Payload {
 
 ## 5. 与其他 spec 的关系
 
-(本节 = tool-schema + audit-event 的容器 + ipc-protocol 的 wire format)
-
-### 字段
-### 字段
-
-| 字段 | 类型 | 必选 | 说明 |
-|---|---|---|---|
-| `schema_version` | integer | ✓ | 当前 = 1（schema 升级时递增） |
-
-### 命名空间
-
-- Tool：`tool.<app>.<domain>.<action>`（与 ADR-0021 受控词一致）
-- Adapter：`adapter.<app>.<version>`
-- AuditEvent：`audit.<event_kind>`
-
----
-
-## 4. 不变量
-
-1. **schema_version 单调递增**：从 1 起；任何字段重命名/类型变化 → 新增 version，旧字段标记 `@deprecated` 保留 ≥2 个版本。
-2. **必选字段不可为空**：`required` 列表中的字段在所有实例中**非 null / 非空字符串 / 非空数组**。
-3. **时间戳用 ISO-8601**：所有时间字段（`captured_at` / `occurred_at` / `timestamp`）= UTC + RFC 3339（= `2026-09-19T12:34:56Z` 形式）。
-4. **ID 用 u64**：所有 `id` 字段类型 = unsigned 64-bit（= 本机跨进程传递稳定）。
-5. **错误用 ErrorCode 枚举**：见 `docs/spec/error-codes.md`；禁止字符串自定义错误码。
-
----
-
-## 5. 与其他 spec 的关系
-
-| 引用方向 | 来源 spec | 关系 |
+| 引用方向 | spec | 关系 |
 |---|---|---|
-| 依赖 | `docs/spec/error-codes.md` | 所有错误字段用 ErrorCode 枚举 |
-| 依赖 | `docs/spec/envelope.md` | 大消息包 `envelope` 内含本 schema 实例 |
-| 依赖 | `docs/spec/capability-matrix.md` | Tool schema 必须含 capability 字段声明 |
-| 依赖 | `docs/spec/audit-event.md` | Tool 调用结果必须产出 audit event |
-| 依赖 | `docs/spec/ipc-protocol.md` | 跨进程传输用 envelope 包 Tool 输入/输出 |
-| 依赖 | `docs/spec/naming.md` | 字段命名遵守命名规范 |
-| 依赖 | `docs/spec/testing.md` | 测试用例覆盖 schema 边界 |
+| 被依赖 | `docs/spec/ipc-protocol.md` | 本 envelope 是该协议的线上载荷（字节布局由该 spec 定义；本 spec §2 明确不管传输层） |
+| 依赖 | `docs/spec/tool-schema.md` | `PayloadKind::ToolInvoke` / `ToolResult` 的 body 是 Tool schema 实例 |
+| 依赖 | `docs/spec/audit-event.md` | `PayloadKind::AuditEvent` 的 body 是 audit event |
+| 依赖 | `docs/spec/error-codes.md` | `PayloadKind::Error` 的 code 只用 ErrorCode 枚举 |
+| 相关 | `docs/spec/capability-matrix.md` | 握手交换的 capability 列表取值由矩阵定义 |
 
 ---
 

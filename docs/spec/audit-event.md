@@ -10,7 +10,17 @@
 
 ## 1. 目标
 
+定义**审计事件**的结构：任何受治理的动作必须产出可追加、不可修改的事件记录，并通过 hash chain 使篡改可检测。
+
 ## 2. 范围
+
+**管**：事件字段（`event_id` / `sequence` / `prev_hash` / `payload_hash` / `actor` / `subject` / `action` / `outcome` / `metadata` / `redacted_fields`）、append-only 与 hash chain 不变量、脱敏字段路径的表达。
+
+**不管（不做清单）**：
+- 不管**存储实现**：表结构 / flush 策略 / `durability` 归 TASK-013 `crates/audit`
+- 不管错误码取值（归 `docs/spec/error-codes.md`）
+- 不管事件的**投递通道**（单向流归 `docs/spec/ipc-protocol.md`）
+- 不管日志轮转 / 冷归档 / 签名（后续卡）
 
 ## 3. 类型定义
 
@@ -48,44 +58,12 @@ enum Outcome {
 
 ## 5. 与其他 spec 的关系
 
-(本节 = envelope 的 PayloadKind::AuditEvent + tool-schema 的 outputs + error-codes::Success/Error)
-
-### 字段
-### 字段
-
-| 字段 | 类型 | 必选 | 说明 |
-|---|---|---|---|
-| `schema_version` | integer | ✓ | 当前 = 1（schema 升级时递增） |
-
-### 命名空间
-
-- Tool：`tool.<app>.<domain>.<action>`（与 ADR-0021 受控词一致）
-- Adapter：`adapter.<app>.<version>`
-- AuditEvent：`audit.<event_kind>`
-
----
-
-## 4. 不变量
-
-1. **schema_version 单调递增**：从 1 起；任何字段重命名/类型变化 → 新增 version，旧字段标记 `@deprecated` 保留 ≥2 个版本。
-2. **必选字段不可为空**：`required` 列表中的字段在所有实例中**非 null / 非空字符串 / 非空数组**。
-3. **时间戳用 ISO-8601**：所有时间字段（`captured_at` / `occurred_at` / `timestamp`）= UTC + RFC 3339（= `2026-09-19T12:34:56Z` 形式）。
-4. **ID 用 u64**：所有 `id` 字段类型 = unsigned 64-bit（= 本机跨进程传递稳定）。
-5. **错误用 ErrorCode 枚举**：见 `docs/spec/error-codes.md`；禁止字符串自定义错误码。
-
----
-
-## 5. 与其他 spec 的关系
-
-| 引用方向 | 来源 spec | 关系 |
+| 引用方向 | spec | 关系 |
 |---|---|---|
-| 依赖 | `docs/spec/error-codes.md` | 所有错误字段用 ErrorCode 枚举 |
-| 依赖 | `docs/spec/envelope.md` | 大消息包 `envelope` 内含本 schema 实例 |
-| 依赖 | `docs/spec/capability-matrix.md` | Tool schema 必须含 capability 字段声明 |
-| 依赖 | `docs/spec/audit-event.md` | Tool 调用结果必须产出 audit event |
-| 依赖 | `docs/spec/ipc-protocol.md` | 跨进程传输用 envelope 包 Tool 输入/输出 |
-| 依赖 | `docs/spec/naming.md` | 字段命名遵守命名规范 |
-| 依赖 | `docs/spec/testing.md` | 测试用例覆盖 schema 边界 |
+| 依赖 | `docs/spec/envelope.md` | `PayloadKind::AuditEvent` 是事件的传输载体 |
+| 依赖 | `docs/spec/error-codes.md` | `outcome.code` 必须是 ErrorCode 枚举的 u16 |
+| 相关 | `docs/spec/tool-schema.md` | Tool 的 `outputs` / `postconditions` 决定事件的 outcome |
+| 相关 | `docs/spec/ipc-protocol.md` | 事件可作为单向流（fire-and-forget）推送 |
 
 ---
 

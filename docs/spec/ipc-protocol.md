@@ -10,7 +10,17 @@
 
 ## 1. 目标
 
+定义 Host / Agent / Platform 三方之间的**线上协议**（wire format + 握手 + 消息流 + 失败模式），使跨进程通信有唯一可实现的形状。
+
 ## 2. 范围
+
+**管**：字节布局（magic / `envelope_size` / CRC32）、握手（ClientHello / ServerHello / Heartbeat）、消息流方向与 correlation、失败模式（断连 / 超时 / 版本不匹配）。
+
+**不管（不做清单）**：
+- 不管 envelope **内部字段**（归 `docs/spec/envelope.md`）
+- 不管 capability **取值**（握手只传 capability 列表，取值归 `docs/spec/capability-matrix.md`）
+- 不管进程**权限模型**与 token / 对端身份校验的实现（归 TASK-019 `apps/automation-host`）
+- 不定义 macOS / Linux 的传输实现细节（平台层归各自卡）
 
 ## 3. 类型定义
 
@@ -50,44 +60,13 @@ Failure modes:
 
 ## 5. 与其他 spec 的关系
 
-(本节 = envelope 的 wire format + capability-matrix 握手 + audit-event 单向流 + tool-schema 消息体)
-
-### 字段
-### 字段
-
-| 字段 | 类型 | 必选 | 说明 |
-|---|---|---|---|
-| `schema_version` | integer | ✓ | 当前 = 1（schema 升级时递增） |
-
-### 命名空间
-
-- Tool：`tool.<app>.<domain>.<action>`（与 ADR-0021 受控词一致）
-- Adapter：`adapter.<app>.<version>`
-- AuditEvent：`audit.<event_kind>`
-
----
-
-## 4. 不变量
-
-1. **schema_version 单调递增**：从 1 起；任何字段重命名/类型变化 → 新增 version，旧字段标记 `@deprecated` 保留 ≥2 个版本。
-2. **必选字段不可为空**：`required` 列表中的字段在所有实例中**非 null / 非空字符串 / 非空数组**。
-3. **时间戳用 ISO-8601**：所有时间字段（`captured_at` / `occurred_at` / `timestamp`）= UTC + RFC 3339（= `2026-09-19T12:34:56Z` 形式）。
-4. **ID 用 u64**：所有 `id` 字段类型 = unsigned 64-bit（= 本机跨进程传递稳定）。
-5. **错误用 ErrorCode 枚举**：见 `docs/spec/error-codes.md`；禁止字符串自定义错误码。
-
----
-
-## 5. 与其他 spec 的关系
-
-| 引用方向 | 来源 spec | 关系 |
+| 引用方向 | spec | 关系 |
 |---|---|---|
-| 依赖 | `docs/spec/error-codes.md` | 所有错误字段用 ErrorCode 枚举 |
-| 依赖 | `docs/spec/envelope.md` | 大消息包 `envelope` 内含本 schema 实例 |
-| 依赖 | `docs/spec/capability-matrix.md` | Tool schema 必须含 capability 字段声明 |
-| 依赖 | `docs/spec/audit-event.md` | Tool 调用结果必须产出 audit event |
-| 依赖 | `docs/spec/ipc-protocol.md` | 跨进程传输用 envelope 包 Tool 输入/输出 |
-| 依赖 | `docs/spec/naming.md` | 字段命名遵守命名规范 |
-| 依赖 | `docs/spec/testing.md` | 测试用例覆盖 schema 边界 |
+| 依赖 | `docs/spec/envelope.md` | 线上载荷 = envelope 的序列化字节 |
+| 依赖 | `docs/spec/capability-matrix.md` | 握手阶段交换 capability 列表 |
+| 依赖 | `docs/spec/audit-event.md` | 服务端可单向推送 audit event（fire-and-forget） |
+| 依赖 | `docs/spec/tool-schema.md` | 请求 / 响应消息体是 Tool 输入 / 输出 schema 实例 |
+| 依赖 | `docs/spec/error-codes.md` | 协议错误（magic / CRC / 超长）用 ErrorCode 表达 |
 
 ---
 
