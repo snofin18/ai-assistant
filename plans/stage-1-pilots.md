@@ -178,7 +178,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-013 | A1 | `tasks/TASK-013-audit-append-hash-chain-flush.md` | **完整卡**（2026-09-24 Orchestrator 展开；**已 Done**） |
 | TASK-014 | A1 | `tasks/TASK-014-secrets-os-keychain-wrapper.md` | **完整卡**（2026-09-24 Orchestrator 代行展开：`keyring` 4.2 后端 + `zeroize` + 访问审计注入点（fail-closed）；write scope 含 `docs/DEPENDENCIES.md` —— 登记表规则 1「先登记后引入」）；**已 Done（2026-09-24）** |
 | TASK-015 | A1 | `tasks/TASK-015-xtask-hygiene-archtest-replay-skeleton.md` | **完整卡**（2026-09-24 Orchestrator 展开：`docscan` 4 条结构规则 + `crates/core/tests/arch*` 分层断言 + PL-047 迁移登记表扫描 + ADR-0039 D3 的 `check-ledger` 两条规则）；**已 Done（2026-09-24）** |
-| TASK-016 | A2 | `tasks/TASK-016-platform-api-trait-capability-matrix.md` | Ready（批次表占位派单前补全） |
+| TASK-016 | A2 | `tasks/TASK-016-platform-api-trait-capability-matrix.md` | **完整卡**（2026-09-24 Orchestrator 代行展开：零平台依赖的纯类型 + 3 个 trait 形状 + `CapabilityMatrix::validate()` 的 4 条不变量；**卡面有 3 个待裁决项 Q1 / Q2 / Q3**）；**Ready** |
 | TASK-017 | A2 | `tasks/TASK-017-platform-windows-uia-provider.md` | Ready（批次表占位派单前补全） |
 | TASK-018 | A2 | `tasks/TASK-018-platform-windows-synthetic-input-ime.md` | Ready（批次表占位派单前补全） |
 | TASK-019 | A2 | `tasks/TASK-019-automation-host-ipc-named-pipe.md` | Ready（批次表占位派单前补全） |
