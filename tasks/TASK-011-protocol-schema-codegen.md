@@ -571,3 +571,17 @@ GitHub workflow，故本轮**未执行**，已在 LEDGER 记一行待办。
   （带 workflow scope），故用 `POST /repos/snofin18/ai-assistant/actions/workflows/gate-selftest.yml/dispatches`
   直接触发（凭据只在内存使用，未落盘、未打印）。
 - §4 最后一条未勾选项与 §7 ① 至此闭合。
+
+#### §11 run 1 重跑诊断 + run 3 复核（2026-09-24）
+
+人类「又跑了一次 gate-selftest」实际是 GitHub 的 **Re-run all jobs**：`run_number=1` 的
+`run_attempt` 由 1 → **2**（`id` 不变、`sha` 仍是 `fb62636` 旧代码），conclusion 仍 **failure**，
+步骤指纹与 attempt 1 逐条一致（正向 success / 负向 failure）。
+
+- **这不是新问题**：Re-run 复用该 run 绑定的 commit，测的是**修复前的脚本**。
+- 为消除歧义，本会话以 `workflow_dispatch`（ref=main）触发 **run 3**：
+  `run_number=3`、id `35944708579`、main@`22e88a4`、attempt 1 = **SUCCESS**，两个 job 全部步骤 success。
+- 累计运行编号：**run 1 = failure（fb62636）/ run 2 = success（a3694ae）/ run 3 = success（22e88a4）**。
+- 新增长期记忆：`docs/memory/pitfalls.md` +1（Re-run 复用同一 commit）；`MEMORY.md` 规模表同步（pitfalls 181/78）。
+- 给审阅者的补充关注点：**记运行编号时必须同时记 `head_sha`** —— 同一个 `run_number` 配不同
+  `run_attempt` 会被误读成「两次独立验证」。
