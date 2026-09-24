@@ -54,8 +54,11 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 > `014 ← 011`、`015 ← 011` 在 011 完成后即解锁，且三者 write scope（`crates/storage` / `crates/secrets` / `xtask`）互不重叠。
 > **实际推进顺序仍按 011 ✅ → 012 → 013 → 014 → 015** —— 瓶颈是**人类审阅带宽**（AGENTS.md §3：并行度 ≤ 3、一会话 1~2 张卡），
 > 不是依赖本身。
-> ⚠ **已知规划缺陷 PL-037（未决）**：015 的 DoD 含「arch test 能拦住 core→platform/windows 的依赖」，而 `crates/core`
-> 要到 **TASK-028** 才存在 → **015 在 028 之前无法 Done**，这与「015 必须早做」直接冲突。裁决选项见 `docs/PARKING_LOT.md` PL-037。
+> ✅ **PL-037 已闭环（2026-09-24，人类裁决选项 ③ → `tasks/TASK-201-core-crate-skeleton.md`）**：`crates/core` 骨架已**提前落地**
+> （`crates/core/{Cargo.toml,README.md,src/lib.rs}`；零第三方依赖、零 `pub` 项），
+> 「`crates/core` 要到 TASK-028 才存在」这个硬阻塞已消除 → **015 现在可开工**。
+> ⚠ 语义边界：`cargo test -p assistant-core arch::` 目前是「0 个测试通过」而**不是**「arch 规则已生效」——
+> 真正的 arch 断言归 **015**（它拥有 `crates/core/tests/arch*`），CI 的 `[SOFT #5]` **仍是软门禁**（转硬 = 015 的动作）。
 
 ### 批次 A2　平台层（011/015 完成后可 2 路并行）
 
@@ -226,6 +229,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | 卡号 | 号段 | 卡片文件 | 备注 |
 |---|---|---|---|
 | TASK-200 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-200-fix-spec-contract-drafts.md` | `docs/spec/*` 7 份契约草案的系统性缺陷（PL-038）；**已建卡、未开工** |
+| TASK-201 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-201-core-crate-skeleton.md` | `crates/core` 骨架提前（PL-037 选项 ③ 的落地物）；**已 Done（2026-09-24）** |
 
 ## 任务卡号段分配（ADR-0037, 2026-09-20 起生效）
 
@@ -240,6 +244,6 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | 071 | ADR-0037 实施卡（号段分配策略；本 ADR 生效前建的治理卡）| 1 张 Done |
 | 072~099 | XTASK 池 | 已用 072~079（stage-0 b1 探针卡）+ 083 / 084 = **10 张**；**空位 080~082 / 085~099** |
 | 100~199 | 业务池 | 已用 100 / 101（Win32-Input + probe 替换）；空位 102~199 |
-| 200~299 | 治理池（audit/docs/memory 治理）| 已用 200（spec 修复卡）；空位 201~299 |
+| 200~299 | 治理池（audit/docs/memory 治理）| 已用 200（spec 修复卡）/ **201**（`crates/core` 骨架提前，PL-037）；空位 202~299 |
 
 **未来 xtask 护栏扩张** = 用 072~099；用满后用 200~299。sub-suffix 永久禁用。

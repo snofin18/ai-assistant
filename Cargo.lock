@@ -3,6 +3,10 @@
 version = 4
 
 [[package]]
+name = "assistant-core"
+version = "0.1.0"
+
+[[package]]
 name = "assistant-protocol"
 version = "0.1.0"
 dependencies = [

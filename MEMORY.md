@@ -29,7 +29,7 @@
 
 | 文件 | 行数 | 条目数 | 读法 |
 |---|---|---|---|
-| `facts.md` | 139 | 91 | 按主题分节；**grep 优先**，不必全读 |
+| `facts.md` | 140 | 92 | 按主题分节；**grep 优先**，不必全读 |
 | `pitfalls.md` | 184 | 81 | 按主题分节；**grep 优先**，不必全读 |
 | `rejected.md` | 53 | 33 | ★ **动手前全量读**（防止同一方案被反复重新提出） |
 | `decisions.md` | 95 | 51 | 索引 → `docs/adr/NNNN-*.md` |
@@ -102,7 +102,7 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
 下一步      ：① **stage-0 已正式 closeout**（2026-09-20，TASK-073）；详 `docs/audits/stage-0-closeout-2026-09-20.md`
               ② **stage-1 已开工**：1a 批次 A1（地基层）TASK-011 ✅ Done → **TASK-012 存储层 = 下一张**（正文已 2026-09-24 展开）；
                  依赖列里只有 `013 ← 012` 真串行，`014 ← 011` / `015 ← 011` 已解锁；实际顺序 011→012→013→014→015，瓶颈 = 人类审阅带宽；
-                 ⚠ **PL-037（未决）**：015 的 arch test 依赖 `crates/core`（TASK-028）→ 015 在 028 前无法 Done；详 `plans/stage-1-pilots.md`
+                 ✅ **PL-037 已闭环（2026-09-24，人类裁决选项 ③ → TASK-201）**：`crates/core` 骨架已提前落地（零依赖 / 零 `pub` 项）→ 015 可开工；⚠ `cargo test -p assistant-core arch::` 现为「0 测试通过」而非「规则生效」，真断言归 015
               ③ TASK-002 续做补完 SPIKE-A PARTIAL 仍 Blocked（`open.md N3` create_thread 上游 #36315/#36250 未关闭）→ 人类手工建会话
               ④ 夜间自动化 GATE-0 未执行（`open.md N9`）→ 待人类安排调试时段；在此之前**禁止创建真实 automation**
               ⑤ 改公共热点文件（LEDGER / `docs/memory/*` / PARKING_LOT / MEMORY.md / `plans/*`）前必须 `xtask guard acquire`（ADR-0028）；

@@ -1,0 +1,15 @@
+[package]
+name = "assistant-core"
+description = "Core orchestration layer: session/context management, planner, memory assembly (skeleton only, TASK-201)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# 骨架期零第三方依赖（漂移触发器 ①：新增依赖必须先登记 docs/DEPENDENCIES.md 再引入）。
+# core 的业务依赖（rmcp / 策略 DSL 等）由 TASK-020~028 逐张登记后引入，本卡一律不加。
+
+[lints]
+workspace = true
