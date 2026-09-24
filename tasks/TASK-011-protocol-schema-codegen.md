@@ -457,3 +457,106 @@ GitHub workflow，故本轮**未执行**，已在 LEDGER 记一行待办。
    `.github/workflows/ci.yml` 的 `gate-negative` job（含"注入有效性自检"那一步）与
    `docs/adr/0019` 登记表两行。
 3. **`gate-selftest` 尚未重跑**：这是 ADR-0019 的规程要求，本地做不到，需人类手工触发一次。
+
+### UPDATE 2026-09-24b（gate-selftest 元门禁首次真跑 + canary 自身缺陷修复）
+
+承接本卡 §7 ① / §9 ③「`gate-selftest` 尚未重跑」。人类于 2026-09-24 手工触发了一次
+（`workflow_dispatch`，run_number=1），本节记录**真跑结果**与随之暴露的 canary 缺陷。
+
+#### §1 约束回执（follow-up，非新领卡）
+
+```text
+【任务】TASK-011 follow-up：gate-selftest 首次真跑 + 修 canary 自身缺陷   【目标】把 ADR-0019 规程 ② 要求的运行编号落进 LEDGER，并让 canary 真的能红 / 能绿
+【write scope】本卡原 scope + `.github/workflows/gate-selftest.yml`（canary 本体）+ 记录类文件
+【铁律】1 无静默失败 / 9 不得静默扩大范围 / 10 契约先行
+【禁止】放宽任何 canary 断言；改主 CI 的触发条件与时长；改门禁判据
+【验收】按 CI 同形 shell（`bash -eo pipefail`）逐条复跑 canary 的 4 个 run 步 → 全部 exit 0
+【依赖】收尾轮 `fb62636` 已在 main；ADR-0019 规程 ② 要求「阶段末评审跑一次并把运行编号记入 LEDGER.md」
+【疑问】无
+```
+
+#### §2 实际改动文件
+
+- `.github/workflows/gate-selftest.yml`：两个 job 的**负向步**由 `out="$(...)"; code=$?` 改为
+  `if out="$(...)"; then code=0; else code=$?; fi`，并各加注释钉住事故（+17 / -5 行）。
+- `LEDGER.md`：追加 1 行（run 1 编号 + 根因 + 修复 + 待重跑）。
+- `docs/memory/pitfalls.md`：+1 条（隐式 `-e` 造成「永远红」的假红）。
+- `docs/memory/facts.md`：+1 条（Actions `run:` 的 shell 语义 + `total_count=0`）。
+- `MEMORY.md`：规模表同步（facts 136/88 → 137/89；pitfalls 179/76 → 180/77）。
+- `docs/adr/0019-hard-gate-negative-verification.md`：追加「首次真跑实证（2026-09-24）」节（**超出本卡 scope**，见 §5.3）。
+- `tasks/TASK-011-protocol-schema-codegen.md`：本节（记录区）。
+
+#### §3 验收输出摘要
+
+- `gate-selftest` run 1（人类手工触发，main@`fb62636`）= **FAILURE**：job「deny 门禁负向验证」
+  的 `negative: broken config must fail` failure；job「spike-deny 门禁负向验证」的
+  `negative: GPL-licensed spike dependency ...` failure；两个 job 的**正向步均 success**
+  （指纹 = 正向全过 / 负向全挂）。
+- 根因复现（本机 Git Bash，用 `bash --noprofile --norc -eo pipefail` 跑旧写法）= exit 1，
+  且连下一行 `echo MARKER` 都不打印 → 证明 `code=$?` 与全部断言**从未执行**。
+- 修复后按 CI 同形 shell 复跑（脚本体用 `yaml.safe_load` 从 YAML 直接抽出，非手抄）：
+  deny 正向 exit 0 / deny 负向 exit 0（内层 cargo-deny exit 1 + `expected a string`）/
+  spike 正向 exit 0 / spike 负向 exit 0（内层 cargo-deny exit 4 + `license is not explicitly allowed`
+  + `GPL-3.0-only`）。
+- `yaml.safe_load(.github/workflows/gate-selftest.yml)` → OK。
+- `xtask hygiene / docscan / memory-counts / adr-index / card-check` → 见 §4。
+
+#### §4 DoD 逐条核对
+
+- [x] canary 的负向步在与 CI 同形的 shell 下真的会红（断言确实执行且命中预期故障文本）
+- [x] 修好坏样本后负向步真的会绿（修复后 exit 0）
+- [x] 断言口径未被放宽（仍是 exit 1 / 非 0 + 具体故障文本）
+- [x] run 编号已记入 `LEDGER.md`（ADR-0019 规程 ②）
+- [x] 新 FACT / PITFALL 已追加；`MEMORY.md` 规模表已同步
+- [ ] **未完成（需人类）**：run 2 必须为绿 —— 本地无 `gh`、无 workflow scope token，无法 dispatch
+
+#### §5 偏差
+
+**5.3 DRIFT-011-2：本轮改了 2 个不在本卡 write scope 内的文件（需人类知悉）**
+
+- **现象**：`.github/workflows/gate-selftest.yml`（canary 本体）与
+  `docs/adr/0019-hard-gate-negative-verification.md`（ADR，按 AGENTS.md §8 对 Implementer 只读）
+  都不在 TASK-011 的 write scope 内（漂移触发器 ⑤）。
+- **影响**：不改 → ADR-0019 的元门禁"存在但断言永不执行"，且登记表 #8 / #8b 的 ✅ 是未经实测的结论；
+  改 → 越过本卡 scope。
+- **建议 / 本轮处理**：依据用户 chat 指示「完整复核整个项目，查缺补漏，修改bug，修正漂移，严格规范」
+  执行；ADR 侧只做**追加**（新增「首次真跑实证」节，并把 #8 / #8b 的 ✅ 限定为"已落地"），
+  **未改动任何既有决策行**。改动已逐条列在 §2，便于逐项复核或回退。
+- **已停工作**：无（用户指示即裁决）；仍有 1 项必须由人类执行，见 §7 ①。
+
+#### §6 实施中发现的更合理做法
+
+1. **"脚本体从 YAML 里抽出来跑"比"手抄一份等价脚本"更可靠**：本轮用 `yaml.safe_load` 抽
+   `steps[].run` 逐条执行，避免"本地测的是我抄的版本、CI 跑的是另一版"。这是 PL-016 的直接推论 ——
+   验证对象必须是**即将被 CI 执行的那份字节**。
+2. **负向步要自带"我执行到哪一行"的证据**：本轮事故的指纹是"正向过、负向挂"，且日志里**没有**
+   `----- cargo-deny output (exit=...) -----` 这段分隔线。给负向步加一行"我进来了"的打印，
+   能把"断言失败"与"断言没跑"在日志里分开。
+3. **`-e` 与"命令替换赋值"的交互是经典 shell 陷阱，且它在本地不可见**（本地默认无 `-e`）。
+   凡要靠退出码做判断的脚本，捕获退出码必须放在**条件位置**或 `set +e` 区内。
+
+#### §7 遗留问题
+
+- ① **必须由人类执行**：再触发一次 `gate-selftest`（run 2）并确认绿，然后追加一行 LEDGER 记编号。
+  触发页 https://github.com/snofin18/ai-assistant/actions/workflows/gate-selftest.yml 。
+- ② `fmt` / `clippy` / `build --release` 的 canary 仍缺（PL-018，归 TASK-015）；本轮**未**新增
+  canary 段（新增段须在 ADR-0019 登记表补一行），故无登记表变更。
+- ③ TASK-015 可考虑把"canary 类护栏必须有一次成功 run_number"做成机器判据（PL-018 邻域）。
+
+#### §8 新增长期记忆
+
+- `docs/memory/facts.md` +1 条：GitHub Actions 的 `run:` 由 `bash -e` 执行（隐式 `-e`），
+  「赋值 + 命令替换」失败会终止脚本；条件位置不受影响；本地默认无 `-e` 会掩盖它。
+  另记 `gate-selftest` 首次真跑前 `total_count=0`。
+- `docs/memory/pitfalls.md` +1 条：隐式 `-e` 让负向步退化成「永远红」的假红（与 PL-016 同族、方向相反）。
+- `MEMORY.md` 规模表同步（facts 137/89、pitfalls 180/77），`memory-counts` PASS。
+
+#### §9 给审阅者的关注点
+
+1. **断言口径是否被放宽**：只看 `if out="$(...)"; then code=0; else code=$?; fi` 之外，
+   原有的 `if [ "$code" -eq 0 ]` / `grep -q "expected a string"` 是否一字未动。
+2. **ADR-0019 的改动是否只是追加**：应只新增「首次真跑实证（2026-09-24）」节并在节内限定
+   #8 / #8b 的 ✅ 含义，登记表表格行本身不应被改写。
+3. **run 2 仍红的可能**：若 run 2 仍红，优先看日志里有没有
+   `----- cargo-deny output (exit=...) -----` 这段分隔线 —— 有 = 断言真的跑了（再看断言内容）；
+   没有 = 还有别处在 `-e` 下提前退出。

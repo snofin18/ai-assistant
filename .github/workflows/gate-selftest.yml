@@ -73,9 +73,16 @@ jobs:
           set -uo pipefail
           broken="$(mktemp -d)/broken-deny.toml"
           printf '[advisories]\ndb-path = ["target/deny-db"]\n' > "$broken"
-          out="$(cargo deny --config "$broken" check licenses bans sources 2>&1)"
-          code=$?
-          set -e
+          # ⚠ 不要写成 out="$(cargo deny ...)"; code=$? —— GitHub Actions 用 `bash -eo pipefail`
+          #   执行 run 脚本（隐式 -e），而「赋值 + 命令替换」失败时会触发 -e 当场中止脚本：
+          #   于是 code=$? 与后面所有断言根本不会执行，负向验证退化成「永远红」的假红。
+          #   2026-09-24 首次真跑（run_number=1）即死于此。条件位置的命令不受 -e 影响，
+          #   故用 if/else 完整捕获退出码。同形修复见本文件 spike-deny-gate 的负向步。
+          if out="$(cargo deny --config "$broken" check licenses bans sources 2>&1)"; then
+            code=0
+          else
+            code=$?
+          fi
           echo "----- cargo-deny output (exit=$code) -----"
           echo "$out"
           echo "------------------------------------------"
@@ -158,8 +165,13 @@ jobs:
           TOML
           echo "// fixture" > "$bad/src/main.rs"
           # 用仓库根的 deny.toml（白名单里没有 GPL-3.0-only）
-          out="$(cargo deny --config deny.toml --manifest-path "$bad/Cargo.toml" check licenses sources 2>&1)"
-          code=$?
+          # 同形修复：见 deny-gate job 负向步的详细说明 —— GitHub 的隐式 -e 会让
+          #   out="$(...)"; code=$? 在赋值那一行就中止脚本（2026-09-24 run_number=1 的失败原因）。
+          if out="$(cargo deny --config deny.toml --manifest-path "$bad/Cargo.toml" check licenses sources 2>&1)"; then
+            code=0
+          else
+            code=$?
+          fi
           echo "----- cargo-deny output (exit=$code) -----"
           echo "$out"
           echo "------------------------------------------"

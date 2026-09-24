@@ -118,3 +118,26 @@
 - TASK-015 引入 `card-check` / `check-ledger` 后，登记表可由机器维护
   → 把本 ADR 的"人工规程"升级为"机器门禁"，并考虑把 canary 并入主 CI 的独立 job。
 - 若 cargo-deny 官方 action 提供"版本钉定 + 配置校验"内建能力 → 可删除 N3 canary 的对应部分。
+
+## 首次真跑实证（2026-09-24）
+
+**背景**：本 ADR 登记表 #8 / #8b 标着 ✅（"本 ADR 落地" / "随 ADR-0024 落地"），但截至 2026-09-24，
+`gate-selftest` workflow 的 `total_count` 仍是 **0** —— 即 canary **从未运行过**。这正是本 ADR
+第 40~48 行论证要消灭的失效模式（"以为在自检、其实早就停了"），只不过它先发生在了 canary 自己身上。
+
+**run 1 = FAILURE**（`run_number=1`、id `35942608675`、`workflow_dispatch` on main@`fb62636`、
+https://github.com/snofin18/ai-assistant/actions/runs/35942608675）：两个 job 的**正向步全过**、
+两个**负向步全挂**。根因**不是门禁坏，而是 canary 自身脚本 bug** —— GitHub Actions 用
+`bash -eo pipefail` 执行 `run:`（隐式 `-e`），负向步的 `out="$(cargo deny ...)"; code=$?`
+在命令非零退出时被 `-e` 当场中止，于是 `code=$?` 与全部断言**从未执行**。本地 shell 默认没有 `-e`，
+所以本地"验证通过"完全掩盖了它。
+
+**修复**：两处负向步改为 `if out="$(...)"; then code=0; else code=$?; fi`（条件位置的命令不受 `-e`
+影响），**断言口径一字未放宽**（deny 仍断言 **exit 1** + `expected a string`；spike 仍断言非 0 +
+`license is not explicitly allowed` + `GPL-3.0-only`）。修复后按 CI 同形 shell 逐条复跑 canary 的
+全部 4 个 run 步：deny 正向 exit 0、deny 负向 exit 0（内层 exit 1）、spike 正向 exit 0、
+spike 负向 exit 0（内层 exit 4）。
+
+**对本 ADR 判据的修正**：登记表里的 ✅ 只应读作「**canary 已落地**」，**不等于**「canary 已跑过且为绿」。
+补强判据：**canary 类护栏（N3）的 ✅ 必须以「一次成功的 `run_number`」为证据**，仅"文件存在 +
+本地通过"不足。运行编号按本 ADR 规程 ② 记入 `LEDGER.md`。
