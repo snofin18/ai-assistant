@@ -7,14 +7,13 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-24（TASK-203 收尾：ADR-0039 状态同步契约落地 + PL-043/PL-045 闭环；详 LEDGER 末行）
+更新日期    ：2026-09-24（TASK-014 收尾：`crates/secrets` OS keychain 封装落地 + DRIFT-014-1/PL-049；详 LEDGER 末行）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
-当前任务卡  ：**1a 批次 A1（地基层）**：TASK-011 ✅ / 012 ✅ / 013 ✅ Done → **TASK-014（secrets / OS keychain）= 下一张**；
-                  同批 TASK-015 已由 Orchestrator 展开正文（docscan 4 条结构规则 + arch test + PL-047 + ADR-0039 的 check-ledger）；
+当前任务卡  ：**1a 批次 A1（地基层）**：TASK-011 ✅ / 012 ✅ / 013 ✅ / **014 ✅ Done** → **TASK-015（xtask 护栏清扫）= 下一张**；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203** 均 Done
 阻塞项      ：① PL-037 已闭环（TASK-201）→ TASK-015 的 arch 宿主已就位；② TASK-002 仍 Blocked（上游 `create_thread` 未关）
-下一步动作  ：① TASK-014（`crates/secrets`）→ ② TASK-015 护栏清扫（含 PL-047 + ADR-0039 D3）
-                  → ③ stage-1 后续批次；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
+下一步动作  ：① TASK-015 护栏清扫（docscan 4 条结构规则 + arch test + PL-047 + PL-048 + ADR-0039 D3 的 check-ledger）
+                  → ② stage-1 后续批次；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 
 ## 阶段索引（点开当前阶段那一个就够）

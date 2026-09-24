@@ -5,8 +5,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
 > 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0（文档与 Spike）已于 2026-09-20 closeout；
-> 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架已完成，
-> 下一张是密钥 `crates/secrets`，随后是护栏）。**当前阶段详情以 `PLAN.md` 为准**。
+> 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` 已完成，
+> 下一张是护栏 `xtask`）。**当前阶段详情以 `PLAN.md` 为准**。
 
 ---
 
@@ -66,8 +66,9 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 **阶段 1 — 三试点闭环**（Notepad → Paint → Edge/Chrome；TASK-011 ~ TASK-058）。
 子阶段 1a 已开工：地基层的 `crates/protocol`（schema + codegen）/ `crates/storage`（SQLite WAL + 迁移注册表 + blob）/
-`crates/audit`（append-only hash chain）/ `crates/core` 骨架**均已落地**；跨阶段治理卡 TASK-200 / 201 / 202 / 203 已 Done。
-**下一张 = TASK-014（密钥 / OS keychain）**，随后 TASK-015（护栏清扫）。＋ Notepad 的 3 个任务闭环。
+`crates/audit`（append-only hash chain）/ `crates/core` 骨架 / `crates/secrets`（OS keychain 封装）**均已落地**；
+跨阶段治理卡 TASK-200 / 201 / 202 / 203 已 Done。
+**下一张 = TASK-015（护栏清扫）**。＋ Notepad 的 3 个任务闭环。
 阶段 0（文档与 Spike）已于 2026-09-20 closeout —— 它的产出是 Spike 报告，**不是**产品代码。
 详见 `plans/stage-1-pilots.md`。
 
@@ -113,9 +114,9 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-24：阶段 1 地基层 + 治理池收口 = TASK-011 / 012 / 013 / 200 / 201 / 202 / 203）
+## 最近进展（2026-09-24：阶段 1 地基层 + 治理池收口 = TASK-011 / 012 / 013 / 014 / 200 / 201 / 202 / 203）
 
-阶段 1 的地基层已经落地，治理池把 TASK-013 现场撞出的三个**结构性**缺陷一次性收口。
+阶段 1 的地基层已经落地（含密钥层），治理池把 TASK-013 现场撞出的三个**结构性**缺陷一次性收口。
 
 | 卡 | 内容 | 状态 |
 |---|---|---|
@@ -126,6 +127,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 | TASK-201 | `crates/core` 骨架提前（PL-037 闭环） | ✅ Done |
 | TASK-202 | 存储**迁移注册表**：storage 只提供机制、各 crate 自持迁移 + 唯一装配点（**ADR-0038**，PL-046 闭环） | ✅ Done |
 | TASK-203 | `audit_logs` 列语义去重 + 显式链序：删与 `id` 同义的 `hash`、加 `sequence`（**ADR-0040**，PL-043 / PL-045 闭环） | ✅ Done |
+| TASK-014 | `crates/secrets`：OS keychain 封装（`keyring` 4.2 / DPAPI·Keychain·Secret Service）+ `zeroize` + 访问审计注入点（fail-closed） | ✅ Done |
 
 治理机制同步前进：**ADR-0039** 把「卡 Done = 同一 PR 内同步 `PLAN.md` + `README.md`」写成硬契约
 （DRIFT-202-2 闭环，可机器校验的新鲜度规则归 TASK-015 的 `check-ledger`）；
