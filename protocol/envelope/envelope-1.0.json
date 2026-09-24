@@ -3,7 +3,7 @@
   "$id": "https://example.invalid/protocol/envelope-1.0.json",
   "title": "ToolEnvelope",
   "version": "1.0",
-  "description": "TASK-103 (revised): Unified tool return envelope per arch v2 §5.3. Carries full provenance (tool, task_id, step_id, source, evidence, metrics) so downstream consumers (model, audit, undo) can reason without re-querying. `untrusted: true` is the anti-prompt-injection flag (v2 §12.4): such content MUST NEVER be re-pasted into system prompt.",
+  "description": "Unified tool return envelope per arch v2 §5.3. Carries full provenance (tool, task_id, step_id, source, evidence, metrics) so downstream consumers (model, audit, undo) can reason without re-querying. `untrusted: true` is the anti-prompt-injection flag (v2 §12.4): such content MUST NEVER be re-pasted into system prompt.",
   "type": "object",
   "required": ["version", "tool", "task_id", "step_id", "ok", "data"],
   "properties": {

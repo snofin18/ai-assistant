@@ -104,3 +104,7 @@
 ## 2026-09-24 追加（ADR-0041，Accepted）
 
 - [2026-09-24][DECISION][src:ADR-0041] **计划文件的「可写面」= 只允许改「完成状态」与「当前进度」**：人类 2026-09-24 chat 澄清「禁止改 plan.md」的确切含义 —— **禁止**改原有 plan 的**排期**与**各点要做的内容**；**必须**实时更新「是否完成」的状态（做完的在条目前打勾，按该文件既有定义，未必是真的 `✅`），且**打勾不得改动该条目的正文**；若有「当前状态 / 当前进度」块，该块内容也必须跟着进度**实时更新**。**D1** = 允许写：完成标记 / 「当前进度」块 / 新增任务行；**D2** = 禁止写：排期与周期、批次顺序、条目正文（名称、write scope、验收要点、依赖、预估）、已在跑的排期时刻；**D3** = 标记只加在**行首**，要改正文走 DRIFT + 人类裁决；**D4** = 状态更新与产生该状态的提交**同批**（延续 ADR-0039 D1/D2 的「同一 PR 内」）；**D5** = 本 ADR 授权修订 `AGENTS.md` §8 write scope 表 + §11 + `docs/overnight-automation-charter.md` §3 第 3 条。**根因** = 章程 §3 黑名单禁止夜间 agent 改 `PLAN.md` / `plans/*`，与 ADR-0039 D1/D2 冲突 → 夜间 agent 做完卡到「同步进度」必撞黑名单 → **「按计划自动逐卡推进」在机制上无法完成**（本次调查实测）。**选项 1（维持全只读）与选项 2（全可写）均否决**：前者把正常工作挡死，后者等于让执行者改考核标准。
+
+## 2026-09-24 追加（ADR-0042，Accepted）
+
+- [2026-09-24][DECISION][src:ADR-0042] **能力命名三分**：**`CapabilityCatalog`** = 稳定能力标识目录（`protocol/capability-matrix/capability-1.0.json`，schema `title` 改名）；**`CapabilityMatrix`** = **运行时探测结果**（架构 v2 §13.1.2，Rust `assistant_platform_api::CapabilityMatrix`，**保留原义、现存引用一处不改**）；**`CapabilityEntry`** = 单条能力的风险/审批元数据（策略引擎输入，TASK-021）。**D4** = 目录名 `protocol/capability-matrix/` **不改**（codegen 与 `verify-schemas` 的硬编码路径）。**D5** = 授权改 schema `title` + spec 名称澄清段。**根因** = PL-064：同一个名字在 schema / spec / 代码三处指两件事，读契约的人会把「目录」当「探测结果」。**选项 1（靠上下文区分）与选项 2（改 Rust 类型名）均否决**：前者已被 PL-064 证明会造成误读，后者要动 SSOT 且「矩阵」对探测结果更贴切。落地实测：codegen 的 `render_capability()` 不读 `title`、`verify_schemas` 不校验 `title` → 零代码影响。

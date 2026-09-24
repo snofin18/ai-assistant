@@ -7,12 +7,12 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-24（TASK-016 收尾：`crates/platform/api` 落地 —— 铁律 7 的唯一平台入口：4 个纯类型 + 3 个 trait 形状 + 能力矩阵 4 条不变量的机器校验；详 LEDGER）
+更新日期    ：2026-09-24（TASK-016 遗留裁决批次：PL-064 → **ADR-0042** 能力命名三分（`CapabilityCatalog` = 标识目录 / `CapabilityMatrix` = 运行时探测结果 / `CapabilityEntry` = 风险·审批元数据）；PL-065 / 066 / 067 与 DRIFT-016-1 / -2 一并闭环；详 LEDGER）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
 当前任务卡  ：**1a 批次 A1（地基层）全部 Done**：TASK-011 ✅ / 012 ✅ / 013 ✅ / 014 ✅ / 015 ✅ / **016 ✅** → **TASK-017（`crates/platform/windows`：Win32 / UIA provider）= 下一张**；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203** 均 Done
 阻塞项      ：① TASK-002 仍 Blocked（上游 `create_thread` 未关）；② gov §5.1 门禁清单尚未登记 `check-migrations`（PL-056，需 ADR）
-下一步动作  ：① TASK-017 `crates/platform/windows`：按 TASK-016 给出的 trait 形状实现 Win32 / UIA（018 合成输入 / 019 Host IPC 的前置）
+下一步动作  ：① TASK-017 `crates/platform/windows`：按 TASK-016 给出的 trait 形状实现 Win32 / UIA（018 合成输入 / 019 Host IPC 的前置）—— ⚠ **卡面尚未展开**，开工前先由 Orchestrator 按 gov §3.2 展开 `tasks/TASK-017-platform-windows-uia-provider.md`
                   → ② stage-1 后续批次；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 

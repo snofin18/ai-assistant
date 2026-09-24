@@ -3,7 +3,7 @@
   "$id": "https://example.invalid/protocol/audit-event-1.0.json",
   "title": "AuditEvent",
   "version": "1.0",
-  "description": "TASK-103 (revised): Schema for audit events appended to the tamper-evident audit log. Per arch v2 §8.x. Event type naming per naming.md §7 = `<noun>.<past_verb>` snake_case (e.g. `tool.called` not `ToolCall`). Hash chain uses SHA-256 hex (64 chars) per TASK-013 design.",
+  "description": "Schema for audit events appended to the tamper-evident audit log. Per arch v2 §8.x. Event type naming per naming.md §7 = `<noun>.<past_verb>` snake_case (e.g. `tool.called` not `ToolCall`). Hash chain uses SHA-256 hex (64 chars) per TASK-013 design.",
   "type": "object",
   "required": ["version", "event_type", "ts", "session_id", "actor", "action", "self_hash"],
   "properties": {

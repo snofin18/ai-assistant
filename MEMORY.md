@@ -32,7 +32,7 @@
 | `facts.md` | 162 | 111 | 按主题分节；**grep 优先**，不必全读 |
 | `pitfalls.md` | 208 | 102 | 按主题分节；**grep 优先**，不必全读 |
 | `rejected.md` | 53 | 33 | ★ **动手前全量读**（防止同一方案被反复重新提出） |
-| `decisions.md` | 106 | 55 | 索引 → `docs/adr/NNNN-*.md` |
+| `decisions.md` | 110 | 56 | 索引 → `docs/adr/NNNN-*.md` |
 | `open.md` | 57 | 26 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
 | `apps/notepad.md` | 340 | 0 | 接记事本时**全量读**；8 个固定小节 |
 | win32-input-research.md | 193 | 0 | 接 Notepad Adapter + 任何 Win32 输入操作时**全量读**（SendInput / keybd_event / SendKeys / AttachThreadInput / BlockInput / SetForegroundWindow / WindowPattern.Close / UIPI / 推荐 pipeline） |
@@ -100,16 +100,19 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
 平台基线    ：Windows 11 24H2/25H2（唯一正式基线）；本机实测 25H2 build 26200.9457，3200×2000 @200%
 试点顺序    ：Notepad → Paint → Edge/Chrome（阶段 1）→ Excel（阶段 2）→ Photoshop（阶段 3）
 下一步      ：① **stage-0 已正式 closeout**（2026-09-20，TASK-073）；详 `docs/audits/stage-0-closeout-2026-09-20.md`
-              ② **stage-1 已开工**：1a 批次 A1（地基层）**TASK-011 ✅ / TASK-012 ✅ / TASK-013 ✅ Done** → **TASK-014（`secrets` / OS keychain）= 下一张**；
-                 依赖列里只有 `013 ← 012` 真串行，`014 ← 011` / `015 ← 011` 已解锁；实际顺序 011→012→013→014→015，瓶颈 = 人类审阅带宽；
-                 ✅ **PL-037 已闭环（2026-09-24，人类裁决选项 ③ → TASK-201）**：`crates/core` 骨架已提前落地（零依赖 / 零 `pub` 项）→ 015 可开工；⚠ `cargo test -p assistant-core arch::` 现为「0 测试通过」而非「规则生效」，真断言归 015
-                 ✅ **跨阶段治理卡已 Done 3 张**：TASK-200（`docs/spec/*` 7 份契约草案修复，PL-038 已闭环）/ TASK-201（`crates/core` 骨架提前，PL-037）/ **TASK-202（存储迁移注册表，ADR-0038，PL-046 已闭环）**；遗留 **PL-047**（xtask 扫描迁移文件名）归 TASK-015
+              ② **stage-1 的逐卡进度不在此处手抄** —— 唯一落点是 `PLAN.md` 的「当前状态」块（ADR-0039 D4）与
+                 `plans/stage-1-pilots.md` 的「当前进度」句（ADR-0041 D1）；手抄派生进度 = PL-022 的根因（**PL-065 本次闭环**）。
+                 本快照只保留**不随卡 Done 漂移**的约束：依赖列里只有 `013 ← 012` 真串行，`014 ← 011` / `015 ← 011` 在 011 完成后即解锁；
+                 实际顺序 011→012→013→014→015，瓶颈 = 人类审阅带宽（AGENTS.md §3：并行度 ≤3、一会话 1~2 张卡）；
+                 ✅ **PL-037 已闭环（2026-09-24，人类裁决选项 ③ → TASK-201）**：`crates/core` 骨架已提前落地（零依赖 / 零 `pub` 项）；
+                 ✅ **跨阶段治理卡 TASK-200 / 201 / 202 / 203 均已 Done**；**PL-047 已闭环**（`check-migrations` 子命令，归 TASK-015，2026-09-24）；
+                 ✅ **`cargo test -p assistant-core arch::` 已由 TASK-015 转为真断言**（`crates/core/tests/arch_layering.rs`；条数以命令输出为准，不写进本快照）
               ③ TASK-002 续做补完 SPIKE-A PARTIAL 仍 Blocked（`open.md N3` create_thread 上游 #36315/#36250 未关闭）→ 人类手工建会话
-              ④ 夜间自动化 GATE-0 未执行（`open.md N9`）→ 待人类安排调试时段；在此之前**禁止创建真实 automation**
+              ④ 夜间自动化 **GATE-0 已通过（2026-09-24）**（`open.md N9` 已关闭：cron + heartbeat 两形态实测全绿、投递形态已正常化）→ **尚未创建正式排期**（人类另行安排）；探针 automation 已删除
               ⑤ 改公共热点文件（LEDGER / `docs/memory/*` / PARKING_LOT / MEMORY.md / `plans/*`）前必须 `xtask guard acquire`（ADR-0028）；
                   超时放弃（退出码 5）后须 LEDGER 追加一行 + 不得 `--force` 硬抢
               ⑥ 仓库根乱码 0 字节文件名：**TASK-083 已 2026-09-24 收尾**（实测目标文件已不存在、`git status -uall` 干净；详 `tasks/TASK-083-*.md` §5）
-              ⑦ **TASK-012 的 3 个依赖已批准并落地**（`rusqlite` + bundled / `zstd` / `sha2`，登记见 `docs/DEPENDENCIES.md`）；TASK-013 未引新依赖（只补「使用方」列）；**TASK-014 若要引 keychain 相关 crate 仍需先批准 + 登记**（漂移触发器 ①）
+              ⑦ **第三方依赖必须先批准 + 登记**（漂移触发器 ①）：`rusqlite`+bundled / `zstd` / `sha2`（TASK-012）、`keyring` / `zeroize`（TASK-014）、`serde` 的新使用方 `crates/platform/api`（TASK-016）均已登记于 `docs/DEPENDENCIES.md`
 待产出文档  ：docs/OPEN_SOURCE_CHECKLIST.md（**PL-005 未落地**）、
               docs/dev-env-setup.md（**PL-017 已落地**，2026-09-18）、其余 7 份 Spike 报告（PL-026 的非 ASCII 注释已清扫，probe-01/02 现在纯 ASCII 仅 3 条 STR-LIT 豁免）
 执行方式    ：AI coding agent（Codex/opencode/Claude Code）实现，人类规划+审阅+裁决；

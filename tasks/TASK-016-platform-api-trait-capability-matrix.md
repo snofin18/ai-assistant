@@ -254,6 +254,29 @@ cargo run -p xtask -- refscan
 - 本卡选择**更严的一条**：全 crate（含 `tests/`）**一个 `#[allow]` 都不写** —— 测试改用 `tests/common/mod.rs::ok_or_fail`（先 `assert!(is_ok)` 再 `let Ok(v) = … else { unreachable!() }`），断言优先比较**整个 `Result`**。
 - 由此产生的唯一"非显然代码"是 `src/geometry.rs::exact_i32_from_f64`：`f64 → i32` 若用 `as` 会①**饱和**（`1e9 as i32 == i32::MAX`，静默失败）②被 `clippy::cast_possible_truncation`（pedantic）拦下；而标准库**没有** `TryFrom<f64> for i32`（只有 `as` 与 `unsafe` 的 `to_int_unchecked`，后者被本卡禁止）。故改用**整数域逐位合成**（`f64::from(u32)` 精确 + 比较 + 减法），越界 / NaN / ±∞ 一律 `None` → `TargetNotFound`。**若人类更偏好**「`as` + 范围检查 + 一行窄 `#[allow(clippy::cast_possible_truncation)]`」，替换点是这一个函数（见 §9 关注点 1）。
 
+**人类裁决（2026-09-24 chat：「按你的建议去改」+「授权你去改动」）—— 两条 DRIFT 均被接受**
+
+- **DRIFT-016-1 接受**：`docs/DEPENDENCIES.md` 的 `serde` 行「使用方」列保持 `crates/protocol` / `crates/platform/api`（登记规则 1「先登记后引入」+ 规则 2「使用方写全部」）。**不回退**。
+- **DRIFT-016-2 接受**：根 `Cargo.toml` 的 `[workspace]` 保持 `members` 含 `crates/platform/api`、`exclude` 含 `crates/platform`。**不回退**（回退 = workspace 无法加载）。
+- **§4 末条「无 Out of scope 文件被修改」**：两条 DRIFT 被人类追认后，其**实质**（不静默扩范围 —— 两处改动都在本 §5 事先登记、且只改必要的那 1 / 2 行）成立；按**字面**仍记为「不成立」，两处如实并列。
+
+**本卡遗留项闭环（2026-09-24，同批 PR）**
+
+- **PL-064 → 已关闭**：**ADR-0042** 落地 —— 能力命名三分（`CapabilityCatalog` = 标识目录 / `CapabilityMatrix` = 运行时探测结果 / `CapabilityEntry` = 风险·审批元数据），`protocol/capability-matrix/capability-1.0.json` 的 `title` 已改名。**实测零代码影响**（codegen 的 `render_capability()` 不读 `title`、`verify_schemas` 不校验 `title`）。
+- **PL-065 → 已关闭**：`MEMORY.md` §1 的「下一步 ②」段由手抄逐卡进度改为**指针**，并修掉 4 处已过期事实（下一张卡 / arch 测试条数 / PL-047 归属 / GATE-0 状态）。
+- **PL-066 → 已关闭**：`AGENTS.md` §11.1 新增 `plans/*` 头部「当前进度」句一行 + §11.2 第 2 步扩写（**依据 = ADR-0041 D5 既有授权**）；`plans/stage-1-pilots.md` 的进度句与 TASK-016 状态标记同步更新（**条目正文与排期一字未动**）。
+- **PL-067 → 已关闭**：4 个 schema（audit-event / envelope / error-codes / tool-schema）的 `description` 前缀 `TASK-103 (revised): ` 已删（**不读 `description`** → 生成物一字未变）。
+
+**§9 三条「给审阅者的关注点」的规范复核（人类 2026-09-24 指示：「全部按照规范去解决；如果失败的返回值是合理的，那么就需要保留」）**
+
+| # | 关注点 | 复核结论（逐条读码 + 读 spec） | 处理 |
+|---|---|---|---|
+| 1 | `CapabilityMatrix::validate()` 的 4 条不变量与负向用例 | 逐条比对 `docs/spec/capability-matrix.md` §4：①列表非空 + id 非空且唯一 ②风险不得降级（`RiskLevel::escalate`）③`L3+ ⇒ required` / `L5 ⇒ forbidden`（L1/L2 只要求「不是 forbidden」）④Resource / SideEffect 的枚举性由类型 + `parse` 保证。**8 个负向用例全部存在**（`test_validate_rejects_empty_capability_list` / `…_duplicate_and_blank_ids` / `…_l3_without_required_approval` / `…_l5_that_is_not_forbidden` / `…_l1_declared_as_forbidden` / `test_risk_escalate_rejects_downgrade` / `test_resource_access_parse_rejects_vague_words` / `test_side_effect_parse_requires_explicit_value`）。**失败返回值逐条都是「矩阵不可信」的正当失败** | **全部保留**（无改动） |
+| 2 | `src/geometry.rs::exact_i32_from_f64`（不用 `as`、不写 `#[allow]`） | 规范侧：铁律 1（`as` 越界**饱和** = 静默失败）、漂移触发器 ⑥（禁 `#[allow]` 放宽）、本卡 Out of scope（禁 `unsafe`）。实现侧：只用 `f64::from(u32)`（精确）+ 比较 + 减法，越界 / 非整数 / NaN / ±∞ 一律 `None`，由调用方转 `TargetNotFound`；`i32::MIN` 单独特判。**没有更规范的替代**（std 无 `TryFrom<f64> for i32`） | **保留**（无改动） |
+| 3 | 不透明句柄 `ResolvedWindow` / `ResolvedElement` 的**源码扫描**断言（铁律 8） | 为什么不是类型断言：Rust 没有稳定的「未实现某 trait」断言（negative impl 不稳定）。扫描器先断言**真的读到了句柄文件**（防恒真，铁律 1），再按剥注释后的代码查 5 个禁词；**含 2 个负向样本**（合成 `#[derive(Serialize)]` 句柄、`use serde::Serialize`，ADR-0019 N1） | **保留**（无改动） |
+
+> **注**：本节只做**复核**，未改动任何生产代码 —— 三条关注点的结论都是「现状已符合规范」，故 `crates/platform/api/**` 在本批**零改动**。
+
 ### 6. 更合理做法
 
 - **`f64 → i32`**：长期看最干净的是**项目级**只留一个受测的转换工具（本卡的 `exact_i32_from_f64` 已经是候选），否则 DPI / 截图 / 动画等后续卡会各自发明一套。若人类愿意开一个窄 `#[allow]`，可换成 3 行 `as` + 范围检查。
