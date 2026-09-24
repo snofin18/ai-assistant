@@ -45,8 +45,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "assistant-automation-host"
+version = "0.1.0"
+dependencies = [
+ "assistant-ipc",
+]
+
+[[package]]
 name = "assistant-core"
 version = "0.1.0"
+
+[[package]]
+name = "assistant-ipc"
+version = "0.1.0"
+dependencies = [
+ "assistant-protocol",
+ "serde",
+ "serde_json",
+ "windows",
+]
 
 [[package]]
 name = "assistant-platform-api"

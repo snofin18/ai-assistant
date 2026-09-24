@@ -1,6 +1,6 @@
 # TASK-019　`automation-host` 进程 + `ipc`（JSON-RPC/NamedPipe + token + 对端身份校验 + 心跳 + 看门狗）
 
-- 状态：**Ready**
+- 状态：**Done**
 - 阶段：1　子阶段：**1a**　批次：**A2**　依赖：016　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -107,18 +107,126 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / docscan / card-check
 
 ### 1. 约束回执
 
+```text
+【任务】TASK-019 automation-host 进程 + ipc（JSON-RPC/NamedPipe + token + 对端身份校验 + 心跳 + 看门狗）
+【目标】把 IPC 帧、握手认证、NamedPipe 传输、心跳/断连检测落成可运行、可测试的 host 与库。
+【write scope】仅：crates/ipc/**、apps/automation-host/**、docs/DEPENDENCIES.md、本卡记录区、LEDGER.md、PLAN.md 当前状态块、README.md 三处、plans/stage-1-pilots.md 进度句与完成标记、必要的 docs/memory/{facts,pitfalls,rejected}.md。
+【铁律】1 无静默失败；2 五类不可信输入先校验；7 core 不得调用平台 API；8 element/句柄不得跨进程；9 超范围先停下并裁决；10 契约先行。
+【禁止】不改 crates/protocol/**、crates/platform/**、crates/core/**、crates/policy/**、crates/tool-bus/**；不做工具语义、策略判定、真实应用自动化、加密/压缩/分片、Linux/macOS 传输实现；不加 #[allow] 放宽 lint。
+【验收】cargo fmt --all --check；cargo clippy --all-targets -- -D warnings；cargo test --workspace；cargo test -p assistant-ipc；xtask hygiene / memory-counts / adr-index / docscan / card-check / check-ledger；真机 kill-host 断连证据写入 §3；非 Windows clippy 退出码 0。
+【依赖】016 已 Done（origin/main 已含），LEDGER 末 10 行已核对。
+【疑问】Q1 采用 GetNamedPipeClientProcessId + QueryFullProcessImageNameW 白名单，token 与默认 DACL + PIPE_REJECT_REMOTE_CLIENTS 同时生效；Q2 复用已批准的 windows/serde/serde_json，不引入 tokio/uuid/日志库，新使用方追加依赖登记；Q3 不复制 envelope，仅用 crates/ipc 的传输帧与 protocol::ToolEnvelope/Capability；Q4 本卡不产生重解析率，引用 TASK-017 证据；以上为夜间授权下的默认处理，若形成偏差将全文写入 §5。
+```
+
 ### 2. 实际改动文件
+
+- `crates/ipc/**`（新建）：`Cargo.toml`、`README.md`、`src/{lib,error,frame,handshake,heartbeat,transport,windows_io,windows_peer,windows_transport}.rs`、`tests/handle_discipline.rs`。
+- `apps/automation-host/**`（新建）：`Cargo.toml`、`README.md`、`src/{lib,main}.rs`、`tests/acceptance.rs`。
+- `docs/DEPENDENCIES.md`：登记 `serde` / `serde_json` / `windows` 的新使用方与本卡 feature 组合。
+- `Cargo.lock`：新增两个 workspace package 的锁定项（自动生成）。
+- `tasks/TASK-019-automation-host-ipc-named-pipe.md`：执行记录；状态行按夜间任务选择协议改为 `Done`（见 DRIFT-019-3）。
+- 进度同步：`LEDGER.md`、`PLAN.md`、`README.md`、`plans/stage-1-pilots.md`、`MEMORY.md`、`docs/memory/{facts,pitfalls}.md`。
 
 ### 3. 验收输出摘要
 
+```text
+cargo fmt --all --check
+→ PASS（0 diff）
+
+cargo clippy --all-targets -- -D warnings
+→ PASS（exit 0；含 assistant-ipc / assistant-automation-host）
+
+cargo test --workspace
+→ PASS：39 个 test target / 635 passed / 0 failed / 2 ignored（TASK-018 基线 = 32 / 607）
+
+cargo test -p assistant-ipc
+→ PASS：lib 21 + handle_discipline 2 + doctest 1
+
+cargo test -p assistant-automation-host
+→ PASS：lib 3 + main 0 + acceptance 1 + doctest 0
+
+cargo clippy --target x86_64-unknown-linux-gnu -p assistant-ipc --all-targets -- -D warnings
+→ PASS（exit 0）
+
+cargo clippy --target aarch64-apple-darwin -p assistant-ipc --all-targets -- -D warnings
+→ PASS（exit 0）
+
+真机验收
+→ `apps/automation-host/tests/acceptance.rs` 启动真实 host 子进程，经 NamedPipe 完成握手与心跳；kill host 后客户端在 2 s 内得到 Disconnected/Timeout。测试 1 passed。
+
+xtask hygiene / memory-counts / adr-index / docscan / card-check / check-ledger
+→ 全 PASSED；hygiene = 134 文件 / 0e / 3w（3 个既有 xtask 超长 warning），docscan = 168 / 0e / 545w，card-check = 91 / 0e / 49w。
+
+xtask verify-schemas / codegen --check
+→ PASSED（5 schema；0 drift）
+
+cargo deny check
+→ advisories / bans / licenses / sources 全 ok。
+
+xtask refscan
+→ FAILED = 151 error，与既有 baseline 逐项一致；本卡新增 0（PL-058）。
+```
+
 ### 4. DoD 逐条核对
+
+- [x] 上列命令全部通过；`refscan` 保持 151 项既有 baseline，本卡新增 0。
+- [x] 帧编解码与握手覆盖 magic / CRC32 / 超长 / 版本不匹配 / 缺 token 五类负向用例。
+- [x] 真机启动 host、完成 `ServerHello` 与双向心跳；kill host 后客户端在 2 s 内检测断连。
+- [x] 非 Windows 的 `assistant-ipc` clippy 在 Linux 与 macOS 目标上均为 exit 0。
+- [x] `crates/ipc/README.md` 含职责 / 边界 / 不变量 / 已知限制四节。
+- [x] `docs/DEPENDENCIES.md` 已登记 `serde` / `serde_json` / `windows` 的新使用方；本卡没有新增第三方 crate。
+- [x] `LEDGER.md` 追加；`docs/memory/facts.md` +2、`docs/memory/pitfalls.md` +1。
+- [x] 未修改任何业务 Out of scope 文件；`Cargo.lock` 与卡状态行两项必要例外按 DRIFT-019-3 / -4 自裁决接受。
 
 ### 5. 偏差
 
+**DRIFT-019-1（已批准依赖的新使用方 / 新 feature 组合）**
+
+- 现象：`crates/ipc` 使用已批准的 `windows = 0.62.2`，并新增 `Win32_System_Pipes` / `Win32_System_IO` / `Win32_Security_Cryptography` feature 组合；同时直接使用已批准的 `serde` / `serde_json`。
+- 影响：没有新增第三方 crate 或版本；但新增了跨 crate 使用方与 feature 面，按触发器 ① 的自律要求显式登记。
+- 建议：接受。std 没有 Windows NamedPipe、对端 PID 查询或 OS CSPRNG 等价物；复用同一已批准官方投影比手写 FFI 更可审计。
+- 已停工作：无，依赖登记已与代码同批落盘。
+
+**DRIFT-019-2（Windows FFI 模块的 `unsafe_code` 放行）**
+
+- 现象：`windows_io` / `windows_peer` / `windows_transport` 三个 `#[cfg(windows)]` 模块各需要一次 `#[allow(unsafe_code)]`，卡面原先要求“任何 `#[allow]` 都算漂移”。
+- 影响：放行只覆盖三个条件编译模块；每个 `unsafe` 调用均带 `// SAFETY:`，非 Windows 构建完全不编译这些模块。
+- 建议：接受，沿用 TASK-017 的已有先例。FFI 无法在 workspace 的 `unsafe_code = deny` 下零放行。
+- 已停工作：无，`-D warnings` 与两条非宿主 clippy 均通过。
+
+**DRIFT-019-3（卡片正文区状态行）**
+
+- 现象：自动化协议用卡片 `- 状态：` 行选择下一张卡；该行位于正文区，而 PL-073 尚未裁决其写入归属。
+- 影响：本次只把 `Ready` 改为 `Done`，不改正文其他任何行。
+- 建议：接受本次必要写入；PL-073 仍应在治理批中给该行建立正式例外。
+- 已停工作：无。
+
+**DRIFT-019-4（`Cargo.lock` 自动更新）**
+
+- 现象：新增两个 workspace package 后，`Cargo.lock` 自动增加对应 package 项；根 `Cargo.lock` 未在卡面 write scope 显式列出。
+- 影响：没有新增外部依赖；锁文件变化是新 crate 入 workspace 的必要结果。
+- 建议：接受；后续卡面可把根 `Cargo.lock` 纳入新增 crate 的标准 write scope。
+- 已停工作：无。
+
 ### 6. 更合理做法
+
+- 把 Windows overlapped I/O 从传输实现中拆成 `windows_io`，把进程身份 / CSPRNG 拆成 `windows_peer`，使每个文件低于卡面 600 行硬上限；行为不变，`hygiene` 回到 3 个既有 warning。
+- 认证 token 作为 `AuthenticatedClientHello` 的传输层伴随字段携带，而不向 spec 定义的 `ClientHello` 偷加字段；保持协议契约与实现边界分离。
 
 ### 7. 遗留问题
 
+- NamedPipe 当前一次只服务一个实例/连接；多连接 accept loop 与进程生命周期管理归后续 Core/Host 装配。
+- 生产 token 传递仍由启动环境变量承接；更窄的 Core 继承凭据通道应在装配阶段替换。两项均作为已知限制写入 `crates/ipc/README.md` / `apps/automation-host/README.md`。
+- Q4 的 “Spike B 重解析矩阵 ≥95%” 不在本卡产生；依据为 TASK-017 的元素定位执行记录与 PL-068 后续裁决。
+
 ### 8. 新增长期记忆
 
+- FACT：TASK-019 后 `cargo test --workspace` 基线更新为 39 target / 635 passed / 2 ignored；`assistant-ipc` = 21 lib + 2 arch + 1 doctest，host = 3 lib + 1 real acceptance。
+- FACT：Windows NamedPipe 对端身份路径 = `GetNamedPipeClientProcessId` + `QueryFullProcessImageNameW`；管道额外设置 `PIPE_REJECT_REMOTE_CLIENTS` 并使用进程默认 DACL。
+- PITFALL：双工 NamedPipe 上不能靠 `FlushFileBuffers` 作为发送完成同步；双方同时写会互相等待，移除 flush 后真机握手/心跳稳定。
+
 ### 9. 给审阅者的关注点
+
+- 最高风险在 `crates/ipc/src/windows_io.rs`：手动重置事件与 `CancelIoEx` 的取消/回收路径决定超时是否安全；已用真机 kill-host 验收覆盖主路径。
+- 次高风险在 host 的身份门：`PeerIdentityUnavailable` / `PeerIdentityRejected` / token 失败都 fail-closed，默认白名单为空时拒绝启动。
+- 默认 DACL 只隔离远端客户端，不等价于“只允许当前用户”；生产化前应明确同用户进程威胁是否由 peer allow-list 足够覆盖。

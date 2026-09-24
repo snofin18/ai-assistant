@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011 / 012 / 013 / 014 / **015**；A2 **TASK-016 已 Done**（`crates/platform/api` 落地）+ **TASK-017 已 Done**（`crates/platform/windows`：UIA provider 落地）+ **TASK-018 已 Done（2026-09-25）**（同 crate：合成输入（`SendInput`）+ 前台校验 + 坐标归一化（DPI / 多屏）+ IME 处理）→ 下一张 = **TASK-019**（`automation-host` 进程 + `crates/ipc`：JSON-RPC / NamedPipe + token + 对端身份校验 + 心跳 / 看门狗））　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011 / 012 / 013 / 014 / **015**；A2 **TASK-016 / 017 / 018 / 019 已 Done（2026-09-25）**，其中 TASK-019 = `automation-host` 进程 + `crates/ipc`：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗 → 下一张 = **TASK-020**（`tool-bus`：MCP client(`rmcp`) + in-process server + JSON Schema 校验 + 统一返回信封））　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -69,7 +69,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **016** | `platform/api`：统一 trait + `CapabilityMatrix` + `TargetDescriptor` + `NormalizedPoint` + `Fingerprint` 类型 | `crates/platform/api/**`、`protocol/capability-matrix*` | 011 | M | trait 覆盖 v2 §13.1.1 全部方法（含 wait/fingerprint/capability）；**所有方法可取消且有超时** |
 | **017** | `platform/windows`：UIA provider（树快照、selector 链解析、read_text、set_value、edit_text、invoke_action、bounds、fingerprint、window 枚举与状态） | `crates/platform/windows/src/uia/**`、`.../src/window/**` | 016 | L | Spike A 指标在真实记事本上复现；树遍历符合性能预算；**歧义/未找到/无响应三类错误可区分** |
 | **018** | `platform/windows`：合成输入（SendInput）+ 焦点校验 + 坐标归一化（DPI/多屏）+ IME 处理 | `crates/platform/windows/src/input/**`、`.../src/coordinates/**` | 016 | M | 发送快捷键前 100% 校验前台窗口；Spike A2 的坐标精度矩阵全配置 ≤ 2 px；IME 开启时文本写入仍正确 |
-| **019** | `automation-host` 进程 + `ipc`（JSON-RPC/NamedPipe + token + 对端身份校验 + 心跳 + 看门狗） | `apps/automation-host/**`、`crates/ipc/**` | 016 | M | Spike B 的重解析矩阵达标（≥95%）；**element 不出进程**（arch test 校验）；host 崩溃可被检测 |
+| **019 ✅** | `automation-host` 进程 + `ipc`（JSON-RPC/NamedPipe + token + 对端身份校验 + 心跳 + 看门狗） | `apps/automation-host/**`、`crates/ipc/**` | 016 | M | Spike B 的重解析矩阵达标（≥95%）；**element 不出进程**（arch test 校验）；host 崩溃可被检测 |
 
 ### 批次 A3　内核层（016 完成后可 3 路并行，write scope 天然不重叠）
 
@@ -181,7 +181,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-016 | A2 | `tasks/TASK-016-platform-api-trait-capability-matrix.md` | **完整卡**（2026-09-24 Orchestrator 代行展开：零平台依赖的纯类型 + 3 个 trait 形状 + `CapabilityMatrix::validate()` 的 4 条不变量；**卡面有 3 个待裁决项 Q1 / Q2 / Q3**）；**已 Done（2026-09-24）** |
 | TASK-017 | A2 | `tasks/TASK-017-platform-windows-uia-provider.md` | **完整卡**（2026-09-24 Orchestrator 代行展开：UIA provider 全 9 方法 + `WindowProvider` 全 5 方法 + 句柄纪律源码扫描断言；**卡面有 4 个待裁决项 Q1 ~ Q4**）；**已 Done（2026-09-24）** |
 | TASK-018 | A2 | `tasks/TASK-018-platform-windows-synthetic-input-ime.md` | **完整卡**（2026-09-25 Orchestrator 代行展开：`SendInput` VK + `KEYEVENTF_UNICODE` 路径 + 发送前 100% 前台校验 + 显示器枚举 / DPI 换算 / 虚拟屏幕归一化 + `is_ime_open`；**卡面有 3 个待裁决项 Q1 ~ Q3**）；**已 Done（2026-09-25）** |
-| TASK-019 | A2 | `tasks/TASK-019-automation-host-ipc-named-pipe.md` | Ready（批次表占位派单前补全） |
+| **TASK-019 ✅** | A2 | `tasks/TASK-019-automation-host-ipc-named-pipe.md` | **已 Done（2026-09-25）** |
 | TASK-020 | A2 | `tasks/TASK-020-tool-bus-mcp-rmcp-server.md` | Ready（批次表占位派单前补全） |
 | TASK-021 | A2 | `tasks/TASK-021-policy-whitelist-risk-default-deny.md` | Ready（批次表占位派单前补全） |
 | TASK-022 | A2 | `tasks/TASK-022-task-engine-state-machine-dag-checkpoint.md` | Ready（批次表占位派单前补全） |
