@@ -195,7 +195,7 @@ cargo run -p xtask -- refscan
 - `cargo test --workspace --no-fail-fast` → **28 target / 514 passed / 0 failed**（TASK-016 之前 = 21 / 469；差额 = 本 crate 的 7 target / 45 tests）
 - `cargo test -p assistant-core arch::` → **5 passed**（本卡未改 `crates/core/**`，断言未动）
 - `xtask hygiene` → **PASSED**（98 文件 / **0 error** / 3 warning = 既有 3 个 `xtask` 超长文件；TASK-016 之前是 80 文件 / 0e / 3w）
-- `xtask docscan` → **PASSED**（160 / **0e** / 581w）
+- `xtask docscan` → **PASSED**（160 / **0e** / 572w）—— 本卡填完 9 节执行记录后，「整节为空」类 Warning 自然减少（581 → 572）
 - `xtask card-check` → **PASSED**（91 / 0e / 49w）
 - `xtask memory-counts` → **PASSED**（8 / 0e / 0w）
 - `xtask adr-index` → **PASSED**（25 / 0e / 0w）
