@@ -1,0 +1,24 @@
+[package]
+name = "assistant-platform-api"
+description = "Platform abstraction: unified traits + pure data types. The ONLY platform entry point core may use (铁律 7)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# 第三方依赖：`serde` 已在 docs/DEPENDENCIES.md 登记为 Approved（原使用方 = crates/protocol）。
+# 本 crate 把它加为**新使用方** —— 那一行不在本卡 write scope 内，按登记规则 1「先登记后引入」
+# 必须同批更新，已在 tasks/TASK-016-*.md §5 登记为 DRIFT-016-1。
+serde = { version = "1.0", features = ["derive"] }
+
+[dependencies.assistant-protocol]
+# 工作区内依赖（非第三方，无需登记）：错误码单一事实源（本 crate 不新增 ErrorCode）。
+# 必须同时写 `version`：deny.toml 的 `[bans] wildcards = "deny"` 把"只有 path 没有 version"
+# 判为通配依赖（`cargo deny check bans` 会失败），而 deny.toml 不在本卡 write scope 内。
+path = "../../protocol"
+version = "0.1.0"
+
+[lints]
+workspace = true

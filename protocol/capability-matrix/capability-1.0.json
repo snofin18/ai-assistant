@@ -3,7 +3,7 @@
   "$id": "https://example.invalid/protocol/capability-1.0.json",
   "title": "CapabilityMatrix",
   "version": "1.0",
-  "description": "TASK-103 (revised): Capability identifier catalog per arch v2 §13.1.2. Stable identifiers that adapters either support or don't. Naming per naming.md §7 = `<layer>.<capability>` 2-segment snake_case.",
+  "description": "Capability identifier catalog per arch v2 §13.1.2. Stable identifiers that adapters either support or don't. Naming per naming.md §7 = `<layer>.<capability>` 2-segment snake_case.",
   "type": "object",
   "required": ["version", "capabilities"],
   "properties": {

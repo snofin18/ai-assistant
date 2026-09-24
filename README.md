@@ -6,7 +6,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 > 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0（文档与 Spike）已于 2026-09-20 closeout；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
-> `xtask` 护栏已完成，下一张是平台层 `crates/platform/api`）。**当前阶段详情以 `PLAN.md` 为准**。
+> `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）已完成，
+> 下一张是 `crates/platform/windows`（Win32 / UIA 实现））。**当前阶段详情以 `PLAN.md` 为准**。
 
 ---
 
@@ -67,9 +68,11 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 **阶段 1 — 三试点闭环**（Notepad → Paint → Edge/Chrome；TASK-011 ~ TASK-058）。
 子阶段 1a 已开工：地基层的 `crates/protocol`（schema + codegen）/ `crates/storage`（SQLite WAL + 迁移注册表 + blob）/
 `crates/audit`（append-only hash chain）/ `crates/core` 骨架 / `crates/secrets`（OS keychain 封装）/
-`xtask` 护栏（`docscan` 4 条结构规则 + `check-ledger` + `check-migrations` + `crates/core` 分层断言）**均已落地**；
+`xtask` 护栏（`docscan` 4 条结构规则 + `check-ledger` + `check-migrations` + `crates/core` 分层断言）/
+**`crates/platform/api`**（铁律 7 的唯一平台入口：`TargetDescriptor` / `NormalizedPoint` / `Fingerprint` /
+`CapabilityMatrix` + `PlatformService` / `WindowProvider` / `UiAutomationProvider` 三个 trait 形状）**均已落地**；
 跨阶段治理卡 TASK-200 / 201 / 202 / 203 已 Done。
-**下一张 = TASK-016（`platform/api`：统一 trait + `CapabilityMatrix`）**。＋ Notepad 的 3 个任务闭环。
+**下一张 = TASK-017（`crates/platform/windows`：Win32 / UIA provider 实现）**。＋ Notepad 的 3 个任务闭环。
 阶段 0（文档与 Spike）已于 2026-09-20 closeout —— 它的产出是 Spike 报告，**不是**产品代码。
 详见 `plans/stage-1-pilots.md`。
 
@@ -115,7 +118,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-24：阶段 1 地基层 + 治理池收口 + 护栏补齐 = TASK-011 / 012 / 013 / 014 / 015 / 200 / 201 / 202 / 203）
+## 最近进展（2026-09-24：阶段 1 地基层 + 平台抽象层 + 治理池收口 + 护栏补齐 = TASK-011 / 012 / 013 / 014 / 015 / 016 / 200 / 201 / 202 / 203）
 
 阶段 1 的地基层已经落地（含密钥层），治理池把 TASK-013 现场撞出的三个**结构性**缺陷一次性收口，
 `xtask` 护栏同批补齐并把两条 CI 门禁由软转硬。
@@ -130,7 +133,12 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 | TASK-202 | 存储**迁移注册表**：storage 只提供机制、各 crate 自持迁移 + 唯一装配点（**ADR-0038**，PL-046 闭环） | ✅ Done |
 | TASK-203 | `audit_logs` 列语义去重 + 显式链序：删与 `id` 同义的 `hash`、加 `sequence`（**ADR-0040**，PL-043 / PL-045 闭环） | ✅ Done |
 | TASK-014 | `crates/secrets`：OS keychain 封装（`keyring` 4.2 / DPAPI·Keychain·Secret Service）+ `zeroize` + 访问审计注入点（fail-closed） | ✅ Done |
+| TASK-016 | `crates/platform/api`：**铁律 7 的唯一平台入口** —— 4 个纯类型（`TargetDescriptor` / `NormalizedPoint` / `Fingerprint` / `CapabilityMatrix`）+ 3 个 trait 形状（RPITIT，**零 `async-trait` 依赖**）+ 能力矩阵 4 条不变量的机器校验；`ResolvedWindow` / `ResolvedElement` = 不透明句柄（铁律 8 有源码扫描断言，含负向样本） | ✅ Done |
 | TASK-015 | `xtask` 护栏补齐：`docscan` 4 条结构规则（裸 NUL / 数字节号重复 / 整节为空 / 标题文字重复）+ `crates/core/tests/arch*` 分层断言（`arch::` 由 0 → 5 个测试）+ `check-ledger`（ADR-0039 D3）+ `check-migrations`（PL-047）；同批修 PL-048（flaky）与 PL-051（裸 NUL） | ✅ Done |
+
+TASK-016 把**平台抽象层**立起来：`core` / `Host` 从此只能经 `assistant-platform-api` 的 trait 用平台能力
+（铁律 7），且**该 crate 全 crate 零 `#[allow]`、零 `unsafe`、零第三方依赖**（除已登记的 `serde`）——
+`f64 → i32` 这类"`as` 会饱和 + pedantic 会拦"的转换改用整数域逐位合成，越界一律报 `TargetNotFound`。
 
 治理机制同步前进：**ADR-0039** 把「卡 Done = 同一 PR 内同步 `PLAN.md` + `README.md`」写成硬契约
 （DRIFT-202-2 闭环），其机器判据 `check-ledger` 已由 **TASK-015** 落地并**由软门禁转硬**（CI 的 `[HARD #16]`）；
