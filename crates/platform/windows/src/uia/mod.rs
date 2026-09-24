@@ -149,30 +149,21 @@ impl UiAutomationProvider for WindowsPlatform {
 
     fn pointer_action(
         &self,
-        _point: NormalizedPoint,
-        _action: &PointerAction,
+        point: NormalizedPoint,
+        action: &PointerAction,
     ) -> impl Future<Output = PlatformResult<()>> + Send {
-        // STUB(TASK-018): 合成指针输入（SendInput）+ 坐标归一化归 TASK-018（src/input/**、src/coordinates/**）。
-        poll_fn(move |_context| {
-            Poll::Ready(Err(error::stub_not_implemented(
-                "TASK-018",
-                "UiAutomationProvider::pointer_action (synthetic pointer input)",
-            )))
-        })
+        // TASK-018：真实实现 —— `crate::coordinates`（DPI / 多屏换算）+ `crate::input`（SendInput）。
+        // 用全限定路径是刻意的：本卡的 write scope 只允许改这两个方法体（不加 `use`）。
+        poll_fn(move |_context| Poll::Ready(crate::input::pointer_action(&point, action)))
     }
 
     fn key_action(
         &self,
-        _chord: &KeyChord,
-        _target: &KeyTarget,
+        chord: &KeyChord,
+        target: &KeyTarget,
     ) -> impl Future<Output = PlatformResult<()>> + Send {
-        // STUB(TASK-018): 合成键盘输入（SendInput）归 TASK-018。
-        poll_fn(move |_context| {
-            Poll::Ready(Err(error::stub_not_implemented(
-                "TASK-018",
-                "UiAutomationProvider::key_action (synthetic keyboard input)",
-            )))
-        })
+        // TASK-018：真实实现 —— 目标解析 + 前台校验 + SendInput 都在 `crate::input`。
+        poll_fn(move |_context| Poll::Ready(crate::input::send_key_action(chord, target)))
     }
 
     fn fingerprint(
