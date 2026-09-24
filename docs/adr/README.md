@@ -43,8 +43,9 @@
 | **0039** | `0039-task-end-state-sync-contract.md` | **Accepted** | 任务结束时的状态同步契约：每张卡 Done 时在同一 PR 内同步 `PLAN.md`「当前状态」块 + `README.md` 状态行/当前阶段/最近进展；无变化也要显式写；可机器校验部分（新鲜度）归 TASK-015 `check-ledger`（DRIFT-202-2 闭环） |
 | **0040** | `0040-audit-log-column-semantics.md` | **Accepted** | `audit_logs` 列语义去重 + 显式链序：删与 `id` 同义的 `hash` 列、加 `sequence INTEGER PRIMARY KEY AUTOINCREMENT`；迁移 0003 重建表；0002 一字不改（PL-045 + PL-043 闭环） |
 | **0041** | `0041-plan-file-write-scope-and-progress-sync.md` | **Accepted** | 计划文件的「可写面」：**只允许改完成状态与「当前进度」块**，**禁止改排期与条目正文**；打勾不得重写正文；授权修订 `AGENTS.md` §8/§11 + 章程 §3（人类 chat 2026-09-24 澄清） |
+| **0042** | `0042-capability-catalog-vs-capability-matrix.md` | **Accepted** | 能力命名三分：**`CapabilityCatalog`** = 稳定能力标识目录（schema `title` 由 `CapabilityMatrix` 改名）/ **`CapabilityMatrix`** = 运行时探测结果（保留原义，架构 v2 §13.1.2）/ **`CapabilityEntry`** = 单条能力的风险·审批元数据；目录名 `protocol/capability-matrix/` 不改（PL-064 闭环，人类 chat 2026-09-24 授权） |
 
-**下一个可用编号：0042**（= §1 与 §2 已用最大号 0041 + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0043**（= §1 与 §2 已用最大号 0042 + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是可用号** —— 它是 §2 的**待建号**，已预留给「`#[allow]` 的唯一合法位置」那条决策

@@ -129,6 +129,7 @@ Edition 2024；crate 顶层 `#![deny(clippy::unwrap_used, expect_used, panic, to
 | `LEDGER.md` | 每次 commit 之后（含 worktree 内的 fix） | agent（必追加，不改写） |
 | `PLAN.md` 的「当前状态」块 | **每张卡 Done**（不再只是阶段切换） | Implementer 可代 Orchestrator 写（**ADR-0039 D4**；**只许改那 4 行**） |
 | `plans/<当前阶段>.md`（及 `PLAN.md` 的任务行）里**本卡条目的完成标记** | **每张卡 Done**（与 `LEDGER.md` 同批） | agent（**只许在条目行首加标记，不得改条目正文** —— **ADR-0041 D1 / D3 / D4**） |
+| `plans/<当前阶段>.md` 头部的**「当前进度」句**（`> 周期 …　状态：…` 那一段） | **每张卡 Done**（与上一行的完成标记同批） | agent（**只许改「当前进度」块的内容**；**不得改周期 / 批次顺序 / 条目正文** —— **ADR-0041 D1 ② / D2 / D4**；本条为 **PL-066** 的落地机制） |
 | `README.md` 状态行 + `## 当前阶段` + `## 最近进展` | **每张卡 Done** | agent（**仅这三处**，其余章节只读 —— ADR-0039 D5） |
 | `MEMORY.md` §1 快照 | 阶段切换 / 阶段索引变化 / 规模表变化 | agent（必更新） |
 | `docs/memory/pitfalls.md` | 发现新坑（含 v4 那种 supersede 多个旧 entry） | agent（必 supersede 旧 entry） |
@@ -140,7 +141,7 @@ Edition 2024；crate 顶层 `#![deny(clippy::unwrap_used, expect_used, panic, to
 ### 11.2 必做的次序
 
 1. `git status` + `git diff --stat HEAD` 确认变更范围
-2. 给 `plans/<当前阶段>.md`（及 `PLAN.md` 有任务行时）里**本卡条目行首打完成标记** —— **只加标记，不得改条目正文**（**ADR-0041 D1 / D3**）
+2. 给 `plans/<当前阶段>.md`（及 `PLAN.md` 有任务行时）里**本卡条目行首打完成标记**，并更新该文件头部的**「当前进度」句** —— **只加标记 / 只改进度句，不得改条目正文与排期**（**ADR-0041 D1 / D2 / D3**）
 3. 更新 `PLAN.md` 的「当前状态」块 **4 行**（**每张卡 Done 都要**，日期必须改 —— ADR-0039 D1 / D2）
 4. 更新 `README.md` 的**三处**（状态行 + `## 当前阶段` + `## 最近进展`；无阶段变化也要追加「最近进展」—— ADR-0039 D1 / D2）
 5. 更新 `LEDGER.md`（一行一事件，与 gov §9.2 模板一致）

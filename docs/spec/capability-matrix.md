@@ -12,6 +12,8 @@
 
 定义**能力矩阵**：每个 capability 的资源访问类别、副作用、风险级与审批要求，作为策略引擎（**默认拒绝**）的唯一放行依据。
 
+> **名称澄清（ADR-0042）**：本 spec 的「能力矩阵」= **每条能力的风险·审批声明**（Rust `CapabilityEntry`）， > 它是**策略引擎的输入**（TASK-021）。它与另外两个**同名但不同物**的概念不是一件事： > ① **`CapabilityCatalog`** = `protocol/capability-matrix/capability-1.0.json` 的**稳定能力标识目录** > （`<layer>.<capability>` 2 段式 + `stability` + `version`，**不含**风险/审批列）； > ② **`CapabilityMatrix`** = 架构 v2 §13.1.2 的**运行时探测结果**（Rust `assistant_platform_api::CapabilityMatrix`： > `probed_at` / `platform` / `session` / `channels` / `degradations`）。
+
 ## 2. 范围
 
 **管**：capability 的三个维度（Resource / SideEffect / Risk）+ Approval 列、风险单调升级规则、Resource 与 Risk 的枚举白名单。

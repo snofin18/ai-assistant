@@ -3,7 +3,7 @@
   "$id": "https://example.invalid/protocol/error-codes-1.0.json",
   "title": "ErrorCode",
   "version": "1.0",
-  "description": "TASK-103 (revised): Unified error code taxonomy aligned with arch v2 §8.7 (13 categories). Slashed rows from v2 (RateLimited/Timeout, UserCancelled/TookOver) unified into single ErrorCategory variant per row to keep count at 13; the underlying distinction is preserved via evidence_ref and message_for_model content. New codes require ADR (schema change).",
+  "description": "Unified error code taxonomy aligned with arch v2 §8.7 (13 categories). Slashed rows from v2 (RateLimited/Timeout, UserCancelled/TookOver) unified into single ErrorCategory variant per row to keep count at 13; the underlying distinction is preserved via evidence_ref and message_for_model content. New codes require ADR (schema change).",
   "type": "object",
   "required": ["version", "categories"],
   "properties": {

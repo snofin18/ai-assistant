@@ -7,7 +7,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 > 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0（文档与 Spike）已于 2026-09-20 closeout；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）已完成，
-> 下一张是 `crates/platform/windows`（Win32 / UIA 实现））。**当前阶段详情以 `PLAN.md` 为准**。
+> TASK-016 的四项遗留（**ADR-0042** 能力命名三分 + PL-065 / 066 / 067）已闭环，
+> 下一张是 `crates/platform/windows`（Win32 / UIA 实现；**卡面待展开**））。**当前阶段详情以 `PLAN.md` 为准**。
 
 ---
 
@@ -71,8 +72,10 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 `xtask` 护栏（`docscan` 4 条结构规则 + `check-ledger` + `check-migrations` + `crates/core` 分层断言）/
 **`crates/platform/api`**（铁律 7 的唯一平台入口：`TargetDescriptor` / `NormalizedPoint` / `Fingerprint` /
 `CapabilityMatrix` + `PlatformService` / `WindowProvider` / `UiAutomationProvider` 三个 trait 形状）**均已落地**；
-跨阶段治理卡 TASK-200 / 201 / 202 / 203 已 Done。
-**下一张 = TASK-017（`crates/platform/windows`：Win32 / UIA provider 实现）**。＋ Notepad 的 3 个任务闭环。
+跨阶段治理卡 TASK-200 / 201 / 202 / 203 已 Done；TASK-016 的能力命名歧义已由 **ADR-0042** 定案
+（`CapabilityCatalog` = 稳定标识目录 / `CapabilityMatrix` = 运行时探测结果 / `CapabilityEntry` = 风险·审批元数据）。
+**下一张 = TASK-017（`crates/platform/windows`：Win32 / UIA provider 实现）** —— ⚠ **卡面尚未展开**，开工前先按 gov §3.2 展开。
+＋ Notepad 的 3 个任务闭环。
 阶段 0（文档与 Spike）已于 2026-09-20 closeout —— 它的产出是 Spike 报告，**不是**产品代码。
 详见 `plans/stage-1-pilots.md`。
 
@@ -118,10 +121,13 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-24：阶段 1 地基层 + 平台抽象层 + 治理池收口 + 护栏补齐 = TASK-011 / 012 / 013 / 014 / 015 / 016 / 200 / 201 / 202 / 203）
+## 最近进展（2026-09-24：阶段 1 地基层 + 平台抽象层 + 治理池收口 + 护栏补齐 + TASK-016 遗留裁决 = TASK-011 / 012 / 013 / 014 / 015 / 016 / 200 / 201 / 202 / 203）
 
 阶段 1 的地基层已经落地（含密钥层），治理池把 TASK-013 现场撞出的三个**结构性**缺陷一次性收口，
 `xtask` 护栏同批补齐并把两条 CI 门禁由软转硬。
+同批把 TASK-016 留下的 4 项治理遗留收口：**ADR-0042**（能力命名三分：`CapabilityCatalog` / `CapabilityMatrix` / `CapabilityEntry`）+
+`MEMORY.md` §1 快照指针化（手抄派生进度改为指向 `PLAN.md`）+ `plans/*` 头部进度句纳入 `AGENTS.md` §11.1 的更新职责 +
+4 份 schema 的悬空 `TASK-103` 前缀清除（PL-064 / 065 / 066 / 067 全部闭环）。
 
 | 卡 | 内容 | 状态 |
 |---|---|---|
