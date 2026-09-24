@@ -68,7 +68,7 @@ pub const DEFERRED_COMMANDS: &[DeferredCommand] = &[
     DeferredCommand {
         command: "replay-skeleton",
         ci_gate: "gov §5.1 #13",
-        owning_card: "TASK-015",
+        owning_card: "TASK-034",
         reason: "skeleton 已实现（TASK-015-pt3，dry-run 解析+校验）；真实 fixture + diff 留待 TASK-034 完整版",
     },
     DeferredCommand {
@@ -79,58 +79,74 @@ pub const DEFERRED_COMMANDS: &[DeferredCommand] = &[
     },
 ];
 
-/// 未实现的卫生规则清单（gov §5.4 共 13 项，TASK-001 实现 3 项，其余 10 项归 TASK-015）。
+/// 未拆卡的卫生规则归属说明（PL-060：需要 ADR / 阈值设计前置，尚无任务卡）。
+///
+/// 这不是"留空"：它明确指出了**下一步去哪**（`docs/PARKING_LOT.md` PL-060），
+/// 因此仍满足不变量 3 的意图（有人类可执行的下一步）。
+pub const UNASSIGNED_HYGIENE_CARD: &str =
+    "未拆卡（见 docs/PARKING_LOT.md PL-060：需 ADR / 阈值设计前置）";
+
+/// 未实现的卫生规则清单（gov §5.4 共 13 项；TASK-001 实现 3 项，其余 10 项的归属见 PL-059）。
+///
+/// **2026-09-24 归属修正（PL-059）**：这 10 项原来一律写 `TASK-015`，而 TASK-015 已 Done
+/// 且**没有**实现它们 —— 登记表指向一张已完成的卡，等于「有人会做」的信号消失
+/// （与本模块头部反对的「静默失败」同型）。修正后按**实现机制**分三组：
+/// - `TASK-085`：需要「函数与属性扫描器」的 5 项（函数行数 / 参数个数 / 圈复杂度 / STUB 标记 / `#[ignore]` 原因）；
+/// - `TASK-086`：读文件 + 结构化比对的 3 项（CRLF / 末行换行 / 依赖登记）；
+/// - `UNASSIGNED_HYGIENE_CARD`：需 ADR / 阈值设计前置的 2 项（重复代码相似度 / 顶层目录白名单）。
+///
+/// 分组轴是**实现机制**（同一扫描器的规则放一张卡），不是「谁提的」。
 pub const DEFERRED_HYGIENE_RULES: &[DeferredRule] = &[
     DeferredRule {
         rule: "单函数行数 > 80 警告",
         reason: "需要函数边界扫描（rustscan 的降噪视图已就绪，扫描器待写）",
-        owning_card: "TASK-015",
+        owning_card: "TASK-085",
     },
     DeferredRule {
         rule: "函数参数个数 > 6 警告",
         reason: "同上，需要函数签名解析",
-        owning_card: "TASK-015",
+        owning_card: "TASK-085",
     },
     DeferredRule {
         rule: "圈复杂度 > 15 警告",
         reason: "需要分支计数，依赖函数体扫描",
-        owning_card: "TASK-015",
+        owning_card: "TASK-085",
     },
     DeferredRule {
         rule: "重复代码（跨文件相似度）警告",
-        reason: "需要跨文件指纹与相似度阈值设计，属独立议题",
-        owning_card: "TASK-015",
+        reason: "需要跨文件指纹与相似度阈值设计，属独立议题（PL-060：先裁决阈值口径）",
+        owning_card: UNASSIGNED_HYGIENE_CARD,
     },
     DeferredRule {
         rule: "新增顶层目录必须在 ADR 白名单中",
-        reason: "需要先有 ADR 白名单文件（docs/adr/ 下已有多份 ADR，但白名单本身尚未落地；另见 PL-023 的 scripts/ 归属）",
-        owning_card: "TASK-015",
+        reason: "需要先有 ADR 白名单文件（docs/adr/ 下已有多份 ADR，但白名单本身尚未落地；另见 PL-023 的 scripts/ 归属）→ PL-060",
+        owning_card: UNASSIGNED_HYGIENE_CARD,
     },
     DeferredRule {
         rule: "新增依赖必须已登记 docs/DEPENDENCIES.md",
         reason: "登记表已建（TASK-001），解析与比对逻辑待写",
-        owning_card: "TASK-015",
+        owning_card: "TASK-086",
     },
     DeferredRule {
         rule: "空实现 stub 必须带 STUB 卡号标记",
         reason: "「空实现」的判定需要函数体分析；卡号部分已由 hygiene/missing-card-reference 覆盖",
-        owning_card: "TASK-015",
+        owning_card: "TASK-085",
     },
     DeferredRule {
         rule: "被跳过的测试（#[ignore] / .skip）必须带原因与卡号",
         reason: "需要属性解析与测试函数关联",
-        owning_card: "TASK-015",
+        owning_card: "TASK-085",
     },
     // 以下两条由 ADR-0025 D1 新增（关闭 PL-011 / PL-020）。
     DeferredRule {
         rule: "文件不得含 CRLF（hygiene/crlf-line-endings）",
-        reason: "需要先确定「文本文件」的判定方式（ADR-0025 D1 定为扩展名白名单）；Error 级，可直接上线（仓库当前 CRLF 计数为 0）",
-        owning_card: "TASK-015",
+        reason: "需要先确定「文本文件」的判定方式（ADR-0025 D1 定为扩展名白名单）；Error 级，可直接上线（2026-09-24 实测全仓文本文件 CRLF = 0）。⚠ 现状只覆盖 .md（docscan 的 file/encoding），见 PL-061",
+        owning_card: "TASK-086",
     },
     DeferredRule {
         rule: "必须以单个换行结尾（hygiene/missing-final-newline）",
-        reason: "上线即为 Error 会当场红 15 处既有文件（清单见 PL-020 处置记录）→ 必须先以 Warning 上线、清扫完再升 Error（ADR-0025 D1）",
-        owning_card: "TASK-015",
+        reason: "上线即为 Error 会当场红既有文件 → 必须先以 Warning 上线、清扫完再升 Error（ADR-0025 D1）。⚠ 2026-09-24 实测：`.md` 之外仍有 8 处（2 个 `crates/*/Cargo.toml` + 5 个 `protocol/*/*.json` + 1 个 `spikes/*.ps1`）—— PL-027 在 2026-09-18 清过一轮，**因为没有门禁又长回来了**（ADR-0030）",
+        owning_card: "TASK-086",
     },
 ];
 
@@ -196,7 +212,7 @@ pub fn describe_deferred_rules() -> String {
 #[must_use]
 pub fn hygiene_progress_note() -> String {
     format!(
-        "-- deferred-rules: gov §5.4 共 {} 项，已实现 {} 项，未实现 {} 项（归属 TASK-015；`--list-deferred` 查看清单）",
+        "-- deferred-rules: gov §5.4 共 {} 项，已实现 {} 项，未实现 {} 项（归属 TASK-085 / TASK-086，未拆卡的见 PL-060；`--list-deferred` 查看清单）",
         TOTAL_HYGIENE_RULE_COUNT,
         IMPLEMENTED_HYGIENE_RULE_COUNT,
         DEFERRED_HYGIENE_RULES.len()
@@ -284,15 +300,38 @@ mod tests {
     fn test_not_implemented_message_names_the_owning_card() {
         let entry = find_command("replay-skeleton").expect("replay-skeleton 应已登记");
         let message = not_implemented_message(entry);
+        // 断言绑定**登记表里的实际归属**，不硬编码卡号：硬编码会在「归属修正」
+        // （PL-059 那种）时变成一条假红灯。这里同时把修正后的归属**锁死**。
         assert!(
-            message.contains("TASK-015"),
-            "报错必须指出归属卡号，实际：{message}"
+            message.contains(entry.owning_card),
+            "报错必须指出归属卡号（{}），实际：{message}",
+            entry.owning_card
+        );
+        assert_eq!(
+            entry.owning_card, "TASK-034",
+            "replay 的完整版归 TASK-034（record-replay 框架），不是已 Done 的 TASK-015（PL-059）"
         );
         assert!(message.contains("尚未实现"));
         assert!(
             message.contains("replay-skeleton"),
             "报错必须回显命令名，便于在长日志里定位"
         );
+    }
+
+    #[test]
+    fn test_deferred_hygiene_rules_only_point_at_the_two_owning_cards() {
+        // PL-059 的机器判据（ADR-0019 N1 同型）：10 项未实现规则只许归
+        // TASK-085 / TASK-086 / 未拆卡指针 —— 不许再出现「指向一张已 Done 的卡」
+        // 那种形态（TASK-015 就是这样过期的）。
+        let allowed = ["TASK-085", "TASK-086", UNASSIGNED_HYGIENE_CARD];
+        for entry in DEFERRED_HYGIENE_RULES {
+            assert!(
+                allowed.contains(&entry.owning_card),
+                "规则 `{}` 的归属 `{}` 不在允许集合里 —— 改归属时必须同时更新本测试（PL-059）",
+                entry.rule,
+                entry.owning_card
+            );
+        }
     }
 
     #[test]

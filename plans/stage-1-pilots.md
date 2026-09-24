@@ -220,6 +220,8 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-056 | 1c | `tasks/TASK-056-t5-1-open-site-extract-list-write-csv.md` | Ready（批次表占位派单前补全） |
 | TASK-057 | 1c | `tasks/TASK-057-t5-2-form-fill-stop-before-submit-diff-origin.md` | Ready（批次表占位派单前补全） |
 | TASK-058 | 1c | `tasks/TASK-058-t5-3-injection-target-security-ci-audit.md` | Ready（批次表占位派单前补全） |
+| TASK-085 | XTASK 池 | `tasks/TASK-085-xtask-hygiene-rust-source-rules.md` | **完整卡**（2026-09-24 PL-059 归属修正新建：gov §5.4 第 1 / 2 / 3 / 10 / 11 项 = Rust 源码结构规则）；**Ready** |
+| TASK-086 | XTASK 池 | `tasks/TASK-086-xtask-hygiene-file-level-and-registry-rules.md` | **完整卡**（2026-09-24 PL-059 归属修正新建：gov §5.4 第 8 / 9 / 13 项 = 文件级 + 依赖登记规则）；**Ready** |
 
 
 > **迁移零丢失核对**（ADR-0031 验证方式 3）：两段正文共 **30** 行非空内容（TASK-011 28 行 + TASK-035 2 行），
@@ -247,7 +249,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | 013~034 / 036~058 | **stage-1 批次表占位**（本文件批次表）| **45 张 Ready**（开工前由 Orchestrator 逐张展开正文）|
 | 059~070 | 已用 = xtask 护栏升级（6 张）+ governance（6 张）| 12 张 Done |
 | 071 | ADR-0037 实施卡（号段分配策略；本 ADR 生效前建的治理卡）| 1 张 Done |
-| 072~099 | XTASK 池 | 已用 072~079（stage-0 b1 探针卡）+ 083 / 084 = **10 张**；**空位 080~082 / 085~099** |
+| 072~099 | XTASK 池 | 已用 072~079（stage-0 b1 探针卡）+ 083 / 084 + **085 / 086**（PL-059 归属修正新建）= **12 张**；**空位 080~082 / 087~099** |
 | 100~199 | 业务池 | 已用 100 / 101（Win32-Input + probe 替换）；空位 102~199 |
 | 200~299 | 治理池（audit/docs/memory 治理）| 已用 200（spec 修复卡）/ **201**（`crates/core` 骨架提前，PL-037）/ **202**（存储迁移注册表，ADR-0038，PL-046）；空位 203~299 |
 
