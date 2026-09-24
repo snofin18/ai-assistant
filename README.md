@@ -11,7 +11,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 > TASK-017 的 7 条 DRIFT 已全部裁决落地（**ADR-0043** 元素解析加 scope / **ADR-0044** 歧义策略收敛为唯一
 > `ErrorAndAsk` / **ADR-0045** 非宿主平台编译门禁进 `AGENTS.md` §6；PL-068 / 069 / 070 闭环），
 > 同 crate 的合成输入（`SendInput`）+ 坐标归一化（DPI / 多屏）+ IME 也已落地（TASK-018 —— 铁律 5 的 **L4** 层；
-> 真机验收 2/2；新提 PL-074），下一张是 `apps/automation-host` + `crates/ipc`（TASK-019））。**当前阶段详情以 `PLAN.md` 为准**。
+> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收，下一张是 `crates/tool-bus`（TASK-020）。**当前阶段详情以 `PLAN.md` 为准**。
 
 ---
 
@@ -84,7 +84,9 @@ TASK-017 的 7 条 DRIFT 遗留已由 **ADR-0043 / 0044 / 0045** 裁决落地（
 TASK-018 把铁律 5 的 **L4（合成输入）** 层补齐（`SendInput` VK 路径 + `KEYEVENTF_UNICODE` 文本路径 + 发送前 100% 前台校验 +
 显示器枚举 / DPI 换算 / 虚拟屏幕归一化 + `is_ime_open`；真机验收 2/2 —— 坐标误差 0 px、记事本 Unicode + Ctrl+S 磁盘回读），
 新提 **PL-074**（`pointer_action` 不带目标窗口 → 混合 DPI 多屏下逻辑点无法唯一归属显示器）。
-**下一张 = TASK-019（`apps/automation-host` + `crates/ipc`：JSON-RPC / NamedPipe + token + 对端身份校验 + 心跳 / 看门狗）** —— 卡面按 gov §3.2 展开后开工。
+TASK-019 把 Host IPC 传输层落地：纯函数帧编解码（magic / 16 MiB 上限 / CRC32）+ 版本化认证握手（token 常数时间比较）+
+Windows NamedPipe 传输（`PIPE_REJECT_REMOTE_CLIENTS` + 客户端 PID / 镜像路径白名单）+ 双向心跳 / 看门狗；
+真实验收启动 host、完成 `ServerHello` 与心跳后 kill host，客户端在 2 s 内检测断连。**下一张 = TASK-020（`crates/tool-bus`：MCP client(`rmcp`) + in-process server + JSON Schema 校验 + 统一返回信封）**。
 ＋ Notepad 的 3 个任务闭环。
 阶段 0（文档与 Spike）已于 2026-09-20 closeout —— 它的产出是 Spike 报告，**不是**产品代码。
 详见 `plans/stage-1-pilots.md`。
@@ -131,7 +133,16 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-25：TASK-018 —— `platform/windows` 的合成输入（`SendInput`）+ 坐标归一化（DPI / 多屏）+ IME；2026-09-24：阶段 1 地基层 + 平台抽象层 + Windows UIA provider + 治理池收口 + 护栏补齐 + TASK-016 / TASK-017 遗留裁决 = TASK-011 / 012 / 013 / 014 / 015 / 016 / 017 / 018 / 200 / 201 / 202 / 203）
+## 最近进展（2026-09-25：TASK-019 —— Host IPC NamedPipe + token + 对端身份校验 + 心跳；TASK-018 —— 合成输入 + 坐标归一化 + IME；2026-09-24：阶段 1 地基层 + 平台抽象层 + Windows UIA provider + 治理池收口 + 护栏补齐 + TASK-016 / TASK-017 遗留裁决 = TASK-011 / 012 / 013 / 014 / 015 / 016 / 017 / 018 / 019 / 200 / 201 / 202 / 203）
+
+**2026-09-25 —— TASK-019（`crates/ipc` + `apps/automation-host`：Host IPC 传输层）**
+
+新增 `assistant-ipc` 与 `assistant-automation-host`：线上帧按 spec 固定为 `magic + envelope_size + payload + CRC32`，
+超长 / magic / CRC / 版本 / token 五类错误均带 `ErrorCategory`；握手用 `ClientHello` / `ServerHello` / `Heartbeat`，
+token 只作为传输层认证材料伴随发送，不改协议定义。Windows 端以 NamedPipe 实现传输，拒绝远端客户端，并以
+`GetNamedPipeClientProcessId` + `QueryFullProcessImageNameW` 做默认拒绝的对端镜像白名单；双向心跳与看门狗在静默时明确报错。
+真实验收由测试启动 host 子进程，完成握手、心跳，再 kill host 并确认客户端在 2 s 内检测断连；非 Windows 两个目标的 clippy 同样全绿。
+新增 `handle_discipline` 契约测试，禁止平台实现依赖与元素句柄类型进入 IPC 载荷层。
 
 **2026-09-25 —— TASK-018（`crates/platform/windows`：合成输入 + 坐标归一化 + IME）**
 

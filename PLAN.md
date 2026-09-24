@@ -7,12 +7,12 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-25（TASK-018 `crates/platform/windows` Done：合成输入（`SendInput`）+ 前台校验 + 坐标归一化（DPI / 多屏）+ IME 处理落地 —— 铁律 5 的 **L4** 层；真机验收 2/2（坐标误差 0 px / 记事本 Unicode + Ctrl+S 磁盘回读）；新提 PL-074；详 LEDGER）
+更新日期    ：2026-09-25（TASK-019 `automation-host` + `crates/ipc` Done：帧/握手/NamedPipe + token + 对端身份白名单 + 双向心跳/看门狗；真机 kill-host 断连验收通过；详 LEDGER）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
-当前任务卡  ：**A2 批次进行中**：TASK-011 ✅ / 012 ✅ / 013 ✅ / 014 ✅ / 015 ✅ / 016 ✅ / 017 ✅ / **018 ✅** → **TASK-019（`automation-host` 进程 + `crates/ipc`：JSON-RPC / NamedPipe + 握手 token + 对端身份校验 + 心跳 / 看门狗）= 下一张**；
+当前任务卡  ：**A2 批次进行中**：TASK-011 ✅ / 012 ✅ / 013 ✅ / 014 ✅ / 015 ✅ / 016 ✅ / 017 ✅ / 018 ✅ / **019 ✅** → **TASK-020（`tool-bus`：MCP client(`rmcp`) + in-process server + JSON Schema 校验 + 统一返回信封）= 下一张**；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203** 均 Done
 阻塞项      ：① TASK-002 仍 Blocked（上游 `create_thread` 未关）；② gov §5.1 门禁清单尚未登记 `check-migrations`（PL-056，需 ADR）；③ PL-071（ADR-0035 allow 表未登记 crate 级 `unsafe_code`）/ PL-072（`*Regex` 命名与子串语义不一致）/ PL-073（卡片 `- 状态：` 行归属机制）/ **PL-074**（`pointer_action` 不带目标窗口 → 混合 DPI 多屏下逻辑点无法唯一归属显示器，改公共接口需 ADR）需 ADR 或 Orchestrator 处置
-下一步动作  ：① TASK-019 `apps/automation-host/**` + `crates/ipc/**`：JSON-RPC over NamedPipe + 握手 token + 对端身份校验 + 心跳 / 看门狗（**element 句柄不出进程** —— 铁律 8 的 arch test 校验；Spike B 重解析矩阵 ≥ 95%）
+下一步动作  ：① TASK-020 `crates/tool-bus/**`：MCP client(`rmcp`) + in-process server + JSON Schema 校验 + 统一返回信封（`untrusted` / `truncated`）+ 工具集指纹 + 动态挂载
                   → ② stage-1 后续批次；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 

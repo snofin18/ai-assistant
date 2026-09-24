@@ -1,0 +1,15 @@
+[package]
+name = "assistant-automation-host"
+description = "Automation host process: authenticated NamedPipe server and watchdog."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies.assistant-ipc]
+path = "../../crates/ipc"
+version = "0.1.0"
+
+[lints]
+workspace = true
