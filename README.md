@@ -10,7 +10,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
 > TASK-017 的 7 条 DRIFT 已全部裁决落地（**ADR-0043** 元素解析加 scope / **ADR-0044** 歧义策略收敛为唯一
 > `ErrorAndAsk` / **ADR-0045** 非宿主平台编译门禁进 `AGENTS.md` §6；PL-068 / 069 / 070 闭环），
-> 下一张是 `crates/platform/windows` 的合成输入与 IME（TASK-018））。**当前阶段详情以 `PLAN.md` 为准**。
+> 同 crate 的合成输入（`SendInput`）+ 坐标归一化（DPI / 多屏）+ IME 也已落地（TASK-018 —— 铁律 5 的 **L4** 层；
+> 真机验收 2/2；新提 PL-074），下一张是 `apps/automation-host` + `crates/ipc`（TASK-019））。**当前阶段详情以 `PLAN.md` 为准**。
 
 ---
 
@@ -75,12 +76,15 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 **`crates/platform/api`**（铁律 7 的唯一平台入口：`TargetDescriptor` / `NormalizedPoint` / `Fingerprint` /
 `CapabilityMatrix` + `PlatformService` / `WindowProvider` / `UiAutomationProvider` 三个 trait 形状）/
 **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / `read_text` / `set_value` /
-`edit_text` / `invoke_action` / `bounds` / `fingerprint` / 窗口枚举与状态）**均已落地**；
+`edit_text` / `invoke_action` / `bounds` / `fingerprint` / 窗口枚举与状态 / **合成输入（`SendInput`）+ 坐标归一化（DPI / 多屏）+ IME**）**均已落地**；
 跨阶段治理卡 TASK-200 / 201 / 202 / 203 已 Done；TASK-016 的能力命名歧义已由 **ADR-0042** 定案
 （`CapabilityCatalog` = 稳定标识目录 / `CapabilityMatrix` = 运行时探测结果 / `CapabilityEntry` = 风险·审批元数据）；
 TASK-017 的 7 条 DRIFT 遗留已由 **ADR-0043 / 0044 / 0045** 裁决落地（元素解析加 scope / 歧义策略收敛为唯一
-`ErrorAndAsk` / 非宿主平台编译门禁进 `AGENTS.md` §6；PL-068 / 069 / 070 闭环）。
-**下一张 = TASK-018（`crates/platform/windows`：合成输入（SendInput）+ 焦点校验 + 坐标归一化（DPI/多屏）+ IME 处理）** —— 卡面按 gov §3.2 展开后开工。
+`ErrorAndAsk` / 非宿主平台编译门禁进 `AGENTS.md` §6；PL-068 / 069 / 070 闭环）；
+TASK-018 把铁律 5 的 **L4（合成输入）** 层补齐（`SendInput` VK 路径 + `KEYEVENTF_UNICODE` 文本路径 + 发送前 100% 前台校验 +
+显示器枚举 / DPI 换算 / 虚拟屏幕归一化 + `is_ime_open`；真机验收 2/2 —— 坐标误差 0 px、记事本 Unicode + Ctrl+S 磁盘回读），
+新提 **PL-074**（`pointer_action` 不带目标窗口 → 混合 DPI 多屏下逻辑点无法唯一归属显示器）。
+**下一张 = TASK-019（`apps/automation-host` + `crates/ipc`：JSON-RPC / NamedPipe + token + 对端身份校验 + 心跳 / 看门狗）** —— 卡面按 gov §3.2 展开后开工。
 ＋ Notepad 的 3 个任务闭环。
 阶段 0（文档与 Spike）已于 2026-09-20 closeout —— 它的产出是 Spike 报告，**不是**产品代码。
 详见 `plans/stage-1-pilots.md`。
@@ -127,7 +131,22 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-24：阶段 1 地基层 + 平台抽象层 + Windows UIA provider + 治理池收口 + 护栏补齐 + TASK-016 / TASK-017 遗留裁决 = TASK-011 / 012 / 013 / 014 / 015 / 016 / 017 / 200 / 201 / 202 / 203）
+## 最近进展（2026-09-25：TASK-018 —— `platform/windows` 的合成输入（`SendInput`）+ 坐标归一化（DPI / 多屏）+ IME；2026-09-24：阶段 1 地基层 + 平台抽象层 + Windows UIA provider + 治理池收口 + 护栏补齐 + TASK-016 / TASK-017 遗留裁决 = TASK-011 / 012 / 013 / 014 / 015 / 016 / 017 / 018 / 200 / 201 / 202 / 203）
+
+**2026-09-25 —— TASK-018（`crates/platform/windows`：合成输入 + 坐标归一化 + IME）**
+
+TASK-018 把铁律 5 的 **L4（合成输入）** 层补齐：`SendInput` 封装（VK 路径 + `KEYEVENTF_UNICODE` 文本路径 —— 后者把
+UTF-16 码元直接投进输入队列，**绕过 IME 组字与键盘布局**，所以「IME 开着也能正确写入」）、**发送前 100% 校验前台窗口**
+（不一致 → `SetForegroundWindow` + **回读**，仍不一致 → `TargetUnresponsive`，**绝不盲发**）、`SendInput` 返回值逐次校验
+（UIPI `ERROR_ACCESS_DENIED` → `PlatformPermission` / 87 → `ToolInvalidArgs` / 队列被阻塞 → `TargetUnresponsive` / 未识别码 → `Fatal`）、
+显示器枚举 + `GetDpiForMonitor` / `GetDpiForWindow` → **实际**显示器的 `CoordinateSpace`、`NormalizedPoint` → `PhysicalPoint`
+（**只经** `CoordinateSpace::to_physical`）、虚拟屏幕 `0..=65535` 归一化、`is_ime_open` 两级查询。
+真机验收 **2/2**：坐标精度 **0 px**（判据 ≤ 2 px）、真实记事本写入「中文abc」+ `Ctrl+S` **磁盘回读**通过。
+纯逻辑（键名映射 / 组合键顺序 / UTF-16 代理对 / DPI → 缩放 / 显示器半开区间命中 / 归一化 / 失败分类）刻意留在
+**三平台编译**的 `mod.rs` → **ADR-0045** 的两条非宿主 `--target` clippy 也覆盖得到（这是 PL-070 教训的第一次兑现）。
+新提 **PL-074**（`pointer_action` 签名不带目标窗口 → 混合 DPI 多屏下逻辑点无法唯一归属显示器；跨显示器拖拽终点偏差）。
+
+**2026-09-24 —— 阶段 1 地基层 + 平台抽象层 + Windows UIA provider + 治理池收口 + 护栏补齐 + TASK-016 / TASK-017 遗留裁决**
 
 阶段 1 的地基层已经落地（含密钥层），治理池把 TASK-013 现场撞出的三个**结构性**缺陷一次性收口，
 `xtask` 护栏同批补齐并把两条 CI 门禁由软转硬。
@@ -148,6 +167,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 | TASK-016 | `crates/platform/api`：**铁律 7 的唯一平台入口** —— 4 个纯类型（`TargetDescriptor` / `NormalizedPoint` / `Fingerprint` / `CapabilityMatrix`）+ 3 个 trait 形状（RPITIT，**零 `async-trait` 依赖**）+ 能力矩阵 4 条不变量的机器校验；`ResolvedWindow` / `ResolvedElement` = 不透明句柄（铁律 8 有源码扫描断言，含负向样本） | ✅ Done |
 | TASK-015 | `xtask` 护栏补齐：`docscan` 4 条结构规则（裸 NUL / 数字节号重复 / 整节为空 / 标题文字重复）+ `crates/core/tests/arch*` 分层断言（`arch::` 由 0 → 5 个测试）+ `check-ledger`（ADR-0039 D3）+ `check-migrations`（PL-047）；同批修 PL-048（flaky）与 PL-051（裸 NUL） | ✅ Done |
 | TASK-017 | `crates/platform/windows`：**铁律 7 在 Windows 侧的落地** —— `UiAutomationProvider` 全 9 方法 + `WindowProvider` 全 5 方法（UIA 树快照 / selector 链解析 / `read_text` / `set_value` / `edit_text` / `invoke_action` / `bounds` / `fingerprint` / 窗口枚举与状态）；句柄纪律（铁律 8）有源码扫描断言 + 5 个负向样本；全 crate 零 `serde`。7 条 DRIFT 已全部裁决接受（含 crate 级 `unsafe_code` 放行、`crates/platform/api` 补 `SelectorChain` re-export），PL-068 / 069 / 070 闭环（**ADR-0043 / 0044 / 0045**）| ✅ Done |
+| TASK-018 | `crates/platform/windows`：**铁律 5 的 L4（合成输入）落地** —— `SendInput` 封装（VK 路径 + `KEYEVENTF_UNICODE` 文本路径，后者绕过 IME 与键盘布局）、发送前 **100% 前台窗口校验**（不一致 → 置前 + 回读，仍不一致 → `TargetUnresponsive`，绝不盲发）、`SendInput` 返回值逐次校验（UIPI / 87 / 队列被阻塞 / 未识别码四分类）、显示器枚举 + `GetDpiForMonitor` / `GetDpiForWindow` → **实际**显示器的 `CoordinateSpace`、`NormalizedPoint` → `PhysicalPoint`（只经 `CoordinateSpace::to_physical`）、虚拟屏幕归一化、`is_ime_open` 两级查询；纯逻辑留在三平台编译的 `mod.rs`（ADR-0045 的两条非宿主 `--target` clippy 覆盖得到）；真机验收 2/2（坐标误差 0 px / 记事本 Unicode + Ctrl+S 磁盘回读）；新提 PL-074 | ✅ Done |
 
 TASK-016 把**平台抽象层**立起来：`core` / `Host` 从此只能经 `assistant-platform-api` 的 trait 用平台能力
 （铁律 7），且**该 crate 全 crate 零 `#[allow]`、零 `unsafe`、零第三方依赖**（除已登记的 `serde`）——
