@@ -20,14 +20,17 @@
 
 | crate | 版本要求 | 使用方 | 用途（一句话） | 许可证 | 替代方案与否决理由 | 状态 | 批准 | 日期 |
 |---|---|---|---|---|---|---|---|---|
-| — | — | — | **产品 workspace 仍为零第三方依赖**：`xtask` 刻意 std-only（零供应链风险 + 编译 <1s）。下面两行属 `spikes/`（被根 `Cargo.toml` `exclude`，不在产品 workspace 内） | — | — | — | — | 2026-09-16 |
+| — | — | — | **`xtask` 仍刻意 std-only**（零供应链风险 + 编译 <1s）；产品侧首批第三方依赖从 2026-09-23 起逐行登记在本表下方（`serde` / `serde_json` / `rusqlite` / `zstd` / `sha2`）；再下面一行属 `spikes/`（被根 `Cargo.toml` `exclude`，不在产品 workspace 内） | — | — | — | — | 2026-09-16 |
 | `serde` | **`1.0`**（caret 语义：允许 1.x 内升级；`Cargo.toml` 与 `Cargo.lock` 实测一致） | `crates/protocol` | serde derive + `serde_json::Value` for envelope.data / audit_event.target 等开放字段 | MIT OR Apache-2.0 | 替代 = 手写 Serialize/Deserialize impl = 出错率高且协议多版本难兼容 | **Approved** | 人类（chat 2026-09-23 TASK-103） | 2026-09-23 |
 | `serde_json` | **`1.0`**（caret 语义：允许 1.x 内升级；`Cargo.lock` 实测解析到 1.0.151） | `crates/protocol` | JSON Value 类型（用于 envelope.data / error.details / metadata / audit_event.target 等开放字段） | MIT OR Apache-2.0 | 替代 = serde_json::Value 是 serde_json 生态默认；不允许直接 String 传开放字段（违反 naming.md §5 newtype 约束） | **Approved** | 人类（chat 2026-09-23 TASK-103） | 2026-09-23 |
+| `rusqlite` | **`0.37`**（caret；启用 `bundled` feature） | `crates/storage` | SQLite 驱动 = 主库（WAL）：任务 / 步骤 / 检查点 / 用量 / blob 元数据 | MIT | 替代 = `sqlx`：本卡只需**同步单写者**，async 驱动会连带引入运行时与编译期 SQL 校验的构建复杂度（`storage-design.md` §3.2 允许 `sqlx` 但非必需）；`bundled` = 自带 SQLite C 源码编译 → 三平台可复现、不依赖系统库 | **Approved** | 人类（chat 2026-09-24，TASK-012） | 2026-09-24 |
+| `zstd` | **`0.13`**（caret） | `crates/storage` | 内容寻址 blob 池的压缩（level 3） | MIT | 替代 = `flate2`（zlib/gzip）：压缩比与解压速度均不如 zstd，且 `docs/storage-design.md` §3.3 已把「zstd level 3」定为口径 → 换库 = 改口径 | **Approved** | 人类（chat 2026-09-24，TASK-012） | 2026-09-24 |
+| `sha2` | **`0.10`**（caret） | `crates/storage` | 内容寻址的 SHA-256 摘要（blob_id 与完整性校验） | MIT OR Apache-2.0 | 替代 = `blake3`：更快，但 `sha256` 是**既定口径**（架构 v2 §15.3、审计 hash chain 同源），换算法 = 改契约 | **Approved** | 人类（chat 2026-09-24，TASK-012） | 2026-09-24 |
 | `windows` | **`=0.62.2`**（精确钉定；0.x 版本间**有**破坏性变更，升级 = 漂移触发器） | `spikes/spike-a-notepad`（阶段 0）→ `crates/platform/windows`（阶段 1） | Win32/WinRT 官方投影。**Spike A 只用其 UI Automation 客户端 COM 绑定**（`IUIAutomation` / `CUIAutomation` / `IUIAutomationElement` / `IUIAutomationValuePattern`），验证「Rust 走 COM 是否与 PowerShell 走托管封装表现一致」 | MIT OR Apache-2.0（`cargo deny check licenses` 2026-09-18 本机实测 `licenses ok`，exit 0） | 替代方案 = 第三方封装 crate `uiautomation`，**已否决**（ADR-0024 D1）：封装层自带缓存会**掩盖**真实 COM 开销，污染 Spike A 的 go/no-go 判据，并把风险推迟到阶段 1；且它不在本清单内，等于多引入一个外部维护者 | **Approved for spikes**（产品侧待阶段 1 走漂移升级） | 人类（指示 #6） | 2026-09-18 |
 | `uiautomation` | — | — | （曾考虑用于 spike 的 UIA 访问） | 未核实 | **Rejected**：见 ADR-0024 D1 的对比表与裁决理由（决定性一条 = spike 必须走生产路径去撞墙） | **Rejected** | 人类（指示 #6） | 2026-09-18 |
 
-> 计划中的首批依赖（**尚未引入**，引入时逐条登记并走漂移升级）：
-> `tokio`、`serde`、`rusqlite`、`rmcp`、`tauri`、`windows`（crate）、`zstd`、`tracing`。
+> 计划中的依赖（**尚未引入**，引入时逐条登记并走漂移升级；已引入的不再列在这里）：
+> `tokio`、`rmcp`、`tauri`、`windows`（crate）、`tracing`。
 > 它们的选型理由见 `cross-platform-ai-assistant-architecture-v2.md` §15 与 `docs/storage-design.md`。
 
 > **`windows` crate 的 feature 名（最容易记错的一条，ADR-0024 D1a 实证）**：
