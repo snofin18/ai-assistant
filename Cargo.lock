@@ -49,6 +49,14 @@ name = "assistant-core"
 version = "0.1.0"
 
 [[package]]
+name = "assistant-platform-api"
+version = "0.1.0"
+dependencies = [
+ "assistant-protocol",
+ "serde",
+]
+
+[[package]]
 name = "assistant-protocol"
 version = "0.1.0"
 dependencies = [
