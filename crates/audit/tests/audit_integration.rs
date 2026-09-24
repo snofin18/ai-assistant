@@ -18,13 +18,14 @@ use std::sync::Arc;
 use assistant_audit::{AppendOutcome, AuditError, AuditLog, AuditSubject, Durability};
 use assistant_storage::Database;
 use common::{
-    FixedClock, TestDir, audit_row_count, batched_log, immediate_log, migrations, object_exists,
-    open_database, open_database_with, sample_event, storage_only_migrations,
+    FixedClock, TestDir, all_records, audit_row_count, batched_log, immediate_log, migrations,
+    migrations_at_v2, object_exists, open_database, open_database_with, sample_event,
+    seed_legacy_v2_rows, storage_only_migrations,
 };
 
 /// 迁移 0002 必须建出表 + 索引 + 两个 append-only 触发器，且**装配后**的期望版本 = 2。
 #[test]
-fn test_migration_0002_creates_table_index_and_append_only_triggers() {
+fn test_migration_creates_table_index_and_append_only_triggers() {
     let clock = Arc::new(FixedClock::new(1_700_000_000_000));
     let dir = TestDir::new("migration");
     let database = open_database(&dir, &clock);
@@ -32,10 +33,10 @@ fn test_migration_0002_creates_table_index_and_append_only_triggers() {
 
     assert_eq!(
         migrations().expected_version(),
-        2,
-        "装配后期望版本 = 2（storage 0001 + audit 0002）"
+        3,
+        "装配后期望版本 = 3（storage 0001 + audit 0002 + audit 0003）"
     );
-    assert_eq!(database.schema_version().expect("schema 版本"), 2);
+    assert_eq!(database.schema_version().expect("schema 版本"), 3);
     assert!(object_exists(connection, "table", "audit_logs"));
     assert!(object_exists(connection, "index", "idx_audit_ts"));
     assert!(object_exists(connection, "trigger", "audit_logs_no_update"));
@@ -44,6 +45,10 @@ fn test_migration_0002_creates_table_index_and_append_only_triggers() {
 }
 
 /// 列名与顺序必须与架构 v2 §15.1 的 `audit_logs(...)` 逐字一致（多一列 / 少一列都算改契约）。
+///
+/// 2026-09-24（ADR-0040）：`hash` 列被删（与 `id` 语义重复 —— PL-045），新增 `sequence`
+/// （显式链序 —— PL-043）。这条断言因此**必须**跟着契约走；改断言本身是漂移触发器 ⑦，
+/// 已在本卡 §5 登记。
 #[test]
 fn test_audit_logs_columns_match_architecture_section_15_1() {
     let clock = Arc::new(FixedClock::new(1_700_000_000_000));
@@ -63,6 +68,7 @@ fn test_audit_logs_columns_match_architecture_section_15_1() {
     assert_eq!(
         columns,
         vec![
+            "sequence",
             "id",
             "prev_hash",
             "ts",
@@ -71,14 +77,13 @@ fn test_audit_logs_columns_match_architecture_section_15_1() {
             "step_id",
             "event_type",
             "detail_json",
-            "hash",
         ]
     );
 }
 
-/// 已建的 v1 库（只有 storage 的 0001、没有 `audit_logs`）必须能自动升级到 v2，且再打开一次是幂等的。
+/// 已建的 v1 库（只有 storage 的 0001、没有 `audit_logs`）必须能自动升级到最新版本，且再打开一次是幂等的。
 #[test]
-fn test_migration_0002_upgrades_v1_library_and_is_idempotent() {
+fn test_migration_upgrades_v1_library_and_is_idempotent() {
     let clock = Arc::new(FixedClock::new(1_700_000_000_000));
     let dir = TestDir::new("upgrade");
 
@@ -91,7 +96,7 @@ fn test_migration_0002_upgrades_v1_library_and_is_idempotent() {
         database.close().expect("关闭");
     }
 
-    // ② 换用**装配后**的集合打开 → 0002 自动补上（期望版本由装配决定）
+    // ② 换用**装配后**的集合打开 → 0002 / 0003 自动补上（期望版本由装配决定）
     let upgraded = open_database(&dir, &clock);
     assert_eq!(
         upgraded.schema_version().expect("版本"),
@@ -382,4 +387,88 @@ fn test_batched_amortized_cost_below_one_ms_per_entry() {
         per_entry_ms < 1.0,
         "batched 摊销 {per_entry_ms:.4} ms/条 超过 1 ms 阈值"
     );
+}
+
+/// 已有 **v2 库**（有数据）必须能升到 v3（ADR-0040 D4）：行数不变、链自洽、`sequence` 从 1 连续、
+/// 索引与两个 append-only 触发器都在，且升级后继续 `append` 仍接得上**旧链尾**。
+///
+/// 这是 0003 这条「重建表」迁移最核心的回归断言 —— 重建若丢行 / 乱序 / 把触发器带走，
+/// 都会在这里当场变红。
+#[test]
+fn test_migration_0003_upgrades_v2_library_preserving_chain() {
+    let clock = Arc::new(FixedClock::new(1_700_000_000_000));
+    let dir = TestDir::new("upgrade-0003");
+
+    // ① 建一个**真实**的 v2 库（storage 0001 + audit 0002）并写入 3 条事件。
+    //    数据用 v2 那份 DDL 允许的 9 列形状写入（见 seed_legacy_v2_rows 的 why）。
+    let (ids_before, tail_before) = {
+        let database = open_database_with(&dir, &clock, &migrations_at_v2());
+        assert_eq!(database.schema_version().expect("v2 版本"), 2);
+        let (ids, tail) = seed_legacy_v2_rows(database.connection(), 3);
+        assert_eq!(audit_row_count(database.connection()), 3);
+        database.close().expect("关闭 v2 库");
+        (ids, tail)
+    };
+
+    // ② 换用完整集合打开 → 0003 原地重建
+    let upgraded = open_database(&dir, &clock);
+    assert_eq!(
+        upgraded.schema_version().expect("版本"),
+        migrations().expected_version()
+    );
+    assert_eq!(audit_row_count(upgraded.connection()), 3, "重建表不得丢行");
+    assert!(object_exists(
+        upgraded.connection(),
+        "index",
+        "idx_audit_ts"
+    ));
+    assert!(object_exists(
+        upgraded.connection(),
+        "trigger",
+        "audit_logs_no_update"
+    ));
+    assert!(object_exists(
+        upgraded.connection(),
+        "trigger",
+        "audit_logs_no_delete"
+    ));
+
+    // ③ 旧行按原链序保留：sequence 必须从 1 连续
+    let sequences: Vec<i64> = {
+        let mut statement = upgraded
+            .connection()
+            .prepare("SELECT sequence FROM audit_logs ORDER BY sequence")
+            .expect("prepare");
+        statement
+            .query_map([], |row| row.get(0))
+            .expect("query")
+            .map(|row| row.expect("sequence"))
+            .collect()
+    };
+    assert_eq!(sequences, vec![1, 2, 3], "sequence 必须复刻旧链序");
+
+    // ④ 链尾不变、读出的行序与升级前逐行一致、链自洽
+    let mut log = immediate_log(upgraded.connection(), &clock);
+    assert_eq!(log.persisted_hash(), tail_before, "升级后链尾必须不变");
+    let ids_after: Vec<String> = all_records(&log)
+        .iter()
+        .map(|record| record.id.clone())
+        .collect();
+    assert_eq!(ids_after, ids_before, "升级不得改变链序");
+    assert!(log.verify_chain().expect("verify").is_intact());
+
+    // ⑤ 升级后继续 append 仍接得上旧链尾
+    log.append(
+        &sample_event("s_1", "act_after_upgrade", "2026-09-24T00:00:01Z"),
+        &AuditSubject::unattached(),
+    )
+    .expect("append 到升级后的库");
+    let appended = all_records(&log);
+    assert_eq!(
+        appended.last().expect("最后一行").prev_hash,
+        tail_before,
+        "新行必须接上升级前的链尾"
+    );
+    assert!(log.verify_chain().expect("verify").is_intact());
+    upgraded.close().expect("关闭");
 }

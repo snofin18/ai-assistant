@@ -2591,7 +2591,8 @@ undo_anchors(id, step_id, target_id, kind, fingerprint, content_ref, shadow_path
 shadow_copies(id, anchor_id, path, size, hash, created_at, expires_at)
 
 -- 审计与证据
-audit_logs(id, prev_hash, ts, actor, task_id, step_id, event_type, detail_json, hash)  -- 追加不可改
+audit_logs(sequence, id, prev_hash, ts, actor, task_id, step_id, event_type, detail_json)  -- 追加不可改
+--   sequence = 链序（INTEGER PRIMARY KEY AUTOINCREMENT，ADR-0040）；id = 本条 self_hash（唯一）
 evidence(id, step_id, kind, path, bytes, redacted, created_at, expires_at)             -- 树快照/截图
 tree_snapshots(id, step_id, target_id, format, blob_ref, fingerprint, bytes)
 

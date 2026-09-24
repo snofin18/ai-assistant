@@ -174,7 +174,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-012 | A1 | `tasks/TASK-012-storage-layer-sqlite-wal-blob.md` | **完整卡**（2026-09-24 Orchestrator 展开） |
 | TASK-013 | A1 | `tasks/TASK-013-audit-append-hash-chain-flush.md` | **完整卡**（2026-09-24 Orchestrator 展开；**已 Done**） |
 | TASK-014 | A1 | `tasks/TASK-014-secrets-os-keychain-wrapper.md` | Ready（批次表占位派单前补全） |
-| TASK-015 | A1 | `tasks/TASK-015-xtask-hygiene-archtest-replay-skeleton.md` | Ready（批次表占位派单前补全） |
+| TASK-015 | A1 | `tasks/TASK-015-xtask-hygiene-archtest-replay-skeleton.md` | **完整卡**（2026-09-24 Orchestrator 展开：`docscan` 4 条结构规则 + `crates/core/tests/arch*` 分层断言 + PL-047 迁移登记表扫描 + ADR-0039 D3 的 `check-ledger` 两条规则） |
 | TASK-016 | A2 | `tasks/TASK-016-platform-api-trait-capability-matrix.md` | Ready（批次表占位派单前补全） |
 | TASK-017 | A2 | `tasks/TASK-017-platform-windows-uia-provider.md` | Ready（批次表占位派单前补全） |
 | TASK-018 | A2 | `tasks/TASK-018-platform-windows-synthetic-input-ime.md` | Ready（批次表占位派单前补全） |
@@ -231,6 +231,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-200 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-200-fix-spec-contract-drafts.md` | `docs/spec/*` 7 份契约草案的系统性缺陷（PL-038）；**已建卡、未开工** |
 | TASK-201 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-201-core-crate-skeleton.md` | `crates/core` 骨架提前（PL-037 选项 ③ 的落地物）；**已 Done（2026-09-24）** |
 | TASK-202 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-202-storage-migration-registry.md` | 存储迁移注册表（**ADR-0038**：storage 只提供机制、各 crate 自持迁移 + 唯一装配点）；PL-046 的落地物；**已 Done（2026-09-24）** |
+| TASK-203 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-203-audit-log-column-semantics.md` | `audit_logs` 列语义去重 + 显式链序（**ADR-0040**：删与 `id` 同义的 `hash`、加 `sequence`；迁移 0003 重建表）；PL-043 / PL-045 的落地物；**已 Done（2026-09-24）** |
 
 ## 任务卡号段分配（ADR-0037, 2026-09-20 起生效）
 

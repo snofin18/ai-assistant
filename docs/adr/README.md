@@ -40,8 +40,10 @@
 | **0036** | `0036-card-number-collision-resolution.md` | **Accepted** | xtask 卡 051~055+055b 重编号为 059~064；撤回 sub-suffix 命名（ADR-0031 D7 强化；撞号根因 = PL-022 现场复现）|
 | **0037** | `0037-task-card-number-allocation-strategy.md` | **Accepted** | 任务卡号段分配策略（XTASK 池 072~099 + 业务池 100~199 + 治理池 200~299）；sub-suffix 永久禁用；防止未来 xtask ↔ stage-1 撞号 |
 | **0038** | `0038-storage-migration-registry.md` | **Accepted** | 存储迁移注册表：各 crate 声明自己的迁移、storage 只提供机制（PL-046 闭环；删 `SCHEMA_VERSION` 常量，`Database::open` 加必填迁移集参数） |
+| **0039** | `0039-task-end-state-sync-contract.md` | **Accepted** | 任务结束时的状态同步契约：每张卡 Done 时在同一 PR 内同步 `PLAN.md`「当前状态」块 + `README.md` 状态行/当前阶段/最近进展；无变化也要显式写；可机器校验部分（新鲜度）归 TASK-015 `check-ledger`（DRIFT-202-2 闭环） |
+| **0040** | `0040-audit-log-column-semantics.md` | **Accepted** | `audit_logs` 列语义去重 + 显式链序：删与 `id` 同义的 `hash` 列、加 `sequence INTEGER PRIMARY KEY AUTOINCREMENT`；迁移 0003 重建表；0002 一字不改（PL-045 + PL-043 闭环） |
 
-**下一个可用编号：0039**（= §1 与 §2 已用最大号 0038 + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0041**（= §1 与 §2 已用最大号 0040 + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是可用号** —— 它是 §2 的**待建号**，已预留给「`#[allow]` 的唯一合法位置」那条决策

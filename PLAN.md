@@ -7,15 +7,14 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-24（Orchestrator 代行：stage-1 开工闸门刷新；详 LEDGER 末行）
+更新日期    ：2026-09-24（TASK-203 收尾：ADR-0039 状态同步契约落地 + PL-043/PL-045 闭环；详 LEDGER 末行）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
-当前任务卡  ：**1a 批次 A1（地基层）**：TASK-011 ✅ Done → **TASK-012 存储层 = 下一张**（正文已展开）；
-                  同批 TASK-013（依赖 012）/ 014（依赖 011）/ 015（依赖 011；⚠ PL-037）均 Ready；
-                  跨阶段治理卡 **TASK-200**（修 `docs/spec/*` 系统性缺陷，PL-038）已建卡未开工
-阻塞项      ：① TASK-012 需人类先批准 3 个依赖（`rusqlite` / `zstd` / `sha2`）并登记 `docs/DEPENDENCIES.md`（漂移触发器 ①）
-                  → 未批准前不得开工；② TASK-015 的 arch test 依赖 `crates/core`（TASK-028）→ PL-037；③ TASK-002 仍 Blocked（上游 `create_thread` 未关）
-下一步动作  ：① 批准 TASK-012 依赖 → ② TASK-012（`crates/storage/**`）→ ③ TASK-013（audit）→ ④ TASK-015 护栏清扫（PL-002/018/030/031/034/035）
-                  → ⑤ TASK-200（7 份 spec 修复）→ ⑥ 7 份 spike 报告（TASK-003~010）；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
+当前任务卡  ：**1a 批次 A1（地基层）**：TASK-011 ✅ / 012 ✅ / 013 ✅ Done → **TASK-014（secrets / OS keychain）= 下一张**；
+                  同批 TASK-015 已由 Orchestrator 展开正文（docscan 4 条结构规则 + arch test + PL-047 + ADR-0039 的 check-ledger）；
+                  跨阶段治理卡 **TASK-200 / 201 / 202 / 203** 均 Done
+阻塞项      ：① PL-037 已闭环（TASK-201）→ TASK-015 的 arch 宿主已就位；② TASK-002 仍 Blocked（上游 `create_thread` 未关）
+下一步动作  ：① TASK-014（`crates/secrets`）→ ② TASK-015 护栏清扫（含 PL-047 + ADR-0039 D3）
+                  → ③ stage-1 后续批次；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 
 ## 阶段索引（点开当前阶段那一个就够）

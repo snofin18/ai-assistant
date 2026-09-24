@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 
-use assistant_audit::{AuditLog, Durability};
+use assistant_audit::{AuditLog, Durability, canonical_payload, compute_self_hash};
 use assistant_protocol::AuditEvent;
 use assistant_storage::{Clock, Database, MigrationSet, StoragePaths};
 use rusqlite::Connection;
@@ -96,6 +96,26 @@ pub fn migrations() -> MigrationSet {
     set
 }
 
+/// **真实**的 v2 库形状：`crates/storage` 的 0001 + `crates/audit` 的 **0002**（不含 0003）。
+///
+/// 为什么需要它：0003 是**重建表**的迁移（ADR-0040 D4），必须验证「已有数据 + 旧列形状」的库
+/// 能原地升级。用完整集合造不出 v2 库；而手工 `DROP TABLE` 造出的「旧版本库」是**假状态**
+/// （ADR-0038 之后已被本 crate 的 pitfalls 否掉）。这里从**拥有者自己声明**的 `MIGRATIONS`
+/// 里取 0002，故升级用例的起点是**真库**。
+pub fn migrations_at_v2() -> MigrationSet {
+    let mut set = MigrationSet::new();
+    set.register_all(assistant_storage::MIGRATIONS)
+        .expect("装配 storage 自己的迁移");
+    let audit_0002 = assistant_audit::MIGRATIONS
+        .iter()
+        .find(|item| item.version() == 2)
+        .copied()
+        .expect("audit 必须声明 0002");
+    set.register(audit_0002).expect("注册 audit 0002");
+    set.validate().expect("v2 集合必须从 1 连续");
+    set
+}
+
 /// 只含 `crates/storage` 自己迁移的集合（= 历史 v1 库的形状，用于升级路径与"漏注册"负向用例）。
 pub fn storage_only_migrations() -> MigrationSet {
     let mut set = MigrationSet::new();
@@ -170,6 +190,52 @@ pub fn sample_event(session_id: &str, action: &str, ts: &str) -> AuditEvent {
 /// 同一事件的另一个变体（用于证明"改一个字段 ⇒ hash 变"）。
 pub fn sample_event_with_action(action: &str) -> AuditEvent {
     sample_event("s_1", action, "2026-09-24T00:00:00Z")
+}
+
+/// 往**旧形状**（v2：有 `hash` 列、无 `sequence`）的 `audit_logs` 里按链序写入 `count` 行。
+///
+/// 为什么要这样写而不是直接用 `AuditLog`：`AuditLog` 的 SQL 已经跟着迁移 0003 走（`ORDER BY sequence`），
+/// 在 v2 表上会直接报 `no such column: sequence` —— 这正是「代码只认最新 schema」的正确形态。
+/// 于是升级用例必须用**当时那份 DDL 允许的形状**造数据；hash 仍走 crate 的公开链算法
+/// （`canonical_payload` + `compute_self_hash`），故造出来的库对 `verify_chain` 是**真**自洽的。
+///
+/// 返回 `(各行的 id, 链尾)`。
+pub fn seed_legacy_v2_rows(connection: &Connection, count: usize) -> (Vec<String>, String) {
+    let mut ids = Vec::with_capacity(count);
+    let mut tail = assistant_audit::GENESIS_PREV_HASH.to_owned();
+    for index in 0..count {
+        let mut event = sample_event("s_1", &format!("legacy_{index}"), "2026-09-24T00:00:00Z");
+        event.prev_hash = Some(tail.clone());
+        event.self_hash = String::new();
+        let canonical = canonical_payload(&event).expect("规范化事件");
+        let self_hash = compute_self_hash(&tail, &canonical);
+        event.self_hash.clone_from(&self_hash);
+        let detail_json = serde_json::to_string(&event).expect("序列化事件");
+
+        connection
+            .execute(
+                "INSERT INTO audit_logs \
+                 (id, prev_hash, ts, actor, task_id, step_id, event_type, detail_json, hash) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                rusqlite::params![
+                    self_hash,
+                    tail,
+                    // 全部同毫秒：顺带证明「读出的顺序来自链序而不是 ts」（与 verify.rs 的走链判据同源）
+                    1_700_000_000_000_i64,
+                    "agent",
+                    Option::<String>::None,
+                    Option::<String>::None,
+                    "tool.called",
+                    detail_json,
+                    self_hash,
+                ],
+            )
+            .expect("写入 v2 形状的审计行");
+
+        ids.push(self_hash.clone());
+        tail = self_hash;
+    }
+    (ids, tail)
 }
 
 /// `sqlite_master` 里是否存在某个对象（表 / 索引 / 触发器）。
