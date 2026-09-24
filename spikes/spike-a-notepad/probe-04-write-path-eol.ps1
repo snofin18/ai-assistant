@@ -35,6 +35,8 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.Windows.Forms
+# TASK-101: Win32 Input helper (replaces deprecated SendKeys)
+Import-Module (Join-Path $PSScriptRoot 'Win32-Input.psm1') -Force -ErrorAction Stop
 
 $AE   = [System.Windows.Automation.AutomationElement]
 $TS   = [System.Windows.Automation.TreeScope]
@@ -112,7 +114,8 @@ function Invoke-SaveWithCtrlS {
   if ([Probe.Win32Fg]::IsIconic($hwnd)) { return 'MINIMIZED' }
   [Probe.Win32Fg]::SetForegroundWindow($hwnd) | Out-Null
   Start-Sleep -Milliseconds 600
-  [System.Windows.Forms.SendKeys]::SendWait('^s')
+  # TASK-101: replaced deprecated SendKeys with Win32 SendInput
+  Send-SendInputVk -Vk 0x53 -Modifier @(0xA2) | Out-Null  # Ctrl+S
   Start-Sleep -Milliseconds 1800
   return 'SAVED'
 }

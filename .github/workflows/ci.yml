@@ -259,7 +259,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: print deferred inventory
         run: cargo run -p xtask -- --list-deferred
-      - name: "verify unimplemented subcommand fails loudly (exit code 3)"
+      - name: "verify unimplemented subcommand fails loudly (TASK-011: codegen now implemented, use check-comments)"
         run: |
           set +e
           cargo run -q -p xtask -- check-comments
