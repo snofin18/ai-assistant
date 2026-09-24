@@ -17,10 +17,8 @@ mod common;
 
 use std::sync::Arc;
 
-use assistant_storage::{
-    BlobId, BlobKind, BlobOwner, Database, IntegrityIssueKind, SCHEMA_VERSION, StorageError,
-};
-use common::{FixedClock, TestDir, count_files, count_rows, file_size, open_database};
+use assistant_storage::{BlobId, BlobKind, BlobOwner, Database, IntegrityIssueKind, StorageError};
+use common::{FixedClock, TestDir, count_files, count_rows, file_size, migrations, open_database};
 use rusqlite::Connection;
 // ───────────────────────── 迁移 / 启动校验 ─────────────────────────
 
@@ -29,9 +27,10 @@ use rusqlite::Connection;
 fn test_open_fresh_database_reaches_latest_schema_version() {
     let dir = TestDir::new("fresh");
     let clock = Arc::new(FixedClock::new(1_700_000_000_000));
+    let expected = migrations().expected_version();
     let database = open_database(&dir, &clock);
 
-    assert_eq!(database.schema_version().expect("读版本"), SCHEMA_VERSION);
+    assert_eq!(database.schema_version().expect("读版本"), expected);
     assert!(
         database.paths().database_file().is_file(),
         "主库文件必须存在"
@@ -41,11 +40,12 @@ fn test_open_fresh_database_reaches_latest_schema_version() {
         database.paths().shadow_root().is_dir(),
         "影子副本目录必须建好"
     );
-    // 迁移记账表的行数 == 最高版本号：版本号从 1 连续递增（schema.rs 不变量 4），
-    // 所以"行数 = SCHEMA_VERSION"比写死 1 更强 —— 它同时证明了每个迁移都被记账。
+    // 迁移记账表的行数 == 集合期望的版本号：版本号从 1 连续递增（schema.rs 不变量 4），
+    // 所以"行数 = expected_version()"比写死 1 更强 —— 它同时证明了每个迁移都被记账。
+    // ADR-0038 之后这里的集合 = **storage 自己**的迁移 → 别的 crate 加表不再影响本断言。
     assert_eq!(
         count_rows(database.connection(), "schema_migrations"),
-        SCHEMA_VERSION
+        expected
     );
 }
 
@@ -63,7 +63,7 @@ fn test_open_is_idempotent() {
     assert_eq!(second.schema_version().expect("读版本"), version);
     assert_eq!(
         count_rows(second.connection(), "schema_migrations"),
-        SCHEMA_VERSION
+        migrations().expected_version()
     );
 }
 
@@ -82,7 +82,7 @@ fn test_open_rejects_database_without_version_table() {
     }
 
     let clock = Arc::new(FixedClock::new(1_700_000_000_000));
-    let error = Database::open(&paths, clock).expect_err("必须拒绝启动");
+    let error = Database::open(&paths, clock, &migrations()).expect_err("必须拒绝启动");
     assert_eq!(error.reason_code(), "schema_version_mismatch");
     match error {
         StorageError::SchemaVersionMismatch { found, .. } => assert_eq!(found, None),
@@ -96,24 +96,25 @@ fn test_open_rejects_unknown_schema_version() {
     let dir = TestDir::new("future-version");
     let paths = dir.paths();
     let clock = Arc::new(FixedClock::new(1_700_000_000_000));
+    let expected = migrations().expected_version();
 
     let database = open_database(&dir, &clock);
     database
         .connection()
         .execute(
-            // 只改**最高版本**那一行：多迁移库里有版本 1..SCHEMA_VERSION 各一行，
+            // 只改**最高版本**那一行：多迁移库里有版本 1..expected 各一行，
             // 不带 WHERE 的 UPDATE 会一次改掉全部行并撞上版本号唯一约束。
             "UPDATE schema_migrations SET version = ?1 WHERE version = ?2",
-            rusqlite::params![SCHEMA_VERSION + 1, SCHEMA_VERSION],
+            rusqlite::params![expected + 1, expected],
         )
         .expect("改坏版本号");
     database.close().expect("关闭");
 
-    let error = Database::open(&paths, clock).expect_err("必须拒绝启动");
+    let error = Database::open(&paths, clock, &migrations()).expect_err("必须拒绝启动");
     assert_eq!(error.reason_code(), "schema_version_mismatch");
     match error {
         StorageError::SchemaVersionMismatch { found, .. } => {
-            assert_eq!(found, Some(SCHEMA_VERSION + 1));
+            assert_eq!(found, Some(expected + 1));
         }
         other => panic!("期望 SchemaVersionMismatch，实际 {other:?}"),
     }
@@ -136,7 +137,7 @@ fn test_open_rejects_tampered_migration_checksum() {
         .expect("改坏记账");
     database.close().expect("关闭");
 
-    let error = Database::open(&paths, clock).expect_err("必须拒绝启动");
+    let error = Database::open(&paths, clock, &migrations()).expect_err("必须拒绝启动");
     assert_eq!(error.reason_code(), "migration_checksum_mismatch");
     match error {
         StorageError::MigrationChecksumMismatch { version, .. } => assert_eq!(version, 1),

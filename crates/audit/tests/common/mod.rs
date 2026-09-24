@@ -17,7 +17,7 @@ use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 
 use assistant_audit::{AuditLog, Durability};
 use assistant_protocol::AuditEvent;
-use assistant_storage::{Clock, Database, StoragePaths};
+use assistant_storage::{Clock, Database, MigrationSet, StoragePaths};
 use rusqlite::Connection;
 
 /// 每个用例独占一个临时目录；`Drop` 时尽力清理（清理失败不能污染断言结果）。
@@ -81,10 +81,45 @@ impl Clock for FixedClock {
     }
 }
 
-/// 在临时目录里打开（必要时创建）主库。
+/// **装配点**（ADR-0038 D3）：`crates/storage` 自己的表 + 本 crate 的 `audit_logs`。
+///
+/// 为什么这是"唯一装配点"：`crates/audit` 是当下**唯一**的跨 crate 消费者；
+/// 正式的装配点归 Host（TASK-019~028）。别的 crate 加表时，改的是它**自己**的
+/// `MIGRATIONS` + 这一处装配，**不再**改 `crates/storage` 的源码与测试。
+pub fn migrations() -> MigrationSet {
+    let mut set = MigrationSet::new();
+    set.register_all(assistant_storage::MIGRATIONS)
+        .expect("装配 storage 自己的迁移");
+    set.register_all(assistant_audit::MIGRATIONS)
+        .expect("装配 audit 自己的迁移");
+    set.validate().expect("迁移集必须从 1 连续");
+    set
+}
+
+/// 只含 `crates/storage` 自己迁移的集合（= 历史 v1 库的形状，用于升级路径与"漏注册"负向用例）。
+pub fn storage_only_migrations() -> MigrationSet {
+    let mut set = MigrationSet::new();
+    set.register_all(assistant_storage::MIGRATIONS)
+        .expect("装配 storage 自己的迁移");
+    set.validate().expect("storage 的迁移必须从 1 连续");
+    set
+}
+
+/// 在临时目录里用**装配后**的迁移集打开（必要时创建）主库。
 pub fn open_database(dir: &TestDir, clock: &Arc<FixedClock>) -> Database {
+    open_database_with(dir, clock, &migrations())
+}
+
+/// 用**指定**迁移集打开主库（负向用例需要「只含 storage」的集合）。
+pub fn open_database_with(
+    dir: &TestDir,
+    clock: &Arc<FixedClock>,
+    migrations: &MigrationSet,
+) -> Database {
+    // 先绑定再传参：`Arc<FixedClock>` → `Arc<dyn Clock>` 的 unsized coercion 只在
+    // 实参位置发生，直接内联进 `Arc::clone` 会把泛型参数推成 `dyn Clock` 而失败。
     let clock = Arc::clone(clock);
-    Database::open(&dir.paths(), clock).expect("打开数据库")
+    Database::open(&dir.paths(), clock, migrations).expect("打开数据库")
 }
 
 /// 批量模式、窗口极长的写入器：只会在满 `max_events` 时 flush，便于逐步断言。

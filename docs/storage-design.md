@@ -104,7 +104,7 @@ PRAGMA wal_autocheckpoint = 1000;    -- 页；避免 WAL 无限增长
 ```
 
 - **审计表可单独放一个 DB 文件**并设 `synchronous = FULL`（若合规要求每条审计都不可丢），主库保持 `NORMAL`。这是"性能 vs 耐久性"的显式取舍，配置项：`audit.durability = batched | immediate | separate_db_full`。
-- 迁移：`sqlx migrate` 或 `refinery`，**只前进不回滚**；启动校验 `schema_version` 与二进制期望值，不匹配则拒绝启动并提示（避免静默数据损坏）。
+- 迁移：**自建**（不引 `sqlx` / `refinery`；口径见 **ADR-0038**）—— 只前进不回滚、**编译期内嵌**（`include_str!`）、sha256 记账；**每个拥有表的 crate 声明自己的迁移**（版本号登记表见 §3.4）；启动校验「库已应用的版本集合 ⊆ 装配后的 `MigrationSet`」且不高于 `expected_version()`，不符则拒绝启动并提示（避免静默数据损坏）。
 
 ### 3.3 L2：blob 存储
 
@@ -119,6 +119,29 @@ GC  ：引用计数为 0 且超过 TTL → 删除；后台低优先级任务，�
 - **压缩级别选择**：zstd level 3 是速度/压缩比的最佳折中；快照类可试 level 6~9（写入不频繁）。
 - **目录分片**：sha256 前 2 位分片（256 个子目录），避免单目录百万文件。
 - **影子副本（W5）不进 blob 池**：因为需要按原路径/原文件名快速恢复，且可能很大 → 单独 `shadow/<task_id>/` 目录 + DB 元数据 + TTL。
+
+### 3.4 迁移登记表（版本号分配的 SSOT）
+
+**口径**（**ADR-0038**）：`crates/storage` 只提供**迁移机制**（`Migration` / `MigrationSet` /
+`Database::open` 的**必填**迁移集参数），**不拥有**表清单；每张表的 DDL 与它**拥有者 crate** 同处
+（`crates/<owner>/migrations/NNNN_<slug>.sql`），由拥有者公开 `pub const MIGRATIONS: &[Migration]`。应用侧在**唯一装配点**
+合并后开库。**加一张表 = 只改自己那个 crate。**
+
+版本号**全局唯一、从 1 连续**（`MigrationSet::register` 拦重号、`validate()` 拦缺号）。本表是
+**版本号分配的单一事实源** —— 新增迁移**先在本表占号**，再写 SQL。
+
+| 版本 | 拥有者 crate | 迁移文件 | 建出的表 / 对象 |
+|---|---|---|---|
+| 0001 | `crates/storage` | `crates/storage/migrations/0001_init.sql` | `tasks` / `task_steps` / `checkpoints` / `blobs` / `blob_refs` / `usage_records` |
+| 0002 | `crates/audit` | `crates/audit/migrations/0002_audit_logs.sql` | `audit_logs` + `idx_audit_ts` + 两个 append-only 触发器 |
+
+> **为什么 0002 在 `crates/audit` 而不是 `crates/storage`**：TASK-013 曾把它放在
+> `crates/storage/migrations/`（当时迁移链没有外部入口）→ 违反「DDL 与拥有者同处」。
+> TASK-202 按 ADR-0038 把文件**移动**过去（内容一字不改 → sha256 checksum 不变 → 已有库仍可打开）。
+
+> **已知遗留（PL-047）**：本表仍是**手工回填**的 —— ADR-0030 的教训是「靠记得回填的护栏会失效」。
+> 机器化（xtask 扫描 `crates/*/migrations/*.sql`，校验号段唯一 + 与本表一致）归 **TASK-015**
+> （它才拥有 gov §5.4 规则计数与 ADR-0025 / ADR-0030 的口径）。
 
 ---
 

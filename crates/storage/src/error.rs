@@ -17,6 +17,8 @@ use std::path::PathBuf;
 
 use assistant_protocol::ErrorCategory;
 
+use crate::migrations::MigrationSetError;
+
 /// 存储层错误。
 ///
 /// `#[non_exhaustive]`：后续卡（TASK-013 审计、TASK-028 FTS5）会新增变体，
@@ -217,6 +219,20 @@ impl std::error::Error for StorageError {
 impl From<rusqlite::Error> for StorageError {
     fn from(value: rusqlite::Error) -> Self {
         Self::Sqlite(value)
+    }
+}
+
+/// 迁移集装配错误 → [`StorageError::InvalidArgument`]。
+///
+/// 为什么归 `InvalidArgument` 而不新增 `reason_code`：这些错误是**调用方装配错了**
+/// （版本号重复 / 缺号），不是库或 IO 的问题；复用既有的 `invalid_argument` 避免改
+/// `docs/spec/error-codes.md` 的契约（ADR-0038 D1）。
+impl From<MigrationSetError> for StorageError {
+    fn from(value: MigrationSetError) -> Self {
+        Self::InvalidArgument {
+            field: "migrations",
+            detail: value.to_string(),
+        }
     }
 }
 

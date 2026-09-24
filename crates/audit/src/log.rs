@@ -3,7 +3,7 @@
 //! 职责：把 [`AuditEvent`] 串进链、缓冲、按 [`Durability`] 决定何时落库；并提供整链校验入口。
 //!
 //! 边界（不做什么）：
-//!   - 不建表（DDL 在 `crates/storage/migrations/0002_audit_logs.sql`，由 storage 的迁移框架应用）
+//!   - 不建表（DDL 在 `crates/audit/migrations/0002_audit_logs.sql`，经 [`crate::MIGRATIONS`] 交给 storage 的迁移框架应用）
 //!   - 不做保留期 / 轮转 / 导出；不做 `detail_json` 外置 blob；不引后台线程
 //!   - **不出现任何 `UPDATE` / `DELETE` 语句**（append-only 的第一道锁；库侧触发器是第二道）
 //!

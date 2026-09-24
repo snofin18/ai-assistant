@@ -248,6 +248,13 @@ card-check     → PASSED（87 / 0 error / 49 warning = baseline）
   请审阅者重点复核这 3 处（见 §9 关注点 2）。
 - **已停止的工作**：无。**需要人类裁决**：建议**是**（请确认这 3 处改法可接受；若不接受，需要重开本卡并把
   `SCHEMA_VERSION` 的抬升拆到独立卡）。
+- **人类裁决（2026-09-24，回填）**：**接受**（原话「接受你做的，我复核下来没有什么问题」）。三处改法（① ② → `== SCHEMA_VERSION`、③ 加 `WHERE version = SCHEMA_VERSION`）**保留**，不拆卡。
+- **根因已闭环**：本条的真实根因是 **PL-046**（迁移链没有外部入口 ⇒ 加表必须改 storage 的源码与测试）。人类同一天裁决「现在就上正式机制」→
+  **ADR-0038 + TASK-202**（存储迁移注册表）已把机制换掉：`crates/storage` 的集成测试现在只装配**自己**的迁移集
+  （`migrations().expected_version()`），别的 crate 加表**不再**牵动它。⚠ 因此本条的 3 处断言在 TASK-202 里**再次**被改写
+  —— 从 `== SCHEMA_VERSION` 改为 `== migrations().expected_version()`（`SCHEMA_VERSION` 已由 ADR-0038 D5 删除），
+  语义**只强不弱**（仍是「记账行数 == 期望版本号」）。
+- **本行为跨卡回填**：由 **TASK-202** 代记（命中 AGENTS.md §4 ⑤，人类 chat 2026-09-24 明确要求回填）→ 见 `tasks/TASK-202-storage-migration-registry.md` §5 DRIFT-202-1。
 
 **DRIFT-013-4（**已按人类授权处理**：代 Orchestrator 修正 `plans/*` 的卡片索引漂移）**
 

@@ -16,13 +16,13 @@ mod common;
 use std::sync::Arc;
 
 use assistant_audit::{AppendOutcome, AuditError, AuditLog, AuditSubject, Durability};
-use assistant_storage::SCHEMA_VERSION;
+use assistant_storage::Database;
 use common::{
-    FixedClock, TestDir, audit_row_count, batched_log, immediate_log, object_exists, open_database,
-    sample_event,
+    FixedClock, TestDir, audit_row_count, batched_log, immediate_log, migrations, object_exists,
+    open_database, open_database_with, sample_event, storage_only_migrations,
 };
 
-/// 迁移 0002 必须建出表 + 索引 + 两个 append-only 触发器，且 `SCHEMA_VERSION` 抬到 2。
+/// 迁移 0002 必须建出表 + 索引 + 两个 append-only 触发器，且**装配后**的期望版本 = 2。
 #[test]
 fn test_migration_0002_creates_table_index_and_append_only_triggers() {
     let clock = Arc::new(FixedClock::new(1_700_000_000_000));
@@ -30,7 +30,11 @@ fn test_migration_0002_creates_table_index_and_append_only_triggers() {
     let database = open_database(&dir, &clock);
     let connection = database.connection();
 
-    assert_eq!(SCHEMA_VERSION, 2, "本卡把 schema 版本抬到 2");
+    assert_eq!(
+        migrations().expected_version(),
+        2,
+        "装配后期望版本 = 2（storage 0001 + audit 0002）"
+    );
     assert_eq!(database.schema_version().expect("schema 版本"), 2);
     assert!(object_exists(connection, "table", "audit_logs"));
     assert!(object_exists(connection, "index", "idx_audit_ts"));
@@ -72,26 +76,27 @@ fn test_audit_logs_columns_match_architecture_section_15_1() {
     );
 }
 
-/// 已建的 v1 库（没有 `audit_logs`）必须能自动升级到 v2，且再打开一次是幂等的。
+/// 已建的 v1 库（只有 storage 的 0001、没有 `audit_logs`）必须能自动升级到 v2，且再打开一次是幂等的。
 #[test]
 fn test_migration_0002_upgrades_v1_library_and_is_idempotent() {
     let clock = Arc::new(FixedClock::new(1_700_000_000_000));
     let dir = TestDir::new("upgrade");
+
+    // ① 先用「只含 storage 自己迁移」的集合建库 = **真实**的 v1 库
+    //    （不是手工 DROP 出来的假状态 —— ADR-0038 让"v1 库"第一次可以被如实构造出来）
     {
-        let database = open_database(&dir, &clock);
-        // 退回"只应用了迁移 1"的状态：删表 + 删迁移 2 的记账
-        database
-            .connection()
-            .execute_batch(
-                "DROP TABLE audit_logs; DELETE FROM schema_migrations WHERE version = 2;",
-            )
-            .expect("退回 v1");
+        let database = open_database_with(&dir, &clock, &storage_only_migrations());
         assert_eq!(database.schema_version().expect("版本"), 1);
+        assert!(!object_exists(database.connection(), "table", "audit_logs"));
         database.close().expect("关闭");
     }
 
+    // ② 换用**装配后**的集合打开 → 0002 自动补上（期望版本由装配决定）
     let upgraded = open_database(&dir, &clock);
-    assert_eq!(upgraded.schema_version().expect("版本"), SCHEMA_VERSION);
+    assert_eq!(
+        upgraded.schema_version().expect("版本"),
+        migrations().expected_version()
+    );
     assert!(object_exists(upgraded.connection(), "table", "audit_logs"));
     assert!(object_exists(
         upgraded.connection(),
@@ -102,8 +107,27 @@ fn test_migration_0002_upgrades_v1_library_and_is_idempotent() {
 
     // 幂等：再开一次不会重复建表 / 报错
     let again = open_database(&dir, &clock);
-    assert_eq!(again.schema_version().expect("版本"), SCHEMA_VERSION);
+    assert_eq!(
+        again.schema_version().expect("版本"),
+        migrations().expected_version()
+    );
     assert_eq!(audit_row_count(again.connection()), 0);
+}
+
+/// 漏注册**不是静默**（ADR-0038 D3）：用只含 storage 的集合去开一个已应用 0002 的库 → 拒绝启动。
+#[test]
+fn test_open_with_partial_migration_set_is_refused_not_silently_downgraded() {
+    let clock = Arc::new(FixedClock::new(1_700_000_000_000));
+    let dir = TestDir::new("partial-set");
+    {
+        let database = open_database(&dir, &clock);
+        database.close().expect("关闭");
+    }
+
+    let clock_for_open = Arc::clone(&clock);
+    let error = Database::open(&dir.paths(), clock_for_open, &storage_only_migrations())
+        .expect_err("装配集合漏了 0002 时必须拒绝启动");
+    assert_eq!(error.reason_code(), "schema_version_mismatch");
 }
 
 /// `immediate` 档：每条 `append` 之后事件**立刻**可查。

@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 
-use assistant_storage::{Clock, Database, StoragePaths};
+use assistant_storage::{Clock, Database, MigrationSet, StoragePaths};
 use rusqlite::Connection;
 
 /// 每个用例独占一个临时目录；`Drop` 时尽力清理（清理失败不能污染断言结果）。
@@ -75,10 +75,33 @@ impl Clock for FixedClock {
     }
 }
 
-/// 在临时目录里打开（必要时创建）主库。
+/// `crates/storage` **自己**那几张表的迁移集。
+///
+/// 为什么本 crate 的测试只装配自己的迁移：ADR-0038 之后「别的 crate 加表」与 storage 的测试**无关**
+/// —— 这正是注册表要解决的问题（TASK-013 时它曾打爆这里 3 处断言）。
+pub fn migrations() -> MigrationSet {
+    let mut set = MigrationSet::new();
+    set.register_all(assistant_storage::MIGRATIONS)
+        .expect("装配 storage 自己的迁移");
+    set.validate().expect("storage 的迁移必须从 1 连续");
+    set
+}
+
+/// 在临时目录里用**本 crate 自己**的迁移集打开（必要时创建）主库。
 pub fn open_database(dir: &TestDir, clock: &Arc<FixedClock>) -> Database {
+    open_database_with(dir, clock, &migrations())
+}
+
+/// 用**指定**迁移集打开主库（负向用例需要「非法集合」或「只含某一部分」的集合）。
+pub fn open_database_with(
+    dir: &TestDir,
+    clock: &Arc<FixedClock>,
+    migrations: &MigrationSet,
+) -> Database {
+    // 先绑定再传参：`Arc<FixedClock>` → `Arc<dyn Clock>` 的 unsized coercion 只在
+    // 实参位置发生，直接内联进 `Arc::clone` 会把泛型参数推成 `dyn Clock` 而失败。
     let clock = Arc::clone(clock);
-    Database::open(&dir.paths(), clock).expect("打开数据库")
+    Database::open(&dir.paths(), clock, migrations).expect("打开数据库")
 }
 
 /// 递归统计某目录下的**文件**数（用于证明"同内容只存一份"）。

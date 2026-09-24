@@ -4,8 +4,9 @@
 
 ## 职责
 
-- **迁移 `0002_audit_logs`**：建 `audit_logs`（列名 / 顺序按架构 v2 §15.1）+ `idx_audit_ts`
-  + **数据库侧** append-only 护栏（`BEFORE UPDATE` / `BEFORE DELETE` 触发器 `RAISE(ABORT)`）
+- **迁移 `0002_audit_logs`**（DDL 在 `crates/audit/migrations/`，经 `pub const MIGRATIONS` 暴露；**ADR-0038**）：
+  建 `audit_logs`（列名 / 顺序按架构 v2 §15.1）+ `idx_audit_ts` + **数据库侧** append-only 护栏
+  （`BEFORE UPDATE` / `BEFORE DELETE` 触发器 `RAISE(ABORT)`）；**本 crate 自己测自己的表**（ADR-0038 D2）
 - **`AuditLog`**：`append`（串链）→ 缓冲 → 单事务批量 `flush`；`verify_chain` / `verify_chain_strict` 重算整条链
 - **`Durability`**：`batched`（默认 100 条 / 200 ms）/ `immediate` / `separate_db_full`（见"已知限制"）
 - 提供**注入点**：连接与 `Clock` 都从外面传入（测试用固定时钟 + 临时目录即可回放）
@@ -29,6 +30,8 @@
 5. **校验不依赖行序**：`ts` 是毫秒粒度，同毫秒可以有很多条 —— 故 `verify_chain` 把链当**图**
    （`prev_hash → 行` 建索引，从创世沿链前进），而不是"按 `ts` 排序后逐行比对"
 6. **`id` = 本条 `self_hash`**：链位置 + 内容共同决定，天然唯一（见本卡 §5 DRIFT-013-2）
+7. **迁移归自己**：`audit_logs` 的 DDL 在 `crates/audit/migrations/`，经 `MIGRATIONS` 暴露；
+   装配点（本轮 = 测试夹具，正式 = Host）把各 crate 的集合合并后交给 `Database::open`（ADR-0038）
 
 ## 典型用法
 
@@ -36,9 +39,20 @@
 use std::sync::Arc;
 
 use assistant_audit::{AuditLog, AuditSubject, Durability};
-use assistant_storage::{Database, StoragePaths, SystemClock};
+use assistant_storage::{
+    Database, MIGRATIONS as STORAGE_MIGRATIONS, MigrationSet, StoragePaths, SystemClock,
+};
 
-let database = Database::open(&StoragePaths::new("D:/data/assistant"), Arc::new(SystemClock))?;
+// 唯一装配点（ADR-0038 D3）：storage 自己的表 + 本 crate 的 audit_logs
+let mut migrations = MigrationSet::new();
+migrations.register_all(STORAGE_MIGRATIONS)?;
+migrations.register_all(assistant_audit::MIGRATIONS)?;
+
+let database = Database::open(
+    &StoragePaths::new("D:/data/assistant"),
+    Arc::new(SystemClock),
+    &migrations,
+)?;
 let mut log = AuditLog::new(database.connection(), database.clock(), Durability::default())?;
 
 // 高风险动作：用 immediate 档，崩机不丢已确认的事件
@@ -73,6 +87,7 @@ assert!(verification.is_intact(), "{}", verification.summary());
 ## 相关文档
 
 - 架构 v2 §15.1（表结构）/ §15.3（加密、保留与容量）
-- `docs/storage-design.md` §3.2（PRAGMA 与 `audit.durability`）/ §3.3（ring buffer 200 ms / 100 条）/ §4（表映射）
+- `docs/storage-design.md` §3.2（PRAGMA 与 `audit.durability`）/ §3.3（ring buffer 200 ms / 100 条）/ **§3.4（迁移登记表）** / §4（表映射）
+- **`docs/adr/0038-storage-migration-registry.md`**（迁移注册表：DDL 与拥有者同处）
 - `docs/spec/audit-event.md`、`docs/spec/error-codes.md`
 - `tasks/TASK-013-audit-append-hash-chain-flush.md`（本卡正文 + 执行记录）

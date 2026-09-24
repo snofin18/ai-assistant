@@ -6,7 +6,7 @@
 //!
 //! ## 职责
 //!
-//! - 迁移 `0002_audit_logs`：表 + `idx_audit_ts` + **数据库侧** append-only 触发器
+//! - 迁移 `0002_audit_logs`（[`MIGRATIONS`]，DDL 在 `crates/audit/migrations/`）：表 + `idx_audit_ts` + **数据库侧** append-only 触发器
 //! - [`AuditLog`]：`append`（串链）→ 缓冲 → 单事务批量 `flush`
 //! - [`Durability`]：`batched`（默认 100 条 / 200 ms）/ `immediate` / `separate_db_full`
 //! - [`AuditLog::verify_chain`]：重算整条链，检出「改内容 / 改链指针 / 删中间行」
@@ -36,10 +36,21 @@
 //! use std::sync::Arc;
 //!
 //! use assistant_audit::{AuditLog, Durability};
-//! use assistant_storage::{Database, StoragePaths, SystemClock};
+//! use assistant_storage::{
+//!     Database, MIGRATIONS as STORAGE_MIGRATIONS, MigrationSet, StoragePaths, SystemClock,
+//! };
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let database = Database::open(&StoragePaths::new("D:/data/assistant"), Arc::new(SystemClock))?;
+//! // 唯一装配点（ADR-0038 D3）：storage 自己的表 + 本 crate 的 audit_logs
+//! let mut migrations = MigrationSet::new();
+//! migrations.register_all(STORAGE_MIGRATIONS)?;
+//! migrations.register_all(assistant_audit::MIGRATIONS)?;
+//!
+//! let database = Database::open(
+//!     &StoragePaths::new("D:/data/assistant"),
+//!     Arc::new(SystemClock),
+//!     &migrations,
+//! )?;
 //! let mut log = AuditLog::new(database.connection(), database.clock(), Durability::default())?;
 //!
 //! // 典型写入路径：log.append(&event, &AuditSubject::unattached())?
@@ -52,11 +63,22 @@
 //!
 //! ## 相关 spec / 文档
 //!
-//! 架构 v2 §15.1（表结构）/ §15.3（加密与保留）、`docs/storage-design.md` §3.2 / §3.3 / §4、
+//! 架构 v2 §15.1（表结构）/ §15.3（加密与保留）、`docs/storage-design.md` §3.2 / §3.3 / **§3.4（迁移登记表）** / §4、
 //! `docs/spec/audit-event.md`、`docs/spec/error-codes.md`、
-//! `tasks/TASK-013-audit-append-hash-chain-flush.md`（本卡正文 + 执行记录）。
+//! **ADR-0038**（迁移注册表）、`tasks/TASK-013-audit-append-hash-chain-flush.md`（本卡正文 + 执行记录）。
 
 #![deny(unsafe_code)]
+
+/// `crates/audit` **自己**拥有的迁移（本 crate 建的那张 `audit_logs`）。
+///
+/// 这**不是**全库清单：装配点必须把它与 `assistant_storage::MIGRATIONS` 等合并成一个
+/// [`MigrationSet`] 再交给 [`assistant_storage::Database::open`]（ADR-0038 D2 / D3；
+/// 版本号登记表见 `docs/storage-design.md` §3.4）。
+pub const MIGRATIONS: &[Migration] = &[Migration::new(
+    2,
+    "0002_audit_logs",
+    include_str!("../migrations/0002_audit_logs.sql"),
+)];
 
 mod chain;
 mod durability;
@@ -64,6 +86,8 @@ mod error;
 mod log;
 mod ring_buffer;
 mod verify;
+
+use assistant_storage::Migration;
 
 pub use chain::{GENESIS_PREV_HASH, HASH_DOMAIN, canonical_payload, compute_self_hash};
 pub use durability::{DEFAULT_MAX_EVENTS, DEFAULT_MAX_INTERVAL_MS, Durability};
