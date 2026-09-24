@@ -1,0 +1,27 @@
+[package]
+name = "assistant-storage"
+description = "Storage layer: SQLite (WAL) + forward-only migrations + content-addressed blob pool."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# 第三方依赖：先登记后引入（docs/DEPENDENCIES.md 三行 Approved，人类 chat 2026-09-24 批准 TASK-012）
+#   rusqlite: SQLite 驱动；bundled = 自带 SQLite C 源码，三平台可复现、不依赖系统库
+#   zstd:     blob 池压缩（level 3，storage-design.md §3.3 既定口径）
+#   sha2:     内容寻址 SHA-256（blob_id + 完整性校验）
+rusqlite = { version = "0.37", features = ["bundled"] }
+zstd = "0.13"
+sha2 = "0.10"
+
+[dependencies.assistant-protocol]
+# 工作区内依赖（非第三方，无需登记）：协议类型单一事实源，本 crate 只用 ErrorCategory 做错误分类映射。
+# 必须同时写 `version`：deny.toml 的 `[bans] wildcards = "deny"` 把"只有 path 没有 version"
+# 判为通配依赖（`cargo deny check bans` 会失败），而 deny.toml 不在本卡 write scope 内。
+path = "../protocol"
+version = "0.1.0"
+
+[lints]
+workspace = true
