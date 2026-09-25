@@ -203,6 +203,8 @@ xtask refscan                                          → 151 error（= PL-058 
 cargo deny check                                       → advisories ok, bans ok, licenses ok, sources ok
 ```
 
+- GitHub PR #37：**16/16 check-runs success**（pull_request + push 两组同 SHA，含三平台 `check`、doc consistency、`cargo deny` ×2、xtask deferred inventory、gate negative verification ×2）；合并前 base=`main`、`mergeable_state=clean`；merge commit `a8c6464`（卡内提交 `11ebd08`）。
+
 ### 4. DoD 逐条核对
 
 | DoD 条目 | 结果 | 证据 |
