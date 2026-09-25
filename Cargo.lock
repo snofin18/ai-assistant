@@ -149,6 +149,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "assistant-undo"
+version = "0.1.0"
+dependencies = [
+ "assistant-platform-api",
+]
+
+[[package]]
 name = "assistant-verify"
 version = "0.1.0"
 dependencies = [

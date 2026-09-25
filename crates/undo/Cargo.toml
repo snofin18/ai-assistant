@@ -1,0 +1,17 @@
+[package]
+name = "assistant-undo"
+description = "Reversibility levels, rollback anchors, recipes, conflict detection, and incident reports."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies.assistant-platform-api]
+# Workspace dependency. Reuses the canonical Fingerprint and ErrorCode types
+# without depending on any platform implementation (AGENTS.md rule 7).
+path = "../platform/api"
+version = "0.1.0"
+
+[lints]
+workspace = true
