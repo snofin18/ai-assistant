@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011 / 012 / 013 / 014 / **015**；A2 **TASK-016 / 017 / 018 / 019 已 Done（2026-09-25）**，其中 TASK-019 = `automation-host` 进程 + `crates/ipc`：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗 、**TASK-020 = `crates/tool-bus`：MCP client(`rmcp`) + in-process server + draft-07 子集参数校验 + 统一返回信封 + 工具集指纹 + 动态挂载（含 > 40 告警）已 Done（2026-09-25）**、**TASK-021 = `crates/policy`：JSON DSL v0 + 五条架构示例规则 + 默认拒绝 + deny 优先 + 参数护栏已 Done（2026-09-25）**、**TASK-022 = `crates/task-engine`：12 状态机 + Plan/Step DAG + 检查点 / 恢复 / 取消 / 预算 / 看门狗已 Done（2026-09-25）**、**TASK-023 = `crates/verify`：11 种断言 + 状态指纹 + 幂等判定 + `on_violation` 已 Done（2026-09-25）**、**TASK-024 = `crates/undo`：L0~L3 + 三类锚点 + rollback recipe + 冲突检测 + incident 已 Done（2026-09-26）** → 下一张 = **TASK-025 / 026 / 027 可并行**）　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011 / 012 / 013 / 014 / **015**；A2 **TASK-016 / 017 / 018 / 019 已 Done（2026-09-25）**，其中 TASK-019 = `automation-host` 进程 + `crates/ipc`：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗 、**TASK-020 = `crates/tool-bus`：MCP client(`rmcp`) + in-process server + draft-07 子集参数校验 + 统一返回信封 + 工具集指纹 + 动态挂载（含 > 40 告警）已 Done（2026-09-25）**、**TASK-021 = `crates/policy`：JSON DSL v0 + 五条架构示例规则 + 默认拒绝 + deny 优先 + 参数护栏已 Done（2026-09-25）**、**TASK-022 = `crates/task-engine`：12 状态机 + Plan/Step DAG + 检查点 / 恢复 / 取消 / 预算 / 看门狗已 Done（2026-09-25）**、**TASK-023 = `crates/verify`：11 种断言 + 状态指纹 + 幂等判定 + `on_violation` 已 Done（2026-09-25）**、**TASK-024 = `crates/undo`：L0~L3 + 三类锚点 + rollback recipe + 冲突检测 + incident 已 Done（2026-09-26）**、**TASK-025 = `crates/lease`：exclusive/shared/intent + TTL + 续租 + 用户抢占 + 零提交批量获取已 Done（2026-09-26）** → 下一张 = **TASK-026 / 027 可并行**）　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -80,7 +80,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **022 ✅** | `task-engine`：12 状态机 + Plan/Step DAG + 检查点 + 恢复 + 取消 + 预算 + 看门狗 | `crates/task-engine/**` | 011,012 | L | 状态迁移全部持久化；崩溃后能恢复；**"不确定是否执行过"必须走 NeedsHuman**（禁止猜测） |
 | **023 ✅** | `verify`：后置断言引擎（11 种断言）+ 状态指纹 + 幂等判定 + `on_violation` 分派 | `crates/verify/**` | 011 | M | 断言类型齐全；**验证失败绝不返回 ok**；指纹可配置忽略字段（防抖） |
 | **024 ✅** | `undo`：可逆性四级 + 锚点（内容快照/影子副本/步数级）+ 回滚剧本执行 + 冲突检测 + incident 上报 | `crates/undo/**` | 012,023 | L | Spike F 三条路径达标；冲突 100% 检测且默认最保守；撤销失败按 incident 处理 |
-| **025** | `lease`：目标租约（exclusive/shared/intent + TTL + 续租 + 用户抢占 + 死锁避免） | `crates/lease/**` | 011 | S | 同目标同刻仅一个写租约；用户操作可强制释放；租约冲突是可读错误 |
+| **025 ✅** | `lease`：目标租约（exclusive/shared/intent + TTL + 续租 + 用户抢占 + 死锁避免） | `crates/lease/**` | 011 | S | 同目标同刻仅一个写租约；用户操作可强制释放；租约冲突是可读错误 |
 | **026** | `model-gateway`：Provider trait（流式/取消/用量）+ 路由器 + 降级链 + 重试退避 + prompt cache 提示 + 成本计量 | `crates/model-gateway/**` | 011 | L | v2 §11.2 路由规则可配置；**取消能在 1 s 内中止请求**；每步记录 tokens/cost/latency |
 | **027** | `hitl`：审批请求 + 授权范围（四维+TTL）+ 用户接管 + 暂停恢复 + 差异预览数据准备 | `crates/hitl/**` | 021,022 | M | 高风险禁止 persistent 授权；接管后交还需重新同步状态；审批超时行为明确 |
 | **028** | `core`：会话管理 + 上下文管理（树裁剪/压缩/预算）+ Planner + Memory(App Map 加载/FTS5 检索) + 组装 | `crates/core/**` | 020~027 | L | arch test 通过（core 只依赖 trait）；上下文预算生效；App Map 按需片段注入 |
@@ -187,7 +187,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-022 ✅** | A2 | `tasks/TASK-022-task-engine-state-machine-dag-checkpoint.md` | **完整卡**（2026-09-25 由 16:30 那次 automation 代 Orchestrator 展开正文，见卡 §5 DRIFT-022-1）；**已 Done（2026-09-25）** |
 | TASK-023 | A2 | `tasks/TASK-023-verify-postcondition-assertion-engine.md` | **已 Done（2026-09-25）** |
 | TASK-024 | A2 | `tasks/TASK-024-undo-four-level-rollback-anchor.md` | **已 Done（2026-09-26）** |
-| TASK-025 | A2 | `tasks/TASK-025-lease-target-exclusive-shared-intent.md` | Ready（批次表占位派单前补全） |
+| TASK-025 | A2 | `tasks/TASK-025-lease-target-exclusive-shared-intent.md` | **已 Done（2026-09-26）** |
 | TASK-026 | A2 | `tasks/TASK-026-model-gateway-provider-router-fallback.md` | Ready（批次表占位派单前补全） |
 | TASK-027 | A2 | `tasks/TASK-027-hitl-approval-scope-takeover.md` | Ready（批次表占位派单前补全） |
 | TASK-028 | A2 | `tasks/TASK-028-core-session-context-planner-memory.md` | Ready（批次表占位派单前补全） |

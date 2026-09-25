@@ -4,14 +4,14 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0（文档与 Spike）已于 2026-09-20 closeout；TASK-022 `crates/task-engine` 已 Done（12 状态机 / Plan+Step DAG / 检查点 / 恢复 / 取消 / 预算 / 看门狗 / 87.03% 行覆盖）；**TASK-023** `crates/verify` 已 Done（11 种后置断言 + 状态指纹 + 幂等判定 + `on_violation` 分派；**验证失败绝不返回 ok**）；**TASK-024** `crates/undo` 已 Done（L0~L3 + 内容快照 / 影子副本 / undo 预算锚点 + 回滚剧本 + 默认最保守冲突检测 + incident 上报；L0 支持 L1 fallback）；跨阶段治理卡 **TASK-200~204** 全部 Done（**TASK-204** = `tool-bus` draft-07 关键字判据硬化：三张拒绝表 + `$schema` 方言校验 + `format`/`pattern` 永久放弃）；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0（文档与 Spike）已于 2026-09-20 closeout；TASK-022 `crates/task-engine` 已 Done（12 状态机 / Plan+Step DAG / 检查点 / 恢复 / 取消 / 预算 / 看门狗 / 87.03% 行覆盖）；**TASK-023** `crates/verify` 已 Done（11 种后置断言 + 状态指纹 + 幂等判定 + `on_violation` 分派；**验证失败绝不返回 ok**）；**TASK-024** `crates/undo` 已 Done（L0~L3 + 内容快照 / 影子副本 / undo 预算锚点 + 回滚剧本 + 默认最保守冲突检测 + incident 上报；L0 支持 L1 fallback）；**TASK-025** `crates/lease` 已 Done（`exclusive/shared/intent` 三模式 + TTL / 续租 / 用户抢占 + 规范 key 排序与零提交批量获取；20 个契约测试 / 89.53% 行覆盖）；跨阶段治理卡 **TASK-200~204** 全部 Done（**TASK-204** = `tool-bus` draft-07 关键字判据硬化：三张拒绝表 + `$schema` 方言校验 + `format`/`pattern` 永久放弃）；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
 > TASK-017 的 7 条 DRIFT 已全部裁决落地（**ADR-0043** 元素解析加 scope / **ADR-0044** 歧义策略收敛为唯一
 > `ErrorAndAsk` / **ADR-0045** 非宿主平台编译门禁进 `AGENTS.md` §6；PL-068 / 069 / 070 闭环），
 > 同 crate 的合成输入（`SendInput`）+ 坐标归一化（DPI / 多屏）+ IME 也已落地（TASK-018 —— 铁律 5 的 **L4** 层；
-> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））、**`crates/policy`**（TASK-021：唯一放行点 / 默认拒绝 / deny 优先 / DSL v0 / 参数护栏）与 **`crates/undo`**（TASK-024：L0~L3 + 三类锚点 + 回滚剧本 + 冲突检测 + incident）均已落地，下一批是 TASK-025 / 026 / 027（可并行）。**当前阶段详情以 `PLAN.md` 为准**。
+> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））、**`crates/policy`**（TASK-021：唯一放行点 / 默认拒绝 / deny 优先 / DSL v0 / 参数护栏）、**`crates/undo`**（TASK-024：L0~L3 + 三类锚点 + 回滚剧本 + 冲突检测 + incident）与 **`crates/lease`**（TASK-025：三模式矩阵 + TTL / 续租 / 用户抢占 + 零提交批量获取）均已落地，下一批是 TASK-026 / 027（可并行）。**当前阶段详情以 `PLAN.md` 为准**。
 
 ---
 
@@ -101,6 +101,8 @@ URL scheme-host-IP、文本长度与行数、数值边界、正则 ReDoS 形状�
 TASK-022 把任务编排层落地：12 个 Task 状态与完整 Step 生命周期、确定性 DAG Frontier、每次成功迁移先写检查点、SQLite 重开恢复、暂停 / 取消 / 接管、四维预算和分阶段看门狗；恢复证据缺失或 `Unknown` 一律进入 `NeedsHuman`，绝不猜测写操作是否发生过。新增 43 个测试 + 1 个 doctest，行覆盖 **87.03%**。
 TASK-023 把**后置断言引擎**落地：架构 v2 §7.4 的 11 种断言（= 12 种减 `visual_assert`，后者归 TASK-042）全部 fail-closed 解析与三值求值 —— `Verified` 要求全部满足，任一 `Falsified` 即 `Violated`，无 `Falsified` 但有 `NotEvaluable` 即 `Inconclusive`，**两种非成功结果都带 `VerifyFailed`**，结构上不可能出现「验证失败却 ok」。另含 §7.3 状态指纹（canonical form + SHA-256；忽略字段由 per-adapter 显式给出，无全局默认）、§8.5 幂等判定（证据不全一律 `Unknown`，应用自报优先）与 `on_violation` 分派（`retry_once` 只对 `Transient` / `TargetNotFound`）。新增 66 个测试 + 1 个 doctest。
 TASK-024 把**撤销闭环**落地：`assistant-undo` 用纯逻辑建模 L0~L3、内容快照 / 影子副本 / undo 预算 / 补偿剧本 / evidence-only 锚点；L0 可带 L1 snapshot fallback。冲突检测默认最保守：当前状态偏离 post 指纹即阻断，缺 post 或当前指纹时即使 `RestoreOverall` 也不放行。回滚动作通过注入 `RollbackExecutor` 执行，只有最终指纹等于锚点 pre 指纹才算成功；执行失败、指纹不一致与冲突都变成带 expected/observed/evidence/recovery guidance 的结构化 incident，上报失败显式返回 `Fatal`。新增 23 个测试。
+
+TASK-025 把**目标租约与并发控制**落地：`assistant-lease` 建模 `Shared` / `Intent` / `Exclusive` 三模式，跨 owner 只允许一个写租约；`Intent` 可并发规划但阻止另一 owner 的 `Exclusive`。TTL 以 `now == expires_at_ms` 为失效边界，支持显式续租、懒清理和 `reap_expired`；用户抢占按 target key 强制释放全部 agent 租约，并把自然过期项单列报告。`acquire_many` 在任何状态写入前按规范 key 排序、去重并完成冲突 / TTL / 溢出预检，任一冲突即零提交，消除“先持有再回滚”窗口。新增 20 个测试，行覆盖 89.53%，零新增第三方依赖。
 TASK-204 把 `tool-bus` 的 draft-07 判据**显式化**：三张带理由的拒绝表（永久放弃 12 条 / 暂未实现 4 条 / 非 draft-07 方言 15 条）+ 未知关键字兜底 + `$schema` **方言校验**（声明非 draft-07 = 拒绝），报错信息直接给出「为何不可用 / 该用什么代替」。
 ＋ Notepad 的 3 个任务闭环。
 阶段 0（文档与 Spike）已于 2026-09-20 closeout —— 它的产出是 Spike 报告，**不是**产品代码。
@@ -148,7 +150,11 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-26：TASK-024 —— 撤销与补偿闭环 `crates/undo`；2026-09-25：TASK-023 —— 后置断言引擎 `crates/verify`；TASK-204 —— `crates/tool-bus` draft-07 关键字判据硬化（三张拒绝表 + `$schema` 方言校验）；TASK-022 —— 任务引擎 `crates/task-engine`（12 状态机 + DAG + 检查点 / 恢复 / 预算 / 看门狗）；TASK-021 —— 唯一策略放行点 `crates/policy`；TASK-020 —— 工具通道 `crates/tool-bus`；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池 = TASK-011 ~ 021 / 200 ~ 204）
+## 最近进展（2026-09-26：TASK-025 —— 目标租约与并发控制 `crates/lease`；TASK-024 —— 撤销与补偿闭环 `crates/undo`；2026-09-25：TASK-023 —— 后置断言引擎 `crates/verify`；TASK-204 —— `crates/tool-bus` draft-07 关键字判据硬化（三张拒绝表 + `$schema` 方言校验）；TASK-022 —— 任务引擎 `crates/task-engine`（12 状态机 + DAG + 检查点 / 恢复 / 预算 / 看门狗）；TASK-021 —— 唯一策略放行点 `crates/policy`；TASK-020 —— 工具通道 `crates/tool-bus`；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池 = TASK-011 ~ 021 / 200 ~ 204）
+
+**2026-09-26 —— TASK-025（`crates/lease`：目标租约 + TTL / 续租 / 用户抢占 + 零提交批量获取）**
+
+新增 `assistant-lease`：`Shared` / `Intent` / `Exclusive` 三模式，跨 owner 只允许一个写租约；TTL 到期边界明确，支持续租、懒清理与 `reap_expired`；用户接管按 target key 强制释放全部 agent 租约并把自然过期项单列。`acquire_many` 在任何 ID / 状态写入前完成规范 key 排序、去重、冲突与溢出预检，失败零提交，消除部分持锁与锁顺序死锁窗口。新增 20 个测试，零新增第三方依赖。
 
 **2026-09-26 —— TASK-024（`crates/undo`：可逆性四级 + 锚点 + 回滚剧本 + 冲突检测 + incident）**
 

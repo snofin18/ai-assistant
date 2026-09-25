@@ -1,0 +1,17 @@
+[package]
+name = "assistant-lease"
+description = "Target leases with exclusive, shared, and intent modes, TTLs, user preemption, and deadlock-safe batch acquisition."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies.assistant-protocol]
+# Workspace dependency. Lease errors reuse the stable protocol error categories;
+# no third-party dependency is added by this crate.
+path = "../protocol"
+version = "0.1.0"
+
+[lints]
+workspace = true
