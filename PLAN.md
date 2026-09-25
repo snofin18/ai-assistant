@@ -7,13 +7,13 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-26（**TASK-025 `lease` 已 Done**：`exclusive/shared/intent` 三模式、TTL/续租/过期回收、用户抢占、规范 key 排序与零提交批量获取；`assistant-lease` 20 个契约测试、行覆盖 89.53%，零新增第三方依赖。此前 **TASK-024 `undo`** 已 Done：L0~L3 + 三类锚点 + 回滚剧本 + 冲突检测 + incident，L0 支持 L1 snapshot fallback；上一张 Done 卡 = TASK-023 `verify` 后置断言引擎）
+更新日期    ：2026-09-26（**TASK-026 `model-gateway` 已 Done**：Provider 流式/取消/用量契约、类型化路由器、重试退避、降级链、prompt cache 提示与整数成本计量；`assistant-model-gateway` 20 个契约测试 + 1 doctest、行覆盖 75.23%，零新增第三方依赖。此前 **TASK-025 `lease`** 已 Done：`exclusive/shared/intent` 三模式、TTL/续租/过期回收、用户抢占、规范 key 排序与零提交批量获取；上一张 Done 卡 = TASK-024 `undo`）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
-当前任务卡  ：**A3 批次进行中**：TASK-011 ✅ / 012 ✅ / 013 ✅ / 014 ✅ / 015 ✅ / 016 ✅ / 017 ✅ / 018 ✅ / 019 ✅ / 020 ✅ / 021 ✅ / 022 ✅ / **023 ✅** / **024 ✅** / **025 ✅** → 下一批 **TASK-026 / 027**（依赖已核对，可并行）；
+当前任务卡  ：**A3 批次进行中**：TASK-011 ✅ / 012 ✅ / 013 ✅ / 014 ✅ / 015 ✅ / 016 ✅ / 017 ✅ / 018 ✅ / 019 ✅ / 020 ✅ / 021 ✅ / 022 ✅ / **023 ✅** / **024 ✅** / **025 ✅** / **026 ✅** → 下一张 **TASK-027**；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204** 均 Done
 阻塞项      ：① TASK-002 仍 Blocked（上游 `create_thread` 未关）；② gov §5.1 门禁清单尚未登记 `check-migrations`（PL-056，需 ADR）；③ PL-071（ADR-0035 allow 表未登记 crate 级 `unsafe_code`）/ PL-072（`*Regex` 命名与子串语义不一致）/ PL-073（卡片 `- 状态：` 行归属机制）/ **PL-074**（`pointer_action` 不带目标窗口 → 混合 DPI 多屏下逻辑点无法唯一归属显示器，改公共接口需 ADR）需 ADR 或 Orchestrator 处置；④ **PL-078**（`xtask codegen` 生成类型无构造器/builder → 信封与审计事件只能 serde 组装）/ **PL-079**（`crates/storage` 与 `crates/tool-bus` 各自一份 `Clock` trait，建议抽 `assistant-time`）/ **PL-080**（元工具名 `toolset.list`/`toolset.search` 两段式与 `docs/spec/tool-schema.md` §4 不变量 1 冲突）/ **PL-082**（`PolicyDecision` 无法承载 confirmation scope/show_diff，安全投影有损，扩展 schema 需 ADR）/ **PL-083**（storage 缺 task 行更新入口 → 最新 Task 状态在 checkpoint，不在 `tasks.status`）；⑤ **PL-084**（待实测：UI 保存是否抹掉 `COUNT=1`）/ **PL-085**（一次性 automation 只在工具侧建删，避开 UI 往返）
-下一步动作  ：① TASK-026 `model-gateway`：Provider trait（流式/取消/用量）+ 路由器 + 降级链 + 重试退避 + prompt cache 提示 + 成本计量
-                  → ② TASK-027 `hitl` 可并行；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
+下一步动作  ：① TASK-027 `hitl`：审批请求 + 授权范围（四维+TTL）+ 用户接管 + 暂停恢复 + 差异预览数据准备
+                  → 详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 
 ## 阶段索引（点开当前阶段那一个就够）
