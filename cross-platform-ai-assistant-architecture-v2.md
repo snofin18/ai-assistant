@@ -526,12 +526,11 @@ v1 把 WASM 列为技能来源之一。v2 修正：
 
   "preconditions": [
     { "kind": "target_resolvable" },
-    { "kind": "state_assert", "assert": "target.editable == true" },
     { "kind": "capability", "requires": ["a11y.editable_text"] }
   ],
   "postconditions": [
-    { "kind": "state_assert", "assert": "target.text.contains(new_text)" },
-    { "kind": "state_assert", "assert": "count(target.text, old_text) == expected_remaining" },
+    { "kind": "text_contains", "value": "{{new_text}}" },
+    { "kind": "text_not_contains", "value": "{{old_text}}" },
     { "kind": "state_changed", "fingerprint_scope": "document.body", "within_ms": 2000 }
   ],
   "on_violation": "retry_once_then_escalate",
@@ -979,17 +978,19 @@ fingerprint(target, scope) = hash(
 
 断言类型：
 
-| 类型 | 示例 |
+| 类型 | 结构化写法（示例） |
 |---|---|
-| `state_assert` | `target.title not_matches ".*\\*.*"`（保存后标题无星号） |
-| `text_contains` / `text_not_contains` | 替换后新文本存在、旧文本消失 |
-| `state_changed` | 指纹在 N ms 内发生变化 |
-| `state_unchanged` | 用于「只读操作不应改变状态」的反向校验 |
-| `element_exists` / `element_gone` | 对话框已关闭 |
-| `value_equals` / `value_in_range` | 数值字段 |
-| `file_changed` | mtime/size/hash 变化（走文件通道时最可靠） |
-| `app_reported` | 应用自身 API 返回的状态（L1 通道，最可信） |
-| `visual_assert` | 截图 + OCR/模板匹配（兜底，成本高，需标注低置信） |
+| `state_assert` | `{"field":"title","op":"not_contains","value":"*"}`（保存后标题无星号） |
+| `text_contains` / `text_not_contains` | `{"kind":"text_contains","value":"新文本"}` —— 替换后新文本存在、旧文本消失 |
+| `state_changed` | 指纹在 N ms 内发生变化（`within_ms` 必填） |
+| `state_unchanged` | 用于「只读操作不应改变状态」的反向校验（可带 `fingerprint_scope`） |
+| `element_exists` / `element_gone` | 对话框已关闭（`selector` 必填且非空） |
+| `value_equals` / `value_in_range` | 数值字段（`name` + `value`，或 `name` + `min` / `max`） |
+| `file_changed` | mtime/size/hash 变化（走文件通道时最可靠；`path` + `expect`） |
+| `app_reported` | 应用自身 API 返回的状态（L1 通道，最可信；`key` + `value`） |
+| `visual_assert` | 截图 + OCR/模板匹配（兜底，成本高，需标注低置信；归 TASK-042） |
+
+> **ADR-0047**：断言**没有**自由字符串字段 `assert`（如 `target.text.contains(new_text)`）—— 判定条件一律写成**结构化字段**（`field` / `op` / `value` / `name` / `min` / `max` / `selector` / `path` / `expect` / `key` / `within_ms` / `fingerprint_scope`），且**未知字段一律解析期拒绝**（fail-closed）。实现见 `crates/verify`（TASK-023）。
 
 违反后置条件的处理（`on_violation`）：
 
@@ -1260,7 +1261,7 @@ LockManager
     }
   },
   "postconditions": [
-    { "kind": "state_assert", "assert": "fingerprint(target.document) == until_fingerprint", "optional_if_absent": true },
+    { "kind": "state_assert", "field": "fingerprint", "op": "equals", "value": "{{until_fingerprint}}" },
     { "kind": "state_changed", "within_ms": 1500 }
   ],
   "guard": {
@@ -3425,16 +3426,25 @@ AGENTS.md（全文，**实际 185 行**，`wc -l` = 185；不要手抄行数 = P
     "assertion": {
       "type": "object",
       "required": ["kind"],
+      "description": "后置断言（§7.4）。ADR-0047：**没有**自由字符串字段 `assert` —— 判定条件一律写成结构化字段（field/op/value 等），自由字符串形式**永久不实现**；`target_resolvable` / `capability` 是 §5.3 的前置条件，不是后置断言。",
       "properties": {
         "kind": { "enum": ["state_assert", "text_contains", "text_not_contains", "state_changed",
                             "state_unchanged", "element_exists", "element_gone", "value_equals",
                             "value_in_range", "file_changed", "app_reported", "visual_assert",
                             "target_resolvable", "capability"] },
-        "assert": { "type": "string" },
+        "field": { "enum": ["title", "text", "fingerprint"], "description": "state_assert 专用" },
+        "op": { "enum": ["equals", "not_equals", "contains", "not_contains"], "description": "state_assert 专用" },
         "value": {},
-        "within_ms": { "type": "integer" },
-        "fingerprint_scope": { "type": "string" },
-        "confidence_min": { "type": "number" }
+        "name": { "type": "string", "description": "value_equals / value_in_range 专用" },
+        "min": { "type": "number", "description": "value_in_range 专用" },
+        "max": { "type": "number", "description": "value_in_range 专用" },
+        "selector": { "type": "string", "description": "element_exists / element_gone 专用" },
+        "path": { "type": "string", "description": "file_changed 专用" },
+        "expect": { "enum": ["any", "size", "mtime", "digest"], "description": "file_changed 专用" },
+        "key": { "type": "string", "description": "app_reported 专用" },
+        "within_ms": { "type": "integer", "description": "state_changed 专用（必填）" },
+        "fingerprint_scope": { "type": "string", "description": "state_changed / state_unchanged 可选" },
+        "confidence_min": { "type": "number", "description": "visual_assert 专用（TASK-042）" }
       }
     },
     "target_ref": {

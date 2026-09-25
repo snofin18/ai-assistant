@@ -118,3 +118,7 @@
 ## 2026-09-25 追加（ADR-0046，Accepted）
 
 - [2026-09-25][DECISION][src:ADR-0046] **自主自动化的形态 = 人类指令驱动的「一次性」任务**：`automation_update` 的创建**必须先有人类指令**（含探针）且必须是**一次性**（`[未验证]`：RRULE `COUNT=1` / `UNTIL` 或工具另有语义，下次建立时实测）；**不同自动化之间间隔 ≥ 2.5 小时（默认 3 小时）**以杜绝并发（本地模式多轮共用同一工作树；`.nightly.lock` 互斥锁仍是必需的第二重保护）；**任务内容按实际进度现场决定**，prompt **不得**写死卡号清单（改由 `PLAN.md` 当前状态块 + `plans/*` 进度句 + `tasks/` 状态行 + `LEDGER.md` 末 10 行推导，agent 可提建议）；人类可在**任何时间**提出（「当夜」概念仅保留用于产物命名与轮次计数）。**授权**：执行中的漂移按最优解自决（须遵守规则、裁决必须落盘）+ 授权 git 合并（CI 全绿 且 `mergeable_state = clean` 且 base = `main`）。**升级协议**：无法决定 / 无最优解 / 重大错误无法解决 → 先记录，可跳过则跳过并继续，不可跳过则停止、返回失败、告知详情（禁止伪装完成）。**背景** = PL-076 / PL-077：本 agent 2026-09-25 同一天两次建错 automation，根因是把章程 §11.1/§11.3 的既有设计当需求落地而没先确认「人类希望怎么建」。
+
+## 2026-09-25 追加（ADR-0047，Accepted）
+
+- [2026-09-25][DECISION][src:ADR-0047] **后置断言永久没有自由字符串字段 `assert`**：架构 v2 附录 A 的 `#/$defs/assertion` 原有 `"assert": { "type": "string" }`，支持它等于引入一门**表达式语言**（lexer / parser / evaluator / scope）= 新抽象层，且**模型无法枚举可写形式**（与 §7.4 反对 `if`-`then`-`else` 同一条理由）→ **否决**。**替代**：结构化 `field` + `op` + `value`（`state_assert`）与各 kind 专用字段（`name` / `min` / `max` / `selector` / `path` / `expect` / `key` / `within_ms` / `fingerprint_scope`），**未知字段一律解析期拒绝**（实现 = `crates/verify` / TASK-023）。**同步改动**：附录 A 删 `assert` 并补齐实现真正接受的字段 + 对象级 `description` 注记；§5.2 示例、§7.4 类型表、§11 撤销剧本示例改为结构化写法（顺带删掉附录 A 从未声明、实现也会拒绝的 `optional_if_absent`）；`docs/memory/rejected.md` 登记；**PL-086 闭环**。**根因** = PL-086 / `DRIFT-023-4`：附录 A 声明了 `assert` 而 TASK-023 不实现，读文档的人（TASK-028 的 Planner、未来的 Adapter 作者）会以为可用。
