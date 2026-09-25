@@ -238,6 +238,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-202 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-202-storage-migration-registry.md` | 存储迁移注册表（**ADR-0038**：storage 只提供机制、各 crate 自持迁移 + 唯一装配点）；PL-046 的落地物；**已 Done（2026-09-24）** |
 | TASK-203 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-203-audit-log-column-semantics.md` | `audit_logs` 列语义去重 + 显式链序（**ADR-0040**：删与 `id` 同义的 `hash`、加 `sequence`；迁移 0003 重建表）；PL-043 / PL-045 的落地物；**已 Done（2026-09-24）** |
 | TASK-204 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-204-draft07-keyword-verdict.md` | `crates/tool-bus` 的 draft-07 关键字判据硬化（三张显式拒绝表 + `$schema` 方言校验 + **`pattern` / `format` 永久放弃**）；TASK-020 §9 关注点 3「最大设计负债」的落地物；**已 Done（2026-09-25）** |
+| TASK-205 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-205-schema-module-split.md` | `crates/tool-bus/src/schema.rs`（892 行，TASK-204 收尾时只剩 8 行余量）按**职责**拆分为模块目录（注册期 schema 检查 / 运行期实例校验），让每个文件回到 gov §5.4 的 600 行建议线以下、**行为零变化**；人类 2026-09-25 裁决「**合适的时候立卡，拆文件吧**」；**Ready（2026-09-25）** |
 
 ## 任务卡号段分配（ADR-0037, 2026-09-20 起生效）
 
@@ -252,6 +253,6 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | 071 | ADR-0037 实施卡（号段分配策略；本 ADR 生效前建的治理卡）| 1 张 Done |
 | 072~099 | XTASK 池 | 已用 072~079（stage-0 b1 探针卡）+ 083 / 084 + **085 / 086**（PL-059 归属修正新建）= **12 张**；**空位 080~082 / 087~099** |
 | 100~199 | 业务池 | 已用 100 / 101（Win32-Input + probe 替换）；空位 102~199 |
-| 200~299 | 治理池（audit/docs/memory 治理）| 已用 200（spec 修复卡）/ **201**（`crates/core` 骨架提前，PL-037）/ **202**（存储迁移注册表，ADR-0038，PL-046）/ **203**（`audit_logs` 列语义，ADR-0040）/ **204**（draft-07 关键字判据，TASK-020 §9）；空位 205~299 |
+| 200~299 | 治理池（audit/docs/memory 治理）| 已用 200（spec 修复卡）/ **201**（`crates/core` 骨架提前，PL-037）/ **202**（存储迁移注册表，ADR-0038，PL-046）/ **203**（`audit_logs` 列语义，ADR-0040）/ **204**（draft-07 关键字判据，TASK-020 §9）/ **205**（`schema.rs` 拆文件，TASK-204 收尾遗留）；空位 206~299 |
 
 **未来 xtask 护栏扩张** = 用 072~099；用满后用 200~299。sub-suffix 永久禁用。
