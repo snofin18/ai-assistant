@@ -75,6 +75,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "assistant-lease"
+version = "0.1.0"
+dependencies = [
+ "assistant-protocol",
+]
+
+[[package]]
 name = "assistant-platform-api"
 version = "0.1.0"
 dependencies = [
