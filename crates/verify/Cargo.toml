@@ -1,0 +1,31 @@
+[package]
+name = "assistant-verify"
+description = "Postcondition assertion engine, state fingerprints, idempotency classification, and on_violation dispatch."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# Third-party dependencies are already approved in docs/DEPENDENCIES.md.
+# TASK-023 adds this crate as a usage site for all three rows; see the card
+# section 5 (DRIFT-023-3) for why a usage site counts as a registered change.
+serde = { version = "1.0", features = ["derive"] }
+sha2 = "0.10"
+thiserror = "2"
+
+[dependencies.assistant-protocol]
+# Workspace dependency. `version` is required by deny.toml's wildcard ban.
+path = "../protocol"
+version = "0.1.0"
+
+[dependencies.assistant-platform-api]
+# Workspace dependency (non-third-party). Reuses the canonical `Fingerprint`
+# type instead of inventing a second one; the crate depends only on the pure
+# abstraction layer, never on a platform implementation (AGENTS.md rule 7).
+path = "../platform/api"
+version = "0.1.0"
+
+[lints]
+workspace = true
