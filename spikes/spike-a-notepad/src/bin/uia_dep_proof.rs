@@ -222,28 +222,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       let vp: IUIAutomationValuePattern =
           unsafe { hit.element.GetCurrentPatternAs(UIA_ValuePatternId) }?;
       let e7_orig = unsafe { vp.CurrentValue() }.unwrap_or_else(|_| BSTR::new());
-      let e7_orig_str = bstr_to_string(e7_orig.clone());
-      let setValueText: &str = "B1.3 probe-06 SetValue test 测试文本";
+      let _e7_orig_str = bstr_to_string(e7_orig.clone()); // silence unused on E7 backup
+      let set_value_text: &str = "B1.3 probe-06 SetValue test 测试文本";
       let sw_e7 = Instant::now();
-      let e7_setRes: Result<(), windows::core::Error> = unsafe {
-          vp.SetValue(&BSTR::from(setValueText))
+      let e7_set_res: Result<(), windows::core::Error> = unsafe {
+          vp.SetValue(&BSTR::from(set_value_text))
       };
-      let e7_setMs = sw_e7.elapsed().as_millis();
+      let e7_set_ms = sw_e7.elapsed().as_millis();
       let e7_roundtrip = unsafe { vp.CurrentValue() }.unwrap_or_else(|_| BSTR::new());
       let e7_roundtrip_str = bstr_to_string(e7_roundtrip);
-      let e7_cjkKept = e7_roundtrip_str.contains('测');
-      let e7_ok = e7_setRes.is_ok()
+      let e7_cjk_kept = e7_roundtrip_str.contains('测');
+      let e7_ok = e7_set_res.is_ok()
           && e7_roundtrip_str.contains("B1.3 probe-06")
-          && e7_cjkKept;
+          && e7_cjk_kept;
       log(
           &mut report,
           &format!(
               "E7: {}  SetValue ok={} ({} ms) roundtrip chars={} contains_cjk={}",
               if e7_ok { "PASS" } else { "FAIL" },
-              e7_setRes.is_ok(),
-              e7_setMs,
+              e7_set_res.is_ok(),
+              e7_set_ms,
               e7_roundtrip_str.chars().count(),
-              e7_cjkKept
+              e7_cjk_kept
           ),
       );
       // Restore original content
