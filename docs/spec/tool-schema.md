@@ -1,7 +1,7 @@
 # spec: Tool/Adapter/审计事件 schema 单一事实源
 
 > 摘要：Tool / Adapter / 审计事件 JSON Schema 规范。本 spec 是本项目**契约层**的一部分，由 ADR 批准后即作为 xtask 卡实施 + CI 机器校验的权威。
-> 状态：Draft（待 ADR 批准）　版本：0.1　日期：2026-09-20
+> 状态：Draft（待 ADR 批准）　版本：0.2　日期：2026-09-25
 > 上位：`AGENTS.md` §5、`docs/governance-ai-agent-execution.md` §5/§6
 > 强制性：**本文档是契约**。违反即 CI 失败（`xtask` 相关子命令）或 Reviewer 拒绝合并。
 > 变更门槛：新增字段或修改类型 → 需 ADR。
@@ -71,6 +71,14 @@ struct AuditEventSchema {
 5. **schema_version 单调递增**：schema 从 1 起；字段重命名 / 类型变化 → 新增 version，旧字段标 `@deprecated` 并保留 ≥2 个版本（= 无破坏性变更）
 6. **必选字段不可为空**：`required` 列出的字段在所有实例中**非 null / 非空字符串 / 非空数组**
 7. **时间戳用 ISO-8601**：所有时间字段一律 UTC + RFC 3339（形如 `2026-09-19T12:34:56Z`）
+8. **校验关键字白名单**：`inputs` / `outputs` 的 schema 只允许 `crates/tool-bus` 校验器**显式支持**的
+   draft-07 关键字子集（`SUPPORTED_KEYWORDS`，21 条）；在此之外的任何影响语义的关键字一律**拒绝注册**
+   （fail-closed），且拒绝消息必须带**标签 + 一句理由 + schema 文档内 JSON pointer**
+   （表见 `REJECTED_FOREVER_KEYWORDS` / `REJECTED_FOR_NOW_KEYWORDS` / `NON_DRAFT07_KEYWORDS`）。
+   纯注解关键字（`ANNOTATION_KEYWORDS`，9 条）**忽略但不拒绝**。`$schema` **不是注解**：缺省 或
+   draft-07 = 放行，声明**其它方言 = 拒绝**（不许用 draft-07 的语义冒充 2020-12 的文档）。
+   依据：**TASK-204**（人类 chat 2026-09-25 授权）；理由与替代见 `crates/tool-bus/README.md`
+   「已知限制」与 `docs/memory/rejected.md` 2026-09-25 各条。
 
 ---
 
@@ -93,3 +101,4 @@ struct AuditEventSchema {
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | 0.1 | 2026-09-20 | 初稿（项目进度督察后批量补齐 stage-0 DoD #5）|
+| 0.2 | 2026-09-25 | §4 新增**不变量 8**（校验关键字白名单 + `$schema` 方言校验 + 「不支持即拒绝」的显式化）；依据 **TASK-204**（TASK-020 §9 关注点 3 的落地物）|

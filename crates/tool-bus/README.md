@@ -42,15 +42,29 @@ TASK-020 的**工具通道**：in-process MCP server + client（`rmcp`）、JSON
 
 ## 已知限制
 
-- **JSON Schema 只实现 draft-07 的子集**：`type`（含类型数组）/ `enum` / `const` /
-  `properties` / `required` / `additionalProperties` / `minProperties` / `maxProperties` /
-  `items`（仅单 schema 形式）/ `minItems` / `maxItems` / `minLength` / `maxLength` /
-  `minimum` / `maximum` / `exclusiveMinimum` / `exclusiveMaximum` / `allOf` / `anyOf` /
-  `oneOf` / `not`。**注册期即拒绝**其它影响语义的关键字（`$ref` / `pattern` / `format` /
-  `uniqueItems` / `patternProperties` / `if`-`then`-`else` …），并列出 JSON pointer 路径 ——
-  判据方向是「**不支持即拒绝**」，绝不「不支持就放行」。纯注解关键字（`title` /
-  `description` / `default` / `$comment` / `$schema` / `$id` …）忽略但不拒绝。
-  支持清单的机器可读版本见 `SUPPORTED_KEYWORDS`。
+- **JSON Schema 只实现 draft-07 的子集**（`SUPPORTED_KEYWORDS`，21 条）：`type`（含类型数组）/
+  `enum` / `const` / `properties` / `required` / `additionalProperties` / `minProperties` /
+  `maxProperties` / `items`（**仅**单 schema 形式）/ `minItems` / `maxItems` / `minLength` /
+  `maxLength` / `minimum` / `maximum` / `exclusiveMinimum` / `exclusiveMaximum` / `allOf` /
+  `anyOf` / `oneOf` / `not`。
+- **判据方向 = 「不支持即拒绝」（fail-closed），且拒绝必须可读**：拒绝消息带**标签 + 一句理由 +
+  schema 文档内 JSON pointer**（如 `/properties/name`），四类**可区分**、各有机器可读入口：
+  - **永久放弃** `REJECTED_FOREVER_KEYWORDS`（12 条）—— `$ref` / `definitions` / `pattern` /
+    `patternProperties` / `format` / `if`-`then`-`else` / `dependencies` / `additionalItems` /
+    `contentEncoding` / `contentMediaType`；理由 + 替代方案见该表与 `docs/memory/rejected.md`
+    （替代一律是「`enum` / `const` 收窄取值」或「**由 handler 校验值**」，见本条最后一段）
+  - **尚未实现** `REJECTED_FOR_NOW_KEYWORDS`（4 条）—— `multipleOf` / `uniqueItems` /
+    `contains` / `propertyNames`：都是**纯断言、零依赖**，缺的只是实现（可以有卡）
+  - **其它方言** `NON_DRAFT07_KEYWORDS`（15 条）—— 2019-09 / 2020-12 的关键字
+    （`prefixItems` / `$defs` / `unevaluated*` / `dependent*` / `minContains` …）→ 请降到 draft-07
+  - **完全不认识** —— 兜底拒绝，提示这是拼写错误而不是「永久放弃」
+- **纯注解关键字忽略但不拒绝**（`ANNOTATION_KEYWORDS`，9 条）：`title` / `description` /
+  `default` / `examples` / `$comment` / `deprecated` / `readOnly` / `writeOnly` / `$id`。
+- **`$schema` 不是注解**：缺省 或 draft-07 = 放行，声明**别的方言 = 拒绝** —— 否则我们会用
+  draft-07 的语义去校验一份 2020-12 的文档（`items` 在 2020-12 里才是单 schema 形式）。
+- **校验器管形状，handler 管值的安全**：本 crate **不**做注入防护（不拼 shell、参数化查询、
+  路径规范化都归 handler / policy）。把语言关键字或 SQL 注入词做进关键字黑名单既不合规范
+  （JSON Schema 关键字是固定闭集）也是 **fail-open** → 已否决（`docs/memory/rejected.md`）。
 - **`assistant_protocol` 的生成类型是 `#[non_exhaustive]` 且多数没有构造器**（`Source` /
   `Truncation` / `Evidence` / `Metrics` / `EnvelopeError` / `AuditEvent` / `ToolSchema`）→
   信封、工具声明、超限审计事件一律经 serde 组装（`DRIFT-020-3` / `PL-078`）。

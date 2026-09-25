@@ -2,39 +2,44 @@
 //!
 //! ## 为什么手写最小子集（TASK-020 Q2 裁决，见任务卡 §5）
 //!
-//! 候选 `(a) jsonschema` crate 会把传递依赖 `borrow-or-share`（`MIT-0`）带进依赖图，
-//! 而 `deny.toml` 的许可证白名单不含 `MIT-0` —— 放宽白名单是漂移触发器 ⑥，需要 ADR 与
-//! 人类裁决。候选 `(b) rmcp 自带校验` 经查**不存在**：泛型 `ServerHandler` 路径直接调用
-//! `call_tool`，从不读 `get_tool`；只有 `#[tool_router]` 宏生成的服务器才做参数处理，
-//! 而且那是 schemars 的**类型驱动反序列化**，不是 draft-07 校验（本项目刻意不用宏路由，
-//! 因为工具 schema 的事实源是 `assistant_protocol`，不是 Rust 类型）。
-//! 因此本卡选 `(c)`：**零新增依赖** + **凡是不在支持清单里的关键字一律拒绝注册**。
+//! `jsonschema` crate 会把 `borrow-or-share`（`MIT-0`）带进依赖图，而 `deny.toml` 白名单不含它
+//! （放宽 = 漂移触发器 ⑥，需 ADR）；`rmcp` 自带校验经查**不存在**（泛型 `ServerHandler` 直接调用
+//! `call_tool`，从不读 `get_tool`）。故选**零新增依赖**的自写子集。
 //!
-//! 判据的方向很重要：**宁可让工具注册失败，也绝不放过一条自己无法强制的约束**。
+//! 判据方向很重要：**宁可让工具注册失败，也绝不放过一条自己无法强制的约束**。
 //! 「不支持就放行」会把约束变成装饰，直接违反铁律 1 与铁律 4。
 //!
-//! ## 支持的子集
+//! ## 支持的子集（白名单见 [`SUPPORTED_KEYWORDS`]）
 //!
-//! - 类型 / 取值：`type`（含类型数组）、`enum`、`const`
-//! - 对象：`properties`、`required`、`additionalProperties`（bool 或子 schema）、
-//!   `minProperties`、`maxProperties`
-//! - 数组：`items`（**单 schema 形式**；元组形式不支持）、`minItems`、`maxItems`
-//! - 字符串：`minLength`、`maxLength`（按 **Unicode 码点**计数，符合 draft-07）
-//! - 数字：`minimum`、`maximum`、`exclusiveMinimum`、`exclusiveMaximum`（draft-07 的数值形式）
-//! - 组合：`allOf`、`anyOf`、`oneOf`、`not`
+//! 类型/取值 `type`/`enum`/`const`；对象 `properties`/`required`/`additionalProperties`/
+//! `minProperties`/`maxProperties`；数组 `items`（**单 schema 形式**）/`minItems`/`maxItems`；
+//! 字符串 `minLength`/`maxLength`（按 **Unicode 码点**计数）；数字 `minimum`/`maximum`/
+//! `exclusiveMinimum`/`exclusiveMaximum`；组合 `allOf`/`anyOf`/`oneOf`/`not`。
 //!
-//! ## 刻意不做
+//! ## 忽略的注解（不算「支持」，但也不拒绝）
 //!
-//! - 纯注解关键字（`title` / `description` / `default` / `examples` / `$comment` /
-//!   `deprecated` / `readOnly` / `writeOnly` / `$schema` / `$id`）**忽略但不拒绝**：
-//!   它们不影响校验结果。（`$id` 因为 `$ref` 不支持而没有解析语义。）
-//! - 其余一切（`$ref` / `$defs` / `definitions` / `pattern` / `format` / `multipleOf` /
-//!   `uniqueItems` / `patternProperties` / `propertyNames` / `dependencies` / `if`-`then`-
-//!   `else` / `contains` / `prefixItems` / `unevaluatedProperties` …）→ **拒绝注册**并列出
-//!   JSON pointer 路径。
+//! `title`/`description`/`default`/`examples`/`$comment`/`deprecated`/`readOnly`/`writeOnly`/
+//! `$id` —— 它们**不改变校验结果**，忽略是忠实的（`$id` 无 `$ref` 故无解析语义）。
 //!
-//! 相关：`docs/spec/tool-schema.md` §4 不变量 2 / 6、架构 v2 §5.2、`crates/tool-bus/README.md`
-//! 「已知限制」。
+//! ## 永久放弃 / 尚未实现 / 其它方言
+//!
+//! 三张表逐条给出关键字 + 理由/方言 +（能给的）替代：永久放弃见 [`REJECTED_FOREVER_KEYWORDS`]
+//! （`$ref`/`definitions`、`pattern`/`patternProperties`/`format`、`if`-`then`-`else`/
+//! `dependencies`、元组 `items`/`additionalItems`、`contentEncoding`/`contentMediaType`），
+//! 缺口见 [`REJECTED_FOR_NOW_KEYWORDS`]（`multipleOf`/`uniqueItems`/`contains`/`propertyNames`），
+//! 其它草案见 [`NON_DRAFT07_KEYWORDS`]。**三张表之外的任何关键字 → 一律拒绝**（兜底同时挡拼写错误）。
+//!
+//! 替代方案一律是「`enum`/`const` 收窄取值」或「**由 handler 校验值**」—— 校验器管**形状**，
+//! handler 管**值的语义安全**（参数化查询、路径规范化、不拼 shell）。
+//!
+//! ## `$schema` 不忽略，改做**方言校验**
+//!
+//! `$schema` 声明的是「这份文档按哪一版语义解释」：缺省 = draft-07，声明 draft-07 = 放行，
+//! 声明**别的方言 = 拒绝**。否则我们会用 draft-07 的语义去校验一份 2020-12 的文档 —— 那正是
+//! 铁律 1 禁止的「用自己的语义冒充别人的语义」。
+//!
+//! 相关：`docs/spec/tool-schema.md` §4 不变量 2 / 6 / **8**、架构 v2 §5.2、
+//! `crates/tool-bus/README.md`「已知限制」、`docs/memory/rejected.md`。
 
 use serde_json::{Map, Value};
 
@@ -63,8 +68,120 @@ pub const SUPPORTED_KEYWORDS: &[&str] = &[
     "not",
 ];
 
+/// **永久放弃**的 draft-07 关键字 → 一句理由 +（能给的）替代方案。
+///
+/// 「永久」= 已裁决的设计决定，**不要再提案重开**（理由与替代见
+/// `docs/memory/rejected.md`）。判据一律是「读了但不强制 = 静默失败」（铁律 1）。
+pub const REJECTED_FOREVER_KEYWORDS: &[(&str, &str)] = &[
+    (
+        "$ref",
+        "cross-document resolution + recursion + SSRF surface; inline the sub-schema",
+    ),
+    (
+        "definitions",
+        "only meaningful together with `$ref`, which this crate never resolves",
+    ),
+    (
+        "pattern",
+        "regex = new dependency + ReDoS surface; use `enum`, or validate in the handler",
+    ),
+    (
+        "patternProperties",
+        "same regex objection as `pattern`; use a closed set of `properties`",
+    ),
+    (
+        "format",
+        "implementation-defined in draft-07 so it cannot be enforced; use `enum`",
+    ),
+    (
+        "if",
+        "non-enumerable for the model; use `oneOf` with `const` discriminators",
+    ),
+    (
+        "then",
+        "only meaningful together with `if`; use `oneOf` with `const` discriminators",
+    ),
+    (
+        "else",
+        "only meaningful together with `if`; use `oneOf` with `const` discriminators",
+    ),
+    (
+        "dependencies",
+        "conditionals in disguise; use `oneOf` with `const` discriminators",
+    ),
+    (
+        "additionalItems",
+        "needs tuple-form `items` (rejected): use named object fields instead",
+    ),
+    (
+        "contentEncoding",
+        "an annotation in draft-07 read as an assertion; validate in the handler",
+    ),
+    (
+        "contentMediaType",
+        "an annotation in draft-07 read as an assertion; validate in the handler",
+    ),
+];
+
+/// draft-07 里**存在**、但本 crate **尚未实现**的关键字 → 一句理由（= 缺什么）。
+///
+/// 与 [`REJECTED_FOREVER_KEYWORDS`] 的区别：这些是**缺口**（可以有卡），不是**决定**。
+pub const REJECTED_FOR_NOW_KEYWORDS: &[(&str, &str)] = &[
+    (
+        "multipleOf",
+        "pure numeric assertion, no dependency needed; open a card if needed",
+    ),
+    (
+        "uniqueItems",
+        "pure array assertion (value comparison); open a card if an adapter needs it",
+    ),
+    (
+        "contains",
+        "array assertion over a sub-schema; open a card if an adapter needs it",
+    ),
+    (
+        "propertyNames",
+        "applies a sub-schema to each key, no regex needed; open a card if needed",
+    ),
+];
+
+/// 属于**其它草案**的关键字 → 第二元素 = 引入它的方言年份。
+///
+/// 本 crate 只实现 draft-07：这些关键字一旦出现，说明作者拿的是更新方言的文档 —— 必须
+/// 抬出来让他降方言，而不是按 draft-07 的相似语义**猜**（`items` 在 2020-12 里才是单
+/// schema 形式，元组形式已改名为 `prefixItems`）。
+pub const NON_DRAFT07_KEYWORDS: &[(&str, &str)] = &[
+    ("$defs", "2020-12"),
+    ("$anchor", "2019-09"),
+    ("$recursiveRef", "2019-09"),
+    ("$recursiveAnchor", "2019-09"),
+    ("$dynamicRef", "2020-12"),
+    ("$dynamicAnchor", "2020-12"),
+    ("$vocabulary", "2019-09"),
+    ("unevaluatedProperties", "2019-09"),
+    ("unevaluatedItems", "2019-09"),
+    ("dependentSchemas", "2019-09"),
+    ("dependentRequired", "2019-09"),
+    ("minContains", "2019-09"),
+    ("maxContains", "2019-09"),
+    ("prefixItems", "2020-12"),
+    ("contentSchema", "2019-09"),
+];
+
+/// 声明解释方言的关键字（唯一一个「既不是断言、也不是注解」的 draft-07 关键字）。
+const DIALECT_KEYWORD: &str = "$schema";
+
+/// `$schema` 的合法取值（比较前去掉结尾 `#`；http / https 两种历史写法都接受）。
+const DRAFT07_SCHEMA_URIS: &[&str] = &[
+    "http://json-schema.org/draft-07/schema",
+    "https://json-schema.org/draft-07/schema",
+];
+
 /// 纯注解关键字：不影响校验结果，忽略（**不**拒绝）。
-const ANNOTATION_KEYWORDS: &[&str] = &[
+///
+/// 这里的每一条都**不改变校验结果**，所以「读了不强制」不算静默失败；`$schema` 刻意
+/// **不在**本表里（它改变解释方言 → 由 [`check_declared_dialect`] 校验）。
+pub const ANNOTATION_KEYWORDS: &[&str] = &[
     "title",
     "description",
     "default",
@@ -73,7 +190,6 @@ const ANNOTATION_KEYWORDS: &[&str] = &[
     "deprecated",
     "readOnly",
     "writeOnly",
-    "$schema",
     "$id",
 ];
 
@@ -87,6 +203,81 @@ const MAX_NESTING_DEPTH: usize = 64;
 
 /// 一次校验最多报告几条违规（其余折叠成一行，免得把模型上下文塞满）。
 const MAX_REPORTED_VIOLATIONS: usize = 8;
+
+/// 关键字的归类结果 —— [`classify_keyword`] 的唯一输出，驱动 [`walk_schema`] 的分支。
+enum KeywordVerdict {
+    /// 白名单：[`SUPPORTED_KEYWORDS`] 成员，出现即校验语义 + 检查形状。
+    Supported,
+    /// 纯注解：[`ANNOTATION_KEYWORDS`] 成员，忽略。
+    Annotation,
+    /// `$schema`：走方言校验（不是注解）。
+    Dialect,
+    /// draft-07 关键字，本项目**永久**不支持（附理由 + 替代）。
+    NeverSupported(&'static str),
+    /// draft-07 关键字，本项目**尚未**实现（附理由）。
+    NotYetSupported(&'static str),
+    /// 属于其它草案的关键字（附方言年份）。
+    OtherDialect(&'static str),
+    /// 完全不认识（拼写错误 / 自定义关键字）。
+    Unknown,
+}
+
+/// 按「支持 → 注解 → 方言 → 永久拒绝 → 暂未实现 → 其它方言 → 未知」的**固定顺序**归类。
+///
+/// 顺序即优先级；同时**五张表必须两两不相交**（否则同一关键字会出现两种说法），这条
+/// 不变量由 `tests/schema_keywords.rs` 的
+/// `test_keyword_tables_are_pairwise_disjoint_and_unique` 强制。
+fn classify_keyword(keyword: &str) -> KeywordVerdict {
+    if SUPPORTED_KEYWORDS.contains(&keyword) {
+        return KeywordVerdict::Supported;
+    }
+    if ANNOTATION_KEYWORDS.contains(&keyword) {
+        return KeywordVerdict::Annotation;
+    }
+    if keyword == DIALECT_KEYWORD {
+        return KeywordVerdict::Dialect;
+    }
+    if let Some(&(_, reason)) = REJECTED_FOREVER_KEYWORDS
+        .iter()
+        .find(|&&(name, _)| name == keyword)
+    {
+        return KeywordVerdict::NeverSupported(reason);
+    }
+    if let Some(&(_, reason)) = REJECTED_FOR_NOW_KEYWORDS
+        .iter()
+        .find(|&&(name, _)| name == keyword)
+    {
+        return KeywordVerdict::NotYetSupported(reason);
+    }
+    if let Some(&(_, dialect)) = NON_DRAFT07_KEYWORDS
+        .iter()
+        .find(|&&(name, _)| name == keyword)
+    {
+        return KeywordVerdict::OtherDialect(dialect);
+    }
+    KeywordVerdict::Unknown
+}
+
+/// `$schema` 的方言校验：缺省 = 按 draft-07 处理；声明 draft-07 = 放行；声明别的方言 = 拒绝。
+///
+/// 为什么不能当注解：见本文件模块文档「`$schema` 不忽略，改做**方言校验**」一节。取值不是
+/// 字符串同样算「无法强制」（我们读不懂这份文档按什么语义解释）。
+fn check_declared_dialect(value: &Value, pointer: &str, problems: &mut Vec<String>) {
+    let Value::String(uri) = value else {
+        problems.push(format!(
+            "{}: `$schema` must be a string (a URI naming the JSON Schema dialect)",
+            at(pointer)
+        ));
+        return;
+    };
+    if DRAFT07_SCHEMA_URIS.contains(&uri.trim().trim_end_matches('#')) {
+        return;
+    }
+    problems.push(format!(
+        "{}: `$schema` declares `{uri}`, but this crate only enforces JSON Schema draft-07",
+        at(pointer)
+    ));
+}
 
 /// 收集 schema 里**本 crate 无法强制**的构造（不支持的关键字、或形状不合法的关键字）。
 ///
@@ -118,14 +309,29 @@ fn walk_schema(schema: &Value, pointer: &str, depth: usize, problems: &mut Vec<S
         return;
     };
     for (keyword, value) in object {
-        if ANNOTATION_KEYWORDS.contains(&keyword.as_str()) {
-            continue;
+        match classify_keyword(keyword) {
+            KeywordVerdict::Supported => {
+                check_keyword_shape(keyword, value, pointer, depth, problems);
+            }
+            KeywordVerdict::Annotation => {}
+            KeywordVerdict::Dialect => check_declared_dialect(value, pointer, problems),
+            KeywordVerdict::NeverSupported(reason) => problems.push(format!(
+                "{}: `{keyword}` is permanently unsupported: {reason}",
+                at(pointer)
+            )),
+            KeywordVerdict::NotYetSupported(reason) => problems.push(format!(
+                "{}: `{keyword}` is not supported yet: {reason}",
+                at(pointer)
+            )),
+            KeywordVerdict::OtherDialect(dialect) => problems.push(format!(
+                "{}: `{keyword}` is a JSON Schema {dialect} keyword, but this crate implements draft-07 only",
+                at(pointer)
+            )),
+            KeywordVerdict::Unknown => problems.push(format!(
+                "{}: unknown keyword `{keyword}` (not part of the draft-07 subset this crate enforces; check the spelling)",
+                at(pointer)
+            )),
         }
-        if !SUPPORTED_KEYWORDS.contains(&keyword.as_str()) {
-            problems.push(format!("{}: unsupported keyword `{keyword}`", at(pointer)));
-            continue;
-        }
-        check_keyword_shape(keyword, value, pointer, depth, problems);
     }
 }
 
@@ -204,10 +410,14 @@ fn check_sub_schema_keyword(
                 "{here}: malformed `properties` (expected an object of schemas)"
             )),
             Some(properties) => {
+                // 指针进到**本 schema 文档**里（`/properties/name`），不是实例路径：报错要
+                // 能直接拿去定位写错的那个关键字。`validate_*` 一侧用 `/name` 是对的
+                // （那里的指针指**实例**位置），两者刻意不同。
+                let property_schemas = child_pointer(pointer, "properties");
                 for (name, subschema) in properties {
                     walk_schema(
                         subschema,
-                        &child_pointer(pointer, name),
+                        &child_pointer(&property_schemas, name),
                         depth + 1,
                         problems,
                     );
