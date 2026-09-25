@@ -159,6 +159,7 @@ cargo deny check                           → exit 0（advisories / bans / lice
 补充证据：`git stash` 前后对照 `docscan` = 515 / 515、`card-check` = 27 / 27、`hygiene` = 4 / 4 ⇒ **零新增 warning**。
 探针清理：`automation_update(mode=delete, id=probe-count1-20260925)` → `deleteStatus=deleted`；磁盘复核
 `~/.codex/automations/` = **只剩 `.run-jitter-salt`**。
+- GitHub PR #34：**16/16 check-runs success**（pull_request + push 两组同 SHA，含三平台 `check`、doc consistency、`cargo deny` ×2、xtask deferred、gate negative ×2）；合并前 base=`main`、`mergeable_state=clean`；merge commit `2313c4d`。
 
 ### 4. DoD 逐条核对
 
