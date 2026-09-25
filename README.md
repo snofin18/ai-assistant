@@ -4,14 +4,14 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0（文档与 Spike）已于 2026-09-20 closeout；TASK-022 `crates/task-engine` 已 Done（12 状态机 / Plan+Step DAG / 检查点 / 恢复 / 取消 / 预算 / 看门狗 / 87.03% 行覆盖）；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0（文档与 Spike）已于 2026-09-20 closeout；TASK-022 `crates/task-engine` 已 Done（12 状态机 / Plan+Step DAG / 检查点 / 恢复 / 取消 / 预算 / 看门狗 / 87.03% 行覆盖）；跨阶段治理卡 **TASK-200~204** 全部 Done（**TASK-204** = `tool-bus` draft-07 关键字判据硬化：三张拒绝表 + `$schema` 方言校验 + `format`/`pattern` 永久放弃）；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
 > TASK-017 的 7 条 DRIFT 已全部裁决落地（**ADR-0043** 元素解析加 scope / **ADR-0044** 歧义策略收敛为唯一
 > `ErrorAndAsk` / **ADR-0045** 非宿主平台编译门禁进 `AGENTS.md` §6；PL-068 / 069 / 070 闭环），
 > 同 crate 的合成输入（`SendInput`）+ 坐标归一化（DPI / 多屏）+ IME 也已落地（TASK-018 —— 铁律 5 的 **L4** 层；
-> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））与 **`crates/policy`**（TASK-021：唯一放行点 / 默认拒绝 / deny 优先 / DSL v0 / 参数护栏）均已落地，下一张是 `crates/task-engine`（TASK-022）。**当前阶段详情以 `PLAN.md` 为准**。
+> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））与 **`crates/policy`**（TASK-021：唯一放行点 / 默认拒绝 / deny 优先 / DSL v0 / 参数护栏）均已落地，下一张是 `crates/verify`（TASK-023）。**当前阶段详情以 `PLAN.md` 为准**。
 
 ---
 
@@ -77,7 +77,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 `CapabilityMatrix` + `PlatformService` / `WindowProvider` / `UiAutomationProvider` 三个 trait 形状）/
 **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / `read_text` / `set_value` /
 `edit_text` / `invoke_action` / `bounds` / `fingerprint` / 窗口枚举与状态 / **合成输入（`SendInput`）+ 坐标归一化（DPI / 多屏）+ IME**）**均已落地**；
-跨阶段治理卡 TASK-200 / 201 / 202 / 203 已 Done；TASK-016 的能力命名歧义已由 **ADR-0042** 定案
+跨阶段治理卡 TASK-200 / 201 / 202 / 203 / 204 已 Done；TASK-016 的能力命名歧义已由 **ADR-0042** 定案
 （`CapabilityCatalog` = 稳定标识目录 / `CapabilityMatrix` = 运行时探测结果 / `CapabilityEntry` = 风险·审批元数据）；
 TASK-017 的 7 条 DRIFT 遗留已由 **ADR-0043 / 0044 / 0045** 裁决落地（元素解析加 scope / 歧义策略收敛为唯一
 `ErrorAndAsk` / 非宿主平台编译门禁进 `AGENTS.md` §6；PL-068 / 069 / 070 闭环）；
@@ -99,6 +99,7 @@ URL scheme-host-IP、文本长度与行数、数值边界、正则 ReDoS 形状�
 **3.6~5.6 µs**。`assistant_protocol::PolicyDecision` 无法携带 confirmation scope / `show_diff`，故完整决策
 保留在 policy 内、协议映射只作审计摘要，协议扩展记为 **PL-082** / `DRIFT-021-1`。
 TASK-022 把任务编排层落地：12 个 Task 状态与完整 Step 生命周期、确定性 DAG Frontier、每次成功迁移先写检查点、SQLite 重开恢复、暂停 / 取消 / 接管、四维预算和分阶段看门狗；恢复证据缺失或 `Unknown` 一律进入 `NeedsHuman`，绝不猜测写操作是否发生过。新增 43 个测试 + 1 个 doctest，行覆盖 **87.03%**。**下一张 = TASK-023（`crates/verify`：11 种后置断言 + 状态指纹 + 幂等判定 + `on_violation`）**。
+TASK-204 把 `tool-bus` 的 draft-07 判据**显式化**：三张带理由的拒绝表（永久放弃 12 条 / 暂未实现 4 条 / 非 draft-07 方言 15 条）+ 未知关键字兜底 + `$schema` **方言校验**（声明非 draft-07 = 拒绝），报错信息直接给出「为何不可用 / 该用什么代替」。
 ＋ Notepad 的 3 个任务闭环。
 阶段 0（文档与 Spike）已于 2026-09-20 closeout —— 它的产出是 Spike 报告，**不是**产品代码。
 详见 `plans/stage-1-pilots.md`。
@@ -145,7 +146,13 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-25：TASK-022 —— 任务引擎 `crates/task-engine`（12 状态机 + DAG + 检查点 / 恢复 / 预算 / 看门狗）；TASK-021 —— 唯一策略放行点 `crates/policy`；TASK-020 —— 工具通道 `crates/tool-bus`；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池 = TASK-011 ~ 021 / 200 ~ 203）
+## 最近进展（2026-09-25：TASK-204 —— `crates/tool-bus` draft-07 关键字判据硬化（三张拒绝表 + `$schema` 方言校验）；TASK-022 —— 任务引擎 `crates/task-engine`（12 状态机 + DAG + 检查点 / 恢复 / 预算 / 看门狗）；TASK-021 —— 唯一策略放行点 `crates/policy`；TASK-020 —— 工具通道 `crates/tool-bus`；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池 = TASK-011 ~ 021 / 200 ~ 204）
+
+**2026-09-25 —— TASK-204（`crates/tool-bus`：draft-07 关键字判据硬化）**
+
+把「除白名单外一律拒绝」这条**隐式**判据**显式化**：新增三张带理由的表 —— `REJECTED_FOREVER_KEYWORDS`（12 条**永久放弃**：`$ref`/`definitions`、`pattern`/`patternProperties`/`format`、`if`-`then`-`else`/`dependencies`、元组 `items`/`additionalItems`、`contentEncoding`/`contentMediaType`）、`REJECTED_FOR_NOW_KEYWORDS`（4 条**暂未实现**：`multipleOf`/`uniqueItems`/`contains`/`propertyNames`）、`NON_DRAFT07_KEYWORDS`（15 条**其它方言**：`$defs`/`$dynamicRef`/`prefixItems`/`unevaluatedProperties` …），加未知关键字兜底。报错分四类标签（`never-supported` / `not-yet-supported` / `other-dialect` / `unknown`）且每条带 JSON pointer。
+
+`$schema` 由「注解」改为**方言校验**：缺省或 draft-07 = 放行，声明**别的方言 = 拒绝**（消息含实际声明的方言）—— 否则会拿 draft-07 的语义去校验一份 2020-12 文档，那正是铁律 1 禁止的「用自己的语义冒充别人的语义」。`format` / `pattern` 按人类 2026-09-25 裁决归入**永久放弃**并写明替代（`enum` / `const` 收窄取值，或**由 handler 校验值**）。`SUPPORTED_KEYWORDS` 的 21 条**一字未改**，零新增依赖、零 `unsafe`、零 `#[allow]`。新增 9 个测试（表两两不相交 / 表内不重复 / 四类标签与理由 / 嵌套 pointer / 方言 4 接受 3 拒绝 / 未知关键字 typo 提示 / 深度上限仍 64）；`cargo test --workspace` = **371 passed**，`hygiene` 0 error。同批把 automation 调度器的 `COUNT=1` **实测反转**为「**真一次性**」（`docs/nightly/codex-automations-operations.md` §4.1.a 更正块：**必须同时带 `BYHOUR` + `BYMINUTE`**，且**不要**用 `COUNT≠1` / `UNTIL`）。
 
 **2026-09-25 —— TASK-022（`crates/task-engine`：任务状态机与恢复）**
 

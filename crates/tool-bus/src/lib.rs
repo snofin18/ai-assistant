@@ -116,4 +116,8 @@ pub use mount::{
     ToolsetOversizeWarning,
 };
 pub use registry::ToolDefinition;
-pub use schema::{SUPPORTED_KEYWORDS, collect_unenforceable_constructs, validate_arguments};
+pub use schema::{
+    ANNOTATION_KEYWORDS, NON_DRAFT07_KEYWORDS, REJECTED_FOR_NOW_KEYWORDS,
+    REJECTED_FOREVER_KEYWORDS, SUPPORTED_KEYWORDS, collect_unenforceable_constructs,
+    validate_arguments,
+};

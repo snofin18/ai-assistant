@@ -1,6 +1,6 @@
 # 夜间自动推进章程（Overnight Automation Charter）
 
-> 状态：Active　版本：**1.11**　日期：**2026-09-25**　变更历史见 §12
+> 状态：Active　版本：**1.12**　日期：**2026-09-25**　变更历史见 §12
 > 上位：`AGENTS.md`、`docs/governance-ai-agent-execution.md`（gov）、`docs/subagent-orchestration.md`
 > 本文件是夜间自动化任务的**唯一权威规则源**。automation（或回退方案的调度器）传给 agent 的 prompt
 > 变更门槛：修改本章程需 ADR。
@@ -212,7 +212,7 @@ G1~G8 结果（任一失败则本报告只有这一节 + 原因）
 
 | 地位 | 机制 | 依据 | 现状 |
 |---|---|---|---|
-| **主方案** | **Codex 原生 scheduled tasks**，形态 = **standalone（cron 类）** | ADR-0029 D1 | ✅ **已可用**：启用前置门禁 GATE-0 于 **2026-09-24** 通过（§11.9）；**当前 automation 数 = 0** —— 2026-09-25 建的两个 automation（`ai-assistant-one-shot-1330` 13:30 / `ai-assistant-one-shot-1630` 16:30）已按人类指示**于当晚全部删除**（磁盘复核 `~/.codex/automations/` 回到只剩 `.run-jitter-salt`）。**这两个我原以为是一次性的任务被实测证明是「每天执行」**（RRULE 的 `COUNT=1` 不被采纳，见手册 §4.1.a 与 **PL-081 / PL-084**）；同日更早建的两个**常驻** automation 也已删除。**正确形态已由 ADR-0046 固化**：**人类指令驱动的「一次性」任务** —— 建立需人类指令；**不同自动化之间间隔 ≥ 2.5 小时（默认 3 小时）**；**任务内容按实际进度现场决定**（prompt 不写死卡号）；人类**任何时间**均可提出 → 详见 **§11.11** |
+| **主方案** | **Codex 原生 scheduled tasks**，形态 = **standalone（cron 类）** | ADR-0029 D1 | ✅ **已可用**：启用前置门禁 GATE-0 于 **2026-09-24** 通过（§11.9）；**当前 automation 数 = 0** —— 2026-09-25 建的两个 automation（`ai-assistant-one-shot-1330` 13:30 / `ai-assistant-one-shot-1630` 16:30）已按人类指示**于当晚全部删除**（磁盘复核 `~/.codex/automations/` 回到只剩 `.run-jitter-salt`）。**这两个「一次性」任务曾一度被判为「每天执行」，该判断已于 2026-09-25 深夜被本机端到端实测推翻** —— `RRULE:FREQ=DAILY;INTERVAL=1;COUNT=1;BYHOUR=..;BYMINUTE=..` **确实是**真正的一次性（跑完 `next_run_at` 清空且不再重算；当时的「每天」来自 UI 把该规则显示成「每日」+ 跑完仍 `ACTIVE` 是设计如此），见手册 §4.1.a 的**更正块**与 **PL-081（更正行）/ PL-085**；同日更早建的两个**常驻** automation 也已删除。**正确形态已由 ADR-0046 固化**：**人类指令驱动的「一次性」任务** —— 建立需人类指令；**不同自动化之间间隔 ≥ 2.5 小时（默认 3 小时）**；**任务内容按实际进度现场决定**（prompt 不写死卡号）；人类**任何时间**均可提出 → 详见 **§11.11** |
 | 回退方案 | Windows 任务计划程序 + 包装脚本调 `codex exec` | ADR-0018（状态 Accepted → **Superseded by ADR-0029**，但**保留可用**） | 🧊 **冻结**：本机适配要点见 §11.8，验收清单见 `docs/nightly/scheduler-acceptance-test.md` |
 
 - **为什么首选 standalone 而不是 heartbeat**：standalone 每次运行开一个**全新 chat**，天然避免
@@ -392,7 +392,7 @@ cron（standalone）与 heartbeat **两种形态**都验过（GATE-0.2）；触�
 证据：`docs/nightly/codex-automations-operations.md` §8.2 基线表、`docs/memory/open.md` **N9**、
 `docs/memory/facts.md` / `pitfalls.md` 的 2026-09-24 条目。
 
-→ 机制**已可用**，但**当前 automation 数 = 0** —— 2026-09-25 建的两个 automation（`ai-assistant-one-shot-1330` / `ai-assistant-one-shot-1630`）已按人类指示**于当晚全部删除**（已按手册 §4.8 用磁盘复核，`~/.codex/automations/` 回到只剩 `.run-jitter-salt`）；同日更早建的 2 个**常驻** automation 也已**全部删除**。**重要否证**：这两个任务原按「一次性」建立，实测却是**每天执行** —— `RRULE:FREQ=DAILY;COUNT=1` 的 `COUNT=1` **不被调度器采纳**，即**用 RRULE 表达不了「一次性」**；正确机制候选与验证待办见 **PL-081（已关闭）/ PL-084（新提）** 与手册 §4.1.a。人类同日给出的**正确形态**已由 **ADR-0046** 固化：**人类指令驱动的「一次性」任务**（建立需人类指令；不同自动化之间**间隔 ≥ 2.5 h（默认 3 h）**；任务内容按实际进度现场决定；**任何时间**可提）—— §11.3 的常驻「每夜两次」口径**已按该 ADR 重写**，完整 7 条规格见 **§11.11**。详见 §12 v1.8 / v1.9 与 `docs/PARKING_LOT.md` **PL-077（已关闭）**。
+→ 机制**已可用**，但**当前 automation 数 = 0** —— 2026-09-25 建的两个 automation（`ai-assistant-one-shot-1330` / `ai-assistant-one-shot-1630`）已按人类指示**于当晚全部删除**（已按手册 §4.8 用磁盘复核，`~/.codex/automations/` 回到只剩 `.run-jitter-salt`）；同日更早建的 2 个**常驻** automation 也已**全部删除**。**重要更正（2026-09-25 深夜）**：这两个任务原按「一次性」建立，当时被判为「每天执行」—— 该判断**已被推翻**：`RRULE:FREQ=DAILY;INTERVAL=1;COUNT=1;BYHOUR=..;BYMINUTE=..` **就是**可用的「一次性」写法（本机端到端探针 `probe-count1-20260925`：22:17:00 计划 → 22:17:11 触发一次 → `next_run_at` 清空、`automation_runs` 仅 1 行）。两条硬性约束：`COUNT=1` **必须**配 `BYHOUR`+`BYMINUTE`（否则永不触发且不报错）；**不要**用 `COUNT≠1` / `UNTIL`（`BYHOUR` 会按 UTC 解释）。仍未验证 = **UI 编辑并保存会不会抹掉 `COUNT=1`** → **PL-081（更正行）/ PL-084（更新）/ PL-085（新提）** 与手册 §4.1.a 更正块。人类同日给出的**正确形态**已由 **ADR-0046** 固化：**人类指令驱动的「一次性」任务**（建立需人类指令；不同自动化之间**间隔 ≥ 2.5 h（默认 3 h）**；任务内容按实际进度现场决定；**任何时间**可提）—— §11.3 的常驻「每夜两次」口径**已按该 ADR 重写**，完整 7 条规格见 **§11.11**。详见 §12 v1.8 / v1.9 与 `docs/PARKING_LOT.md` **PL-077（已关闭）**。
    排期一旦建立，仍需先过 §1 的每夜环境门禁 G1~G8。
 
 ### 11.10 换回官方路径的净损失与承接方式（诚实清单）
@@ -567,3 +567,4 @@ cron（standalone）与 heartbeat **两种形态**都验过（GATE-0.2）；触�
 文档其次（W3/W4）：价值高但"写得好不好"需要人类判断，夜间产出只能是 Draft。
 | 1.10 | 2026-09-25 | **两个一次性 automation 已按人类指令建立 → 状态字段回填**：§11.1「主方案」现状行与 §11.9「当前状态」段落的「**当前 automation 数 = 0**」同步改为「**= 2**」并写明两任务名 / 触发时刻 / 目标卡 / 间隔 3 h / 磁盘复核结果；文件头版本 1.9 → **1.10**。§0~§10、§11.2~§11.8、§11.10、§11.11、§12 既有行、§13 一字未改 | 人类 chat 2026-09-25 指令「创建两个自动化，一个在 13:30 跑 task-021，一个在 16:30 跑 task-022」；`automation_update(mode=create)` × 2 + `~/.codex/automations/` 磁盘复核；**ADR-0041 D5**（状态字段回填）+ **ADR-0046 D9**（该两段的修订授权） |
 | 1.11 | 2026-09-25 | **两个 automation 已按人类指示删除 + 「一次性」写法实测被否定**：§11.1「主方案」现状行与 §11.9「当前状态」段落的「**当前 automation 数 = 2**」改为「**= 0**」，并写入本机否证 —— `RRULE:FREQ=DAILY;COUNT=1` 的 `COUNT=1` **不被采纳**，两个任务实际是**每天执行**（人类在 UI 观察），因此**RRULE 表达不了「一次性」**；指向手册 §4.1.a 与 PL-081（已关闭）/ PL-084（新提）。文件头版本 1.10 → **1.11**。§0~§10、§11.2~§11.8、§11.10、§11.11、§12 既有行、§13 一字未改 | 人类 chat 2026-09-25 指出「两个自动化你建成了非一次性的，是每天执行的了」；`automation_update(mode=delete)` × 2 + `~/.codex/automations/` 磁盘复核；**ADR-0041 D5** + **ADR-0046 D9**（该两段的修订授权） |
+| 1.12 | 2026-09-25 | **「一次性」写法更正（结论反转）**：§11.1 现状行与 §11.9 当前状态段的「这两个任务被实测证明是每天执行 / `COUNT=1` 不被采纳」**改写为更正后的结论** —— `RRULE:FREQ=DAILY;INTERVAL=1;COUNT=1;BYHOUR=..;BYMINUTE=..` **就是**可用的一次性写法（本机端到端探针：计划 22:17:00 → 22:17:11 触发一次 → `next_run_at` 清空、`automation_runs` 仅 1 行、rollout 仅 1 个），并写明两条硬性使用约束（`COUNT=1` 必须配 `BYHOUR`+`BYMINUTE`；不要用 `COUNT≠1`/`UNTIL`，否则 `BYHOUR` 按 UTC 解释）与仍未验证项（UI 编辑保存是否抹掉 `COUNT=1` → PL-085）；文件头版本 1.11 → **1.12**。§1~§10、§11.2~§11.8、§11.10~§11.11、§12 既有行一字未改 | 2026-09-25 深夜本机端到端实测（`probe-count1-20260925` → `~/.codex/sqlite/codex-dev.db` 的 `automations` / `automation_runs`）+ 应用自带调度引擎源码（asar 解包）；`docs/memory/facts.md` 同日 `[supersedes]` 条；**PL-081 更正行 / PL-084 更新 / PL-085 新提** |
