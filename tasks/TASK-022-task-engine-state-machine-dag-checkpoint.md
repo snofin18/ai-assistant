@@ -132,6 +132,7 @@ cargo run -p xtask -- verify-schemas / codegen --check / hygiene / memory-counts
 - `xtask verify-schemas / codegen --check / hygiene / memory-counts / adr-index / docscan / card-check / check-ledger / check-migrations` → 全部 PASSED。
 - `cargo deny check` → advisories / bans / licenses / sources 全 ok。
 - `xtask refscan` → 既有 baseline **151 error**；`task-engine` 命中 **0**（PL-058）。
+- GitHub PR #30：**16/16 check-runs success**；合并前 base=`main`、`mergeable_state=clean`；merge commit `9f41e92`。
 
 ### 4. DoD 逐条核对
 
