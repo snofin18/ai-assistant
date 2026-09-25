@@ -148,6 +148,8 @@ cargo run -p xtask -- verify-schemas / codegen --check / hygiene / memory-counts
 
 ### 5. 偏差
 
+**补记（2026-09-25 晚 · 完成情况复核会话）**：本卡状态行与 `README.md` / `PLAN.md` 均已同步，**但 `plans/stage-1-pilots.md` 批次表那一行漏改**（一直是 `Ready（批次表占位派单前补全）`，与本卡 `Done` 矛盾）—— 本次复核已补齐。另：下面的 DRIFT-022-1 写了「沿用 TASK-015 ~ **021** 的既有做法（就地改状态行）」，**实测 TASK-021 当时并未改**（其状态行仍是 `Ready`，同批已修），该措辞不准确；此处只作更正，不改该条历史记录（LEDGER 只追加原则）。
+
 **DRIFT-022-1（卡片状态行由 Ready → Done）**
 - 现象：卡面正文区 `- 状态：` 行由 Implementer 更新。
 - 影响：与 ADR-0031 的“正文只读”字面冲突。

@@ -184,7 +184,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-019 ✅** | A2 | `tasks/TASK-019-automation-host-ipc-named-pipe.md` | **已 Done（2026-09-25）** |
 | **TASK-020 ✅** | A2 | `tasks/TASK-020-tool-bus-mcp-rmcp-server.md` | **完整卡**（正文含 4 个待裁决项 Q1 ~ Q4；Q5 为实现时新命中，见卡 §5）；**已 Done（2026-09-25）** |
 | **TASK-021 ✅** | A2 | `tasks/TASK-021-policy-whitelist-risk-default-deny.md` | **已 Done（2026-09-25）** |
-| TASK-022 | A2 | `tasks/TASK-022-task-engine-state-machine-dag-checkpoint.md` | Ready（批次表占位派单前补全） |
+| **TASK-022 ✅** | A2 | `tasks/TASK-022-task-engine-state-machine-dag-checkpoint.md` | **完整卡**（2026-09-25 由 16:30 那次 automation 代 Orchestrator 展开正文，见卡 §5 DRIFT-022-1）；**已 Done（2026-09-25）** |
 | TASK-023 | A2 | `tasks/TASK-023-verify-postcondition-assertion-engine.md` | Ready（批次表占位派单前补全） |
 | TASK-024 | A2 | `tasks/TASK-024-undo-four-level-rollback-anchor.md` | Ready（批次表占位派单前补全） |
 | TASK-025 | A2 | `tasks/TASK-025-lease-target-exclusive-shared-intent.md` | Ready（批次表占位派单前补全） |

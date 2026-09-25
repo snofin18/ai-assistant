@@ -1,6 +1,6 @@
 # TASK-021　`policy`：白名单 + 风险分级 + 参数校验（路径穿越/URL/长度/正则复杂度）+ 规则 DSL v0 + **默认拒绝**
 
-- 状态：**Ready**
+- 状态：**Done**（2026-09-25）
 - 阶段：1　子阶段：**1a**　批次：**A2**　依赖：011　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -156,6 +156,8 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / docscan / card-check
 - [ ] “无任何 Out of scope 文件被修改”不完全成立：`Cargo.lock` 因新 workspace package 自动更新，记 DRIFT-021-2；无其他 out-of-scope 文件。
 
 ### 5. 偏差
+
+**补记（2026-09-25 晚 · 完成情况复核会话）**：本卡的 `- 状态：` 行在 13:30 那次 automation 执行时**漏改**（一直是 `Ready`），而 `LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md` 都已记 Done —— 属 PL-073 那一族的实际漂移实例。本次复核已把状态行补齐为 `Done`。同一批复核实测（`main` = `f4acebf`）：`cargo test --workspace --no-fail-fast` = **61 target 全绿 / 718 passed / 0 failed / 2 ignored**；`verify-schemas` / `codegen --check` / `hygiene` / `memory-counts` / `adr-index` / `docscan` / `card-check` / `check-ledger` / `check-migrations` 全 PASSED（`check-comments` 为 PL-002 的「故意未实现」exit 3，非缺陷）。
 
 **DRIFT-021-1（协议投影有损，已自决并落盘）**
 - 现象：`assistant_protocol::PolicyDecision` 只有 `allow` / `rule_id` / `reason`，无法承载 `AllowWithConfirmation` 的 `scope_options` / `show_diff`。
