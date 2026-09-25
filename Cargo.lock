@@ -126,6 +126,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "assistant-task-engine"
+version = "0.1.0"
+dependencies = [
+ "assistant-protocol",
+ "assistant-storage",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "assistant-tool-bus"
 version = "0.1.0"
 dependencies = [

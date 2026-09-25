@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0（文档与 Spike）已于 2026-09-20 closeout；TASK-021 `crates/policy` 已 Done（JSON DSL v0 / 五条架构示例规则 / 默认拒绝 / deny 优先 / 参数校验 / 93.60% 行覆盖）；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0（文档与 Spike）已于 2026-09-20 closeout；TASK-022 `crates/task-engine` 已 Done（12 状态机 / Plan+Step DAG / 检查点 / 恢复 / 取消 / 预算 / 看门狗 / 87.03% 行覆盖）；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
@@ -98,7 +98,7 @@ URL scheme-host-IP、文本长度与行数、数值边界、正则 ReDoS 形状�
 非空 `rule_id` 与 reason。新增 29 个测试 + 1 个 doctest，`policy` 行覆盖 **93.60%**，判定中位数
 **3.6~5.6 µs**。`assistant_protocol::PolicyDecision` 无法携带 confirmation scope / `show_diff`，故完整决策
 保留在 policy 内、协议映射只作审计摘要，协议扩展记为 **PL-082** / `DRIFT-021-1`。
-**下一张 = TASK-022（`crates/task-engine`：12 状态机 + Plan/Step DAG + 检查点 / 恢复）**。
+TASK-022 把任务编排层落地：12 个 Task 状态与完整 Step 生命周期、确定性 DAG Frontier、每次成功迁移先写检查点、SQLite 重开恢复、暂停 / 取消 / 接管、四维预算和分阶段看门狗；恢复证据缺失或 `Unknown` 一律进入 `NeedsHuman`，绝不猜测写操作是否发生过。新增 43 个测试 + 1 个 doctest，行覆盖 **87.03%**。**下一张 = TASK-023（`crates/verify`：11 种后置断言 + 状态指纹 + 幂等判定 + `on_violation`）**。
 ＋ Notepad 的 3 个任务闭环。
 阶段 0（文档与 Spike）已于 2026-09-20 closeout —— 它的产出是 Spike 报告，**不是**产品代码。
 详见 `plans/stage-1-pilots.md`。
@@ -145,7 +145,11 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-25：TASK-021 —— 唯一策略放行点 `crates/policy`（JSON DSL v0 + 五条架构示例规则 + 默认拒绝 + 参数护栏）；TASK-020 —— 工具通道 `crates/tool-bus`（in-process MCP server + `rmcp` client + draft-07 子集校验 + 统一信封 + 指纹 + 动态挂载）；TASK-019 —— Host IPC NamedPipe + token + 对端身份校验 + 心跳；TASK-018 —— 合成输入 + 坐标归一化 + IME；2026-09-24：阶段 1 地基层 + 平台抽象层 + Windows UIA provider + 治理池收口 + 护栏补齐 + TASK-016 / TASK-017 遗留裁决 = TASK-011 / 012 / 013 / 014 / 015 / 016 / 017 / 018 / 019 / 020 / 021 / 200 / 201 / 202 / 203）
+## 最近进展（2026-09-25：TASK-022 —— 任务引擎 `crates/task-engine`（12 状态机 + DAG + 检查点 / 恢复 / 预算 / 看门狗）；TASK-021 —— 唯一策略放行点 `crates/policy`；TASK-020 —— 工具通道 `crates/tool-bus`；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池 = TASK-011 ~ 021 / 200 ~ 203）
+
+**2026-09-25 —— TASK-022（`crates/task-engine`：任务状态机与恢复）**
+
+新增 `assistant-task-engine`：架构 v2 §8.1 的 12 个 Task 状态与 Step 生命周期均有显式迁移表，非法 `(state, event)` 直接拒绝。Plan DAG 校验重复 id / 缺失依赖 / 环 / 非法工具名 / 写步骤缺 postcondition / L3 未标 point-of-no-return，并返回确定性 ready frontier。每次成功迁移先持久化完整快照再返回；`MemoryCheckpointStore` 供纯逻辑测试，`SqliteCheckpointStore` 只走 `assistant-storage` 公开记录 API，并在同一事务写入初始 task 与 checkpoint。崩溃恢复对 `Executing` / `Verifying` 只接受 `Completed` / `NotCompleted` / `Unknown` 外部证据：完成则提交、未完成则重做、`Unknown` 或缺证据则 `NeedsHuman`。预算覆盖步数 / 时长 / token / 成本，看门狗覆盖 resolve / execute / verify 三段超时。新增 43 个测试 + 1 个 doctest，`cargo llvm-cov -p assistant-task-engine --fail-under-lines 85` 实测 **87.03%**。storage 暂无 task 行更新 API，最新状态以 checkpoint 为准，遗留记为 **PL-083**。
 
 **2026-09-25 —— TASK-021（`crates/policy`：唯一策略放行点）**
 

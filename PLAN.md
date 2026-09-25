@@ -7,12 +7,12 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-25（TASK-021 `policy` Done：JSON DSL v0 表达 v2 §12.2 五条示例规则 + deny 优先 + `default_deny` + L3 无人值守/污点高风险硬底线 + 路径/URL/文本/数值/正则纯函数护栏；验收证据详 LEDGER）
+更新日期    ：2026-09-25（TASK-022 `task-engine` Done：12 状态机 + Plan/Step DAG + 检查点 / 恢复 / 取消 / 预算 / 看门狗；SQLite 重开恢复与 Unknown→NeedsHuman 已验收，行覆盖 87.03%）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
-当前任务卡  ：**A2 批次进行中**：TASK-011 ✅ / 012 ✅ / 013 ✅ / 014 ✅ / 015 ✅ / 016 ✅ / 017 ✅ / 018 ✅ / 019 ✅ / 020 ✅ / **021 ✅** → **TASK-022（`task-engine`：12 状态机 + Plan/Step DAG + 检查点 / 恢复）= 下一张**；
+当前任务卡  ：**A3 批次进行中**：TASK-011 ✅ / 012 ✅ / 013 ✅ / 014 ✅ / 015 ✅ / 016 ✅ / 017 ✅ / 018 ✅ / 019 ✅ / 020 ✅ / 021 ✅ / **022 ✅** → **TASK-023（`verify`：11 种断言 + 状态指纹 + 幂等判定 + `on_violation`）= 下一张**；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203** 均 Done
-阻塞项      ：① TASK-002 仍 Blocked（上游 `create_thread` 未关）；② gov §5.1 门禁清单尚未登记 `check-migrations`（PL-056，需 ADR）；③ PL-071（ADR-0035 allow 表未登记 crate 级 `unsafe_code`）/ PL-072（`*Regex` 命名与子串语义不一致）/ PL-073（卡片 `- 状态：` 行归属机制）/ **PL-074**（`pointer_action` 不带目标窗口 → 混合 DPI 多屏下逻辑点无法唯一归属显示器，改公共接口需 ADR）需 ADR 或 Orchestrator 处置；④ **PL-078**（`xtask codegen` 生成类型无构造器/builder → 信封与审计事件只能 serde 组装）/ **PL-079**（`crates/storage` 与 `crates/tool-bus` 各自一份 `Clock` trait，建议抽 `assistant-time`）/ **PL-080**（元工具名 `toolset.list`/`toolset.search` 两段式与 `docs/spec/tool-schema.md` §4 不变量 1 冲突）/ **PL-082**（`PolicyDecision` 无法承载 confirmation scope/show_diff，安全投影有损，扩展 schema 需 ADR）
-下一步动作  ：① TASK-022 `crates/task-engine/**`：12 状态机 + Plan/Step DAG + 检查点 / 恢复 / 取消 / 预算 / 看门狗（“不确定是否执行过”必须走 NeedsHuman）
+阻塞项      ：① TASK-002 仍 Blocked（上游 `create_thread` 未关）；② gov §5.1 门禁清单尚未登记 `check-migrations`（PL-056，需 ADR）；③ PL-071（ADR-0035 allow 表未登记 crate 级 `unsafe_code`）/ PL-072（`*Regex` 命名与子串语义不一致）/ PL-073（卡片 `- 状态：` 行归属机制）/ **PL-074**（`pointer_action` 不带目标窗口 → 混合 DPI 多屏下逻辑点无法唯一归属显示器，改公共接口需 ADR）需 ADR 或 Orchestrator 处置；④ **PL-078**（`xtask codegen` 生成类型无构造器/builder → 信封与审计事件只能 serde 组装）/ **PL-079**（`crates/storage` 与 `crates/tool-bus` 各自一份 `Clock` trait，建议抽 `assistant-time`）/ **PL-080**（元工具名 `toolset.list`/`toolset.search` 两段式与 `docs/spec/tool-schema.md` §4 不变量 1 冲突）/ **PL-082**（`PolicyDecision` 无法承载 confirmation scope/show_diff，安全投影有损，扩展 schema 需 ADR）/ **PL-083**（storage 缺 task 行更新入口 → 最新 Task 状态在 checkpoint，不在 `tasks.status`）
+下一步动作  ：① TASK-023 `crates/verify/**`：11 种后置断言 + 状态指纹 + 幂等判定 + `on_violation` 分派（验证失败绝不返回 ok）
                   → ② stage-1 后续批次；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 
