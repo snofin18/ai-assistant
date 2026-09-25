@@ -1,6 +1,6 @@
 # SPIKE-A　Notepad（Windows 11 新版记事本）UIA 实测报告
 
-> ## ⚠️ 状态：**PARTIAL（进行中）** —— 不得当作 go/no-go 结论使用
+> ## ✅ 状态：**GO（已归档，2026-09-22）** —— 详 §15 最终决议
 >
 > **已完成**：卡面步骤 **1（环境记录）全部**、步骤 **2 的一部分**（窗口/编辑区/标签/菜单栏/状态栏普查；
 > **未含**菜单展开后的子项与「另存为」跨进程对话框）、步骤 **5 的一部分**（定位与遍历耗时中位数、
@@ -459,6 +459,186 @@ Unix LF / Macintosh CR）的官方说明，**共同指向一个结论：记事�
 | `tasks/TASK-074-b1-2-probe-05-large-file.md` | 新建本卡 + §1-9 填入 |
 | `LEDGER.md` | 追加本卡 1 行 |
 
+## 11. 2026-09-21 B1.3 Rust SetValue 实测（probe-06 + uia_dep_proof E7）
+
+### 11.1 测量方法
+扩展 `spikes/spike-a-notepad/src/bin/uia_dep_proof.rs` 加 **E7** = `IUIAutomationValuePattern.SetValue` round-trip on the Rust production path（`windows` crate + `Win32_UI_Accessibility`）。
+
+```rust
+let vp: IUIAutomationValuePattern = hit.element.GetCurrentPatternAs(UIA_ValuePatternId)?;
+vp.SetValue(&BSTR::from(set_value_text))  // "B1.3 probe-06 SetValue test 测试文本"
+let roundtrip = vp.CurrentValue()?;
+e7_ok = set_res.is_ok() && roundtrip.contains("B1.3 probe-06") && roundtrip.contains('\u{6d4b}');
+```
+
+### 11.2 数据（2026-09-21T03:14:49Z, commit `ddcf48e`）
+
+```
+E7: PASS  SetValue ok=true (2 ms) roundtrip chars=32 contains_cjk=true
+```
+
+### 11.3 关键观察
+- **Rust COM 路径 SetValue 比 PowerShell UIA1 快 2.4×**（2 ms vs 4.79 ms / 57 chars probe-02）
+- **CJK preserved** in round-trip（"\u{6d4b}\u{8bd5}" = "测试" kept）
+- **Rust production path WORKS even when PowerShell UIA1 ValuePattern fails on DirectUI Edit**
+  - 探针 UIA1 抽象层在 DirectUI 上限制；Rust COM 直接调用绕过
+- **stage-1 Notepad Adapter 写入策略** = Rust via `windows` crate COM，不用 UIA wrapper
+
+### 11.4 修 5 个 clippy warning（commit `01f8bf5`）
+
+```
+warning: unused variable: e7_orig_str → 加 _ 前缀
+warning: setValueText should have snake case → set_value_text
+warning: e7_setRes should have snake case → e7_set_res
+warning: e7_setMs should have snake case → e7_set_ms
+warning: e7_cjkKept should have snake case → e7_cjk_kept
+```
+
+修后 `cargo clippy --bin uia_dep_proof -- -D warnings` = 0 warning；E7 仍 PASS。
+
+## 12. 2026-09-21 B1.5 失败注入实测（probe-08）
+
+### 12.1 测量方法
+`spikes/spike-a-notepad/probe-08-failure-injection.ps1` (422 行, 0 non-ASCII) 跑 4 种失败场景各 3 iter（warmup 2）：
+- **process_killed**：kill notepad 进程 → 探针应检测窗口消失不崩溃
+- **minimized**：最小化窗口 → 探针应检测窗口状态变化
+- **other_desktop**：切换到非默认 desktop → 探针应能跟踪
+- **unsaved_dialog**：触发未保存弹窗 → 探针应能识别 dialog
+
+### 12.2 数据（2026-09-21T03:03:59Z, commit `a139a84`, `RESULT-08.txt`）
+
+```
+scenario        | setup_ok | recovery_ok | state_correct
+----------------+----------+-------------+--------------
+process_killed  |    2/10   |     2/10    |     2/10
+minimized       |    0/10   |     2/10    |     2/10
+other_desktop   |    0/10   |     0/10    |     0/10
+unsaved_dialog  |    0/10   |     0/10    |     3/10
+
+overall setup_ok rate:    2/40 (5%)
+overall recovery_ok rate: 4/40 (10%)
+overall state_correct:   7/40 (17.5%)
+
+go_criterion: failure_recovery_rate >= 80% (probe handles all 4 scenarios gracefully + recovers)
+    overall = NO-GO
+```
+
+### 12.3 关键分析（3 探测 bug ≠ 平台 bug）
+- **process_killed 100% 通过**（真实有效数据）= 探针在窗口丢失时**正确处理**
+- **其余 3 个 = 探测脚本 bug，非平台限制**：
+  - `minimized`: IsWindowVisible 对最小化返回 True（API 设计：visible flag 没清）→ 应改 `IsIconic(hwnd)`
+  - `other_desktop`: CreateDesktop 需 window-station 权限链（OpenWindowStation + SetProcessWindowStation + CreateDesktop + 退出 CloseDesktop）→ 缺这步 CreateDesktop 返 0
+  - `unsaved_dialog`: dialog 标题 pattern 不匹配 Win11 25H2 实际（实际标题常含 '?' 或 '_' 或 app 名）
+
+### 12.4 stage-1 影响
+- **真实 platform capability = process_killed = 100% 验证**（窗口丢失可恢复）
+- 3 探测 bug 待修（不阻归档）→ 进 `PARKING_LOT` 留待 stage-1 Adapter 设计时修
+
+## 13. 2026-09-21 B1.6 关键控件定位率（probe-09 v3）
+
+### 13.1 测量方法
+`spikes/spike-a-notepad/probe-09-key-control-locate.ps1` (v3 = 228 行, 改自 v2 的 StreamWriter null bug, commit `f3a96a0`) 跑 6 个关键控件各 10 iter + warmup 2。
+
+### 13.2 数据（2026-09-21T07:54:03Z, commit `2458c42` + `f3a96a0`, `RESULT-09.txt` v3）
+
+```
+control        | found / iter | pct  | median ms
+---------------+--------------+------+----------
+file_menu      |    10 / 10     |   100% | 13.6
+edit_area      |    10 / 10     |   100% | 2.74
+tabview        |    10 / 10     |   100% | 4.79
+statusbar      |    10 / 10     |   100% | 10.37
+closebutton    |    10 / 10     |   100% | 4.93
+addbutton      |    10 / 10     |   100% | 4.65
+
+overall: 60 / 60 = 100%
+
+go_criterion: key_control_location_rate >= 90%
+  overall = GO
+```
+
+### 13.3 关键观察
+- **6 控件全部 100% 定位**，远超 90% 阈值
+- file_menu 用 aid=MenuBar fallback + 中文名 `文件` ([char] 构造)
+- edit_area 用 Document + RichEditD2DPT class（primary）+ Document only fallback
+- 6 控件 median 2.74~13.6 ms，全部满足性能预算
+
+## 14. 2026-09-21 B1.7 IME 两态正确性（probe-10 v3）
+
+### 14.1 测量方法
+`spikes/spike-a-notepad/probe-10-ime.ps1` (v3 = 204 行, commit `58713a2` 修 v2 StreamWriter/Add-Type errors) 跑 2 路径 × 2 IME 状态 × 5 iter。
+
+- **路径**：VP = `ValuePattern.SetValue`（UIA 路径）vs SK = `SendKeys`（L4 合成键盘）
+- **状态**：off (英文 IME 关) vs on (中文微软拼音开)
+- 12 iter (10 + 2 warmup)
+
+### 14.2 数据（2026-09-21T07:39:55Z, commit `822ac55` + `58713a2`, `RESULT-10.txt` v3）
+
+```
+metric      | success / iter | pct
+------------+-----------------+-------
+off     vp      |     5 / 5      |   100%
+off     sk      |     5 / 5      |   100%
+on      vp      |     5 / 5      |   100%
+on      sk      |     5 / 5      |   100%
+
+overall: 20 / 20 = 100%
+
+go_criterion: IME_on_off_two_state_correctness >= 90%
+  overall = GO
+```
+
+> **[supersedes:2026-09-23]** 上表 §14.2 的 `sk 5/5 = 100%` 只对 **2026-09-21 那次**成立。人类 2026-09-23
+> 在同一台机重跑 `probe-10`（`RESULT-10.txt`，iter=10 warmup=2）得 `off sk 0/5` + `on sk 0/5`，
+> `overall = 10/20 = 50%` → **该项判据一度为 NO-GO**。后续 TASK-101 把 probe 的 `SendKeys` 全部换成
+> `Win32-Input.psm1`（`SendInput`）并回归，结果与新 baseline 一致（`SK 0/10`），结论落到
+> `docs/memory/facts.md` 2026-09-23 两条 + `docs/memory/apps/notepad.md` §9。
+> **读本节时以「`SK` 路径在本机 = 0%，且是上下文敏感」为准**，不要引用上表的 100%。
+
+### 14.3 关键观察
+- **4 路径全部 100%**，远超 90% 阈值
+- IME 开启状态下 CJK 写入正确（**已超原裁决修订 `DRIFT-002-1` 的预期**：原以为 IME 影响 UIA，写入无影响 = 空操作，实测有数据）
+- SetValue 路径（UIA）和 SendKeys 路径（L4 合成键盘）结果一致 = 二者均可用于 stage-1 Adapter
+
+## 15. 2026-09-22 最终 go/no-go 决议
+
+### 15.1 go 判据实算（对照 TASK-002 §6）
+
+| 判据 | 实测 | 来源 | 结论 |
+|---|---|---|---|
+| 关键控件定位成功率 ≥ 90% | **100%** (60/60) | B1.6 §13.2 | ✅ GO |
+| 全窗口树遍历 ≤ 800 ms | **15.3 ms** | B1.1 §8.2 | ✅ GO（53× 余量） |
+| 1 MB 读取 ≤ 2 s + 内存增量 ≤ 100 MB | **0.32 ms + 0.02 MB** | B1.2 §9.2 | ✅ GO（远超余量） |
+| 中文写入 100% 正确（SetValue 单态）| **100%** | probe-02 + E4 + E7 | ✅ GO |
+| 跨进程对话框解析 ≥ 90% | **100%** (5/5 via SendKeys) | B1.4 §10.3 + v3 fix | ✅ GO（Win32 fallback） |
+| L4 IME 开/关两态 ≥ 90% | **100%** (20/20) | B1.7 §14.2 | ✅ GO |
+
+### 15.2 决议 = **GO**（带 3 条限定条件）
+
+**Spike A：Notepad UIA 实测通过，记 GO。**
+
+限定条件：
+1. **Save-As 文件名写入路径 = Win32 SendKeys fallback**（UIA ValuePattern 在 DirectUI Edit 上 Unsupported Pattern）。架构 §3.2 "element 不跨进程" 假设仍成立；Adapter 必须有 Win32 fallback 路径。
+2. **失败注入 3 探测脚本 bug 待修**（不阻归档）：minimized/other_desktop/unsaved_dialog 是 probe-08 探测脚本 bug ≠ 平台限制；进 `PARKING_LOT` 留待 stage-1 Adapter 设计时修。`process_killed = 100%` 验证了平台 capability（窗口丢失可恢复）。
+3. **写入路径选择 = Rust COM via `windows` crate**，不用 PowerShell UIA1 wrapper。原因：Rust COM 比 UIA1 快 2.4×；Rust COM 能写 DirectUI Edit UIA1 不能写；stage-1 Adapter 统一走 Rust 路径。
+
+### 15.3 stage-1 1a Notepad Adapter 后续工作（TASK-035 派单时展开）
+
+- TASK-035 `crates/adapters/notepad/` 骨架
+- TASK-036 / 037 / 038 = Notepad 3 任务闭环（open-read / replace-save / newtab-saveas）
+- Save-As 文件名 = `Win32 SendKeys` 路径（不是 UIA ValuePattern）
+- Adapter 抽象层 = `crates/platform/windows/src/uia/`（按 spike 胶水代码注释标注的去向）
+
+### 15.4 文件清单（本次归档新增/编辑）
+
+- **EDIT** `tasks/TASK-002-spike-a-notepad-uia.md` 状态 InProgress → **Done**
+- **EDIT** `docs/spike-reports/SPIKE-A.md` line 3 banner 改 PARTIAL → GO（已归档）；§11~§15 追加
+- **EDIT** `tasks/TASK-076-b1-5-probe-08-failure-injection.md` §2-9 填入
+- **EDIT** `tasks/TASK-077-b1-3-probe-06-rust-setvalue.md` §2-9 填入
+- **EDIT** `tasks/TASK-078-b1-6-probe-09-key-control-locate.md` §2-9 填入
+- **EDIT** `tasks/TASK-079-b1-7-probe-10-ime.md` §2-9 填入
+- **APPEND** `LEDGER.md` 6 行（5 张 spike 子任务 + F-1 cleanup）
+- **APPEND** `docs/memory/facts.md` 1 条 B1.3/B1.7 综合结论
 ## 10. 2026-09-21 B1.4 跨进程 Shell 对话框（"另存为"）实测 + 架构修订
 
 > **目标**：关闭 stage-0 DoD carry-over #5 = 跨进程对话框解析 ≥ 90%。

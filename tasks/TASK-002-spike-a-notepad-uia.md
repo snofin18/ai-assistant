@@ -1,6 +1,6 @@
 # TASK-002　Spike A：Notepad UIA 实测 + 接口考古
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：0　Spike：**A**　依赖：001　预估：2 天　阻塞主线：是
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-0-spikes.md`。
