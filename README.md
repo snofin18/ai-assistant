@@ -11,7 +11,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 > TASK-017 的 7 条 DRIFT 已全部裁决落地（**ADR-0043** 元素解析加 scope / **ADR-0044** 歧义策略收敛为唯一
 > `ErrorAndAsk` / **ADR-0045** 非宿主平台编译门禁进 `AGENTS.md` §6；PL-068 / 069 / 070 闭环），
 > 同 crate 的合成输入（`SendInput`）+ 坐标归一化（DPI / 多屏）+ IME 也已落地（TASK-018 —— 铁律 5 的 **L4** 层；
-> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收，下一张是 `crates/tool-bus`（TASK-020）。**当前阶段详情以 `PLAN.md` 为准**。
+> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））也已落地，下一张是 `crates/policy`（TASK-021）。**当前阶段详情以 `PLAN.md` 为准**。
 
 ---
 
@@ -86,7 +86,12 @@ TASK-018 把铁律 5 的 **L4（合成输入）** 层补齐（`SendInput` VK 路
 新提 **PL-074**（`pointer_action` 不带目标窗口 → 混合 DPI 多屏下逻辑点无法唯一归属显示器）。
 TASK-019 把 Host IPC 传输层落地：纯函数帧编解码（magic / 16 MiB 上限 / CRC32）+ 版本化认证握手（token 常数时间比较）+
 Windows NamedPipe 传输（`PIPE_REJECT_REMOTE_CLIENTS` + 客户端 PID / 镜像路径白名单）+ 双向心跳 / 看门狗；
-真实验收启动 host、完成 `ServerHello` 与心跳后 kill host，客户端在 2 s 内检测断连。**下一张 = TASK-020（`crates/tool-bus`：MCP client(`rmcp`) + in-process server + JSON Schema 校验 + 统一返回信封）**。
+真实验收启动 host、完成 `ServerHello` 与心跳后 kill host，客户端在 2 s 内检测断连。
+TASK-020 把**工具通道**落地（架构 v2 §5.4「MCP 是唯一工具协议」）：`crates/tool-bus` 用 `rmcp` 在**同一进程**内起 MCP server、
+`tokio::io::duplex` 作传输（无 socket / 无子进程 / 无网络），`tools/list` 与 `tools/call` 全链路走**真实 MCP 往返**；调用身份经 MCP `_meta` 跨边界传递。
+参数按 `ToolSchema.input` 做 draft-07 **子集**校验（**不支持即拒绝注册**），不合法直接拒（`ToolInvalidArgs`）且**不进 handler**；返回统一为 `ToolEnvelope`（`untrusted` / `source` / `truncated` / `metrics` / `error` 齐全），超预算截断显式标注、截不动则 fail-closed；
+工具集指纹（SHA-256，与挂载顺序无关）+ `toolset.list` / `toolset.search` 两个元工具 + 单次挂载 > 40 个工具的结构化告警（含未串链审计事件）。
+**下一张 = TASK-021（`crates/policy`：白名单 / 风险分级 / 默认拒绝 / 审批决策）**。
 ＋ Notepad 的 3 个任务闭环。
 阶段 0（文档与 Spike）已于 2026-09-20 closeout —— 它的产出是 Spike 报告，**不是**产品代码。
 详见 `plans/stage-1-pilots.md`。
@@ -133,7 +138,14 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-25：TASK-019 —— Host IPC NamedPipe + token + 对端身份校验 + 心跳；TASK-018 —— 合成输入 + 坐标归一化 + IME；2026-09-24：阶段 1 地基层 + 平台抽象层 + Windows UIA provider + 治理池收口 + 护栏补齐 + TASK-016 / TASK-017 遗留裁决 = TASK-011 / 012 / 013 / 014 / 015 / 016 / 017 / 018 / 019 / 200 / 201 / 202 / 203）
+## 最近进展（2026-09-25：TASK-020 —— 工具通道 `crates/tool-bus`（in-process MCP server + `rmcp` client + draft-07 子集校验 + 统一信封 + 指纹 + 动态挂载）；TASK-019 —— Host IPC NamedPipe + token + 对端身份校验 + 心跳；TASK-018 —— 合成输入 + 坐标归一化 + IME；2026-09-24：阶段 1 地基层 + 平台抽象层 + Windows UIA provider + 治理池收口 + 护栏补齐 + TASK-016 / TASK-017 遗留裁决 = TASK-011 / 012 / 013 / 014 / 015 / 016 / 017 / 018 / 019 / 020 / 200 / 201 / 202 / 203）
+
+**2026-09-25 —— TASK-020（`crates/tool-bus`：MCP 工具通道）**
+
+新增 `assistant-tool-bus`：内置工具以**同进程 MCP server** 暴露，Agent Core 侧是 MCP client，传输用 `tokio::io::duplex` 的内存管道（无 socket / 无子进程 / 无网络），因此「内部工具也以 MCP 表达」不需要 stdio 或 http。`tools/list` 与 `tools/call` 全链路有测试证据（`test_mcp_round_trip_lists_and_calls_tool`）；调用身份经 MCP `_meta` 跨边界传递，服务端从 `RequestContext.meta` 读回 `task_id` / `step_id` 写进信封。
+参数按 `ToolSchema.input` 走手写的 draft-07 **子集**校验（Q2 选 (c)；(a) `jsonschema` 会把传递依赖 `borrow-or-share`(MIT-0) 带进依赖图，而 `deny.toml` 白名单不含它 —— 放宽白名单是漂移触发器 ⑥），**不在支持清单里的关键字一律拒绝注册**（fail-closed）；非法参数返回 `ErrorCode::ToolInvalidArgs` 且**永不进入 handler**（负向用例断言计数器仍为 0）。
+返回一律是 `assistant_protocol::ToolEnvelope`：`untrusted` 内容强制带 `source`，超 `max_bytes` 截断并显式写 `reason` / `original_bytes`，截不动（如键名开销就超预算）则 fail-closed 成 `Fatal` 失败信封。工具集指纹对「名字 + 版本 + 描述 + 风险级 + 规范化 schema」取 SHA-256（顺序无关），两个元工具 `toolset.list` / `toolset.search` 提供按需检索，单次挂载 > 40 个工具产出结构化 `ToolsetOversizeWarning` + 未串链 `AuditEvent`。
+本卡引入 `rmcp` 3.4 / `tokio` 1 / `thiserror` 2 并逐条登记 `docs/DEPENDENCIES.md`（Q1 / Q4 / Q5）；`cargo deny check` 四项全 ok。新增 `crates/tool-bus/README.md`（职责 / 边界 / 不变量 / **已知限制**）与 8 个集成测试（新基线：`cargo test --workspace` = 43 target / 644 passed）。
 
 **2026-09-25 —— TASK-019（`crates/ipc` + `apps/automation-host`：Host IPC 传输层）**
 

@@ -1,0 +1,38 @@
+
+[package]
+name = "assistant-tool-bus"
+description = "MCP tool bus: in-process MCP server + client, JSON Schema input validation, unified ToolEnvelope assembly, toolset fingerprint."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# 第三方依赖一律先登记 docs/DEPENDENCIES.md 再引入（登记表「登记规则」1；TASK-020）。
+# 版本 / 用途 / 许可证 / 替代方案 / 批准 见《DEPENDENCIES.md》中 TASK-020 引入的那几行。
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+thiserror = "2"
+# Q1：架构 v2 §5.4 指定的 MCP 官方 Rust SDK。只开 client + server
+#（server 自带 transport-async-rw = in-process 传输所需），不开 http / reqwest / auth → 零网络。
+rmcp = { version = "3.4", default-features = false, features = ["client", "server"] }
+# Q4：in-process 传输 = tokio::io::duplex（内存管道，无 socket、无子进程、无网络）。
+tokio = { version = "1", features = [
+    "io-util",
+    "macros",
+    "rt",
+    "rt-multi-thread",
+    "sync",
+    "time",
+] }
+
+[dependencies.assistant-protocol]
+# 工作区内依赖（非第三方，无需登记）。必须同时写 `version`：deny.toml 的
+# `[bans] wildcards = "deny"` 会把「只有 path 没有 version」判成通配依赖。
+path = "../protocol"
+version = "0.1.0"
+
+[lints]
+workspace = true
