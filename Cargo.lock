@@ -91,6 +91,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "assistant-policy"
+version = "0.1.0"
+dependencies = [
+ "assistant-protocol",
+]
+
+[[package]]
 name = "assistant-protocol"
 version = "0.1.0"
 dependencies = [

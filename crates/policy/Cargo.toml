@@ -1,0 +1,19 @@
+[package]
+name = "assistant-policy"
+description = "Fail-closed policy evaluation and parameter validation; the only policy allow/deny point."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[dependencies.assistant-protocol]
+# Workspace dependency (not a third-party crate). `version` is required by
+# deny.toml's wildcard-dependency ban.
+path = "../protocol"
+version = "0.1.0"
+
+[lints]
+workspace = true
