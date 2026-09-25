@@ -47,8 +47,9 @@
 | **0043** | `0043-uia-element-resolution-scope.md` | **Accepted** | 元素解析必须有 scope（父窗口）：`resolve_element` / `wait_for` 的首参改为 `&ResolvedWindow`，搜索起点 = 该窗口的 UIA 根元素；**禁止**从桌面根搜元素（PL-068 + DRIFT-017-7 裁决；架构 v2 §13.1.1 / §6.2 已同步） |
 | **0044** | `0044-ambiguity-policy-alignment.md` | **Accepted** | 歧义策略与架构 v2 §6.6 对齐：平台层只保留 fail-closed 的 `error_and_ask`，**删除** `OnAmbiguous::HighestScore`（候选链模型里不可实现）；`require_unique` / `first_by_order` / `disambiguate_by` 的归属层写清（PL-069 闭环） |
 | **0045** | `0045-non-host-target-lint-gate.md` | **Accepted** | `#[cfg]` 分叉代码的「非宿主平台」编译门禁：Windows 开发机上用 `cargo clippy --target <非 Windows 目标> -p <纯 Rust crate>` 覆盖 `#[cfg(not(windows))]`；适用范围 = 无 C 依赖的 crate（PL-070 闭环） |
+| **0046** | `0046-automation-one-shot-instruction-driven.md` | **Accepted** | 自主自动化的形态 = **人类指令驱动的「一次性」任务**：建立需人类指令；不同自动化间隔 **≥ 2.5 h（默认 3 h）**；任务内容**按实际进度**现场决定（不写死卡号）；任何时间可提；默认授权按最优解自决 + 授权 git 合并；无法决定时「可跳过则跳过 / 不可跳过则停止返回失败」（PL-077 闭环；授权修订章程 §11.1/§11.3/§11.4 + 新增 §11.11 与手册 §4.1） |
 
-**下一个可用编号：0046**（= §1 与 §2 已用最大号 0045 + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0047**（= §1 与 §2 已用最大号 0046 + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是可用号** —— 它是 §2 的**待建号**，已预留给「`#[allow]` 的唯一合法位置」那条决策
