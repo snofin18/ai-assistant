@@ -1,0 +1,28 @@
+[package]
+name = "assistant-task-engine"
+description = "Deterministic task and step state machines, DAG scheduling, checkpoints, recovery, budgets, and watchdogs."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# Third-party dependencies are already approved in docs/DEPENDENCIES.md.
+# TASK-022 adds this crate as a usage site for both rows.
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2"
+
+[dependencies.assistant-protocol]
+# Workspace dependency. `version` is required by deny.toml's wildcard ban.
+path = "../protocol"
+version = "0.1.0"
+
+[dependencies.assistant-storage]
+# Workspace dependency. The SQLite checkpoint adapter uses only its public
+# task/checkpoint record APIs; no schema is declared or owned here.
+path = "../storage"
+version = "0.1.0"
+
+[lints]
+workspace = true

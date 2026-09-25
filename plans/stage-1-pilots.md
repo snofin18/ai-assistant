@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011 / 012 / 013 / 014 / **015**；A2 **TASK-016 / 017 / 018 / 019 已 Done（2026-09-25）**，其中 TASK-019 = `automation-host` 进程 + `crates/ipc`：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗 、**TASK-020 = `crates/tool-bus`：MCP client(`rmcp`) + in-process server + draft-07 子集参数校验 + 统一返回信封 + 工具集指纹 + 动态挂载（含 > 40 告警）已 Done（2026-09-25）**、**TASK-021 = `crates/policy`：JSON DSL v0 + 五条架构示例规则 + 默认拒绝 + deny 优先 + 参数护栏已 Done（2026-09-25）** → 下一张 = **TASK-022**（`task-engine`：12 状态机 + Plan/Step DAG + 检查点 / 恢复））　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011 / 012 / 013 / 014 / **015**；A2 **TASK-016 / 017 / 018 / 019 已 Done（2026-09-25）**，其中 TASK-019 = `automation-host` 进程 + `crates/ipc`：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗 、**TASK-020 = `crates/tool-bus`：MCP client(`rmcp`) + in-process server + draft-07 子集参数校验 + 统一返回信封 + 工具集指纹 + 动态挂载（含 > 40 告警）已 Done（2026-09-25）**、**TASK-021 = `crates/policy`：JSON DSL v0 + 五条架构示例规则 + 默认拒绝 + deny 优先 + 参数护栏已 Done（2026-09-25）**、**TASK-022 = `crates/task-engine`：12 状态机 + Plan/Step DAG + 检查点 / 恢复 / 取消 / 预算 / 看门狗已 Done（2026-09-25）** → 下一张 = **TASK-023**（`verify`：11 种断言 + 状态指纹 + 幂等判定 + `on_violation`））　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -77,7 +77,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 |---|---|---|---|---|---|
 | **020** | `tool-bus`：MCP client(`rmcp`) + in-process server + JSON Schema 校验 + **统一返回信封**（`untrusted`/`truncated`）+ 工具集指纹 + 动态挂载 | `crates/tool-bus/**` | 011 | L | 内部工具经 MCP 表达；信封字段齐全；工具数 > 40 时告警；schema 不合法直接拒 |
 | **021 ✅** | `policy`：白名单 + 风险分级 + 参数校验（路径穿越/URL/长度/正则复杂度）+ 规则 DSL v0 + **默认拒绝** | `crates/policy/**` | 011 | L | v2 §12.2 五条示例规则全部可表达；决策是**纯函数**；每个 deny 带 `rule_id` 与可读 reason；策略判定 < 50 µs |
-| **022** | `task-engine`：12 状态机 + Plan/Step DAG + 检查点 + 恢复 + 取消 + 预算 + 看门狗 | `crates/task-engine/**` | 011,012 | L | 状态迁移全部持久化；崩溃后能恢复；**"不确定是否执行过"必须走 NeedsHuman**（禁止猜测） |
+| **022 ✅** | `task-engine`：12 状态机 + Plan/Step DAG + 检查点 + 恢复 + 取消 + 预算 + 看门狗 | `crates/task-engine/**` | 011,012 | L | 状态迁移全部持久化；崩溃后能恢复；**"不确定是否执行过"必须走 NeedsHuman**（禁止猜测） |
 | **023** | `verify`：后置断言引擎（11 种断言）+ 状态指纹 + 幂等判定 + `on_violation` 分派 | `crates/verify/**` | 011 | M | 断言类型齐全；**验证失败绝不返回 ok**；指纹可配置忽略字段（防抖） |
 | **024** | `undo`：可逆性四级 + 锚点（内容快照/影子副本/步数级）+ 回滚剧本执行 + 冲突检测 + incident 上报 | `crates/undo/**` | 012,023 | L | Spike F 三条路径达标；冲突 100% 检测且默认最保守；撤销失败按 incident 处理 |
 | **025** | `lease`：目标租约（exclusive/shared/intent + TTL + 续租 + 用户抢占 + 死锁避免） | `crates/lease/**` | 011 | S | 同目标同刻仅一个写租约；用户操作可强制释放；租约冲突是可读错误 |
