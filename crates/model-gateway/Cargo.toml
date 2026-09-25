@@ -1,0 +1,16 @@
+[package]
+name = "assistant-model-gateway"
+description = "Provider-neutral model routing, streaming, cancellation, fallback, retry, prompt-cache hints, and cost accounting."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies.assistant-protocol]
+# Reuse the stable protocol error categories. No third-party dependency is added.
+path = "../protocol"
+version = "0.1.0"
+
+[lints]
+workspace = true

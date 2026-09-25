@@ -82,6 +82,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "assistant-model-gateway"
+version = "0.1.0"
+dependencies = [
+ "assistant-protocol",
+]
+
+[[package]]
 name = "assistant-platform-api"
 version = "0.1.0"
 dependencies = [
