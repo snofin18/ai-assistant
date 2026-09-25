@@ -111,18 +111,83 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / docscan / card-check
 
 ### 1. 约束回执
 
+【任务】TASK-021 `policy`：白名单 + 风险分级 + 参数校验 + 规则 DSL v0 + 默认拒绝
+【目标】新建 `assistant-policy`，把架构 v2 §12.2/§12.3 的五条示例规则和参数护栏实现为无 IO 的纯函数，并作为唯一放行点。
+【write scope】`crates/policy/**`、`docs/DEPENDENCIES.md`（追加本卡依赖口径），以及任务完成后按 §11 同步的任务卡记录区、`LEDGER.md`、`PLAN.md`、`README.md`、`plans/stage-1-pilots.md`、必要 memory / PARKING_LOT。
+【铁律】1 无静默失败；2 不可信输入先校验；3 策略引擎唯一放行点；4 写操作须有 postcondition；6 L3 不可逆动作禁止无人值守；9 不静默扩大范围。
+【禁止】不碰 tool-bus / hitl / lease / 污点存储 / DLP / 持久化；不改 protocol schema / 公共接口 / 平台 crate；不加依赖、`unsafe`、`#[allow]`、`unwrap` / `expect` / `panic`。
+【验收】fmt / workspace clippy / workspace test / core arch / policy 测试 / xtask 文档门禁 → 全绿；五条规则各含正反用例；默认拒绝；deny 字段非空；判定 < 50 µs；参数负例 ≥ 8。
+【依赖】TASK-011 Done；TASK-020 已合并，`main` 干净且与 `origin/main` 同 SHA。
+【疑问】Q1 用 `serde_json`；Q2 保守静态正则子集；Q3 policy 内唯一定义 `Reversibility` / `Effect`；Q4 多数轮次中位数 + 10× 余量；Q5 `unattended` 只读 fixture。
+
 ### 2. 实际改动文件
+
+- 新增 `crates/policy/`：`Cargo.toml`、README、9 个 `src` 模块、6 个集成测试文件。
+- `docs/DEPENDENCIES.md`：追加“TASK-021 零新增第三方依赖”口径。
+- `Cargo.lock`：workspace 自动登记新 `assistant-policy` package（DRIFT-021-2）。
+- 文档同步：本卡记录区、`LEDGER.md`、`PLAN.md`、`README.md`、`plans/stage-1-pilots.md`、`MEMORY.md` 规模表、`docs/memory/{facts,pitfalls}.md`、`docs/PARKING_LOT.md`。
 
 ### 3. 验收输出摘要
 
+- `cargo fmt --all --check` → exit 0。
+- `cargo clippy --all-targets -- -D warnings` → exit 0；policy 全目标严格 clippy 亦 exit 0。
+- `cargo test --workspace --no-fail-fast` → 全绿；本卡新增 29 个测试 + 1 个 doctest。
+- `cargo test -p assistant-policy -- --nocapture` → 29 passed / 0 failed / 1 doctest passed。
+- `cargo test -p assistant-core arch::` → 5 passed。
+- `cargo clippy --target x86_64-unknown-linux-gnu -p assistant-policy --all-targets -- -D warnings` → exit 0。
+- `cargo clippy --target aarch64-apple-darwin -p assistant-policy --all-targets -- -D warnings` → exit 0。
+- `cargo llvm-cov -p assistant-policy --fail-under-lines 85` → PASSED，行覆盖 **93.60%**。
+- `xtask verify-schemas` / `codegen --check` / `hygiene` / `memory-counts` / `adr-index` / `docscan` / `card-check` / `check-ledger` / `check-migrations` / `cargo deny check` → 全绿（其中 hygiene 4 个既有超长 warning、docscan 536 个既有 warning，均无 Error）。
+- 性能：普通测试中位数 **3.6~3.8 µs**；llvm-cov instrumentation 下 **5.4~5.6 µs**；断言上限 500 µs（50 µs 的 10×）。
+- 既有基线：`xtask refscan` = 151 error（与 TASK-020 基线一致，本卡新增 0）；`xtask check-comments` 仍为未实现且显式失败（PL-002），不是本卡新增。
+
 ### 4. DoD 逐条核对
+
+- [x] 验收命令全部通过。
+- [x] 架构 v2 §12.2 五条规则全部可由 JSON DSL v0 表达，且各含正反用例。
+- [x] 空规则集 / 无命中 → `default_deny`。
+- [x] 判定为纯函数；重复同输入结果一致；实现无 IO / 时钟 / 随机 / 全局可变状态。
+- [x] 每个 deny 都带非空 `rule_id` 与 reason。
+- [x] 判定中位数 < 50 µs（实测 3.7 µs）。
+- [x] 路径 / URL / 文本 / 数值 / 正则均有拒绝用例，负向断言 ≥ 8。
+- [x] README 含职责 / 边界 / 不变量 / 已知限制。
+- [x] `docs/DEPENDENCIES.md` 明确本卡零新增第三方依赖。
+- [x] Ledger 与长期记忆已同步。
+- [ ] “无任何 Out of scope 文件被修改”不完全成立：`Cargo.lock` 因新 workspace package 自动更新，记 DRIFT-021-2；无其他 out-of-scope 文件。
 
 ### 5. 偏差
 
+**DRIFT-021-1（协议投影有损，已自决并落盘）**
+- 现象：`assistant_protocol::PolicyDecision` 只有 `allow` / `rule_id` / `reason`，无法承载 `AllowWithConfirmation` 的 `scope_options` / `show_diff`。
+- 影响：若调用方把协议投影当完整 policy 决策，会静默丢失审批范围约束。
+- 处置：policy-local 富 `Decision` 保持唯一执行依据；协议投影明确标注为审计摘要，confirmation 投影为 `allow=true` + reason；README 已知限制、PL-082、pitfall、LEDGER 同步。未改 schema。
+
+**DRIFT-021-2（`Cargo.lock` 自动更新）**
+- 现象：新增 `crates/policy` 后 workspace lockfile 自动增加 `assistant-policy` package。
+- 影响：文件不在卡面显式 write scope，但不更新会让 workspace/CI 不一致。
+- 处置：自裁决接受；该 package 无第三方依赖，依赖仍为零新增。
+
 ### 6. 更合理做法
+
+- 规则判定改为“所有 deny 优先 + 安全底线前置”，避免未来规则顺序调换把硬禁令降级。
+- URL / 路径 / 正则均采用保守子集，未支持形态 fail-closed，而不是引入解析库扩大供应链面。
+- 覆盖测试按拒绝分支组织，先覆盖 fail-closed 出口，再补正向路径。
 
 ### 7. 遗留问题
 
+- **PL-082**：协议需扩展才能跨边界无损传递审批范围；TASK-027 接线前需 ADR。
+- `Reversibility` / `Effect` 暂仅存在于 policy，待 TASK-024 收敛。
+- `unattended` 的真实来源需在 TASK-027 / TASK-028 接线。
+- `xtask check-comments` 仍未实现（PL-002）；`refscan` 仍为既有 151 error（PL-058）。
+
 ### 8. 新增长期记忆
 
+- `docs/memory/facts.md`：policy 微秒级性能、复用 `assistant-protocol` serde_json re-export、93.60% 覆盖基线。
+- `docs/memory/pitfalls.md`：协议 `PolicyDecision` 不能承载 confirmation scope，禁止从审计投影反推审批范围。
+- `docs/PARKING_LOT.md`：PL-082。
+
 ### 9. 给审阅者的关注点
+
+1. **默认放行路径**：重点检查 `RuleSet::evaluate` 的所有出口。当前顺序是安全硬底线 → 任一 deny → confirmation → allow → `default_deny`；无效规则集返回错误，绝不转 allow。
+2. **参数护栏边界**：路径 containment 依赖调用方提供的 resolved path；URL / regex 是保守子集。重点确认“不支持即拒绝”没有被误解为完整 URL / regex 实现。
+3. **协议投影**：确认调用方把 policy-local 富 Decision 作为执行依据，协议 `PolicyDecision` 只用于审计；这是 DRIFT-021-1 的剩余风险边界。

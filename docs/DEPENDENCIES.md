@@ -34,6 +34,9 @@
 | `windows` | **`=0.62.2`**（精确钉定；0.x 版本间**有**破坏性变更，升级 = 漂移触发器） | `spikes/spike-a-notepad`（阶段 0）＋ `crates/platform/windows`（阶段 1，TASK-017 起为**产品代码**）＋ `crates/ipc`（TASK-019 的 NamedPipe / 对端进程查询） | Win32/WinRT 官方投影。Spike A 验证 UIA COM；产品侧提供 UIA、合成输入与 NamedPipe / `GetNamedPipeClientProcessId` / `QueryFullProcessImageNameW` / `BCryptGenRandom` | MIT OR Apache-2.0（`cargo deny check licenses` 2026-09-18 本机实测 `licenses ok`，exit 0） | 替代方案 = 第三方封装 crate `uiautomation`，**已否决**（ADR-0024 D1）；NamedPipe 与进程身份没有 std 等价物，第三次复用同一官方投影比手写 FFI 更可审计 | **Approved**（产品侧；TASK-017 Q1 升级，TASK-019 沿用） | 人类（指示 #6）；人类（chat 2026-09-24，TASK-017 Q1 批准） | 2026-09-18 / 2026-09-24 |
 | `uiautomation` | — | — | （曾考虑用于 spike 的 UIA 访问） | 未核实 | **Rejected**：见 ADR-0024 D1 的对比表与裁决理由（决定性一条 = spike 必须走生产路径去撞墙） | **Rejected** | 人类（指示 #6） | 2026-09-18 |
 
+> **TASK-021 零新增第三方依赖**：`crates/policy` 只依赖 workspace crate `assistant-protocol`，
+> 并复用它对 `serde_json` 的 re-export 做 DSL v0 的 JSON 解析；未直接引入新的第三方 crate。
+
 > 计划中的依赖（**尚未引入**，引入时逐条登记并走漂移升级；已引入的不再列在这里）：
 > `tauri`、`tracing`（`tokio` / `rmcp` / `windows` 已于 2026-09-25 由 TASK-020 / TASK-017 引入，见上表）。
 > 它们的选型理由见 `cross-platform-ai-assistant-architecture-v2.md` §15 与 `docs/storage-design.md`。

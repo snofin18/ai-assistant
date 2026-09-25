@@ -4,14 +4,14 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0（文档与 Spike）已于 2026-09-20 closeout；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0（文档与 Spike）已于 2026-09-20 closeout；TASK-021 `crates/policy` 已 Done（JSON DSL v0 / 五条架构示例规则 / 默认拒绝 / deny 优先 / 参数校验 / 93.60% 行覆盖）；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
 > TASK-017 的 7 条 DRIFT 已全部裁决落地（**ADR-0043** 元素解析加 scope / **ADR-0044** 歧义策略收敛为唯一
 > `ErrorAndAsk` / **ADR-0045** 非宿主平台编译门禁进 `AGENTS.md` §6；PL-068 / 069 / 070 闭环），
 > 同 crate 的合成输入（`SendInput`）+ 坐标归一化（DPI / 多屏）+ IME 也已落地（TASK-018 —— 铁律 5 的 **L4** 层；
-> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））也已落地，下一张是 `crates/policy`（TASK-021）。**当前阶段详情以 `PLAN.md` 为准**。
+> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））与 **`crates/policy`**（TASK-021：唯一放行点 / 默认拒绝 / deny 优先 / DSL v0 / 参数护栏）均已落地，下一张是 `crates/task-engine`（TASK-022）。**当前阶段详情以 `PLAN.md` 为准**。
 
 ---
 
@@ -91,7 +91,14 @@ TASK-020 把**工具通道**落地（架构 v2 §5.4「MCP 是唯一工具协议
 `tokio::io::duplex` 作传输（无 socket / 无子进程 / 无网络），`tools/list` 与 `tools/call` 全链路走**真实 MCP 往返**；调用身份经 MCP `_meta` 跨边界传递。
 参数按 `ToolSchema.input` 做 draft-07 **子集**校验（**不支持即拒绝注册**），不合法直接拒（`ToolInvalidArgs`）且**不进 handler**；返回统一为 `ToolEnvelope`（`untrusted` / `source` / `truncated` / `metrics` / `error` 齐全），超预算截断显式标注、截不动则 fail-closed；
 工具集指纹（SHA-256，与挂载顺序无关）+ `toolset.list` / `toolset.search` 两个元工具 + 单次挂载 > 40 个工具的结构化告警（含未串链审计事件）。
-**下一张 = TASK-021（`crates/policy`：白名单 / 风险分级 / 默认拒绝 / 审批决策）**。
+TASK-021 把**唯一策略放行点**落地：`crates/policy` 用 JSON DSL v0 完整表达架构 v2 §12.2 的五条示例规则，
+求值为无 IO / 无时钟 / 无随机的纯函数；deny 优先，未命中一律 `default_deny`，且 `L3 + unattended` 与
+污点上下文中的 L3 / High / Critical 由不可绕过的硬底线拒绝。路径穿越 / UNC / 设备路径 / 符号链接逃逸、
+URL scheme-host-IP、文本长度与行数、数值边界、正则 ReDoS 形状均走 fail-closed 护栏；每个 deny 都带
+非空 `rule_id` 与 reason。新增 29 个测试 + 1 个 doctest，`policy` 行覆盖 **93.60%**，判定中位数
+**3.6~5.6 µs**。`assistant_protocol::PolicyDecision` 无法携带 confirmation scope / `show_diff`，故完整决策
+保留在 policy 内、协议映射只作审计摘要，协议扩展记为 **PL-082** / `DRIFT-021-1`。
+**下一张 = TASK-022（`crates/task-engine`：12 状态机 + Plan/Step DAG + 检查点 / 恢复）**。
 ＋ Notepad 的 3 个任务闭环。
 阶段 0（文档与 Spike）已于 2026-09-20 closeout —— 它的产出是 Spike 报告，**不是**产品代码。
 详见 `plans/stage-1-pilots.md`。
@@ -138,7 +145,11 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-25：TASK-020 —— 工具通道 `crates/tool-bus`（in-process MCP server + `rmcp` client + draft-07 子集校验 + 统一信封 + 指纹 + 动态挂载）；TASK-019 —— Host IPC NamedPipe + token + 对端身份校验 + 心跳；TASK-018 —— 合成输入 + 坐标归一化 + IME；2026-09-24：阶段 1 地基层 + 平台抽象层 + Windows UIA provider + 治理池收口 + 护栏补齐 + TASK-016 / TASK-017 遗留裁决 = TASK-011 / 012 / 013 / 014 / 015 / 016 / 017 / 018 / 019 / 020 / 200 / 201 / 202 / 203）
+## 最近进展（2026-09-25：TASK-021 —— 唯一策略放行点 `crates/policy`（JSON DSL v0 + 五条架构示例规则 + 默认拒绝 + 参数护栏）；TASK-020 —— 工具通道 `crates/tool-bus`（in-process MCP server + `rmcp` client + draft-07 子集校验 + 统一信封 + 指纹 + 动态挂载）；TASK-019 —— Host IPC NamedPipe + token + 对端身份校验 + 心跳；TASK-018 —— 合成输入 + 坐标归一化 + IME；2026-09-24：阶段 1 地基层 + 平台抽象层 + Windows UIA provider + 治理池收口 + 护栏补齐 + TASK-016 / TASK-017 遗留裁决 = TASK-011 / 012 / 013 / 014 / 015 / 016 / 017 / 018 / 019 / 020 / 021 / 200 / 201 / 202 / 203）
+
+**2026-09-25 —— TASK-021（`crates/policy`：唯一策略放行点）**
+
+新增 `assistant-policy`：规则集用 JSON DSL v0 表达架构 v2 §12.2 的五条示例规则，求值全程无 IO、时钟、随机与全局可变状态。任一命中的 deny 压过 allow / confirmation；`L3 + unattended` 与污点上下文中的 L3 / High / Critical 由安全底线先行拒绝，自定义规则不可覆盖；空规则集或未命中一律 `default_deny`。参数护栏覆盖路径穿越 / 编码逃逸 / UNC / 设备名 / resolved-root containment、URL scheme / host / IP / port、文本长度 / 行数 / 控制字符、数值范围和正则 lookaround / 回引 / 嵌套量词；不支持即拒绝。新增 29 个测试 + 1 个 doctest，`cargo llvm-cov -p assistant-policy --fail-under-lines 85` 实测行覆盖 **93.60%**，判定中位数 **3.6~5.6 µs**。`PolicyDecision` 的 confirmation 投影缺口已记录为 `DRIFT-021-1` / PL-082。
 
 **2026-09-25 —— TASK-020（`crates/tool-bus`：MCP 工具通道）**
 
