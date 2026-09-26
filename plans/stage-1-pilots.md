@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~027 已 Done（2026-09-25 / 2026-09-26）**，其中 TASK-027 = `crates/hitl`：ADR-0048 无损确认投影 + 审批请求 + 四维授权/TTL/次数 + 接管交还重同步 + 暂停恢复 + diff 数据准备已 Done（2026-09-26） → 下一张 = **TASK-028**）　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~027 已 Done（2026-09-25 / 2026-09-26）**，其中 TASK-027 = `crates/hitl`：ADR-0048 无损确认投影 + 审批请求 + 四维授权/TTL/次数 + 接管交还重同步 + 暂停恢复 + diff 数据准备已 Done（2026-09-26） → 下一张 = **TASK-028**（2026-09-26 拆卡：TASK-028 收窄为「会话 + 上下文」；Planner → **TASK-207**、Memory → **TASK-208**、storage `memory_fts` 前置 → **TASK-206**、装配 → TASK-029；依据 **ADR-0053**））　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -71,6 +71,11 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **018 ✅** | `platform/windows`：合成输入（SendInput）+ 焦点校验 + 坐标归一化（DPI/多屏）+ IME 处理 | `crates/platform/windows/src/input/**`、`.../src/coordinates/**` | 016 | M | 发送快捷键前 100% 校验前台窗口；Spike A2 的坐标精度矩阵全配置 ≤ 2 px；IME 开启时文本写入仍正确 |
 | **019 ✅** | `automation-host` 进程 + `ipc`（JSON-RPC/NamedPipe + token + 对端身份校验 + 心跳 + 看门狗） | `apps/automation-host/**`、`crates/ipc/**` | 016 | M | Spike B 的重解析矩阵达标（≥95%）；**element 不出进程**（arch test 校验）；host 崩溃可被检测 |
 
+> **2026-09-26 拆卡登记（ADR-0053 D7；人类 chat「drift-028 的 5 点都按照你的建议做」）**：原 TASK-028 的批次表行按拆卡结果**收窄**，并**新增** 207 / 208 两行；
+> 「组装」下沉到 TASK-029（见 A4 表与 ADR-0053 D5）；storage 侧前置卡 **TASK-206** 属治理池，登记在文末「跨阶段治理卡」表（不在本阶段批次表内）。
+> 被替换的旧行内容**完整保留**在 `tasks/TASK-028-core-session-context.md` 的记录区与 `LEDGER.md`（只追加，不改写历史）。
+> ⚠ **TASK-028 / 207 / 208 共用 `crates/core/**` → 三者必须严格串行**（依赖列已保证顺序），不得并行。
+
 ### 批次 A3　内核层（016 完成后可 3 路并行，write scope 天然不重叠）
 
 | 卡号 | 标题 | write scope | 依赖 | 预估 | 验收要点 |
@@ -83,13 +88,15 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **025 ✅** | `lease`：目标租约（exclusive/shared/intent + TTL + 续租 + 用户抢占 + 死锁避免） | `crates/lease/**` | 011 | S | 同目标同刻仅一个写租约；用户操作可强制释放；租约冲突是可读错误 |
 | **026 ✅** | `model-gateway`：Provider trait（流式/取消/用量）+ 路由器 + 降级链 + 重试退避 + prompt cache 提示 + 成本计量 | `crates/model-gateway/**` | 011 | L | v2 §11.2 路由规则可配置；**取消能在 1 s 内中止请求**；每步记录 tokens/cost/latency |
 | **027 ✅** | `hitl`：审批请求 + 授权范围（四维+TTL）+ 用户接管 + 暂停恢复 + 差异预览数据准备 | `crates/hitl/**` | 021,022 | M | 高风险禁止 persistent 授权；接管后交还需重新同步状态；审批超时行为明确 |
-| **028** | `core`：会话管理 + 上下文管理（树裁剪/压缩/预算）+ Planner + Memory(App Map 加载/FTS5 检索) + 组装 | `crates/core/**` | 020~027 | L | arch test 通过（core 只依赖 trait）；上下文预算生效；App Map 按需片段注入 |
+| **028** | `core`：会话管理 + 上下文管理（树裁剪 / 压缩 / 预算） —— **原 TASK-028 拆卡主卡**（2026-09-26，ADR-0053 D7） | `crates/core/**` | 020~027 | M | arch test 通过（core 只依赖白名单 crate）；上下文预算生效且**丢弃必须显式标注**；会话生命周期 + 消息树可测 |
+| **207** | `core`：Planner（模型输出 → 可校验的 Plan / Step DAG；**复用** `task-engine` 类型） | `crates/core/**` | 022,026,028 | M | 六类负向用例齐全（重复 id / 缺依赖 / 环 / 非法工具名 / 写步骤缺 postcondition / L3 未标 point-of-no-return）；不重定义 `Plan` / `Step` |
+| **208** | `core`：Memory（App Map 加载 + 消费 storage 的 FTS5 检索 API） | `crates/core/**` | 206,028 | M | App Map 四类负向用例（缺失 / 损坏 / 版本不匹配 / 路径穿越）；片段带来源与位置；检索错误**透传** `reason_code` |
 
 ### 批次 A4　应用与 UI（028 完成后可 2 路并行）
 
 | 卡号 | 标题 | write scope | 依赖 | 预估 | 验收要点 |
 |---|---|---|---|---|---|
-| **029** | 二进制骨架：`apps/agent-core` + `apps/desktop-ui`（Tauri 2 + React + TS + Tailwind）+ capabilities 最小化 + CSP | `apps/agent-core/**`、`apps/desktop-ui/src-tauri/**`、`apps/desktop-ui/*.config.*` | 028 | M | **webview 零系统权限**；CSP 严格；禁远端内容；IPC 全部走 token |
+| **029** | 二进制骨架：`apps/agent-core` + `apps/desktop-ui`（Tauri 2 + React + TS + Tailwind）+ capabilities 最小化 + CSP ＋ **Host 装配**（把 `core` 组件与 platform / tool-bus / policy / storage / audit 组装起来 —— 2026-09-26 **ADR-0053 D5**） | `apps/agent-core/**`、`apps/desktop-ui/src-tauri/**`、`apps/desktop-ui/*.config.*` | 028,206,207,208 | L | **webview 零系统权限**；CSP 严格；禁远端内容；IPC 全部走 token；**装配点唯一在 binary**（`core` 不装配） |
 | **030** | UI：审批卡片（含 diff + 来源归因 + 授权范围）+ 执行时间线（含证据与撤销按钮） | `apps/desktop-ui/src/features/approval/**`、`.../timeline/**` | 029 | L | v2 §10.2 全部字段齐备；`app_content` 来源标红且默认拒绝；撤销按钮按可逆性分级禁用 |
 | **031** | UI：元素拾取器 v0（悬停高亮 + 属性面板 + 一键生成 selector 候选链）+ 目标绑定向导 | `apps/desktop-ui/src/features/picker/**`、`.../binding/**` | 029,017 | L | 能对记事本生成 ≥ 3 种候选 selector 并写回 Adapter 草稿 |
 | **032** | UI：策略面板 + **出域三档开关**（含逐应用覆盖）+ Capability Matrix 视图 + 成本面板 | `apps/desktop-ui/src/features/policy/**`、`.../capability/**`、`.../cost/**` | 029,021 | M | 三档可切换且即时生效；降级不静默；状态栏常驻显示当前出域级别 |
@@ -190,7 +197,9 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-025 ✅** | A2 | `tasks/TASK-025-lease-target-exclusive-shared-intent.md` | **已 Done（2026-09-26）** |
 | **TASK-026 ✅** | A2 | `tasks/TASK-026-model-gateway-provider-router-fallback.md` | **已 Done（2026-09-26）** |
 | TASK-027 ✅ | A2 | `tasks/TASK-027-hitl-approval-scope-takeover.md` | **已 Done（2026-09-26）** |
-| TASK-028 | A2 | `tasks/TASK-028-core-session-context-planner-memory.md` | Ready（批次表占位派单前补全） |
+| TASK-028 | A2 | `tasks/TASK-028-core-session-context.md` | **完整卡**（2026-09-26 Orchestrator 代行展开：会话管理 + 上下文管理（树裁剪 / 压缩 / 预算）；**原 TASK-028 的拆卡主卡**，见 ADR-0053 D7；文件名由 `TASK-028-core-session-context-planner-memory.md` 改名，**号不变**）；**Ready** |
+| TASK-207 | A2 | `tasks/TASK-207-core-planner-plan-step-dag.md` | **完整卡**（2026-09-26 Orchestrator 代行展开：Planner —— 模型输出 → 可校验的 Plan / Step DAG）；**Ready** |
+| TASK-208 | A2 | `tasks/TASK-208-core-memory-app-map-fts-retrieval.md` | **完整卡**（2026-09-26 Orchestrator 代行展开：Memory —— App Map 加载 + 消费 storage 的检索 API）；**Ready** |
 | TASK-029 | A3 | `tasks/TASK-029-binary-skeleton-agent-core-desktop-ui.md` | Ready（批次表占位派单前补全） |
 | TASK-030 | A3 | `tasks/TASK-030-ui-approval-card-timeline-evidence.md` | Ready（批次表占位派单前补全） |
 | TASK-031 | A3 | `tasks/TASK-031-ui-element-picker-selector-candidates.md` | Ready（批次表占位派单前补全） |
@@ -239,6 +248,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-203 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-203-audit-log-column-semantics.md` | `audit_logs` 列语义去重 + 显式链序（**ADR-0040**：删与 `id` 同义的 `hash`、加 `sequence`；迁移 0003 重建表）；PL-043 / PL-045 的落地物；**已 Done（2026-09-24）** |
 | TASK-204 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-204-draft07-keyword-verdict.md` | `crates/tool-bus` 的 draft-07 关键字判据硬化（三张显式拒绝表 + `$schema` 方言校验 + **`pattern` / `format` 永久放弃**）；TASK-020 §9 关注点 3「最大设计负债」的落地物；**已 Done（2026-09-25）** |
 | TASK-205 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-205-schema-module-split.md` | `crates/tool-bus/src/schema.rs`（892 行，TASK-204 收尾时只剩 8 行余量）按**职责**拆分为模块目录（注册期 schema 检查 / 运行期实例校验），让每个文件回到 gov §5.4 的 600 行建议线以下、**行为零变化**；人类 2026-09-25 裁决「**合适的时候立卡，拆文件吧**」；**Ready（2026-09-25）** |
+| TASK-206 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-206-storage-memory-fts5-search.md` | `crates/storage` 的 `memory_fts`（FTS5）迁移 + 检索 API + 存储侧测试 —— 原 TASK-028 的 **DRIFT-028-1** 前置卡（**ADR-0053 D6**）；**Ready（2026-09-26）** |
 
 ## 任务卡号段分配（ADR-0037, 2026-09-20 起生效）
 
@@ -253,6 +263,6 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | 071 | ADR-0037 实施卡（号段分配策略；本 ADR 生效前建的治理卡）| 1 张 Done |
 | 072~099 | XTASK 池 | 已用 072~079（stage-0 b1 探针卡）+ 083 / 084 + **085 / 086**（PL-059 归属修正新建）= **12 张**；**空位 080~082 / 087~099** |
 | 100~199 | 业务池 | 已用 100 / 101（Win32-Input + probe 替换）；空位 102~199 |
-| 200~299 | 治理池（audit/docs/memory 治理）| 已用 200（spec 修复卡）/ **201**（`crates/core` 骨架提前，PL-037）/ **202**（存储迁移注册表，ADR-0038，PL-046）/ **203**（`audit_logs` 列语义，ADR-0040）/ **204**（draft-07 关键字判据，TASK-020 §9）/ **205**（`schema.rs` 拆文件，TASK-204 收尾遗留）；空位 206~299 |
+| 200~299 | 治理池（audit/docs/memory 治理）| 已用 200（spec 修复卡）/ **201**（`crates/core` 骨架提前，PL-037）/ **202**（存储迁移注册表，ADR-0038，PL-046）/ **203**（`audit_logs` 列语义，ADR-0040）/ **204**（draft-07 关键字判据，TASK-020 §9）/ **205**（`schema.rs` 拆文件，TASK-204 收尾遗留）；**206**（`crates/storage` 的 `memory_fts`（FTS5）检索 + 存储侧测试，ADR-0053 D6）/ **207**（`core` Planner，ADR-0053 D7）/ **208**（`core` Memory，ADR-0053 D7）；空位 209~299 |
 
 **未来 xtask 护栏扩张** = 用 072~099；用满后用 200~299。sub-suffix 永久禁用。

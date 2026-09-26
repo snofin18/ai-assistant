@@ -55,8 +55,9 @@
 | **0050** | `0050-automation-time-neutral-2h-mutex.md` | **Accepted** | 自动化规则**时间中性化**（「当夜」= 运行日、「晨间报告」= 阶段报告；路径/目录/锁名本次不改）+ **默认间隔 3 h → 2 h**（下限仍 2 h）+ **开始时刻互斥**（同时存在 ≥ 2 个 automation 时严禁同一时刻开始 / 同时运行）；只修订 ADR-0046 D3 的默认值与 ADR-0049 D2，锁与 D1/D2/D4 不变（PL-088 / PL-089 另案） |
 | **0051** | `0051-de-nightly-rename.md` | **Accepted** | 去夜间化**改名**：`docs/overnight-automation-charter.md` → `docs/automation-charter.md`、`docs/nightly/` → `docs/automations/`、`.nightly.lock` → `.automation.lock`、`nightly/<date>` → `automation/<date>`；**只改现行文档 + 运行期标识，不回溯改写只追加 / 只读的历史记录**（ADR 只增不改 / LEDGER 只追加 / 任务卡正文只读）；授权例外 = README 工程元层 + 路由两行、MEMORY.md 路由 / 快照两行（只改路径）（PL-089 闭环）
 | **0052** | `0052-time-neutral-wording-sweep.md` | **Accepted** | 全量措辞**去夜间化**：现行正文里的 `夜间 / 每夜 / 当夜 / 晨间 / 整夜` ＋ **同族时间框架词** `早晨 / 早上 / 醒来 / 白天 / 深夜` 全量换成时间中性词；**只读 / 只追加的历史记录不动**（ADR 只增不改 / LEDGER 只追加 / 任务卡正文只读）；附带把章程 §12 的**孤儿行** `1.10`~`1.16` 归位（行内容逐字不变）（PL-089 措辞部分闭环） |
+| **0053** | `0053-core-orchestration-layer-interface.md` | **Accepted** | `core` 编排层的接口面与**依赖白名单**（D2 白名单 = `protocol` / `storage` / `platform/api`（仅 trait）/ `task-engine` / `model-gateway`；D3 黑名单含 `tool-bus` / `policy` / `audit` / `hitl` / `verify` / `undo` / `lease` …）；**「组装」下沉到 binary（TASK-029）**；FTS5 检索归 `crates/storage`（前置卡 TASK-206）；原 TASK-028 拆为 TASK-028（会话 + 上下文）/ **207**（Planner）/ **208**（Memory）—— DRIFT-028-1~5 全部闭环 |
 
-**下一个可用编号：0053**（= §1 与 §2 已用最大号 0052 + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0054**（= §1 与 §2 已用最大号 0052 + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是可用号** —— 它是 §2 的**待建号**，已预留给「`#[allow]` 的唯一合法位置」那条决策
