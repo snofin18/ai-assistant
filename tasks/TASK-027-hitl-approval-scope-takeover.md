@@ -175,7 +175,7 @@ refscan → 151 error（PL-058 既有基线，本卡新增 0）
 - [x] xtask 文档门禁与 `cargo deny check` 通过；`refscan` 未新增 baseline。
 - [x] LEDGER / PLAN / README / plans / memory 已同步。
 - [x] 无新增第三方 crate；`thiserror` 只新增使用方。
-- [ ] “无任何 Out of scope 文件被修改”不完全成立：PL-082 的契约文件由人类明确授权（见 §5 DRIFT-027-2）。
+- [x] “无任何 Out of scope 文件被修改”经人类明确授权后成立：PL-082 的契约文件由人类明确授权（见 §5 DRIFT-027-2），且 PL-082 已闭环（ADR-0048）。【人类 2026-09-26 确认可打勾】
 
 ### 5. 偏差
 
