@@ -15,7 +15,7 @@
 #      N1 见 verify_schemas.rs / codegen.rs 的单测，N2 见本文件 gate-negative job。）
 #   元门禁（ADR-0019）：每项硬门禁都必须配一条「负向验证」，证明它在该红的时候真的会红。
 #     canary 在 gate-selftest.yml（手工触发）；当前登记表见 ADR-0019，缺项见 PL-018。
-#   软门禁 7 项（continue-on-error: true）：每一项都注明「启用卡号」，
+#   软门禁 2 项（continue-on-error: true）：每一项都注明「启用卡号」，
 #     到了那张卡就把它改成硬门禁，并删掉 continue-on-error。
 #   为什么先软后硬：门禁必须在它检查的东西存在之后才有意义。
 #     例如 arch test 检查 crates/core 的分层，而 crates/core 要到 TASK-015 才存在；
@@ -124,20 +124,10 @@ jobs:
         continue-on-error: true
         run: cargo doc --no-deps --workspace
 
-      # 启用卡号：TASK-034（需要录制回放框架与快照 fixture）
-      - name: "[SOFT #13 → TASK-034] replay --suite core"
-        continue-on-error: true
-        run: cargo run -p xtask -- replay --suite core
-
-      # 启用卡号：待补卡（docs/PARKING_LOT.md PL-002）
-      - name: "[SOFT #14 → 待补卡] commitlint（提交可追溯到任务卡）"
-        continue-on-error: true
-        run: echo "commitlint 尚未接入：需要先建立 node 侧工程（TASK-006）"
-
-      # 启用卡号：待补卡（PL-002）
-      - name: "[SOFT #15 → 待补卡] check-comments"
-        continue-on-error: true
-        run: cargo run -p xtask -- check-comments
+      # replay / commitlint / check-comments 在 TASK-209（2026-09-26）被移出 CI：
+      # replay 骨架只接受快照路径，`--suite core` 是完整版命令且从未可执行；
+      # commitlint 是 echo 占位；check-comments 未实现，并由 deferred-inventory
+      # 显式验证必须 exit 3。三者各自落地后再加入，禁止继续挂永久无效的软门禁。
 
       # --- 硬门禁 #16：台账新鲜度（PLAN.md 更新日期 ≥ LEDGER.md 末行日期 + README.md 状态行）---
       # 2026-09-24 由软转硬（原 [SOFT #16 → 待补卡]）：TASK-015 落地 `check-ledger`（ADR-0039 D3），

@@ -4,14 +4,14 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-028** `crates/core` 已 Done（会话生命周期 + 消息树 + 树裁剪 / 压缩 / token 预算；27 个测试 / 92.62% 行覆盖；DRIFT-028-6 + PL-092 记录生产 session adapter 待装配层补齐）；下一张 **TASK-207**（Planner）；**TASK-206** 的 DRIFT-206-1 已裁决（方案 A：write scope 增列 `docs/storage-design.md` §3.4）→ **回 Ready**。2026-09-26 另立 **ADR-0054**「**先落地，再自删** + 轮次编号只数 `main`」（根因 = 一次一次性自动化把证据留在未 push 的本地分支后自删）；2026-09-26 **DRIFT-028 五点落地**（**ADR-0053**：`crates/core` = **可装配的编排组件库** + 依赖白名单；原 TASK-028 拆为 **028**（会话 + 上下文）/ **207**（Planner）/ **208**（Memory）+ storage 前置 **206**（`memory_fts` FTS5），「组装」下沉 **TASK-029**）；此前 TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-209** 已完成（事实源与失效软门禁纠偏）；产品主线上一张 **TASK-028** `crates/core` 已 Done（会话生命周期 + 消息树 + 树裁剪 / 压缩 / token 预算；27 个测试 / 92.62% 行覆盖；DRIFT-028-6 + PL-092 记录生产 session adapter 待装配层补齐）；下一张 **TASK-207**（Planner）；**TASK-206** 已 Ready。2026-09-26 另立 **ADR-0054**「**先落地，再自删** + 轮次编号只数 `main`」；同日 **ADR-0053** 把原 TASK-028 拆为 **028 / 207 / 208**，FTS5 前置 **206**，组装下沉 **TASK-029**；此前 TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
 > TASK-017 的 7 条 DRIFT 已全部裁决落地（**ADR-0043** 元素解析加 scope / **ADR-0044** 歧义策略收敛为唯一
 > `ErrorAndAsk` / **ADR-0045** 非宿主平台编译门禁进 `AGENTS.md` §6；PL-068 / 069 / 070 闭环），
 > 同 crate 的合成输入（`SendInput`）+ 坐标归一化（DPI / 多屏）+ IME 也已落地（TASK-018 —— 铁律 5 的 **L4** 层；
-> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））、**`crates/policy`**（TASK-021：唯一放行点 / 默认拒绝 / deny 优先 / DSL v0 / 参数护栏）、**`crates/undo`**（TASK-024：L0~L3 + 三类锚点 + 回滚剧本 + 冲突检测 + incident）、**`crates/lease`**（TASK-025：三模式矩阵 + TTL / 续租 / 用户抢占 + 零提交批量获取）、**`crates/model-gateway`**（TASK-026：同步拉取式流 / 路由 / fallback / backoff / cache hint / 成本）与 **`crates/hitl`**（TASK-027：ADR-0048 无损 confirmation 投影 / 审批与四维授权 / 接管与暂停恢复 / diff 数据）均已落地，下一张是 TASK-028。**当前阶段详情以 `PLAN.md` 为准**。
+> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））、**`crates/policy`**（TASK-021：唯一放行点 / 默认拒绝 / deny 优先 / DSL v0 / 参数护栏）、**`crates/undo`**（TASK-024：L0~L3 + 三类锚点 + 回滚剧本 + 冲突检测 + incident）、**`crates/lease`**（TASK-025：三模式矩阵 + TTL / 续租 / 用户抢占 + 零提交批量获取）、**`crates/model-gateway`**（TASK-026：同步拉取式流 / 路由 / fallback / backoff / cache hint / 成本）与 **`crates/hitl`**（TASK-027：ADR-0048 无损 confirmation 投影 / 审批与四维授权 / 接管与暂停恢复 / diff 数据）均已落地，下一张是 TASK-207。**当前阶段详情以 `PLAN.md` 为准**。
 
 ---
 
@@ -157,6 +157,10 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展（2026-09-26：**TASK-206 DRIFT-206-1 裁决 + ADR-0054「先落地，再自删」**；**DRIFT-028 五点落地 —— ADR-0053**；TASK-027 —— HITL 审批与接管 `crates/hitl`；TASK-026 —— 模型网关 `crates/model-gateway`；TASK-025 —— 目标租约与并发控制 `crates/lease`；TASK-024 —— 撤销与补偿闭环 `crates/undo`；2026-09-25：TASK-023 —— 后置断言引擎 `crates/verify`；TASK-204 —— `crates/tool-bus` draft-07 关键字判据硬化；TASK-022 —— 任务引擎 `crates/task-engine`；TASK-021 —— 唯一策略放行点 `crates/policy`；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+
+**2026-09-26 —— 治理：TASK-209 事实源与失效软门禁纠偏**
+
+独立复跑确认 `cargo test --workspace` 通过、`cargo test -p assistant-core arch::` 的 5 个断言通过；同时确认 `refscan` 仍为 **151 error**、`replay --suite core` 因未知选项不可执行、`check-comments` 未实现、`hygiene` 仅实现 **3/13** 项。本卡只处理可直接纠正且不会改变承诺的部分：移除 replay / commitlint / check-comments 三条**永久不能成功**的 `continue-on-error` 步骤，把 gov §5.1 的“目标清单”与“当前启用状态”分开；实际启用的软门禁只剩 coverage 与 cargo doc。README 构建段、最终许可段落与架构 v2 头部仍有派生值 / 旧口径，但分别受 ADR-0039 / ADR-0051 / 文件所有权约束，已登记 **PL-093**，不在本卡越权改写。机器门禁缺口与平台句柄累积等问题登记为 **PL-094~PL-098**。
 
 **2026-09-26 —— 治理：TASK-206 DRIFT-206-1 裁决（方案 A）+ ADR-0054「先落地，再自删」**
 

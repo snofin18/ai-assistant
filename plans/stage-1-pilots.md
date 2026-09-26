@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~027 已 Done（2026-09-25 / 2026-09-26）**；拆卡主卡 **TASK-028 已 Done（2026-09-26）**：会话生命周期 + 消息树 + 树裁剪/压缩/token 预算，`assistant-core` 27 个测试、行覆盖 92.62%） → 下一张 = **TASK-207**（Planner；TASK-206 的 FTS5 前置 **DRIFT-206-1 已于 2026-09-26 裁决（方案 A：write scope 增列 `docs/storage-design.md` §3.4）→ 回 Ready**，TASK-208 依赖 206；装配归 TASK-029））　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~027 已 Done（2026-09-25 / 2026-09-26）**；拆卡主卡 **TASK-028 已 Done（2026-09-26）**；跨阶段治理卡 **TASK-209 已 Done（2026-09-26）**：事实源与失效软门禁纠偏） → 下一张 = **TASK-207**（Planner；TASK-206 的 FTS5 前置 **DRIFT-206-1 已于 2026-09-26 裁决（方案 A：write scope 增列 `docs/storage-design.md` §3.4）→ 回 Ready**，TASK-208 依赖 206；装配归 TASK-029））　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -197,7 +197,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-025 ✅** | A2 | `tasks/TASK-025-lease-target-exclusive-shared-intent.md` | **已 Done（2026-09-26）** |
 | **TASK-026 ✅** | A2 | `tasks/TASK-026-model-gateway-provider-router-fallback.md` | **已 Done（2026-09-26）** |
 | TASK-027 ✅ | A2 | `tasks/TASK-027-hitl-approval-scope-takeover.md` | **已 Done（2026-09-26）** |
-| TASK-028 | A2 | `tasks/TASK-028-core-session-context.md` | **完整卡**（2026-09-26 Orchestrator 代行展开：会话管理 + 上下文管理（树裁剪 / 压缩 / 预算）；**原 TASK-028 的拆卡主卡**，见 ADR-0053 D7；文件名由 `TASK-028-core-session-context-planner-memory.md` 改名，**号不变**）；**Ready** |
+| **TASK-028 ✅** | A2 | `tasks/TASK-028-core-session-context.md` | **完整卡**（2026-09-26 Orchestrator 代行展开：会话管理 + 上下文管理（树裁剪 / 压缩 / 预算）；**原 TASK-028 的拆卡主卡**，见 ADR-0053 D7；文件名由 `TASK-028-core-session-context-planner-memory.md` 改名，**号不变**）；**Done（2026-09-26）** |
 | TASK-207 | A2 | `tasks/TASK-207-core-planner-plan-step-dag.md` | **完整卡**（2026-09-26 Orchestrator 代行展开：Planner —— 模型输出 → 可校验的 Plan / Step DAG）；**Ready** |
 | TASK-208 | A2 | `tasks/TASK-208-core-memory-app-map-fts-retrieval.md` | **完整卡**（2026-09-26 Orchestrator 代行展开：Memory —— App Map 加载 + 消费 storage 的检索 API）；**Ready** |
 | TASK-029 | A3 | `tasks/TASK-029-binary-skeleton-agent-core-desktop-ui.md` | Ready（批次表占位派单前补全） |
@@ -249,6 +249,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-204 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-204-draft07-keyword-verdict.md` | `crates/tool-bus` 的 draft-07 关键字判据硬化（三张显式拒绝表 + `$schema` 方言校验 + **`pattern` / `format` 永久放弃**）；TASK-020 §9 关注点 3「最大设计负债」的落地物；**已 Done（2026-09-25）** |
 | TASK-205 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-205-schema-module-split.md` | `crates/tool-bus/src/schema.rs`（892 行，TASK-204 收尾时只剩 8 行余量）按**职责**拆分为模块目录（注册期 schema 检查 / 运行期实例校验），让每个文件回到 gov §5.4 的 600 行建议线以下、**行为零变化**；人类 2026-09-25 裁决「**合适的时候立卡，拆文件吧**」；**Ready（2026-09-25）** |
 | TASK-206 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-206-storage-memory-fts5-search.md` | `crates/storage` 的 `memory_fts`（FTS5）迁移 + 检索 API + 存储侧测试 —— 原 TASK-028 的 **DRIFT-028-1** 前置卡（**ADR-0053 D6**）；**Ready（2026-09-26）** |
+| **TASK-209 ✅** | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-209-source-of-truth-and-inactive-gates.md` | 事实源与失效软门禁纠偏：当前阶段状态、无效 CI 软门禁、TASK-028 完成标记；**Done（2026-09-26）** |
 
 ## 任务卡号段分配（ADR-0037, 2026-09-20 起生效）
 
@@ -263,6 +264,6 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | 071 | ADR-0037 实施卡（号段分配策略；本 ADR 生效前建的治理卡）| 1 张 Done |
 | 072~099 | XTASK 池 | 已用 072~079（stage-0 b1 探针卡）+ 083 / 084 + **085 / 086**（PL-059 归属修正新建）= **12 张**；**空位 080~082 / 087~099** |
 | 100~199 | 业务池 | 已用 100 / 101（Win32-Input + probe 替换）；空位 102~199 |
-| 200~299 | 治理池（audit/docs/memory 治理）| 已用 200（spec 修复卡）/ **201**（`crates/core` 骨架提前，PL-037）/ **202**（存储迁移注册表，ADR-0038，PL-046）/ **203**（`audit_logs` 列语义，ADR-0040）/ **204**（draft-07 关键字判据，TASK-020 §9）/ **205**（`schema.rs` 拆文件，TASK-204 收尾遗留）；**206**（`crates/storage` 的 `memory_fts`（FTS5）检索 + 存储侧测试，ADR-0053 D6）/ **207**（`core` Planner，ADR-0053 D7）/ **208**（`core` Memory，ADR-0053 D7）；空位 209~299 |
+| 200~299 | 治理池（audit/docs/memory 治理）| 已用 200 / **201** / **202** / **203** / **204** / **205** / **206** / **207** / **208** / **209**（事实源与失效软门禁纠偏）；空位 210~299 |
 
 **未来 xtask 护栏扩张** = 用 072~099；用满后用 200~299。sub-suffix 永久禁用。

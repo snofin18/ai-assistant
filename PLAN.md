@@ -7,11 +7,11 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-26（**TASK-206 的 DRIFT-206-1 已裁决（方案 A）**：write scope 增列 `docs/storage-design.md` §3.4 → 206 **回 Ready**；同批把 14:15 一次性自动化的**搁浅证据回填**进 main（卡片 §5 / LEDGER / PL-091 / pitfall / 轮次产物），并立 **ADR-0054**「先落地，再自删 + 轮次编号只数 main」。此前 **TASK-028 `core` 已 Done**：会话生命周期 + 消息树 + 树裁剪/压缩/token 预算；`assistant-core` 27 个测试、行覆盖 92.62%，零第三方新增；真实 conversation/session storage adapter 不存在，已在本卡登记 DRIFT-028-6 + PL-092，生产 adapter 留 TASK-029。此前 **DRIFT-028 五点落地**：ADR-0053 定 `core` 依赖白名单 + 编排组件边界；原五合一拆为 028 / 207 / 208、FTS5 前置 206、装配下沉 029。此前 TASK-027 / 026 / 025 / 024 / 023 均 Done）
+更新日期    ：2026-09-26（**TASK-209 已 Done**：事实源与失效软门禁纠偏 —— 修正当前阶段状态、移除 replay/commitlint/check-comments 三条永久无效的 `continue-on-error` 步骤，并把 gov 目标清单与当前启用状态分开；未改产品代码。此前 **TASK-206 的 DRIFT-206-1 已裁决（方案 A）**：write scope 增列 `docs/storage-design.md` §3.4 → 206 **回 Ready**；同批回填 14:15 自动化搁浅证据并立 **ADR-0054**。此前 **TASK-028 `core` 已 Done**，DRIFT-028-6 + PL-092 记录生产 session adapter 留 TASK-029）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
-当前任务卡  ：**A3 批次进行中**：TASK-011~027 全 Done；**TASK-028 ✅**（会话 + 上下文，DRIFT-028-6 已登记）→ 下一张 **TASK-207**（Planner）；**TASK-206** 已解阻（DRIFT-206-1 方案 A），**TASK-208** 依赖 206，装配归 **TASK-029**；
-                  跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204** 均 Done；**TASK-205** = Ready；**TASK-206** = Ready（DRIFT-206-1 已裁决：write scope 含 `docs/storage-design.md` §3.4）
-阻塞项      ：① TASK-002 仍 Blocked（上游 `create_thread` 未关）；② gov §5.1 门禁清单尚未登记 `check-migrations`（PL-056，需 ADR）；③ **PL-092**（storage 缺 conversation/session 公开记录 API → TASK-028 只交付 `SessionStore` trait + 内存实现，生产 adapter 待 TASK-029 前补齐）；④ ~~DRIFT-206-1~~ **已闭环**（2026-09-26 方案 A：TASK-206 write scope 增列 `docs/storage-design.md` §3.4）；⑤ PL-071 / PL-072 / PL-073 / PL-074 / PL-078 / PL-079 / PL-080 / PL-083 / PL-084 / PL-085 待裁决
+当前任务卡  ：**A3 批次进行中**：TASK-011~027 全 Done；**TASK-028 ✅** → 下一张 **TASK-207**（Planner）；**TASK-206 / 208 / 029** 按依赖推进；
+                  跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 209** 均 Done；**TASK-205 / 206** = Ready
+阻塞项      ：① TASK-002 仍 Blocked（上游 `create_thread` 未关）；② gov §5.1 门禁清单尚未登记 `check-migrations`（PL-056，需 ADR）；③ **PL-092**（storage 缺 conversation/session 公开记录 API，生产 adapter 待 TASK-029 前补齐）；④ DRIFT-206-1 **已闭环**；⑤ PL-071 / PL-072 / PL-073 / PL-074 / PL-078 / PL-079 / PL-080 / PL-083 / PL-084 / PL-085 / PL-093 / PL-094 / PL-095 / PL-096 / PL-097 / PL-098 待裁决
 下一步动作  ：① **TASK-207** `core`：Planner（模型输出 → 可校验的 Plan / Step DAG；复用 `task-engine` 类型）；随后 **TASK-206**（storage `memory_fts` FTS5，已解阻）与 **TASK-208**（Memory），最后 **TASK-029** 装配
                   → 详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```

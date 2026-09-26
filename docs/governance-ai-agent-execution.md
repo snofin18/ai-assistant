@@ -383,10 +383,16 @@ DRIFT-012-1
 | 11 | 文档完整性 | `cargo doc --no-deps` + `#![warn(missing_docs)]` | 公共 API 无文档 |
 | 12 | **仓库卫生** | `cargo run -p xtask -- hygiene` | ★ 见 5.4 |
 | **12b** | **文档一致性**（ADR-0030） | `cargo run -p xtask -- memory-counts` + `cargo run -p xtask -- adr-index` | ★ 两处**派生事实**被手写进文档而必然漂移：① `MEMORY.md`「各文件当前规模」表的行数/条目数（8 条规则；已造成两次真实事故，第二次就发生在刚修完第一次之后）；② `docs/adr/README.md` 编号登记表 ↔ `docs/adr/NNNN-*.md` ↔ `decisions.md` 的三方一致性（11 条规则；0019 号双重占用事故的机器判据是 `adr/number-collision`）。两个子命令都**只读**，发现不一致时打印可直接粘贴的正确值让人改（ADR-0030 选项 1 已否决自动写回）；表结构解析不到必须**报错**而不是静默当作一致（`memory/scale-table-unparsable` / `adr/registry-section-missing`，铁律 1） |
-| 13 | 回放基准 | `cargo run -p xtask -- replay --suite core` | 用录制的树快照跑逻辑回归（v2 §17.4），不依赖真机 |
-| 14 | 提交规范 | commitlint / 钩子 | 无法追溯到任务卡 |
-| 15 | **命名与注释规范** | `cargo run -p xtask -- check-comments` | ★ 缩写命名、公共 API 缺文档注释、`TODO`/`PITFALL` 无卡号、注释掉的代码 |
+| 13 | 回放基准（**待启用 · TASK-034**） | `cargo run -p xtask -- replay --suite core` | 用录制的树快照跑逻辑回归（v2 §17.4），不依赖真机；当前骨架只接受快照路径，完整版命令不得提前挂成永久软门禁 |
+| 14 | 提交规范（**待启用 · 待补卡**） | commitlint / 钩子 | 无法追溯到任务卡 |
+| 15 | **命名与注释规范**（**待实现 · TASK-085 / 086 之后**） | `cargo run -p xtask -- check-comments` | ★ 缩写命名、公共 API 缺文档注释、`TODO`/`PITFALL` 无卡号、注释掉的代码 |
 | 16 | **台账与记忆同步** | `cargo run -p xtask -- check-ledger` | 卡已完成但未追加 LEDGER/MEMORY 条目 |
+
+> **当前启用状态（2026-09-26，TASK-209 复核）**：上表是**目标清单**，不等于 `ci.yml` 当前已挂的步骤。
+> 截至本日，可直接执行的硬门禁为 12 项；仍以 `continue-on-error` 运行的有效软门禁只有
+> #9（覆盖率）与 #11（文档构建）。#13 / #14 / #15 在对应实现落地前**不再伪装成 CI 步骤**：
+> `replay --suite core` 与骨架版 CLI 不符，commitlint 只是 echo 占位，`check-comments` 尚未实现。
+> 新门禁必须“实现命令 + 负向验证 + 可执行 CI 步骤”三者同批落地，不能再先挂空转项。
 
 > 第 **8b** 与 **12b** 项都用**子编号**而不占用新的一级行号，是为了让本表的 16 行主编号保持稳定 ——
 > 主编号被 `tasks/TASK-001-repo-skeleton.md`、`xtask/src/deferred.rs`、`ci.yml` 头部注释
