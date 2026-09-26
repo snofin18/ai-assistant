@@ -29,10 +29,10 @@
 
 | 文件 | 行数 | 条目数 | 读法 |
 |---|---|---|---|
-| `facts.md` | 198 | 146 | 按主题分节；**grep 优先**，不必全读 |
+| `facts.md` | 199 | 147 | 按主题分节；**grep 优先**，不必全读 |
 | `pitfalls.md` | 236 | 126 | 按主题分节；**grep 优先**，不必全读 |
 | `rejected.md` | 60 | 40 | ★ **动手前全量读**（防止同一方案被反复重新提出） |
-| `decisions.md` | 140 | 65 | 索引 → `docs/adr/NNNN-*.md` |
+| `decisions.md` | 144 | 66 | 索引 → `docs/adr/NNNN-*.md` |
 | `open.md` | 57 | 26 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
 | `apps/notepad.md` | 340 | 0 | 接记事本时**全量读**；8 个固定小节 |
 | win32-input-research.md | 193 | 0 | 接 Notepad Adapter + 任何 Win32 输入操作时**全量读**（SendInput / keybd_event / SendKeys / AttachThreadInput / BlockInput / SetForegroundWindow / WindowPattern.Close / UIPI / 推荐 pipeline） |
@@ -108,7 +108,7 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
                  ✅ **跨阶段治理卡 TASK-200 / 201 / 202 / 203 均已 Done**；**PL-047 已闭环**（`check-migrations` 子命令，归 TASK-015，2026-09-24）；
                  ✅ **`cargo test -p assistant-core arch::` 已由 TASK-015 转为真断言**（`crates/core/tests/arch_layering.rs`；条数以命令输出为准，不写进本快照）
               ③ TASK-002 续做补完 SPIKE-A PARTIAL 仍 Blocked（`open.md N3` create_thread 上游 #36315/#36250 未关闭）→ 人类手工建会话
-              ④ 夜间自动化 **GATE-0 已通过（2026-09-24）**（`open.md N9` 已关闭：cron + heartbeat 两形态实测全绿、投递形态已正常化）→ **尚未创建正式排期**（人类另行安排）；探针 automation 已删除
+              ④ 自动化 **GATE-0 已通过（2026-09-24）**（`open.md N9` 已关闭：cron + heartbeat 两形态实测全绿、投递形态已正常化）→ **尚未创建正式排期**（人类另行安排）；探针 automation 已删除
               ⑤ 改公共热点文件（LEDGER / `docs/memory/*` / PARKING_LOT / MEMORY.md / `plans/*`）前必须 `xtask guard acquire`（ADR-0028）；
                   超时放弃（退出码 5）后须 LEDGER 追加一行 + 不得 `--force` 硬抢
               ⑥ 仓库根乱码 0 字节文件名：**TASK-083 已 2026-09-24 收尾**（实测目标文件已不存在、`git status -uall` 干净；详 `tasks/TASK-083-*.md` §5）
