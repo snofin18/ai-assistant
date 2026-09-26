@@ -1,7 +1,7 @@
 //! Rich policy decisions and their protocol projection.
 
 use crate::{PolicyError, PolicyResult, ScopeOption};
-use assistant_protocol::PolicyDecision;
+use assistant_protocol::{PolicyDecision, PolicyScopeOption};
 
 /// Policy outcome before protocol projection.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,30 +42,53 @@ impl Decision {
         matches!(self, Self::AllowWithConfirmation { .. })
     }
 
-    /// Projects this decision into the audit protocol's minimal decision shape.
+    /// Projects this decision into the audit protocol decision shape.
     ///
-    /// The protocol shape has only `allow`, `rule_id`, and `reason`. Confirmation
-    /// scope and `show_diff` are therefore retained only in this richer decision;
-    /// this projection is intentionally explicit rather than pretending they fit.
+    /// ADR-0048 extends the protocol shape with optional confirmation scope and
+    /// `show_diff`, so the projection is lossless for the fields needed by HITL.
+    /// An unconditional allow and a confirmation-required allow remain
+    /// distinguishable by whether `scope_options` is present.
     ///
     /// # Errors
     ///
     /// Returns [`PolicyError::ProtocolProjection`] if the generated protocol type
     /// cannot deserialize the projected values.
     pub fn to_protocol_decision(&self) -> PolicyResult<PolicyDecision> {
-        let (allow, rule_id, reason) = match self {
-            Self::Allow { rule_id } => (true, Some(rule_id.clone()), None),
-            Self::AllowWithConfirmation { rule_id, .. } => (
+        let (allow, rule_id, reason, scope_options, show_diff) = match self {
+            Self::Allow { rule_id } => (true, Some(rule_id.clone()), None, None, None),
+            Self::AllowWithConfirmation {
+                rule_id,
+                scope_options,
+                show_diff,
+            } => (
                 true,
                 Some(rule_id.clone()),
                 Some("human confirmation required before execution".to_owned()),
+                Some(
+                    scope_options
+                        .iter()
+                        .map(|scope| match scope {
+                            ScopeOption::Once => PolicyScopeOption::Once,
+                            ScopeOption::ThisTask => PolicyScopeOption::ThisTask,
+                        })
+                        .collect::<Vec<_>>(),
+                ),
+                Some(*show_diff),
             ),
-            Self::Deny { rule_id, reason } => (false, Some(rule_id.clone()), Some(reason.clone())),
+            Self::Deny { rule_id, reason } => (
+                false,
+                Some(rule_id.clone()),
+                Some(reason.clone()),
+                None,
+                None,
+            ),
         };
         let value = assistant_protocol::serde_json::json!({
             "allow": allow,
             "rule_id": rule_id,
             "reason": reason,
+            "scope_options": scope_options,
+            "show_diff": show_diff,
         });
         assistant_protocol::serde_json::from_value(value).map_err(|error| {
             PolicyError::ProtocolProjection {

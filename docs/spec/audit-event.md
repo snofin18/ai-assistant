@@ -1,7 +1,7 @@
 # spec: 审计事件 schema
 
 > 摘要：审计事件（audit event）结构与字段约束。本 spec 是本项目**契约层**的一部分，由 ADR 批准后即作为 xtask 卡实施 + CI 机器校验的权威。
-> 状态：Draft（待 ADR 批准）　版本：0.1　日期：2026-09-20
+> 状态：Draft（ADR-0048 已批准 `policy_decision` 的确认投影）　版本：0.2　日期：2026-09-26
 > 上位：`AGENTS.md` §5、`docs/governance-ai-agent-execution.md` §5/§6
 > 强制性：**本文档是契约**。违反即 CI 失败（`xtask` 相关子命令）或 Reviewer 拒绝合并。
 > 变更门槛：新增字段或修改类型 → 需 ADR。
@@ -54,6 +54,33 @@ enum Outcome {
 3. **sequence 单调**：同一 actor 会话内 `sequence` 单调递增，跨会话不连续（= 不同 actor 独立 sequence 空间）。
 4. **code ∈ ErrorCode**：`outcome.code` 必须是 `docs/spec/error-codes.md` 中定义的 u16。
 
+## 4.1 `policy_decision` 的确认投影
+
+TASK-021 的完整策略结果不只是一个布尔值。审计事件里的 `policy_decision` 采用
+以下无损、向后兼容的投影（ADR-0048）：
+
+```text
+allow = false
+  → 拒绝；scope_options / show_diff 必须缺席
+
+allow = true，scope_options 缺席
+  → 无条件允许；show_diff 也必须缺席
+
+allow = true，scope_options 非空
+  → 需要人工确认；show_diff 必须存在
+    scope_options 取值 = once | this_step_pattern | this_task |
+                         this_app_session | persistent
+```
+
+约束：
+
+1. `scope_options` 非空且无重复；它是否出现就是“是否需要确认”的唯一判据。
+2. `show_diff = true` 表示审批请求必须具备可展示的差异预览数据；`false` 表示本次
+   不要求 diff，但不表示审批可省略。
+3. 高风险动作仍只允许 `once`；该业务约束由 `hitl` 在构造审批请求时 fail-closed
+   执行，不靠消费者猜测。
+4. `PolicyDecision` 是审计与跨进程投影，不是新的放行点；策略引擎仍是唯一放行点。
+
 ---
 
 ## 5. 与其他 spec 的关系
@@ -72,3 +99,4 @@ enum Outcome {
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | 0.1 | 2026-09-20 | 初稿（项目进度督察后批量补齐 stage-0 DoD #5）|
+| 0.2 | 2026-09-26 | ADR-0048：增加 `policy_decision` 的 confirmation scope / `show_diff` 无损投影；保持既有字段与 schema 1.0 兼容 |

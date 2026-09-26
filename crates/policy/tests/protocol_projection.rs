@@ -1,6 +1,7 @@
 //! Policy-to-protocol decision projection tests.
 
 use assistant_policy::{Decision, ScopeOption};
+use assistant_protocol::PolicyScopeOption;
 
 #[test]
 fn test_allow_and_deny_project_to_protocol_shape() {
@@ -28,7 +29,7 @@ fn test_allow_and_deny_project_to_protocol_shape() {
 }
 
 #[test]
-fn test_confirmation_projection_keeps_rich_fields_in_local_decision() {
+fn test_confirmation_projection_keeps_rich_fields_across_protocol() {
     let decision = Decision::AllowWithConfirmation {
         rule_id: "confirm_medium_write".to_owned(),
         scope_options: vec![ScopeOption::Once, ScopeOption::ThisTask],
@@ -42,5 +43,10 @@ fn test_confirmation_projection_keeps_rich_fields_in_local_decision() {
         Ok(value) if value.allow
             && value.rule_id.as_deref() == Some("confirm_medium_write")
             && value.reason.as_deref() == Some("human confirmation required before execution")
+            && value.scope_options.as_deref()
+                == Some(
+                    [PolicyScopeOption::Once, PolicyScopeOption::ThisTask].as_slice()
+                )
+            && value.show_diff == Some(true)
     ));
 }

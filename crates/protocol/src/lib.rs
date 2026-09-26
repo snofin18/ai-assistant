@@ -32,7 +32,9 @@
 )]
 mod generated;
 
-pub use generated::audit_event::{AuditActor, AuditEvent, AuditEventType, Cost, PolicyDecision};
+pub use generated::audit_event::{
+    AuditActor, AuditEvent, AuditEventType, Cost, PolicyDecision, PolicyScopeOption,
+};
 pub use generated::capability::{Capability, CapabilityStability};
 pub use generated::envelope::{
     EnvelopeData, EnvelopeError, Evidence, Metrics, Source, SourceKind, ToolEnvelope, Truncation,
@@ -183,5 +185,32 @@ mod tests {
         let back: AuditEvent = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back.self_hash.len(), 64);
         assert_eq!(back.prev_hash, Some(String::new()));
+    }
+
+    /// ADR-0048: confirmation fields survive the protocol boundary, while the
+    /// original minimal shape remains deserializable.
+    #[test]
+    fn test_policy_decision_confirmation_projection() {
+        let decision: PolicyDecision = serde_json::from_value(serde_json::json!({
+            "allow": true,
+            "rule_id": "confirm_medium_write",
+            "reason": "human confirmation required before execution",
+            "scope_options": ["once", "this_task"],
+            "show_diff": true
+        }))
+        .expect("confirmation decision");
+        assert_eq!(
+            decision.scope_options,
+            Some(vec![PolicyScopeOption::Once, PolicyScopeOption::ThisTask])
+        );
+        assert_eq!(decision.show_diff, Some(true));
+
+        let minimal: PolicyDecision = serde_json::from_value(serde_json::json!({
+            "allow": true,
+            "rule_id": "allow_read_low_risk"
+        }))
+        .expect("legacy minimal decision");
+        assert!(minimal.scope_options.is_none());
+        assert!(minimal.show_diff.is_none());
     }
 }

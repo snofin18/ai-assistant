@@ -122,3 +122,7 @@
 ## 2026-09-25 追加（ADR-0047，Accepted）
 
 - [2026-09-25][DECISION][src:ADR-0047] **后置断言永久没有自由字符串字段 `assert`**：架构 v2 附录 A 的 `#/$defs/assertion` 原有 `"assert": { "type": "string" }`，支持它等于引入一门**表达式语言**（lexer / parser / evaluator / scope）= 新抽象层，且**模型无法枚举可写形式**（与 §7.4 反对 `if`-`then`-`else` 同一条理由）→ **否决**。**替代**：结构化 `field` + `op` + `value`（`state_assert`）与各 kind 专用字段（`name` / `min` / `max` / `selector` / `path` / `expect` / `key` / `within_ms` / `fingerprint_scope`），**未知字段一律解析期拒绝**（实现 = `crates/verify` / TASK-023）。**同步改动**：附录 A 删 `assert` 并补齐实现真正接受的字段 + 对象级 `description` 注记；§5.2 示例、§7.4 类型表、§11 撤销剧本示例改为结构化写法（顺带删掉附录 A 从未声明、实现也会拒绝的 `optional_if_absent`）；`docs/memory/rejected.md` 登记；**PL-086 闭环**。**根因** = PL-086 / `DRIFT-023-4`：附录 A 声明了 `assert` 而 TASK-023 不实现，读文档的人（TASK-028 的 Planner、未来的 Adapter 作者）会以为可用。
+
+## 2026-09-26 追加（ADR-0048，Accepted）
+
+- [2026-09-26][DECISION][src:ADR-0048] **策略决策的确认投影必须无损**：既有审计协议 `PolicyDecision` 增加两个**可选**字段 `scope_options`（五个稳定字符串：`once` / `this_step_pattern` / `this_task` / `this_app_session` / `persistent`）与 `show_diff`。**唯一确认判据** = `allow = true` 且 `scope_options` 非空；此时 `show_diff` 必须存在。`allow = false` 时两者必须缺席；`allow = true` 且两者缺席 = 无条件允许。schema 顶层版本保持 `1.0`（向后兼容），不新增 `requires_confirmation` 同义布尔。policy 的富 `Decision` 仍是求值结果，但 `to_protocol_decision()` 不再丢字段；高风险只允许 `once` 的硬约束由 TASK-027 `hitl` fail-closed 执行。**根因** = PL-082 / `DRIFT-021-1`：旧投影只有 `allow` / `rule_id` / `reason`，审批 UI 无法获得授权范围与 diff 要求。

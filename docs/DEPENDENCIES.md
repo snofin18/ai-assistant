@@ -30,7 +30,7 @@
 | `zeroize` | **`1.9`**（caret） | `crates/secrets` | 内存中的密钥用后清零；架构 v2 §12.5 明文指定 | Apache-2.0 OR MIT | 替代 = 手写 `Drop` 覆盖字节：编译器可把"写后不再读"的内存优化掉（dead-store elimination），手写清零**不可靠**；`zeroize` 用 volatile 写 + 内存屏障解决这一点 | **Approved** | 人类（chat 2026-09-24，TASK-014） | 2026-09-24 |
 | `tokio` | **`1`**（caret；feature 白名单 `io-util` / `macros` / `rt` / `rt-multi-thread` / `sync` / `time`；`Cargo.lock` 实测 1.53.1） | `crates/tool-bus`（TASK-020） | in-process MCP 传输（`tokio::io::duplex` 内存管道）+ 两侧 serve 循环的运行时；`rmcp` 的 `serve_client` / `serve_server` 本身是 async API，必须有一个 runtime | MIT | 替代 = 不用 async 运行时：`rmcp` 的公开接口是 async 的（架构 v2 §5.4 已定 `rmcp`），改用同步自研传输 = 换库 + 改口径；feature 只开 6 项（**不**开 `fs` / `net` / `process`）→ 本 crate 结构上摸不到网络与子进程 | **Approved** | 人类（chat 2026-09-25 授权自决，TASK-020 Q1 连带） | 2026-09-25 |
 | `rmcp` | **`3.4`**（caret；`default-features = false`，只开 `client` + `server`；`Cargo.lock` 实测 3.4.1） | `crates/tool-bus`（TASK-020） | MCP 官方 Rust SDK：`tools/list` / `tools/call`、生命周期握手与 `IntoTransport`（in-process 传输）。架构 v2 §5.4 明文把 MCP 定为**唯一**工具协议 | Apache-2.0 | 替代 = 手写 JSON-RPC 2.0 + MCP 生命周期：MCP 规范演进（2026-07-28 的 stateless-first / Extensions / Tasks 移出核心）要自己追，且「与生态一致」是本项目的目标之一；架构 v2 §5.4 已指定 `rmcp` → 换库 = 改口径。`default-features = false` + 不 enabled `http` / `reqwest` / `auth` → 零网络传输 | **Approved** | 人类（chat 2026-09-25 授权自决，TASK-020 Q1） | 2026-09-25 |
-| `thiserror` | **`2`**（caret；`Cargo.lock` 实测 2.0.21） | `crates/tool-bus`（TASK-020） / `crates/task-engine`（TASK-022） / `crates/verify`（TASK-023） | `ToolBusError` / `TaskEngineError` / `VerifyError` 用 `derive(Error)` 的 `Display` 文本（铁律 1 要求每个失败都带可读原因） | MIT OR Apache-2.0 | 替代 = 手写 `Display` + `std::error::Error`：带结构化字段的变体，手写既冗长又容易漏分支；std 没有字段插值式错误派生的等价物。**已登记在案**：`crates/core` 等的错误类型由各自任务卡按同一规则登记 | **Approved** | 人类（chat 2026-09-25 授权自决，TASK-020 Q5） | 2026-09-25 |
+| `thiserror` | **`2`**（caret；`Cargo.lock` 实测 2.0.21） | `crates/tool-bus`（TASK-020） / `crates/task-engine`（TASK-022） / `crates/verify`（TASK-023） / `crates/hitl`（TASK-027） | `ToolBusError` / `TaskEngineError` / `VerifyError` / `HitlError` 用 `derive(Error)` 的 `Display` 文本（铁律 1 要求每个失败都带可读原因） | MIT OR Apache-2.0 | 替代 = 手写 `Display` + `std::error::Error`：带结构化字段的变体，手写既冗长又容易漏分支；std 没有字段插值式错误派生的等价物。**已登记在案**：`crates/core` 等的错误类型由各自任务卡按同一规则登记 | **Approved** | 人类（chat 2026-09-25 授权自决，TASK-020 Q5） | 2026-09-25 |
 | `windows` | **`=0.62.2`**（精确钉定；0.x 版本间**有**破坏性变更，升级 = 漂移触发器） | `spikes/spike-a-notepad`（阶段 0）＋ `crates/platform/windows`（阶段 1，TASK-017 起为**产品代码**）＋ `crates/ipc`（TASK-019 的 NamedPipe / 对端进程查询） | Win32/WinRT 官方投影。Spike A 验证 UIA COM；产品侧提供 UIA、合成输入与 NamedPipe / `GetNamedPipeClientProcessId` / `QueryFullProcessImageNameW` / `BCryptGenRandom` | MIT OR Apache-2.0（`cargo deny check licenses` 2026-09-18 本机实测 `licenses ok`，exit 0） | 替代方案 = 第三方封装 crate `uiautomation`，**已否决**（ADR-0024 D1）；NamedPipe 与进程身份没有 std 等价物，第三次复用同一官方投影比手写 FFI 更可审计 | **Approved**（产品侧；TASK-017 Q1 升级，TASK-019 沿用） | 人类（指示 #6）；人类（chat 2026-09-24，TASK-017 Q1 批准） | 2026-09-18 / 2026-09-24 |
 | `uiautomation` | — | — | （曾考虑用于 spike 的 UIA 访问） | 未核实 | **Rejected**：见 ADR-0024 D1 的对比表与裁决理由（决定性一条 = spike 必须走生产路径去撞墙） | **Rejected** | 人类（指示 #6） | 2026-09-18 |
 
@@ -40,6 +40,10 @@
 
 > **TASK-021 零新增第三方依赖**：`crates/policy` 只依赖 workspace crate `assistant-protocol`，
 > 并复用它对 `serde_json` 的 re-export 做 DSL v0 的 JSON 解析；未直接引入新的第三方 crate。
+
+> **TASK-027 零新增第三方 crate**：`crates/hitl` 使用已批准的 `thiserror`，并依赖
+> workspace crate `assistant-policy` / `assistant-protocol` / `assistant-task-engine`；
+> 只更新 `thiserror` 的使用方列，不新增供应链依赖。
 
 > 计划中的依赖（**尚未引入**，引入时逐条登记并走漂移升级；已引入的不再列在这里）：
 > `tauri`、`tracing`（`tokio` / `rmcp` / `windows` 已于 2026-09-25 由 TASK-020 / TASK-017 引入，见上表）。
