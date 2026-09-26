@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~027 已 Done（2026-09-25 / 2026-09-26）**；拆卡主卡 **TASK-028 已 Done（2026-09-26）**：会话生命周期 + 消息树 + 树裁剪/压缩/token 预算，`assistant-core` 27 个测试、行覆盖 92.62%） → 下一张 = **TASK-207**（Planner；TASK-206 的 FTS5 前置 **DRIFT-206-1 已于 2026-09-26 裁决（方案 A：write scope 增列 `docs/storage-design.md` §3.4）→ 回 Ready**，TASK-208 依赖 206；装配归 TASK-029））　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~028 已 Done（2026-09-25 / 2026-09-26）**；拆卡主卡 **TASK-028** 与 **TASK-207** 已 Done：会话 + 上下文 + Planner，`assistant-core` Planner 14 tests + arch 白名单 3 tests、行覆盖 88.60%） → 下一张 = **TASK-206**（storage FTS5；TASK-208 依赖 206；装配归 TASK-029））　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -89,7 +89,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **026 ✅** | `model-gateway`：Provider trait（流式/取消/用量）+ 路由器 + 降级链 + 重试退避 + prompt cache 提示 + 成本计量 | `crates/model-gateway/**` | 011 | L | v2 §11.2 路由规则可配置；**取消能在 1 s 内中止请求**；每步记录 tokens/cost/latency |
 | **027 ✅** | `hitl`：审批请求 + 授权范围（四维+TTL）+ 用户接管 + 暂停恢复 + 差异预览数据准备 | `crates/hitl/**` | 021,022 | M | 高风险禁止 persistent 授权；接管后交还需重新同步状态；审批超时行为明确 |
 | **028 ✅** | `core`：会话管理 + 上下文管理（树裁剪 / 压缩 / 预算） —— **原 TASK-028 拆卡主卡**（2026-09-26，ADR-0053 D7） | `crates/core/**` | 020~027 | M | arch test 通过（core 只依赖白名单 crate）；上下文预算生效且**丢弃必须显式标注**；会话生命周期 + 消息树可测 |
-| **207** | `core`：Planner（模型输出 → 可校验的 Plan / Step DAG；**复用** `task-engine` 类型） | `crates/core/**` | 022,026,028 | M | 六类负向用例齐全（重复 id / 缺依赖 / 环 / 非法工具名 / 写步骤缺 postcondition / L3 未标 point-of-no-return）；不重定义 `Plan` / `Step` |
+| **207 ✅** | `core`：Planner（模型输出 → 可校验的 Plan / Step DAG；**复用** `task-engine` 类型） | `crates/core/**` | 022,026,028 | M | 六类负向用例齐全（重复 id / 缺依赖 / 环 / 非法工具名 / 写步骤缺 postcondition / L3 未标 point-of-no-return）；不重定义 `Plan` / `Step` |
 | **208** | `core`：Memory（App Map 加载 + 消费 storage 的 FTS5 检索 API） | `crates/core/**` | 206,028 | M | App Map 四类负向用例（缺失 / 损坏 / 版本不匹配 / 路径穿越）；片段带来源与位置；检索错误**透传** `reason_code` |
 
 ### 批次 A4　应用与 UI（028 完成后可 2 路并行）
@@ -198,7 +198,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-026 ✅** | A2 | `tasks/TASK-026-model-gateway-provider-router-fallback.md` | **已 Done（2026-09-26）** |
 | TASK-027 ✅ | A2 | `tasks/TASK-027-hitl-approval-scope-takeover.md` | **已 Done（2026-09-26）** |
 | TASK-028 | A2 | `tasks/TASK-028-core-session-context.md` | **完整卡**（2026-09-26 Orchestrator 代行展开：会话管理 + 上下文管理（树裁剪 / 压缩 / 预算）；**原 TASK-028 的拆卡主卡**，见 ADR-0053 D7；文件名由 `TASK-028-core-session-context-planner-memory.md` 改名，**号不变**）；**Ready** |
-| TASK-207 | A2 | `tasks/TASK-207-core-planner-plan-step-dag.md` | **完整卡**（2026-09-26 Orchestrator 代行展开：Planner —— 模型输出 → 可校验的 Plan / Step DAG）；**Ready** |
+| TASK-207 ✅ | A2 | `tasks/TASK-207-core-planner-plan-step-dag.md` | **完整卡**（2026-09-26 Orchestrator 代行展开：Planner —— 模型输出 → 可校验的 Plan / Step DAG）；**Done** |
 | TASK-208 | A2 | `tasks/TASK-208-core-memory-app-map-fts-retrieval.md` | **完整卡**（2026-09-26 Orchestrator 代行展开：Memory —— App Map 加载 + 消费 storage 的检索 API）；**Ready** |
 | TASK-029 | A3 | `tasks/TASK-029-binary-skeleton-agent-core-desktop-ui.md` | Ready（批次表占位派单前补全） |
 | TASK-030 | A3 | `tasks/TASK-030-ui-approval-card-timeline-evidence.md` | Ready（批次表占位派单前补全） |

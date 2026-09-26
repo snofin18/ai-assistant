@@ -1,12 +1,12 @@
 //! # assistant-core
 //!
 //! Core orchestration components for session lifecycle, message trees, context
-//! selection, trimming, compression, and token budgeting.
+//! selection, trimming, compression, token budgeting, and model-output planning.
 //!
 //! The crate does not assemble other components or hold a database connection.
-//! A binary creates [`SessionManager`] and [`ContextManager`] from injected
-//! dependencies. The storage adapter for [`SessionStore`] belongs to the
-//! binary assembly card (TASK-029).
+//! A binary creates [`SessionManager`], [`ContextManager`], and [`Planner`]
+//! from injected dependencies. The storage adapter for [`SessionStore`] belongs
+//! to the binary assembly card (TASK-029).
 //!
 //! ## Boundaries
 //!
@@ -15,6 +15,8 @@
 //! - No SQL and no hidden global state.
 //! - No silent context loss: trimming and compression produce explicit
 //!   [`ContextOmission`] records.
+//! - Planner never accepts a step whose tool is absent from the caller-supplied
+//!   catalog and never repairs malformed model output.
 //!
 //! ## Invariants
 //!
@@ -23,6 +25,7 @@
 //! 3. Session mutations persist before the in-memory snapshot is replaced.
 //! 4. A required context that exceeds budget fails closed.
 //! 5. Compression failure never degrades into silent history loss.
+//! 6. Planner model output is parsed and validated before producing a Plan.
 //!
 //! ## Related Documents
 //!
@@ -35,6 +38,7 @@ mod context;
 mod error;
 mod identifiers;
 mod message;
+mod planner;
 mod session;
 mod store;
 
@@ -48,5 +52,6 @@ pub use message::{
     ContextRetention, MessageContent, MessageNode, MessageNodeParts, MessageRole, SessionSnapshot,
     SessionSnapshotParts, SessionStatus,
 };
+pub use planner::{Planner, PlannerRequest};
 pub use session::{NewMessage, SessionClock, SessionManager};
 pub use store::{MemorySessionStore, SessionStore};

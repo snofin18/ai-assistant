@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-028** `crates/core` 已 Done（会话生命周期 + 消息树 + 树裁剪 / 压缩 / token 预算；27 个测试 / 92.62% 行覆盖；DRIFT-028-6 + PL-092 记录生产 session adapter 待装配层补齐）；下一张 **TASK-207**（Planner）；**TASK-206** 的 DRIFT-206-1 已裁决（方案 A：write scope 增列 `docs/storage-design.md` §3.4）→ **回 Ready**。2026-09-26 另立 **ADR-0054**「**先落地，再自删** + 轮次编号只数 `main`」（根因 = 一次一次性自动化把证据留在未 push 的本地分支后自删）；2026-09-26 **DRIFT-028 五点落地**（**ADR-0053**：`crates/core` = **可装配的编排组件库** + 依赖白名单；原 TASK-028 拆为 **028**（会话 + 上下文）/ **207**（Planner）/ **208**（Memory）+ storage 前置 **206**（`memory_fts` FTS5），「组装」下沉 **TASK-029**）；此前 TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-207** `crates/core` Planner 已 Done（模型输出 → `task-engine` Plan / Step DAG；14 个 Planner 测试 + 3 个依赖白名单 arch 测试 / 88.60% 行覆盖；零第三方新增）；下一张 **TASK-206**（storage `memory_fts` FTS5，DRIFT-206-1 已裁决）。2026-09-26 另立 **ADR-0054**「**先落地，再自删** + 轮次编号只数 `main`」；**DRIFT-028 五点落地**（**ADR-0053**：`crates/core` = **可装配的编排组件库** + 依赖白名单；原 TASK-028 拆为 **028**（会话 + 上下文）/ **207**（Planner）/ **208**（Memory）+ storage 前置 **206**（`memory_fts` FTS5），「组装」下沉 **TASK-029**）；此前 TASK-028 `core`（会话 + 上下文）、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
@@ -71,7 +71,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 **阶段 1 — 三试点闭环**（Notepad → Paint → Edge/Chrome；TASK-011 ~ TASK-058）。
 子阶段 1a 已开工：地基层的 `crates/protocol`（schema + codegen）/ `crates/storage`（SQLite WAL + 迁移注册表 + blob）/
-`crates/audit`（append-only hash chain）/ `crates/core`（会话 + 上下文组件；Planner / Memory 由 207 / 208 续做；storage 侧 FTS5 前置 = TASK-206，DRIFT-206-1 已裁决）/ `crates/secrets`（OS keychain 封装）/
+`crates/audit`（append-only hash chain）/ `crates/core`（会话 + 上下文 + Planner；Memory 由 208 续做；storage 侧 FTS5 前置 = TASK-206，DRIFT-206-1 已裁决）/ `crates/secrets`（OS keychain 封装）/
 `xtask` 护栏（`docscan` 4 条结构规则 + `check-ledger` + `check-migrations` + `crates/core` 分层断言）/
 **`crates/platform/api`**（铁律 7 的唯一平台入口：`TargetDescriptor` / `NormalizedPoint` / `Fingerprint` /
 `CapabilityMatrix` + `PlatformService` / `WindowProvider` / `UiAutomationProvider` 三个 trait 形状）/
@@ -156,7 +156,11 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-26：**TASK-206 DRIFT-206-1 裁决 + ADR-0054「先落地，再自删」**；**DRIFT-028 五点落地 —— ADR-0053**；TASK-027 —— HITL 审批与接管 `crates/hitl`；TASK-026 —— 模型网关 `crates/model-gateway`；TASK-025 —— 目标租约与并发控制 `crates/lease`；TASK-024 —— 撤销与补偿闭环 `crates/undo`；2026-09-25：TASK-023 —— 后置断言引擎 `crates/verify`；TASK-204 —— `crates/tool-bus` draft-07 关键字判据硬化；TASK-022 —— 任务引擎 `crates/task-engine`；TASK-021 —— 唯一策略放行点 `crates/policy`；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+## 最近进展（2026-09-26：**TASK-207 —— `core` Planner（模型输出 → Plan / Step DAG）**；**TASK-206 DRIFT-206-1 裁决 + ADR-0054**；**DRIFT-028 五点落地 —— ADR-0053**；TASK-028 —— 会话 + 上下文；TASK-027 —— HITL 审批与接管 `crates/hitl`；TASK-026 —— 模型网关 `crates/model-gateway`；TASK-025 —— 目标租约与并发控制 `crates/lease`；TASK-024 —— 撤销与补偿闭环 `crates/undo`；2026-09-25：TASK-023 —— 后置断言引擎 `crates/verify`；TASK-204 —— `crates/tool-bus` draft-07 关键字判据硬化；TASK-022 —— 任务引擎 `crates/task-engine`；TASK-021 —— 唯一策略放行点 `crates/policy`；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+
+**2026-09-26 —— TASK-207（`crates/core`：Planner）**
+
+新增模型输出到 `assistant-task-engine` Plan / Step DAG 的严格转换：调用方持有 plan/task identity、goal、预算与 `ToolSchema` 目录，模型只能返回单一 `steps` JSON 数组。Planner 逐事件校验 Provider 流、传播取消并把单次 poll 限制在 500 ms 内；随后调用 `Plan::validate()`，再拒绝目录外工具。重复 id、缺依赖、依赖环、非法工具名、写步骤缺 postcondition、L3 未标 point-of-no-return，以及不可解析 / 空 / 类型错误 / tool-call / 无 finish 输出全部 fail-closed。新增 14 个 Planner 测试 + 3 个 ADR-0053 依赖白名单 arch 测试；`assistant-core` 行覆盖 88.60%，零第三方新增。
 
 **2026-09-26 —— 治理：TASK-206 DRIFT-206-1 裁决（方案 A）+ ADR-0054「先落地，再自删」**
 

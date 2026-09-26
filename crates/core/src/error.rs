@@ -5,6 +5,7 @@
 
 use std::fmt;
 
+use assistant_model_gateway::ModelGatewayError;
 use assistant_protocol::ErrorCode;
 
 /// Result alias for Core operations.
@@ -186,6 +187,25 @@ pub enum CoreError {
         /// Counter field.
         field: &'static str,
     },
+    /// The injected model provider failed while producing a plan.
+    PlannerModel(ModelGatewayError),
+    /// The parsed plan failed task-engine structural validation.
+    InvalidPlan {
+        /// Human-readable validation failure.
+        reason: String,
+    },
+    /// Model output was not a valid planner JSON envelope.
+    InvalidPlannerOutput {
+        /// Human-readable rejection reason.
+        reason: String,
+    },
+    /// A plan step referenced a tool absent from the supplied catalog.
+    UnknownPlannerTool {
+        /// Rejecting step.
+        step_id: String,
+        /// Tool name requested by the model.
+        tool: String,
+    },
 }
 
 impl CoreError {
@@ -204,6 +224,11 @@ impl CoreError {
             | Self::ParentMessageNotFound { .. } => ErrorCode::TargetNotFound,
             Self::RequiredContextExceedsBudget { .. } => ErrorCode::PolicyDenied,
             Self::CompressionFailed(error) => error.error_code(),
+            Self::InvalidPlan { .. } | Self::UnknownPlannerTool { .. } => {
+                ErrorCode::ToolInvalidArgs
+            }
+            Self::PlannerModel(error) => error.error_code(),
+            Self::InvalidPlannerOutput { .. } => ErrorCode::ModelInvalidOutput,
             Self::SessionEnded { .. } | Self::SessionStore(_) | Self::NumericOverflow { .. } => {
                 ErrorCode::Fatal
             }
@@ -228,6 +253,10 @@ impl CoreError {
             Self::CompressionFailed(error) => error.reason_code(),
             Self::SessionStore(error) => error.reason_code(),
             Self::NumericOverflow { .. } => "numeric_overflow",
+            Self::PlannerModel(_) => "planner_model_failure",
+            Self::InvalidPlan { .. } => "invalid_plan",
+            Self::InvalidPlannerOutput { .. } => "invalid_planner_output",
+            Self::UnknownPlannerTool { .. } => "unknown_planner_tool",
         }
     }
 }
@@ -285,6 +314,14 @@ impl fmt::Display for CoreError {
             Self::NumericOverflow { field } => {
                 write!(formatter, "numeric overflow while updating {field}")
             }
+            Self::PlannerModel(error) => error.fmt(formatter),
+            Self::InvalidPlan { reason } => write!(formatter, "invalid plan: {reason}"),
+            Self::InvalidPlannerOutput { reason } => {
+                write!(formatter, "invalid planner output: {reason}")
+            }
+            Self::UnknownPlannerTool { step_id, tool } => {
+                write!(formatter, "step {step_id} uses unknown tool {tool:?}")
+            }
         }
     }
 }
@@ -294,6 +331,7 @@ impl std::error::Error for CoreError {
         match self {
             Self::CompressionFailed(error) => Some(error),
             Self::SessionStore(error) => Some(error),
+            Self::PlannerModel(error) => Some(error),
             _ => None,
         }
     }
