@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~027 已 Done（2026-09-25 / 2026-09-26）**；拆卡主卡 **TASK-028 已 Done（2026-09-26）**：会话生命周期 + 消息树 + 树裁剪/压缩/token 预算，`assistant-core` 27 个测试、行覆盖 92.62%） → 下一张 = **TASK-207**（Planner；TASK-206 的 FTS5 前置仍受 DRIFT-206-1 阻塞，TASK-208 依赖 206；装配归 TASK-029））　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~027 已 Done（2026-09-25 / 2026-09-26）**；拆卡主卡 **TASK-028 已 Done（2026-09-26）**：会话生命周期 + 消息树 + 树裁剪/压缩/token 预算，`assistant-core` 27 个测试、行覆盖 92.62%） → 下一张 = **TASK-207**（Planner；TASK-206 的 FTS5 前置 **DRIFT-206-1 已于 2026-09-26 裁决（方案 A：write scope 增列 `docs/storage-design.md` §3.4）→ 回 Ready**，TASK-208 依赖 206；装配归 TASK-029））　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
