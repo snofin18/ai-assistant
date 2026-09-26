@@ -142,3 +142,7 @@
 ## 2026-09-26 追加（ADR-0052，Accepted）
 
 - [2026-09-26][DECISION][src:ADR-0052] **全量措辞去夜间化**：把**现行正文**里的夜间族措辞全量换成时间中性词 —— `夜间自动化`→`自动化`、`每夜`→`每次运行`、`当夜`→`运行日`、`晨间报告`→`阶段报告`、`整夜`→`本次运行`、`昨夜`→`上一运行日`、`一夜`→`一轮`，以及**同族词** `早晨流程`→`审阅流程`、`人类醒来`→`人类恢复在线`、`白天会话`→`人类会话`、`回到纯白天推进`→`回到纯人工推进`、`不局限于晚上`→`不局限于某一时段`。**只读 / 只追加的历史记录一律不动**（ADR 只增不改 / LEDGER 只追加 / 任务卡正文只读）。**保留词**：`关机 / 睡眠 / 午夜`（技术语义）。**授权例外**：`README.md` 指定 5 行 + `MEMORY.md` 指定 1 行（ADR-0039 D5 / ADR-0021 当次例外，**只改措辞**）。**附带结构修复**：章程 §12 孤儿行 `1.10`~`1.16` 归位（行内容逐字不变）。同步：章程 **v1.16** / 手册 **v1.13**。
+
+## 2026-09-26 追加（ADR-0053，Accepted）
+
+- [2026-09-26][DECISION][src:ADR-0053] **`core` = 可装配的编排组件库（不是装配层）；依赖白名单写死**：白名单 = `protocol` / `storage` / `platform/api`（**仅 trait**）/ `task-engine`（Plan·Step DAG 类型）/ `model-gateway`（`ModelProvider` trait）；黑名单 = `platform/{windows,macos,linux}` / `tool-bus` / `policy` / `audit` / `hitl` / `verify` / `undo` / `lease` / `secrets` / `ipc` / `apps/*` / UI（理由：铁律 3 放行点唯一 + 装配单点在 binary + 保持依赖 DAG 无环）；**「组装」从 TASK-028 下沉到 TASK-029**；**FTS5（`memory_fts`）归 `crates/storage`**（前置卡，`core` 只消费检索 API）；**原 TASK-028 拆为 4 张**（TASK-028 会话 + 上下文 / TASK-207 Planner / TASK-208 Memory / TASK-029 装配）；先立 ADR + `docs/spec/core-orchestration.md` 再实现（铁律 10）→ 闭环 TASK-028 的 **DRIFT-028-1 ~ 028-5**（触发器 ③⑤⑧⑨⑩）。

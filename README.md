@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-027** `crates/hitl` 已 Done（ADR-0048 无损确认投影 + 审批请求 + 四维授权/TTL/次数 + 接管交还重同步 + 暂停恢复 + diff 数据准备；18 个契约测试 / 77.93% 行覆盖）；此前 TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-027** `crates/hitl` 已 Done（ADR-0048 无损确认投影 + 审批请求 + 四维授权/TTL/次数 + 接管交还重同步 + 暂停恢复 + diff 数据准备；18 个契约测试 / 77.93% 行覆盖）；2026-09-26 **DRIFT-028 五点落地**（**ADR-0053**：`crates/core` = **可装配的编排组件库** + 依赖白名单；原 TASK-028 拆为 **028**（会话 + 上下文）/ **207**（Planner）/ **208**（Memory）+ storage 前置 **206**（`memory_fts` FTS5），「组装」下沉 **TASK-029**）；此前 TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
@@ -109,6 +109,11 @@ TASK-204 把 `tool-bus` 的 draft-07 判据**显式化**：三张带理由的拒
 阶段 0（文档与 Spike）已于 2026-09-20 closeout —— 它的产出是 Spike 报告，**不是**产品代码。
 详见 `plans/stage-1-pilots.md`。
 
+2026-09-26 的 **DRIFT-028 五点落地**（**ADR-0053**）把 `crates/core` 的编排层范围定死：`core` = **可装配的编排组件库**
+（依赖白名单 = `protocol` / `storage` / `platform/api`（仅 trait）/ `task-engine` / `model-gateway`；黑名单含 `tool-bus` / `policy` / `audit` …），
+**装配点唯一在 binary**；原 TASK-028（五合一）拆为 **TASK-028**（会话 + 上下文）/ **TASK-207**（Planner）/ **TASK-208**（Memory），
+FTS5 检索（`memory_fts`）归 `crates/storage` 的前置卡 **TASK-206**，「组装」下沉 **TASK-029**；契约见 `docs/spec/core-orchestration.md`。
+
 平台基线：**Windows 11 24H2+**（唯一正式基线；Windows 10 已 EOL，仅 C 级尽力）。
 Linux 侧 **Wayland-first**（GNOME 50 已移除 X11 后端）。
 
@@ -151,7 +156,11 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-26：TASK-027 —— HITL 审批与接管 `crates/hitl`；TASK-026 —— 模型网关 `crates/model-gateway`；TASK-025 —— 目标租约与并发控制 `crates/lease`；TASK-024 —— 撤销与补偿闭环 `crates/undo`；2026-09-25：TASK-023 —— 后置断言引擎 `crates/verify`；TASK-204 —— `crates/tool-bus` draft-07 关键字判据硬化；TASK-022 —— 任务引擎 `crates/task-engine`；TASK-021 —— 唯一策略放行点 `crates/policy`；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+## 最近进展（2026-09-26：**DRIFT-028 五点落地 —— ADR-0053**；TASK-027 —— HITL 审批与接管 `crates/hitl`；TASK-026 —— 模型网关 `crates/model-gateway`；TASK-025 —— 目标租约与并发控制 `crates/lease`；TASK-024 —— 撤销与补偿闭环 `crates/undo`；2026-09-25：TASK-023 —— 后置断言引擎 `crates/verify`；TASK-204 —— `crates/tool-bus` draft-07 关键字判据硬化；TASK-022 —— 任务引擎 `crates/task-engine`；TASK-021 —— 唯一策略放行点 `crates/policy`；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+
+**2026-09-26 —— 治理：DRIFT-028 五点落地（ADR-0053：`core` 编排层接口面 + 依赖白名单 + 拆卡 + 组装下沉 + spec）**
+
+人类裁决「drift-028 的 5 点都按照你的建议做」→ ① **ADR-0053** 把 `crates/core` 定为**可装配的编排组件库**（**不是**装配层）：依赖白名单 = `protocol` / `storage` / `platform/api`（**仅 trait**）/ `task-engine`（Plan·Step DAG 类型）/ `model-gateway`（`ModelProvider` trait）；黑名单 = `platform/{windows,macos,linux}` / `tool-bus` / `policy` / `audit` / `hitl` / `verify` / `undo` / `lease` / `secrets` / `ipc` / `apps/*` / UI（理由：铁律 3 放行点唯一 + 装配单点在 binary + 依赖 DAG 无环）。② 新建 `docs/spec/core-orchestration.md`（四组组件接口面 + 10 条不变量 + 错误语义），**契约先行**（铁律 10）。③ **拆卡**：原 TASK-028（五合一）→ **TASK-028**（会话 + 上下文）/ **TASK-207**（Planner）/ **TASK-208**（Memory），「组装」下沉 **TASK-029**（binary = 唯一装配点）；FTS5 检索归 `crates/storage` 的前置卡 **TASK-206**（`libsqlite3-sys` 的 `bundled` 已带 `-DSQLITE_ENABLE_FTS5` → **零新增依赖**）。④ `crates/core/README.md` 与 `crates/core/src/lib.rs` 的职责段 / 不变量 3 同步改写为白名单口径 —— 消除「README 不变量 3 与『装配』职责互相矛盾、而 `arch_layering.rs` 拦不住」的**静默漂移**（DRIFT-028-4）。**未改任何产品代码**。
 
 **2026-09-26 —— TASK-027（`crates/hitl`：ADR-0048 无损确认投影 + 审批 / 授权 / 接管 / diff）**
 

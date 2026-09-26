@@ -1,47 +1,93 @@
-# TASK-028　`core`：会话管理 + 上下文管理（树裁剪/压缩/预算）+ Planner + Memory(App Map 加载/FTS5 检索) + 组装
+# TASK-028　`core`：会话管理 + 上下文管理（树裁剪 / 压缩 / 预算）
 
 - 状态：**Ready**
-- 阶段：1　子阶段：**1a**　批次：**A2**　依赖：020~027　预估：M　难度：M
+- 阶段：1　子阶段：**1a**　批次：**A2**（原 TASK-028 拆卡后的**主卡**）　依赖：020~027（✅ Done）　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
-- 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
+- 阶段级信息见 `plans/stage-1-pilots.md`；契约见 `docs/spec/core-orchestration.md` 与 `docs/adr/0053-core-orchestration-layer-interface.md`。
+- 本卡与 TASK-207 / TASK-208 **共用 `crates/core/**`** → **必须严格串行**（依赖列已保证顺序），不得与它们并行。
+- 来源：原 TASK-028 的 5 条 DRIFT 裁决（人类 2026-09-26：「drift-028 的 5 点都按照你的建议做」）→ 本卡收窄为「会话 + 上下文」；Planner → **TASK-207**；Memory → **TASK-208**；「组装」→ **TASK-029**（ADR-0053 D7）。
+- 本卡原文件名 `tasks/TASK-028-core-session-context-planner-memory.md`；2026-09-26 拆卡时改名为 `tasks/TASK-028-core-session-context.md`（**号不变**，ADR-0031 D7）。
 
 ---
 
-- **依赖**：020~027　**预估**：M　**难度**：M
-- **write scope**：`crates/core/**`
-- **关联**：`plans/stage-1-pilots.md` 批次表 A2（1a）、`docs/wbs-overview.md` §6（DoD）
+## 目标（一句话）
 
-**目标**
+在 `crates/core` 落地**会话管理**与**上下文管理**：会话生命周期 + 消息树；树裁剪 / 压缩 / 预算 —— 且**每一次「少给了东西」都必须在返回值里显式标注**（铁律 1）。
 
-`core`：会话管理 + 上下文管理（树裁剪/压缩/预算）+ Planner + Memory(App Map 加载/FTS5 检索) + 组装。
+## 背景（为什么现在做）
 
-**write scope**（本卡独有部分，完整列表见 plan 批次表）
+| # | 事实 | 证据 |
+|---|---|---|
+| 1 | 原 TASK-028 一张 `M` 卡塞了 5 个子系统（会话 / 上下文 / Planner / Memory / 组装）→ 触发器 ⑩ | `tasks/TASK-028-core-session-context.md` §5 的 **DRIFT-028-2** |
+| 2 | `core` 首次落地公开接口面 → 必须**契约先行**（铁律 10） | **ADR-0053**（D4 / D8）+ `docs/spec/core-orchestration.md` §3 / §4 |
+| 3 | 上下文管理的形状有架构级定义 | 架构 v2 §11.3（上下文管理）、§7.1 / §7.2（树裁剪 / 预算压缩） |
+| 4 | 持久化**不**在本卡：`core` 不持有 SQLite 连接 | `crates/core/README.md` 边界 + `docs/spec/core-orchestration.md` 不变量 5 |
+| 5 | 阶段 1 的验收要点含「上下文预算生效」 | `plans/stage-1-pilots.md` 批次表 A2 的 TASK-028 行验收要点 |
 
-`crates/core/**`
+## write scope
 
-**步骤**（占位 —— 派单前由 Orchestrator 按 gov §3.2 模板与实际调研补充）
+- `crates/core/src/**`（**会话 / 上下文相关模块** + `lib.rs` 的 re-export；新增模块属漂移触发器 ②，本卡的存在即 ADR-0053 的授权）
+- `crates/core/tests/**`（**新增**测试；不得改既有断言 —— 漂移触发器 ⑦）
+- `crates/core/Cargo.toml`（**仅当**需要白名单内的依赖；白名单见 ADR-0053 D2）
+- `crates/core/README.md`（仅当「职责 / 边界 / 不变量 / 已知限制」因本卡需要同步）
+- `tasks/TASK-028-core-session-context.md`（本文件）
+- `LEDGER.md` / `PLAN.md`（仅「当前状态」块 4 行）/ `README.md`（仅三处）/ `plans/stage-1-pilots.md`（仅完成状态与「当前进度」块）/ `MEMORY.md`（仅规模表）：AGENTS.md §11.1 强制的进度同步
 
-1. 环境记录（OS / 依赖版本 / 输入 fixture）
-2. 实现 card 标题声明的能力，附最小自检命令
-3. 跑 `cargo test --workspace` + 本卡专项测试；不合格 → DRIFT
-4. 更新 `docs/memory/apps/<app>.md` 或 `facts/pitfalls.md`（应用专属去 apps，跨应用去 pitfalls）
+## Out of scope（写了就停）
 
-**DoD**
+- **不做** Planner（归 **TASK-207**）、**不做** Memory / App Map / 检索（归 **TASK-208** / **TASK-206**）
+- **不做**装配：把 platform / tool-bus / policy / storage / audit 组装成 Host 归 **TASK-029**（ADR-0053 D1 / D5）
+- **不定义**跨进程 / 持久化结构（归 `assistant-protocol` / `assistant-storage`）；**不定义** `Plan` / `Step`（归 `assistant-task-engine`）
+- **不判权限**、不执行工具、不调平台 API（铁律 3 / 7）
+- **不引**黑名单 crate（ADR-0053 D3）：`tool-bus` / `policy` / `audit` / `hitl` / `verify` / `undo` / `lease` / `secrets` / `ipc` / `platform/{windows,macos,linux}` / `apps/*`
+- **不做**向量检索、不做无人值守相关能力（阶段 1 Out of scope）
+- **不放宽**任何 lint、不加 `#[allow]`、不加 `unsafe`、不改 `protocol` schema / `ErrorCode`
 
-- [ ] card 标题声明的能力可被测试用例覆盖
-- [ ] `cargo fmt --all --check` 0 diff
-- [ ] `cargo clippy --all-targets -- -D warnings` 退出码 0
-- [ ] `cargo test --workspace` 全绿
-- [ ] `xtask hygiene / memory-counts / adr-index / refscan / docscan / card-check` 全部 PASSED
-- [ ] LEDGER.md 追加一行；如新增事实/坑则追加 `docs/memory/{facts,pitfalls}.md`
+## 必须遵守
 
-**验收命令**
+- **无静默失败**（铁律 1）：裁剪 / 压缩的每一次丢弃都必须**显式标注**（丢了什么、为什么、可否认）；预算不足时 fail-closed 或显式要求调用方决定，**不**静默截断到「看起来成功」
+- **五类不可信输入**（铁律 2）：模型输出与工具返回进入上下文时**先校验**，校验失败带 `ErrorCode` 返回
+- **不持有连接**：持久化只经 `assistant-storage` 的公开 API（`docs/spec/core-orchestration.md` 不变量 5）
+- **可注入**：时钟 / 随机 / UUID / FS 一律 trait 注入（AGENTS.md §5.3，保证可回放）
+- **可装配**：组件由 binary 构造 + 注入；**不**依赖全局单例、**不**在 `core` 内 new 出别家的实现（`docs/spec/core-orchestration.md` 不变量 10）
+- **文档注释**：公共 API 100% 有文档注释（含**错误语义**与幂等性）
+- **单文件 ≤ 600 行**（硬限 900，ADR-0033）；函数 ≤ 80 行、参数 ≤ 6 个
+- **只追加文件**（`LEDGER.md` / `docs/PARKING_LOT.md`）**不改写既有行**
+
+## 验收命令
 
 ```powershell
-cargo fmt --all --check; cargo clippy --all-targets -- -D warnings
+cargo fmt --all --check
+cargo clippy --all-targets -- -D warnings
 cargo test --workspace
-cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / card-check
+cargo test -p assistant-core
+cargo test -p assistant-core arch::
+cargo run -p xtask -- verify-schemas
+cargo run -p xtask -- codegen --check
+cargo run -p xtask -- hygiene
+cargo run -p xtask -- docscan
+cargo run -p xtask -- card-check
+cargo run -p xtask -- memory-counts
+cargo run -p xtask -- adr-index
+cargo run -p xtask -- check-ledger
+cargo deny check
 ```
+
+## DoD
+
+- [ ] 会话：创建 / 恢复 / 结束 + 消息树的增删与顺序，全部可被测试用例覆盖；非法迁移（如结束后再追加）fail-closed
+- [ ] 上下文预算**生效**：给定预算下产出的片段不超预算；**超预算时必须显式标注被丢弃的内容与理由**（负向用例）
+- [ ] 树裁剪：可裁剪 / 不可裁剪（如锚点、未完成步骤的证据）两类行为都有用例，且裁剪结果**可审计**（带理由）
+- [ ] 压缩：压缩失败 / 模型不可用 → 带 `ErrorCode` 失败，**不**退化成「静默丢历史」
+- [ ] `core` 的 `[dependencies]` ⊆ ADR-0053 D2 白名单；`cargo test -p assistant-core arch::` 全绿
+- [ ] `core` 单元测试**零真实 IO / 网络 / 时钟**（可回放）
+- [ ] `core` 行覆盖 ≥ 85%（阶段 1 DoD）
+- [ ] 既有测试零改动通过（漂移触发器 ⑦）
+- [ ] 上列 14 条验收命令全绿；`hygiene` / `card-check` / `docscan` 的 warning **不新增**
+- [ ] §11.1 进度同步：`PLAN.md` 当前状态块 / `README.md` 三处 / `LEDGER.md` / `plans/stage-1-pilots.md`（仅完成状态与「当前进度」块）/ `MEMORY.md` 规模表
+- [ ] 若产生新 FACT / PITFALL → 追加 `docs/memory/{facts,pitfalls}.md`
+
+---
 
 <!-- ══ 分界线：以上为**卡片正文**，Orchestrator 所有，Implementer 只读 ══
      以下由 Implementer 填写。改动分界线以上的任何一行 = 漂移触发器 ⑤（超出 write scope），
@@ -65,6 +111,8 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 ```
 
 > **结论：本卡未开工。** 按 AGENTS §4「命中任一 → **停止编码** → 写 DRIFT → 等裁决」，本会话只做**只读调研 + 回执 + 偏差登记**，未改任何产品代码。
+
+> **2026-09-26 拆卡后**：本卡范围已收窄为「会话 + 上下文」（见正文）；本节回执是**拆卡前**（Blocked 那次）的记录，按 ADR-0031「记录区只追加」保留原样。
 
 ### 2. 实际改动文件
 
@@ -125,6 +173,24 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - **影响**：AGENTS §3 启动协议要求以卡**全文**对齐回执；占位正文使 §1 回执的若干字段只能从 plan 与 README 反推，**不是卡面事实源**。
 - **建议**：由 Orchestrator（人类此前已授权「代 Orchestrator 展开正文」）在 **DRIFT-028-1~4 裁决之后**展开正文 —— 顺序不能反：范围未定就展开 = 把错误范围写进只读正文。
 - **已停工作**：本会话**刻意未展开**本卡正文。
+
+#### DRIFT-028-1 ~ 028-5 的裁决与落地（2026-09-26）
+
+人类 2026-09-26 裁决：**「drift-028 的 5 点都按照你的建议做」** → 全部采纳 §5 各条的**建议 1**。落地物如下：
+
+| DRIFT | 采纳的方案 | 落地物 |
+|---|---|---|
+| **028-1**（⑤ 超 write scope） | 立**前置卡**：存储侧做 `memory_fts`（FTS5）+ 检索 API + 存储侧测试；本卡的 Memory 只**消费**该 API | **ADR-0053 D6**；`tasks/TASK-206-storage-memory-fts5-search.md` |
+| **028-2**（⑩ 超预估 2 倍） | **拆卡**：本卡收窄为「会话 + 上下文」；Planner → **TASK-207**；Memory → **TASK-208**；「组装」→ TASK-029（见 028-4） | **ADR-0053 D7**；`tasks/TASK-207-core-planner-plan-step-dag.md` / `tasks/TASK-208-core-memory-app-map-fts-retrieval.md` |
+| **028-3**（③⑨ 公共接口 / 新抽象层） | **先立 ADR + spec**，再实现（铁律 10） | **ADR-0053** + `docs/spec/core-orchestration.md` |
+| **028-4**（③ 与不变量冲突） | 「组装」**下沉到 TASK-029**（binary 装配层）；本卡只产出**可装配组件** | **ADR-0053 D1 / D5**；`tasks/TASK-029-binary-skeleton-agent-core-desktop-ui.md` 正文补 Host 装配；`crates/core/README.md` 不变量 3 改写为依赖白名单口径 |
+| **028-5**（⑧ 正文占位） | 由 Orchestrator（人类此前已授权**代行**）在 028-1~4 **之后**展开正文 | 本卡正文已按 gov §3.2 重写（见分界线以上）；TASK-207 / 208 正文同步展开 |
+
+**顺序遵守**：028-5 的正文展开**发生在** 028-1~4 定案**之后**（不是之前 —— 范围未定就展开 = 把错误范围写进只读正文）。
+
+**改名**：本卡文件名由 `tasks/TASK-028-core-session-context-planner-memory.md` 改为 `tasks/TASK-028-core-session-context.md`（**号不变**，ADR-0031 D7 的「按号寻卡」契约不受影响；ADR-0051 D5 同口径：历史台账保留旧名）。
+
+**未改**：任何产品代码 —— 本卡至今仍未开工。
 
 ### 6. 更合理做法
 
