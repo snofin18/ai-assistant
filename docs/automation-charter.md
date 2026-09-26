@@ -1,10 +1,11 @@
 # 自动推进章程（Automation Charter）
 
-> 状态：Active　版本：**1.14**　日期：**2026-09-26**　变更历史见 §12
+> 状态：Active　版本：**1.15**　日期：**2026-09-26**　变更历史见 §12
 > 上位：`AGENTS.md`、`docs/governance-ai-agent-execution.md`（gov）、`docs/subagent-orchestration.md`
 > 本文件是**自动化任务**的**唯一权威规则源**。automation（或回退方案的调度器）传给 agent 的 prompt
 > 变更门槛：修改本章程需 ADR。
-> **适用范围（ADR-0050，2026-09-26）**：本章程适用于**每天任何时间**运行的 automation（**不再限于夜间**）。文中「夜间 / 当夜 / 晨间」均为**历史命名**：「当夜」= 一次运行所属的 **运行日**（§11.3）、「晨间报告」= 该运行日 / 链的 **阶段报告**（§11.4）。文件路径 `docs/overnight-automation-charter.md`、目录 `docs/nightly/`、锁名 `.nightly.lock`、分支名 `nightly/<date>` 同样属**历史命名**（全量改名见 `docs/PARKING_LOT.md` **PL-089**）。
+> **适用范围（ADR-0050，2026-09-26）**：本章程适用于**每天任何时间**运行的 automation（**不再限于夜间**）。文中「夜间 / 当夜 / 晨间」均为**历史命名**：「当夜」= 一次运行所属的 **运行日**（§11.3）、「晨间报告」= 该运行日 / 链的 **阶段报告**（§11.4）。文件路径 `docs/automation-charter.md`、目录 `docs/automations/`、锁名 `.automation.lock`、分支名 `automation/<date>` 同样属**历史命名**（全量改名见 `docs/PARKING_LOT.md` **PL-089**）。
+> **改名（ADR-0051，2026-09-26）**：本文件原名 **`docs/overnight-automation-charter.md`**，现为 **`docs/automation-charter.md`**；目录 `docs/nightly/` → `docs/automations/`、锁 `.nightly.lock` → `.automation.lock`、分支 `nightly/<date>` → `automation/<date>`。**历史记录**（ADR 正文 / `LEDGER.md` / 任务卡 / 历史报告 / 各文件「变更历史」行）仍用旧名 —— 属只追加 / 只读，**不回溯改写**。
 
 ---
 
@@ -17,7 +18,7 @@
 
 三条不可妥协的底线：
 
-1. **不合并 main**：夜间产出全部落在 `nightly/YYYY-MM-DD` 分支，合并权在人类。
+1. **不合并 main**：夜间产出全部落在 `automation/YYYY-MM-DD` 分支，合并权在人类。
 2. **不静默失败**：每轮必须留下报告；验收不通过就停止，不允许"先做完再说"。
 3. **不改契约**：schema / trait / ErrorCode / DB / IPC / lint 配置 / AGENTS.md / spec / 已批准的 ADR —— 夜间一律只读；
    `PLAN.md` / `plans/*` **只许改「完成状态」与「当前状态 / 当前进度」块**，**禁止**改排期与条目正文（**ADR-0041 D1 / D2**）。
@@ -31,11 +32,11 @@
 | G1 | Rust 工具链可用 | `cargo --version` | 停止整夜，报告"环境未就绪" |
 | G2 | **当前 HEAD 是绿的** | `cargo fmt --all --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test --workspace` | 停止整夜。**必须从绿开始**，否则无法区分"我弄坏的"与"本来就坏的" |
 | G3 | 工作区干净 | `git status --porcelain` 为空 | 停止整夜（避免把人类在制品混进夜间提交） |
-| G4 | 不在 main 分支 | 当前分支 ≠ `main`；若为 main 则创建 `nightly/<date>` | 自动切到夜间分支 |
+| G4 | 不在 main 分支 | 当前分支 ≠ `main`；若为 main 则创建 `automation/<date>` | 自动切到夜间分支 |
 | G5 | **有可执行的工作** | 按序检查：① `tasks/*.md` 中有 `状态：Ready` 的卡 → ② §13 夜间工作单有未完成项 → ③ §2 白名单 P2~P8 中有可做项 | 三者全空才停止整夜，报告"无可执行工作"并列出三者各自为空的原因 |
 | G6 | 护栏工具可用 | `cargo run -p xtask -- hygiene` 能运行 | 停止整夜 |
 | G7 | 磁盘与时间预算充足 | 剩余磁盘 > 2 GB；当前时间 < 05:00 | 停止整夜 |
-| G8 | **无并发夜间任务** | 获取互斥锁 `.nightly.lock`（规则见 §11.2） | 锁被占用 → 本次唤醒**直接结束**，只往 `docs/nightly/<date>-skipped.md` 追加一行，不动任何代码 |
+| G8 | **无并发夜间任务** | 获取互斥锁 `.automation.lock`（规则见 §11.2） | 锁被占用 → 本次唤醒**直接结束**，只往 `docs/automations/<date>-skipped.md` 追加一行，不动任何代码 |
 
 ---
 
@@ -50,7 +51,7 @@
 | P5 | ADR **草稿**（编号顺延，状态 Draft） | `docs/adr/NNNN-*.draft.md` | **不得**写 `状态：Accepted` |
 | P6 | 汇总代码中的 `PITFALL(...)` 标签进 `MEMORY.md` §5；补录 `LEDGER.md` | `MEMORY.md`、`LEDGER.md`（只追加） | 记忆维护 |
 | P7 | 实现靶机应用 fixture | `fixtures/apps/**` | 为白盒/回放测试铺路 |
-| P8 | 分析 `docs/PARKING_LOT.md` 条目，产出**建议**（不实现） | `docs/nightly/*.md` | 只给分析 |
+| P8 | 分析 `docs/PARKING_LOT.md` 条目，产出**建议**（不实现） | `docs/automations/*.md` | 只给分析 |
 
 ---
 
@@ -90,7 +91,7 @@
 ⑦ 白盒测试要求（§5）→ 覆盖率不低于门槛且新代码有测试
 ⑧ 提交到 nightly 分支：Conventional Commits + 页脚 `Task:` / `Drift:` / `Night-round: N`
 ⑨ 追加 LEDGER.md 一行；若有新 FACT/PITFALL → 追加 MEMORY.md
-⑩ 写 docs/nightly/<date>-round-N.md（本轮报告）
+⑩ 写 docs/automations/<date>-round-N.md（本轮报告）
 ⑪ 预算判断（§6）→ 继续下一轮或收尾
 ```
 
@@ -127,7 +128,7 @@
 
 ## 7. 晨间报告（人类醒来看到的第一份东西）
 
-路径：`docs/nightly/<YYYY-MM-DD>-report.md`；同时把摘要写进本次运行的日志文件（`docs/nightly/logs/`）
+路径：`docs/automations/<YYYY-MM-DD>-report.md`；同时把摘要写进本次运行的日志文件（`docs/automations/logs/`）
 与 `-o/--output-last-message` 的输出文件 —— **CLI 路径没有应用内通知**，可见性全靠文件（§11.6）。
 
 ```markdown
@@ -143,7 +144,7 @@ G1~G8 结果（任一失败则本报告只有这一节 + 原因）
 ## ⑥ 今日建议审阅顺序（风险从高到低）+ 预估审阅行数
 ## ⑦ 护栏趋势（hygiene / check-comments / clippy / coverage 的数字对比）
 ## ⑧ 声明
-- 所有改动在 `nightly/<date>` 分支，**未合并 main、未 push**
+- 所有改动在 `automation/<date>` 分支，**未合并 main、未 push**
 - 未操作任何真实应用、未发起任何非依赖拉取的网络请求、未触碰任何凭据
 ```
 
@@ -205,7 +206,7 @@ G1~G8 结果（任一失败则本报告只有这一节 + 原因）
 > 反而每次 Codex 升级都要重新验证 CLI 行为）。
 >
 > **本章只写纪律，不写 how-to。**「怎么建 / 改 / 删 / 立即运行 / 暂停 / 停止 / 恢复」的逐条写法、
-> 字段清单与证据标签，一律见 **`docs/nightly/codex-automations-operations.md`**（ADR-0029 D2 的主交付物）。
+> 字段清单与证据标签，一律见 **`docs/automations/codex-automations-operations.md`**（ADR-0029 D2 的主交付物）。
 > 分开的理由（ADR-0029 选项 6）：章程是「该做什么、不许做什么」，操作手册是「具体点哪里、传什么字段」；
 > 混在一起会让章程膨胀到无法每次全读，违反 `AGENTS.md` §1「只读需要的」。
 
@@ -214,7 +215,7 @@ G1~G8 结果（任一失败则本报告只有这一节 + 原因）
 | 地位 | 机制 | 依据 | 现状 |
 |---|---|---|---|
 | **主方案** | **Codex 原生 scheduled tasks**，形态 = **standalone（cron 类）** | ADR-0029 D1 | ✅ **已可用**：启用前置门禁 GATE-0 于 **2026-09-24** 通过（§11.9）；**当前 automation 数 = 0** —— 2026-09-25 建的两个 automation（`ai-assistant-one-shot-1330` 13:30 / `ai-assistant-one-shot-1630` 16:30）已按人类指示**于当晚全部删除**（磁盘复核 `~/.codex/automations/` 回到只剩 `.run-jitter-salt`）。**这两个「一次性」任务曾一度被判为「每天执行」，该判断已于 2026-09-25 深夜被本机端到端实测推翻** —— `RRULE:FREQ=DAILY;INTERVAL=1;COUNT=1;BYHOUR=..;BYMINUTE=..` **确实是**真正的一次性（跑完 `next_run_at` 清空且不再重算；当时的「每天」来自 UI 把该规则显示成「每日」+ 跑完仍 `ACTIVE` 是设计如此），见手册 §4.1.a 的**更正块**与 **PL-081（更正行）/ PL-085**；同日更早建的两个**常驻** automation 也已删除。**正确形态已由 ADR-0046 固化**：**人类指令驱动的「一次性」任务** —— 建立需人类指令；**不同自动化之间间隔 ≥ 2 小时（默认 2 小时）**；**同时存在的多个 automation 的（计划）开始时刻必须互斥 —— 严禁两个在同一时刻开始 / 同时运行**；**任务内容按实际进度现场决定**（prompt 不写死卡号）；人类**任何时间**均可提出 → 详见 **§11.11** |
-| 回退方案 | Windows 任务计划程序 + 包装脚本调 `codex exec` | ADR-0018（状态 Accepted → **Superseded by ADR-0029**，但**保留可用**） | 🧊 **冻结**：本机适配要点见 §11.8，验收清单见 `docs/nightly/scheduler-acceptance-test.md` |
+| 回退方案 | Windows 任务计划程序 + 包装脚本调 `codex exec` | ADR-0018（状态 Accepted → **Superseded by ADR-0029**，但**保留可用**） | 🧊 **冻结**：本机适配要点见 §11.8，验收清单见 `docs/automations/scheduler-acceptance-test.md` |
 
 - **为什么首选 standalone 而不是 heartbeat**：standalone 每次运行开一个**全新 chat**，天然避免
   「毒项沉入长驻会话」（ADR-0018 证据 E3）与上下文累积漂移；heartbeat 复用既有 chat 的上下文，
@@ -240,16 +241,16 @@ G1~G8 结果（任一失败则本报告只有这一节 + 原因）
 
 | 层 | 载体 | 粒度 | 谁负责 | 挡住什么 |
 |---|---|---|---|---|
-| ① 仓库级 | `<repo>/.nightly.lock`（已在 `.gitignore`，**不得**提交） | 整个仓库 | agent 按 prompt 指示自己获取/释放 | 「自动化运行 vs 人类会话」同时改仓库 |
+| ① 仓库级 | `<repo>/.automation.lock`（已在 `.gitignore`，**不得**提交） | 整个仓库 | agent 按 prompt 指示自己获取/释放 | 「自动化运行 vs 人类会话」同时改仓库 |
 | ② 文件级 | `cargo run -p xtask -- guard acquire <路径> --owner <会话级唯一标识>`（ADR-0028） | 单个文件 | agent 改写任何公共热点文件**前**必取 | 两个进程改同一文件（`LEDGER.md` / `docs/memory/*.md` / `docs/PARKING_LOT.md` 是最高危的三个只追加热点） |
 
 - **①的内容**：单行 JSON
-  `{"run_started_at":"<ISO8601>","round":N,"branch":"nightly/<date>","mechanism":"codex-automation","note":"<可选>"}`。
+  `{"run_started_at":"<ISO8601>","round":N,"branch":"automation/<date>","mechanism":"codex-automation","note":"<可选>"}`。
   v1.4 的改动：**去掉 `pid`**（没有包装脚本就没有可靠的 pid 可写），**改记 `mechanism`**，
   以便人类一眼看出这把锁是主方案还是回退方案留下的（回退方案启用时仍写 `pid`）。
 - **①的获取**：锁不存在 → 创建并继续。锁存在且 `run_started_at` 距今 **< 3 小时** → 判定
   「上一次运行仍在进行，或异常退出未清理」→ **本次运行直接结束**（只在
-  `docs/nightly/<date>-skipped.md` 追加一行，不改任何代码、不提交）。
+  `docs/automations/<date>-skipped.md` 追加一行，不改任何代码、不提交）。
 - **①的陈旧锁**：锁存在但距今 ≥ 3 小时 → 把旧锁内容原样抄进 skipped 记录，然后覆盖为新锁并继续。
 - **①的释放**：本次运行的**最后一个动作**。⚠ **机制缺口**：agent 中途失败或被 kill 时锁不会释放
   （操作手册 §6 第 3 行）→ 只能靠上面的「3 小时陈旧锁」规则兜住，**不得**为了少等而缩短该阈值。
@@ -258,7 +259,7 @@ G1~G8 结果（任一失败则本报告只有这一节 + 原因）
   **放弃之后必须在 `LEDGER.md` 追加一行**说明放弃了什么、为什么（ADR-0028 D5 ④）——
   缺这一行就只是「日志」，不是「通报」。
 - **②的陈旧锁**：`guard` 的 `--stale-after` 默认 900 s，到期可接管（`TAKEOVER`），
-  接管会**打印被接管者的完整锁记录**。夜间运行把 `--owner` 固定为 `nightly-<当夜日期>`，
+  接管会**打印被接管者的完整锁记录**。夜间运行把 `--owner` 固定为 `<会话级唯一标识>`，
   便于人类早上区分「夜间的锁」与「白天会话的锁」。
 - **两层都要，不能只留一层**：①挡不住「两个白天会话同时改 `MEMORY.md`」，②挡不住
   「夜间任务与人类同时改整个仓库」（guard 是文件级、协作式，且锁在 `target/` 下会被 `cargo clean` 删掉）。
@@ -267,7 +268,7 @@ G1~G8 结果（任一失败则本报告只有这一节 + 原因）
 
 - **运行日归属**：运行开始时刻在本地 00:00~11:59 → 归属**前一天**（例：09-17 02:30 属于
   `2026-09-16` 运行日）。所有产物文件名用**运行日日期**。
-- **轮次 N** = `docs/nightly/<运行日日期>-round-*.md` 的文件数 + 1。
+- **轮次 N** = `docs/automations/<运行日日期>-round-*.md` 的文件数 + 1。
 - **每次运行内最多做 2 轮**；第 2 轮开始前必须重锚（重读 `AGENTS.md` / `PLAN.md` / 新卡）。
 - 当 `N > 3`（当夜已做满 3 轮）→ 本次运行**不写代码**，只补/校晨间报告后结束。
 - ⚠ automation 机制**没有「当夜」概念**，归属只能由 agent 按上面的规则自己算（操作手册 §6 第 1 行）；
@@ -276,7 +277,7 @@ G1~G8 结果（任一失败则本报告只有这一节 + 原因）
 
 ### 11.4 谁写阶段报告（原「晨间报告」）—— **保留，内容要求按新机制调整**
 
-满足任一条件，即在本次运行结束前写 `docs/nightly/<运行日日期>-report.md`：
+满足任一条件，即在本次运行结束前写 `docs/automations/<运行日日期>-report.md`：
 
 1. 本次运行是**人类安排的当夜最后一次**（ADR-0046 后「最后一次」由人类在下指令时指定；
    人类未指定时，以「当夜已做满 3 轮」或「当夜最后一个计划时刻」为准，并在报告里写明判定依据）；
@@ -287,7 +288,7 @@ G1~G8 结果（任一失败则本报告只有这一节 + 原因）
 
 - **报告 §① 必须写清**：本次运行的**机制**（automation / 回退）、run 的开始与结束时刻、
   前置门禁 G1~G7 的逐条结果、`git log` 的**分支名与提交清单**、以及 §11.5 的全部机制性事件。
-  为什么强调分支与提交清单：automation **无法机器强制**「只在 `nightly/<date>` 分支提交」
+  为什么强调分支与提交清单：automation **无法机器强制**「只在 `automation/<date>` 分支提交」
   （操作手册 §6 第 4 行），人类只能靠核对报告发现越界。
   （v1.3 要求的「实际上下文窗口」一项**移到回退方案**：那是 `codex exec` 的 `-c` 覆盖项，见 §11.8 第 6 条。）
 - ⚠ **worktree 模式下报告会落在 worktree 里，主 checkout 看不到**（操作手册 §6 第 7 行）
@@ -297,7 +298,7 @@ G1~G8 结果（任一失败则本报告只有这一节 + 原因）
 
 - **GATE-0 未通过却已存在真实 automation**（= 有人绕过 §11.9）→ **最高优先级**上报；
 - **G1~G7 任一环境门禁不绿**（§1）→ 报告 §① 逐条给出命令与输出尾部；
-- **`.nightly.lock` 未按预期释放**（下一次运行按陈旧锁处理时，必须把上一次的锁内容原样抄进报告）；
+- **`.automation.lock` 未按预期释放**（下一次运行按陈旧锁处理时，必须把上一次的锁内容原样抄进报告）；
 - **`guard acquire` 超时放弃**（退出码 5）→ 抄 `-- guard-result: ABANDONED ...` 整行 + 持有者 owner；
 - **automation 到点没有触发**（Scheduled 视图里没有该时刻的 run 记录）→ 这一条**只能由人类发现**，
   因为 agent 没跑起来就没人写报告。排查顺序见 §11.7 ③；
@@ -330,7 +331,7 @@ G1~G8 结果（任一失败则本报告只有这一节 + 原因）
 1. **电脑必须开机、Codex 应用必须运行、项目必须在触发时刻仍在磁盘上** `[官方]`。
    关机 / 睡眠 → 当夜不运行；**错过之后是否补跑 = `[未验证]`**（操作手册 §8 的 D6 要实测记录）。
    本项目**两种行为都能接受**，因为夜间任务必须「**跳过也无害**」：所有产出都在独立分支
-   `nightly/<date>`，缺一夜不影响主线。
+   `automation/<date>`，缺一夜不影响主线。
 2. **端点必须能接受 automation 的投递方式** —— 这正是 GATE-0 要验的事（§11.9）。
    ⚠ `~/.codex/config.toml` 的 `[model_providers.custom]` **含密钥，绝不入库、绝不写进任何报告或 prompt**
    （`AGENTS.md` §7）。
@@ -339,7 +340,7 @@ G1~G8 结果（任一失败则本报告只有这一节 + 原因）
    ② 看 `~/.codex/automations/<id>/automation.toml` 是否还在 —— **存在性只认磁盘**，
       不要用 `automation_update` 的 `mode = "view"` 判断（它对不存在的 id 也渲染空卡，
       操作手册 §4.8 / R4）；
-   ③ 两者都正常但没有产物 → 是 agent 中途失败，读该 run 的会话记录与 `docs/nightly/logs/`；
+   ③ 两者都正常但没有产物 → 是 agent 中途失败，读该 run 的会话记录与 `docs/automations/logs/`；
    ④ 连 run 记录都没有 → 是**没触发**（应用没开 / 电脑睡了 / automation 被暂停 / 组织策略拦截）。
 4. **沙箱与网络**：官方说明 **workspace-write 沙箱下需要联网的工具调用会失败** `[官方]`。
    若 `crates` 依赖未预先 fetch，夜间的 `cargo test` 会因拉依赖而失败
@@ -366,11 +367,11 @@ G1~G8 结果（任一失败则本报告只有这一节 + 原因）
 | 7 | `New-ScheduledTaskSettingsSet` 默认：`StartWhenAvailable:False`、`ExecutionTimeLimit:PT72H`、`RestartCount:0`、`MultipleInstances:IgnoreNew` | 本机 PowerShell 实测 | `ExecutionTimeLimit` 显式设 `PT1H30M`；`StartWhenAvailable` 保持 `False`（§11.7 ①）；`RestartCount` 保持 **0**（**失败不自动重试**：夜间的失败几乎都需要人类判断，自动重试只会重复消耗预算并制造混合改动） |
 | 8 | `Microsoft-Windows-TaskScheduler/Operational` 事件通道 **`enabled: false`** | `wevtutil gl` 实测 | 不启用（§11.6）。失败可见性只走「退出码 + 日志 + 报告」三层文件信号 |
 | 9 | `schtasks.exe /tr` **没有**「工作目录」参数 | 命令行已知限制 | 注册任务一律用 `New-ScheduledTaskAction -Execute powershell.exe -Argument "..." -WorkingDirectory <repo>` + `Register-ScheduledTask`，**不用 `schtasks`** |
-| 10 | **`codex exec` 的退出码语义没有官方文档** | 官方文档查无 | **自建基线**：首次冒烟把观察到的退出码记进 `docs/nightly/scheduler-acceptance-test.md` 的「基线」表，此后该表就是本项目的事实源（已登记 `docs/memory/open.md` N5） |
+| 10 | **`codex exec` 的退出码语义没有官方文档** | 官方文档查无 | **自建基线**：首次冒烟把观察到的退出码记进 `docs/automations/scheduler-acceptance-test.md` 的「基线」表，此后该表就是本项目的事实源（已登记 `docs/memory/open.md` N5） |
 
 ### 11.9 启用前置门禁 **GATE-0**（**未通过前禁止创建任何真实 automation**）
 
-完整门禁表（GATE-0.1 ~ GATE-0.4）与逐条断言见 **`docs/nightly/codex-automations-operations.md` §2 与 §8**。
+完整门禁表（GATE-0.1 ~ GATE-0.4）与逐条断言见 **`docs/automations/codex-automations-operations.md` §2 与 §8**。
 章程只固定四条不可让步的：
 
 1. **GATE-0.1　端点兼容性**：必须在**一个专门新建的废弃 thread**（标题以 `nightly-probe-` 开头）上
@@ -390,7 +391,7 @@ G1~G8 结果（任一失败则本报告只有这一节 + 原因）
 探针只在标题以 `nightly-probe-` 开头的**一次性废弃 thread** 上运行，**未触碰主线工作 thread**（GATE-0.3）；
 cron（standalone）与 heartbeat **两种形态**都验过（GATE-0.2）；触发 → 端点接受投递 → 模型正常回复 → 产物落盘
 全链路成立（GATE-0.1）；探针 automation 已删除、`~/.codex/automations/` 已回到只剩 `.run-jitter-salt`（GATE-0.4）。
-证据：`docs/nightly/codex-automations-operations.md` §8.2 基线表、`docs/memory/open.md` **N9**、
+证据：`docs/automations/codex-automations-operations.md` §8.2 基线表、`docs/memory/open.md` **N9**、
 `docs/memory/facts.md` / `pitfalls.md` 的 2026-09-24 条目。
 
 → 机制**已可用**，但**当前 automation 数 = 0** —— 2026-09-25 建的两个 automation（`ai-assistant-one-shot-1330` / `ai-assistant-one-shot-1630`）已按人类指示**于当晚全部删除**（已按手册 §4.8 用磁盘复核，`~/.codex/automations/` 回到只剩 `.run-jitter-salt`）；同日更早建的 2 个**常驻** automation 也已**全部删除**。**重要更正（2026-09-25 深夜）**：这两个任务原按「一次性」建立，当时被判为「每天执行」—— 该判断**已被推翻**：`RRULE:FREQ=DAILY;INTERVAL=1;COUNT=1;BYHOUR=..;BYMINUTE=..` **就是**可用的「一次性」写法（本机端到端探针 `probe-count1-20260925`：22:17:00 计划 → 22:17:11 触发一次 → `next_run_at` 清空、`automation_runs` 仅 1 行）。两条硬性约束：`COUNT=1` **必须**配 `BYHOUR`+`BYMINUTE`（否则永不触发且不报错）；**不要**用 `COUNT≠1` / `UNTIL`（`BYHOUR` 会按 UTC 解释）。仍未验证 = **UI 编辑并保存会不会抹掉 `COUNT=1`** → **PL-081（更正行）/ PL-084（更新）/ PL-085（新提）** 与手册 §4.1.a 更正块。人类同日给出的**正确形态**已由 **ADR-0046** 固化：**人类指令驱动的「一次性」任务**（建立需人类指令；不同自动化之间**间隔 ≥ 2 h（默认 2 h）**；任务内容按实际进度现场决定；**任何时间**可提）—— §11.3 的常驻「每夜两次」口径**已按该 ADR 重写**，完整 7 条规格见 **§11.11**。详见 §12 v1.8 / v1.9 与 `docs/PARKING_LOT.md` **PL-077（已关闭）**。
@@ -403,8 +404,8 @@ cron（standalone）与 heartbeat **两种形态**都验过（GATE-0.2）；触�
 
 | # | 机制缺口（详见操作手册 §6 同号行） | 承接方式 | 谁核对 |
 |---|---|---|---|
-| 3 | agent 中途失败 → `.nightly.lock` 不会释放 | §11.2 的「3 小时陈旧锁」规则；**不得**为了少等而缩短该阈值 | 下一次运行的 agent 抄进 skipped 记录 |
-| 4 | 无法机器强制「只在 `nightly/<date>` 分支提交」 | §11.4 要求报告 §① 抄 `git log` 的分支与提交清单 | **人类**（早晨流程 §8） |
+| 3 | agent 中途失败 → `.automation.lock` 不会释放 | §11.2 的「3 小时陈旧锁」规则；**不得**为了少等而缩短该阈值 | 下一次运行的 agent 抄进 skipped 记录 |
+| 4 | 无法机器强制「只在 `automation/<date>` 分支提交」 | §11.4 要求报告 §① 抄 `git log` 的分支与提交清单 | **人类**（早晨流程 §8） |
 | 8 | 没有机器可读的成功/失败判据（automation 路径无退出码） | §11.6 的未读标记 + 报告 §① 由 agent 自述结果与门禁状态 | **人类** |
 | 11 | 无法设运行时长上限 | §11.7 ⑤ 的三件缓解 | **人类**（早上确认没有卡死进程） |
 
@@ -436,7 +437,7 @@ cron（standalone）与 heartbeat **两种形态**都验过（GATE-0.2）；触�
 与批次表 → `tasks/TASK-NNN-*.md` 的 `- 状态：` 行 → `LEDGER.md` 末 10 行 → `docs/PARKING_LOT.md`
 未决项。**prompt 一律不写死卡号清单**。
 
-**A2 / A4 与 §11.2 锁的关系**：间隔（时间维度）只**降低**重叠概率，**不替代** `.nightly.lock`（判据）。
+**A2 / A4 与 §11.2 锁的关系**：间隔（时间维度）只**降低**重叠概率，**不替代** `.automation.lock`（判据）。
 两者都要有 —— 间隔是概率，锁是判据。
 
 ## 12. 变更历史
@@ -571,3 +572,4 @@ cron（standalone）与 heartbeat **两种形态**都验过（GATE-0.2）；触�
 | 1.12 | 2026-09-25 | **「一次性」写法更正（结论反转）**：§11.1 现状行与 §11.9 当前状态段的「这两个任务被实测证明是每天执行 / `COUNT=1` 不被采纳」**改写为更正后的结论** —— `RRULE:FREQ=DAILY;INTERVAL=1;COUNT=1;BYHOUR=..;BYMINUTE=..` **就是**可用的一次性写法（本机端到端探针：计划 22:17:00 → 22:17:11 触发一次 → `next_run_at` 清空、`automation_runs` 仅 1 行、rollout 仅 1 个），并写明两条硬性使用约束（`COUNT=1` 必须配 `BYHOUR`+`BYMINUTE`；不要用 `COUNT≠1`/`UNTIL`，否则 `BYHOUR` 按 UTC 解释）与仍未验证项（UI 编辑保存是否抹掉 `COUNT=1` → PL-085）；文件头版本 1.11 → **1.12**。§1~§10、§11.2~§11.8、§11.10~§11.11、§12 既有行一字未改 | 2026-09-25 深夜本机端到端实测（`probe-count1-20260925` → `~/.codex/sqlite/codex-dev.db` 的 `automations` / `automation_runs`）+ 应用自带调度引擎源码（asar 解包）；`docs/memory/facts.md` 同日 `[supersedes]` 条；**PL-081 更正行 / PL-084 更新 / PL-085 新提** |
 | 1.13 | 2026-09-26 | **最小间隔由 2.5 h 下调为 2 h（ADR-0049）**：§11.1 的排期形态段与「主方案」现状行、§11.9 状态段、**§11.11 A2** 的数值 2.5 h → 2 h（A2 补「数值经 ADR-0049 下调」标注；**默认 3 h 不变**）；文件头版本 1.12 → **1.13**、日期 2026-09-25 → 2026-09-26。§0~§10、§11.2~§11.8、§11.10、§11.11 其余、§12 既有行、§13 一字未改 | 人类 chat 2026-09-26「如果运行时间小于 2.5 小时，那么要给一个新的最小运行间隔时间」；**7 个一次性 automation 的一手运行时长**（`~/.codex/sessions/**/rollout-*.jsonl`：最长 64.1 分钟）；**ADR-0049**（授权修订 §11.1 / §11.9 / §11.11 A2 的数值） |
 | 1.14 | 2026-09-26 | **时间中性化 + 默认间隔 2 h + 开始时刻互斥（ADR-0050）**：① 文件头新增**适用范围**声明（automation 适用于**每天任何时间**；「夜间 / 当夜 / 晨间」= 历史命名，「当夜」= **运行日**、「晨间报告」= **阶段报告**；路径 / 目录 / 锁名 / 分支名本次不改 → PL-089）；标题「夜间自动推进章程」→ **「自动推进章程」**；§0 核心原则「夜间只做…」→「自动化只做…」；② §11.1 现状行与排期形态段、§11.9、§11.11 A2 的**默认值 3 h → 2 h**（下限仍 2 h，ADR-0049 不变），并**新增开始时刻互斥硬规则**；③ §11.2 的措辞去夜间化（`--owner` 由 `nightly-<当夜日期>` 改为 `<会话级唯一标识>`，与 AGENTS §3 一致）；④ §11.3 标题「当夜」→「运行日」、§11.4 标题「晨间报告」→「阶段报告」；文件头版本 1.13 → **1.14**。§1~§10、§11.5~§11.8、§11.10、§11.11 其余、§12 既有行、§13 一字未改 | 人类 chat 2026-09-26 三点指令（取消夜间描述 / 开始时刻互斥 / 默认改 2 h）；**ADR-0050**（授权修订 §11.1 / §11.2 / §11.3 / §11.4 / §11.9 / §11.11 A2） |
+| 1.15 | 2026-09-26 | **去夜间化改名（ADR-0051）**：文件改名 `docs/overnight-automation-charter.md` → **`docs/automation-charter.md`**、目录 `docs/nightly/` → `docs/automations/`、锁 `.nightly.lock` → `.automation.lock`、分支 `nightly/<date>` → `automation/<date>`；正文（§0~§11）内这四类标识符全部换新，文件头加**改名注记**。**历史记录**（ADR 正文 / LEDGER / 任务卡 / 历史报告 / 本表既有行）保留旧名，不回改 | 人类 2026-09-26「PL-089 可以改名」；**ADR-0051** |

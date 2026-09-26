@@ -29,10 +29,10 @@
 
 | 文件 | 行数 | 条目数 | 读法 |
 |---|---|---|---|
-| `facts.md` | 197 | 145 | 按主题分节；**grep 优先**，不必全读 |
+| `facts.md` | 198 | 146 | 按主题分节；**grep 优先**，不必全读 |
 | `pitfalls.md` | 236 | 126 | 按主题分节；**grep 优先**，不必全读 |
 | `rejected.md` | 60 | 40 | ★ **动手前全量读**（防止同一方案被反复重新提出） |
-| `decisions.md` | 136 | 64 | 索引 → `docs/adr/NNNN-*.md` |
+| `decisions.md` | 140 | 65 | 索引 → `docs/adr/NNNN-*.md` |
 | `open.md` | 57 | 26 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
 | `apps/notepad.md` | 340 | 0 | 接记事本时**全量读**；8 个固定小节 |
 | win32-input-research.md | 193 | 0 | 接 Notepad Adapter + 任何 Win32 输入操作时**全量读**（SendInput / keybd_event / SendKeys / AttachThreadInput / BlockInput / SetForegroundWindow / WindowPattern.Close / UIPI / 推荐 pipeline） |
@@ -78,7 +78,7 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
               plans/stage-0-spikes.md ＋ plans/stage-1-pilots.md（**阶段索引与批次表**）、
               tasks/TASK-*.md（**卡片正文 ＋ 执行记录，一卡一文件；ADR-0031**，stage-0 的 10 张 + stage-1 的 48 张已就位，其中 011 / 012 / 013 已展开完整正文、035 = 仅要点摘录（未展开），其余 44 张 = 批次表占位、派单前由 Orchestrator 按 gov §3.2 模板展开实际正文）、
               docs/{governance-ai-agent-execution, subagent-orchestration, storage-design,
-              wbs-overview, overnight-automation-charter, DEPENDENCIES, PARKING_LOT}、
+              wbs-overview, automation-charter, DEPENDENCIES, PARKING_LOT}、
               docs/spec/**（**8 份**：`naming.md` + TASK-072 生成的 7 份 —— tool-schema / envelope /
               error-codes / capability-matrix / audit-event / ipc-protocol / testing；后 7 份有系统性结构
               缺陷（空 §1/§2 + 重复 §4/§5）→ **TASK-200 已修完，PL-038 已闭环**）、
@@ -86,7 +86,7 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
               已退役编号 / 下一个可用编号；ADR-0026 建立，ADR-0030 改为机器校验）**
               ＋ 各 ADR 文件（**清单以登记表 §1 为准，本快照不再抄一遍** —— 抄一份就是第二个事实源）、
               docs/memory/*（ADR-0021 分层，2026-09-18 落地）、
-              docs/nightly/{codex-automations-operations, scheduler-acceptance-test}.md、
+              docs/automations/{codex-automations-operations, scheduler-acceptance-test}.md、
               docs/spike-reports/SPIKE-A.md（**PARTIAL**）
 已产出代码  ：xtask（零第三方依赖的护栏工具）。**子命令清单以 `cargo run -p xtask -- help` 输出为权威** —— 2026-09-24 起**不再在此手抄子命令个数与名单**：手抄的派生值必然漂移（PL-022 的根因；2026-09-24 TASK-015 新增 `check-ledger` / `check-migrations` 时当场证实这句「9 个」已过时）。另有 exemptions helper module（不暴露）。
               **行数与测试数不写进本快照** —— 看 `cargo test -p xtask` 与 `xtask hygiene` 的输出）

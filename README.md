@@ -32,7 +32,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 | 层 | 包含 | 会被构建进发布物吗 | 受什么约束 |
 |---|---|---|---|
 | **产品层** | `crates/`、`protocol/`、`adapters/`、`adapters-private/`、`apps/`、`fixtures/`、`eval/` | ✅ 是 | `docs/spec/*` 的契约 ＋ `AGENTS.md` |
-| **工程元层** | `AGENTS.md`、`docs/governance-ai-agent-execution.md`、`docs/subagent-orchestration.md`、`docs/overnight-automation-charter.md`、`docs/nightly/*`、`MEMORY.md` ＋ `docs/memory/*`、`LEDGER.md`、`docs/PARKING_LOT.md`、`docs/adr/*`、`xtask/`、`.github/workflows/*` | ❌ 否 | 只受 `AGENTS.md` 约束 |
+| **工程元层** | `AGENTS.md`、`docs/governance-ai-agent-execution.md`、`docs/subagent-orchestration.md`、`docs/automation-charter.md`、`docs/automations/*`、`MEMORY.md` ＋ `docs/memory/*`、`LEDGER.md`、`docs/PARKING_LOT.md`、`docs/adr/*`、`xtask/`、`.github/workflows/*` | ❌ 否 | 只受 `AGENTS.md` 约束 |
 
 **为什么要正式区分**（ADR-0029 D5）：这条边界此前只存在于口头，造成三个真实症状 ——
 ① 文档地图把「夜间自动化章程」与「存储设计」并列，读者（尤其是将来开源后的外部读者）
@@ -59,8 +59,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 | 了解多 agent 如何分工 | `docs/subagent-orchestration.md` |
 | 了解存储方案与性能预算 | `docs/storage-design.md` |
 | 了解全项目拆解顺序 | `docs/wbs-overview.md` |
-| 了解夜间无人值守自动化的**纪律与边界** | `docs/overnight-automation-charter.md`（章程 v1.4 §11：一主一备 —— 主 = Codex 原生 scheduled tasks，备 = 任务计划程序 + `codex exec`） |
-| 查夜间自动化的**具体操作**（建 / 改 / 删 / 立即运行 / 暂停 / 停止 / 恢复） | `docs/nightly/codex-automations-operations.md`（ADR-0029 的主交付物；每条结论都带 `[官方]` / `[实测]` / `[未验证]` 证据标签） |
+| 了解夜间无人值守自动化的**纪律与边界** | `docs/automation-charter.md`（章程 v1.4 §11：一主一备 —— 主 = Codex 原生 scheduled tasks，备 = 任务计划程序 + `codex exec`） |
+| 查夜间自动化的**具体操作**（建 / 改 / 删 / 立即运行 / 暂停 / 停止 / 恢复） | `docs/automations/codex-automations-operations.md`（ADR-0029 的主交付物；每条结论都带 `[官方]` / `[实测]` / `[未验证]` 证据标签） |
 | 查契约细节 | `docs/spec/`（naming 已就位，其余陆续产出） |
 | 查"为什么当初这么决定" | `docs/adr/README.md`（**编号登记表**：哪些号已有文件 / 哪些只是待建）→ 具体 `docs/adr/NNNN-*.md` |
 | 查台账 / 停车位 / 依赖登记 | `LEDGER.md` / `docs/PARKING_LOT.md` / `docs/DEPENDENCIES.md` |
