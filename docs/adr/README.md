@@ -52,8 +52,9 @@
 | **0047** | `0047-assertion-no-free-string-assert.md` | **Accepted** | 后置断言**没有**自由字符串字段 `assert`（永久不实现）：支持它 = 引入表达式语言（lexer / parser / evaluator / scope）且**模型无法枚举可写形式**；改为结构化 `field`+`op`+`value` 与各 kind 专用字段，**未知字段解析期拒绝**（PL-086 闭环；同步改附录 A `#/$defs/assertion` 与 §5.2 / §7.4 / §11 示例，顺带删掉附录 A 从未声明的 `optional_if_absent`） |
 | **0048** | `0048-policy-decision-confirmation-projection.md` | **Accepted** | `PolicyDecision` 增加可选 `scope_options` / `show_diff`，使 confirmation 决策跨审计/进程边界无损；非空 scope 的存在是“需要确认”的唯一判据，高风险仍由 `hitl` 收敛为 `once`（PL-082 / `DRIFT-021-1` 闭环；schema 1.0 向后兼容） |
 | **0049** | `0049-automation-minimum-interval-floor.md` | **Accepted** | 自动化**最小间隔**由 **2.5 h 下调为 2 h**（默认 3 h 不变）：依据 = 7 个一次性 automation 的一手运行时长（最长 64.1 分钟 = 1.87 × 下限，且高于 n=7 的单侧 95%/95% 上容限 ≈ 92 分钟）；只修订 ADR-0046 D3 的数值，锁与其余保护不变；授权同步章程 §11.1/§11.9/§11.11 与手册 §4.1/§6，并新增手册 §4.1.c「prompt 固定块」（`.nightly.lock` + 轮次产物；PL-087） |
+| **0050** | `0050-automation-time-neutral-2h-mutex.md` | **Accepted** | 自动化规则**时间中性化**（「当夜」= 运行日、「晨间报告」= 阶段报告；路径/目录/锁名本次不改）+ **默认间隔 3 h → 2 h**（下限仍 2 h）+ **开始时刻互斥**（同时存在 ≥ 2 个 automation 时严禁同一时刻开始 / 同时运行）；只修订 ADR-0046 D3 的默认值与 ADR-0049 D2，锁与 D1/D2/D4 不变（PL-088 / PL-089 另案） |
 
-**下一个可用编号：0050**（= §1 与 §2 已用最大号 0049 + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0051**（= §1 与 §2 已用最大号 0050 + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是可用号** —— 它是 §2 的**待建号**，已预留给「`#[allow]` 的唯一合法位置」那条决策
