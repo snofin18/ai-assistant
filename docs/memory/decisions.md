@@ -126,3 +126,7 @@
 ## 2026-09-26 追加（ADR-0048，Accepted）
 
 - [2026-09-26][DECISION][src:ADR-0048] **策略决策的确认投影必须无损**：既有审计协议 `PolicyDecision` 增加两个**可选**字段 `scope_options`（五个稳定字符串：`once` / `this_step_pattern` / `this_task` / `this_app_session` / `persistent`）与 `show_diff`。**唯一确认判据** = `allow = true` 且 `scope_options` 非空；此时 `show_diff` 必须存在。`allow = false` 时两者必须缺席；`allow = true` 且两者缺席 = 无条件允许。schema 顶层版本保持 `1.0`（向后兼容），不新增 `requires_confirmation` 同义布尔。policy 的富 `Decision` 仍是求值结果，但 `to_protocol_decision()` 不再丢字段；高风险只允许 `once` 的硬约束由 TASK-027 `hitl` fail-closed 执行。**根因** = PL-082 / `DRIFT-021-1`：旧投影只有 `allow` / `rule_id` / `reason`，审批 UI 无法获得授权范围与 diff 要求。
+
+## 2026-09-26 追加（ADR-0049，Accepted）
+
+- [2026-09-26][DECISION][src:ADR-0049] **自动化最小间隔由 2.5 小时下调为 2 小时（默认 3 小时不变）**：ADR-0046 D3 的**数值下限**改为 **≥ 2 h（120 分钟）**，其余（「不同自动化之间」的定义、理由、锁仍是必需的第二重保护）不变。**依据 = 7 个一次性 automation 的一手运行时长**（最长 **64.1 min** = 1.87 × 新下限，且高于 n=7 的单侧 95%/95% 上容限 ≈ 92 min；中位数 47.6）。**不取 1.5 h**（90 min 略低于该容限）。**重新评估触发器**：任一新 run > 2 h 或两 run 真的重叠。**同步**：章程 §11.1 / §11.9 / §11.11 A2（v1.13）、手册 §4.1 / §4.1.c / §6（v1.10）、`docs/adr/README.md`、`docs/memory/facts.md`；**顺带**（同一 ADR 授权）新增手册 §4.1.c「prompt 固定块」，把章程 §11.2 的 `.nightly.lock` 与 §11.3 / §11.4 的轮次产物写进 prompt（缺口 = PL-087）。
