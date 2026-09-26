@@ -114,13 +114,49 @@ cargo deny check
 
 > **2026-09-26 拆卡后**：本卡范围已收窄为「会话 + 上下文」（见正文）；本节回执是**拆卡前**（Blocked 那次）的记录，按 ADR-0031「记录区只追加」保留原样。
 
+**2026-09-26 实现轮次回执（拆卡后）**
+
+```text
+【任务】TASK-028　core：会话生命周期 / 消息树 / 上下文裁剪 / 压缩 / token 预算
+【目标】让 TASK-029 装配一个已校验、可回放、预算内且无静默丢失的 Core 组件集。
+【write scope】仅：crates/core/**（Cargo.toml、src、tests、README）＋本卡记录区＋§11.1 进度同步文件。
+【铁律】1 无静默失败；2 不可信输入先校验；9 不得静默扩大范围；10 契约先行。
+【禁止】Planner / Memory / FTS5 / Host 装配 / 权限判定 / 平台调用 / 黑名单依赖。
+【验收】本文件正文 14 条命令 → 全绿；assistant-core 行覆盖 92.62% → PASS（门槛 85%）。
+【依赖】ADR-0053 与 docs/spec/core-orchestration.md 已在 main；020~027 Done；TASK-206 的 DRIFT-206-1 不阻塞本卡。
+【疑问】真实 conversations storage adapter 当前不存在；默认处理为 SessionStore 注入 trait + 内存实现，生产 adapter 留 TASK-029 前另案，见 §5 DRIFT-028-6。
+```
+
 ### 2. 实际改动文件
 
 （本会话未进入实现 —— 见 §5。本卡记录区之外**零改动**。）
 
+**2026-09-26 实现轮次追加**
+
+- `crates/core/Cargo.toml`：仅新增白名单内 workspace 依赖 `assistant-protocol`，复用稳定 `ErrorCode`。
+- `crates/core/src/{lib,error,identifiers,message,session,store,context}.rs`：公共错误、校验标识符、消息树、可注入 session store/clock、上下文预算与压缩。
+- `crates/core/tests/{common/mod,session_tests,context_tests}.rs`：27 个测试（5 arch + 10 context + 12 session）；既有 `arch_layering.rs` 未改。
+- `crates/core/README.md`：职责 / 边界 / 不变量 / 用法 / 已知限制同步。
+- `Cargo.lock`：workspace 依赖关系更新；无第三方 crate 新增。
+- 本卡记录区与 §11.1 进度同步文件。
+
 ### 3. 验收输出摘要
 
 （未进入实现，故无本卡验收输出。只读调研用到的命令与一手结论见 §5 各条的「佐证」。）
+
+**2026-09-26 实现轮次追加**
+
+- `cargo fmt --all --check` → PASS（0 diff）。
+- `cargo clippy --all-targets -- -D warnings` → PASS。
+- `cargo test --workspace` → PASS；`assistant-core` = 5 arch + 10 context + 12 session tests，0 failed。
+- `cargo test -p assistant-core` / `cargo test -p assistant-core arch::` → PASS。
+- `verify-schemas` / `codegen --check` → PASS。
+- `hygiene` → PASS，0E/4W（回到既有基线，无新增）。
+- `docscan` → PASS，0E/468W（既有基线，无新增）；`card-check` → PASS，0E/27W（既有基线，无新增）。
+- `memory-counts` / `adr-index` / `check-ledger` → PASS。
+- `cargo deny check` → PASS（advisories/bans/licenses/sources ok；既有重复版本与未命中 license warning 未新增）。
+- `cargo llvm-cov -p assistant-core --fail-under-lines 85` → PASS，行覆盖 **92.62%**。
+- `RUSTDOCFLAGS=-D warnings cargo doc -p assistant-core --no-deps` → PASS。
 
 ### 4. DoD 逐条核对
 
@@ -130,6 +166,20 @@ cargo deny check
 - [ ] `cargo test --workspace` 全绿 —— 未做
 - [ ] `xtask hygiene / memory-counts / adr-index / refscan / docscan / card-check` 全 PASSED —— 未做
 - [ ] LEDGER.md 追加一行；如新增事实/坑则追加 `docs/memory/{facts,pitfalls}.md` —— **已做**（LEDGER 记 `Blocked` + 5 条 DRIFT）
+
+**2026-09-26 实现轮次核对**
+
+- [x] 会话创建 / 恢复 / 结束、消息树增删与顺序、结束后 fail-closed：已覆盖。
+- [x] 预算生效，超预算显式 omission；必留内容超预算返回错误：已覆盖。
+- [x] Required / Summarizable / Droppable 三档裁剪可审计：已覆盖。
+- [x] 压缩失败 / 摘要来源不匹配 / 摘要过大：带 `ErrorCode` 失败，不静默丢历史。
+- [x] `[dependencies]` 仅新增白名单 `assistant-protocol`；arch test 全绿。
+- [x] 单元测试零真实 IO / 网络 / 时钟：使用内存 store + 固定时钟。
+- [x] `assistant-core` 行覆盖 ≥ 85%：实测 92.62%。
+- [x] 既有测试零改动通过。
+- [x] 14 条验收全绿；hygiene / card-check / docscan warning 未新增。
+- [x] §11.1 同步已在本轮一次性完成。
+- [x] 新增长期记忆：见 §8 与 `docs/memory/pitfalls.md`。
 
 ### 5. 偏差
 
@@ -192,9 +242,18 @@ cargo deny check
 
 **未改**：任何产品代码 —— 本卡至今仍未开工。
 
+#### DRIFT-028-6（漂移触发器 ⑤ / ⑧，非阻塞，已按默认路径继续）
+
+- **现象**：契约要求会话持久化经 `assistant-storage` 公开 API，且 `0001_init.sql` 注释把 `conversations` 表标为“归 TASK-028”；但本卡 write scope 不含 `crates/storage/**`，storage 当前也没有 `conversations` 表或公开 session 记录 API。
+- **影响**：本轮可以完成无 SQL 的 `SessionStore` 边界、快照校验与内存实现，但不能声称生产持久化已经接通；若在 TASK-029 前不补 storage API，装配点将没有可调用的真实 adapter。
+- **处理**：按 automation 的 ADR-0046 D8 非阻塞路径继续；不越界改 storage，不把内存 store 冒充生产持久化。记录 PL-092，后续 storage 卡补齐公开 conversation/session 记录 API 后，由 TASK-029 实现 adapter。
+- **风险**：进程重启后的 session 恢复仍依赖未来 adapter；这是本卡 README 已明列的已知限制。
+
 ### 6. 更合理做法
 
 （未进入实现，无「更合理做法」可记。§5 各条的「建议」即本会话给出的更合理路径。）
+
+**2026-09-26 实现轮次追加**：先把消息树选择与 context 预算做成纯函数，再让 session store/compressor 都成为注入边界。这样实现不依赖 SQLite、模型厂商或系统时钟，回放测试可完全确定；代价是 TASK-029 必须提供真实 adapter，不能由 Core 内部 `new` 出实现。
 
 ### 7. 遗留问题
 
@@ -202,12 +261,29 @@ cargo deny check
 2. 若采纳 DRIFT-028-1 的建议 1（前置卡）或 DRIFT-028-2 的拆卡，**都要改 `plans/stage-1-pilots.md`**（Orchestrator-only / 人类禁止改排期）→ 人类裁决时一并授权。
 3. **顺带发现（不属本卡，未改任何文件）**：`crates/core/README.md` 不变量 3 与自身「职责」段的「装配」口径已互相矛盾（DRIFT-028-4）—— 即使本卡不动，也建议单独立卡或并入 ADR。
 
+**2026-09-26 实现轮次追加**
+
+- 生产 `SessionStore` adapter 尚无落点；已记 PL-092，不能留作静默缺口。
+- 真实 tokenizer 与模型压缩提示词仍分别归 model provider / TASK-029 装配；本卡只冻结预算和 omission 语义。
+- 分支删除目前仅允许叶节点；tombstone / 分支级删除需要新契约。
+
 ### 8. 新增长期记忆
 
 （未产生验证过的硬事实 / 坑 / 否决方案，故**不**追加 `docs/memory/*`。§5 里的一手结论（`bundled` 已带 FTS5、`memory_fts` 属存储层、`core` 零 `pub` 项）在裁决落地前**不当作已确认事实**写入长期记忆 —— 避免把「待裁决」写成「已决定」。）
+
+**2026-09-26 实现轮次追加**
+
+- `docs/memory/pitfalls.md`：新增「Core session 不得内置 SQLite；真实 `SessionStore` adapter 必须等 storage 公开记录 API 并在装配层接线」。
+- `docs/PARKING_LOT.md`：新增 PL-092，登记 storage 缺 conversation/session 公开记录 API。
 
 ### 9. 给审阅者的关注点
 
 1. **DRIFT-028-1 最硬**：`docs/storage-design.md` 与 `crates/storage/src/error.rs` 的注释都**已经**把 FTS5 归给 TASK-028，但本卡 write scope 只有 `crates/core/**` —— 这是**卡面与存储设计的既存矛盾**，请裁决是「前置卡」还是「扩 scope」。
 2. **DRIFT-028-2 是排期问题**：5 个子系统塞进一张 `M` 卡不成立；但拆卡要动 `plans/*`，而那正是人类禁止 agent 改动的排期区 —— 需要人类点头。
 3. **DRIFT-028-4 是静默漂移**：装配会违反 README 不变量 3，而**现有门禁不会红**（arch test 只拦平台实现）。建议把「装配」下沉到 TASK-029。
+
+**2026-09-26 实现轮次追加**
+
+1. **最高风险 = DRIFT-028-6**：请先确认 `SessionStore` trait + TASK-029 adapter 的分工是否可接受；若要求本卡直接接通 SQLite，则 write scope 与 storage API 都需要人类裁决。
+2. **上下文算法取舍**：只压缩从预算截断点起的连续旧后缀，保留较新的连续历史；这样避免“新消息被摘要、旧消息却明文保留”的倒序语义，但比任意背包式裁剪少放一些内容。
+3. **错误映射**：缺失 session/message 沿用 task-engine 先例映射 `TargetNotFound`，预算不足映射 `PolicyDenied`，内部结构错误映射 `Fatal`；若希望新增 Core 专属错误类别必须先改 protocol schema/ADR。

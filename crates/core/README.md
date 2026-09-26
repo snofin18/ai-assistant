@@ -1,50 +1,129 @@
-# assistant-core crate (TASK-201 骨架 / TASK-028 拆卡)
+# assistant-core
 
-> 阶段 1A1 的**编排层**落点。**当前只有骨架**：一个可编译、可被 `-p assistant-core` 寻址的包，
-> 没有任何业务逻辑，也没有任何公开 API。
-> 契约见 `docs/spec/core-orchestration.md`；分层决策见 `docs/adr/0053-core-orchestration-layer-interface.md`。
+Core orchestration components from architecture v2 section 11. TASK-028
+implements session lifecycle, message trees, context selection, trimming,
+compression, and token budgeting.
 
-## 职责（骨架声明；实际能力归 TASK-028 / 207 / 208）
+## Responsibilities
 
-- 会话管理与上下文管理：树裁剪 / 压缩 / 预算（TASK-028）
-- Planner：把模型输出变成可校验的 Plan / Step DAG（TASK-207；与 `task-engine` 分工见架构 v2 §5）
-- Memory：App Map 加载 + 消费 `assistant-storage` 的检索 API（TASK-208；FTS5 虚表归 `crates/storage`，TASK-206）
-- **不装配**：装配点**唯一**在 binary 层（`apps/agent-core`，TASK-029）—— 本 crate 只提供**可装配组件**
+- Create, restore, mutate, and end a session through an injected
+  `SessionStore`.
+- Maintain a validated message tree with stable ids, parent links, sequence
+  order, content validation, and explicit delete rules.
+- Select one caller-chosen root-to-leaf branch for model context.
+- Keep required anchors and evidence inside the context budget.
+- Omit droppable history only with an auditable omission record.
+- Replace older history with an injected structured summary when compression
+  is required.
+- Fail closed when required context or a summary cannot fit.
 
-## 边界（不做什么）
+## Boundaries
 
-- **不调用任何平台 API**（铁律 7）：平台能力只经 `crates/platform/api` 的 trait
-- 不直接持有 SQLite 连接：持久化经 `assistant-storage`（TASK-012）
-- **不判定权限**（铁律 3）：工具是否放行归 `crates/policy`；本 crate 只提交请求、按决策结果编排
-- **不装配**：不 new 出 `tool-bus` / `policy` / `audit` / `hitl` / `verify` / `undo` / `lease` 的实现，也不决定调用顺序（归 TASK-029）
-- 不含 UI、不含 Adapter、不含审计 hash chain（TASK-013）、不含密钥访问（TASK-014）
-- **不重定义**别家的类型：`Plan` / `PlanStep` 等归 `assistant-task-engine`；跨进程与持久化结构归 `assistant-protocol` / `assistant-storage`
+- **No Host assembly.** The binary layer creates and injects components.
+- **No SQLite connection or SQL.** Session persistence is behind the
+  `SessionStore` trait. TASK-029 owns the production storage adapter.
+- **No platform API calls.** The architecture test rejects platform
+  implementation references and dependencies.
+- **No policy decisions or tool execution.**
+- **No Planner or Memory.** Those remain TASK-207 and TASK-208.
+- **No system clock, random source, UUID library, filesystem, or network.**
+  Time, ids, content, and persistence are supplied by the caller.
+- **No model prompt policy.** The compressor is an injected strategy and may
+  later bridge to `model-gateway`.
 
-## 不变量
+## Invariants
 
-1. 骨架期**零第三方依赖**；新增依赖必须先登记 `docs/DEPENDENCIES.md`（漂移触发器 ①）
-2. `unsafe` 永久禁止（`#![deny(unsafe_code)]` + workspace `[lints]`）
-3. **依赖白名单（ADR-0053 D2）**：`core → {protocol, storage, platform/api（**仅 trait**）, task-engine（Plan/Step DAG 类型）, model-gateway（`ModelProvider` trait）}`。
-   **依赖黑名单（ADR-0053 D3）**：`platform/{windows,macos,linux}`、`tool-bus`、`policy`、`audit`、`hitl`、`verify`、`undo`、`lease`、`secrets`、`ipc`、`apps/*`、UI —— 一律禁止。
-   `crates/core/tests/arch_layering.rs` 拦**平台实现**；workspace crate 的**白名单**靠本不变量 + Review 把关（`crates/core/Cargo.toml` 是唯一落点）
-4. 时钟 / 随机 / UUID / FS / 网络一律 trait 注入（AGENTS.md §5.3），以便回放
-5. **可装配**：每个组件都可由 binary 构造 + 注入；不依赖全局单例
-6. **无静默失败**（铁律 1）：裁剪 / 压缩 / 检索的每一次「少给了东西」都必须在返回值里显式标注
+1. `crates/core/Cargo.toml` dependencies stay inside ADR-0053 D2.
+2. Session ids, message ids, goals, content, token estimates, budgets, and
+   restored snapshots are validated before use.
+3. A failed `SessionStore` update leaves the previous in-memory snapshot
+   authoritative.
+4. A tree path is always selected explicitly by leaf id. Core never guesses
+   which branch to send to a model.
+5. Required context over budget returns an error; it is never truncated.
+6. Droppable and summarized messages produce `ContextOmission` records.
+7. Compression failure or summary/source mismatch returns a typed error; it
+   never degrades into silent history loss.
+8. `used_tokens` never exceeds `available_tokens`.
 
-## 已知限制
+## Typical Use
 
-- **本 crate 目前只有文档**：`cargo test -p assistant-core arch::` 的语义是"0 个测试通过"，
-  而**不是**"分层规则已生效"。真正的 arch 断言归 **TASK-015**（它拥有 `crates/core/tests/arch*`）
-- 本卡只把"包不存在"这个硬阻塞消掉（`docs/PARKING_LOT.md` PL-037），
-  架构 v2 §5 描述的会话 / 上下文 / Planner / Memory 全部**尚未实现**
-- 原 TASK-028（五合一）已于 2026-09-26 **拆卡**：会话 + 上下文 → TASK-028；Planner → TASK-207；
-  Memory → TASK-208；「组装」→ TASK-029（ADR-0053）
+```rust
+use std::sync::Arc;
 
-## 相关文档
+use assistant_core::{
+    ContextBudget, ContextRetention, MemorySessionStore, MessageContent, MessageId,
+    MessageRole, NewMessage, SessionClock, SessionId, SessionManager, TokenCount,
+};
 
-- `cross-platform-ai-assistant-architecture-v2.md` §3（架构）/§5（工具）/§7（验证）/§11（模型与上下文）/§13（平台）
-- `docs/spec/core-orchestration.md`（本 crate 的接口面契约）
-- `docs/adr/0053-core-orchestration-layer-interface.md`（依赖白名单 / 黑名单 / 拆卡 / 装配下沉）
-- `plans/stage-1-pilots.md`（批次表 A2 / A4）
-- `tasks/TASK-201-core-crate-skeleton.md` / `TASK-028-core-session-context.md` / `TASK-207-core-planner-plan-step-dag.md` / `TASK-208-core-memory-app-map-fts-retrieval.md`
-- `docs/PARKING_LOT.md` PL-037
+struct Clock;
+
+impl SessionClock for Clock {
+    fn now_unix_ms(&self) -> i64 {
+        1_700_000_000_000
+    }
+}
+
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+let store = Arc::new(MemorySessionStore::new());
+let mut sessions = SessionManager::new(store, Arc::new(Clock));
+let session_id = SessionId::new("s_1")?;
+sessions.create_session(session_id.clone(), "summarize a document")?;
+sessions.append_message(
+    &session_id,
+    NewMessage {
+        id: MessageId::new("m_1")?,
+        parent_id: None,
+        role: MessageRole::User,
+        content: MessageContent::new("Read the document")?,
+        token_estimate: TokenCount::new(8),
+        retention: ContextRetention::Required,
+    },
+)?;
+
+let snapshot = sessions.snapshot(&session_id)?;
+let leaf = snapshot.latest_leaf().ok_or("missing message")?;
+let budget = ContextBudget::new(TokenCount::new(4_096), TokenCount::new(1_024))?;
+# let _ = (snapshot, leaf, budget);
+# Ok(())
+# }
+```
+
+The example intentionally stops before `build_context` because a production
+`HistoryCompressor` is injected by the binary. Tests and replay use an
+in-memory deterministic compressor.
+
+## Session Store Contract
+
+`SessionStore` separates orchestration from persistence:
+
+- `insert_session` fails when an id already exists.
+- `update_session` accepts exactly the next snapshot revision.
+- `load_session` returns a validated `SessionSnapshot`.
+
+`MemorySessionStore` is deterministic and intended for unit tests, replay, and
+early assembly. The TASK-029 binary adapter must map the same contract to the
+public `assistant-storage` record APIs without exposing a SQLite connection to
+Core.
+
+## Known Limitations
+
+- There is no production storage adapter in this crate yet. The in-memory store
+  does not survive process restart.
+- The context code consumes caller-supplied token estimates. Provider-specific
+  token counting and compressor prompts remain assembly/provider concerns.
+- Compression operates on one contiguous older suffix of the selected branch.
+  More sophisticated summarization windows require a later contract change.
+- Session deletion is leaf-only; branch deletion and tombstone semantics are
+  not defined by TASK-028.
+- The crate does not persist audit events for context omissions. Callers can
+  project the returned omission records into audit events at the assembly
+  boundary.
+
+## Related Documents
+
+- `docs/spec/core-orchestration.md`
+- `docs/adr/0053-core-orchestration-layer-interface.md`
+- `cross-platform-ai-assistant-architecture-v2.md` sections 7.1, 7.2, 11.3,
+  and 15.
+- `tasks/TASK-028-core-session-context.md`

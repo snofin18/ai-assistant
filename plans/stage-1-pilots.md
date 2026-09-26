@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~027 已 Done（2026-09-25 / 2026-09-26）**，其中 TASK-027 = `crates/hitl`：ADR-0048 无损确认投影 + 审批请求 + 四维授权/TTL/次数 + 接管交还重同步 + 暂停恢复 + diff 数据准备已 Done（2026-09-26） → 下一张 = **TASK-028**（2026-09-26 拆卡：TASK-028 收窄为「会话 + 上下文」；Planner → **TASK-207**、Memory → **TASK-208**、storage `memory_fts` 前置 → **TASK-206**、装配 → TASK-029；依据 **ADR-0053**））　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~027 已 Done（2026-09-25 / 2026-09-26）**；拆卡主卡 **TASK-028 已 Done（2026-09-26）**：会话生命周期 + 消息树 + 树裁剪/压缩/token 预算，`assistant-core` 27 个测试、行覆盖 92.62%） → 下一张 = **TASK-207**（Planner；TASK-206 的 FTS5 前置仍受 DRIFT-206-1 阻塞，TASK-208 依赖 206；装配归 TASK-029））　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -88,7 +88,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **025 ✅** | `lease`：目标租约（exclusive/shared/intent + TTL + 续租 + 用户抢占 + 死锁避免） | `crates/lease/**` | 011 | S | 同目标同刻仅一个写租约；用户操作可强制释放；租约冲突是可读错误 |
 | **026 ✅** | `model-gateway`：Provider trait（流式/取消/用量）+ 路由器 + 降级链 + 重试退避 + prompt cache 提示 + 成本计量 | `crates/model-gateway/**` | 011 | L | v2 §11.2 路由规则可配置；**取消能在 1 s 内中止请求**；每步记录 tokens/cost/latency |
 | **027 ✅** | `hitl`：审批请求 + 授权范围（四维+TTL）+ 用户接管 + 暂停恢复 + 差异预览数据准备 | `crates/hitl/**` | 021,022 | M | 高风险禁止 persistent 授权；接管后交还需重新同步状态；审批超时行为明确 |
-| **028** | `core`：会话管理 + 上下文管理（树裁剪 / 压缩 / 预算） —— **原 TASK-028 拆卡主卡**（2026-09-26，ADR-0053 D7） | `crates/core/**` | 020~027 | M | arch test 通过（core 只依赖白名单 crate）；上下文预算生效且**丢弃必须显式标注**；会话生命周期 + 消息树可测 |
+| **028 ✅** | `core`：会话管理 + 上下文管理（树裁剪 / 压缩 / 预算） —— **原 TASK-028 拆卡主卡**（2026-09-26，ADR-0053 D7） | `crates/core/**` | 020~027 | M | arch test 通过（core 只依赖白名单 crate）；上下文预算生效且**丢弃必须显式标注**；会话生命周期 + 消息树可测 |
 | **207** | `core`：Planner（模型输出 → 可校验的 Plan / Step DAG；**复用** `task-engine` 类型） | `crates/core/**` | 022,026,028 | M | 六类负向用例齐全（重复 id / 缺依赖 / 环 / 非法工具名 / 写步骤缺 postcondition / L3 未标 point-of-no-return）；不重定义 `Plan` / `Step` |
 | **208** | `core`：Memory（App Map 加载 + 消费 storage 的 FTS5 检索 API） | `crates/core/**` | 206,028 | M | App Map 四类负向用例（缺失 / 损坏 / 版本不匹配 / 路径穿越）；片段带来源与位置；检索错误**透传** `reason_code` |
 
