@@ -27,7 +27,20 @@ pub enum AuditActor {
     Tool,
 }
 
-/// Per v2 section 8.x.
+/// Confirmation scope carried by a policy decision (arch v2 section 10.3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum PolicyScopeOption {
+    Once,
+    ThisStepPattern,
+    ThisTask,
+    ThisAppSession,
+    Persistent,
+}
+
+/// Per v2 section 8.x. The optional scope fields make confirmation decisions
+/// lossless across the audit protocol boundary (ADR-0048).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct PolicyDecision {
@@ -36,6 +49,10 @@ pub struct PolicyDecision {
     pub rule_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_options: Option<Vec<PolicyScopeOption>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub show_diff: Option<bool>,
 }
 
 /// Cost in tokens + USD. omits Eq (usd is f64, NaN != NaN).

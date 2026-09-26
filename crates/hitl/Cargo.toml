@@ -1,0 +1,27 @@
+[package]
+name = "assistant-hitl"
+description = "Approval requests, four-dimensional authorization scopes, TTLs, takeover, pause/resume coordination, and diff preparation."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# Existing approved third-party dependency; this crate only adds a usage site.
+thiserror = "2"
+
+[dependencies.assistant-policy]
+path = "../policy"
+version = "0.1.0"
+
+[dependencies.assistant-protocol]
+path = "../protocol"
+version = "0.1.0"
+
+[dependencies.assistant-task-engine]
+path = "../task-engine"
+version = "0.1.0"
+
+[lints]
+workspace = true

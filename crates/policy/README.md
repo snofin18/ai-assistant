@@ -81,9 +81,9 @@ DSL v0 使用 JSON（不引入 TOML 依赖）。所有五条架构示例规则�
 
 - `Reversibility` 与 `Effect` 目前唯一定义在本 crate，沿用架构 v2 §9.1 与资源操作分类；
   待 TASK-024 决定是否收敛为协议生成类型。
-- `assistant_protocol::PolicyDecision` 只有 `allow` / `rule_id` / `reason`，无法承载
-  `AllowWithConfirmation` 的 `scope_options` / `show_diff`。本 crate 保留完整决策，
-  协议投影是明确的审计摘要；扩展协议需走 ADR（`DRIFT-021-1`）。
+- `assistant_protocol::PolicyDecision` 已由 **ADR-0048** 扩展为可与本 crate 的
+  `AllowWithConfirmation` 无损互转：出现非空 `scope_options` 即表示需要确认，且
+  `show_diff` 必须同时存在。`DRIFT-021-1` / PL-082 由此闭环。
 - URL 校验器是保守子集，不接受 IPv6、userinfo、fragment 或 non-ASCII host；未支持的
   合法 URL 形态会 fail-closed。
 - 正则校验器不执行匹配，只对静态结构做保守判据；它不是完整正则语法检查器，无法证明

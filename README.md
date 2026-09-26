@@ -4,14 +4,14 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0（文档与 Spike）已于 2026-09-20 closeout；TASK-022 `crates/task-engine` 已 Done（12 状态机 / Plan+Step DAG / 检查点 / 恢复 / 取消 / 预算 / 看门狗 / 87.03% 行覆盖）；**TASK-023** `crates/verify` 已 Done（11 种后置断言 + 状态指纹 + 幂等判定 + `on_violation` 分派；**验证失败绝不返回 ok**）；**TASK-024** `crates/undo` 已 Done（L0~L3 + 内容快照 / 影子副本 / undo 预算锚点 + 回滚剧本 + 默认最保守冲突检测 + incident 上报；L0 支持 L1 fallback）；**TASK-025** `crates/lease` 已 Done（`exclusive/shared/intent` 三模式 + TTL / 续租 / 用户抢占 + 规范 key 排序与零提交批量获取；20 个契约测试 / 89.53% 行覆盖）；**TASK-026** `crates/model-gateway` 已 Done（流式 Provider / 1 s 可观察取消 / 类型化路由 / 重试退避 + 降级链 / prompt cache 提示 / 整数成本记录；21 个测试入口 / 75.23% 行覆盖）；跨阶段治理卡 **TASK-200~204** 全部 Done（**TASK-204** = `tool-bus` draft-07 关键字判据硬化：三张拒绝表 + `$schema` 方言校验 + `format`/`pattern` 永久放弃）；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-027** `crates/hitl` 已 Done（ADR-0048 无损确认投影 + 审批请求 + 四维授权/TTL/次数 + 接管交还重同步 + 暂停恢复 + diff 数据准备；18 个契约测试 / 77.93% 行覆盖）；此前 TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
 > TASK-017 的 7 条 DRIFT 已全部裁决落地（**ADR-0043** 元素解析加 scope / **ADR-0044** 歧义策略收敛为唯一
 > `ErrorAndAsk` / **ADR-0045** 非宿主平台编译门禁进 `AGENTS.md` §6；PL-068 / 069 / 070 闭环），
 > 同 crate 的合成输入（`SendInput`）+ 坐标归一化（DPI / 多屏）+ IME 也已落地（TASK-018 —— 铁律 5 的 **L4** 层；
-> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））、**`crates/policy`**（TASK-021：唯一放行点 / 默认拒绝 / deny 优先 / DSL v0 / 参数护栏）、**`crates/undo`**（TASK-024：L0~L3 + 三类锚点 + 回滚剧本 + 冲突检测 + incident）、**`crates/lease`**（TASK-025：三模式矩阵 + TTL / 续租 / 用户抢占 + 零提交批量获取）与 **`crates/model-gateway`**（TASK-026：同步拉取式流 / 路由 / fallback / backoff / cache hint / 成本）均已落地，下一张是 TASK-027。**当前阶段详情以 `PLAN.md` 为准**。
+> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））、**`crates/policy`**（TASK-021：唯一放行点 / 默认拒绝 / deny 优先 / DSL v0 / 参数护栏）、**`crates/undo`**（TASK-024：L0~L3 + 三类锚点 + 回滚剧本 + 冲突检测 + incident）、**`crates/lease`**（TASK-025：三模式矩阵 + TTL / 续租 / 用户抢占 + 零提交批量获取）、**`crates/model-gateway`**（TASK-026：同步拉取式流 / 路由 / fallback / backoff / cache hint / 成本）与 **`crates/hitl`**（TASK-027：ADR-0048 无损 confirmation 投影 / 审批与四维授权 / 接管与暂停恢复 / diff 数据）均已落地，下一张是 TASK-028。**当前阶段详情以 `PLAN.md` 为准**。
 
 ---
 
@@ -151,7 +151,11 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-26：TASK-026 —— 模型网关 `crates/model-gateway`；TASK-025 —— 目标租约与并发控制 `crates/lease`；TASK-024 —— 撤销与补偿闭环 `crates/undo`；2026-09-25：TASK-023 —— 后置断言引擎 `crates/verify`；TASK-204 —— `crates/tool-bus` draft-07 关键字判据硬化（三张拒绝表 + `$schema` 方言校验）；TASK-022 —— 任务引擎 `crates/task-engine`（12 状态机 + DAG + 检查点 / 恢复 / 预算 / 看门狗）；TASK-021 —— 唯一策略放行点 `crates/policy`；TASK-020 —— 工具通道 `crates/tool-bus`；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池 = TASK-011 ~ 021 / 200 ~ 204）
+## 最近进展（2026-09-26：TASK-027 —— HITL 审批与接管 `crates/hitl`；TASK-026 —— 模型网关 `crates/model-gateway`；TASK-025 —— 目标租约与并发控制 `crates/lease`；TASK-024 —— 撤销与补偿闭环 `crates/undo`；2026-09-25：TASK-023 —— 后置断言引擎 `crates/verify`；TASK-204 —— `crates/tool-bus` draft-07 关键字判据硬化；TASK-022 —— 任务引擎 `crates/task-engine`；TASK-021 —— 唯一策略放行点 `crates/policy`；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+
+**2026-09-26 —— TASK-027（`crates/hitl`：ADR-0048 无损确认投影 + 审批 / 授权 / 接管 / diff）**
+
+新增 `assistant-hitl`：ADR-0048 让 `PolicyDecision` 以可选 `scope_options` / `show_diff` 无损跨协议边界，并规定“非空 scope 的存在”是唯一 confirmation 判据。审批请求只从该 confirmation 构造；四维授权（subject / tool / target / effect）配正 TTL 与有限次数，五种 scope 各自显式匹配边界；高风险只允许 `once` 且必须一次。接管记录基线指纹，交还时无论指纹是否相同都要求重新解析目标与重同步；暂停/恢复直接委托 task-engine。diff 数据覆盖文本 LCS、字段、文件和 UI 步骤，超预算返回错误而不静默截断。新增 18 个契约测试，行覆盖 77.93%，零新增第三方依赖。
 
 **2026-09-26 —— TASK-026（`crates/model-gateway`：Provider 流 / 路由 / fallback / 成本）**
 

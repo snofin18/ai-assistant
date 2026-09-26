@@ -30,7 +30,21 @@
       "properties": {
         "allow":   { "type": "boolean" },
         "rule_id": { "type": "string" },
-        "reason":  { "type": "string" }
+        "reason":  { "type": "string" },
+        "scope_options": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["once", "this_step_pattern", "this_task", "this_app_session", "persistent"]
+          },
+          "description": "Present only when allow=true and human confirmation is required. Values follow arch v2 §10.3. Availability of this field is the single confirmation predicate; no separate requires_confirmation boolean is allowed (ADR-0048)."
+        },
+        "show_diff": {
+          "type": "boolean",
+          "description": "Required when scope_options is present. true means the approval request must carry displayable diff data; false means no diff is required for this confirmation."
+        }
       },
       "required": ["allow"],
       "additionalProperties": false

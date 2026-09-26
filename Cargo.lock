@@ -65,6 +65,16 @@ name = "assistant-core"
 version = "0.1.0"
 
 [[package]]
+name = "assistant-hitl"
+version = "0.1.0"
+dependencies = [
+ "assistant-policy",
+ "assistant-protocol",
+ "assistant-task-engine",
+ "thiserror",
+]
+
+[[package]]
 name = "assistant-ipc"
 version = "0.1.0"
 dependencies = [
