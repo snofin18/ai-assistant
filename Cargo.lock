@@ -63,6 +63,9 @@ dependencies = [
 [[package]]
 name = "assistant-core"
 version = "0.1.0"
+dependencies = [
+ "assistant-protocol",
+]
 
 [[package]]
 name = "assistant-hitl"
