@@ -309,7 +309,7 @@ fn test_acquire_clock_rolled_back_is_anomaly_and_never_takes_over() {
 #[test]
 fn test_acquire_abandonment_message_carries_clock_anomaly_flag() {
     // 放弃时那行机器可读结果也要带上 clock_anomaly：
-    // 夜间盘点只看这一行，缺了它就会把"时钟问题"误报成"对方长时间占锁"
+    // 运行盘点只看这一行，缺了它就会把"时钟问题"误报成"对方长时间占锁"
     let store = FakeLockStore::at(5000);
     store.place_lock("MEMORY.md", "codex-b", 4000);
     store.set_clock(1000);
