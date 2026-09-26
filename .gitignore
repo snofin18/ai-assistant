@@ -48,7 +48,9 @@ secrets.*
 Thumbs.db
 desktop.ini
 
-# --- 夜间自动化（运行期状态，绝不入库；overnight-automation-charter §11.2）---
+# --- 自动化（运行期状态，绝不入库；automation-charter §11.2）---
+.automation.lock
+# 旧名（ADR-0051 过渡期）：历史 automation 的 prompt 仍可能创建它
 .nightly.lock
 
 # --- 日志与临时 ---
