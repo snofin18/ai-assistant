@@ -127,6 +127,7 @@ card-check / docscan / check-migrations 全通过；refscan 保持 151 既有 ba
 - `cargo run -p xtask -- check-migrations`：0 error / 0 warning。
 - `cargo run -p xtask -- refscan`：151 error / 0 warning，与既有 baseline 一致，本卡新增 0。
 - `git diff --check`：无输出。
+- 远端分支 CI：commit `11dbe34116e499dfe76ea62609e149deabeb73f2` 的 **8/8 check-runs 全部 success**（三平台 check、cargo deny、spike-deny、doc consistency、gate negative verification、deferred inventory）。
 
 ### 4. DoD 逐条核对
 
