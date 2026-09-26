@@ -42,11 +42,11 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 
 | 卡号 | 标题 | write scope | 依赖 | 预估 | 验收要点 |
 |---|---|---|---|---|---|
-| **011** | `protocol` crate：schema 单一事实源 + Rust/TS 代码生成 + `ErrorCode` 枚举 | `protocol/**`、`crates/protocol/**`、`xtask/src/codegen*` | 001 | M | `codegen --check` 在 CI 通过；ErrorCode 覆盖 v2 §8.7 全部分类；**TS 类型 100% 生成，无手写重复** |
-| **012** | 存储层：SQLite(WAL) + 迁移框架 + 核心表 + 内容寻址 blob（zstd/去重） | `crates/storage/**` | 011 | M | Spike H 的性能预算全部达标；孤儿 blob 可 GC；DB/blob 不一致可检测并标 `evidence_missing` |
-| **013** | `audit`：追加不可改 + hash chain + ring buffer 批量 flush + `durability` 可配 | `crates/audit/**` | 012 | S | 无 UPDATE/DELETE 路径；篡改可被 hash chain 检出；batched 摊销 < 1 ms/条；`immediate` 模式可用 |
-| **014** | `secrets`：OS keychain 封装（DPAPI/Keychain/Secret Service） | `crates/secrets/**` | 011 | S | 密钥不落盘明文、不入日志、不入 prompt；`zeroize` 生效；密钥访问被审计 |
-| **015** | `xtask`：hygiene + arch test + verify-schemas + replay 骨架 | `xtask/**`、`crates/core/tests/arch*` | 011 | M | **arch test 能拦住 core→platform/windows 的依赖**；hygiene **13** 项检查全部生效（gov §5.4；口径见 **ADR-0025**，原「12 项」为笔误） |
+| **011 ✅** | `protocol` crate：schema 单一事实源 + Rust/TS 代码生成 + `ErrorCode` 枚举 | `protocol/**`、`crates/protocol/**`、`xtask/src/codegen*` | 001 | M | `codegen --check` 在 CI 通过；ErrorCode 覆盖 v2 §8.7 全部分类；**TS 类型 100% 生成，无手写重复** |
+| **012 ✅** | 存储层：SQLite(WAL) + 迁移框架 + 核心表 + 内容寻址 blob（zstd/去重） | `crates/storage/**` | 011 | M | Spike H 的性能预算全部达标；孤儿 blob 可 GC；DB/blob 不一致可检测并标 `evidence_missing` |
+| **013 ✅** | `audit`：追加不可改 + hash chain + ring buffer 批量 flush + `durability` 可配 | `crates/audit/**` | 012 | S | 无 UPDATE/DELETE 路径；篡改可被 hash chain 检出；batched 摊销 < 1 ms/条；`immediate` 模式可用 |
+| **014 ✅** | `secrets`：OS keychain 封装（DPAPI/Keychain/Secret Service） | `crates/secrets/**` | 011 | S | 密钥不落盘明文、不入日志、不入 prompt；`zeroize` 生效；密钥访问被审计 |
+| **015 ✅** | `xtask`：hygiene + arch test + verify-schemas + replay 骨架 | `xtask/**`、`crates/core/tests/arch*` | 011 | M | **arch test 能拦住 core→platform/windows 的依赖**；hygiene **13** 项检查全部生效（gov §5.4；口径见 **ADR-0025**，原「12 项」为笔误） |
 
 > ★ 015 必须早做：它是后续所有卡的护栏。护栏晚于代码 = 漂移已经发生。
 >
@@ -66,16 +66,16 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 
 | 卡号 | 标题 | write scope | 依赖 | 预估 | 验收要点 |
 |---|---|---|---|---|---|
-| **016** | `platform/api`：统一 trait + `CapabilityMatrix` + `TargetDescriptor` + `NormalizedPoint` + `Fingerprint` 类型 | `crates/platform/api/**`、`protocol/capability-matrix*` | 011 | M | trait 覆盖 v2 §13.1.1 全部方法（含 wait/fingerprint/capability）；**所有方法可取消且有超时** |
-| **017** | `platform/windows`：UIA provider（树快照、selector 链解析、read_text、set_value、edit_text、invoke_action、bounds、fingerprint、window 枚举与状态） | `crates/platform/windows/src/uia/**`、`.../src/window/**` | 016 | L | Spike A 指标在真实记事本上复现；树遍历符合性能预算；**歧义/未找到/无响应三类错误可区分** |
-| **018** | `platform/windows`：合成输入（SendInput）+ 焦点校验 + 坐标归一化（DPI/多屏）+ IME 处理 | `crates/platform/windows/src/input/**`、`.../src/coordinates/**` | 016 | M | 发送快捷键前 100% 校验前台窗口；Spike A2 的坐标精度矩阵全配置 ≤ 2 px；IME 开启时文本写入仍正确 |
+| **016 ✅** | `platform/api`：统一 trait + `CapabilityMatrix` + `TargetDescriptor` + `NormalizedPoint` + `Fingerprint` 类型 | `crates/platform/api/**`、`protocol/capability-matrix*` | 011 | M | trait 覆盖 v2 §13.1.1 全部方法（含 wait/fingerprint/capability）；**所有方法可取消且有超时** |
+| **017 ✅** | `platform/windows`：UIA provider（树快照、selector 链解析、read_text、set_value、edit_text、invoke_action、bounds、fingerprint、window 枚举与状态） | `crates/platform/windows/src/uia/**`、`.../src/window/**` | 016 | L | Spike A 指标在真实记事本上复现；树遍历符合性能预算；**歧义/未找到/无响应三类错误可区分** |
+| **018 ✅** | `platform/windows`：合成输入（SendInput）+ 焦点校验 + 坐标归一化（DPI/多屏）+ IME 处理 | `crates/platform/windows/src/input/**`、`.../src/coordinates/**` | 016 | M | 发送快捷键前 100% 校验前台窗口；Spike A2 的坐标精度矩阵全配置 ≤ 2 px；IME 开启时文本写入仍正确 |
 | **019 ✅** | `automation-host` 进程 + `ipc`（JSON-RPC/NamedPipe + token + 对端身份校验 + 心跳 + 看门狗） | `apps/automation-host/**`、`crates/ipc/**` | 016 | M | Spike B 的重解析矩阵达标（≥95%）；**element 不出进程**（arch test 校验）；host 崩溃可被检测 |
 
 ### 批次 A3　内核层（016 完成后可 3 路并行，write scope 天然不重叠）
 
 | 卡号 | 标题 | write scope | 依赖 | 预估 | 验收要点 |
 |---|---|---|---|---|---|
-| **020** | `tool-bus`：MCP client(`rmcp`) + in-process server + JSON Schema 校验 + **统一返回信封**（`untrusted`/`truncated`）+ 工具集指纹 + 动态挂载 | `crates/tool-bus/**` | 011 | L | 内部工具经 MCP 表达；信封字段齐全；工具数 > 40 时告警；schema 不合法直接拒 |
+| **020 ✅** | `tool-bus`：MCP client(`rmcp`) + in-process server + JSON Schema 校验 + **统一返回信封**（`untrusted`/`truncated`）+ 工具集指纹 + 动态挂载 | `crates/tool-bus/**` | 011 | L | 内部工具经 MCP 表达；信封字段齐全；工具数 > 40 时告警；schema 不合法直接拒 |
 | **021 ✅** | `policy`：白名单 + 风险分级 + 参数校验（路径穿越/URL/长度/正则复杂度）+ 规则 DSL v0 + **默认拒绝** | `crates/policy/**` | 011 | L | v2 §12.2 五条示例规则全部可表达；决策是**纯函数**；每个 deny 带 `rule_id` 与可读 reason；策略判定 < 50 µs |
 | **022 ✅** | `task-engine`：12 状态机 + Plan/Step DAG + 检查点 + 恢复 + 取消 + 预算 + 看门狗 | `crates/task-engine/**` | 011,012 | L | 状态迁移全部持久化；崩溃后能恢复；**"不确定是否执行过"必须走 NeedsHuman**（禁止猜测） |
 | **023 ✅** | `verify`：后置断言引擎（11 种断言）+ 状态指纹 + 幂等判定 + `on_violation` 分派 | `crates/verify/**` | 011 | M | 断言类型齐全；**验证失败绝不返回 ok**；指纹可配置忽略字段（防抖） |
@@ -172,22 +172,22 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 
 | 卡号 | 批次 | 卡片文件（正文 + 执行记录） | 备注 |
 |---|---|---|---|
-| TASK-011 | A1 | `tasks/TASK-011-protocol-schema-codegen.md` | 完整卡（原 plans 的示例逐字搬运）；**已 Done** |
+| **TASK-011 ✅** | A1 | `tasks/TASK-011-protocol-schema-codegen.md` | 完整卡（原 plans 的示例逐字搬运）；**已 Done** |
 | TASK-035 | A5 | `tasks/TASK-035-notepad-adapter.md` | ⚠ **仅要点摘录**，展开前不得派单 |
-| TASK-012 | A1 | `tasks/TASK-012-storage-layer-sqlite-wal-blob.md` | **完整卡**（2026-09-24 Orchestrator 展开）；**已 Done（2026-09-24）** |
-| TASK-013 | A1 | `tasks/TASK-013-audit-append-hash-chain-flush.md` | **完整卡**（2026-09-24 Orchestrator 展开；**已 Done**） |
-| TASK-014 | A1 | `tasks/TASK-014-secrets-os-keychain-wrapper.md` | **完整卡**（2026-09-24 Orchestrator 代行展开：`keyring` 4.2 后端 + `zeroize` + 访问审计注入点（fail-closed）；write scope 含 `docs/DEPENDENCIES.md` —— 登记表规则 1「先登记后引入」）；**已 Done（2026-09-24）** |
-| TASK-015 | A1 | `tasks/TASK-015-xtask-hygiene-archtest-replay-skeleton.md` | **完整卡**（2026-09-24 Orchestrator 展开：`docscan` 4 条结构规则 + `crates/core/tests/arch*` 分层断言 + PL-047 迁移登记表扫描 + ADR-0039 D3 的 `check-ledger` 两条规则）；**已 Done（2026-09-24）** |
-| TASK-016 | A2 | `tasks/TASK-016-platform-api-trait-capability-matrix.md` | **完整卡**（2026-09-24 Orchestrator 代行展开：零平台依赖的纯类型 + 3 个 trait 形状 + `CapabilityMatrix::validate()` 的 4 条不变量；**卡面有 3 个待裁决项 Q1 / Q2 / Q3**）；**已 Done（2026-09-24）** |
-| TASK-017 | A2 | `tasks/TASK-017-platform-windows-uia-provider.md` | **完整卡**（2026-09-24 Orchestrator 代行展开：UIA provider 全 9 方法 + `WindowProvider` 全 5 方法 + 句柄纪律源码扫描断言；**卡面有 4 个待裁决项 Q1 ~ Q4**）；**已 Done（2026-09-24）** |
-| TASK-018 | A2 | `tasks/TASK-018-platform-windows-synthetic-input-ime.md` | **完整卡**（2026-09-25 Orchestrator 代行展开：`SendInput` VK + `KEYEVENTF_UNICODE` 路径 + 发送前 100% 前台校验 + 显示器枚举 / DPI 换算 / 虚拟屏幕归一化 + `is_ime_open`；**卡面有 3 个待裁决项 Q1 ~ Q3**）；**已 Done（2026-09-25）** |
+| **TASK-012 ✅** | A1 | `tasks/TASK-012-storage-layer-sqlite-wal-blob.md` | **完整卡**（2026-09-24 Orchestrator 展开）；**已 Done（2026-09-24）** |
+| **TASK-013 ✅** | A1 | `tasks/TASK-013-audit-append-hash-chain-flush.md` | **完整卡**（2026-09-24 Orchestrator 展开；**已 Done**） |
+| **TASK-014 ✅** | A1 | `tasks/TASK-014-secrets-os-keychain-wrapper.md` | **完整卡**（2026-09-24 Orchestrator 代行展开：`keyring` 4.2 后端 + `zeroize` + 访问审计注入点（fail-closed）；write scope 含 `docs/DEPENDENCIES.md` —— 登记表规则 1「先登记后引入」）；**已 Done（2026-09-24）** |
+| **TASK-015 ✅** | A1 | `tasks/TASK-015-xtask-hygiene-archtest-replay-skeleton.md` | **完整卡**（2026-09-24 Orchestrator 展开：`docscan` 4 条结构规则 + `crates/core/tests/arch*` 分层断言 + PL-047 迁移登记表扫描 + ADR-0039 D3 的 `check-ledger` 两条规则）；**已 Done（2026-09-24）** |
+| **TASK-016 ✅** | A2 | `tasks/TASK-016-platform-api-trait-capability-matrix.md` | **完整卡**（2026-09-24 Orchestrator 代行展开：零平台依赖的纯类型 + 3 个 trait 形状 + `CapabilityMatrix::validate()` 的 4 条不变量；**卡面有 3 个待裁决项 Q1 / Q2 / Q3**）；**已 Done（2026-09-24）** |
+| **TASK-017 ✅** | A2 | `tasks/TASK-017-platform-windows-uia-provider.md` | **完整卡**（2026-09-24 Orchestrator 代行展开：UIA provider 全 9 方法 + `WindowProvider` 全 5 方法 + 句柄纪律源码扫描断言；**卡面有 4 个待裁决项 Q1 ~ Q4**）；**已 Done（2026-09-24）** |
+| **TASK-018 ✅** | A2 | `tasks/TASK-018-platform-windows-synthetic-input-ime.md` | **完整卡**（2026-09-25 Orchestrator 代行展开：`SendInput` VK + `KEYEVENTF_UNICODE` 路径 + 发送前 100% 前台校验 + 显示器枚举 / DPI 换算 / 虚拟屏幕归一化 + `is_ime_open`；**卡面有 3 个待裁决项 Q1 ~ Q3**）；**已 Done（2026-09-25）** |
 | **TASK-019 ✅** | A2 | `tasks/TASK-019-automation-host-ipc-named-pipe.md` | **已 Done（2026-09-25）** |
 | **TASK-020 ✅** | A2 | `tasks/TASK-020-tool-bus-mcp-rmcp-server.md` | **完整卡**（正文含 4 个待裁决项 Q1 ~ Q4；Q5 为实现时新命中，见卡 §5）；**已 Done（2026-09-25）** |
 | **TASK-021 ✅** | A2 | `tasks/TASK-021-policy-whitelist-risk-default-deny.md` | **已 Done（2026-09-25）** |
 | **TASK-022 ✅** | A2 | `tasks/TASK-022-task-engine-state-machine-dag-checkpoint.md` | **完整卡**（2026-09-25 由 16:30 那次 automation 代 Orchestrator 展开正文，见卡 §5 DRIFT-022-1）；**已 Done（2026-09-25）** |
-| TASK-023 | A2 | `tasks/TASK-023-verify-postcondition-assertion-engine.md` | **已 Done（2026-09-25）** |
-| TASK-024 | A2 | `tasks/TASK-024-undo-four-level-rollback-anchor.md` | **已 Done（2026-09-26）** |
-| TASK-025 | A2 | `tasks/TASK-025-lease-target-exclusive-shared-intent.md` | **已 Done（2026-09-26）** |
+| **TASK-023 ✅** | A2 | `tasks/TASK-023-verify-postcondition-assertion-engine.md` | **已 Done（2026-09-25）** |
+| **TASK-024 ✅** | A2 | `tasks/TASK-024-undo-four-level-rollback-anchor.md` | **已 Done（2026-09-26）** |
+| **TASK-025 ✅** | A2 | `tasks/TASK-025-lease-target-exclusive-shared-intent.md` | **已 Done（2026-09-26）** |
 | **TASK-026 ✅** | A2 | `tasks/TASK-026-model-gateway-provider-router-fallback.md` | **已 Done（2026-09-26）** |
 | TASK-027 | A2 | `tasks/TASK-027-hitl-approval-scope-takeover.md` | Ready（批次表占位派单前补全） |
 | TASK-028 | A2 | `tasks/TASK-028-core-session-context-planner-memory.md` | Ready（批次表占位派单前补全） |
