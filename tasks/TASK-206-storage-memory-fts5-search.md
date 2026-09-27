@@ -99,77 +99,101 @@ cargo deny check
 
 ```text
 【任务】TASK-206 `crates/storage`：`memory_fts`（FTS5 虚表）迁移 + 检索 API + 存储侧测试
-【目标】让 TASK-208 只消费一个已建表、已测试、fail-closed 的 storage 检索接口。
+【目标】让 TASK-208 只消费一个已建表、已测试、fail-closed、可追溯的 storage 检索接口。
 【write scope】仅：crates/storage/src/**、crates/storage/migrations/**、crates/storage/tests/**、
-crates/storage/README.md、docs/DEPENDENCIES.md（仅确需新增依赖时）、本卡、LEDGER.md、
-PLAN.md 当前状态块 4 行、README.md 三处、plans/stage-1-pilots.md 完成状态与当前进度块、
-MEMORY.md 规模表。
+crates/storage/README.md、docs/DEPENDENCIES.md（仅确需新增依赖时）、docs/storage-design.md 仅 §3.4、
+本卡记录区，以及 AGENTS.md §11.1 指定进度文件。
 【铁律】1 无静默失败；2 不可信输入先校验；9 不得静默扩大范围；10 契约先行。
 【禁止】向量/语义检索；core Memory；改既有表；新第三方依赖；放宽 lint / 加 allow / unsafe；
 改 protocol schema / ErrorCode；顺手重构。
 【验收】卡内 14 条命令 → 全绿，警告相对既有基线不新增。
 【依赖】TASK-012 Done（已核对 LEDGER 与当前 schema）；TASK-208 依赖本卡。
-【疑问】DRIFT-206-1：新增迁移必须先在 docs/storage-design.md §3.4 占 0004，但该文件不在
-write scope；按触发器 ⑤ 停止编码，详见 §5。
+【疑问】0004 与 audit 0002/0003 交错，单看 storage 的 `MIGRATIONS` 必然不连续；只有真实装配点
+按 ADR-0038 合并 storage 0001 + 0004 与 audit 0002 + 0003 后，迁移集才连续。
 ```
 
 ### 2. 实际改动文件
 
-- `tasks/TASK-206-storage-memory-fts5-search.md`（仅执行记录区）
-- `docs/PARKING_LOT.md`（PL-091：有界等待提案）
-- `docs/memory/pitfalls.md`（迁移号登记 scope 坑）
-- `LEDGER.md`（本轮 Blocked 事件）
-- `docs/automations/2026-09-26-round-1.md`、`docs/automations/2026-09-26-report.md`（自动化产物）
+- `crates/storage/migrations/0004_memory_fts.sql`（新增）
+- `crates/storage/src/memory.rs`（新增）
+- `crates/storage/src/error.rs`
+- `crates/storage/src/lib.rs`
+- `crates/storage/src/schema.rs`
+- `crates/storage/tests/storage_memory_fts.rs`（新增）
+- `crates/storage/README.md`
+- `docs/storage-design.md`（仅 §3.4）
+- `docs/memory/pitfalls.md`
+- `tasks/TASK-206-storage-memory-fts5-search.md`（仅记录区）
+- `MEMORY.md`（仅规模表：pitfalls 行数 / 条目数）
+- `crates/audit/tests/common/mod.rs`（真实跨 crate 装配点补 0004）
+- `crates/audit/tests/audit_integration.rs`（派生 schema 版本 3 → 4）
+- `crates/task-engine/tests/sqlite_checkpoint.rs`（历史 v1 fixture 只取 0001）
 
-未改任何产品代码、迁移文件或存储测试。
+独立审查发现首版 `MEMORY_MIGRATIONS` 未接进真实装配点、会造成 v4 假绿；修复后 storage 自己的
+`MIGRATIONS` = 0001 + 0004，真实装配点与历史 v1 fixture 已同步（见 §5）。
 
 ### 3. 验收输出摘要
 
-- 只读完 `crates/storage` 当前公开面、`0001_init.sql`、迁移注册表、TASK-208 消费契约与 ADR-0038 / ADR-0053 后即命中 scope 阻断，未进入实现，因此未伪跑“已完成”的卡内 14 条验收。
-- 收尾文档门禁：`cargo fmt --all --check` PASS；`hygiene` PASS（0E/4W 既有基线）；`card-check` PASS（0E/27W 既有基线）；`docscan` PASS（0E/468W 既有基线）；`memory-counts` PASS；`adr-index` PASS（37 份）；`check-migrations` PASS（3 迁移/3 登记/2 crate）；`check-ledger` 在本行写入后复跑。
-- `git diff` 核对：仅文档与执行记录，无 `crates/**` 改动。
+- `cargo fmt --all --check` → PASS（0 diff）
+- `cargo clippy --all-targets -- -D warnings` → PASS
+- `cargo test --workspace` → PASS
+- `cargo test -p assistant-storage` → PASS；新增 FTS 测试 10 个，storage 合计 38 测试 + 2 doctest
+- `cargo run -p xtask -- check-migrations` → PASSED（4 迁移 / 4 登记 / 2 crate）
+- `cargo run -p xtask -- verify-schemas` → PASSED（5 schema）
+- `cargo run -p xtask -- codegen --check` → PASSED（0 drift）
+- `cargo run -p xtask -- hygiene` → PASSED（0E / 4W，既有基线）
+- `cargo run -p xtask -- docscan` → PASSED（0E / 468W，既有基线）
+- `cargo run -p xtask -- card-check` → PASSED（0E / 27W，既有基线）
+- `cargo run -p xtask -- memory-counts` → PASSED
+- `cargo run -p xtask -- adr-index` → PASSED（39）
+- `cargo run -p xtask -- check-ledger` → PASSED
+- `cargo deny check` → PASS（advisories / bans / licenses / sources）
 
 ### 4. DoD 逐条核对
 
-- [ ] `memory_fts` 迁移：未开工（阻塞于全局迁移号登记 scope，见 DRIFT-206-1）
-- [ ] 存储侧 ≥ 6 用例：未开工
-- [ ] 既有测试零改动通过：未开工
-- [ ] 公开 API 文档注释：未开工
-- [ ] `StorageError` 新变体：未开工
-- [ ] 零新增第三方依赖：未开工（设计前确认仍可走 bundled FTS5）
-- [ ] 14 条验收全绿：未开工；仅收尾文档门禁
-- [ ] §11.1 进度同步：本卡未 Done，因此不得改写完成标记 / 当前状态
-- [ ] 新 FACT / PITFALL：已追加 1 条迁移登记 scope PITFALL
+- [x] `memory_fts`（FTS5 虚表）随迁移链建立；新库与既有库升级两条路径都到达同一 schema 版本
+- [x] 存储侧测试覆盖：建表 / 写入同步 / 命中 / 未命中 / 非法查询 fail-closed / 一致性自检（10 个用例）
+- [x] 既有测试全部通过；真实装配点所需 fixture 与派生 schema 版本已同步，未放宽或删除任何断言
+- [x] 公开检索 API 有完整文档注释（语义 / 参数 / 返回 / 错误语义 / 副作用 / 幂等 / 超时与取消）
+- [x] `StorageError` 新增 `invalid_memory_query` / `memory_index_inconsistent`，保留 `#[non_exhaustive]` 与 Fatal 映射
+- [x] 零新增第三方依赖
+- [x] 上列 14 条验收命令全绿；warning 与既有基线一致
+- [ ] §11.1 进度同步：实现 PR 合并后由 closeout 提交完成状态与当前进度块
+- [x] 新增 PITFALL：全局迁移片段不能单独 `validate()`
 
 ### 5. 偏差
 
-**DRIFT-206-1（漂移触发器 ⑤：超出 write scope）**
+**DRIFT-206-2（漂移触发器 ⑤：超出原 write scope）**
 
-- 现象：TASK-206 要求新增 `memory_fts` 迁移；当前全局迁移号 0001 / 0002 / 0003 已分别由 `crates/storage`、`crates/audit` 占用，下一号只能是 0004。ADR-0038 D4 与 `docs/storage-design.md` §3.4 规定新增迁移必须先在登记表占号，`xtask check-migrations` 也会双向校验登记表 ↔ 迁移文件。
-- 影响：若安静新增 `crates/storage/migrations/0004_*.sql` 而不改 `docs/storage-design.md` §3.4，验收命令 `check-migrations` 必红；若顺手改该文件，则超出本卡 write scope。
-- 建议：由 Orchestrator 把 `docs/storage-design.md`（仅 §3.4 增一行 + 允许必要的历史注记）补进 TASK-206 write scope，或先做一张极小治理卡预分配 0004；随后 TASK-206 可原样继续。
-- 已停工作：未创建 0004 迁移、未改 `MIGRATIONS`、未实现检索 API、未改现有 storage 测试。
-
-**裁决落地（2026-09-26，人类指令「执行」）**：采纳**方案 A** —— write scope 增列 `docs/storage-design.md`（**仅 §3.4 全局迁移登记表**）。本卡**由 Blocked 回 Ready**，可原样开工；`plans/stage-1-pilots.md` 的 Ready 标记无需改动。实现时按 **ADR-0038 D4** 先占号 0004 再建迁移，`cargo run -p xtask -- check-migrations` 必须绿。
-
-> **回填说明**：本执行记录由 14:15 那次一次性自动化写在**未 push 的本地分支** `codex/task-206-storage-memory-fts5-search`（`d3ef5cb`），run 随后自删。经人类 2026-09-26 授权回填进 `main`；§1~§9 正文**逐字保留原文**，仅追加本「裁决落地」段。本事件促成 **ADR-0054**（先落地，再自删）。
+- 现象：独立审查确认首版把 0004 放在未接线的 `MEMORY_MIGRATIONS`，真实跨 crate 装配点仍停在 v3；
+  新测试用占位迁移补齐 0002 / 0003，属假绿。
+- 影响：必须恢复 ADR-0038 的单一 `MIGRATIONS` 口径，并同步当前真实装配点与历史 v1 fixture；
+  这会触达本卡原 write scope 未列出的 `crates/audit/tests/**` 与 `crates/task-engine/tests/**`。
+- 已处理：删除 `MEMORY_MIGRATIONS`；`MIGRATIONS` = 0001 + 0004；audit 装配点预期版本改为 4；
+  task-engine / storage 历史 v1 测试显式只取 0001；storage 的 FTS 测试改用 audit 真实 SQL。
+- 性质：测试 fixture 与派生 schema 版本同步，**未改产品行为、未放宽断言、未新增依赖**。
 
 ### 6. 更合理做法
 
-迁移类卡应在派单时统一带上 `docs/storage-design.md`（登记表 SSOT），因为「新增迁移」与「占全局版本号」是不可拆分的一步；将二者拆成不同 write scope 会稳定制造触发器 ⑤。也可以由 Orchestrator 预先把下一号写进卡面的 write scope。
+迁移链必须把“拥有者的全部迁移”接进真实装配点；只有历史版本测试才允许显式截取旧片段。把
+“新增迁移”与“同步真实装配点 / 升级测试”视为同一工作量，避免测试通过而生产装配仍停在旧版本。
 
 ### 7. 遗留问题
 
-- TASK-208 仍被 TASK-206 阻塞，TASK-206 在 scope 裁决前保持 Ready。
-- 本卡后续实现时还需决定：FTS 基表与虚表的同步形状、非法查询的稳定 `reason_code`、迁移 0004 与存储侧独立测试集如何同时满足全局连续版本约束。
-- 本轮按当轮适配等待 `.automation.lock` 约 23 分钟后接管；PL-091 已提出把有界等待正式写入手册 §4.1.c。
+- TASK-208 消费本 API 时只依赖记录/查询/结果类型，不拼 SQL。
+- 当前只支持字面量词项检索；FTS5 运算符不暴露给模型/用户。
+- 当前 `unicode61` 不切分无空格 CJK 序列；“短中文子串”检索需另立卡评估 trigram / 分段器 / 辅助索引。
+- 未做向量或语义检索（阶段 1 Out of scope）。
 
 ### 8. 新增长期记忆
 
-`docs/memory/pitfalls.md` 新增：迁移卡必须把 `docs/storage-design.md` §3.4 纳入 write scope，或由 Orchestrator 预分配号码；当前下一可用迁移号是 0004。
+`docs/memory/pitfalls.md`：单个 crate 的迁移常量是全局序列片段，不能单独 `validate()`；storage 的
+0001 / 0004 与 audit 的 0002 / 0003 必须在装配点合并后校验连续。
 
 ### 9. 给审阅者的关注点
 
-1. 最高风险是 scope：请确认 `docs/storage-design.md` §3.4 登记表是否应补入 TASK-206 write scope；这决定实现是否能在不越界的情况下满足 `check-migrations`。
-2. 第二风险是版本分配：当前全局号已到 0003，TASK-206 只能占 0004；请勿把本卡误解为“storage 自己从 0002 编号”。
-3. 本轮没有代码证据可供 review；请 review 文档偏差记录、PL-091 和自动化报告是否足够让下一位 Implementer 继续。
+1. 最高风险：为接真实装配而修改了 audit / task-engine 的测试 fixture 与派生 schema 版本，请确认
+   DRIFT-206-2 的处理边界。
+2. 次风险：FTS 查询把用户输入全部解释为字面量词项，并拒绝空 / 超长 / 无有效词项 / limit 越界。
+3. `memory_fts` 是 contentless 候选索引；正文只存源表，触发器负责同步。自检报告源行缺索引 /
+   索引孤儿并运行 FTS5 `integrity-check`，不自动重建；绕过触发器直接篡改索引仍是残余威胁。

@@ -5,7 +5,10 @@
 ## 职责
 
 - **L1 主库**：连接 + PRAGMA 基线 + **只前进不回滚**的迁移框架 + **本 crate 自己**那几张表
-  （`tasks` / `task_steps` / `checkpoints` / `blobs` / `blob_refs` / `usage_records`；**`audit_logs` 不在本 crate** —— 它由 `crates/audit` 自己的迁移 `0002` 建，见下）
+  （`tasks` / `task_steps` / `checkpoints` / `blobs` / `blob_refs` / `usage_records` /
+  `memory_records` + `memory_fts`；**`audit_logs` 不在本 crate** —— 它由 `crates/audit` 自己的迁移 `0002` 建，见下）
+- **记忆检索**：任务历史 / 偏好 / 笔记写入 `memory_records`，由 0004 的触发器同步 `memory_fts`；
+  检索结果带类型、主键与 `source_reference`，并提供源表 ↔ 索引一致性自检
 - **迁移注册表**（`Migration` / `MigrationSet`）：给「一组迁移」提供唯一性 / 连续性的硬校验；**不拥有全库表清单**（ADR-0038）
 - **L2 blob 池**：zstd（level 3）压缩 + `sha256` 内容寻址 + 去重 + 引用计数 + GC + 一致性扫描
 - 提供**注入点**：`Clock`（时间）与 `StoragePaths`（数据目录根）
@@ -13,7 +16,9 @@
 ## 边界（不做什么）
 
 - 不含业务规则：状态机、重试、预算、撤销锚点管理、审计 hash chain 都**不**在这里
-- **不拥有全库表清单**（ADR-0038）：本 crate 只声明 `MIGRATIONS`（自己的 `0001`）；`audit_logs` 的 DDL 与 `MIGRATIONS` 都归 `crates/audit`（`crates/audit/migrations/0002_audit_logs.sql`），语义与读写也归它（本 crate 不碰 hash chain）；不建 FTS5 记忆表（TASK-028）、不实现影子副本（W5）的写入策略
+- **不拥有全库表清单**（ADR-0038）：本 crate 的 `MIGRATIONS` 同时声明自己的 `0001` 与 `0004`；
+  `audit_logs` 的 DDL 与 `MIGRATIONS` 都归 `crates/audit`，语义与读写也归它（本 crate 不碰 hash chain）；
+  不实现影子副本（W5）的写入策略，不做 `core` Memory / App Map 加载，也不做向量 / 语义检索
 - 不调用任何平台 API（`arch` 护栏会拦）；不提供多写者 / 只读连接池
 - 不做加密 / SQLCipher、冷归档 L3、在线备份 CLI
 - 除 `rusqlite`(bundled) / `zstd` / `sha2` 外不引第三方依赖（登记见 `docs/DEPENDENCIES.md`）
@@ -36,26 +41,39 @@
    测试用固定时钟 + 临时目录即可回放
 9. 运行时产物（`*.db` / `-wal` / `-shm` / `blobs/` / `shadow/`）**绝不**落在仓库内
    （仓库根 `.gitignore` 已覆盖；测试只用 `%TEMP%`）
+10. `memory_records` 是记忆内容的唯一事实源，`memory_fts` 是 contentless 候选索引；行缺失 /
+    孤儿与 FTS5 内部一致性由 `verify_memory_index()` 显式报告；正常运行由触发器负责同步
 
 ## 典型用法
 
 ```rust
-use std::sync::Arc;
 use assistant_storage::{
-    BlobKind, BlobOwner, Database, MIGRATIONS, MigrationSet, StoragePaths, SystemClock,
+    BlobKind, BlobOwner, Database, MemoryQuery, MemoryRecord, MemoryRecordKind,
+    insert_memory_record, search_memory,
 };
 
-let paths = StoragePaths::new("D:/data/assistant");
-// 唯一装配点（ADR-0038 D3）：把各 crate 的 MIGRATIONS 合并成一个集合再开库
-let mut migrations = MigrationSet::new();
-migrations.register_all(MIGRATIONS)?;
-let database = Database::open(&paths, Arc::new(SystemClock), &migrations)?;
+// `database` 由唯一装配点构造：合并各 owner 的 MIGRATIONS（storage 0001 + 0004、
+// audit 0002 + 0003、其它 crate 的迁移）后调用 `Database::open`。
+fn example(database: &Database) -> Result<(), assistant_storage::StorageError> {
 let blobs = database.blob_store();
 
 let id = blobs.put(database.connection(), BlobKind::TreeSnapshot, b"{}")?;
 blobs.add_reference(database.connection(), &id, &BlobOwner::new("step", "s_1")?)?;
 assert_eq!(blobs.get(database.connection(), &id)?, b"{}");
-# Ok::<(), assistant_storage::StorageError>(())
+
+insert_memory_record(
+    database.connection(),
+    &MemoryRecord {
+        record_kind: MemoryRecordKind::Preference,
+        record_id: "pref-1".to_owned(),
+        source_reference: "settings#L3".to_owned(),
+        content: "prefers concise reports".to_owned(),
+        updated_at: 1_700_000_000_000,
+    },
+)?;
+let hits = search_memory(database.connection(), &MemoryQuery::new("reports"))?;
+Ok(())
+}
 ```
 
 目录布局：
@@ -77,6 +95,12 @@ assert_eq!(blobs.get(database.connection(), &id)?, b"{}");
 - **没有加密**：blob 与主库都是明文；密钥/加密归后续卡
 - **没有在线备份 / VACUUM 策略**：`wal_autocheckpoint=1000` 之外不做维护
 - **单写连接**：本 crate 只给一个写连接；读连接池归后续的 Core 装配
+- **FTS 查询只接受字面量词项**：用户输入中的 FTS5 运算符不会被直接执行；空查询、超长查询、
+  纯标点词项与超出上限的 limit 一律 fail-closed
+- **不做向量 / 语义检索**：阶段 1 只使用 SQLite FTS5；本地嵌入归阶段 4 之后评估
+- **CJK 分词限制**：当前 `unicode61` 不会切分无空格 CJK 序列；`生成报告` 可整体命中，但把
+  `报告` 当短子串单独查询不会命中。需要中文子串检索时应另立卡评估 trigram / 分段器 / 辅助索引，
+  不应在本层偷偷降级成全表 `LIKE`
 
 ## 相关文档
 
@@ -84,4 +108,5 @@ assert_eq!(blobs.get(database.connection(), &id)?, b"{}");
 - **`docs/adr/0038-storage-migration-registry.md`**（迁移注册表：本 crate 只提供机制）
 - `cross-platform-ai-assistant-architecture-v2.md` §15
 - `docs/spec/error-codes.md`（错误分类）
-- `tasks/TASK-012-storage-layer-sqlite-wal-blob.md` / `tasks/TASK-202-storage-migration-registry.md`（本 crate 的两张卡）
+- `tasks/TASK-012-storage-layer-sqlite-wal-blob.md` / `tasks/TASK-202-storage-migration-registry.md` /
+  `tasks/TASK-206-storage-memory-fts5-search.md`（本 crate 的迁移与检索卡）

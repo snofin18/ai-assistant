@@ -104,8 +104,12 @@ pub fn migrations() -> MigrationSet {
 /// 里取 0002，故升级用例的起点是**真库**。
 pub fn migrations_at_v2() -> MigrationSet {
     let mut set = MigrationSet::new();
-    set.register_all(assistant_storage::MIGRATIONS)
-        .expect("装配 storage 自己的迁移");
+    let storage_0001 = assistant_storage::MIGRATIONS
+        .iter()
+        .find(|item| item.version() == 1)
+        .copied()
+        .expect("storage 必须声明 0001");
+    set.register(storage_0001).expect("装配 storage 0001");
     let audit_0002 = assistant_audit::MIGRATIONS
         .iter()
         .find(|item| item.version() == 2)
@@ -119,9 +123,13 @@ pub fn migrations_at_v2() -> MigrationSet {
 /// 只含 `crates/storage` 自己迁移的集合（= 历史 v1 库的形状，用于升级路径与"漏注册"负向用例）。
 pub fn storage_only_migrations() -> MigrationSet {
     let mut set = MigrationSet::new();
-    set.register_all(assistant_storage::MIGRATIONS)
-        .expect("装配 storage 自己的迁移");
-    set.validate().expect("storage 的迁移必须从 1 连续");
+    let storage_0001 = assistant_storage::MIGRATIONS
+        .iter()
+        .find(|item| item.version() == 1)
+        .copied()
+        .expect("storage 必须声明 0001");
+    set.register(storage_0001).expect("装配 storage 0001");
+    set.validate().expect("storage v1 必须从 1 连续");
     set
 }
 

@@ -24,13 +24,18 @@ use crate::migrations::{Migration, MigrationSet};
 
 /// `crates/storage` **自己**拥有的迁移（本 crate 建的那几张表）。
 ///
-/// 这**不是**全库清单：应用侧必须把各 crate 的 `MIGRATIONS` 合并成一个 [`MigrationSet`]，
-/// 再交给 [`crate::Database::open`]（ADR-0038 D2 / D3）。
-pub const MIGRATIONS: &[Migration] = &[Migration::new(
-    1,
-    "0001_init",
-    include_str!("../migrations/0001_init.sql"),
-)];
+/// 这**不是**全库清单：应用侧必须把各 crate 的所有片段合并成一个 [`MigrationSet`]，
+/// 再交给 [`crate::Database::open`]（ADR-0038 D2 / D3）。这里的版本号是**全局**序列的一部分，
+/// 单看本常量可能不连续（当前 = 0001 + 0004，中间 0002 / 0003 归 audit）；只有装配点合并后的
+/// [`MigrationSet`] 需要连续。
+pub const MIGRATIONS: &[Migration] = &[
+    Migration::new(1, "0001_init", include_str!("../migrations/0001_init.sql")),
+    Migration::new(
+        4,
+        "0004_memory_fts",
+        include_str!("../migrations/0004_memory_fts.sql"),
+    ),
+];
 
 /// 迁移记账表名。
 const VERSION_TABLE: &str = "schema_migrations";

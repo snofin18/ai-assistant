@@ -21,7 +21,7 @@ use crate::migrations::MigrationSetError;
 
 /// 存储层错误。
 ///
-/// `#[non_exhaustive]`：后续卡（TASK-013 审计、TASK-028 FTS5）会新增变体，
+/// `#[non_exhaustive]`：后续卡（TASK-013 审计、TASK-206 FTS5）会新增变体，
 /// 匹配方必须保留 `_ =>` 分支。
 #[derive(Debug)]
 #[non_exhaustive]
@@ -89,6 +89,13 @@ pub enum StorageError {
         /// 说明。
         detail: String,
     },
+    /// 记忆检索查询非法（空查询、超长、无有效词项或 limit 越界）。
+    InvalidMemoryQuery {
+        /// 出错的查询字段名。
+        field: &'static str,
+        /// 说明。
+        detail: String,
+    },
     /// `blob_id` 不是 64 位小写 hex 的 sha256。
     InvalidBlobId {
         /// 调用方给的原值。
@@ -115,6 +122,7 @@ impl StorageError {
             Self::EvidenceCorrupt { .. } => "evidence_corrupt",
             Self::BlobUnknown { .. } => "blob_unknown",
             Self::InvalidArgument { .. } => "invalid_argument",
+            Self::InvalidMemoryQuery { .. } => "invalid_memory_query",
             Self::InvalidBlobId { .. } => "invalid_blob_id",
             Self::Compression { .. } => "compression",
         }
@@ -137,6 +145,7 @@ impl StorageError {
             | Self::EvidenceCorrupt { .. }
             | Self::BlobUnknown { .. }
             | Self::InvalidArgument { .. }
+            | Self::InvalidMemoryQuery { .. }
             | Self::InvalidBlobId { .. }
             | Self::Compression { .. } => ErrorCategory::Fatal,
         }
@@ -197,6 +206,9 @@ impl fmt::Display for StorageError {
             }
             Self::InvalidArgument { field, detail } => {
                 write!(f, "参数 {field} 非法：{detail}")
+            }
+            Self::InvalidMemoryQuery { field, detail } => {
+                write!(f, "记忆检索查询 {field} 非法：{detail}")
             }
             Self::InvalidBlobId { value } => {
                 write!(f, "blob_id 非法：{value:?}（要求 64 位小写 hex 的 sha256）")

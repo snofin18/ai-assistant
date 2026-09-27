@@ -5,16 +5,17 @@
 //! ## 职责
 //!
 //! - L1：主库连接 + PRAGMA 基线 + **只前进不回滚**的迁移框架 + **本 crate 自己**那几张表
-//!   （W1 任务/步骤/检查点、W6 用量）
+//!   （W1 任务/步骤/检查点、W6 用量、`memory_fts` 的源表与检索索引）
 //! - L2：内容寻址 blob 池（zstd level 3 + sha256 寻址 + 去重 + 引用计数 + GC + 一致性扫描）
+//! - 记忆检索：任务历史 / 偏好 / 笔记的 fail-closed 查询与索引一致性自检
 //! - **迁移注册表**（[`MigrationSet`]）：给「一组迁移」提供唯一性 / 连续性的硬校验
 //!
 //! ## 边界（不做什么）
 //!
 //! - 不含业务规则：状态机、重试、预算、撤销锚点管理、审计 hash chain 都**不**在这里
-//! - **不拥有全库表清单**（ADR-0038）：本 crate 只声明 [`MIGRATIONS`]（自己的 0001）；
+//! - **不拥有全库表清单**（ADR-0038）：本 crate 只声明 [`MIGRATIONS`]（自己的 0001 + 0004）；
 //!   `audit_logs` 由 `crates/audit` 自己的迁移 `0002` 建，读写与 hash chain 也归它。
-//!   不建 FTS5 记忆表（TASK-028）、不实现影子副本的写入策略
+//!   不实现影子副本的写入策略、不做向量检索
 //! - 不调用任何平台 API（`arch` 护栏会拦）；不打开只读连接池（归 TASK-028 之后的 Core 装配）
 //! - 不做加密 / SQLCipher、不做冷归档、不做在线备份 CLI
 //!
@@ -32,24 +33,34 @@
 //! ## 典型用法
 //!
 //! ```no_run
-//! use std::sync::Arc;
-//!
 //! use assistant_storage::{
-//!     BlobKind, BlobOwner, Database, MIGRATIONS, MigrationSet, StoragePaths, SystemClock,
+//!     BlobKind, BlobOwner, Database, MIGRATIONS, MemoryQuery, MemoryRecord, MemoryRecordKind,
+//!     MigrationSet, StoragePaths, insert_memory_record, search_memory,
 //! };
 //!
-//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! # fn example(database: &Database) -> Result<(), assistant_storage::StorageError> {
 //! let paths = StoragePaths::new("D:/data/assistant");
-//! // 唯一装配点（ADR-0038 D3）：把各 crate 的 MIGRATIONS 合并成一个集合
-//! let mut migrations = MigrationSet::new();
-//! migrations.register_all(MIGRATIONS)?;
-//! let database = Database::open(&paths, Arc::new(SystemClock), &migrations)?;
+//! // `database` 由唯一装配点创建：装配点把本 crate 的 MIGRATIONS 与 audit 等所有拥有者的
+//! // 迁移合并成一个连续 MigrationSet，再调用 Database::open。
+//! let _ = (paths, MIGRATIONS, MigrationSet::new());
 //! let blobs = database.blob_store();
 //!
 //! let id = blobs.put(database.connection(), BlobKind::TreeSnapshot, b"{}")?;
 //! let owner = BlobOwner::new("step", "s_1")?;
 //! blobs.add_reference(database.connection(), &id, &owner)?;
 //! assert_eq!(blobs.get(database.connection(), &id)?, b"{}");
+//!
+//! insert_memory_record(
+//!     database.connection(),
+//!     &MemoryRecord {
+//!         record_kind: MemoryRecordKind::Preference,
+//!         record_id: "pref-1".to_owned(),
+//!         source_reference: "settings#L3".to_owned(),
+//!         content: "prefers concise reports".to_owned(),
+//!         updated_at: 1_700_000_000_000,
+//!     },
+//! )?;
+//! let _hits = search_memory(database.connection(), &MemoryQuery::new("reports"))?;
 //! # Ok(())
 //! # }
 //! ```
@@ -65,6 +76,7 @@
 mod blob_id;
 mod content;
 mod error;
+mod memory;
 mod migrations;
 mod paths;
 mod records;
@@ -76,6 +88,13 @@ pub use content::{
     BlobStore, COMPRESSION_LEVEL, GarbageCollection, IntegrityIssue, IntegrityIssueKind,
 };
 pub use error::{StorageError, StorageResult};
+pub use memory::{
+    DEFAULT_MEMORY_SEARCH_LIMIT, MAX_MEMORY_CONTENT_BYTES, MAX_MEMORY_QUERY_CHARS,
+    MAX_MEMORY_QUERY_TERMS, MAX_MEMORY_RECORD_ID_CHARS, MAX_MEMORY_SEARCH_LIMIT,
+    MAX_MEMORY_SOURCE_REFERENCE_CHARS, MemoryIndexIssue, MemoryIndexIssueKind, MemoryQuery,
+    MemoryRecord, MemoryRecordKind, MemorySearchResult, delete_memory_record, insert_memory_record,
+    search_memory, verify_memory_index,
+};
 pub use migrations::{Migration, MigrationSet, MigrationSetError};
 pub use paths::StoragePaths;
 pub use records::{

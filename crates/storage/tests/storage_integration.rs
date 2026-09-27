@@ -22,9 +22,9 @@ use common::{FixedClock, TestDir, count_files, count_rows, file_size, migrations
 use rusqlite::Connection;
 // ───────────────────────── 迁移 / 启动校验 ─────────────────────────
 
-/// 全新库：建目录 → 建表 → 版本 = 二进制期望值。
+/// 全新库：建目录 → 建表 → 版本 = storage v1 基线（0001）。
 #[test]
-fn test_open_fresh_database_reaches_latest_schema_version() {
+fn test_open_fresh_database_reaches_storage_baseline() {
     let dir = TestDir::new("fresh");
     let clock = Arc::new(FixedClock::new(1_700_000_000_000));
     let expected = migrations().expected_version();
@@ -40,9 +40,8 @@ fn test_open_fresh_database_reaches_latest_schema_version() {
         database.paths().shadow_root().is_dir(),
         "影子副本目录必须建好"
     );
-    // 迁移记账表的行数 == 集合期望的版本号：版本号从 1 连续递增（schema.rs 不变量 4），
-    // 所以"行数 = expected_version()"比写死 1 更强 —— 它同时证明了每个迁移都被记账。
-    // ADR-0038 之后这里的集合 = **storage 自己**的迁移 → 别的 crate 加表不再影响本断言。
+    // 迁移记账表的行数 == 集合期望的版本号：这里测的是历史 v1 基线（只取 0001），
+    // 不用它伪装“全库最新版本”；0001+0004 与 audit 0002/0003 的真实装配由 FTS / audit 测试覆盖。
     assert_eq!(
         count_rows(database.connection(), "schema_migrations"),
         expected

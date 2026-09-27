@@ -75,14 +75,18 @@ impl Clock for FixedClock {
     }
 }
 
-/// `crates/storage` **自己**那几张表的迁移集。
+/// storage 历史 v1（只含 0001）的连续迁移集。
 ///
-/// 为什么本 crate 的测试只装配自己的迁移：ADR-0038 之后「别的 crate 加表」与 storage 的测试**无关**
-/// —— 这正是注册表要解决的问题（TASK-013 时它曾打爆这里 3 处断言）。
+/// 为什么不再直接 `register_all(MIGRATIONS)`：0004 与 audit 的 0002 / 0003 交错，单 crate
+/// 常量本身不连续；既有的 blob / 核心表测试只需要历史 v1 形状。
 pub fn migrations() -> MigrationSet {
     let mut set = MigrationSet::new();
-    set.register_all(assistant_storage::MIGRATIONS)
-        .expect("装配 storage 自己的迁移");
+    let base = assistant_storage::MIGRATIONS
+        .iter()
+        .find(|migration| migration.version() == 1)
+        .copied()
+        .expect("storage 必须声明 0001");
+    set.register(base).expect("注册 storage 0001");
     set.validate().expect("storage 的迁移必须从 1 连续");
     set
 }

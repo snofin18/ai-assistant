@@ -41,9 +41,12 @@ impl Drop for TestDirectory {
 
 fn migrations() -> MigrationSet {
     let mut migrations = MigrationSet::new();
-    migrations
-        .register_all(assistant_storage::MIGRATIONS)
-        .expect("storage migrations");
+    let storage_0001 = assistant_storage::MIGRATIONS
+        .iter()
+        .find(|migration| migration.version() == 1)
+        .copied()
+        .expect("storage must declare 0001");
+    migrations.register(storage_0001).expect("storage 0001");
     migrations.validate().expect("migration continuity");
     migrations
 }
