@@ -49,6 +49,7 @@ dependencies = [
  "assistant-audit",
  "assistant-core",
  "assistant-model-gateway",
+ "assistant-platform-api",
  "assistant-platform-windows",
  "assistant-policy",
  "assistant-protocol",

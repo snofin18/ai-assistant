@@ -43,6 +43,10 @@ version = "0.1.0"
 path = "../../crates/platform/windows"
 version = "0.1.0"
 
+[dependencies.assistant-platform-api]
+path = "../../crates/platform/api"
+version = "0.1.0"
+
 [dependencies.assistant-protocol]
 path = "../../crates/protocol"
 version = "0.1.0"

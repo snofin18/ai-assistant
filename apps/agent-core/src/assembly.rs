@@ -15,7 +15,7 @@ use assistant_core::{
 use assistant_model_gateway::{
     JitterSource, ModelGateway, ModelProvider, ModelRouter, MonotonicClock, RetryPolicy, Sleeper,
 };
-use assistant_platform_windows::WindowsPlatform;
+use assistant_platform_api::{UiAutomationProvider, WindowProvider};
 use assistant_policy::RuleSet;
 use assistant_storage::{
     Clock, Database, MIGRATIONS as STORAGE_MIGRATIONS, MigrationSet, StoragePaths,
@@ -29,7 +29,7 @@ use crate::adapters::{AuditSink, DatabaseHandle, StorageSessionClock, StorageToo
 ///
 /// Every component is explicit. The assembly point never creates a hidden
 /// default for a missing provider, store, platform, or policy.
-pub struct HostAssemblyInput {
+pub struct HostAssemblyInput<P> {
     data_root: PathBuf,
     clock: Arc<dyn Clock>,
     session_store: Option<Arc<dyn SessionStore>>,
@@ -47,17 +47,16 @@ pub struct HostAssemblyInput {
     compressor: Option<Arc<dyn HistoryCompressor>>,
     durability: Durability,
     tool_session_id: String,
-    platform: WindowsPlatform,
+    platform: P,
 }
 
-impl HostAssemblyInput {
+impl<P> HostAssemblyInput<P>
+where
+    P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
+{
     /// Creates an input with no optional component installed.
     #[must_use]
-    pub fn new(
-        data_root: impl Into<PathBuf>,
-        clock: Arc<dyn Clock>,
-        platform: WindowsPlatform,
-    ) -> Self {
+    pub fn new(data_root: impl Into<PathBuf>, clock: Arc<dyn Clock>, platform: P) -> Self {
         Self {
             data_root: data_root.into(),
             clock,
@@ -180,7 +179,7 @@ impl HostAssemblyInput {
 }
 
 /// Host assembled by the binary layer.
-pub struct HostComponents {
+pub struct HostComponents<P> {
     database: DatabaseHandle,
     sessions: Mutex<SessionManager>,
     context: ContextManager,
@@ -192,10 +191,10 @@ pub struct HostComponents {
     toolset_report: MountReport,
     audit: AuditSink,
     compressor: Arc<dyn HistoryCompressor>,
-    platform: WindowsPlatform,
+    platform: P,
 }
 
-impl HostComponents {
+impl<P> HostComponents<P> {
     /// Returns the sole database handle owned by the Host.
     #[must_use]
     pub fn database(&self) -> &Mutex<Database> {
@@ -270,7 +269,7 @@ impl HostComponents {
 
     /// Returns the platform implementation.
     #[must_use]
-    pub const fn platform(&self) -> &WindowsPlatform {
+    pub const fn platform(&self) -> &P {
         &self.platform
     }
 
@@ -291,19 +290,20 @@ impl HostComponents {
 }
 
 /// One-shot assembly operation.
-pub struct HostAssembly {
-    input: HostAssemblyInput,
+pub struct HostAssembly<P> {
+    input: HostAssemblyInput<P>,
 }
 
-impl HostAssembly {
+impl<P> HostAssembly<P>
+where
+    P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
+{
     /// Creates an assembly operation.
     #[must_use]
-    pub const fn new(input: HostAssemblyInput) -> Self {
+    pub const fn new(input: HostAssemblyInput<P>) -> Self {
         Self { input }
     }
-}
 
-impl HostAssembly {
     /// Validates inputs and constructs the complete Host.
     ///
     /// # Errors
@@ -311,8 +311,14 @@ impl HostAssembly {
     /// Returns a typed [`HostAssemblyError`] for missing components, invalid
     /// configuration, migration/storage failure, audit initialization failure,
     /// model-gateway construction failure, or tool-bus startup failure.
-    pub async fn assemble(self) -> Result<HostComponents, HostAssemblyError> {
+    pub async fn assemble(self) -> Result<HostComponents<P>, HostAssemblyError> {
         let Self { input } = self;
+        if !cfg!(windows) {
+            return Err(HostAssemblyError::InvalidConfiguration {
+                field: "platform",
+                reason: "the Windows Host platform is unavailable on this target".to_owned(),
+            });
+        }
         validate_input(&input)?;
         let database = open_database(&input)?;
         let audit = AuditSink::new(Arc::clone(&database), input.durability);
@@ -391,7 +397,10 @@ impl HostAssembly {
     }
 }
 
-fn validate_input(input: &HostAssemblyInput) -> Result<(), HostAssemblyError> {
+fn validate_input<P>(input: &HostAssemblyInput<P>) -> Result<(), HostAssemblyError>
+where
+    P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
+{
     if input.data_root.as_os_str().is_empty() {
         return Err(HostAssemblyError::InvalidConfiguration {
             field: "data_root",
@@ -407,7 +416,10 @@ fn validate_input(input: &HostAssemblyInput) -> Result<(), HostAssemblyError> {
     Ok(())
 }
 
-fn open_database(input: &HostAssemblyInput) -> Result<DatabaseHandle, HostAssemblyError> {
+fn open_database<P>(input: &HostAssemblyInput<P>) -> Result<DatabaseHandle, HostAssemblyError>
+where
+    P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
+{
     let mut migrations = MigrationSet::new();
     migrations
         .register_all(STORAGE_MIGRATIONS)

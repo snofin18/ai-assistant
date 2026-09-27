@@ -189,7 +189,7 @@ fn test_registry() -> Result<ToolRegistry, ToolBusError> {
 fn base_input(
     directory: &TestDirectory,
     provider: Arc<dyn ModelProvider>,
-) -> Result<HostAssemblyInput, ModelGatewayError> {
+) -> Result<HostAssemblyInput<WindowsPlatform>, ModelGatewayError> {
     let model_id = provider.model_id().clone();
     let router = ModelRouter::new(model_id.clone(), Vec::new(), vec![model_id])?;
     Ok(HostAssemblyInput::new(

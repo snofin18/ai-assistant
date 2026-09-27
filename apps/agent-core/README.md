@@ -28,8 +28,9 @@ TASK-029 的 binary-layer Host 装配库。
 - 生产 `SessionStore` 仍等待 storage conversation/session 记录 API（PL-092）；
   当前装配接受注入的 store，测试使用 `MemorySessionStore`。
 - 具体模型 Provider 仍归后续 provider integration 卡；本卡只装配 trait 注入点。
-- `WindowsPlatform` 当前未实现 `PlatformService` trait，因此 Host 以泛型平台类型保存
-  具体实现，不把未实现的 trait 当作已满足的能力。
+- Host 以 `WindowProvider + UiAutomationProvider` 约束的泛型平台注入具体实现；
+  `WindowsPlatform` 当前未实现 `PlatformService` trait，因此不把未实现的 trait
+  当作已满足的能力。装配入口在非 Windows 目标上显式失败，避免 self-check 假阳性。
 
 ## 相关文档
 

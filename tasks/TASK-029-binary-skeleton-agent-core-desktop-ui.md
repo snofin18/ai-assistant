@@ -106,6 +106,7 @@ docs/DEPENDENCIES.md、xtask/src/exemptions.rs、docs/adr/0032-doc-rule-exemptio
 - `cargo clippy --all-targets -- -D warnings` → PASS。
 - `cargo test --workspace` → PASS；`assistant-agent-core` 8 个 assembly/security/self-check tests 通过。
 - `cargo run -p assistant-agent-core -- --self-check` → PASS，输出 `assistant-agent-core self-check: ok`。
+- `HostAssemblyInput<P>` 恢复受 `WindowProvider + UiAutomationProvider` 约束的泛型平台注入；非 Windows 目标在装配入口显式失败，避免 self-check 假阳性。
 - `cargo run -p xtask -- refscan` → **0 error / 0 warning**（修复前 151 error）。
 - `hygiene` 0E/4W、`memory-counts`、`adr-index`、`check-ledger`、`check-migrations`、
   `verify-schemas`、`codegen --check`、`docscan`、`card-check` → 全 PASS。
@@ -118,6 +119,7 @@ docs/DEPENDENCIES.md、xtask/src/exemptions.rs、docs/adr/0032-doc-rule-exemptio
 
 - [x] Host 可在测试中装配；缺 `session_store` 返回 `host_component_missing`。
 - [x] `assistant-agent-core --self-check` 可执行；模型运行时显式注入；审计链非完整时 `host_audit_assembly_failed`。
+- [x] 平台为受 trait 约束的泛型注入，`()` 等无效实现不能装配；非 Windows 目标 fail-closed。
 - [x] 装配点只在 `apps/agent-core`；core manifest 黑名单断言通过。
 - [x] Tauri/React/TS/Tailwind 壳存在；capabilities 空权限、CSP 无 `unsafe-inline`/`unsafe-eval`，静态安全测试通过。
 - [x] Tauri / 前端依赖已登记；根 Cargo member 只新增 `apps/agent-core`。
@@ -168,8 +170,9 @@ Disconnect/Timeout，未先排空心跳。
 
 Host 装配采用显式输入 + async `assemble`，把 SQLite/audit 句柄留在 binary 层；
 Tauri 壳独立 workspace，避免根 `cargo test --workspace` 依赖 Linux WebKit 系统包。
-`WindowsPlatform` 当前未实现 `PlatformService`，因此装配保存具体 `WindowsPlatform`，
-不伪装成已满足未实现的 trait。
+`WindowsPlatform` 当前未实现 `PlatformService`，因此装配用
+`WindowProvider + UiAutomationProvider` 约束泛型平台，并显式检查 Windows Host 可用性；
+不把未实现的 trait 当作已满足的能力。
 
 ### 7. 遗留问题
 
@@ -188,3 +191,4 @@ Tauri 壳独立 workspace，避免根 `cargo test --workspace` 依赖 Linux WebK
 2. Tauri capabilities 空权限与无 `unsafe-inline` 的 CSP 是否足以满足“webview 零系统权限”。
 3. `refscan` 修复是否只是豁免遮蔽；本次同时修正了解析器反引号与真实行号漂移。
 4. 豁免清单解析已改为扫描全部表并拒绝格式错误行；确认没有靠静默跳过维持绿灯。
+5. 平台泛型约束与非 Windows fail-closed 是否真正消除了 self-check 假阳性。
