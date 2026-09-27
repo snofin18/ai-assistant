@@ -210,6 +210,7 @@ fn base_input(
     .with_history_compressor(Arc::new(NoopCompressor)))
 }
 
+#[cfg(windows)]
 #[tokio::test]
 async fn test_host_assembly_constructs_all_components() -> Result<(), Box<dyn std::error::Error>> {
     let directory = TestDirectory::new("all-components")?;
@@ -235,6 +236,7 @@ async fn test_host_assembly_constructs_all_components() -> Result<(), Box<dyn st
     Ok(())
 }
 
+#[cfg(windows)]
 #[tokio::test]
 async fn test_host_assembly_rejects_missing_component() -> Result<(), Box<dyn std::error::Error>> {
     let directory = TestDirectory::new("missing-component")?;
@@ -255,6 +257,7 @@ async fn test_host_assembly_rejects_missing_component() -> Result<(), Box<dyn st
     Ok(())
 }
 
+#[cfg(windows)]
 #[tokio::test]
 async fn test_assembly_adapters_cover_storage_and_audit_paths()
 -> Result<(), Box<dyn std::error::Error>> {
@@ -371,6 +374,7 @@ fn test_assembly_point_is_confined_to_agent_core() {
     }
 }
 
+#[cfg(windows)]
 #[tokio::test]
 async fn test_host_assembly_rejects_non_intact_audit_chain()
 -> Result<(), Box<dyn std::error::Error>> {
@@ -403,5 +407,30 @@ async fn test_host_assembly_rejects_non_intact_audit_chain()
     };
     assert_eq!(error.reason_code(), "host_audit_assembly_failed");
     assert_eq!(error.error_code(), ErrorCode::Fatal);
+    Ok(())
+}
+
+#[cfg(not(windows))]
+#[tokio::test]
+async fn test_host_assembly_rejects_unsupported_platform() -> Result<(), Box<dyn std::error::Error>>
+{
+    let directory = TestDirectory::new("unsupported-platform")?;
+    let provider: Arc<dyn ModelProvider> = Arc::new(NoopProvider::new()?);
+    let input = base_input(&directory, provider)?
+        .with_session_store(Arc::new(MemorySessionStore::new()) as Arc<dyn SessionStore>)
+        .with_memory_retriever(Arc::new(EmptyRetriever))
+        .with_app_map_reader(Arc::new(EmptyReader))
+        .with_tool_registry(test_registry()?);
+
+    let Err(error) = HostAssembly::new(input).assemble().await else {
+        return Err("non-Windows Host assembly unexpectedly succeeded".into());
+    };
+    assert!(matches!(
+        error,
+        HostAssemblyError::InvalidConfiguration {
+            field: "platform",
+            ..
+        }
+    ));
     Ok(())
 }

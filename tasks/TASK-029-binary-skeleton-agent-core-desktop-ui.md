@@ -108,6 +108,7 @@ docs/DEPENDENCIES.md、xtask/src/exemptions.rs、docs/adr/0032-doc-rule-exemptio
 - `cargo run -p assistant-agent-core -- --self-check` → PASS，输出 `assistant-agent-core self-check: ok`。
 - `HostAssemblyInput<P>` 恢复受 `WindowProvider + UiAutomationProvider` 约束的泛型平台注入；非 Windows 目标在装配入口显式失败，避免 self-check 假阳性。
 - `--self-check` 成功路径测试只在 Windows 运行；非 Windows 用 `#[cfg(not(windows))]` 负向测试断言 `platform` 配置错误。
+- `assembly_contract` 中四个调用真实装配的 Windows 路径测试同样按目标平台分流；非 Windows 增加整体平台拒绝测试。
 - `cargo run -p xtask -- refscan` → **0 error / 0 warning**（修复前 151 error）。
 - `hygiene` 0E/4W、`memory-counts`、`adr-index`、`check-ledger`、`check-migrations`、
   `verify-schemas`、`codegen --check`、`docscan`、`card-check` → 全 PASS。
@@ -122,6 +123,7 @@ docs/DEPENDENCIES.md、xtask/src/exemptions.rs、docs/adr/0032-doc-rule-exemptio
 - [x] `assistant-agent-core --self-check` 可执行；模型运行时显式注入；审计链非完整时 `host_audit_assembly_failed`。
 - [x] 平台为受 trait 约束的泛型注入，`()` 等无效实现不能装配；非 Windows 目标 fail-closed。
 - [x] self-check 测试按目标平台分流，避免 Ubuntu/macOS CI 因预期 fail-closed 而误报失败。
+- [x] assembly contract 测试按目标平台分流；非 Windows 断言整体平台配置拒绝。
 - [x] 装配点只在 `apps/agent-core`；core manifest 黑名单断言通过。
 - [x] Tauri/React/TS/Tailwind 壳存在；capabilities 空权限、CSP 无 `unsafe-inline`/`unsafe-eval`，静态安全测试通过。
 - [x] Tauri / 前端依赖已登记；根 Cargo member 只新增 `apps/agent-core`。
