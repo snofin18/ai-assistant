@@ -229,9 +229,27 @@ mod tests {
         EmptyReader, EmptyRetriever, NoopCompressor, NoopProvider, NoopStream, run_self_check,
     };
 
+    #[cfg(windows)]
     #[tokio::test]
     async fn test_self_check_assembles_and_shuts_down() -> Result<(), super::HostAssemblyError> {
         run_self_check().await
+    }
+
+    #[cfg(not(windows))]
+    #[tokio::test]
+    async fn test_self_check_fails_closed_on_unsupported_platform()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let Some(error) = run_self_check().await.err() else {
+            return Err("non-Windows self-check unexpectedly succeeded".into());
+        };
+        assert!(matches!(
+            error,
+            super::HostAssemblyError::InvalidConfiguration {
+                field: "platform",
+                ..
+            }
+        ));
+        Ok(())
     }
 
     #[test]
