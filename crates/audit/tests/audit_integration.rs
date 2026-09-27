@@ -31,12 +31,15 @@ fn test_migration_creates_table_index_and_append_only_triggers() {
     let database = open_database(&dir, &clock);
     let connection = database.connection();
 
+    let expected_version = migrations().expected_version();
     assert_eq!(
-        migrations().expected_version(),
-        3,
-        "装配后期望版本 = 3（storage 0001 + audit 0002 + audit 0003）"
+        expected_version, 4,
+        "装配后期望版本 = 4（storage 0001 + 0004 + audit 0002 + audit 0003）"
     );
-    assert_eq!(database.schema_version().expect("schema 版本"), 3);
+    assert_eq!(
+        database.schema_version().expect("schema 版本"),
+        expected_version
+    );
     assert!(object_exists(connection, "table", "audit_logs"));
     assert!(object_exists(connection, "index", "idx_audit_ts"));
     assert!(object_exists(connection, "trigger", "audit_logs_no_update"));

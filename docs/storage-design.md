@@ -146,9 +146,9 @@ GC  ：引用计数为 0 且超过 TTL → 删除；后台低优先级任务，�
 > → `DROP` → `RENAME` → 重建索引与触发器）是唯一确定性的走法。`0002` **一字不改**（checksum 记账）。
 
 > **0004 为什么又回到 `crates/storage`**：全局号段按“迁移发生顺序”分配，不按拥有者分块。
-> 因此单个 crate 的迁移常量是全局序列的**片段**，可以出现空洞：storage 的 `MIGRATIONS` = 0001、
-> `MEMORY_MIGRATIONS` = 0004，audit 的 `MIGRATIONS` = 0002 + 0003；装配点必须注册全部片段，
-> 只有合并后的 `MigrationSet` 必须连续。不要在单 crate 片段上调用 `validate()` 来推断全局链完整。
+> 因此单个 crate 的 `MIGRATIONS` 是全局序列的**片段**，可以出现空洞：storage = 0001 + 0004，
+> audit = 0002 + 0003；装配点必须注册全部 crate 的 `MIGRATIONS`，只有合并后的 `MigrationSet`
+> 必须连续。不要在单 crate 片段上调用 `validate()` 来推断全局链完整。
 
 > **已机器化（2026-09-24，TASK-015 落地 PL-047）**：`cargo run -p xtask -- check-migrations`
 > 扫描 `crates/*/migrations/*.sql`，校验三条判据 —— ① 4 位号段**全局唯一**；② 与本表**逐行一致**

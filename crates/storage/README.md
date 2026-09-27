@@ -16,7 +16,7 @@
 ## 边界（不做什么）
 
 - 不含业务规则：状态机、重试、预算、撤销锚点管理、审计 hash chain 都**不**在这里
-- **不拥有全库表清单**（ADR-0038）：本 crate 声明 `MIGRATIONS`（`0001`）与 `MEMORY_MIGRATIONS`（`0004`）两个片段；
+- **不拥有全库表清单**（ADR-0038）：本 crate 的 `MIGRATIONS` 同时声明自己的 `0001` 与 `0004`；
   `audit_logs` 的 DDL 与 `MIGRATIONS` 都归 `crates/audit`，语义与读写也归它（本 crate 不碰 hash chain）；
   不实现影子副本（W5）的写入策略，不做 `core` Memory / App Map 加载，也不做向量 / 语义检索
 - 不调用任何平台 API（`arch` 护栏会拦）；不提供多写者 / 只读连接池
@@ -49,18 +49,18 @@
 ```rust
 use std::sync::Arc;
 use assistant_storage::{
-    BlobKind, BlobOwner, Database, MEMORY_MIGRATIONS, MIGRATIONS, MemoryQuery, MemoryRecord,
-    MemoryRecordKind, MigrationSet, StoragePaths, SystemClock, insert_memory_record,
-    search_memory,
+    BlobKind, BlobOwner, Database, MIGRATIONS, MemoryQuery, MemoryRecord, MemoryRecordKind,
+    MigrationSet, StoragePaths, SystemClock, insert_memory_record, search_memory,
 };
 
 let paths = StoragePaths::new("D:/data/assistant");
-// 唯一装配点（ADR-0038 D3）：把各 crate 的 MIGRATIONS 合并成一个集合再开库
-let mut migrations = MigrationSet::new();
-migrations.register_all(MIGRATIONS)?;
-migrations.register_all(MEMORY_MIGRATIONS)?;
-// 真实装配点还必须注册 audit 0002 / 0003 以及其它拥有者的片段。
-let database = Database::open(&paths, Arc::new(SystemClock), &migrations)?;
+// 唯一装配点（ADR-0038 D3）的伪代码：
+//   migrations.register_all(MIGRATIONS)?;              // storage 0001 + 0004
+//   migrations.register_all(assistant_audit::MIGRATIONS)?; // audit 0002 + 0003
+//   ... 其它拥有者 ...
+//   migrations.validate()?;                            // 只有合并后必须连续
+// 以下假定 assembled_migrations 已按上述顺序构造。
+let database = Database::open(&paths, Arc::new(SystemClock), &assembled_migrations)?;
 let blobs = database.blob_store();
 
 let id = blobs.put(database.connection(), BlobKind::TreeSnapshot, b"{}")?;

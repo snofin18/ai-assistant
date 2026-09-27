@@ -13,8 +13,7 @@
 //! ## 边界（不做什么）
 //!
 //! - 不含业务规则：状态机、重试、预算、撤销锚点管理、审计 hash chain 都**不**在这里
-//! - **不拥有全库表清单**（ADR-0038）：本 crate 声明 [`MIGRATIONS`]（0001）与
-//!   [`MEMORY_MIGRATIONS`]（0004）两个片段；
+//! - **不拥有全库表清单**（ADR-0038）：本 crate 只声明 [`MIGRATIONS`]（自己的 0001 + 0004）；
 //!   `audit_logs` 由 `crates/audit` 自己的迁移 `0002` 建，读写与 hash chain 也归它。
 //!   不实现影子副本的写入策略、不做向量检索
 //! - 不调用任何平台 API（`arch` 护栏会拦）；不打开只读连接池（归 TASK-028 之后的 Core 装配）
@@ -34,26 +33,34 @@
 //! ## 典型用法
 //!
 //! ```no_run
-//! use std::sync::Arc;
-//!
 //! use assistant_storage::{
-//!     BlobKind, BlobOwner, Database, MEMORY_MIGRATIONS, MIGRATIONS, MigrationSet, StoragePaths,
-//!     SystemClock,
+//!     BlobKind, BlobOwner, Database, MIGRATIONS, MemoryQuery, MemoryRecord, MemoryRecordKind,
+//!     MigrationSet, StoragePaths, insert_memory_record, search_memory,
 //! };
 //!
-//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! # fn example(database: &Database) -> Result<(), assistant_storage::StorageError> {
 //! let paths = StoragePaths::new("D:/data/assistant");
-//! // 唯一装配点（ADR-0038 D3）：把各 crate 的 MIGRATIONS 合并成一个集合
-//! let mut migrations = MigrationSet::new();
-//! migrations.register_all(MIGRATIONS)?;
-//! migrations.register_all(MEMORY_MIGRATIONS)?;
-//! let database = Database::open(&paths, Arc::new(SystemClock), &migrations)?;
+//! // `database` 由唯一装配点创建：装配点把本 crate 的 MIGRATIONS 与 audit 等所有拥有者的
+//! // 迁移合并成一个连续 MigrationSet，再调用 Database::open。
+//! let _ = (paths, MIGRATIONS, MigrationSet::new());
 //! let blobs = database.blob_store();
 //!
 //! let id = blobs.put(database.connection(), BlobKind::TreeSnapshot, b"{}")?;
 //! let owner = BlobOwner::new("step", "s_1")?;
 //! blobs.add_reference(database.connection(), &id, &owner)?;
 //! assert_eq!(blobs.get(database.connection(), &id)?, b"{}");
+//!
+//! insert_memory_record(
+//!     database.connection(),
+//!     &MemoryRecord {
+//!         record_kind: MemoryRecordKind::Preference,
+//!         record_id: "pref-1".to_owned(),
+//!         source_reference: "settings#L3".to_owned(),
+//!         content: "prefers concise reports".to_owned(),
+//!         updated_at: 1_700_000_000_000,
+//!     },
+//! )?;
+//! let _hits = search_memory(database.connection(), &MemoryQuery::new("reports"))?;
 //! # Ok(())
 //! # }
 //! ```
@@ -95,7 +102,7 @@ pub use records::{
     insert_checkpoint, insert_task, insert_task_step, insert_usage_record, load_latest_checkpoint,
     load_task, load_task_steps,
 };
-pub use schema::{MEMORY_MIGRATIONS, MIGRATIONS};
+pub use schema::MIGRATIONS;
 pub use time_source::{Clock, SystemClock};
 
 use std::fmt;

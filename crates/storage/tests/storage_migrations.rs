@@ -24,8 +24,12 @@ use common::{FixedClock, TestDir};
 #[test]
 fn test_migration_set_rejects_duplicate_version() {
     let mut set = MigrationSet::new();
-    set.register_all(assistant_storage::MIGRATIONS)
-        .expect("注册 storage 自己的迁移");
+    let base = assistant_storage::MIGRATIONS
+        .iter()
+        .find(|migration| migration.version() == 1)
+        .copied()
+        .expect("storage 必须声明 0001");
+    set.register(base).expect("注册 storage 0001");
 
     let error = set
         .register(Migration::new(

@@ -232,7 +232,7 @@ pub fn delete_memory_record(
 ///
 /// # Errors
 /// - [`StorageError::InvalidMemoryQuery`]：空查询 / 超长 / 无字母数字词项 / limit 非法
-/// - [`StorageError::MemoryIndexInconsistent`]：索引里有无法解析的记录类型
+/// - [`StorageError::MemoryIndexInconsistent`]：命中的索引行与源表快照不一致，或记录类型无法解析
 /// - [`StorageError::Sqlite`]：底层查询失败
 pub fn search_memory(
     connection: &Connection,
@@ -246,7 +246,10 @@ pub fn search_memory(
     let kind = query.kind.map(MemoryRecordKind::as_str);
 
     let mut statement = connection.prepare(
-        "SELECT m.record_kind, m.record_id, m.source_reference,
+        "SELECT memory_fts.rowid,
+                memory_fts.record_kind, memory_fts.record_id,
+                memory_fts.source_reference, memory_fts.content,
+                m.record_kind, m.record_id, m.source_reference, m.content,
                 snippet(memory_fts, 3, '[', ']', '...', 16),
                 bm25(memory_fts)
          FROM memory_fts
@@ -257,35 +260,69 @@ pub fn search_memory(
          LIMIT ?3",
     )?;
     let rows = statement.query_map(params![match_expression, kind, limit], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, String>(2)?,
-            row.get::<_, String>(3)?,
-            row.get::<_, f64>(4)?,
-        ))
+        Ok(SearchRow {
+            row_id: row.get(0)?,
+            indexed_kind: row.get(1)?,
+            indexed_record_id: row.get(2)?,
+            indexed_source_reference: row.get(3)?,
+            indexed_content: row.get(4)?,
+            source_kind: row.get(5)?,
+            source_record_id: row.get(6)?,
+            source_reference: row.get(7)?,
+            source_content: row.get(8)?,
+            snippet: row.get(9)?,
+            score: row.get(10)?,
+        })
     })?;
 
     let mut results = Vec::new();
     for row in rows {
-        let (raw_kind, record_id, source_reference, snippet, score) = row?;
-        let record_kind = MemoryRecordKind::parse(&raw_kind).map_err(|error| {
+        let row = row?;
+        if row.indexed_kind != row.source_kind
+            || row.indexed_record_id != row.source_record_id
+            || row.indexed_source_reference != row.source_reference
+            || row.indexed_content != row.source_content
+        {
+            return Err(StorageError::MemoryIndexInconsistent {
+                detail: format!(
+                    "memory_fts rowid {} 与 memory_records 快照不一致",
+                    row.row_id
+                ),
+            });
+        }
+        let record_kind = MemoryRecordKind::parse(&row.indexed_kind).map_err(|error| {
             StorageError::MemoryIndexInconsistent {
                 detail: format!(
-                    "memory_fts 行包含未知 record_kind {raw_kind:?}: {}",
+                    "memory_fts 行包含未知 record_kind {:?}: {}",
+                    row.indexed_kind,
                     error.reason_code()
                 ),
             }
         })?;
         results.push(MemorySearchResult {
             record_kind,
-            record_id,
-            source_reference,
-            snippet,
-            score,
+            record_id: row.source_record_id,
+            source_reference: row.source_reference,
+            snippet: row.snippet,
+            score: row.score,
         });
     }
     Ok(results)
+}
+
+/// `search_memory` 的原始行快照；同时保留 FTS 侧与源表侧字段用于逐字段一致性校验。
+struct SearchRow {
+    row_id: i64,
+    indexed_kind: String,
+    indexed_record_id: String,
+    indexed_source_reference: String,
+    indexed_content: String,
+    source_kind: String,
+    source_record_id: String,
+    source_reference: String,
+    source_content: String,
+    snippet: String,
+    score: f64,
 }
 
 /// 自检 `memory_records` 与 `memory_fts` 的一致性。

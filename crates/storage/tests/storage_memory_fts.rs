@@ -12,9 +12,9 @@ use std::sync::Arc;
 
 use assistant_protocol::ErrorCategory;
 use assistant_storage::{
-    Database, MEMORY_MIGRATIONS, MIGRATIONS, MemoryIndexIssueKind, MemoryQuery, MemoryRecord,
-    MemoryRecordKind, Migration, MigrationSet, StorageError, delete_memory_record,
-    insert_memory_record, search_memory, verify_memory_index,
+    Database, MIGRATIONS, MemoryIndexIssueKind, MemoryQuery, MemoryRecord, MemoryRecordKind,
+    Migration, MigrationSet, StorageError, delete_memory_record, insert_memory_record,
+    search_memory, verify_memory_index,
 };
 use common::{FixedClock, TestDir, count_rows, open_database_with};
 use rusqlite::params;
@@ -42,21 +42,31 @@ fn object_kind(connection: &rusqlite::Connection, name: &str) -> Option<String> 
 fn memory_migrations() -> MigrationSet {
     let mut set = MigrationSet::new();
     set.register_all(MIGRATIONS)
-        .expect("注册 storage 基线 0001");
-    set.register_all(MEMORY_MIGRATIONS)
-        .expect("注册 storage 0004");
-    // 0002 / 0003 归 audit；storage 测试不依赖 audit，用无副作用占位迁移补齐全局号段。
-    set.register(Migration::new(2, "test_global_gap_0002", "SELECT 1;"))
-        .expect("注册 0002 占位迁移");
-    set.register(Migration::new(3, "test_global_gap_0003", "SELECT 1;"))
-        .expect("注册 0003 占位迁移");
+        .expect("注册 storage 0001 + 0004");
+    set.register(Migration::new(
+        2,
+        "0002_audit_logs",
+        include_str!("../../audit/migrations/0002_audit_logs.sql"),
+    ))
+    .expect("注册 audit 0002");
+    set.register(Migration::new(
+        3,
+        "0003_audit_logs_semantics",
+        include_str!("../../audit/migrations/0003_audit_logs_semantics.sql"),
+    ))
+    .expect("注册 audit 0003");
     set.validate().expect("测试用全局迁移集必须从 1 连续");
     set
 }
 
 fn baseline_migrations() -> MigrationSet {
     let mut set = MigrationSet::new();
-    set.register_all(MIGRATIONS).expect("注册 storage 0001");
+    let base = MIGRATIONS
+        .iter()
+        .find(|migration| migration.version() == 1)
+        .copied()
+        .expect("storage 必须声明 0001");
+    set.register(base).expect("注册 storage 0001");
     set.validate().expect("v1 集合必须从 1 连续");
     set
 }
@@ -268,6 +278,17 @@ fn test_memory_index_integrity_reports_missing_orphan_and_mismatch() {
             |row| row.get(0),
         )
         .expect("读 rowid");
+
+    // 命中路径也必须 fail-closed：索引正文过期时不得把 stale snippet 当结果返回。
+    connection
+        .execute(
+            "UPDATE memory_fts SET content = ?1 WHERE rowid = ?2",
+            params!["tampered", row_id],
+        )
+        .expect("篡改索引正文");
+    let error = search_memory(connection, &MemoryQuery::new("tampered"))
+        .expect_err("索引与源表不一致时必须失败");
+    assert_eq!(error.reason_code(), "memory_index_inconsistent");
 
     // 模拟外部篡改 1：删掉索引行，源表还在。
     connection

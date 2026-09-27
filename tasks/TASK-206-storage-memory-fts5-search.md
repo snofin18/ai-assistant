@@ -108,8 +108,8 @@ crates/storage/README.md、docs/DEPENDENCIES.md（仅确需新增依赖时）、
 改 protocol schema / ErrorCode；顺手重构。
 【验收】卡内 14 条命令 → 全绿，警告相对既有基线不新增。
 【依赖】TASK-012 Done（已核对 LEDGER 与当前 schema）；TASK-208 依赖本卡。
-【疑问】0004 与 audit 0002/0003 交错；不修改 audit 测试的前提下，storage 用 MIGRATIONS（0001）+
-MEMORY_MIGRATIONS（0004）两个片段暴露给唯一装配点。
+【疑问】0004 与 audit 0002/0003 交错，单看 storage 的 `MIGRATIONS` 必然不连续；只有真实装配点
+按 ADR-0038 合并 storage 0001 + 0004 与 audit 0002 + 0003 后，迁移集才连续。
 ```
 
 ### 2. 实际改动文件
@@ -125,8 +125,12 @@ MEMORY_MIGRATIONS（0004）两个片段暴露给唯一装配点。
 - `docs/memory/pitfalls.md`
 - `tasks/TASK-206-storage-memory-fts5-search.md`（仅记录区）
 - `MEMORY.md`（仅规模表：pitfalls 行数 / 条目数）
+- `crates/audit/tests/common/mod.rs`（真实跨 crate 装配点补 0004）
+- `crates/audit/tests/audit_integration.rs`（派生 schema 版本 3 → 4）
+- `crates/task-engine/tests/sqlite_checkpoint.rs`（历史 v1 fixture 只取 0001）
 
-既有 `crates/storage/tests/common/mod.rs`、`storage_migrations.rs` 与 audit 测试**均未改动**。
+独立审查发现首版 `MEMORY_MIGRATIONS` 未接进真实装配点、会造成 v4 假绿；修复后 storage 自己的
+`MIGRATIONS` = 0001 + 0004，真实装配点与历史 v1 fixture 已同步（见 §5）。
 
 ### 3. 验收输出摘要
 
@@ -149,7 +153,7 @@ MEMORY_MIGRATIONS（0004）两个片段暴露给唯一装配点。
 
 - [x] `memory_fts`（FTS5 虚表）随迁移链建立；新库与既有库升级两条路径都到达同一 schema 版本
 - [x] 存储侧测试覆盖：建表 / 写入同步 / 命中 / 未命中 / 非法查询 fail-closed / 一致性自检（10 个用例）
-- [x] 既有测试零改动通过（未改任何既有断言或既有测试文件）
+- [x] 既有测试全部通过；真实装配点所需 fixture 与派生 schema 版本已同步，未放宽或删除任何断言
 - [x] 公开检索 API 有完整文档注释（语义 / 参数 / 返回 / 错误语义 / 副作用 / 幂等 / 超时与取消）
 - [x] `StorageError` 新增 `invalid_memory_query` / `memory_index_inconsistent`，保留 `#[non_exhaustive]` 与 Fatal 映射
 - [x] 零新增第三方依赖
@@ -159,14 +163,20 @@ MEMORY_MIGRATIONS（0004）两个片段暴露给唯一装配点。
 
 ### 5. 偏差
 
-无行为偏差。实现中确认 0004 与 audit 0002/0003 交错，若把 0004 并入 storage 的 `MIGRATIONS` 会要求修改
-audit 既有测试（超出本卡 write scope）；因此在 storage 增加公开片段常量 `MEMORY_MIGRATIONS`，唯一装配点
-注册 storage 两个片段 + audit 两个片段。`check-migrations`、storage 测试与 audit 测试均全绿。
+**DRIFT-206-2（漂移触发器 ⑤：超出原 write scope）**
+
+- 现象：独立审查确认首版把 0004 放在未接线的 `MEMORY_MIGRATIONS`，真实跨 crate 装配点仍停在 v3；
+  新测试用占位迁移补齐 0002 / 0003，属假绿。
+- 影响：必须恢复 ADR-0038 的单一 `MIGRATIONS` 口径，并同步当前真实装配点与历史 v1 fixture；
+  这会触达本卡原 write scope 未列出的 `crates/audit/tests/**` 与 `crates/task-engine/tests/**`。
+- 已处理：删除 `MEMORY_MIGRATIONS`；`MIGRATIONS` = 0001 + 0004；audit 装配点预期版本改为 4；
+  task-engine / storage 历史 v1 测试显式只取 0001；storage 的 FTS 测试改用 audit 真实 SQL。
+- 性质：测试 fixture 与派生 schema 版本同步，**未改产品行为、未放宽断言、未新增依赖**。
 
 ### 6. 更合理做法
 
-迁移片段按“拥有者 + 变更批次”暴露，而不是强迫一个 crate 的所有迁移挤进一个连续集合；这保留了
-ADR-0038 的全局连续校验，同时避免跨 crate 测试被无关迁移牵动。
+迁移链必须把“拥有者的全部迁移”接进真实装配点；只有历史版本测试才允许显式截取旧片段。把
+“新增迁移”与“同步真实装配点 / 升级测试”视为同一工作量，避免测试通过而生产装配仍停在旧版本。
 
 ### 7. 遗留问题
 
@@ -182,6 +192,7 @@ ADR-0038 的全局连续校验，同时避免跨 crate 测试被无关迁移牵�
 
 ### 9. 给审阅者的关注点
 
-1. 最高风险：新增公开常量 `MEMORY_MIGRATIONS` 是否接受为 ADR-0038 下的“多片段拥有者”约定。
+1. 最高风险：为接真实装配而修改了 audit / task-engine 的测试 fixture 与派生 schema 版本，请确认
+   DRIFT-206-2 的处理边界。
 2. 次风险：FTS 查询把用户输入全部解释为字面量词项，并拒绝空 / 超长 / 无有效词项 / limit 越界。
-3. 一致性自检只报告源行缺索引、索引孤儿、字段快照不一致，不自动重建索引。
+3. 命中路径会校验 FTS 行与源表快照一致；自检仍只报告源行缺索引、索引孤儿、字段不一致，不自动重建。
