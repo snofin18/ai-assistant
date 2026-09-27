@@ -30,13 +30,17 @@
 | E-001 | adr/bare-pending-reference | `docs/PARKING_LOT.md:37` | 解析 PL-028 的违规范围时引用 ADR-0017 / ADR-0016 | PL-028 关闭行被 supersede |
 | E-002 | adr/bare-pending-reference | `docs/PARKING_LOT.md:41` | 同上行的下一处 | 同上 |
 | E-003 | adr/bare-pending-reference | `docs/governance-ai-agent-execution.md:171` | ADR 草稿模板的标题示例（ADR-0007 占位） | 模板移除 |
-| E-004 | adr/bare-pending-reference | `docs/governance-ai-agent-execution.md:487` | 变更历史表「依据」列的 ADR-0011 引用 | 表项被 supersede |
-| E-005 | adr/bare-pending-reference | `docs/governance-ai-agent-execution.md:790` | ADR 草稿模板示例（同 E-003） | 同 E-003 |
-| E-006 | adr/bare-pending-reference | `docs/governance-ai-agent-execution.md:805` | commit message 示例（ADR-0011） | 同 E-003 |
+| E-004 | adr/bare-pending-reference | `docs/governance-ai-agent-execution.md:491` | 变更历史表「依据」列的 ADR-0011 引用 | 表项被 supersede |
+| E-005 | adr/bare-pending-reference | `docs/governance-ai-agent-execution.md:794` | ADR 草稿模板示例（同 E-003） | 同 E-003 |
+| E-006 | adr/bare-pending-reference | `docs/governance-ai-agent-execution.md:809` | commit message 示例（ADR-0011） | 同 E-003 |
 | E-007 | adr/bare-pending-reference | `xtask/src/adr_registry_tests.rs:216` | 测**「裸引用 = 报错」**的负向用例，故意写 `ADR-0016` 触发 | **永不**（测试夹具就是这条违规） |
 | E-008 | adr/bare-pending-reference | `xtask/src/adr_registry_tests.rs:217` | 同上（同一测的第二行） | **永不** |
-| E-009 | adr/bare-pending-reference | `xtask/src/hygiene.rs:368` | 测**「裸引用 = 报错」**的另一个负向用例（ADR-0007） | **永不** |
-| E-010 | adr/bare-pending-reference | `xtask/src/hygiene.rs:549` | 测 ADR 编号负向用例（ADR-0012） | **永不** |
+| E-009 | adr/bare-pending-reference | `xtask/src/hygiene.rs:369` | 测**「裸引用 = 报错」**的另一个负向用例（ADR-0007） | **永不** |
+| E-010 | adr/bare-pending-reference | `xtask/src/hygiene.rs:550` | 测 ADR 编号负向用例（ADR-0012） | **永不** |
+| E-024 | adr/bare-pending-reference | `tasks/TASK-059-xtask-refscan-docscan-card-check-exemptions.md:189` | TASK-059 执行记录中的历史复核证据，引用当时待建号 | 该历史卡归档后 |
+| E-025 | adr/bare-pending-reference | `xtask/src/refscan.rs:346` | `refscan` 的负向测试夹具，故意包含待建 ADR 引用 | **永不**（测试夹具就是这条违规） |
+| E-026 | adr/bare-pending-reference | `xtask/src/refscan.rs:352` | 同上，验证 `docs/adr/` 目录内不报裸引用 | **永不** |
+| E-027 | adr/number-range-notation | `xtask/src/refscan.rs:340` | `refscan` 的范围写法负向测试夹具 | **永不**（测试夹具就是这条违规） |
 
 ### 规则 `adr/number-range-notation`（PL-034）
 

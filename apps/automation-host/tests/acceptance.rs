@@ -4,7 +4,7 @@
 
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use assistant_ipc::{
     Heartbeat, IpcError, NamedPipeTransport, Transport, WireMessage, client_handshake,
@@ -91,7 +91,15 @@ fn test_kill_host_client_detects_disconnect() -> Result<(), Box<dyn std::error::
     assert!(matches!(heartbeat, WireMessage::Heartbeat(_)));
 
     host.kill_and_wait()?;
-    let failure = transport.recv(Duration::from_secs(2));
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let failure = loop {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        let result = transport.recv(remaining);
+        match result {
+            Ok(WireMessage::Heartbeat(_)) if Instant::now() < deadline => {}
+            other => break other,
+        }
+    };
     assert!(
         matches!(
             failure,

@@ -84,7 +84,7 @@ impl ExemptionSet {
 /// `| E-NNN | rule/path | path/to/file:line | reason | removal |` 一行（也可能
 /// 跨行包装，但表内单行的概率最高）。
 ///
-/// **错误策略**：表头找不到 → Err；个别行解析失败 → **跳过该行 + stderr 报告**
+/// **错误策略**：表头找不到或任一数据行列数 / ID / 位置格式非法 → 返回带行号的 `Err`。
 /// （不阻塞整次扫描：登记手误不该让 CI 全红）。
 ///
 /// # Errors
@@ -109,85 +109,93 @@ pub fn parse_registry(content: &str) -> Result<ExemptionSet, String> {
 
     while let Some(raw_line) = lines.get(idx) {
         let line = raw_line.trim();
+        if line.starts_with("### ") || line.starts_with("## ") {
+            // Continue through section headings so every exemption table is read.
+            idx += 1;
+            continue;
+        }
         if !line.starts_with('|') {
             idx += 1;
             continue;
         }
-        if line.starts_with("### ") || line.starts_with("## ") {
-            // next section heading — done with current table
-            break;
-        }
-        // Parse the data row: split on `|`, strip, expect exactly 5 cells
-        let cells: Vec<&str> = line.trim_matches('|').split('|').map(str::trim).collect();
-        if cells.len() != 5 {
-            // not a data row — skip (could be section divider, empty row, etc.)
+        if line.starts_with("| ID |") || line.starts_with("|---") {
+            // Skip table headers and separators; only data rows are parsed.
             idx += 1;
             continue;
         }
-        let Some(id_cell) = cells.first() else {
-            idx += 1;
-            continue;
-        };
-        let id = id_cell.to_string();
-        let Some(rule_cell) = cells.get(1) else {
-            idx += 1;
-            continue;
-        };
-        let rule = rule_cell.to_string();
-        let Some(loc_cell) = cells.get(2) else {
-            idx += 1;
-            continue;
-        };
-        let loc = loc_cell;
-        let Some(reason_cell) = cells.get(3) else {
-            idx += 1;
-            continue;
-        };
-        let reason = reason_cell.to_string();
-        let Some(removal_cell) = cells.get(4) else {
-            idx += 1;
-            continue;
-        };
-        let removal = removal_cell.to_string();
-
-        // loc = "path:line"
-        let Some((p, l)) = loc.rsplit_once(':') else {
-            // eprintln! skipped
-            idx += 1;
-            continue;
-        };
-        let path = p.to_string();
-        let line_str = l.to_string();
-        let Ok(line_num) = line_str.parse() else {
-            // eprintln! skipped
-            idx += 1;
-            continue;
-        };
-
-        // ID format check
-        if !id.starts_with('E') || id.len() < 4 {
-            // eprintln! skipped
-            // eprintln!("xtask exemptions: 跳过非法 ID `{id}`");
-            idx += 1;
-            continue;
+        let exemption = parse_registry_row(line, idx + 1)?;
+        if !seen_ids.insert(exemption.id.clone()) {
+            return Err(format!("Duplicate exemption ID (重复): {}", exemption.id));
         }
-
-        if !seen_ids.insert(id.clone()) {
-            return Err(format!("Duplicate exemption ID (重复): {id}"));
-        }
-        set.add(Exemption {
-            id,
-            rule,
-            path,
-            line: line_num,
-            reason,
-            removal_trigger: removal,
-        })?;
+        set.add(exemption)?;
 
         idx += 1;
     }
 
     Ok(set)
+}
+
+fn parse_registry_row(line: &str, line_number: usize) -> Result<Exemption, String> {
+    let cells: Vec<&str> = line.trim_matches('|').split('|').map(str::trim).collect();
+    if cells.len() != 5 {
+        return Err(format!("豁免清单第 {line_number} 行列数不是 5：{line}"));
+    }
+    let Some(id_cell) = cells.first() else {
+        return Err(format!("豁免清单第 {line_number} 行缺少 ID"));
+    };
+    let id = strip_code_ticks(id_cell).to_string();
+    let Some(rule_cell) = cells.get(1) else {
+        return Err(format!("豁免清单第 {line_number} 行缺少规则"));
+    };
+    let rule = strip_code_ticks(rule_cell).to_string();
+    let Some(loc_cell) = cells.get(2) else {
+        return Err(format!("豁免清单第 {line_number} 行缺少位置"));
+    };
+    let loc = strip_code_ticks(loc_cell);
+    let Some(reason_cell) = cells.get(3) else {
+        return Err(format!("豁免清单第 {line_number} 行缺少理由"));
+    };
+    let reason = reason_cell.to_string();
+    let Some(removal_cell) = cells.get(4) else {
+        return Err(format!("豁免清单第 {line_number} 行缺少移除触发"));
+    };
+    let removal = removal_cell.to_string();
+
+    let Some((path, line_text)) = loc.rsplit_once(':') else {
+        return Err(format!(
+            "豁免清单第 {line_number} 行位置不是 path:line：{loc}"
+        ));
+    };
+    let Ok(line_value) = line_text.parse::<usize>() else {
+        return Err(format!(
+            "豁免清单第 {line_number} 行行号不是整数：{line_text}"
+        ));
+    };
+    if line_value == 0 {
+        return Err(format!("豁免清单第 {line_number} 行行号必须为正数"));
+    }
+
+    let Some(id_digits) = id.strip_prefix("E-") else {
+        return Err(format!("豁免清单第 {line_number} 行 ID 非法：{id}"));
+    };
+    if id_digits.len() != 3 || !id_digits.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(format!("豁免清单第 {line_number} 行 ID 非法：{id}"));
+    }
+
+    Ok(Exemption {
+        id,
+        rule,
+        path: path.to_string(),
+        line: line_value,
+        reason,
+        removal_trigger: removal,
+    })
+}
+
+/// Registry cells are Markdown table cells; paths and rules are commonly
+/// wrapped in code ticks. Matching must use the literal path/rule value.
+fn strip_code_ticks(value: &str) -> &str {
+    value.trim().trim_matches('`').trim()
 }
 
 /// 读取并解析仓库的豁免清单。
@@ -221,8 +229,8 @@ mod tests {
 \n\
 | ID | 规则 | 位置 | 理由 | 移除触发 |\n\
 |---|---|---|---|---|\n\
-| E-001 | adr/number-range-notation | LEDGER.md:33 | 只追加 | 永不 |\n\
-| E-002 | file/pure-ascii-ps1 | spikes/foo/probe.ps1:42 | test | 一次 |\n\
+| E-001 | adr/number-range-notation | `LEDGER.md:33` | 只追加 | 永不 |\n\
+| E-002 | file/pure-ascii-ps1 | `spikes/foo/probe.ps1:42` | test | 一次 |\n\
 ";
 
     #[test]
@@ -249,5 +257,51 @@ mod tests {
     fn missing_header_errors() {
         let err = parse_registry("只有正文没有表头").unwrap_err();
         assert!(err.contains("表头"));
+    }
+
+    #[test]
+    fn malformed_row_errors_with_line_number() {
+        let malformed = "\
+| ID | 规则 | 位置 | 理由 | 移除触发 |\n\
+|---|---|---|---|---|\n\
+| E-001 | a | x:not-a-line | r | t |\n";
+        let err = parse_registry(malformed).unwrap_err();
+        assert!(err.contains("第 3 行"), "err = {err}");
+        assert!(err.contains("行号不是整数"), "err = {err}");
+    }
+
+    #[test]
+    fn parses_multiple_tables_and_skips_headers() {
+        let multiple = "\
+| ID | 规则 | 位置 | 理由 | 移除触发 |\n\
+|---|---|---|---|---|\n\
+| E-001 | first/rule | `a.md:1` | r | t |\n\
+\n\
+### 第二张表\n\
+\n\
+| ID | 规则 | 位置 | 理由 | 移除触发 |\n\
+|---|---|---|---|---|\n\
+| E-002 | second/rule | `b.md:2` | r | t |\n";
+        let set = parse_registry(multiple).unwrap();
+        assert_eq!(set.len(), 2);
+        assert!(set.is_exempted("first/rule", "a.md", 1));
+        assert!(set.is_exempted("second/rule", "b.md", 2));
+    }
+
+    #[test]
+    fn rejects_zero_line_and_non_numeric_id() {
+        let zero_line = "\
+| ID | 规则 | 位置 | 理由 | 移除触发 |\n\
+|---|---|---|---|---|\n\
+| E-001 | a | x:0 | r | t |\n";
+        let err = parse_registry(zero_line).unwrap_err();
+        assert!(err.contains("必须为正数"), "err = {err}");
+
+        let bad_id = "\
+| ID | 规则 | 位置 | 理由 | 移除触发 |\n\
+|---|---|---|---|---|\n\
+| E-ABC | a | x:1 | r | t |\n";
+        let err = parse_registry(bad_id).unwrap_err();
+        assert!(err.contains("ID 非法"), "err = {err}");
     }
 }
