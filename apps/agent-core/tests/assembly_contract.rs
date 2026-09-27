@@ -5,14 +5,19 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[cfg(windows)]
 use assistant_agent_core::{
-    CharacterTokenEstimator, HostAssembly, HostAssemblyError, HostAssemblyInput,
-    RootedAppMapReader, StorageMemoryRetriever, StorageSessionClock, StorageToolClock,
+    CharacterTokenEstimator, RootedAppMapReader, StorageMemoryRetriever, StorageSessionClock,
+    StorageToolClock,
 };
+use assistant_agent_core::{HostAssembly, HostAssemblyError, HostAssemblyInput};
+#[cfg(windows)]
 use assistant_audit::{AppendOutcome, AuditSubject};
+#[cfg(windows)]
+use assistant_core::SessionClock;
 use assistant_core::{
     AppMapFileReader, AppMapReadError, ContextFragment, ContextSummary, HistoryCompressor,
-    MemoryRetrievalHit, MemoryRetriever, MemorySessionStore, SessionClock, SessionStore,
+    MemoryRetrievalHit, MemoryRetriever, MemorySessionStore, SessionStore,
 };
 use assistant_model_gateway::{
     CompletionEvent, CompletionRequest, CompletionStream, DurationMs, Message, ModelGatewayError,
@@ -22,13 +27,16 @@ use assistant_model_gateway::{
 use assistant_platform_windows::WindowsPlatform;
 use assistant_policy::RuleSet;
 use assistant_protocol::{ErrorCode, RiskLevel, ToolEffect, ToolReversibility};
+use assistant_storage::{Clock, MemoryQuery};
+#[cfg(windows)]
 use assistant_storage::{
-    Clock, Database, MIGRATIONS as STORAGE_MIGRATIONS, MemoryQuery, MemoryRecord, MemoryRecordKind,
-    MigrationSet, StoragePaths, insert_memory_record,
+    Database, MIGRATIONS as STORAGE_MIGRATIONS, MemoryRecord, MemoryRecordKind, MigrationSet,
+    StoragePaths, insert_memory_record,
 };
+#[cfg(windows)]
+use assistant_tool_bus::Clock as ToolClock;
 use assistant_tool_bus::{
-    CallContext, Clock as ToolClock, ToolBusError, ToolDefinition, ToolHandler, ToolOutput,
-    ToolRegistry,
+    CallContext, ToolBusError, ToolDefinition, ToolHandler, ToolOutput, ToolRegistry,
 };
 use serde_json::{Map, Value};
 
