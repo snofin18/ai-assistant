@@ -117,6 +117,7 @@ crates/core/README.md、本卡记录区及 AGENTS.md §11.1 指定进度文件�
 - `crates/core/src/error.rs`
 - `crates/core/src/lib.rs`
 - `crates/core/Cargo.toml`
+- `crates/core/tests/app_map_tests.rs`（新增）
 - `crates/core/tests/memory_tests.rs`（新增）
 - `crates/core/README.md`
 - `tasks/TASK-208-core-memory-app-map-fts-retrieval.md`（仅记录区）
@@ -154,6 +155,8 @@ crates/core/README.md、本卡记录区及 AGENTS.md §11.1 指定进度文件�
 `memory.rs`；两者都属本卡 `crates/core/src/**` write scope。独立 review 后补强：
 App Map 的声明 token estimate 只能抬高保守字符数估算、content 有字节上限；来源引用由
 validated path + entry index 生成；omission 携带 origin/token；预算检查先于重复来源判定。
+同一轮 review 发现测试文件超过 hygiene 建议上限，故把 App Map 契约测试拆入
+`app_map_tests.rs`，使 `hygiene` 回到 0E/4W 基线。
 
 ### 6. 更合理做法
 

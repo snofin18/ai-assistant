@@ -6,9 +6,9 @@ use std::path::Path;
 use std::sync::Arc;
 
 use assistant_core::{
-    APP_MAP_VERSION, AppMapFileReader, AppMapReadError, CoreError, Memory, MemoryOmissionReason,
-    MemoryQuery, MemoryRecordKind, MemoryRequest, MemoryRetrievalError, MemoryRetrievalHit,
-    MemoryRetriever, MemorySearchResult, MemorySegmentOrigin, TokenCount,
+    AppMapFileReader, AppMapReadError, CoreError, Memory, MemoryOmissionReason, MemoryQuery,
+    MemoryRecordKind, MemoryRequest, MemoryRetrievalError, MemoryRetrievalHit, MemoryRetriever,
+    MemorySearchResult, MemorySegmentOrigin, TokenCount,
 };
 use assistant_protocol::ErrorCode;
 
@@ -100,106 +100,6 @@ fn hit(
 
 fn memory_component(reader: Arc<FakeReader>, retriever: FakeRetriever) -> Memory {
     Memory::new(reader, Arc::new(retriever))
-}
-
-#[test]
-fn test_app_map_loader_validates_and_loads_entries() {
-    let reader = reader_with(
-        APP_MAP_PATH,
-        app_map_json(
-            APP_MAP_VERSION,
-            &entry_json("save", "app-map.json#/entries/0", "save rules", 7),
-        ),
-    );
-    let memory = memory_component(
-        reader,
-        FakeRetriever {
-            hits: Vec::new(),
-            error: None,
-        },
-    );
-
-    let app_map = memory.load_app_map(APP_MAP_PATH).expect("load App Map");
-    assert_eq!(app_map.version(), APP_MAP_VERSION);
-    assert_eq!(app_map.app_id(), "com.microsoft.notepad");
-    assert_eq!(app_map.entries().len(), 1);
-    let entry = app_map.entry("save").expect("entry");
-    assert_eq!(
-        entry.source_reference(),
-        "adapters/notepad/app-map.json#/entries/0"
-    );
-    assert_eq!(entry.entry_index(), 0);
-    assert_eq!(entry.token_estimate(), TokenCount::new(10));
-}
-
-#[test]
-fn test_app_map_loader_missing_file_fails_closed() {
-    let memory = memory_component(
-        Arc::new(FakeReader::default()),
-        FakeRetriever {
-            hits: Vec::new(),
-            error: None,
-        },
-    );
-
-    let error = memory.load_app_map(APP_MAP_PATH).expect_err("missing file");
-    assert_eq!(error.reason_code(), "app_map_missing");
-    assert_eq!(error.error_code(), ErrorCode::TargetNotFound);
-}
-
-#[test]
-fn test_app_map_loader_corrupt_json_fails_closed() {
-    let memory = memory_component(
-        reader_with(APP_MAP_PATH, "{not-json".to_owned()),
-        FakeRetriever {
-            hits: Vec::new(),
-            error: None,
-        },
-    );
-
-    let error = memory.load_app_map(APP_MAP_PATH).expect_err("corrupt map");
-    assert_eq!(error.reason_code(), "app_map_corrupt");
-    assert_eq!(error.error_code(), ErrorCode::ToolInvalidArgs);
-}
-
-#[test]
-fn test_app_map_loader_version_mismatch_fails_closed() {
-    let memory = memory_component(
-        reader_with(
-            APP_MAP_PATH,
-            app_map_json(
-                APP_MAP_VERSION + 1,
-                &entry_json("save", "app-map.json#/entries/0", "save rules", 7),
-            ),
-        ),
-        FakeRetriever {
-            hits: Vec::new(),
-            error: None,
-        },
-    );
-
-    let error = memory
-        .load_app_map(APP_MAP_PATH)
-        .expect_err("version mismatch");
-    assert_eq!(error.reason_code(), "app_map_version_mismatch");
-    assert_eq!(error.error_code(), ErrorCode::ToolInvalidArgs);
-}
-
-#[test]
-fn test_app_map_loader_rejects_path_traversal_before_reader_call() {
-    let memory = memory_component(
-        Arc::new(FakeReader::default()),
-        FakeRetriever {
-            hits: Vec::new(),
-            error: None,
-        },
-    );
-
-    let error = memory
-        .load_app_map("../secret.json")
-        .expect_err("traversal must fail");
-    assert_eq!(error.reason_code(), "app_map_path_traversal");
-    assert_eq!(error.error_code(), ErrorCode::PolicyDenied);
 }
 
 #[test]
@@ -339,68 +239,6 @@ fn test_memory_request_rejects_duplicate_entry_ids() {
 }
 
 #[test]
-fn test_app_map_loader_reports_unreadable_and_invalid_shapes() {
-    let mut reader = FakeReader::default();
-    reader.errors.insert(
-        "unreadable.json".to_owned(),
-        AppMapReadError::Unreadable("permission denied".to_owned()),
-    );
-    let memory = memory_component(
-        Arc::new(reader),
-        FakeRetriever {
-            hits: Vec::new(),
-            error: None,
-        },
-    );
-    let error = memory
-        .load_app_map("unreadable.json")
-        .expect_err("unreadable file");
-    assert_eq!(error.reason_code(), "app_map_unreadable");
-    assert_eq!(error.error_code(), ErrorCode::ToolInvalidArgs);
-
-    let invalid_documents = [
-        "[]",
-        r#"{"version":1,"app_id":"app"}"#,
-        r#"{"version":1,"app_id":"app","entries":[]}"#,
-        r#"{"version":1,"app_id":"app","entries":[1]}"#,
-        r#"{"version":1,"app_id":"app","entries":[{"id":"a","title":"a","content":"a","source_reference":"r","token_estimate":1,"extra":true}]}"#,
-        r#"{"version":1,"app_id":"app","entries":[{"id":"a","title":"a","content":"a","source_reference":"r"}]}"#,
-        r#"{"version":1,"app_id":"app","entries":[{"id":"a","title":"a","content":"a","source_reference":"r","token_estimate":0}]}"#,
-        r#"{"version":1,"app_id":"app","entries":[{"id":"a","title":"a","content":"a","source_reference":"r","token_estimate":1},{"id":"a","title":"b","content":"b","source_reference":"r2","token_estimate":1}]}"#,
-    ];
-    for document in invalid_documents {
-        let candidate_memory = memory_component(
-            reader_with(APP_MAP_PATH, document.to_owned()),
-            FakeRetriever {
-                hits: Vec::new(),
-                error: None,
-            },
-        );
-        let error = candidate_memory
-            .load_app_map(APP_MAP_PATH)
-            .expect_err("invalid document");
-        assert_eq!(error.reason_code(), "app_map_corrupt");
-        assert_eq!(error.error_code(), ErrorCode::ToolInvalidArgs);
-    }
-}
-
-#[test]
-fn test_app_map_path_validation_rejects_non_normal_components() {
-    let memory = memory_component(
-        Arc::new(FakeReader::default()),
-        FakeRetriever {
-            hits: Vec::new(),
-            error: None,
-        },
-    );
-    for path in ["", ".", "./app.json", "dir/../app.json", "dir\\app.json"] {
-        let error = memory.load_app_map(path).expect_err("unsafe path");
-        assert_eq!(error.reason_code(), "app_map_path_traversal");
-        assert_eq!(error.error_code(), ErrorCode::PolicyDenied);
-    }
-}
-
-#[test]
 fn test_memory_request_and_hit_validation_fail_closed() {
     let empty_path = MemoryRequest::new(
         "",
@@ -520,82 +358,6 @@ fn test_memory_error_mappings_and_display_are_stable() {
         assert_eq!(error.error_code(), error_code);
         assert!(!error.to_string().is_empty());
     }
-}
-
-#[test]
-fn test_app_map_token_estimate_is_conservative_and_provenance_is_canonical() {
-    let document = r#"{
-  "version": 1,
-  "app_id": "app",
-  "entries": [{
-    "id": "entry",
-    "title": "entry",
-    "content": "0123456789",
-    "source_reference": "forged#/somewhere",
-    "token_estimate": 1
-  }]
-}"#
-    .to_string();
-    let memory = memory_component(
-        reader_with(APP_MAP_PATH, document),
-        FakeRetriever {
-            hits: Vec::new(),
-            error: None,
-        },
-    );
-    let entry = memory
-        .load_app_map(APP_MAP_PATH)
-        .expect("load")
-        .entry("entry")
-        .expect("entry")
-        .clone();
-    assert_eq!(
-        entry.source_reference(),
-        "adapters/notepad/app-map.json#/entries/0"
-    );
-    assert_eq!(entry.token_estimate(), TokenCount::new(10));
-
-    let request = MemoryRequest::new(
-        APP_MAP_PATH,
-        vec!["entry".to_owned()],
-        MemoryQuery::new("query"),
-        TokenCount::new(9),
-    )
-    .expect("request");
-    let projection = memory.build_projection(&request).expect("projection");
-    assert!(projection.segments().is_empty());
-    let omission = projection.omissions().first().expect("omission");
-    assert_eq!(omission.reason(), MemoryOmissionReason::OverBudget);
-    assert_eq!(omission.token_estimate(), TokenCount::new(10));
-    assert_eq!(omission.origin(), &entry_origin());
-}
-
-fn entry_origin() -> MemorySegmentOrigin {
-    MemorySegmentOrigin::AppMap {
-        entry_id: "entry".to_owned(),
-        app_map_path: APP_MAP_PATH.to_owned(),
-        entry_index: 0,
-    }
-}
-
-#[test]
-fn test_app_map_content_size_limit_is_enforced() {
-    let content = "x".repeat(16_385);
-    let document = app_map_json(
-        APP_MAP_VERSION,
-        &entry_json("large", "ignored", &content, 1),
-    );
-    let memory = memory_component(
-        reader_with(APP_MAP_PATH, document),
-        FakeRetriever {
-            hits: Vec::new(),
-            error: None,
-        },
-    );
-    let error = memory
-        .load_app_map(APP_MAP_PATH)
-        .expect_err("oversized content");
-    assert_eq!(error.reason_code(), "app_map_corrupt");
 }
 
 #[test]
