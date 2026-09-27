@@ -88,7 +88,7 @@ test("test_parse_picker_snapshot_out_of_workspace_bounds_is_rejected", () => {
   assert.match(result.errors.join("\n"), /exceed workspaceBounds/);
 });
 
-test("test_picker_notepad_editor_generates_three_resolvable_candidates", () => {
+test("test_picker_notepad_editor_generates_three_threshold_eligible_candidates", () => {
   const snapshotResult = parsePickerSnapshot(createSnapshot());
   assert.equal(snapshotResult.ok, true);
   const element = snapshotResult.snapshot.elements[0];
@@ -158,6 +158,42 @@ test("test_picker_validation_rejects_unsorted_or_ephemeral_candidates", () => {
     ]),
     null
   );
+});
+
+test("test_picker_validation_rejects_kind_value_mismatch_and_invalid_score", () => {
+  const mismatched = [
+    {
+      id: "automation-id",
+      kind: "automation_id",
+      value: { class_and_role: { class: "Editor", role: "Document" } },
+      score: 0.9,
+      locale_dependent: false,
+      ttl_ms: null
+    }
+  ];
+  assert.equal(getPrimaryCandidateId(mismatched), null);
+  const invalidScore = [
+    {
+      id: "automation-id",
+      kind: "automation_id",
+      value: { text: "Editor" },
+      score: 1.1,
+      locale_dependent: false,
+      ttl_ms: null
+    }
+  ];
+  assert.equal(getPrimaryCandidateId(invalidScore), null);
+  const unknownKind = [
+    {
+      id: "unknown",
+      kind: "made_up",
+      value: { text: "Editor" },
+      score: 0.9,
+      locale_dependent: false,
+      ttl_ms: null
+    }
+  ];
+  assert.equal(getPrimaryCandidateId(unknownKind), null);
 });
 
 test("test_picker_hover_and_generate_reducer_tracks_selection", () => {

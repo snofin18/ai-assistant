@@ -23,6 +23,7 @@ export const bindingWizardSteps = [
   "export"
 ] as const;
 export type BindingWizardStep = (typeof bindingWizardSteps)[number];
+export const MIN_SCORE_TO_TRY = 0.15;
 
 export interface AdapterMetadata {
   appId: string;
@@ -193,12 +194,25 @@ export function bindingWizardReducer(
 }
 
 export function createAdapterSelectorDraft(
-  snapshot: PickerSnapshot,
-  metadata: AdapterMetadata,
-  elementId: string
+  snapshotInput: unknown,
+  metadataInput: unknown,
+  elementId: unknown
 ):
   | { ok: true; draft: AdapterSelectorDraft; serialized: string }
   | { ok: false; errorKey: string } {
+  if (typeof elementId !== "string" || elementId.trim() === "") {
+    return { ok: false, errorKey: "binding.error.element_not_found" };
+  }
+  const metadataResult = parseAdapterMetadata(metadataInput);
+  const snapshotResult = parsePickerSnapshot(snapshotInput);
+  if (!metadataResult.ok || !snapshotResult.ok) {
+    return { ok: false, errorKey: "binding.error.input_invalid" };
+  }
+  const { metadata } = metadataResult;
+  const { snapshot } = snapshotResult;
+  if (metadata.appId !== snapshot.appId) {
+    return { ok: false, errorKey: "binding.error.app_id_mismatch" };
+  }
   const element = getSnapshotElement(snapshot, elementId);
   if (element === null) {
     return { ok: false, errorKey: "binding.error.element_not_found" };
@@ -230,7 +244,7 @@ export function createAdapterSelectorDraft(
           then_escalate: true
         },
         max_resolve_ms: 3000,
-        min_score_to_try: 0.2
+        min_score_to_try: MIN_SCORE_TO_TRY
       }
     }
   };
@@ -243,7 +257,9 @@ export function getBindingBlockReason(
   if (!validateSelectorCandidates(candidates)) {
     return "binding.error.candidates_invalid";
   }
-  if (candidates.filter((candidate) => candidate.score > 0).length < 3) {
+  if (
+    candidates.filter((candidate) => candidate.score >= MIN_SCORE_TO_TRY).length < 3
+  ) {
     return "binding.error.candidate_count_insufficient";
   }
   return null;

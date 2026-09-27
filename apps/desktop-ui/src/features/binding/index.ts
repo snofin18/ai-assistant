@@ -6,6 +6,7 @@ export {
   createAdapterSelectorDraft,
   createInitialBindingWizardState,
   getBindingBlockReason,
+  MIN_SCORE_TO_TRY,
   parseAdapterMetadata,
   parseBindingWizardInput
 } from "./bindingModel.js";

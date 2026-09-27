@@ -1,6 +1,6 @@
 # TASK-031　UI：元素拾取器 v0（悬停高亮 + 属性面板 + 一键生成 selector 候选链）+ 目标绑定向导
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**1a**　批次：**A3**　依赖：029,017　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -71,8 +71,8 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 ### 2. 实际改动文件
 
-- `apps/desktop-ui/src/features/picker/**`：严格快照解析、元素高亮、属性面板、候选链生成、候选列表与 10 个专项测试。
-- `apps/desktop-ui/src/features/binding/**`：绑定向导、Adapter selector 草稿生成、导出回调与 7 个专项测试。
+- `apps/desktop-ui/src/features/picker/**`：严格快照解析、元素高亮、属性面板、候选链生成、候选列表与 11 个专项测试。
+- `apps/desktop-ui/src/features/binding/**`：绑定向导、Adapter selector 草稿生成、导出回调与 8 个专项测试。
 - `tasks/TASK-031-ui-element-picker-selector-candidates.md`：正文展开与执行记录。
 - 后续同步：`LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md`。
 
@@ -80,7 +80,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 - `pnpm --dir apps/desktop-ui typecheck` -> exit 0。
 - `pnpm --dir apps/desktop-ui build` -> exit 0；Vite 29 modules transformed。
-- `node --test --experimental-strip-types ...pickerModel.test.mjs ...bindingModel.test.mjs` -> 17 tests / 17 passed。
+- `node --test --experimental-strip-types ...pickerModel.test.mjs ...bindingModel.test.mjs` -> 19 tests / 19 passed。
 - `cargo fmt --all --check` -> 0 diff。
 - `cargo clippy --all-targets -- -D warnings` -> exit 0。
 - `cargo test --workspace` -> 全绿。
@@ -91,7 +91,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - [x] 拾取器覆盖悬停/选中高亮、属性、父路径、状态、actions/patterns 与 bounds。
 - [x] Notepad 编辑区快照生成 3 个正分候选，首选为稳定 `class_and_role`，不使用本地化文本。
 - [x] 绑定向导生成 `TargetDescriptor` 形状草稿并通过 `onDraftReady` 回调导出 JSON。
-- [x] 17 个模型/控制器测试覆盖正常、畸形、重复 id、越界/偏移 bounds、本地化候选越级、非法/临时候选、仅本地化候选与导出失败路径。
+- [x] 19 个模型/控制器测试覆盖正常、畸形、重复 id、越界/偏移 bounds、本地化候选越级、非法/临时候选、kind/value 不一致、仅本地化候选与导出失败路径。
 - [x] UI typecheck 与 production build 全绿。
 - [x] Rust 与 xtask 验收命令全绿。
 - [x] 未修改 Out of scope 文件，未新增依赖。
@@ -110,6 +110,8 @@ none。占位正文在实现前展开；未放宽 lint、未改测试断言、�
 
 P2/P3 同步收紧：组件不再直出原始 parser error / error key，布尔状态与兜底文案走 `copy`；workspace 增加 group label，向导步骤增加 `aria-current="step"`。
 
+第二轮独立复验确认 P0/P1 清零。另关闭两项非阻塞质量缺口：候选 `kind/value` 与 TTL 语义校验；草稿工厂对 raw snapshot / metadata 再走一次运行时解析。剩余限制已登记为 PL-094：`RoleAndParent` 的 helper 候选目前无法在平台 chain 中安全表达，因此 v0 不生成该 kind。
+
 ### 6. 更合理做法
 
 - 将候选生成、验证、高亮几何与向导状态全部做成纯函数/纯 reducer，组件只负责语义化渲染和事件转发；Node 内置类型擦除即可覆盖核心路径。
@@ -119,10 +121,11 @@ P2/P3 同步收紧：组件不再直出原始 parser error / error key，布尔�
 
 - PL-093：`apps/desktop-ui` 仍未接入 Vitest + Testing Library；本轮保持模型级测试，DOM 键盘交互回归需在独立 UI 测试栈卡补齐。
 - 真实 UIA `ElementFromPoint` 与 Tauri command 接线不在本卡 scope，由后续 Host/IPC 卡负责。
+- PL-094：平台 `RoleAndParent` 父候选会被 `resolve_element` 当普通候选尝试；本卡 fail-closed 不生成该 kind，待平台契约增加 helper 标记或解析器过滤。
 
 ### 8. 新增长期记忆
 
-无。
+`docs/memory/pitfalls.md`：记录 `RoleAndParent` helper 候选可能被平台解析器返回为错误目标，以及 v0 的 fail-closed 处置。
 
 ### 9. 给审阅者的关注点
 

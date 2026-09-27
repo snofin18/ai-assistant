@@ -88,6 +88,12 @@ test("test_parse_binding_input_rejects_non_object_without_throwing", () => {
   assert.match(result.errors.join("\n"), /binding input must be an object/);
 });
 
+test("test_draft_factory_revalidates_raw_inputs", () => {
+  const draft = createAdapterSelectorDraft(null, null, "editor");
+  assert.equal(draft.ok, false);
+  assert.equal(draft.errorKey, "binding.error.input_invalid");
+});
+
 test("test_binding_wizard_generates_serialized_descriptor_draft", () => {
   const input = createInput();
   let state = createInitialBindingWizardState(input);
@@ -137,7 +143,7 @@ test("test_binding_window_without_stable_candidate_is_rejected", () => {
   assert.equal(draft.errorKey, "binding.error.window_candidates_invalid");
 });
 
-test("test_binding_block_reason_requires_three_resolvable_candidates", () => {
+test("test_binding_block_reason_requires_three_threshold_eligible_candidates", () => {
   const candidates = [
     {
       id: "automation-id",

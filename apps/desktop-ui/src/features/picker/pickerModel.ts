@@ -284,7 +284,9 @@ export function validateSelectorCandidates(candidates: readonly SelectorCandidat
       candidate.score > 1 ||
       candidate.score > previousScore ||
       candidate.kind === "runtime_id" ||
-      candidate.kind === "role_and_parent"
+      candidate.kind === "role_and_parent" ||
+      !isValidSelectorValue(candidate) ||
+      !isValidTtl(candidate.ttl_ms)
     ) {
       return false;
     }
@@ -313,6 +315,44 @@ export function validateSelectorCandidates(candidates: readonly SelectorCandidat
     primary.score > 0 &&
     primary.score > maximumLocaleScore
   );
+}
+
+function isValidSelectorValue(candidate: SelectorCandidate): boolean {
+  const value = candidate.value;
+  switch (candidate.kind) {
+    case "automation_id":
+    case "ax_identifier":
+    case "title_regex":
+    case "name_regex":
+      return "text" in value && value.text.trim() !== "";
+    case "class_and_role":
+      return (
+        "class_and_role" in value &&
+        value.class_and_role.class.trim() !== "" &&
+        value.class_and_role.role.trim() !== ""
+      );
+    case "a11y_path":
+      return (
+        "path" in value &&
+        value.path.length > 0 &&
+        value.path.every((segment) => segment.trim() !== "")
+      );
+    case "visual_anchor":
+      return (
+        "visual_anchor" in value &&
+        value.visual_anchor.ocr_text.trim() !== "" &&
+        value.visual_anchor.region.trim() !== ""
+      );
+    case "role_and_parent":
+    case "runtime_id":
+      return false;
+    default:
+      return false;
+  }
+}
+
+function isValidTtl(value: number | null): boolean {
+  return value === null || (Number.isSafeInteger(value) && value >= 0);
 }
 
 export function getPrimaryCandidateId(candidates: readonly SelectorCandidate[]): string | null {
