@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-030** 审批卡片 + 执行时间线已 Done 并合并 PR #74（merge `4823cfd`）：完整 diff / 来源归因 / 授权范围、`app_content` 默认拒绝、L3 二次确认、按可逆性禁用的撤销与证据入口已闭环；下一张 **TASK-031 / 032**。此前 TASK-029 Host 装配、TASK-208 Memory、TASK-207 Planner、TASK-206 storage `memory_fts`、TASK-028 会话/上下文、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-031** 元素拾取器 + 目标绑定向导已 Done：快照 fail-closed 校验、悬停/选中高亮、稳定属性、≥3 候选链与 Adapter 草稿导出回调闭环，独立 review 的父候选误选 P0 与三条 P1 已修复；下一张 **TASK-032**。此前 TASK-030 审批/时间线、TASK-029 Host 装配、TASK-208 Memory、TASK-207 Planner、TASK-206 storage `memory_fts`、TASK-028 会话/上下文、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
@@ -106,6 +106,7 @@ TASK-025 把**目标租约与并发控制**落地：`assistant-lease` 建模 `Sh
 TASK-026 把**模型网关**落地：`assistant-model-gateway` 定义同步拉取式 Provider 流契约（每轮 poll 必须检查取消并遵守 timeout）、类型化 stage/context/sensitivity/budget/tool-count 路由、指数退避与注入 jitter、可审计降级链、prompt-cache 稳定前缀提示透传，以及按模型聚合的整数 micro-USD 成本记录。第一个非空 text / tool-call delta 之后失败一律返回 `PartialOutput`，禁止重试或降级以避免重复输出；成功流必须恰有一次 usage + finish。新增 20 个契约测试 + 1 doctest，行覆盖 75.23%，零新增第三方依赖。
 TASK-204 把 `tool-bus` 的 draft-07 判据**显式化**：三张带理由的拒绝表（永久放弃 12 条 / 暂未实现 4 条 / 非 draft-07 方言 15 条）+ 未知关键字兜底 + `$schema` **方言校验**（声明非 draft-07 = 拒绝），报错信息直接给出「为何不可用 / 该用什么代替」。
 TASK-030 把审批与时间线 feature 落地：审批卡片覆盖动作、目标、影响范围、五类 diff、来源归因、工具理由、风险/可逆性、撤销方式、授权范围与证据；`app_content` 标红并默认拒绝，高风险/不可逆只允许 `once`，L3 需输入二次确认词。执行时间线覆盖状态、前后指纹、验证、证据、耗时、成本与可逆性；撤销/重放仅在证据和 Anchor 完整且调用方接线时可用，禁用原因直接显示。所有输入经 fail-closed 运行时校验，零新增依赖，13 个专项测试覆盖关键负向路径。
+TASK-031 把元素拾取器与目标绑定向导 v0 落地：严格校验 Host 注入快照，高亮 workspace 内元素，展示 role/name/AutomationId/ClassName/RuntimeId/状态/actions/patterns/bounds/父路径；候选生成保证严格降序、稳定首选、本地化上限与 `kind/value` 一致，并生成 `TargetDescriptor` 形状的 Adapter selector 草稿。独立 review 发现的 `RoleAndParent` 父候选误选风险已以 fail-closed 省略处理，P0/P1 清零；19 个专项测试与现有 Rust/xtask 门禁全绿。PL-094 跟踪后续平台契约治理。
 ＋ Notepad 的 3 个任务闭环。
 阶段 0（文档与 Spike）已于 2026-09-20 closeout —— 它的产出是 Spike 报告，**不是**产品代码。
 详见 `plans/stage-1-pilots.md`。
@@ -158,6 +159,10 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展（2026-09-27：**TASK-208 —— `core` Memory（App Map + FTS5 检索消费）**；**TASK-206 —— `crates/storage` `memory_fts` FTS5 检索**；**TASK-207 —— `core` Planner（模型输出 → Plan / Step DAG）**；TASK-206 DRIFT-206-1 裁决 + ADR-0054；DRIFT-028 五点落地 —— ADR-0053；2026-09-26：TASK-028 —— 会话 + 上下文；TASK-027 —— HITL 审批与接管；TASK-026 —— 模型网关；TASK-025 —— 目标租约与并发控制；TASK-024 —— 撤销与补偿闭环；2026-09-25：TASK-023 —— 后置断言引擎；TASK-204 —— 工具 schema 关键字判据硬化；TASK-022 —— 任务引擎；TASK-021 —— 唯一策略放行点；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+
+**2026-09-28 —— TASK-031 元素拾取器与目标绑定**
+
+新增 `apps/desktop-ui/src/features/picker/**` 与 `binding/**`：拾取器对上屏快照做 fail-closed 校验，支持悬停/选中 bounds 高亮、稳定属性面板、候选链生成和 Adapter selector 草稿导出回调；候选首选必须非本地化且分数高于所有 fallback，`RoleAndParent` 在平台契约补齐 helper 语义前被显式省略。独立 review 找到的父候选误选 P0 与本地化越级、workspace 原点、最外层输入三条 P1 均已修复，19 个 Node 专项测试与 typecheck/build 通过；平台层未改动，剩余契约风险登记为 PL-094。
 
 **2026-09-27 —— TASK-030 合并完成**
 
