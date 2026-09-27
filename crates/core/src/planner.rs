@@ -37,6 +37,16 @@ use crate::error::{CoreError, CoreResult};
 const DEFAULT_EVENT_TIMEOUT: DurationMs = DurationMs::new(250);
 const MAX_EVENT_TIMEOUT_MS: u64 = 500;
 const MAX_PLAN_OUTPUT_BYTES: usize = 1_048_576;
+const MODEL_STEP_FIELDS: &[&str] = &[
+    "id",
+    "sequence",
+    "tool",
+    "args",
+    "depends_on",
+    "postconditions",
+    "point_of_no_return",
+    "timeouts",
+];
 const PLANNER_SYSTEM_PROMPT: &str = r#"Create one executable Plan DAG from the caller goal.
 Return exactly one JSON object with one field named "steps". Do not use Markdown.
 Each step must use the PlanStep JSON fields: id, sequence, tool, args, depends_on,
@@ -131,11 +141,14 @@ impl PlannerRequest {
                     reason: format!("tool {:?} output must be a JSON object", tool.name),
                 });
             }
-            if tool.risk_level == RiskLevel::Critical && !tool.requires_approval {
+            if (tool.risk_level == RiskLevel::Critical
+                || tool.reversibility == ToolReversibility::L3Irreversible)
+                && !tool.requires_approval
+            {
                 return Err(CoreError::InvalidContent {
                     field: "planner.tools.requires_approval",
                     reason: format!(
-                        "critical tool {:?} must declare requires_approval=true",
+                        "critical or l3_irreversible tool {:?} must declare requires_approval=true",
                         tool.name
                     ),
                 });
@@ -386,6 +399,14 @@ fn inject_trusted_step_metadata(
         .ok_or_else(|| CoreError::InvalidPlannerOutput {
             reason: format!("planner step {index} must be a JSON object"),
         })?;
+    if let Some(unexpected) = object
+        .keys()
+        .find(|key| !MODEL_STEP_FIELDS.contains(&key.as_str()))
+    {
+        return Err(CoreError::InvalidPlannerOutput {
+            reason: format!("planner step {index} contains unexpected field {unexpected:?}"),
+        });
+    }
     if object.contains_key("effect") || object.contains_key("reversibility") {
         return Err(CoreError::InvalidPlannerOutput {
             reason: format!(

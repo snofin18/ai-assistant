@@ -57,6 +57,7 @@ pub struct FingerprintEntry<'a> {
     pub(crate) effect: ToolEffect,
     pub(crate) reversibility: ToolReversibility,
     pub(crate) risk_level: RiskLevel,
+    pub(crate) requires_approval: bool,
     pub(crate) input: &'a Value,
     pub(crate) output: &'a Value,
 }
@@ -106,6 +107,10 @@ fn entry_to_value(entry: &FingerprintEntry<'_>) -> Value {
     object.insert(
         "risk_level".to_owned(),
         Value::String(risk_level_token(entry.risk_level).to_owned()),
+    );
+    object.insert(
+        "requires_approval".to_owned(),
+        Value::Bool(entry.requires_approval),
     );
     object.insert("input".to_owned(), canonicalize(entry.input));
     object.insert("output".to_owned(), canonicalize(entry.output));

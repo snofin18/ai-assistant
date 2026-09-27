@@ -167,11 +167,24 @@ impl ToolDefinition {
         Ok(self)
     }
 
-    /// 显式声明需要人工确认（默认只有 `critical` 为 `true`）。
-    #[must_use]
-    pub const fn with_requires_approval(mut self, requires_approval: bool) -> Self {
+    /// 显式声明需要人工确认。
+    ///
+    /// # Errors
+    ///
+    /// `critical` 或 `l3_irreversible` 工具不得被改为 `false`。
+    pub fn with_requires_approval(mut self, requires_approval: bool) -> ToolBusResult<Self> {
+        if !requires_approval
+            && (matches!(self.schema.risk_level, RiskLevel::Critical)
+                || self.schema.reversibility == ToolReversibility::L3Irreversible)
+        {
+            return Err(ToolBusError::ToolBehaviorMismatch {
+                tool: self.schema.name,
+                declared: "requires_approval=false".to_owned(),
+                required: "requires_approval=true for critical or l3_irreversible".to_owned(),
+            });
+        }
         self.schema.requires_approval = requires_approval;
-        self
+        Ok(self)
     }
 
     /// 附加检索标签（`toolset.search` 会读它们）。
@@ -289,6 +302,7 @@ impl ToolDefinition {
             effect: self.schema.effect,
             reversibility: self.schema.reversibility,
             risk_level: self.schema.risk_level,
+            requires_approval: self.schema.requires_approval,
             input: &self.schema.input,
             output: &self.schema.output,
         }
@@ -338,52 +352,36 @@ fn derive_annotations(
 /// 校验显式注解与工具声明是否自洽（违反即拒绝注册）。
 fn verify_annotations(schema: &ToolSchema, annotations: &ToolAnnotations) -> ToolBusResult<()> {
     let tool = schema.name.clone();
-    let read_only = annotations.read_only_hint == Some(true);
-    let destructive = annotations.destructive_hint == Some(true);
-
-    if read_only && destructive {
-        return Err(ToolBusError::RiskAnnotationMismatch {
-            tool,
-            declared: risk_level_token(schema.risk_level).to_owned(),
-            required: "readOnlyHint and destructiveHint cannot both be true".to_owned(),
-        });
-    }
-    if read_only && schema.risk_level != RiskLevel::Low {
-        return Err(ToolBusError::RiskAnnotationMismatch {
-            tool,
-            declared: risk_level_token(schema.risk_level).to_owned(),
-            required: "low (readOnlyHint = true)".to_owned(),
-        });
-    }
-    if read_only && schema.effect != ToolEffect::Read {
-        return Err(ToolBusError::ToolBehaviorMismatch {
-            tool,
-            declared: effect_token(schema.effect).to_owned(),
-            required: "read effect (readOnlyHint = true)".to_owned(),
-        });
-    }
-    if destructive && matches!(schema.risk_level, RiskLevel::Low | RiskLevel::Medium) {
-        return Err(ToolBusError::RiskAnnotationMismatch {
-            tool,
-            declared: risk_level_token(schema.risk_level).to_owned(),
-            required: "high or higher (destructiveHint = true)".to_owned(),
-        });
-    }
-    if destructive && schema.effect != ToolEffect::Write {
-        return Err(ToolBusError::ToolBehaviorMismatch {
-            tool,
-            declared: effect_token(schema.effect).to_owned(),
-            required: "write effect (destructiveHint = true)".to_owned(),
-        });
-    }
-    if let Some(idempotent_hint) = annotations.idempotent_hint
-        && idempotent_hint != schema.idempotent
-    {
-        return Err(ToolBusError::RiskAnnotationMismatch {
-            tool,
-            declared: format!("idempotentHint = {idempotent_hint}"),
-            required: format!("idempotent = {}", schema.idempotent),
-        });
+    let expected = derive_annotations(schema.risk_level, schema.effect, schema.idempotent);
+    for (field, actual, expected) in [
+        (
+            "readOnlyHint",
+            annotations.read_only_hint,
+            expected.read_only_hint,
+        ),
+        (
+            "destructiveHint",
+            annotations.destructive_hint,
+            expected.destructive_hint,
+        ),
+        (
+            "idempotentHint",
+            annotations.idempotent_hint,
+            expected.idempotent_hint,
+        ),
+        (
+            "openWorldHint",
+            annotations.open_world_hint,
+            expected.open_world_hint,
+        ),
+    ] {
+        if actual != expected {
+            return Err(ToolBusError::ToolBehaviorMismatch {
+                tool,
+                declared: format!("{field}={actual:?}"),
+                required: format!("{field}={expected:?}"),
+            });
+        }
     }
     Ok(())
 }

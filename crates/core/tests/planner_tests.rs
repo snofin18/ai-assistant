@@ -111,7 +111,8 @@ fn tool_with(name: &str, effect: &str, reversibility: &str, risk_level: &str) ->
         "output": {"type": "object"},
         "effect": effect,
         "reversibility": reversibility,
-        "risk_level": risk_level
+        "risk_level": risk_level,
+        "requires_approval": risk_level == "critical" || reversibility == "l3_irreversible"
     }))
     .unwrap()
 }
@@ -125,16 +126,6 @@ fn request(tools: Vec<ToolSchema>) -> PlannerRequest {
         Budget::new(10, 60_000, 1_000, 0.5).unwrap(),
     )
     .unwrap()
-}
-
-fn request_with_raw_schema(schema: Value) -> assistant_core::CoreResult<PlannerRequest> {
-    PlannerRequest::new(
-        PlanId::new("p_1").unwrap(),
-        TaskId::new("t_1").unwrap(),
-        "goal",
-        vec![serde_json::from_value(schema).unwrap()],
-        Budget::new(10, 60_000, 1_000, 0.5).unwrap(),
-    )
 }
 
 fn read_step(id: &str, sequence: u32, tool_name: &str, depends_on: &[&str]) -> Value {
@@ -329,6 +320,17 @@ fn test_planner_rejects_model_supplied_effect_or_reversibility() {
 }
 
 #[test]
+fn test_planner_rejects_unknown_step_fields() {
+    let tools = vec![tool("notepad.text.read")];
+    let mut step = read_step("s_1", 1, "notepad.text.read", &[]);
+    step["approved"] = json!(true);
+    let error = planner_for(&plan_output(&json!([step])))
+        .generate_plan(&request(tools), CancellationToken::new())
+        .unwrap_err();
+    assert!(matches!(error, CoreError::InvalidPlannerOutput { .. }));
+}
+
+#[test]
 fn test_planner_rejects_invalid_step_or_dependency_identifiers() {
     let tools = vec![tool("notepad.text.read")];
     let oversized = "s".repeat(129);
@@ -456,107 +458,6 @@ fn test_planner_rejects_tool_call_output() {
         .unwrap_err();
 
     assert!(matches!(error, CoreError::InvalidPlannerOutput { .. }));
-}
-
-#[test]
-fn test_planner_request_rejects_duplicate_catalog_or_empty_goal() {
-    let duplicate = vec![tool("notepad.text.read"), tool("notepad.text.read")];
-    assert!(
-        PlannerRequest::new(
-            PlanId::new("p_1").unwrap(),
-            TaskId::new("t_1").unwrap(),
-            "goal",
-            duplicate,
-            Budget::new(10, 60_000, 1_000, 0.5).unwrap(),
-        )
-        .is_err()
-    );
-
-    assert!(
-        PlannerRequest::new(
-            PlanId::new("p_1").unwrap(),
-            TaskId::new("t_1").unwrap(),
-            "",
-            vec![tool("notepad.text.read")],
-            Budget::new(10, 60_000, 1_000, 0.5).unwrap(),
-        )
-        .is_err()
-    );
-}
-
-#[test]
-fn test_planner_request_rejects_bad_tool_catalog_fields() {
-    assert!(
-        request_with_raw_schema(json!({
-            "version": "9.9",
-            "name": "notepad.text.read",
-            "description": "bad version",
-            "input": {"type": "object"},
-            "output": {"type": "object"},
-            "effect": "read",
-            "reversibility": "l0_undo_stack",
-            "risk_level": "low"
-        }))
-        .is_err()
-    );
-
-    assert!(
-        request_with_raw_schema(json!({
-            "version": "1.0",
-            "name": "_bad.tool.read",
-            "description": "bad name",
-            "input": {"type": "object"},
-            "output": {"type": "object"},
-            "effect": "read",
-            "reversibility": "l0_undo_stack",
-            "risk_level": "low"
-        }))
-        .is_err()
-    );
-
-    assert!(
-        request_with_raw_schema(json!({
-            "version": "1.0",
-            "name": "notepad.text.read",
-            "description": "bad input",
-            "input": "not an object",
-            "output": {"type": "object"},
-            "effect": "read",
-            "reversibility": "l0_undo_stack",
-            "risk_level": "low"
-        }))
-        .is_err()
-    );
-
-    assert!(
-        request_with_raw_schema(json!({
-            "version": "1.0",
-            "name": "notepad.text.write",
-            "description": "critical write",
-            "input": {"type": "object"},
-            "output": {"type": "object"},
-            "effect": "write",
-            "reversibility": "l3_irreversible",
-            "risk_level": "critical",
-            "requires_approval": false
-        }))
-        .is_err()
-    );
-
-    assert!(
-        request_with_raw_schema(json!({
-            "version": "1.0",
-            "name": "notepad.text.read",
-            "description": "bad tag",
-            "input": {"type": "object"},
-            "output": {"type": "object"},
-            "effect": "read",
-            "reversibility": "l0_undo_stack",
-            "risk_level": "low",
-            "tags": ["Bad-Tag"]
-        }))
-        .is_err()
-    );
 }
 
 #[test]

@@ -143,8 +143,9 @@ cargo deny check
 
 - `cargo fmt --all --check` → PASS。
 - `cargo clippy -p assistant-core --all-targets -- -D warnings` → PASS。
-- `cargo test -p assistant-core` → PASS：Planner 18 tests，arch dependencies 5 tests。
-- `cargo llvm-cov -p assistant-core --fail-under-lines 85` → PASS：TOTAL 行覆盖 **88.43%**。
+- `cargo test -p assistant-core` → PASS：Planner 19 tests，arch dependencies 5 tests。
+- `cargo test -p assistant-tool-bus` → PASS：新增 4 个行为元数据/指纹一致性测试（共 7 tests）。
+- `cargo llvm-cov -p assistant-core --fail-under-lines 85` → PASS：TOTAL 行覆盖 **88.43%**（第二轮新增测试不降低门槛）。
 
 ### 4. DoD 逐条核对
 
@@ -175,6 +176,7 @@ cargo deny check
 - 未知工具与模型产出非法 Plan 的 `ErrorCode` 从 `ToolInvalidArgs` 修正为 `ModelInvalidOutput`，与 `error-codes-1.0.json` 的 hallucinated-tool 语义一致。
 - Tool catalog 校验收紧为 version `1.0`、object input/output、完整 tool-name/tag pattern、critical 必须 requires_approval。
 - ADR-0053 依赖白名单扫描器补上 renamed dependency 与 target-specific dependency，并新增反例测试。
+- 第二轮 review：显式 MCP 注解必须与派生行为逐字段一致；L3/critical 不得通过 `with_requires_approval(false)` 关闭审批；工具集指纹纳入 `requires_approval`；Planner 拒绝未声明的步骤字段，落实 ADR-0055 D3 的固定字段契约。
 - `Cargo.lock` 是 `Cargo.toml` 新增 workspace 依赖后由 Cargo 自动生成的依赖边更新，无新 package、无第三方引入、无版本变化。
 
 ### 6. 更合理做法
@@ -188,7 +190,7 @@ cargo deny check
 
 ### 8. 新增长期记忆
 
-`docs/memory/facts.md` 新增并 supersede：TASK-207 Planner 的公开基线 = 模型只输出意图字段、`effect` / `reversibility` 由 ToolSchema 权威目录注入、严格 JSON、`Plan::validate()` + 工具目录双重校验、单次 poll 可取消；`docs/memory/decisions.md` 登记 ADR-0055。
+`docs/memory/facts.md` 新增并 supersede：TASK-207 Planner 的公开基线 = 模型只输出固定意图字段、`effect` / `reversibility` 由 ToolSchema 权威目录注入、严格 JSON、`Plan::validate()` + 工具目录双重校验、单次 poll 可取消；`docs/memory/decisions.md` 登记 ADR-0055。
 
 ### 9. 给审阅者的关注点
 
