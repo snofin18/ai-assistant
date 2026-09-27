@@ -20,6 +20,9 @@ task-engine Plan contract.
 - Convert one injected `ModelProvider` response into a validated
   `assistant-task-engine::Plan`.
 - Reject malformed JSON, invalid DAGs, and tools absent from the catalog.
+- Load and validate versioned App Map files through an injected file reader.
+- Build bounded memory projections from caller-selected App Map entries and
+  storage retrieval hits, preserving source references and omission reasons.
 
 ## Boundaries
 
@@ -31,9 +34,11 @@ task-engine Plan contract.
 - **No policy decisions or tool execution.**
 - **No model routing, retries, or fallbacks.** Planner consumes the supplied
   provider directly; routing remains a model-gateway concern.
-- **No Memory.** App Map loading and retrieval remain TASK-208.
 - **No system clock, random source, UUID library, filesystem, or network.**
   Time, ids, content, and persistence are supplied by the caller.
+- **No SQLite connection or SQL in Memory.** App Map reads use an injected
+  reader; retrieval uses an injected `MemoryRetriever` that the binary layer
+  maps to the storage API.
 - **No model prompt policy.** The compressor is an injected strategy and may
   later bridge to `model-gateway`.
 
@@ -54,6 +59,11 @@ task-engine Plan contract.
 9. Planner never repairs malformed model output and always validates the
    resulting Plan with `Plan::validate`.
 10. Every planned step uses a tool present in the caller-supplied catalog.
+11. App Map paths are relative and traversal-free; App Map content, version,
+    fields, entry ids, and token estimates are validated before use.
+12. Memory never injects an entire App Map implicitly. Only caller-selected
+    entry ids plus retrieval hits are considered, and every omitted candidate
+    has an explicit `MemoryOmissionReason`.
 
 ## Typical Use
 
@@ -133,6 +143,11 @@ Core.
 - The crate does not persist audit events for context omissions. Callers can
   project the returned omission records into audit events at the assembly
   boundary.
+- App Map schema v1 is intentionally small. Adapters that need richer metadata
+  must bump the version and add validation rather than silently accepting
+  unknown fields.
+- Production retrieval still needs a TASK-029 adapter from `MemoryRetriever`
+  to the storage API; tests use deterministic in-memory implementations.
 
 ## Related Documents
 
@@ -142,3 +157,4 @@ Core.
   and 15.
 - `tasks/TASK-028-core-session-context.md`
 - `tasks/TASK-207-core-planner-plan-step-dag.md`
+- `tasks/TASK-208-core-memory-app-map-fts-retrieval.md`

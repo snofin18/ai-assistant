@@ -26,5 +26,11 @@ version = "0.1.0"
 path = "../model-gateway"
 version = "0.1.0"
 
+[dependencies.assistant-storage]
+# Workspace dependency. Memory consumes the storage-owned retrieval and record
+# types; the binary assembly layer injects the concrete storage adapter.
+path = "../storage"
+version = "0.1.0"
+
 [lints]
 workspace = true

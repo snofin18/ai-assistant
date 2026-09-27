@@ -1,7 +1,8 @@
 //! # assistant-core
 //!
 //! Core orchestration components for session lifecycle, message trees, context
-//! selection, trimming, compression, token budgeting, and model-output planning.
+//! selection, trimming, compression, token budgeting, model-output planning,
+//! App Map loading, and bounded memory projection.
 //!
 //! The crate does not assemble other components or hold a database connection.
 //! A binary creates [`SessionManager`], [`ContextManager`], and [`Planner`]
@@ -17,6 +18,8 @@
 //!   [`ContextOmission`] records.
 //! - Planner never accepts a step whose tool is absent from the caller-supplied
 //!   catalog and never repairs malformed model output.
+//! - Memory never reads files directly; App Map content is parsed and validated
+//!   behind an injected reader.
 //!
 //! ## Invariants
 //!
@@ -34,20 +37,29 @@
 
 #![deny(unsafe_code)]
 
+mod app_map;
 mod context;
 mod error;
 mod identifiers;
+mod memory;
 mod message;
 mod planner;
 mod session;
 mod store;
 
+pub use app_map::{
+    APP_MAP_VERSION, AppMap, AppMapEntry, AppMapFileReader, AppMapLoader, AppMapReadError,
+};
 pub use context::{
     ContextBudget, ContextEntry, ContextFragment, ContextManager, ContextOmission,
     ContextProjection, ContextSummary, HistoryCompressor, OmissionReason,
 };
-pub use error::{CompressionError, CoreError, CoreResult, SessionStoreError};
+pub use error::{CompressionError, CoreError, CoreResult, MemoryRetrievalError, SessionStoreError};
 pub use identifiers::{MessageId, SessionId, TokenCount};
+pub use memory::{
+    Memory, MemoryOmission, MemoryOmissionReason, MemoryProjection, MemoryRequest,
+    MemoryRetrievalHit, MemoryRetriever, MemorySegment, MemorySegmentOrigin,
+};
 pub use message::{
     ContextRetention, MessageContent, MessageNode, MessageNodeParts, MessageRole, SessionSnapshot,
     SessionSnapshotParts, SessionStatus,
@@ -55,3 +67,5 @@ pub use message::{
 pub use planner::{Planner, PlannerRequest};
 pub use session::{NewMessage, SessionClock, SessionManager};
 pub use store::{MemorySessionStore, SessionStore};
+
+pub use assistant_storage::{MemoryQuery, MemoryRecordKind, MemorySearchResult};

@@ -7,6 +7,7 @@ use std::fmt;
 
 use assistant_model_gateway::ModelGatewayError;
 use assistant_protocol::ErrorCode;
+use assistant_storage::StorageError;
 
 /// Result alias for Core operations.
 pub type CoreResult<T> = Result<T, CoreError>;
@@ -107,6 +108,70 @@ impl fmt::Display for SessionStoreError {
 
 impl std::error::Error for SessionStoreError {}
 
+/// A memory-retrieval failure reported by an injected storage adapter.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MemoryRetrievalError {
+    reason_code: &'static str,
+    error_code: ErrorCode,
+    detail: String,
+}
+
+impl MemoryRetrievalError {
+    /// Creates a structured retrieval failure.
+    #[must_use]
+    pub fn new(
+        reason_code: &'static str,
+        error_code: ErrorCode,
+        detail: impl Into<String>,
+    ) -> Self {
+        Self {
+            reason_code,
+            error_code,
+            detail: detail.into(),
+        }
+    }
+
+    /// Preserves the stable reason code and category from a storage failure.
+    #[must_use]
+    pub fn from_storage(error: &StorageError) -> Self {
+        Self {
+            reason_code: error.reason_code(),
+            error_code: error.error_category(),
+            detail: error.to_string(),
+        }
+    }
+
+    /// Returns the stable machine-readable reason code.
+    #[must_use]
+    pub const fn reason_code(&self) -> &'static str {
+        self.reason_code
+    }
+
+    /// Returns the protocol error category.
+    #[must_use]
+    pub const fn error_code(&self) -> ErrorCode {
+        self.error_code
+    }
+
+    /// Returns the human-readable failure detail.
+    #[must_use]
+    pub fn detail(&self) -> &str {
+        &self.detail
+    }
+}
+
+impl fmt::Display for MemoryRetrievalError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "memory retrieval failed ({}): {}",
+            self.reason_code, self.detail
+        )
+    }
+}
+
+impl std::error::Error for MemoryRetrievalError {}
+
 /// A deterministic session or context failure.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -206,6 +271,44 @@ pub enum CoreError {
         /// Tool name requested by the model.
         tool: String,
     },
+    /// The App Map file is absent.
+    AppMapMissing {
+        /// Requested relative path.
+        path: String,
+    },
+    /// The App Map file exists but could not be read.
+    AppMapUnreadable {
+        /// Requested relative path.
+        path: String,
+        /// Reader failure detail.
+        reason: String,
+    },
+    /// The App Map JSON or field shape is invalid.
+    AppMapCorrupt {
+        /// Requested relative path.
+        path: String,
+        /// Validation failure detail.
+        reason: String,
+    },
+    /// The App Map schema version is unsupported.
+    AppMapVersionMismatch {
+        /// Supported version.
+        expected: u32,
+        /// Version found in the file.
+        found: u64,
+    },
+    /// The App Map path attempted traversal or another unsafe shape.
+    AppMapPathTraversal {
+        /// Rejected path.
+        path: String,
+    },
+    /// A requested App Map entry does not exist.
+    AppMapEntryNotFound {
+        /// Missing entry id.
+        entry_id: String,
+    },
+    /// The injected memory retrieval backend failed.
+    MemoryRetrieval(MemoryRetrievalError),
 }
 
 impl CoreError {
@@ -218,16 +321,25 @@ impl CoreError {
             | Self::SessionAlreadyExists { .. }
             | Self::InvalidSessionSnapshot { .. }
             | Self::InvalidBudget { .. }
-            | Self::MessageHasChildren { .. } => ErrorCode::ToolInvalidArgs,
+            | Self::MessageHasChildren { .. }
+            | Self::AppMapUnreadable { .. }
+            | Self::AppMapCorrupt { .. }
+            | Self::AppMapVersionMismatch { .. } => ErrorCode::ToolInvalidArgs,
             Self::SessionNotFound { .. }
             | Self::MessageNotFound { .. }
             | Self::ParentMessageNotFound { .. } => ErrorCode::TargetNotFound,
-            Self::RequiredContextExceedsBudget { .. } => ErrorCode::PolicyDenied,
+            Self::RequiredContextExceedsBudget { .. } | Self::AppMapPathTraversal { .. } => {
+                ErrorCode::PolicyDenied
+            }
             Self::CompressionFailed(error) => error.error_code(),
             Self::InvalidPlan { .. } | Self::UnknownPlannerTool { .. } => {
                 ErrorCode::ModelInvalidOutput
             }
             Self::PlannerModel(error) => error.error_code(),
+            Self::AppMapMissing { .. } | Self::AppMapEntryNotFound { .. } => {
+                ErrorCode::TargetNotFound
+            }
+            Self::MemoryRetrieval(error) => error.error_code(),
             Self::InvalidPlannerOutput { .. } => ErrorCode::ModelInvalidOutput,
             Self::SessionEnded { .. } | Self::SessionStore(_) | Self::NumericOverflow { .. } => {
                 ErrorCode::Fatal
@@ -257,6 +369,13 @@ impl CoreError {
             Self::InvalidPlan { .. } => "invalid_plan",
             Self::InvalidPlannerOutput { .. } => "invalid_planner_output",
             Self::UnknownPlannerTool { .. } => "unknown_planner_tool",
+            Self::AppMapMissing { .. } => "app_map_missing",
+            Self::AppMapUnreadable { .. } => "app_map_unreadable",
+            Self::AppMapCorrupt { .. } => "app_map_corrupt",
+            Self::AppMapVersionMismatch { .. } => "app_map_version_mismatch",
+            Self::AppMapPathTraversal { .. } => "app_map_path_traversal",
+            Self::AppMapEntryNotFound { .. } => "app_map_entry_not_found",
+            Self::MemoryRetrieval(error) => error.reason_code(),
         }
     }
 }
@@ -322,7 +441,43 @@ impl fmt::Display for CoreError {
             Self::UnknownPlannerTool { step_id, tool } => {
                 write!(formatter, "step {step_id} uses unknown tool {tool:?}")
             }
+            Self::AppMapMissing { .. }
+            | Self::AppMapUnreadable { .. }
+            | Self::AppMapCorrupt { .. }
+            | Self::AppMapVersionMismatch { .. }
+            | Self::AppMapPathTraversal { .. }
+            | Self::AppMapEntryNotFound { .. }
+            | Self::MemoryRetrieval(_) => write_memory_error(self, formatter),
         }
+    }
+}
+
+fn write_memory_error(error: &CoreError, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match error {
+        CoreError::AppMapMissing { path } => {
+            write!(formatter, "App Map {path:?} was not found")
+        }
+        CoreError::AppMapUnreadable { path, reason } => {
+            write!(formatter, "App Map {path:?} is unreadable: {reason}")
+        }
+        CoreError::AppMapCorrupt { path, reason } => {
+            write!(formatter, "App Map {path:?} is corrupt: {reason}")
+        }
+        CoreError::AppMapVersionMismatch { expected, found } => write!(
+            formatter,
+            "App Map version {found} is unsupported; expected {expected}"
+        ),
+        CoreError::AppMapPathTraversal { path } => {
+            write!(
+                formatter,
+                "App Map path {path:?} is not a safe relative path"
+            )
+        }
+        CoreError::AppMapEntryNotFound { entry_id } => {
+            write!(formatter, "App Map entry {entry_id:?} was not found")
+        }
+        CoreError::MemoryRetrieval(error) => write!(formatter, "{error}"),
+        _ => write!(formatter, "unreachable memory error"),
     }
 }
 
@@ -332,6 +487,7 @@ impl std::error::Error for CoreError {
             Self::CompressionFailed(error) => Some(error),
             Self::SessionStore(error) => Some(error),
             Self::PlannerModel(error) => Some(error),
+            Self::MemoryRetrieval(error) => Some(error),
             _ => None,
         }
     }
@@ -346,5 +502,11 @@ impl From<CompressionError> for CoreError {
 impl From<SessionStoreError> for CoreError {
     fn from(value: SessionStoreError) -> Self {
         Self::SessionStore(value)
+    }
+}
+
+impl From<MemoryRetrievalError> for CoreError {
+    fn from(value: MemoryRetrievalError) -> Self {
+        Self::MemoryRetrieval(value)
     }
 }
