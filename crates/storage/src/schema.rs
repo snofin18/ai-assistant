@@ -4,7 +4,8 @@
 //! `sqlx` 会连带 async 运行时，`refinery` 会引入运行时目录扫描 —— 两者都比这 200 行更重。
 //!
 //! **表清单不在这里**（ADR-0038）：本模块只声明 `crates/storage` **自己**那几张表的迁移
-//! （[`MIGRATIONS`]）；别的 crate 的表由它们自己声明，装配点在开库前把各集合合并。
+//! （[`MIGRATIONS`] 与 [`MEMORY_MIGRATIONS`]）；别的 crate 的表由它们自己声明，装配点在开库前
+//! 把各集合合并。
 //!
 //! 不变量：
 //!   1. **只前进不回滚**：任何结构调整都新增 `migrations/000N_*.sql`，不改已发布的文件
@@ -22,14 +23,27 @@ use sha2::{Digest, Sha256};
 use crate::error::{StorageError, StorageResult};
 use crate::migrations::{Migration, MigrationSet};
 
-/// `crates/storage` **自己**拥有的迁移（本 crate 建的那几张表）。
+/// `crates/storage` 的**基线迁移片段**（本 crate 最早建的那几张表）。
 ///
-/// 这**不是**全库清单：应用侧必须把各 crate 的 `MIGRATIONS` 合并成一个 [`MigrationSet`]，
-/// 再交给 [`crate::Database::open`]（ADR-0038 D2 / D3）。
+/// 这**不是**全库清单：应用侧必须把各 crate 的所有片段合并成一个 [`MigrationSet`]，
+/// 再交给 [`crate::Database::open`]（ADR-0038 D2 / D3）。storage 后续新增的全局号段
+/// （当前为 0004）在 [`MEMORY_MIGRATIONS`]；版本号是**全局**序列，只有装配点合并后的集合
+/// 需要连续。
 pub const MIGRATIONS: &[Migration] = &[Migration::new(
     1,
     "0001_init",
     include_str!("../migrations/0001_init.sql"),
+)];
+
+/// `crates/storage` 的 `memory_fts` 增量迁移片段。
+///
+/// 为什么与 [`MIGRATIONS`] 分开：全局号段已由 audit 占 0002 / 0003；若把 0004 直接塞回
+/// 基线片段，既会让 storage 单独持有的片段出现空洞，也会破坏既有跨 crate 装配测试。
+/// 唯一装配点必须同时注册 storage 的两个片段与 audit 的两个片段。
+pub const MEMORY_MIGRATIONS: &[Migration] = &[Migration::new(
+    4,
+    "0004_memory_fts",
+    include_str!("../migrations/0004_memory_fts.sql"),
 )];
 
 /// 迁移记账表名。
