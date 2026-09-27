@@ -16,13 +16,16 @@ use assistant_core::{
 };
 use assistant_model_gateway::{
     CompletionEvent, CompletionRequest, CompletionStream, DurationMs, Message, ModelGatewayError,
-    ModelId, ModelProvider, ModelResult, ModelRouter, Pricing, ProviderCapabilities,
-    ProviderFeatures, RetryPolicy, TokenCount, Usage,
+    ModelId, ModelProvider, ModelResult, ModelRouter, NoJitter, Pricing, ProviderCapabilities,
+    ProviderFeatures, RetryPolicy, SystemMonotonicClock, ThreadSleeper, TokenCount, Usage,
 };
 use assistant_platform_windows::WindowsPlatform;
 use assistant_policy::RuleSet;
 use assistant_protocol::{ErrorCode, RiskLevel, ToolEffect, ToolReversibility};
-use assistant_storage::{Clock, MemoryQuery, MemoryRecord, MemoryRecordKind, insert_memory_record};
+use assistant_storage::{
+    Clock, Database, MIGRATIONS as STORAGE_MIGRATIONS, MemoryQuery, MemoryRecord, MemoryRecordKind,
+    MigrationSet, StoragePaths, insert_memory_record,
+};
 use assistant_tool_bus::{
     CallContext, Clock as ToolClock, ToolBusError, ToolDefinition, ToolHandler, ToolOutput,
     ToolRegistry,
@@ -186,7 +189,7 @@ fn test_registry() -> Result<ToolRegistry, ToolBusError> {
 fn base_input(
     directory: &TestDirectory,
     provider: Arc<dyn ModelProvider>,
-) -> Result<HostAssemblyInput<WindowsPlatform>, ModelGatewayError> {
+) -> Result<HostAssemblyInput, ModelGatewayError> {
     let model_id = provider.model_id().clone();
     let router = ModelRouter::new(model_id.clone(), Vec::new(), vec![model_id])?;
     Ok(HostAssemblyInput::new(
@@ -197,6 +200,11 @@ fn base_input(
     .with_planner_provider(Arc::clone(&provider))
     .with_model_router(router)
     .with_model_providers(vec![provider])
+    .with_model_runtime(
+        Arc::new(SystemMonotonicClock::default()),
+        Arc::new(ThreadSleeper),
+        Arc::new(NoJitter),
+    )
     .with_retry_policy(RetryPolicy::default())
     .with_policy_rules(RuleSet::example_v0())
     .with_history_compressor(Arc::new(NoopCompressor)))
@@ -356,9 +364,44 @@ fn test_assembly_point_is_confined_to_agent_core() {
     for marker in [
         "assistant_audit::MIGRATIONS",
         "ToolBus::start",
-        "ModelGateway::new",
+        "ModelGateway::with_runtime",
         "AuditSink::new",
     ] {
         assert!(assembly_source.contains(marker), "missing marker {marker}");
     }
+}
+
+#[tokio::test]
+async fn test_host_assembly_rejects_non_intact_audit_chain()
+-> Result<(), Box<dyn std::error::Error>> {
+    let directory = TestDirectory::new("broken-audit-chain")?;
+    let mut migrations = MigrationSet::new();
+    migrations.register_all(STORAGE_MIGRATIONS)?;
+    migrations.register_all(assistant_audit::MIGRATIONS)?;
+    let database = Database::open(
+        &StoragePaths::new(directory.path()),
+        Arc::new(FixedClock),
+        &migrations,
+    )?;
+    database.connection().execute_batch(
+        "INSERT INTO audit_logs
+         (id, prev_hash, ts, actor, task_id, step_id, event_type, detail_json)
+         VALUES ('broken', 'broken', 0, 'system', NULL, NULL, 'incident.reported', '{}')",
+    )?;
+    drop(database);
+
+    let provider: Arc<dyn ModelProvider> = Arc::new(NoopProvider::new()?);
+    let input = base_input(&directory, provider)?
+        .with_session_store(Arc::new(MemorySessionStore::new()) as Arc<dyn SessionStore>)
+        .with_memory_retriever(Arc::new(EmptyRetriever))
+        .with_app_map_reader(Arc::new(EmptyReader))
+        .with_tool_registry(test_registry()?)
+        .with_durability(assistant_audit::Durability::Immediate);
+
+    let Err(error) = HostAssembly::new(input).assemble().await else {
+        panic!("non-intact audit chain must fail assembly");
+    };
+    assert_eq!(error.reason_code(), "host_audit_assembly_failed");
+    assert_eq!(error.error_code(), ErrorCode::Fatal);
+    Ok(())
 }

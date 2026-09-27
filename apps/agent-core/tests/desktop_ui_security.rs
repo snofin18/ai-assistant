@@ -24,6 +24,7 @@ fn test_desktop_ui_has_strict_csp_and_no_system_permissions() {
         .expect("strict CSP");
     assert!(csp.contains("default-src 'self'"));
     assert!(csp.contains("script-src 'self'"));
+    assert!(!csp.contains("unsafe-inline"));
     assert!(!csp.contains("unsafe-eval"));
     assert!(!csp.contains(" *"));
 

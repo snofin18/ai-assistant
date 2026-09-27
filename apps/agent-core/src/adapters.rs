@@ -244,8 +244,25 @@ impl AppMapFileReader for RootedAppMapReader {
         &self,
         relative_path: &std::path::Path,
     ) -> Result<String, assistant_core::AppMapReadError> {
+        let root = self.root.canonicalize().map_err(|error| {
+            assistant_core::AppMapReadError::Unreadable(format!(
+                "App Map root is unavailable: {error}"
+            ))
+        })?;
         let path = self.root.join(relative_path);
-        std::fs::read_to_string(path)
+        let canonical_path = path.canonicalize().map_err(|error| {
+            if error.kind() == std::io::ErrorKind::NotFound {
+                assistant_core::AppMapReadError::NotFound
+            } else {
+                assistant_core::AppMapReadError::Unreadable(error.to_string())
+            }
+        })?;
+        if !canonical_path.starts_with(&root) {
+            return Err(assistant_core::AppMapReadError::Unreadable(
+                "App Map path escapes the configured root".to_owned(),
+            ));
+        }
+        std::fs::read_to_string(canonical_path)
             .map_err(|error| assistant_core::AppMapReadError::Unreadable(error.to_string()))
     }
 }

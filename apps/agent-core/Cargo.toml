@@ -39,10 +39,6 @@ version = "0.1.0"
 path = "../../crates/model-gateway"
 version = "0.1.0"
 
-[dependencies.assistant-platform-api]
-path = "../../crates/platform/api"
-version = "0.1.0"
-
 [dependencies.assistant-platform-windows]
 path = "../../crates/platform/windows"
 version = "0.1.0"

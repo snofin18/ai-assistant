@@ -109,67 +109,62 @@ pub fn parse_registry(content: &str) -> Result<ExemptionSet, String> {
 
     while let Some(raw_line) = lines.get(idx) {
         let line = raw_line.trim();
+        if line.starts_with("### ") || line.starts_with("## ") {
+            // Continue through section headings so every exemption table is read.
+            idx += 1;
+            continue;
+        }
         if !line.starts_with('|') {
             idx += 1;
             continue;
         }
-        if line.starts_with("### ") || line.starts_with("## ") {
-            // next section heading — done with current table
-            break;
+        if line.starts_with("| ID |") || line.starts_with("|---") {
+            // Skip table headers and separators; only data rows are parsed.
+            idx += 1;
+            continue;
         }
         // Parse the data row: split on `|`, strip, expect exactly 5 cells
         let cells: Vec<&str> = line.trim_matches('|').split('|').map(str::trim).collect();
         if cells.len() != 5 {
-            // not a data row — skip (could be section divider, empty row, etc.)
-            idx += 1;
-            continue;
+            return Err(format!("豁免清单第 {} 行列数不是 5：{line}", idx + 1));
         }
         let Some(id_cell) = cells.first() else {
-            idx += 1;
-            continue;
+            return Err(format!("豁免清单第 {} 行缺少 ID", idx + 1));
         };
         let id = strip_code_ticks(id_cell).to_string();
         let Some(rule_cell) = cells.get(1) else {
-            idx += 1;
-            continue;
+            return Err(format!("豁免清单第 {} 行缺少规则", idx + 1));
         };
         let rule = strip_code_ticks(rule_cell).to_string();
         let Some(loc_cell) = cells.get(2) else {
-            idx += 1;
-            continue;
+            return Err(format!("豁免清单第 {} 行缺少位置", idx + 1));
         };
         let loc = strip_code_ticks(loc_cell);
         let Some(reason_cell) = cells.get(3) else {
-            idx += 1;
-            continue;
+            return Err(format!("豁免清单第 {} 行缺少理由", idx + 1));
         };
         let reason = reason_cell.to_string();
         let Some(removal_cell) = cells.get(4) else {
-            idx += 1;
-            continue;
+            return Err(format!("豁免清单第 {} 行缺少移除触发", idx + 1));
         };
         let removal = removal_cell.to_string();
 
         // loc = "path:line"
         let Some((p, l)) = loc.rsplit_once(':') else {
-            // eprintln! skipped
-            idx += 1;
-            continue;
+            return Err(format!(
+                "豁免清单第 {} 行位置不是 path:line：{loc}",
+                idx + 1
+            ));
         };
         let path = p.to_string();
         let line_str = l.to_string();
         let Ok(line_num) = line_str.parse() else {
-            // eprintln! skipped
-            idx += 1;
-            continue;
+            return Err(format!("豁免清单第 {} 行行号不是整数：{line_str}", idx + 1));
         };
 
         // ID format check
         if !id.starts_with('E') || id.len() < 4 {
-            // eprintln! skipped
-            // eprintln!("xtask exemptions: 跳过非法 ID `{id}`");
-            idx += 1;
-            continue;
+            return Err(format!("豁免清单第 {} 行 ID 非法：{id}", idx + 1));
         }
 
         if !seen_ids.insert(id.clone()) {
@@ -255,5 +250,34 @@ mod tests {
     fn missing_header_errors() {
         let err = parse_registry("只有正文没有表头").unwrap_err();
         assert!(err.contains("表头"));
+    }
+
+    #[test]
+    fn malformed_row_errors_with_line_number() {
+        let malformed = "\
+| ID | 规则 | 位置 | 理由 | 移除触发 |\n\
+|---|---|---|---|---|\n\
+| E-001 | a | x:not-a-line | r | t |\n";
+        let err = parse_registry(malformed).unwrap_err();
+        assert!(err.contains("第 3 行"), "err = {err}");
+        assert!(err.contains("行号不是整数"), "err = {err}");
+    }
+
+    #[test]
+    fn parses_multiple_tables_and_skips_headers() {
+        let multiple = "\
+| ID | 规则 | 位置 | 理由 | 移除触发 |\n\
+|---|---|---|---|---|\n\
+| E-001 | first/rule | `a.md:1` | r | t |\n\
+\n\
+### 第二张表\n\
+\n\
+| ID | 规则 | 位置 | 理由 | 移除触发 |\n\
+|---|---|---|---|---|\n\
+| E-002 | second/rule | `b.md:2` | r | t |\n";
+        let set = parse_registry(multiple).unwrap();
+        assert_eq!(set.len(), 2);
+        assert!(set.is_exempted("first/rule", "a.md", 1));
+        assert!(set.is_exempted("second/rule", "b.md", 2));
     }
 }

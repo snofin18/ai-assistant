@@ -48,7 +48,9 @@
 > 只更新 `thiserror` 的使用方列，不新增供应链依赖。
 
 > 计划中的依赖（**尚未引入**，引入时逐条登记并走漂移升级；已引入的不再列在这里）：
-> `tauri`、`tracing`（`tokio` / `rmcp` / `windows` 已于 2026-09-25 由 TASK-020 / TASK-017 引入，见上表）。
+> `tracing`。
+> （`tokio` / `rmcp` / `windows` 已于 2026-09-25 由 TASK-020 / TASK-017 引入，
+> `tauri` 已于 2026-09-27 由 TASK-029 引入，见上表。）
 > 它们的选型理由见 `cross-platform-ai-assistant-architecture-v2.md` §15 与 `docs/storage-design.md`。
 
 > **`windows` crate 的 feature 名（最容易记错的一条，ADR-0024 D1a 实证）**：
