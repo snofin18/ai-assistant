@@ -1,6 +1,6 @@
 # TASK-032　UI：策略面板 + **出域三档开关**（含逐应用覆盖）+ Capability Matrix 视图 + 成本面板
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**1a**　批次：**A3**　依赖：029,021　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -125,7 +125,7 @@ cargo run -p xtask -- card-check
 - `cargo run -p xtask -- refscan`：PASS，0E/0W。
 - `cargo run -p xtask -- docscan`：PASS，0E/441W（既有基线）。
 - `cargo run -p xtask -- card-check`：PASS，0E/27W（既有基线）。
-- `memory-counts` / `adr-index` / `cargo deny check`：待 closeout 同步后复跑回填。
+- `memory-counts` / `adr-index` / `check-ledger` / `verify-schemas` / `codegen --check` / `cargo deny check`：全 PASS。
 
 ### 4. DoD 逐条核对
 
@@ -137,6 +137,7 @@ cargo run -p xtask -- card-check
 - [x] 负向用例覆盖畸形策略、无本地模型、未确认升级、重复/非法能力、非法成本。
 - [x] `pnpm typecheck` / `pnpm build` / 本卡 Node 专项测试 / Rust workspace / xtask 门禁全绿。
 - [x] `LEDGER.md` 追加实现与占位展开事件；新增长期事实/坑同步 `docs/memory/*`：closeout 同批完成。
+- [x] PR #78 以 merge commit `ed9fbfd` 合并到 `main`；push / pull_request 两组 16 项 check-run 全 success。
 
 ### 5. 偏差
 
