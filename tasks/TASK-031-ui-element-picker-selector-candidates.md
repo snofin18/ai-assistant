@@ -132,3 +132,5 @@ P2/P3 同步收紧：组件不再直出原始 parser error / error key，布尔�
 1. 核对 `NameRegex` / `A11yPath` / `TitleRegex` / `VisualAnchor` 是否始终被标为本地化依赖，且不能成为首选。
 2. 核对候选验证是否拒绝 `role_and_parent` / `runtime_id`、未排序链、本地化越级和窗口无稳定候选。
 3. 核对 UI 文案是否全部来自 `copy`，以及高亮 bounds 是否正确处理 workspace 非零原点。
+
+最终 merge：PR #76 -> `main` 的 `2cb0139`（2026-09-28）；push / PR 两轮各 16 项 check-run 全绿，`merge_state_status=clean`。
