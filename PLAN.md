@@ -7,12 +7,12 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-27（**TASK-206 storage `memory_fts` 已 Done 并合并 PR #68（merge `6da9007`）**：新增 0004 迁移、contentless FTS5 候选索引、fail-closed 检索 API 与行缺失/孤儿/完整性自检；独立 review 的装配、性能与 tokenizer 问题全部闭环，CI 全绿。下一张 **TASK-208** `core` Memory。此前 TASK-207 / 028 / 027 / 026 / 025 / 024 / 023 均 Done）
+更新日期    ：2026-09-27（**TASK-208 `core` Memory 已 Done 并合并 PR #70（merge `e8d95f2`）**：新增 App Map 加载/校验、按需 Memory projection 与消费 storage FTS5 的注入式检索接口；canonical provenance、保守 token estimate、显式 omission 与测试拆分已闭环，CI 全绿。下一张 **TASK-029** 装配。此前 TASK-207 / 206 / 028 / 027 / 026 / 025 / 024 / 023 均 Done）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
-当前任务卡  ：**A3 批次进行中**：TASK-011~028 全 Done；**TASK-207 ✅**（Planner）与 **TASK-206 ✅**（storage FTS5）已 Done → 下一张 **TASK-208**（Memory）；装配归 **TASK-029**；
-                  跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204** 均 Done；**TASK-205** = Ready；**TASK-206** = Done
+当前任务卡  ：**A3 批次进行中**：TASK-011~028 全 Done；**TASK-207 ✅**（Planner）、**TASK-206 ✅**（storage FTS5）与 **TASK-208 ✅**（Memory）已 Done → 下一张 **TASK-029** 装配；
+                  跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204** 均 Done；**TASK-205** = Ready；**TASK-206 / 208** = Done
 阻塞项      ：① TASK-002 仍 Blocked；② gov §5.1 门禁清单尚未登记 `check-migrations`（PL-056）；③ **PL-092**（storage 缺 conversation/session 公开记录 API）；④ PL-071 / PL-072 / PL-073 / PL-074 / PL-078 / PL-079 / PL-080 / PL-083 / PL-084 / PL-085 待裁决
-下一步动作  ：① **TASK-208**（Memory：App Map + 消费 storage FTS5）；随后 **TASK-029** 装配
+下一步动作  ：① **TASK-029**（binary 装配：session 持久化 adapter / 真实 Provider / Host 分发）；随后进入 UI 与 Notepad Adapter 闭环
                   → 详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 
