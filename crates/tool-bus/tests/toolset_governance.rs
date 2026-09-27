@@ -137,32 +137,51 @@ fn test_high_risk_read_annotations_round_trip_consistently() {
 
 #[test]
 fn test_annotations_must_match_derived_behavior_exactly() {
-    let definition = behavior_definition(
-        "demo.app.read",
-        RiskLevel::Low,
-        ToolEffect::Read,
-        ToolReversibility::L0UndoStack,
-    );
+    let definition = || {
+        behavior_definition(
+            "demo.app.read",
+            RiskLevel::Low,
+            ToolEffect::Read,
+            ToolReversibility::L0UndoStack,
+        )
+    };
     let mismatch = ToolAnnotations::new()
         .read_only(false)
         .destructive(false)
         .idempotent(false)
         .open_world(false);
     assert!(matches!(
-        definition.with_annotations(mismatch),
+        definition().with_annotations(mismatch),
         Err(ToolBusError::ToolBehaviorMismatch { .. })
     ));
 
-    let empty = behavior_definition(
-        "demo.app.read",
-        RiskLevel::Low,
-        ToolEffect::Read,
-        ToolReversibility::L0UndoStack,
-    );
     assert!(matches!(
-        empty.with_annotations(ToolAnnotations::new()),
+        definition().with_annotations(ToolAnnotations::new()),
         Err(ToolBusError::ToolBehaviorMismatch { .. })
     ));
+
+    for annotations in [
+        ToolAnnotations::new()
+            .read_only(true)
+            .destructive(true)
+            .idempotent(false)
+            .open_world(false),
+        ToolAnnotations::new()
+            .read_only(true)
+            .destructive(false)
+            .idempotent(true)
+            .open_world(false),
+        ToolAnnotations::new()
+            .read_only(true)
+            .destructive(false)
+            .idempotent(false)
+            .open_world(true),
+    ] {
+        assert!(matches!(
+            definition().with_annotations(annotations),
+            Err(ToolBusError::ToolBehaviorMismatch { .. })
+        ));
+    }
 }
 
 #[test]

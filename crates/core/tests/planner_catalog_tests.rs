@@ -103,6 +103,17 @@ fn test_planner_request_rejects_bad_tool_catalog_fields() {
         }),
         json!({
             "version": "1.0",
+            "name": "notepad.text.write",
+            "description": "l3 write",
+            "input": {"type": "object"},
+            "output": {"type": "object"},
+            "effect": "write",
+            "reversibility": "l3_irreversible",
+            "risk_level": "high",
+            "requires_approval": false
+        }),
+        json!({
+            "version": "1.0",
             "name": "notepad.text.read",
             "description": "bad tag",
             "input": {"type": "object"},
