@@ -27,8 +27,10 @@ use assistant_model_gateway::{
     CacheHints, CancellationToken, CompletionEvent, CompletionRequest, DurationMs, FinishReason,
     Message, MessageRole, ModelGatewayError, ModelProvider, ResponseFormat, ToolChoice,
 };
-use assistant_protocol::{ToolSchema, serde_json};
-use assistant_task_engine::{Budget, CheckpointPolicy, Plan, PlanId, PlanStep, TaskId};
+use assistant_protocol::{RiskLevel, ToolSchema, serde_json};
+use assistant_task_engine::{
+    Budget, CheckpointPolicy, Plan, PlanId, PlanStep, StepId, StepTimeouts, TaskId,
+};
 
 use crate::error::{CoreError, CoreResult};
 
@@ -104,11 +106,46 @@ impl PlannerRequest {
             validate_text("planner.tools.name", &tool.name)?;
             validate_text("planner.tools.version", &tool.version)?;
             validate_text("planner.tools.description", &tool.description)?;
+            if tool.version != "1.0" {
+                return Err(CoreError::InvalidContent {
+                    field: "planner.tools.version",
+                    reason: format!("tool {:?} must use schema version 1.0", tool.name),
+                });
+            }
             if !is_tool_name(&tool.name) {
                 return Err(CoreError::InvalidContent {
                     field: "planner.tools.name",
                     reason: format!("tool {:?} must use <app>.<domain>.<action>", tool.name),
                 });
+            }
+            if !tool.input.is_object() {
+                return Err(CoreError::InvalidContent {
+                    field: "planner.tools.input",
+                    reason: format!("tool {:?} input must be a JSON object", tool.name),
+                });
+            }
+            if !tool.output.is_object() {
+                return Err(CoreError::InvalidContent {
+                    field: "planner.tools.output",
+                    reason: format!("tool {:?} output must be a JSON object", tool.name),
+                });
+            }
+            if tool.risk_level == RiskLevel::Critical && !tool.requires_approval {
+                return Err(CoreError::InvalidContent {
+                    field: "planner.tools.requires_approval",
+                    reason: format!(
+                        "critical tool {:?} must declare requires_approval=true",
+                        tool.name
+                    ),
+                });
+            }
+            for tag in &tool.tags {
+                if !is_tag_name(tag) {
+                    return Err(CoreError::InvalidContent {
+                        field: "planner.tools.tags",
+                        reason: format!("tool {:?} contains invalid tag {tag:?}", tool.name),
+                    });
+                }
             }
             if !names.insert(tool.name.as_str()) {
                 return Err(CoreError::InvalidContent {
@@ -302,6 +339,7 @@ fn parse_plan_output(output: &str, request: &PlannerRequest) -> CoreResult<Plan>
             reason: "planner output must contain at least one step".to_string(),
         });
     }
+    validate_deserialized_steps(&steps)?;
 
     let plan = Plan {
         plan_id: request.plan_id.clone(),
@@ -349,11 +387,47 @@ fn validate_text(field: &'static str, value: &str) -> CoreResult<()> {
 
 fn is_tool_name(value: &str) -> bool {
     let segments: Vec<&str> = value.split('.').collect();
-    segments.len() == 3
-        && segments.iter().all(|segment| {
-            !segment.is_empty()
-                && segment
-                    .bytes()
-                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
-        })
+    segments.len() == 3 && segments.iter().all(|segment| is_tool_name_segment(segment))
+}
+
+fn is_tool_name_segment(value: &str) -> bool {
+    let mut bytes = value.bytes();
+    let Some(first) = bytes.next() else {
+        return false;
+    };
+    first.is_ascii_lowercase()
+        && bytes.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+}
+
+fn is_tag_name(value: &str) -> bool {
+    is_tool_name_segment(value)
+}
+
+fn validate_deserialized_steps(steps: &[PlanStep]) -> CoreResult<()> {
+    for step in steps {
+        StepId::new(step.id.as_str()).map_err(|_| CoreError::InvalidPlannerOutput {
+            reason: format!("planner step id {:?} is invalid", step.id.as_str()),
+        })?;
+        for dependency in &step.depends_on {
+            StepId::new(dependency.as_str()).map_err(|_| CoreError::InvalidPlannerOutput {
+                reason: format!(
+                    "planner dependency id {:?} on step {:?} is invalid",
+                    dependency.as_str(),
+                    step.id.as_str()
+                ),
+            })?;
+        }
+        StepTimeouts::new(
+            step.timeouts.resolve_ms,
+            step.timeouts.execute_ms,
+            step.timeouts.verify_ms,
+        )
+        .map_err(|_| CoreError::InvalidPlannerOutput {
+            reason: format!(
+                "planner step {:?} must use non-zero resolve/execute/verify timeouts",
+                step.id.as_str()
+            ),
+        })?;
+    }
+    Ok(())
 }

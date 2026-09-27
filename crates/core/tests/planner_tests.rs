@@ -117,6 +117,16 @@ fn request(tools: Vec<ToolSchema>) -> PlannerRequest {
     .unwrap()
 }
 
+fn request_with_raw_schema(schema: Value) -> assistant_core::CoreResult<PlannerRequest> {
+    PlannerRequest::new(
+        PlanId::new("p_1").unwrap(),
+        TaskId::new("t_1").unwrap(),
+        "goal",
+        vec![serde_json::from_value(schema).unwrap()],
+        Budget::new(10, 60_000, 1_000, 0.5).unwrap(),
+    )
+}
+
 fn read_step(id: &str, sequence: u32, tool_name: &str, depends_on: &[&str]) -> Value {
     json!({
         "id": id,
@@ -235,6 +245,10 @@ fn test_planner_rejects_duplicate_step_id() {
 
     assert!(matches!(error, CoreError::InvalidPlan { .. }));
     assert_eq!(error.reason_code(), "invalid_plan");
+    assert_eq!(
+        error.error_code(),
+        assistant_protocol::ErrorCode::ModelInvalidOutput
+    );
 }
 
 #[test]
@@ -295,7 +309,52 @@ fn test_planner_rejects_tool_outside_catalog() {
     assert!(matches!(error, CoreError::UnknownPlannerTool { .. }));
     assert_eq!(
         error.error_code(),
-        assistant_protocol::ErrorCode::ToolInvalidArgs
+        assistant_protocol::ErrorCode::ModelInvalidOutput
+    );
+}
+
+#[test]
+fn test_planner_rejects_invalid_step_or_dependency_identifiers() {
+    let tools = vec![tool("notepad.text.read")];
+    let oversized = "s".repeat(129);
+    for value in ["", "contains space", "中文", oversized.as_str()] {
+        let output = plan_output(&json!([read_step(value, 1, "notepad.text.read", &[])]));
+        let error = planner_for(&output)
+            .generate_plan(&request(tools.clone()), CancellationToken::new())
+            .unwrap_err();
+        assert!(matches!(error, CoreError::InvalidPlannerOutput { .. }));
+        assert_eq!(
+            error.error_code(),
+            assistant_protocol::ErrorCode::ModelInvalidOutput
+        );
+    }
+
+    let output = plan_output(&json!([read_step(
+        "s_1",
+        1,
+        "notepad.text.read",
+        &["invalid dependency"]
+    )]));
+    let error = planner_for(&output)
+        .generate_plan(&request(tools), CancellationToken::new())
+        .unwrap_err();
+    assert!(matches!(error, CoreError::InvalidPlannerOutput { .. }));
+}
+
+#[test]
+fn test_planner_rejects_zero_step_timeouts() {
+    let tools = vec![tool("notepad.text.read")];
+    let mut step = read_step("s_1", 1, "notepad.text.read", &[]);
+    step["timeouts"]["execute_ms"] = json!(0);
+    let output = plan_output(&json!([step]));
+    let error = planner_for(&output)
+        .generate_plan(&request(tools), CancellationToken::new())
+        .unwrap_err();
+
+    assert!(matches!(error, CoreError::InvalidPlannerOutput { .. }));
+    assert_eq!(
+        error.error_code(),
+        assistant_protocol::ErrorCode::ModelInvalidOutput
     );
 }
 
@@ -402,6 +461,68 @@ fn test_planner_request_rejects_bad_or_duplicate_tool_catalog() {
             vec![tool("notepad.text.read")],
             Budget::new(10, 60_000, 1_000, 0.5).unwrap(),
         )
+        .is_err()
+    );
+
+    assert!(
+        request_with_raw_schema(json!({
+            "version": "9.9",
+            "name": "notepad.text.read",
+            "description": "bad version",
+            "input": {"type": "object"},
+            "output": {"type": "object"},
+            "risk_level": "low"
+        }))
+        .is_err()
+    );
+
+    assert!(
+        request_with_raw_schema(json!({
+            "version": "1.0",
+            "name": "_bad.tool.read",
+            "description": "bad name",
+            "input": {"type": "object"},
+            "output": {"type": "object"},
+            "risk_level": "low"
+        }))
+        .is_err()
+    );
+
+    assert!(
+        request_with_raw_schema(json!({
+            "version": "1.0",
+            "name": "notepad.text.read",
+            "description": "bad input",
+            "input": "not an object",
+            "output": {"type": "object"},
+            "risk_level": "low"
+        }))
+        .is_err()
+    );
+
+    assert!(
+        request_with_raw_schema(json!({
+            "version": "1.0",
+            "name": "notepad.text.write",
+            "description": "critical write",
+            "input": {"type": "object"},
+            "output": {"type": "object"},
+            "risk_level": "critical",
+            "requires_approval": false
+        }))
+        .is_err()
+    );
+
+    assert!(
+        request_with_raw_schema(json!({
+            "version": "1.0",
+            "name": "notepad.text.read",
+            "description": "bad tag",
+            "input": {"type": "object"},
+            "output": {"type": "object"},
+            "risk_level": "low",
+            "tags": ["Bad-Tag"]
+        }))
         .is_err()
     );
 }

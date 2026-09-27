@@ -7,12 +7,12 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-26（**TASK-207 `core` Planner 已 Done**：模型输出 → `task-engine` Plan / Step DAG，严格 `steps` JSON + `Plan::validate()` + 工具目录校验；14 个 Planner 测试 + 3 个依赖白名单 arch 测试，`assistant-core` 行覆盖 88.60%，零第三方新增。此前 **TASK-028 `core` 已 Done**（会话 + 上下文）；真实 conversation/session storage adapter 不存在，留 TASK-029；**TASK-206** 的 DRIFT-206-1 已裁决（方案 A）→ Ready；FTS5 前置 206、Memory 208，装配下沉 029。此前 TASK-027 / 026 / 025 / 024 / 023 均 Done）
+更新日期    ：2026-09-27（**TASK-207 `core` Planner = Review，暂不可合并**：独立 review 修复了 ID/timeout 绕过、错误码分层与依赖白名单假绿；但 **DRIFT-207-1** 确认当前 ToolSchema 没有权威 `effect` / `reversibility`，模型自报字段无法与工具元数据交叉校验，需要 ADR 裁决。TASK-206 在 TASK-207 落地前保持阻塞。此前 TASK-028 / 027 / 026 / 025 / 024 / 023 均 Done；DRIFT-206-1 已闭环）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
-当前任务卡  ：**A3 批次进行中**：TASK-011~028 全 Done；**TASK-207 ✅**（Planner）→ 下一张 **TASK-206**（storage `memory_fts` FTS5）；**TASK-208** 依赖 206，装配归 **TASK-029**；
+当前任务卡  ：**A3 批次进行中**：TASK-011~028 全 Done；**TASK-207 = Review（DRIFT-207-1 阻塞）**；**TASK-206** 已 Ready 但必须等待 TASK-207 落地；**TASK-208** 依赖 206，装配归 **TASK-029**；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204** 均 Done；**TASK-205** = Ready；**TASK-206** = Ready（DRIFT-206-1 已裁决：write scope 含 `docs/storage-design.md` §3.4）
-阻塞项      ：① TASK-002 仍 Blocked（上游 `create_thread` 未关）；② gov §5.1 门禁清单尚未登记 `check-migrations`（PL-056，需 ADR）；③ **PL-092**（storage 缺 conversation/session 公开记录 API → TASK-028 只交付 `SessionStore` trait + 内存实现，生产 adapter 待 TASK-029 前补齐）；④ ~~DRIFT-206-1~~ **已闭环**（2026-09-26 方案 A：TASK-206 write scope 增列 `docs/storage-design.md` §3.4）；⑤ PL-071 / PL-072 / PL-073 / PL-074 / PL-078 / PL-079 / PL-080 / PL-083 / PL-084 / PL-085 待裁决
-下一步动作  ：① **TASK-206**（storage `memory_fts` FTS5，已解阻）；随后 **TASK-208**（Memory），最后 **TASK-029** 装配
+阻塞项      ：① TASK-002 仍 Blocked；② gov §5.1 门禁清单尚未登记 `check-migrations`（PL-056）；③ **PL-092**（storage 缺 conversation/session 公开记录 API）；④ **DRIFT-207-1**（权威工具 `effect` / `reversibility` 元数据缺失，需 ADR）；⑤ PL-071 / PL-072 / PL-073 / PL-074 / PL-078 / PL-079 / PL-080 / PL-083 / PL-084 / PL-085 待裁决
+下一步动作  ：① 裁决 **DRIFT-207-1**，完成 TASK-207 review 后合并 PR #66；随后 **TASK-206**（storage `memory_fts` FTS5）→ **TASK-208** → **TASK-029**
                   → 详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 

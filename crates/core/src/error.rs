@@ -225,7 +225,7 @@ impl CoreError {
             Self::RequiredContextExceedsBudget { .. } => ErrorCode::PolicyDenied,
             Self::CompressionFailed(error) => error.error_code(),
             Self::InvalidPlan { .. } | Self::UnknownPlannerTool { .. } => {
-                ErrorCode::ToolInvalidArgs
+                ErrorCode::ModelInvalidOutput
             }
             Self::PlannerModel(error) => error.error_code(),
             Self::InvalidPlannerOutput { .. } => ErrorCode::ModelInvalidOutput,

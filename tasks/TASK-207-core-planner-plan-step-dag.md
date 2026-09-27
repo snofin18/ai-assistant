@@ -136,6 +136,13 @@ cargo deny check
 - `cargo deny check` → PASS（advisories / bans / licenses / sources 全 ok；输出只有既有 duplicate / unmatched-license warning）。
 - `cargo llvm-cov -p assistant-core --fail-under-lines 85` → PASS：TOTAL 行覆盖 **88.60%**（Planner 模块 77.12%，总门槛由既有模块保证）。
 
+#### 独立 review 修复后追加验证
+
+- `cargo fmt --all --check` → PASS。
+- `cargo clippy -p assistant-core --all-targets -- -D warnings` → PASS。
+- `cargo test -p assistant-core` → PASS：Planner 16 tests，arch dependencies 5 tests。
+- `cargo llvm-cov -p assistant-core --fail-under-lines 85` → PASS：TOTAL 行覆盖 **89.03%**。
+
 ### 4. DoD 逐条核对
 
 - [x] 合法模型输出 → task-engine `Plan` / `PlanStep`，`Plan::validate()` 通过并成功交给 `TaskEngine::create_task`。
@@ -143,7 +150,7 @@ cargo deny check
 - [x] 不可解析、缺字段、类型错误、空 steps、tool-call 输出、无 Stop finish 均 fail-closed；不产生空计划。
 - [x] `core` 依赖在 ADR-0053 D2 白名单内；新增 `arch_dependencies.rs` 做机器校验。
 - [x] Planner 测试用注入 `ModelProvider`，零真实 IO / 网络 / 时钟。
-- [x] `assistant-core` 行覆盖 88.60% ≥ 85%。
+- [x] `assistant-core` 行覆盖 89.03% ≥ 85%。
 - [x] 既有测试零改动通过。
 - [x] 14 条验收命令全绿；`hygiene` / `card-check` / `docscan` warning 未新增。
 - [x] §11.1 进度同步已落地。
@@ -151,7 +158,20 @@ cargo deny check
 
 ### 5. 偏差
 
-none。`Cargo.lock` 是 `Cargo.toml` 新增 workspace 依赖后由 Cargo 自动生成的依赖边更新，无新 package、无第三方引入、无版本变化。
+**DRIFT-207-1（阻塞合并，等待 ADR / 人类裁决）**
+
+- 现象：独立 review 发现 Planner 只能校验模型自报的 `effect` / `reversibility` / `point_of_no_return` 内部一致，无法把它们与权威 tool metadata 对照；当前 `ToolSchema` 也没有 `effect` / `reversibility` 字段。模型可把 high/critical 工具标成 read + 可逆来绕过写步骤 postcondition 要求。
+- 影响：本卡声称的“结构与安全形状校验”存在信任边界缺口；完整修复需要扩展公共 ToolSchema 或引入独立工具元数据/策略前置层，属改公共契约（漂移触发器 ③ / ④）。
+- 建议：另立 ADR，决定由 ToolSchema 承载权威 `effect` / `reversibility`，或由装配/策略层在 Planner 后强制覆盖模型自报值；在裁决前 PR 不合并。
+- 已停工作：未修改 `protocol/**`，未猜测风险级到可逆性的映射，未把该问题伪装成已修复。
+
+**review 修复（非漂移）**
+
+- 修复直接反序列化绕过 `StepId` / `StepTimeouts` 构造器的问题：Planner 现在对 step id、dependency id 和三段 timeout 显式重验并 fail-closed。
+- 未知工具与模型产出非法 Plan 的 `ErrorCode` 从 `ToolInvalidArgs` 修正为 `ModelInvalidOutput`，与 `error-codes-1.0.json` 的 hallucinated-tool 语义一致。
+- Tool catalog 校验收紧为 version `1.0`、object input/output、完整 tool-name/tag pattern、critical 必须 requires_approval。
+- ADR-0053 依赖白名单扫描器补上 renamed dependency 与 target-specific dependency，并新增反例测试。
+- `Cargo.lock` 是 `Cargo.toml` 新增 workspace 依赖后由 Cargo 自动生成的依赖边更新，无新 package、无第三方引入、无版本变化。
 
 ### 6. 更合理做法
 
@@ -159,7 +179,8 @@ none。`Cargo.lock` 是 `Cargo.toml` 新增 workspace 依赖后由 Cargo 自动�
 
 ### 7. 遗留问题
 
-无阻塞。Planner 按本卡契约直接消费 `ModelProvider`，不承担路由、重试、降级、预算或工具执行；这些仍由 `model-gateway` 与后续装配层负责。
+- **阻塞：DRIFT-207-1**（权威工具元数据不足，见 §5）。
+- Planner 按本卡契约直接消费 `ModelProvider`，不承担路由、重试、降级、预算或工具执行；这些仍由 `model-gateway` 与后续装配层负责。
 
 ### 8. 新增长期记忆
 
@@ -170,3 +191,4 @@ none。`Cargo.lock` 是 `Cargo.toml` 新增 workspace 依赖后由 Cargo 自动�
 1. 最该审的是严格输出契约：顶层只接受单一 `steps` 字段，不做 Markdown / 缺字段修复；这符合 fail-closed，但要求 Provider 忠实遵守 JSON 请求。
 2. `UnknownPlannerTool` 在 `Plan::validate()` 之后检查，因此非法语法与目录外工具是两个不同错误；确认这是期望分层。
 3. `Planner` 直接消费 `ModelProvider`，因此不继承 `ModelGateway` 的 retry/fallback；确认这与 ADR-0053 D2 的本卡边界一致。
+4. **阻塞点**：权威 `effect` / `reversibility` 元数据缺失，必须先裁决 DRIFT-207-1；当前 PR 不应合并。
