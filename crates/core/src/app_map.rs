@@ -16,6 +16,8 @@ use crate::identifiers::TokenCount;
 /// Supported App Map schema version.
 pub const APP_MAP_VERSION: u32 = 1;
 
+const MAX_APP_MAP_CONTENT_BYTES: usize = 16_384;
+
 /// File-reader failure returned by an injected App Map reader.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -56,6 +58,7 @@ pub struct AppMapEntry {
     title: String,
     content: String,
     source_reference: String,
+    entry_index: usize,
     token_estimate: TokenCount,
 }
 
@@ -82,6 +85,12 @@ impl AppMapEntry {
     #[must_use]
     pub fn source_reference(&self) -> &str {
         &self.source_reference
+    }
+
+    /// Zero-based position of this entry in the App Map array.
+    #[must_use]
+    pub const fn entry_index(&self) -> usize {
+        self.entry_index
     }
 
     /// Caller-supplied token estimate.
@@ -270,7 +279,15 @@ fn parse_entry(value: &Value, path: &str, index: usize) -> CoreResult<AppMapEntr
     let id = required_string(object, "id", path)?;
     let title = required_string(object, "title", path)?;
     let content = required_string(object, "content", path)?;
-    let source_reference = required_string(object, "source_reference", path)?;
+    if content.len() > MAX_APP_MAP_CONTENT_BYTES {
+        return Err(CoreError::AppMapCorrupt {
+            path: path.to_owned(),
+            reason: format!("entries[{index}].content exceeds {MAX_APP_MAP_CONTENT_BYTES} bytes"),
+        });
+    }
+    // A file-provided source_reference is only a hint. Provenance exposed to
+    // callers is generated from the validated path and array position.
+    let source_reference = format!("{path}#/entries/{index}");
     let token_estimate = required_u64(object, "token_estimate", path)?;
     if token_estimate == 0 {
         return Err(CoreError::AppMapCorrupt {
@@ -278,12 +295,15 @@ fn parse_entry(value: &Value, path: &str, index: usize) -> CoreResult<AppMapEntr
             reason: format!("entries[{index}].token_estimate must be positive"),
         });
     }
+    let conservative_tokens =
+        token_estimate.max(u64::try_from(content.chars().count()).unwrap_or(u64::MAX));
     Ok(AppMapEntry {
         id,
         title,
         content,
         source_reference,
-        token_estimate: TokenCount::new(token_estimate),
+        entry_index: index,
+        token_estimate: TokenCount::new(conservative_tokens),
     })
 }
 

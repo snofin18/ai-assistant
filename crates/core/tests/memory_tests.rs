@@ -124,8 +124,12 @@ fn test_app_map_loader_validates_and_loads_entries() {
     assert_eq!(app_map.app_id(), "com.microsoft.notepad");
     assert_eq!(app_map.entries().len(), 1);
     let entry = app_map.entry("save").expect("entry");
-    assert_eq!(entry.source_reference(), "app-map.json#/entries/0");
-    assert_eq!(entry.token_estimate(), TokenCount::new(7));
+    assert_eq!(
+        entry.source_reference(),
+        "adapters/notepad/app-map.json#/entries/0"
+    );
+    assert_eq!(entry.entry_index(), 0);
+    assert_eq!(entry.token_estimate(), TokenCount::new(10));
 }
 
 #[test]
@@ -232,7 +236,9 @@ fn test_memory_projection_selects_only_requested_entries_and_hits() {
     assert_eq!(
         projection.segments().first().expect("map segment").origin(),
         &MemorySegmentOrigin::AppMap {
-            entry_id: "save".to_owned()
+            entry_id: "save".to_owned(),
+            app_map_path: APP_MAP_PATH.to_owned(),
+            entry_index: 0,
         }
     );
     assert_eq!(
@@ -253,13 +259,10 @@ fn test_memory_projection_records_duplicate_and_over_budget_omissions() {
         entry_json("close", "close#L1", "close rules", 4)
     );
     let retriever = FakeRetriever {
-        hits: vec![hit(
-            MemoryRecordKind::Note,
-            "note-1",
-            "shared#L1",
-            "duplicate source",
-            2,
-        )],
+        hits: vec![
+            hit(MemoryRecordKind::Note, "note-1", "shared#L1", "x", 2),
+            hit(MemoryRecordKind::Note, "note-2", "shared#L1", "y", 2),
+        ],
         error: None,
     };
     let memory = memory_component(
@@ -270,16 +273,17 @@ fn test_memory_projection_records_duplicate_and_over_budget_omissions() {
         APP_MAP_PATH,
         vec!["save".to_owned(), "close".to_owned()],
         MemoryQuery::new("rules"),
-        TokenCount::new(5),
+        TokenCount::new(14),
     )
     .expect("request");
 
     let projection = memory.build_projection(&request).expect("projection");
-    assert_eq!(projection.segments().len(), 1);
-    assert_eq!(projection.used_tokens(), TokenCount::new(3));
+    assert_eq!(projection.segments().len(), 2);
+    assert_eq!(projection.used_tokens(), TokenCount::new(12));
     assert!(projection.omissions().iter().any(|omission| {
-        omission.source_reference() == "close#L1"
+        omission.source_reference() == "adapters/notepad/app-map.json#/entries/1"
             && omission.reason() == MemoryOmissionReason::OverBudget
+            && omission.token_estimate() == TokenCount::new(11)
     }));
     assert!(projection.omissions().iter().any(|omission| {
         omission.source_reference() == "shared#L1"
@@ -516,4 +520,119 @@ fn test_memory_error_mappings_and_display_are_stable() {
         assert_eq!(error.error_code(), error_code);
         assert!(!error.to_string().is_empty());
     }
+}
+
+#[test]
+fn test_app_map_token_estimate_is_conservative_and_provenance_is_canonical() {
+    let document = r#"{
+  "version": 1,
+  "app_id": "app",
+  "entries": [{
+    "id": "entry",
+    "title": "entry",
+    "content": "0123456789",
+    "source_reference": "forged#/somewhere",
+    "token_estimate": 1
+  }]
+}"#
+    .to_string();
+    let memory = memory_component(
+        reader_with(APP_MAP_PATH, document),
+        FakeRetriever {
+            hits: Vec::new(),
+            error: None,
+        },
+    );
+    let entry = memory
+        .load_app_map(APP_MAP_PATH)
+        .expect("load")
+        .entry("entry")
+        .expect("entry")
+        .clone();
+    assert_eq!(
+        entry.source_reference(),
+        "adapters/notepad/app-map.json#/entries/0"
+    );
+    assert_eq!(entry.token_estimate(), TokenCount::new(10));
+
+    let request = MemoryRequest::new(
+        APP_MAP_PATH,
+        vec!["entry".to_owned()],
+        MemoryQuery::new("query"),
+        TokenCount::new(9),
+    )
+    .expect("request");
+    let projection = memory.build_projection(&request).expect("projection");
+    assert!(projection.segments().is_empty());
+    let omission = projection.omissions().first().expect("omission");
+    assert_eq!(omission.reason(), MemoryOmissionReason::OverBudget);
+    assert_eq!(omission.token_estimate(), TokenCount::new(10));
+    assert_eq!(omission.origin(), &entry_origin());
+}
+
+fn entry_origin() -> MemorySegmentOrigin {
+    MemorySegmentOrigin::AppMap {
+        entry_id: "entry".to_owned(),
+        app_map_path: APP_MAP_PATH.to_owned(),
+        entry_index: 0,
+    }
+}
+
+#[test]
+fn test_app_map_content_size_limit_is_enforced() {
+    let content = "x".repeat(16_385);
+    let document = app_map_json(
+        APP_MAP_VERSION,
+        &entry_json("large", "ignored", &content, 1),
+    );
+    let memory = memory_component(
+        reader_with(APP_MAP_PATH, document),
+        FakeRetriever {
+            hits: Vec::new(),
+            error: None,
+        },
+    );
+    let error = memory
+        .load_app_map(APP_MAP_PATH)
+        .expect_err("oversized content");
+    assert_eq!(error.reason_code(), "app_map_corrupt");
+}
+
+#[test]
+fn test_memory_projection_checks_budget_before_duplicate_source() {
+    let retriever = FakeRetriever {
+        hits: vec![
+            hit(MemoryRecordKind::Note, "large", "same#L1", "x", 10),
+            hit(MemoryRecordKind::Note, "small", "same#L1", "y", 1),
+        ],
+        error: None,
+    };
+    let memory = memory_component(
+        reader_with(
+            APP_MAP_PATH,
+            app_map_json(
+                1,
+                &entry_json("save", "app-map.json#/entries/0", "save rules", 1),
+            ),
+        ),
+        retriever,
+    );
+    let request = MemoryRequest::new(
+        APP_MAP_PATH,
+        Vec::new(),
+        MemoryQuery::new("query"),
+        TokenCount::new(5),
+    )
+    .expect("request");
+    let projection = memory.build_projection(&request).expect("projection");
+    assert_eq!(projection.segments().len(), 1);
+    assert_eq!(
+        projection.segments().first().expect("segment").content(),
+        "y"
+    );
+    assert_eq!(projection.omissions().len(), 1);
+    assert_eq!(
+        projection.omissions().first().expect("omission").reason(),
+        MemoryOmissionReason::OverBudget
+    );
 }

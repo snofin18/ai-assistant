@@ -43,9 +43,10 @@ impl MemoryRetrievalHit {
                 reason: "must be positive".to_owned(),
             });
         }
+        let conservative = u64::try_from(result.snippet.chars().count()).unwrap_or(u64::MAX);
         Ok(Self {
             result,
-            token_estimate,
+            token_estimate: TokenCount::new(token_estimate.get().max(conservative)),
         })
     }
 
@@ -161,6 +162,10 @@ pub enum MemorySegmentOrigin {
     AppMap {
         /// App Map entry id.
         entry_id: String,
+        /// Validated relative App Map path.
+        app_map_path: String,
+        /// Zero-based entry position.
+        entry_index: usize,
     },
     /// A storage record returned by the injected retriever.
     StoredRecord {
@@ -220,6 +225,8 @@ pub enum MemoryOmissionReason {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MemoryOmission {
     source_reference: String,
+    origin: MemorySegmentOrigin,
+    token_estimate: TokenCount,
     reason: MemoryOmissionReason,
 }
 
@@ -228,6 +235,18 @@ impl MemoryOmission {
     #[must_use]
     pub fn source_reference(&self) -> &str {
         &self.source_reference
+    }
+
+    /// Returns the omitted segment origin.
+    #[must_use]
+    pub const fn origin(&self) -> &MemorySegmentOrigin {
+        &self.origin
+    }
+
+    /// Returns the omitted segment token estimate.
+    #[must_use]
+    pub const fn token_estimate(&self) -> TokenCount {
+        self.token_estimate
     }
 
     /// Returns the omission reason.
@@ -341,6 +360,8 @@ impl Memory {
                 source_reference: entry.source_reference().to_owned(),
                 origin: MemorySegmentOrigin::AppMap {
                     entry_id: entry.id().to_owned(),
+                    app_map_path: request.app_map_path().to_owned(),
+                    entry_index: entry.entry_index(),
                 },
                 token_estimate: entry.token_estimate(),
             });
@@ -370,18 +391,22 @@ fn apply_budget(
     let mut used_tokens = TokenCount::default();
     let mut seen_sources = std::collections::BTreeSet::new();
     for candidate in candidates {
-        if !seen_sources.insert(candidate.source_reference.clone()) {
-            omissions.push(MemoryOmission {
-                source_reference: candidate.source_reference,
-                reason: MemoryOmissionReason::DuplicateSource,
-            });
-            continue;
-        }
         let next = used_tokens.checked_add(candidate.token_estimate)?;
         if next > budget_tokens {
             omissions.push(MemoryOmission {
-                source_reference: candidate.source_reference,
+                source_reference: candidate.source_reference.clone(),
+                origin: candidate.origin,
+                token_estimate: candidate.token_estimate,
                 reason: MemoryOmissionReason::OverBudget,
+            });
+            continue;
+        }
+        if !seen_sources.insert(candidate.source_reference.clone()) {
+            omissions.push(MemoryOmission {
+                source_reference: candidate.source_reference,
+                origin: candidate.origin,
+                token_estimate: candidate.token_estimate,
+                reason: MemoryOmissionReason::DuplicateSource,
             });
             continue;
         }

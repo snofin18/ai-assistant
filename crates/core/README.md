@@ -60,10 +60,12 @@ task-engine Plan contract.
    resulting Plan with `Plan::validate`.
 10. Every planned step uses a tool present in the caller-supplied catalog.
 11. App Map paths are relative and traversal-free; App Map content, version,
-    fields, entry ids, and token estimates are validated before use.
+    fields, and entry ids are validated before use. Canonical provenance is
+    generated from the validated path and array index, and the declared token
+    estimate can only raise the conservative character-count estimate.
 12. Memory never injects an entire App Map implicitly. Only caller-selected
     entry ids plus retrieval hits are considered, and every omitted candidate
-    has an explicit `MemoryOmissionReason`.
+    has an explicit origin, token estimate, and `MemoryOmissionReason`.
 
 ## Typical Use
 

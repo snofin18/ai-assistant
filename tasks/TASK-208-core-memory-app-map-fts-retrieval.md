@@ -126,14 +126,14 @@ crates/core/README.md、本卡记录区及 AGENTS.md §11.1 指定进度文件�
 - `cargo fmt --all --check` → PASS（0 diff）
 - `cargo clippy --all-targets -- -D warnings` → PASS
 - `cargo test --workspace` → PASS
-- `cargo test -p assistant-core` → PASS；新增 Memory 测试 14 个
+- `cargo test -p assistant-core` → PASS；新增 Memory 测试 17 个
 - `cargo test -p assistant-core arch::` → PASS（10 个 arch tests）
 - `cargo test -p assistant-storage` → PASS（40 tests + 2 doctests）
 - `cargo run -p xtask -- verify-schemas` / `codegen --check` / `hygiene` 0E/4W /
   `docscan` 0E/468W / `card-check` 0E/27W / `memory-counts` / `adr-index` /
   `check-ledger` → 全 PASS
 - `cargo deny check` → PASS
-- `cargo llvm-cov -p assistant-core --fail-under-lines 85` → PASS（**87.94%**）
+- `cargo llvm-cov -p assistant-core --fail-under-lines 85` → PASS（**88.27%**）
 
 ### 4. DoD 逐条核对
 
@@ -142,7 +142,7 @@ crates/core/README.md、本卡记录区及 AGENTS.md §11.1 指定进度文件�
 - [x] 每个注入片段带 `source_reference` 与 `MemorySegmentOrigin`；超预算 / 重复来源产生显式 omission
 - [x] `core` 依赖 ⊆ ADR-0053 D2；`arch::` 全绿
 - [x] Memory 测试零真实 IO / 网络 / 时钟；文件读取与检索均注入
-- [x] `assistant-core` 行覆盖 ≥ 85%（87.94%）
+- [x] `assistant-core` 行覆盖 ≥ 85%（88.27%）
 - [x] 既有测试零改动通过
 - [x] 15 条验收命令全绿；warning 与既有基线一致
 - [ ] §11.1 进度同步：实现 PR 合并后由 closeout 提交完成状态与当前进度块
@@ -151,7 +151,9 @@ crates/core/README.md、本卡记录区及 AGENTS.md §11.1 指定进度文件�
 ### 5. 偏差
 
 无行为偏差。为满足单文件行数门禁，把 App Map 加载/校验拆入 `app_map.rs`，Memory 装配留在
-`memory.rs`；两者都属本卡 `crates/core/src/**` write scope。
+`memory.rs`；两者都属本卡 `crates/core/src/**` write scope。独立 review 后补强：
+App Map 的声明 token estimate 只能抬高保守字符数估算、content 有字节上限；来源引用由
+validated path + entry index 生成；omission 携带 origin/token；预算检查先于重复来源判定。
 
 ### 6. 更合理做法
 
