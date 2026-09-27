@@ -107,3 +107,20 @@ test("test_timeline_controller_rejects_unavailable_replay", () => {
   });
   assert.equal(next.errorKey, "timeline.replay.unavailable");
 });
+
+test("test_parse_timeline_external_evidence_link_is_rejected", () => {
+  const result = parseTimelineModel([
+    createStep({
+      evidence: [
+        {
+          id: "snapshot-1",
+          kind: "tree_snapshot",
+          labelKey: "timeline.evidence.tree_snapshot",
+          href: "https://example.invalid/evidence",
+        },
+      ],
+    }),
+  ]);
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /evidence entry is malformed/);
+});

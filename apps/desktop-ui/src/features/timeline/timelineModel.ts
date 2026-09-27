@@ -271,6 +271,9 @@ function parseTimelineStep(
   if (verification === "failed" && verificationReasonKey === null) {
     errors.push(`${prefix}: failed verification requires verificationReasonKey`);
   }
+  if (status === "succeeded" && verification === "failed") {
+    errors.push(`${prefix}: succeeded step cannot have failed verification`);
+  }
   if (canReplay && replayDisabledReasonKey !== null) {
     errors.push(`${prefix}: replay reason must be null when replay is available`);
   }
@@ -301,8 +304,7 @@ function parseEvidence(
       !isEnumValue(entry.kind, ["tree_snapshot", "screenshot", "log"] as const) ||
       typeof entry.labelKey !== "string" ||
       entry.labelKey.trim() === "" ||
-      typeof entry.href !== "string" ||
-      entry.href.trim() === ""
+      !isSafeEvidenceHref(entry.href)
     ) {
       errors.push(`${prefix}: evidence entry is malformed`);
       return null;
@@ -420,4 +422,8 @@ function isNonNegativeInteger(value: unknown): value is number {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isSafeEvidenceHref(value: unknown): value is string {
+  return typeof value === "string" && value.startsWith("evidence://") && value.length > 11;
 }

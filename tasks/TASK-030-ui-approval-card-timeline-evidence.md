@@ -78,7 +78,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 - `pnpm --dir apps/desktop-ui typecheck` → exit 0。
 - `pnpm --dir apps/desktop-ui build` → exit 0；Vite 29 modules transformed。
-- `node --test --experimental-strip-types ...` → 11 tests / 11 passed。
+- `node --test --experimental-strip-types ...` → 13 tests / 13 passed（review 修复后）。
 - `cargo fmt --all --check` → 0 diff。
 - `cargo clippy --all-targets -- -D warnings` → exit 0。
 - `cargo test --workspace` → 全绿；`xtask` 374 passed，无失败。
@@ -117,3 +117,5 @@ none。没有放宽 lint、没有改测试断言、没有加依赖、没有改�
 1. 重点核对 `app_content` 覆盖、高风险 scope 收敛、L3 二次确认三条安全路径。
 2. 核对时间线撤销可用性判定是否始终要求 `succeeded` + 可用 Anchor，且无证据时不会伪装成功。
 3. 核对 copy 注入是否覆盖所有可见文案，尤其是 diff warning、evidence label 与 disabled reason。
+
+独立 review 追加修复：证据与 UI 截图引用现只接受 `evidence://` 内部引用，拒绝 `javascript:` / 外部 URL；时间线拒绝“succeeded + failed verification”的矛盾组合，并补两条负向测试。

@@ -427,8 +427,7 @@ function parseEvidence(value: unknown, errors: string[]): ApprovalEvidence[] | n
       !isEnumValue(entry.kind, ["tree_snapshot", "screenshot", "log"] as const) ||
       typeof entry.labelKey !== "string" ||
       entry.labelKey.trim() === "" ||
-      typeof entry.href !== "string" ||
-      entry.href.trim() === ""
+      !isSafeEvidenceHref(entry.href)
     ) {
       errors.push("evidence entry is malformed");
       return null;
@@ -483,7 +482,7 @@ function isUiStepDiff(value: unknown): value is ApprovalUiStepDiff {
     value.action.trim() !== "" &&
     typeof value.targetLabel === "string" &&
     value.targetLabel.trim() !== "" &&
-    (value.screenshotRef === null || typeof value.screenshotRef === "string")
+    (value.screenshotRef === null || isSafeEvidenceHref(value.screenshotRef))
   );
 }
 
@@ -536,4 +535,8 @@ function isNullableNonNegativeInteger(value: unknown): value is number | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isSafeEvidenceHref(value: unknown): value is string {
+  return typeof value === "string" && value.startsWith("evidence://") && value.length > 11;
 }

@@ -105,7 +105,7 @@ TASK-024 把**撤销闭环**落地：`assistant-undo` 用纯逻辑建模 L0~L3�
 TASK-025 把**目标租约与并发控制**落地：`assistant-lease` 建模 `Shared` / `Intent` / `Exclusive` 三模式，跨 owner 只允许一个写租约；`Intent` 可并发规划但阻止另一 owner 的 `Exclusive`。TTL 以 `now == expires_at_ms` 为失效边界，支持显式续租、懒清理和 `reap_expired`；用户抢占按 target key 强制释放全部 agent 租约，并把自然过期项单列报告。`acquire_many` 在任何状态写入前按规范 key 排序、去重并完成冲突 / TTL / 溢出预检，任一冲突即零提交，消除“先持有再回滚”窗口。新增 20 个测试，行覆盖 89.53%，零新增第三方依赖。
 TASK-026 把**模型网关**落地：`assistant-model-gateway` 定义同步拉取式 Provider 流契约（每轮 poll 必须检查取消并遵守 timeout）、类型化 stage/context/sensitivity/budget/tool-count 路由、指数退避与注入 jitter、可审计降级链、prompt-cache 稳定前缀提示透传，以及按模型聚合的整数 micro-USD 成本记录。第一个非空 text / tool-call delta 之后失败一律返回 `PartialOutput`，禁止重试或降级以避免重复输出；成功流必须恰有一次 usage + finish。新增 20 个契约测试 + 1 doctest，行覆盖 75.23%，零新增第三方依赖。
 TASK-204 把 `tool-bus` 的 draft-07 判据**显式化**：三张带理由的拒绝表（永久放弃 12 条 / 暂未实现 4 条 / 非 draft-07 方言 15 条）+ 未知关键字兜底 + `$schema` **方言校验**（声明非 draft-07 = 拒绝），报错信息直接给出「为何不可用 / 该用什么代替」。
-TASK-030 把审批与时间线 feature 落地：审批卡片覆盖动作、目标、影响范围、五类 diff、来源归因、工具理由、风险/可逆性、撤销方式、授权范围与证据；`app_content` 标红并默认拒绝，高风险/不可逆只允许 `once`，L3 需输入二次确认词。执行时间线覆盖状态、前后指纹、验证、证据、耗时、成本与可逆性；撤销/重放仅在证据和 Anchor 完整且调用方接线时可用，禁用原因直接显示。所有输入经 fail-closed 运行时校验，零新增依赖，11 个专项测试覆盖关键负向路径。
+TASK-030 把审批与时间线 feature 落地：审批卡片覆盖动作、目标、影响范围、五类 diff、来源归因、工具理由、风险/可逆性、撤销方式、授权范围与证据；`app_content` 标红并默认拒绝，高风险/不可逆只允许 `once`，L3 需输入二次确认词。执行时间线覆盖状态、前后指纹、验证、证据、耗时、成本与可逆性；撤销/重放仅在证据和 Anchor 完整且调用方接线时可用，禁用原因直接显示。所有输入经 fail-closed 运行时校验，零新增依赖，13 个专项测试覆盖关键负向路径。
 ＋ Notepad 的 3 个任务闭环。
 阶段 0（文档与 Spike）已于 2026-09-20 closeout —— 它的产出是 Spike 报告，**不是**产品代码。
 详见 `plans/stage-1-pilots.md`。
@@ -161,7 +161,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 **2026-09-27 —— TASK-030 实现完成，进入 review**
 
-新增 `apps/desktop-ui/src/features/approval/**` 与 `.../timeline/**`。审批卡完整覆盖 v2 §10.2，`app_content` 来源默认拒绝，高风险/不可逆范围收敛为 `once`，L3 增加二次确认输入；时间线覆盖 v2 §16.4，并在缺 Anchor、失败状态、不可逆或未接回调时禁用撤销/重放且显示原因。输入先经严格运行时校验，11 个 Node 内置测试覆盖正常、畸形、高风险、来源污染和撤销不可用路径；UI typecheck/build 与完整 Rust 门禁全绿。
+新增 `apps/desktop-ui/src/features/approval/**` 与 `.../timeline/**`。审批卡完整覆盖 v2 §10.2，`app_content` 来源默认拒绝，高风险/不可逆范围收敛为 `once`，L3 增加二次确认输入；时间线覆盖 v2 §16.4，并在缺 Anchor、失败状态、不可逆或未接回调时禁用撤销/重放且显示原因。输入先经严格运行时校验，13 个 Node 内置测试覆盖正常、畸形、高风险、来源污染、撤销不可用与不安全证据链接路径；UI typecheck/build 与完整 Rust 门禁全绿。
 
 **2026-09-27 —— TASK-029 合并完成**
 

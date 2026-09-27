@@ -140,3 +140,20 @@ test("test_parse_approval_card_malformed_diff_is_rejected", () => {
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /text diff entries are malformed/);
 });
+
+test("test_parse_approval_card_external_evidence_link_is_rejected", () => {
+  const result = parseApprovalCardModel(
+    createModel({
+      evidence: [
+        {
+          id: "evidence-1",
+          kind: "log",
+          labelKey: "approval.evidence.log",
+          href: "javascript:alert(1)",
+        },
+      ],
+    })
+  );
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /evidence entry is malformed/);
+});
