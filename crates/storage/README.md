@@ -42,7 +42,7 @@
 9. 运行时产物（`*.db` / `-wal` / `-shm` / `blobs/` / `shadow/`）**绝不**落在仓库内
    （仓库根 `.gitignore` 已覆盖；测试只用 `%TEMP%`）
 10. `memory_records` 是记忆内容的唯一事实源，`memory_fts` 是 contentless 候选索引；行缺失 /
-    孤儿由 `verify_memory_index()` 显式报告，索引候选若不被源正文逐词复核通过则检索失败
+    孤儿与 FTS5 内部一致性由 `verify_memory_index()` 显式报告；正常运行由触发器负责同步
 
 ## 典型用法
 

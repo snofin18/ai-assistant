@@ -195,5 +195,5 @@ crates/storage/README.md、docs/DEPENDENCIES.md（仅确需新增依赖时）、
 1. 最高风险：为接真实装配而修改了 audit / task-engine 的测试 fixture 与派生 schema 版本，请确认
    DRIFT-206-2 的处理边界。
 2. 次风险：FTS 查询把用户输入全部解释为字面量词项，并拒绝空 / 超长 / 无有效词项 / limit 越界。
-3. `memory_fts` 是 contentless 候选索引；命中路径再用源正文逐词复核，stale 候选返回
-   `memory_index_inconsistent`。自检仍只报告源行缺索引与索引孤儿，不自动重建。
+3. `memory_fts` 是 contentless 候选索引；正文只存源表，触发器负责同步。自检报告源行缺索引 /
+   索引孤儿并运行 FTS5 `integrity-check`，不自动重建；绕过触发器直接篡改索引仍是残余威胁。
