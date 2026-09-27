@@ -1,0 +1,29 @@
+export interface PickerCopy {
+  heading: string;
+  workspaceLabel: string;
+  elementListLabel: string;
+  hoveredLabel: string;
+  selectedLabel: string;
+  propertiesHeading: string;
+  roleLabel: string;
+  nameLabel: string;
+  automationIdLabel: string;
+  classNameLabel: string;
+  runtimeIdLabel: string;
+  stateLabel: string;
+  enabledLabel: string;
+  focusedLabel: string;
+  keyboardFocusableLabel: string;
+  actionsLabel: string;
+  patternsLabel: string;
+  boundsLabel: string;
+  parentPathLabel: string;
+  generateLabel: string;
+  candidateHeading: string;
+  primaryLabel: string;
+  localeDependentLabel: string;
+  validationErrorLabel: string;
+  emptyValue: string;
+  selectLabel: string;
+  errorMessages: Record<string, string>;
+}
