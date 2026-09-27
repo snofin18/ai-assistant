@@ -47,20 +47,14 @@
 ## 典型用法
 
 ```rust
-use std::sync::Arc;
 use assistant_storage::{
-    BlobKind, BlobOwner, Database, MIGRATIONS, MemoryQuery, MemoryRecord, MemoryRecordKind,
-    MigrationSet, StoragePaths, SystemClock, insert_memory_record, search_memory,
+    BlobKind, BlobOwner, Database, MemoryQuery, MemoryRecord, MemoryRecordKind,
+    insert_memory_record, search_memory,
 };
 
-let paths = StoragePaths::new("D:/data/assistant");
-// 唯一装配点（ADR-0038 D3）的伪代码：
-//   migrations.register_all(MIGRATIONS)?;              // storage 0001 + 0004
-//   migrations.register_all(assistant_audit::MIGRATIONS)?; // audit 0002 + 0003
-//   ... 其它拥有者 ...
-//   migrations.validate()?;                            // 只有合并后必须连续
-// 以下假定 assembled_migrations 已按上述顺序构造。
-let database = Database::open(&paths, Arc::new(SystemClock), &assembled_migrations)?;
+// `database` 由唯一装配点构造：合并各 owner 的 MIGRATIONS（storage 0001 + 0004、
+// audit 0002 + 0003、其它 crate 的迁移）后调用 `Database::open`。
+fn example(database: &Database) -> Result<(), assistant_storage::StorageError> {
 let blobs = database.blob_store();
 
 let id = blobs.put(database.connection(), BlobKind::TreeSnapshot, b"{}")?;
@@ -78,7 +72,8 @@ insert_memory_record(
     },
 )?;
 let hits = search_memory(database.connection(), &MemoryQuery::new("reports"))?;
-# Ok::<(), assistant_storage::StorageError>(())
+Ok(())
+}
 ```
 
 目录布局：

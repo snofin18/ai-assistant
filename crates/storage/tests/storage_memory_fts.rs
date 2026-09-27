@@ -282,8 +282,8 @@ fn test_memory_index_integrity_reports_missing_orphan_and_mismatch() {
     // 命中路径也必须 fail-closed：索引正文过期时不得把 stale snippet 当结果返回。
     connection
         .execute(
-            "UPDATE memory_fts SET content = ?1 WHERE rowid = ?2",
-            params!["tampered", row_id],
+            "UPDATE memory_fts SET content = ?1, content_hash = ?2 WHERE rowid = ?3",
+            params!["tampered", "a".repeat(64), row_id],
         )
         .expect("篡改索引正文");
     let error = search_memory(connection, &MemoryQuery::new("tampered"))
@@ -302,9 +302,17 @@ fn test_memory_index_integrity_reports_missing_orphan_and_mismatch() {
     // 模拟外部篡改 2：索引行被手工塞回，但正文快照与源表不一致。
     connection
         .execute(
-            "INSERT INTO memory_fts (rowid, record_kind, record_id, source_reference, content)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![row_id, "note", "note-integrity", "notes#L9", "tampered"],
+            "INSERT INTO memory_fts
+                 (rowid, record_kind, record_id, source_reference, content, content_hash)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                row_id,
+                "note",
+                "note-integrity",
+                "notes#L9",
+                "tampered",
+                "a".repeat(64)
+            ],
         )
         .expect("塞回不一致索引行");
     let issues = verify_memory_index(connection).expect("自检");
@@ -315,13 +323,29 @@ fn test_memory_index_integrity_reports_missing_orphan_and_mismatch() {
                 MemoryIndexIssueKind::IndexedFieldMismatch { .. }
             )
     }));
+}
 
-    // 模拟外部篡改 3：凭空插入一个没有源记录的索引行。
+/// 自检必须发现“索引孤儿”：FTS 行没有对应源记录。
+#[test]
+fn test_memory_index_integrity_reports_orphan_row() {
+    let dir = TestDir::new("memory-integrity-orphan");
+    let clock = Arc::new(FixedClock::new(1_700_000_000_000));
+    let database = open_memory_database(&dir, &clock);
+    let connection = database.connection();
+
     connection
         .execute(
-            "INSERT INTO memory_fts (rowid, record_kind, record_id, source_reference, content)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![9_001_i64, "note", "orphan", "notes#L404", "orphan content"],
+            "INSERT INTO memory_fts
+                 (rowid, record_kind, record_id, source_reference, content, content_hash)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                9_001_i64,
+                "note",
+                "orphan",
+                "notes#L404",
+                "orphan content",
+                "0".repeat(64)
+            ],
         )
         .expect("插入孤儿索引行");
     let issues = verify_memory_index(connection).expect("自检");

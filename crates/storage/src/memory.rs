@@ -21,6 +21,7 @@
 //! 相关：`docs/storage-design.md` §3.4 / §4 / §8、架构 v2 §15.1、TASK-206。
 
 use rusqlite::{Connection, params};
+use sha2::{Digest, Sha256};
 
 use crate::error::{StorageError, StorageResult};
 
@@ -189,14 +190,17 @@ pub enum MemoryIndexIssueKind {
 /// - [`StorageError::Sqlite`]：`(record_kind, record_id)` 重复或底层写入失败；不静默覆盖
 pub fn insert_memory_record(connection: &Connection, record: &MemoryRecord) -> StorageResult<()> {
     validate_memory_record(record)?;
+    let content_hash = content_hash(&record.content);
     connection.execute(
-        "INSERT INTO memory_records (record_kind, record_id, source_reference, content, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5)",
+        "INSERT INTO memory_records
+             (record_kind, record_id, source_reference, content, content_hash, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         params![
             record.record_kind.as_str(),
             record.record_id,
             record.source_reference,
             record.content,
+            content_hash,
             record.updated_at
         ],
     )?;
@@ -248,8 +252,8 @@ pub fn search_memory(
     let mut statement = connection.prepare(
         "SELECT memory_fts.rowid,
                 memory_fts.record_kind, memory_fts.record_id,
-                memory_fts.source_reference, memory_fts.content,
-                m.record_kind, m.record_id, m.source_reference, m.content,
+                memory_fts.source_reference, memory_fts.content_hash,
+                m.record_kind, m.record_id, m.source_reference, m.content_hash,
                 snippet(memory_fts, 3, '[', ']', '...', 16),
                 bm25(memory_fts)
          FROM memory_fts
@@ -265,11 +269,11 @@ pub fn search_memory(
             indexed_kind: row.get(1)?,
             indexed_record_id: row.get(2)?,
             indexed_source_reference: row.get(3)?,
-            indexed_content: row.get(4)?,
+            indexed_content_hash: row.get(4)?,
             source_kind: row.get(5)?,
             source_record_id: row.get(6)?,
             source_reference: row.get(7)?,
-            source_content: row.get(8)?,
+            source_content_hash: row.get(8)?,
             snippet: row.get(9)?,
             score: row.get(10)?,
         })
@@ -281,7 +285,7 @@ pub fn search_memory(
         if row.indexed_kind != row.source_kind
             || row.indexed_record_id != row.source_record_id
             || row.indexed_source_reference != row.source_reference
-            || row.indexed_content != row.source_content
+            || row.indexed_content_hash != row.source_content_hash
         {
             return Err(StorageError::MemoryIndexInconsistent {
                 detail: format!(
@@ -316,11 +320,11 @@ struct SearchRow {
     indexed_kind: String,
     indexed_record_id: String,
     indexed_source_reference: String,
-    indexed_content: String,
+    indexed_content_hash: String,
     source_kind: String,
     source_record_id: String,
     source_reference: String,
-    source_content: String,
+    source_content_hash: String,
     snippet: String,
     score: f64,
 }
@@ -372,7 +376,7 @@ pub fn verify_memory_index(connection: &Connection) -> StorageResult<Vec<MemoryI
          WHERE f.record_kind IS NOT m.record_kind
             OR f.record_id IS NOT m.record_id
             OR f.source_reference IS NOT m.source_reference
-            OR f.content IS NOT m.content
+            OR f.content_hash IS NOT m.content_hash
          ORDER BY f.rowid",
     )?;
     let rows = mismatched.query_map([], |row| row.get::<_, i64>(0))?;
@@ -496,4 +500,17 @@ fn build_match_expression(query: &MemoryQuery) -> StorageResult<String> {
         });
     }
     Ok(terms.join(" AND "))
+}
+
+fn content_hash(content: &str) -> String {
+    let digest = Sha256::digest(content.as_bytes());
+    let mut out = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        for nibble in [byte >> 4, byte & 0x0f] {
+            if let Some(character) = char::from_digit(u32::from(nibble), 16) {
+                out.push(character);
+            }
+        }
+    }
+    out
 }
