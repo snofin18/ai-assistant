@@ -5,6 +5,26 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Authoritative side effect declared by a tool definition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum ToolEffect {
+    Read,
+    Write,
+}
+
+/// Authoritative reversibility level declared by a tool definition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum ToolReversibility {
+    L0UndoStack,
+    L1Snapshot,
+    L2Compensation,
+    L3Irreversible,
+}
+
 /// Per v2 section 10 + ADR-0021: risk level drives policy gating.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -26,6 +46,8 @@ pub struct ToolSchema {
     pub description: String,
     pub input: serde_json::Value,
     pub output: serde_json::Value,
+    pub effect: ToolEffect,
+    pub reversibility: ToolReversibility,
     pub risk_level: RiskLevel,
     #[serde(default)]
     pub requires_approval: bool,

@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~028 已 Done**；**TASK-207 = Review**：独立 review 已修复多项缺陷，但 **DRIFT-207-1** 待 ADR 裁决；TASK-206 等待 TASK-207 落地）　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~028 已 Done**；**TASK-207 = Review**：review 缺陷已修复，**ADR-0055 已闭环 DRIFT-207-1**；等待最终 CI / review / 合并，TASK-206 暂缓）　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -198,7 +198,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-026 ✅** | A2 | `tasks/TASK-026-model-gateway-provider-router-fallback.md` | **已 Done（2026-09-26）** |
 | TASK-027 ✅ | A2 | `tasks/TASK-027-hitl-approval-scope-takeover.md` | **已 Done（2026-09-26）** |
 | TASK-028 | A2 | `tasks/TASK-028-core-session-context.md` | **完整卡**（2026-09-26 Orchestrator 代行展开：会话管理 + 上下文管理（树裁剪 / 压缩 / 预算）；**原 TASK-028 的拆卡主卡**，见 ADR-0053 D7；文件名由 `TASK-028-core-session-context-planner-memory.md` 改名，**号不变**）；**Ready** |
-| TASK-207 | A2 | `tasks/TASK-207-core-planner-plan-step-dag.md` | **完整卡**（2026-09-26 Orchestrator 代行展开：Planner —— 模型输出 → 可校验的 Plan / Step DAG）；**Review（DRIFT-207-1 待裁决）** |
+| TASK-207 | A2 | `tasks/TASK-207-core-planner-plan-step-dag.md` | **完整卡**（2026-09-26 Orchestrator 代行展开：Planner —— 模型输出 → 可校验的 Plan / Step DAG）；**Review（ADR-0055 已闭环，等待合并）** |
 | TASK-208 | A2 | `tasks/TASK-208-core-memory-app-map-fts-retrieval.md` | **完整卡**（2026-09-26 Orchestrator 代行展开：Memory —— App Map 加载 + 消费 storage 的检索 API）；**Ready** |
 | TASK-029 | A3 | `tasks/TASK-029-binary-skeleton-agent-core-desktop-ui.md` | Ready（批次表占位派单前补全） |
 | TASK-030 | A3 | `tasks/TASK-030-ui-approval-card-timeline-evidence.md` | Ready（批次表占位派单前补全） |

@@ -27,7 +27,7 @@ use assistant_model_gateway::{
     CacheHints, CancellationToken, CompletionEvent, CompletionRequest, DurationMs, FinishReason,
     Message, MessageRole, ModelGatewayError, ModelProvider, ResponseFormat, ToolChoice,
 };
-use assistant_protocol::{RiskLevel, ToolSchema, serde_json};
+use assistant_protocol::{RiskLevel, ToolEffect, ToolReversibility, ToolSchema, serde_json};
 use assistant_task_engine::{
     Budget, CheckpointPolicy, Plan, PlanId, PlanStep, StepId, StepTimeouts, TaskId,
 };
@@ -40,7 +40,8 @@ const MAX_PLAN_OUTPUT_BYTES: usize = 1_048_576;
 const PLANNER_SYSTEM_PROMPT: &str = r#"Create one executable Plan DAG from the caller goal.
 Return exactly one JSON object with one field named "steps". Do not use Markdown.
 Each step must use the PlanStep JSON fields: id, sequence, tool, args, depends_on,
-postconditions, effect, reversibility, point_of_no_return, and timeouts.
+postconditions, point_of_no_return, and timeouts. Never output effect or
+reversibility: those are authoritative tool metadata supplied by the caller.
 Use only tools from the supplied catalog. Write steps require postconditions.
 L3 irreversible steps must set point_of_no_return to true.
 "#;
@@ -330,16 +331,7 @@ fn parse_plan_output(output: &str, request: &PlannerRequest) -> CoreResult<Plan>
             .ok_or_else(|| CoreError::InvalidPlannerOutput {
                 reason: "planner output is missing steps".to_string(),
             })?;
-    let steps: Vec<PlanStep> =
-        serde_json::from_value(steps_value).map_err(|error| CoreError::InvalidPlannerOutput {
-            reason: format!("steps do not match the PlanStep contract: {error}"),
-        })?;
-    if steps.is_empty() {
-        return Err(CoreError::InvalidPlannerOutput {
-            reason: "planner output must contain at least one step".to_string(),
-        });
-    }
-    validate_deserialized_steps(&steps)?;
+    let steps = parse_steps(&steps_value, request)?;
 
     let plan = Plan {
         plan_id: request.plan_id.clone(),
@@ -353,20 +345,94 @@ fn parse_plan_output(output: &str, request: &PlannerRequest) -> CoreResult<Plan>
         reason: error.to_string(),
     })?;
 
-    let catalog: BTreeSet<&str> = request
-        .tools
-        .iter()
-        .map(|tool| tool.name.as_str())
-        .collect();
-    for step in &plan.steps {
-        if !catalog.contains(step.tool.as_str()) {
-            return Err(CoreError::UnknownPlannerTool {
-                step_id: step.id.to_string(),
-                tool: step.tool.clone(),
+    Ok(plan)
+}
+
+fn parse_steps(
+    steps_value: &serde_json::Value,
+    request: &PlannerRequest,
+) -> CoreResult<Vec<PlanStep>> {
+    let mut steps_value =
+        steps_value
+            .as_array()
+            .cloned()
+            .ok_or_else(|| CoreError::InvalidPlannerOutput {
+                reason: "planner steps must be a JSON array".to_string(),
+            })?;
+    if steps_value.is_empty() {
+        return Err(CoreError::InvalidPlannerOutput {
+            reason: "planner output must contain at least one step".to_string(),
+        });
+    }
+    let catalog = build_tool_catalog(request)?;
+    for (index, step_value) in steps_value.iter_mut().enumerate() {
+        inject_trusted_step_metadata(index, step_value, &catalog)?;
+    }
+    let steps: Vec<PlanStep> = serde_json::from_value(serde_json::Value::Array(steps_value))
+        .map_err(|error| CoreError::InvalidPlannerOutput {
+            reason: format!("steps do not match the PlanStep contract: {error}"),
+        })?;
+    validate_deserialized_steps(&steps)?;
+    Ok(steps)
+}
+
+fn inject_trusted_step_metadata(
+    index: usize,
+    step_value: &mut serde_json::Value,
+    catalog: &std::collections::BTreeMap<&str, &ToolSchema>,
+) -> CoreResult<()> {
+    let object = step_value
+        .as_object_mut()
+        .ok_or_else(|| CoreError::InvalidPlannerOutput {
+            reason: format!("planner step {index} must be a JSON object"),
+        })?;
+    if object.contains_key("effect") || object.contains_key("reversibility") {
+        return Err(CoreError::InvalidPlannerOutput {
+            reason: format!(
+                "planner step {index} must not supply effect or reversibility; they come from tool metadata"
+            ),
+        });
+    }
+    let tool_name = object
+        .get("tool")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| CoreError::InvalidPlannerOutput {
+            reason: format!("planner step {index} is missing string tool"),
+        })?;
+    let tool = catalog
+        .get(tool_name)
+        .ok_or_else(|| CoreError::UnknownPlannerTool {
+            step_id: object
+                .get("id")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("<missing>")
+                .to_string(),
+            tool: tool_name.to_string(),
+        })?;
+    object.insert(
+        "effect".to_string(),
+        serde_json::Value::String(tool_effect_token(tool.effect).to_string()),
+    );
+    object.insert(
+        "reversibility".to_string(),
+        serde_json::Value::String(tool_reversibility_token(tool.reversibility).to_string()),
+    );
+    Ok(())
+}
+
+fn build_tool_catalog(
+    request: &PlannerRequest,
+) -> CoreResult<std::collections::BTreeMap<&str, &ToolSchema>> {
+    let mut catalog = std::collections::BTreeMap::new();
+    for tool in &request.tools {
+        if catalog.insert(tool.name.as_str(), tool).is_some() {
+            return Err(CoreError::InvalidContent {
+                field: "planner.tools.name",
+                reason: format!("duplicate tool {:?}", tool.name),
             });
         }
     }
-    Ok(plan)
+    Ok(catalog)
 }
 
 fn validate_text(field: &'static str, value: &str) -> CoreResult<()> {
@@ -430,4 +496,22 @@ fn validate_deserialized_steps(steps: &[PlanStep]) -> CoreResult<()> {
         })?;
     }
     Ok(())
+}
+
+const fn tool_effect_token(effect: ToolEffect) -> &'static str {
+    match effect {
+        ToolEffect::Read => "read",
+        ToolEffect::Write => "write",
+        _ => "unknown",
+    }
+}
+
+const fn tool_reversibility_token(reversibility: ToolReversibility) -> &'static str {
+    match reversibility {
+        ToolReversibility::L0UndoStack => "l0_undo_stack",
+        ToolReversibility::L1Snapshot => "l1_snapshot",
+        ToolReversibility::L2Compensation => "l2_compensation",
+        ToolReversibility::L3Irreversible => "l3_irreversible",
+        _ => "unknown",
+    }
 }

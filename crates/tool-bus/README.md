@@ -39,6 +39,8 @@ TASK-020 的**工具通道**：in-process MCP server + client（`rmcp`）、JSON
 5. **单次挂载的工具数 > 40 必须留下告警**：挂载报告里带结构化 `ToolsetOversizeWarning` +
    未串链的 `AuditEvent`，禁止只打一行日志。
 6. 零 `unsafe`、零 `#[allow]`（`tests/` 由测试文件自行声明例外，依据 AGENTS.md §5.3）。
+7. **`effect` / `reversibility` 是 ToolSchema 必填权威字段**：`ToolDefinition::new` 不接受
+   推断默认值；它们进入工具集指纹，并由 Planner 覆盖模型自报值（ADR-0055）。
 
 ## 已知限制
 

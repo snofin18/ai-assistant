@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-207** `crates/core` Planner = **Review**：PR #66 的 CI 全绿，独立 review 已修复 ID/timeout 绕过、错误码分层与依赖白名单假绿，但 **DRIFT-207-1**（权威 `effect` / `reversibility` 元数据缺失）待 ADR 裁决；**TASK-206** 暂缓。此前 TASK-028 `core`、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-207** `crates/core` Planner = **Review**：PR #66 已通过独立 review，**ADR-0055** 已闭环 `effect` / `reversibility` 权威元数据缺口；等待最终 CI 与合并。**TASK-206** 暂缓。此前 TASK-028 `core`、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
@@ -161,6 +161,10 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 **2026-09-27 —— TASK-207 独立 review：修复可修项，P1 契约缺口回退为 Review**
 
 PR #66 的 8/8 CI 全绿后，独立 review 发现并暴露真实问题。已修复：Planner 反序列化后可重验 `StepId` / `StepTimeouts`；unknown tool 与模型非法 Plan 改用 `ModelInvalidOutput`；tool catalog 收紧 version/name/input/output/tag；ADR-0053 依赖扫描覆盖 renamed 与 target-specific dependency。仍未闭环的是 **DRIFT-207-1**：当前 `ToolSchema` 没有权威 `effect` / `reversibility`，Planner 无法校验模型自报的安全字段；完整修复必须扩展公共契约或引入独立工具元数据层，需 ADR。TASK-207 因此保持 **Review**，PR #66 不合并；TASK-206 暂缓。
+
+**2026-09-27 —— ADR-0055：ToolSchema 权威 effect / reversibility**
+
+人类确认「继续」后，ADR-0055 落地：`ToolSchema` 新增必填 `effect` / `reversibility`，`ToolDefinition::new` 必须显式声明，工具集指纹包含两者；Planner 的模型输出只接受意图字段，出现 `effect` / `reversibility` 即 `ModelInvalidOutput`，最终 PlanStep 的行为元数据只从可信工具目录注入。这样写步骤 postcondition 与 L3 `point_of_no_return` 校验不再信任模型自报值，`DRIFT-207-1` 闭环。TASK-207 仍为 Review，等待最终 CI、review 和合并。
 
 **2026-09-26 —— TASK-207（`crates/core`：Planner）**
 

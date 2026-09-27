@@ -150,3 +150,7 @@
 ## 2026-09-26 追加（ADR-0054，Accepted）
 
 - [2026-09-26][DECISION][src:ADR-0054] **自动化 run 必须先把自己这一轮的留痕落到 `main` 再自删；轮次编号只按 `main` 计数**：① **先落地，再自删** —— 自删仍是最后一步，但若本轮**产生了任何留痕**（任务卡执行记录 / `LEDGER.md` / `docs/PARKING_LOT.md` / `docs/memory/*` / 轮次产物 / 阶段报告）而**没有**可合并的 PR，则**必须先开 docs-only PR**（按 ADR-0046 A6 判据合并）再自删；唯一例外 = 本轮完全没产生留痕（判据 = `git status` 干净 **且** 本轮未写 `docs/**` / `tasks/**` / `LEDGER.md`；`-skipped.md` 本身是留痕，故不属例外）。② **轮次编号的唯一事实源 = `main`** —— §11.3 的「轮次 N」按 `main` 上 `docs/automations/<运行日日期>-round-*.md` 的文件数 + 1 计算（`git ls-tree` 取数），**不得**数工作区；写 `round-<N>` 前必须确认该路径在 `main` 上不存在，已占用则**顺延**，**禁止覆盖**。**动机（一手）**：2026-09-26 的 14:15 一次性自动化把 TASK-206 的 DRIFT-206-1 证据提交在**未 push 的本地分支**后自删 → `main` 上看不到该记录；同一天两轮又都写了 `round-1` → 前一轮的轮次记录被覆盖。**授权同步**：章程 §11.3 + 新增 §11.12（v1.17）、手册 §4.1.b / §4.1.c（v1.14）、`docs/adr/README.md` 登记 0054（下一个可用号 0054 → **0055**）。**未采纳**：PL-091（有界等待）仍待评审。
+
+## 2026-09-27 追加（ADR-0055，Accepted）
+
+- [2026-09-27][DECISION][src:ADR-0055] **ToolSchema 的 `effect` / `reversibility` 是权威必填元数据，Planner 只从可信工具目录注入**：ToolSchema 新增 `effect = read|write` 与 `reversibility = l0_undo_stack|l1_snapshot|l2_compensation|l3_irreversible`；`ToolDefinition::new` 必须显式声明，禁止按风险级推断；Planner 的模型输出不得携带这两个字段，出现即 `ModelInvalidOutput`；Planner 在 PlanStep 反序列化前从目录注入。工具集指纹同步包含它们。此次为公开前单一 1.0 schema 的修正，冻结后同类改动必须 version bump。关闭 TASK-207 `DRIFT-207-1`。

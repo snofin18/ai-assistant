@@ -413,6 +413,8 @@ fn render_tool_schema(value: &Value, title: &str, version: &str) -> Result<Strin
     // `//!` 单行注释会把生成物切碎，故先清洗成单行文本。
     let title = doc_line_text(title);
     let version = doc_line_text(version);
+    let effects = extract_enum(value, "", "effect")?;
+    let reversibility_levels = extract_enum(value, "", "reversibility")?;
     let risk_levels = extract_enum(value, "", "risk_level")?;
     let mut out = String::new();
     out.push_str(HEADER);
@@ -425,11 +427,22 @@ fn render_tool_schema(value: &Value, title: &str, version: &str) -> Result<Strin
             "//! Schema: {title} v{version}. Per arch v2 section 5.1: Meta-schema for individual tool schemas."
         ),
     )?;
-    out.push_str("\nuse serde::{Deserialize, Serialize};\n\n/// Per v2 section 10 + ADR-0021: risk level drives policy gating.\n#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]\n#[serde(rename_all = \"snake_case\")]\n#[non_exhaustive]\npub enum RiskLevel {\n");
+    out.push_str("\nuse serde::{Deserialize, Serialize};\n\n/// Authoritative side effect declared by a tool definition.\n#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]\n#[serde(rename_all = \"snake_case\")]\n#[non_exhaustive]\npub enum ToolEffect {\n");
+    for effect in &effects {
+        emit_line(&mut out, format_args!("    {},", pascal_case(effect)))?;
+    }
+    out.push_str("}\n\n/// Authoritative reversibility level declared by a tool definition.\n#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]\n#[serde(rename_all = \"snake_case\")]\n#[non_exhaustive]\npub enum ToolReversibility {\n");
+    for reversibility in &reversibility_levels {
+        emit_line(
+            &mut out,
+            format_args!("    {},", pascal_case(reversibility)),
+        )?;
+    }
+    out.push_str("}\n\n/// Per v2 section 10 + ADR-0021: risk level drives policy gating.\n#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]\n#[serde(rename_all = \"snake_case\")]\n#[non_exhaustive]\npub enum RiskLevel {\n");
     for risk_level in &risk_levels {
         emit_line(&mut out, format_args!("    {},", pascal_case(risk_level)))?;
     }
-    out.push_str("}\n\n/// Meta-schema for an individual tool.\n#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]\n#[serde(rename_all = \"snake_case\")]\n#[non_exhaustive]\npub struct ToolSchema {\n    pub version: String,\n    pub name: String,\n    pub description: String,\n    pub input: serde_json::Value,\n    pub output: serde_json::Value,\n    pub risk_level: RiskLevel,\n    #[serde(default)]\n    pub requires_approval: bool,\n    #[serde(default)]\n    pub idempotent: bool,\n    #[serde(default, skip_serializing_if = \"Vec::is_empty\")]\n    pub tags: Vec<String>,\n}\n");
+    out.push_str("}\n\n/// Meta-schema for an individual tool.\n#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]\n#[serde(rename_all = \"snake_case\")]\n#[non_exhaustive]\npub struct ToolSchema {\n    pub version: String,\n    pub name: String,\n    pub description: String,\n    pub input: serde_json::Value,\n    pub output: serde_json::Value,\n    pub effect: ToolEffect,\n    pub reversibility: ToolReversibility,\n    pub risk_level: RiskLevel,\n    #[serde(default)]\n    pub requires_approval: bool,\n    #[serde(default)]\n    pub idempotent: bool,\n    #[serde(default, skip_serializing_if = \"Vec::is_empty\")]\n    pub tags: Vec<String>,\n}\n");
     Ok(out)
 }
 

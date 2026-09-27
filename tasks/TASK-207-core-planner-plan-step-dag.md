@@ -116,6 +116,9 @@ cargo deny check
 - `crates/core/Cargo.toml`：新增白名单内 workspace 依赖 `assistant-task-engine` 与 `assistant-model-gateway`；零第三方新增。
 - `crates/core/README.md`：同步职责、边界、不变量、已知限制与相关卡。
 - `Cargo.lock`：Cargo 为 `assistant-core` 自动追加两条既有 workspace crate 依赖边；无新 package、无版本变化。
+- `protocol/tool-schema/tool-schema-1.0.json`、`crates/protocol/src/generated/tool_schema.rs`、`xtask/src/render.rs`：新增权威 `effect` / `reversibility` 生成类型与校验。
+- `crates/tool-bus/**`：`ToolDefinition::new` 强制声明行为元数据，注册期注解一致性校验与工具集指纹同步。
+- `docs/adr/0055-*.md`、`docs/spec/tool-schema.md`、`docs/spec/core-orchestration.md`：契约与裁决。
 - 本卡记录区、`LEDGER.md`、`PLAN.md` 当前状态块、`README.md` 三处、`plans/stage-1-pilots.md` 完成状态与当前进度块、`docs/memory/facts.md` 新 FACT、`MEMORY.md` 规模表。
 
 ### 3. 验收输出摘要
@@ -140,8 +143,8 @@ cargo deny check
 
 - `cargo fmt --all --check` → PASS。
 - `cargo clippy -p assistant-core --all-targets -- -D warnings` → PASS。
-- `cargo test -p assistant-core` → PASS：Planner 16 tests，arch dependencies 5 tests。
-- `cargo llvm-cov -p assistant-core --fail-under-lines 85` → PASS：TOTAL 行覆盖 **89.03%**。
+- `cargo test -p assistant-core` → PASS：Planner 18 tests，arch dependencies 5 tests。
+- `cargo llvm-cov -p assistant-core --fail-under-lines 85` → PASS：TOTAL 行覆盖 **88.43%**。
 
 ### 4. DoD 逐条核对
 
@@ -150,7 +153,7 @@ cargo deny check
 - [x] 不可解析、缺字段、类型错误、空 steps、tool-call 输出、无 Stop finish 均 fail-closed；不产生空计划。
 - [x] `core` 依赖在 ADR-0053 D2 白名单内；新增 `arch_dependencies.rs` 做机器校验。
 - [x] Planner 测试用注入 `ModelProvider`，零真实 IO / 网络 / 时钟。
-- [x] `assistant-core` 行覆盖 89.03% ≥ 85%。
+- [x] `assistant-core` 行覆盖 88.43% ≥ 85%。
 - [x] 既有测试零改动通过。
 - [x] 14 条验收命令全绿；`hygiene` / `card-check` / `docscan` warning 未新增。
 - [x] §11.1 进度同步已落地。
@@ -158,12 +161,13 @@ cargo deny check
 
 ### 5. 偏差
 
-**DRIFT-207-1（阻塞合并，等待 ADR / 人类裁决）**
+**DRIFT-207-1（已闭环：ADR-0055）**
 
 - 现象：独立 review 发现 Planner 只能校验模型自报的 `effect` / `reversibility` / `point_of_no_return` 内部一致，无法把它们与权威 tool metadata 对照；当前 `ToolSchema` 也没有 `effect` / `reversibility` 字段。模型可把 high/critical 工具标成 read + 可逆来绕过写步骤 postcondition 要求。
 - 影响：本卡声称的“结构与安全形状校验”存在信任边界缺口；完整修复需要扩展公共 ToolSchema 或引入独立工具元数据/策略前置层，属改公共契约（漂移触发器 ③ / ④）。
-- 建议：另立 ADR，决定由 ToolSchema 承载权威 `effect` / `reversibility`，或由装配/策略层在 Planner 后强制覆盖模型自报值；在裁决前 PR 不合并。
-- 已停工作：未修改 `protocol/**`，未猜测风险级到可逆性的映射，未把该问题伪装成已修复。
+- 裁决：人类 2026-09-27「继续」授权立 **ADR-0055** —— ToolSchema 承载权威 `effect` / `reversibility`；Planner 只从已校验工具目录注入，模型输出这两个字段即拒绝。
+- 落地：protocol schema + codegen + `ToolDefinition::new` + 工具集指纹 + Planner prompt/tests + spec 同批更新。
+- 结果：模型不能再通过自报字段降级真实工具行为；写步骤 postcondition 与 L3 `point_of_no_return` 校验基于权威目录事实。
 
 **review 修复（非漂移）**
 
@@ -179,16 +183,16 @@ cargo deny check
 
 ### 7. 遗留问题
 
-- **阻塞：DRIFT-207-1**（权威工具元数据不足，见 §5）。
+- DRIFT-207-1 已由 ADR-0055 闭环；PR #66 等待最终 CI / review / 合并。
 - Planner 按本卡契约直接消费 `ModelProvider`，不承担路由、重试、降级、预算或工具执行；这些仍由 `model-gateway` 与后续装配层负责。
 
 ### 8. 新增长期记忆
 
-`docs/memory/facts.md` 新增：TASK-207 Planner 的公开基线 = 模型只输出 `steps`、调用方持有 plan/task identity、严格 JSON、`Plan::validate()` + 工具目录双重校验、单次 poll 可取消。
+`docs/memory/facts.md` 新增并 supersede：TASK-207 Planner 的公开基线 = 模型只输出意图字段、`effect` / `reversibility` 由 ToolSchema 权威目录注入、严格 JSON、`Plan::validate()` + 工具目录双重校验、单次 poll 可取消；`docs/memory/decisions.md` 登记 ADR-0055。
 
 ### 9. 给审阅者的关注点
 
 1. 最该审的是严格输出契约：顶层只接受单一 `steps` 字段，不做 Markdown / 缺字段修复；这符合 fail-closed，但要求 Provider 忠实遵守 JSON 请求。
 2. `UnknownPlannerTool` 在 `Plan::validate()` 之后检查，因此非法语法与目录外工具是两个不同错误；确认这是期望分层。
 3. `Planner` 直接消费 `ModelProvider`，因此不继承 `ModelGateway` 的 retry/fallback；确认这与 ADR-0053 D2 的本卡边界一致。
-4. **阻塞点**：权威 `effect` / `reversibility` 元数据缺失，必须先裁决 DRIFT-207-1；当前 PR 不应合并。
+4. ToolSchema 现在要求 `effect` / `reversibility`，请确认破坏性 pre-freeze 变更的边界说明（ADR-0055 D6）可接受。

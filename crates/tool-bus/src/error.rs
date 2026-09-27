@@ -68,6 +68,19 @@ pub enum ToolBusError {
         required: String,
     },
 
+    /// `effect` / `reversibility` 与 MCP 注解推导出的行为冲突。
+    #[error(
+        "tool `{tool}`: behavior={declared} conflicts with its MCP annotations ({required}); see ADR-0055"
+    )]
+    ToolBehaviorMismatch {
+        /// 工具名。
+        tool: String,
+        /// 声明的行为元数据。
+        declared: String,
+        /// 注解要求的行为。
+        required: String,
+    },
+
     /// 调用参数不符合工具 schema。
     #[error("arguments for tool `{tool}` are invalid: {reason}")]
     InvalidArguments {
@@ -182,6 +195,7 @@ impl ToolBusError {
             | Self::InvalidToolName { .. }
             | Self::UnsupportedSchemaKeyword { .. }
             | Self::RiskAnnotationMismatch { .. }
+            | Self::ToolBehaviorMismatch { .. }
             | Self::PayloadTooLarge { .. }
             | Self::UntrustedWithoutSource { .. }
             | Self::SchemaAssembly { .. }

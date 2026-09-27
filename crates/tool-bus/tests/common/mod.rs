@@ -11,7 +11,7 @@
 
 use std::sync::Arc;
 
-use assistant_protocol::{ErrorCode, RiskLevel, ToolEnvelope};
+use assistant_protocol::{ErrorCode, RiskLevel, ToolEffect, ToolEnvelope, ToolReversibility};
 use assistant_tool_bus::{
     CallContext, MountSelection, SystemClock, ToolBus, ToolBusConfig, ToolDefinition, ToolHandler,
     ToolOutput, ToolRegistry, ToolsetFingerprint,
@@ -71,6 +71,8 @@ pub fn echo_definition(description: &str) -> ToolDefinition {
         "demo.echo.echo",
         description,
         RiskLevel::Low,
+        ToolEffect::Read,
+        ToolReversibility::L0UndoStack,
         json!({
             "type": "object",
             "properties": { "text": { "type": "string" } },
@@ -100,6 +102,8 @@ pub fn demo_definition(domain: &str, description: &str) -> ToolDefinition {
         format!("demo.{domain}.run"),
         description,
         RiskLevel::Low,
+        ToolEffect::Read,
+        ToolReversibility::L0UndoStack,
         json!({ "type": "object" }),
     )
     .expect("a three-segment name with an object schema must be valid")

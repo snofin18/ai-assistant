@@ -22,7 +22,7 @@
 
 use std::sync::Arc;
 
-use assistant_protocol::{RiskLevel, ToolSchema};
+use assistant_protocol::{RiskLevel, ToolEffect, ToolReversibility, ToolSchema};
 use rmcp::model::{Tool, ToolAnnotations};
 use serde_json::{Map, Value};
 
@@ -62,6 +62,8 @@ impl ToolDefinition {
         name: impl Into<String>,
         description: impl Into<String>,
         risk_level: RiskLevel,
+        effect: ToolEffect,
+        reversibility: ToolReversibility,
         input_schema: Value,
     ) -> ToolBusResult<Self> {
         let name = name.into();
@@ -105,8 +107,19 @@ impl ToolDefinition {
             Value::String(risk_level_token(risk_level).to_owned()),
         );
         schema_value.insert(
+            "effect".to_owned(),
+            Value::String(effect_token(effect).to_owned()),
+        );
+        schema_value.insert(
+            "reversibility".to_owned(),
+            Value::String(reversibility_token(reversibility).to_owned()),
+        );
+        schema_value.insert(
             "requires_approval".to_owned(),
-            Value::Bool(matches!(risk_level, RiskLevel::Critical)),
+            Value::Bool(
+                matches!(risk_level, RiskLevel::Critical)
+                    || reversibility == ToolReversibility::L3Irreversible,
+            ),
         );
         schema_value.insert("idempotent".to_owned(), Value::Bool(false));
 
@@ -119,7 +132,7 @@ impl ToolDefinition {
             })?;
 
         Ok(Self {
-            annotations: derive_annotations(risk_level, schema.idempotent),
+            annotations: derive_annotations(risk_level, effect, schema.idempotent),
             schema,
         })
     }
@@ -149,7 +162,8 @@ impl ToolDefinition {
     /// 「显式注解与幂等声明冲突」留出统一的失败出口，不让调用方在版本升级后被迫改签名。
     pub fn with_idempotent(mut self, idempotent: bool) -> ToolBusResult<Self> {
         self.schema.idempotent = idempotent;
-        self.annotations = derive_annotations(self.schema.risk_level, idempotent);
+        self.annotations =
+            derive_annotations(self.schema.risk_level, self.schema.effect, idempotent);
         Ok(self)
     }
 
@@ -194,6 +208,18 @@ impl ToolDefinition {
     #[must_use]
     pub const fn risk_level(&self) -> RiskLevel {
         self.schema.risk_level
+    }
+
+    /// 权威副作用类型。
+    #[must_use]
+    pub const fn effect(&self) -> ToolEffect {
+        self.schema.effect
+    }
+
+    /// 权威可逆性等级。
+    #[must_use]
+    pub const fn reversibility(&self) -> ToolReversibility {
+        self.schema.reversibility
     }
 
     /// 是否幂等。
@@ -260,6 +286,8 @@ impl ToolDefinition {
             name: &self.schema.name,
             version: &self.schema.version,
             description: &self.schema.description,
+            effect: self.schema.effect,
+            reversibility: self.schema.reversibility,
             risk_level: self.schema.risk_level,
             input: &self.schema.input,
             output: &self.schema.output,
@@ -292,10 +320,17 @@ fn is_name_segment(segment: &str) -> bool {
 ///
 /// 四个 hint **全部显式写出**：MCP 的 `destructiveHint` / `openWorldHint` 在缺省时默认
 /// `true`，留空会让一个只读低风险工具在模型眼里变成「有破坏性、面向开放世界」。
-fn derive_annotations(risk_level: RiskLevel, idempotent: bool) -> ToolAnnotations {
+fn derive_annotations(
+    risk_level: RiskLevel,
+    effect: ToolEffect,
+    idempotent: bool,
+) -> ToolAnnotations {
     ToolAnnotations::new()
-        .read_only(matches!(risk_level, RiskLevel::Low))
-        .destructive(matches!(risk_level, RiskLevel::High | RiskLevel::Critical))
+        .read_only(effect == ToolEffect::Read)
+        .destructive(
+            effect == ToolEffect::Write
+                && matches!(risk_level, RiskLevel::High | RiskLevel::Critical),
+        )
         .idempotent(idempotent)
         .open_world(false)
 }
@@ -320,11 +355,25 @@ fn verify_annotations(schema: &ToolSchema, annotations: &ToolAnnotations) -> Too
             required: "low (readOnlyHint = true)".to_owned(),
         });
     }
+    if read_only && schema.effect != ToolEffect::Read {
+        return Err(ToolBusError::ToolBehaviorMismatch {
+            tool,
+            declared: effect_token(schema.effect).to_owned(),
+            required: "read effect (readOnlyHint = true)".to_owned(),
+        });
+    }
     if destructive && matches!(schema.risk_level, RiskLevel::Low | RiskLevel::Medium) {
         return Err(ToolBusError::RiskAnnotationMismatch {
             tool,
             declared: risk_level_token(schema.risk_level).to_owned(),
             required: "high or higher (destructiveHint = true)".to_owned(),
+        });
+    }
+    if destructive && schema.effect != ToolEffect::Write {
+        return Err(ToolBusError::ToolBehaviorMismatch {
+            tool,
+            declared: effect_token(schema.effect).to_owned(),
+            required: "write effect (destructiveHint = true)".to_owned(),
         });
     }
     if let Some(idempotent_hint) = annotations.idempotent_hint
@@ -352,5 +401,27 @@ pub const fn risk_level_token(risk_level: RiskLevel) -> &'static str {
         // 协议新增风险级时：给一个与任何真实取值都不同的 token，绝不冒充已有级别
         // （`_` 是 `#[non_exhaustive]` 枚举的强制要求，不是「顺手加的兜底」）。
         _ => "unrecognized-risk-level",
+    }
+}
+
+/// 工具副作用 → 稳定 token。
+#[must_use]
+pub const fn effect_token(effect: ToolEffect) -> &'static str {
+    match effect {
+        ToolEffect::Read => "read",
+        ToolEffect::Write => "write",
+        _ => "unrecognized-tool-effect",
+    }
+}
+
+/// 工具可逆性 → 稳定 token。
+#[must_use]
+pub const fn reversibility_token(reversibility: ToolReversibility) -> &'static str {
+    match reversibility {
+        ToolReversibility::L0UndoStack => "l0_undo_stack",
+        ToolReversibility::L1Snapshot => "l1_snapshot",
+        ToolReversibility::L2Compensation => "l2_compensation",
+        ToolReversibility::L3Irreversible => "l3_irreversible",
+        _ => "unrecognized-tool-reversibility",
     }
 }

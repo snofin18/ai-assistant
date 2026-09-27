@@ -21,7 +21,7 @@
 
 use std::sync::Arc;
 
-use assistant_protocol::RiskLevel;
+use assistant_protocol::{RiskLevel, ToolEffect, ToolReversibility};
 use serde_json::{Map, Value};
 
 use crate::error::ToolBusResult;
@@ -134,6 +134,8 @@ pub fn meta_tools(
         META_TOOL_LIST,
         META_TOOL_LIST_DESCRIPTION,
         RiskLevel::Low,
+        ToolEffect::Read,
+        ToolReversibility::L0UndoStack,
         serde_json::json!({
             "type": "object",
             "properties": { "app_id": { "type": "string" } },
@@ -147,6 +149,8 @@ pub fn meta_tools(
         META_TOOL_SEARCH,
         META_TOOL_SEARCH_DESCRIPTION,
         RiskLevel::Low,
+        ToolEffect::Read,
+        ToolReversibility::L0UndoStack,
         serde_json::json!({
             "type": "object",
             "properties": { "query": { "type": "string", "minLength": 1 } },

@@ -95,13 +95,23 @@ impl ModelProvider for FakeProvider {
 }
 
 fn tool(name: &str) -> ToolSchema {
+    tool_with(name, "read", "l0_undo_stack", "low")
+}
+
+fn write_tool(name: &str) -> ToolSchema {
+    tool_with(name, "write", "l1_snapshot", "medium")
+}
+
+fn tool_with(name: &str, effect: &str, reversibility: &str, risk_level: &str) -> ToolSchema {
     serde_json::from_value(json!({
         "version": "1.0",
         "name": name,
         "description": format!("test tool {name}"),
         "input": {"type": "object"},
         "output": {"type": "object"},
-        "risk_level": "low"
+        "effect": effect,
+        "reversibility": reversibility,
+        "risk_level": risk_level
     }))
     .unwrap()
 }
@@ -135,8 +145,6 @@ fn read_step(id: &str, sequence: u32, tool_name: &str, depends_on: &[&str]) -> V
         "args": {},
         "depends_on": depends_on,
         "postconditions": [],
-        "effect": "read",
-        "reversibility": "l0_undo_stack",
         "point_of_no_return": false,
         "timeouts": {
             "resolve_ms": 100,
@@ -151,7 +159,6 @@ fn write_step(
     sequence: u32,
     tool_name: &str,
     depends_on: &[&str],
-    reversibility: &str,
     point_of_no_return: bool,
 ) -> Value {
     json!({
@@ -161,8 +168,6 @@ fn write_step(
         "args": {"text": "hello"},
         "depends_on": depends_on,
         "postconditions": [{"kind": "element_exists"}],
-        "effect": "write",
-        "reversibility": reversibility,
         "point_of_no_return": point_of_no_return,
         "timeouts": {
             "resolve_ms": 100,
@@ -180,8 +185,6 @@ fn write_step_without_postconditions(id: &str, sequence: u32, tool_name: &str) -
         "args": {"text": "hello"},
         "depends_on": [],
         "postconditions": [],
-        "effect": "write",
-        "reversibility": "l1_snapshot",
         "point_of_no_return": false,
         "timeouts": {
             "resolve_ms": 100,
@@ -204,17 +207,10 @@ fn plan_output(steps: &Value) -> String {
 
 #[test]
 fn test_planner_valid_output_produces_task_engine_plan() {
-    let tools = vec![tool("notepad.text.read"), tool("notepad.text.write")];
+    let tools = vec![tool("notepad.text.read"), write_tool("notepad.text.write")];
     let output = plan_output(&json!([
         read_step("s_1", 1, "notepad.text.read", &[]),
-        write_step(
-            "s_2",
-            2,
-            "notepad.text.write",
-            &["s_1"],
-            "l1_snapshot",
-            false,
-        )
+        write_step("s_2", 2, "notepad.text.write", &["s_1"], false,)
     ]));
     let planner = planner_for(&output);
     let plan = planner
@@ -225,6 +221,14 @@ fn test_planner_valid_output_produces_task_engine_plan() {
     assert_eq!(plan.task_id.as_str(), "t_1");
     assert_eq!(plan.goal, "read the document");
     assert_eq!(plan.steps.len(), 2);
+    assert_eq!(
+        plan.steps[1].effect,
+        assistant_task_engine::StepEffect::Write
+    );
+    assert_eq!(
+        plan.steps[1].reversibility,
+        assistant_task_engine::Reversibility::L1Snapshot
+    );
     assert!(plan.validate().is_ok());
 
     let mut engine = TaskEngine::new(MemoryCheckpointStore::new());
@@ -295,7 +299,7 @@ fn test_planner_rejects_invalid_tool_name_syntax() {
         .generate_plan(&request(tools), CancellationToken::new())
         .unwrap_err();
 
-    assert!(matches!(error, CoreError::InvalidPlan { .. }));
+    assert!(matches!(error, CoreError::UnknownPlannerTool { .. }));
 }
 
 #[test]
@@ -311,6 +315,17 @@ fn test_planner_rejects_tool_outside_catalog() {
         error.error_code(),
         assistant_protocol::ErrorCode::ModelInvalidOutput
     );
+}
+
+#[test]
+fn test_planner_rejects_model_supplied_effect_or_reversibility() {
+    let tools = vec![tool("notepad.text.read")];
+    let mut step = read_step("s_1", 1, "notepad.text.read", &[]);
+    step["effect"] = json!("write");
+    let error = planner_for(&plan_output(&json!([step])))
+        .generate_plan(&request(tools), CancellationToken::new())
+        .unwrap_err();
+    assert!(matches!(error, CoreError::InvalidPlannerOutput { .. }));
 }
 
 #[test]
@@ -360,7 +375,7 @@ fn test_planner_rejects_zero_step_timeouts() {
 
 #[test]
 fn test_planner_rejects_write_step_without_postconditions() {
-    let tools = vec![tool("notepad.text.write")];
+    let tools = vec![write_tool("notepad.text.write")];
     let output = plan_output(&json!([write_step_without_postconditions(
         "s_1",
         1,
@@ -375,13 +390,17 @@ fn test_planner_rejects_write_step_without_postconditions() {
 
 #[test]
 fn test_planner_rejects_l3_without_point_of_no_return() {
-    let tools = vec![tool("notepad.text.write")];
+    let tools = vec![tool_with(
+        "notepad.text.write",
+        "write",
+        "l3_irreversible",
+        "high",
+    )];
     let output = plan_output(&json!([write_step(
         "s_1",
         1,
         "notepad.text.write",
         &[],
-        "l3_irreversible",
         false,
     )]));
     let error = planner_for(&output)
@@ -440,7 +459,7 @@ fn test_planner_rejects_tool_call_output() {
 }
 
 #[test]
-fn test_planner_request_rejects_bad_or_duplicate_tool_catalog() {
+fn test_planner_request_rejects_duplicate_catalog_or_empty_goal() {
     let duplicate = vec![tool("notepad.text.read"), tool("notepad.text.read")];
     assert!(
         PlannerRequest::new(
@@ -463,7 +482,10 @@ fn test_planner_request_rejects_bad_or_duplicate_tool_catalog() {
         )
         .is_err()
     );
+}
 
+#[test]
+fn test_planner_request_rejects_bad_tool_catalog_fields() {
     assert!(
         request_with_raw_schema(json!({
             "version": "9.9",
@@ -471,6 +493,8 @@ fn test_planner_request_rejects_bad_or_duplicate_tool_catalog() {
             "description": "bad version",
             "input": {"type": "object"},
             "output": {"type": "object"},
+            "effect": "read",
+            "reversibility": "l0_undo_stack",
             "risk_level": "low"
         }))
         .is_err()
@@ -483,6 +507,8 @@ fn test_planner_request_rejects_bad_or_duplicate_tool_catalog() {
             "description": "bad name",
             "input": {"type": "object"},
             "output": {"type": "object"},
+            "effect": "read",
+            "reversibility": "l0_undo_stack",
             "risk_level": "low"
         }))
         .is_err()
@@ -495,6 +521,8 @@ fn test_planner_request_rejects_bad_or_duplicate_tool_catalog() {
             "description": "bad input",
             "input": "not an object",
             "output": {"type": "object"},
+            "effect": "read",
+            "reversibility": "l0_undo_stack",
             "risk_level": "low"
         }))
         .is_err()
@@ -507,6 +535,8 @@ fn test_planner_request_rejects_bad_or_duplicate_tool_catalog() {
             "description": "critical write",
             "input": {"type": "object"},
             "output": {"type": "object"},
+            "effect": "write",
+            "reversibility": "l3_irreversible",
             "risk_level": "critical",
             "requires_approval": false
         }))
@@ -520,6 +550,8 @@ fn test_planner_request_rejects_bad_or_duplicate_tool_catalog() {
             "description": "bad tag",
             "input": {"type": "object"},
             "output": {"type": "object"},
+            "effect": "read",
+            "reversibility": "l0_undo_stack",
             "risk_level": "low",
             "tags": ["Bad-Tag"]
         }))
