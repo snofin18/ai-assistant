@@ -11,7 +11,15 @@
 
 [workspace]
 resolver = "2"
-members = ["xtask", "crates/protocol", "crates/*", "crates/platform/api", "crates/platform/windows", "apps/*"]
+members = [
+    "xtask",
+    "crates/protocol",
+    "crates/*",
+    "crates/platform/api",
+    "crates/platform/windows",
+    "apps/automation-host",
+    "apps/agent-core",
+]
 exclude = ["spikes", "fixtures/apps", "tools", "crates/platform"]
 
 [workspace.package]

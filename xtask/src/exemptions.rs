@@ -128,17 +128,17 @@ pub fn parse_registry(content: &str) -> Result<ExemptionSet, String> {
             idx += 1;
             continue;
         };
-        let id = id_cell.to_string();
+        let id = strip_code_ticks(id_cell).to_string();
         let Some(rule_cell) = cells.get(1) else {
             idx += 1;
             continue;
         };
-        let rule = rule_cell.to_string();
+        let rule = strip_code_ticks(rule_cell).to_string();
         let Some(loc_cell) = cells.get(2) else {
             idx += 1;
             continue;
         };
-        let loc = loc_cell;
+        let loc = strip_code_ticks(loc_cell);
         let Some(reason_cell) = cells.get(3) else {
             idx += 1;
             continue;
@@ -190,6 +190,12 @@ pub fn parse_registry(content: &str) -> Result<ExemptionSet, String> {
     Ok(set)
 }
 
+/// Registry cells are Markdown table cells; paths and rules are commonly
+/// wrapped in code ticks. Matching must use the literal path/rule value.
+fn strip_code_ticks(value: &str) -> &str {
+    value.trim().trim_matches('`').trim()
+}
+
 /// 读取并解析仓库的豁免清单。
 ///
 /// # Errors
@@ -221,8 +227,8 @@ mod tests {
 \n\
 | ID | 规则 | 位置 | 理由 | 移除触发 |\n\
 |---|---|---|---|---|\n\
-| E-001 | adr/number-range-notation | LEDGER.md:33 | 只追加 | 永不 |\n\
-| E-002 | file/pure-ascii-ps1 | spikes/foo/probe.ps1:42 | test | 一次 |\n\
+| E-001 | adr/number-range-notation | `LEDGER.md:33` | 只追加 | 永不 |\n\
+| E-002 | file/pure-ascii-ps1 | `spikes/foo/probe.ps1:42` | test | 一次 |\n\
 ";
 
     #[test]
