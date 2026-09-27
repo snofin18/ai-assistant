@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-207** `crates/core` Planner 已 Done 并合并 PR #66（merge `78acfed`）：ADR-0055 建立 `effect` / `reversibility` 权威元数据，Planner 不再信任模型自报；独立 review 两轮问题全部闭环，CI 8/8。下一张 **TASK-206**（storage `memory_fts` FTS5）。此前 TASK-028 `core`、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-206** `crates/storage` `memory_fts` 已 Done 并合并 PR #68（merge `6da9007`）：0004 迁移、contentless FTS5、fail-closed 检索与一致性自检全绿；下一张 **TASK-208**（`core` Memory）。此前 TASK-207 Planner、TASK-028 `core` 会话/上下文、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
@@ -70,8 +70,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ## 当前阶段
 
 **阶段 1 — 三试点闭环**（Notepad → Paint → Edge/Chrome；TASK-011 ~ TASK-058）。
-子阶段 1a 已开工：地基层的 `crates/protocol`（schema + codegen）/ `crates/storage`（SQLite WAL + 迁移注册表 + blob）/
-`crates/audit`（append-only hash chain）/ `crates/core`（会话 + 上下文 + Planner；Memory 由 208 续做；storage 侧 FTS5 前置 = TASK-206，DRIFT-206-1 已裁决）/ `crates/secrets`（OS keychain 封装）/
+子阶段 1a 已开工：地基层的 `crates/protocol`（schema + codegen）/ `crates/storage`（SQLite WAL + 迁移注册表 + blob + **TASK-206 `memory_fts` FTS5 检索**）/
+`crates/audit`（append-only hash chain）/ `crates/core`（会话 + 上下文 + Planner；Memory 由 208 续做）/ `crates/secrets`（OS keychain 封装）/
 `xtask` 护栏（`docscan` 4 条结构规则 + `check-ledger` + `check-migrations` + `crates/core` 分层断言）/
 **`crates/platform/api`**（铁律 7 的唯一平台入口：`TargetDescriptor` / `NormalizedPoint` / `Fingerprint` /
 `CapabilityMatrix` + `PlatformService` / `WindowProvider` / `UiAutomationProvider` 三个 trait 形状）/
@@ -156,7 +156,11 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-26：**TASK-207 —— `core` Planner（模型输出 → Plan / Step DAG）**；**TASK-206 DRIFT-206-1 裁决 + ADR-0054**；**DRIFT-028 五点落地 —— ADR-0053**；TASK-028 —— 会话 + 上下文；TASK-027 —— HITL 审批与接管 `crates/hitl`；TASK-026 —— 模型网关 `crates/model-gateway`；TASK-025 —— 目标租约与并发控制 `crates/lease`；TASK-024 —— 撤销与补偿闭环 `crates/undo`；2026-09-25：TASK-023 —— 后置断言引擎 `crates/verify`；TASK-204 —— `crates/tool-bus` draft-07 关键字判据硬化；TASK-022 —— 任务引擎 `crates/task-engine`；TASK-021 —— 唯一策略放行点 `crates/policy`；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+## 最近进展（2026-09-27：**TASK-206 —— `crates/storage` `memory_fts` FTS5 检索**；**TASK-207 —— `core` Planner（模型输出 → Plan / Step DAG）**；TASK-206 DRIFT-206-1 裁决 + ADR-0054；DRIFT-028 五点落地 —— ADR-0053；2026-09-26：TASK-028 —— 会话 + 上下文；TASK-027 —— HITL 审批与接管；TASK-026 —— 模型网关；TASK-025 —— 目标租约与并发控制；TASK-024 —— 撤销与补偿闭环；2026-09-25：TASK-023 —— 后置断言引擎；TASK-204 —— 工具 schema 关键字判据硬化；TASK-022 —— 任务引擎；TASK-021 —— 唯一策略放行点；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+
+**2026-09-27 —— TASK-206 合并完成**
+
+PR #68 以 **merge commit `6da9007`** 合并到 `main`。新增 0004 迁移、contentless FTS5 候选索引、fail-closed 检索 API、来源引用与行缺失/孤儿/完整性自检；storage / audit / task-engine 的真实装配测试与全 workspace 验收全绿。独立 review 先后发现并闭环了未接装配、占位迁移假绿、热路径性能与 tokenizer 语义问题。下一张主线卡为 **TASK-208**。
 
 **2026-09-27 —— TASK-207 独立 review：修复可修项，P1 契约缺口回退为 Review**
 
