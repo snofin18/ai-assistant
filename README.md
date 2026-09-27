@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-030** 审批卡片 + 执行时间线已实现并进入 review：完整 diff / 来源归因 / 授权范围、`app_content` 默认拒绝、L3 二次确认、按可逆性禁用的撤销与证据入口已落地；下一张 **TASK-031 / 032**。此前 TASK-029 Host 装配、TASK-208 Memory、TASK-207 Planner、TASK-206 storage `memory_fts`、TASK-028 会话/上下文、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-030** 审批卡片 + 执行时间线已 Done 并合并 PR #74（merge `4823cfd`）：完整 diff / 来源归因 / 授权范围、`app_content` 默认拒绝、L3 二次确认、按可逆性禁用的撤销与证据入口已闭环；下一张 **TASK-031 / 032**。此前 TASK-029 Host 装配、TASK-208 Memory、TASK-207 Planner、TASK-206 storage `memory_fts`、TASK-028 会话/上下文、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
@@ -159,9 +159,9 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ## 最近进展（2026-09-27：**TASK-208 —— `core` Memory（App Map + FTS5 检索消费）**；**TASK-206 —— `crates/storage` `memory_fts` FTS5 检索**；**TASK-207 —— `core` Planner（模型输出 → Plan / Step DAG）**；TASK-206 DRIFT-206-1 裁决 + ADR-0054；DRIFT-028 五点落地 —— ADR-0053；2026-09-26：TASK-028 —— 会话 + 上下文；TASK-027 —— HITL 审批与接管；TASK-026 —— 模型网关；TASK-025 —— 目标租约与并发控制；TASK-024 —— 撤销与补偿闭环；2026-09-25：TASK-023 —— 后置断言引擎；TASK-204 —— 工具 schema 关键字判据硬化；TASK-022 —— 任务引擎；TASK-021 —— 唯一策略放行点；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
 
-**2026-09-27 —— TASK-030 实现完成，进入 review**
+**2026-09-27 —— TASK-030 合并完成**
 
-新增 `apps/desktop-ui/src/features/approval/**` 与 `.../timeline/**`。审批卡完整覆盖 v2 §10.2，`app_content` 来源默认拒绝，高风险/不可逆范围收敛为 `once`，L3 增加二次确认输入；时间线覆盖 v2 §16.4，并在缺 Anchor、失败状态、不可逆或未接回调时禁用撤销/重放且显示原因。输入先经严格运行时校验，13 个 Node 内置测试覆盖正常、畸形、高风险、来源污染、撤销不可用与不安全证据链接路径；UI typecheck/build 与完整 Rust 门禁全绿。
+PR #74 以 **merge commit `4823cfd`** 合并到 `main`。新增 `apps/desktop-ui/src/features/approval/**` 与 `.../timeline/**`：审批卡完整覆盖 v2 §10.2，`app_content` 来源默认拒绝，高风险/不可逆范围收敛为 `once`，L3 增加二次确认输入；时间线覆盖 v2 §16.4，并在缺 Anchor、失败状态、不可逆或未接回调时禁用撤销/重放且显示原因。输入先经严格运行时校验，13 个 Node 内置测试覆盖正常、畸形、高风险、来源污染、撤销不可用与不安全证据链接路径；UI typecheck/build 与完整 Rust 门禁全绿，独立 review 修复后 16/16 远端 CI 全绿。
 
 **2026-09-27 —— TASK-029 合并完成**
 

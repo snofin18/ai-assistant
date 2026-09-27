@@ -1,6 +1,6 @@
 # TASK-030　UI：审批卡片（含 diff + 来源归因 + 授权范围）+ 执行时间线（含证据与撤销按钮）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**1a**　批次：**A3**
 - 依赖：TASK-029（binary skeleton + desktop-ui shell）
 - 关联：`cross-platform-ai-assistant-architecture-v2.md` §10.2~§10.5 / §16.4、`crates/hitl/README.md`、ADR-0048、`docs/spec/naming.md`、`plans/stage-1-pilots.md` A4
@@ -83,6 +83,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - `cargo clippy --all-targets -- -D warnings` → exit 0。
 - `cargo test --workspace` → 全绿；`xtask` 374 passed，无失败。
 - `xtask hygiene` → 0 error / 4 existing warnings；`memory-counts` / `adr-index` / `refscan` / `docscan` / `card-check` → PASSED。
+- PR #74 的 push run `36327695575` 与 pull_request run `36327698217` 均 16/16 success；merge commit `4823cfd`。
 
 ### 4. DoD 逐条核对
 
@@ -119,3 +120,5 @@ none。没有放宽 lint、没有改测试断言、没有加依赖、没有改�
 3. 核对 copy 注入是否覆盖所有可见文案，尤其是 diff warning、evidence label 与 disabled reason。
 
 独立 review 追加修复：证据与 UI 截图引用现只接受 `evidence://` 内部引用，拒绝 `javascript:` / 外部 URL；时间线拒绝“succeeded + failed verification”的矛盾组合，并补两条负向测试。
+
+最终 merge：PR #74 → `main` 的 `4823cfd`（2026-09-27）。
