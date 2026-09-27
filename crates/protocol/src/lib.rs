@@ -41,7 +41,7 @@ pub use generated::envelope::{
     TruncationReason,
 };
 pub use generated::error_code::{ErrorCategory, ErrorCode, ErrorDefinition};
-pub use generated::tool_schema::{RiskLevel, ToolSchema};
+pub use generated::tool_schema::{RiskLevel, ToolEffect, ToolReversibility, ToolSchema};
 
 /// Re-export `serde_json` for downstream consumers (`audit_event` 的开放字段用得到).
 pub use serde_json;

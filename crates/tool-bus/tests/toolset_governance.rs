@@ -9,13 +9,33 @@
 
 mod common;
 
-use assistant_protocol::ErrorCode;
-use assistant_tool_bus::{CallContext, MountSelection, ToolBus, ToolBusConfig, ToolRegistry};
+use assistant_protocol::{ErrorCode, RiskLevel, ToolEffect, ToolReversibility};
+use assistant_tool_bus::{
+    CallContext, MountSelection, ToolBus, ToolBusConfig, ToolBusError, ToolDefinition, ToolRegistry,
+};
 use common::{
     arguments, assert_rejected, clock, demo_definition, echo_definition, echo_handler,
     listed_names, mount_fingerprint, payload, register,
 };
+use rmcp::model::ToolAnnotations;
 use serde_json::{Value, json};
+
+fn behavior_definition(
+    name: &str,
+    risk_level: RiskLevel,
+    effect: ToolEffect,
+    reversibility: ToolReversibility,
+) -> ToolDefinition {
+    ToolDefinition::new(
+        name,
+        "行为元数据测试工具",
+        risk_level,
+        effect,
+        reversibility,
+        json!({ "type": "object" }),
+    )
+    .expect("the behavior definition must be valid")
+}
 
 /// 不变量 4：同集合不同插入顺序 → 同指纹；描述变化 / 增删工具 → 指纹变化。
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -97,6 +117,116 @@ async fn test_toolset_fingerprint_is_order_independent_and_change_sensitive() {
         echo_handler(),
     );
     assert_eq!(forward, mount_fingerprint(repeated).await);
+}
+
+#[test]
+fn test_high_risk_read_annotations_round_trip_consistently() {
+    let definition = behavior_definition(
+        "demo.app.read",
+        RiskLevel::High,
+        ToolEffect::Read,
+        ToolReversibility::L0UndoStack,
+    );
+    let annotations = definition.annotations().clone();
+    let rebound = definition
+        .with_annotations(annotations)
+        .expect("authoritative high-risk read annotations must round-trip");
+    assert_eq!(rebound.effect(), ToolEffect::Read);
+    assert_eq!(rebound.risk_level(), RiskLevel::High);
+}
+
+#[test]
+fn test_annotations_must_match_derived_behavior_exactly() {
+    let definition = || {
+        behavior_definition(
+            "demo.app.read",
+            RiskLevel::Low,
+            ToolEffect::Read,
+            ToolReversibility::L0UndoStack,
+        )
+    };
+    let mismatch = ToolAnnotations::new()
+        .read_only(false)
+        .destructive(false)
+        .idempotent(false)
+        .open_world(false);
+    assert!(matches!(
+        definition().with_annotations(mismatch),
+        Err(ToolBusError::ToolBehaviorMismatch { .. })
+    ));
+
+    assert!(matches!(
+        definition().with_annotations(ToolAnnotations::new()),
+        Err(ToolBusError::ToolBehaviorMismatch { .. })
+    ));
+
+    for annotations in [
+        ToolAnnotations::new()
+            .read_only(true)
+            .destructive(true)
+            .idempotent(false)
+            .open_world(false),
+        ToolAnnotations::new()
+            .read_only(true)
+            .destructive(false)
+            .idempotent(true)
+            .open_world(false),
+        ToolAnnotations::new()
+            .read_only(true)
+            .destructive(false)
+            .idempotent(false)
+            .open_world(true),
+    ] {
+        assert!(matches!(
+            definition().with_annotations(annotations),
+            Err(ToolBusError::ToolBehaviorMismatch { .. })
+        ));
+    }
+}
+
+#[test]
+fn test_l3_requires_approval_cannot_be_disabled() {
+    let definition = behavior_definition(
+        "demo.app.delete",
+        RiskLevel::High,
+        ToolEffect::Write,
+        ToolReversibility::L3Irreversible,
+    );
+    assert!(definition.schema().requires_approval);
+    assert!(matches!(
+        definition.with_requires_approval(false),
+        Err(ToolBusError::ToolBehaviorMismatch { .. })
+    ));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn test_fingerprint_changes_with_authoritative_behavior_metadata() {
+    let mut read_registry = ToolRegistry::new();
+    register(
+        &mut read_registry,
+        behavior_definition(
+            "demo.app.read",
+            RiskLevel::Low,
+            ToolEffect::Read,
+            ToolReversibility::L0UndoStack,
+        ),
+        echo_handler(),
+    );
+    let read_fingerprint = mount_fingerprint(read_registry).await;
+
+    let mut write_registry = ToolRegistry::new();
+    register(
+        &mut write_registry,
+        behavior_definition(
+            "demo.app.read",
+            RiskLevel::Low,
+            ToolEffect::Write,
+            ToolReversibility::L1Snapshot,
+        ),
+        echo_handler(),
+    );
+    let write_fingerprint = mount_fingerprint(write_registry).await;
+    assert_ne!(read_fingerprint, write_fingerprint);
 }
 
 /// 不变量 5 / 铁律 1：挂载 > 40 个工具必须留下**结构化**告警 + 审计事件（不是一行日志）。

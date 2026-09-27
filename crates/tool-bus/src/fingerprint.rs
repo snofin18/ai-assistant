@@ -5,8 +5,9 @@
 //!
 //! ## 指纹的组成（**改这条 = 改契约**）
 //!
-//! 对每个挂载的工具，取 `name` / `schema.version` / `description` / `risk_level` /
-//! 规范化后的 `input` / 规范化后的 `output`；按 `name` 升序排成数组后做 SHA-256。
+//! 对每个挂载的工具，取 `name` / `schema.version` / `description` / `effect` /
+//! `reversibility` / `risk_level` / 规范化后的 `input` / 规范化后的 `output`；
+//! 按 `name` 升序排成数组后做 SHA-256。
 //!
 //! - **为什么带 `description`**：描述是模型看到的指令性文本（架构 v2 §5.2 要求给模型看
 //!   的说明单独写），改了描述 = 模型看到的东西变了 → 指纹必须变。
@@ -18,7 +19,7 @@
 //!
 //! 相关：架构 v2 §5.5 第 4 条、`docs/spec/audit-event.md` §4（hash 口径）、ADR-0040。
 
-use assistant_protocol::RiskLevel;
+use assistant_protocol::{RiskLevel, ToolEffect, ToolReversibility};
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 
@@ -53,7 +54,10 @@ pub struct FingerprintEntry<'a> {
     pub(crate) name: &'a str,
     pub(crate) version: &'a str,
     pub(crate) description: &'a str,
+    pub(crate) effect: ToolEffect,
+    pub(crate) reversibility: ToolReversibility,
     pub(crate) risk_level: RiskLevel,
+    pub(crate) requires_approval: bool,
     pub(crate) input: &'a Value,
     pub(crate) output: &'a Value,
 }
@@ -93,12 +97,44 @@ fn entry_to_value(entry: &FingerprintEntry<'_>) -> Value {
         Value::String(entry.description.to_owned()),
     );
     object.insert(
+        "effect".to_owned(),
+        Value::String(tool_effect_token(entry.effect).to_owned()),
+    );
+    object.insert(
+        "reversibility".to_owned(),
+        Value::String(tool_reversibility_token(entry.reversibility).to_owned()),
+    );
+    object.insert(
         "risk_level".to_owned(),
         Value::String(risk_level_token(entry.risk_level).to_owned()),
+    );
+    object.insert(
+        "requires_approval".to_owned(),
+        Value::Bool(entry.requires_approval),
     );
     object.insert("input".to_owned(), canonicalize(entry.input));
     object.insert("output".to_owned(), canonicalize(entry.output));
     Value::Object(object)
+}
+
+/// `effect` → 稳定 token。
+const fn tool_effect_token(effect: ToolEffect) -> &'static str {
+    match effect {
+        ToolEffect::Read => "read",
+        ToolEffect::Write => "write",
+        _ => "unrecognized-tool-effect",
+    }
+}
+
+/// `reversibility` → 稳定 token。
+const fn tool_reversibility_token(reversibility: ToolReversibility) -> &'static str {
+    match reversibility {
+        ToolReversibility::L0UndoStack => "l0_undo_stack",
+        ToolReversibility::L1Snapshot => "l1_snapshot",
+        ToolReversibility::L2Compensation => "l2_compensation",
+        ToolReversibility::L3Irreversible => "l3_irreversible",
+        _ => "unrecognized-tool-reversibility",
+    }
 }
 
 /// 排序键：`name`（上面 `entry_to_value` 保证一定存在；取不到时退化为空串，

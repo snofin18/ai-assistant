@@ -1,7 +1,7 @@
 # spec: Tool/Adapter/审计事件 schema 单一事实源
 
 > 摘要：Tool / Adapter / 审计事件 JSON Schema 规范。本 spec 是本项目**契约层**的一部分，由 ADR 批准后即作为 xtask 卡实施 + CI 机器校验的权威。
-> 状态：Draft（待 ADR 批准）　版本：0.2　日期：2026-09-25
+> 状态：Draft（ADR-0055 已批准本次字段变更）　版本：0.3　日期：2026-09-27
 > 上位：`AGENTS.md` §5、`docs/governance-ai-agent-execution.md` §5/§6
 > 强制性：**本文档是契约**。违反即 CI 失败（`xtask` 相关子命令）或 Reviewer 拒绝合并。
 > 变更门槛：新增字段或修改类型 → 需 ADR。
@@ -36,6 +36,8 @@ struct ToolSchema {
     inputs: JsonSchema,      // 输入 JSON Schema
     outputs: JsonSchema,     // 输出 JSON Schema
     postconditions: Vec<Postcondition>,  // 来自 docs/spec/error-codes.md 的 ErrorCode 列表
+    effect: read | write,    // 权威行为元数据
+    reversibility: l0_undo_stack | l1_snapshot | l2_compensation | l3_irreversible,
     risk_class: RiskClass,    // L1 / L2 / L3 / L4
 }
 
@@ -79,6 +81,9 @@ struct AuditEventSchema {
    draft-07 = 放行，声明**其它方言 = 拒绝**（不许用 draft-07 的语义冒充 2020-12 的文档）。
    依据：**TASK-204**（人类 chat 2026-09-25 授权）；理由与替代见 `crates/tool-bus/README.md`
    「已知限制」与 `docs/memory/rejected.md` 2026-09-25 各条。
+9. **行为元数据权威**：`effect` / `reversibility` 是 ToolSchema 必填字段，只能由工具作者声明。
+   Planner 不得采用模型自报的这两个字段；模型输出若包含它们必须拒绝，并由 Planner 从工具目录注入。
+   依据：**ADR-0055**、TASK-207 独立 review、`DRIFT-207-1`。
 
 ---
 
@@ -102,3 +107,4 @@ struct AuditEventSchema {
 |---|---|---|
 | 0.1 | 2026-09-20 | 初稿（项目进度督察后批量补齐 stage-0 DoD #5）|
 | 0.2 | 2026-09-25 | §4 新增**不变量 8**（校验关键字白名单 + `$schema` 方言校验 + 「不支持即拒绝」的显式化）；依据 **TASK-204**（TASK-020 §9 关注点 3 的落地物）|
+| 0.3 | 2026-09-27 | §3 增加权威 `effect` / `reversibility`，§4 增加不变量 9；依据 **ADR-0055**，关闭 TASK-207 `DRIFT-207-1` |

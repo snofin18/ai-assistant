@@ -2,7 +2,8 @@
 
 Core orchestration components from architecture v2 section 11. TASK-028
 implements session lifecycle, message trees, context selection, trimming,
-compression, and token budgeting.
+compression, and token budgeting. TASK-207 adds model-output planning into the
+task-engine Plan contract.
 
 ## Responsibilities
 
@@ -16,6 +17,9 @@ compression, and token budgeting.
 - Replace older history with an injected structured summary when compression
   is required.
 - Fail closed when required context or a summary cannot fit.
+- Convert one injected `ModelProvider` response into a validated
+  `assistant-task-engine::Plan`.
+- Reject malformed JSON, invalid DAGs, and tools absent from the catalog.
 
 ## Boundaries
 
@@ -25,7 +29,9 @@ compression, and token budgeting.
 - **No platform API calls.** The architecture test rejects platform
   implementation references and dependencies.
 - **No policy decisions or tool execution.**
-- **No Planner or Memory.** Those remain TASK-207 and TASK-208.
+- **No model routing, retries, or fallbacks.** Planner consumes the supplied
+  provider directly; routing remains a model-gateway concern.
+- **No Memory.** App Map loading and retrieval remain TASK-208.
 - **No system clock, random source, UUID library, filesystem, or network.**
   Time, ids, content, and persistence are supplied by the caller.
 - **No model prompt policy.** The compressor is an injected strategy and may
@@ -45,6 +51,9 @@ compression, and token budgeting.
 7. Compression failure or summary/source mismatch returns a typed error; it
    never degrades into silent history loss.
 8. `used_tokens` never exceeds `available_tokens`.
+9. Planner never repairs malformed model output and always validates the
+   resulting Plan with `Plan::validate`.
+10. Every planned step uses a tool present in the caller-supplied catalog.
 
 ## Typical Use
 
@@ -114,6 +123,11 @@ Core.
   token counting and compressor prompts remain assembly/provider concerns.
 - Compression operates on one contiguous older suffix of the selected branch.
   More sophisticated summarization windows require a later contract change.
+- Planner intentionally requires exact JSON with a single `steps` field. It
+  does not repair Markdown fences, missing fields, or provider-specific tool
+  call payloads.
+- Planner callers supply plan/task identity and budget; model output controls
+  only the Step DAG shape.
 - Session deletion is leaf-only; branch deletion and tombstone semantics are
   not defined by TASK-028.
 - The crate does not persist audit events for context omissions. Callers can
@@ -127,3 +141,4 @@ Core.
 - `cross-platform-ai-assistant-architecture-v2.md` sections 7.1, 7.2, 11.3,
   and 15.
 - `tasks/TASK-028-core-session-context.md`
+- `tasks/TASK-207-core-planner-plan-step-dag.md`

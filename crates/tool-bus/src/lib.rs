@@ -37,7 +37,7 @@
 //! # async fn demo() -> Result<(), assistant_tool_bus::ToolBusError> {
 //! use std::sync::Arc;
 //!
-//! use assistant_protocol::RiskLevel;
+//! use assistant_protocol::{RiskLevel, ToolEffect, ToolReversibility};
 //! use assistant_tool_bus::{
 //!     CallContext, MountSelection, SystemClock, ToolBus, ToolBusConfig, ToolDefinition,
 //!     ToolHandler, ToolOutput, ToolRegistry,
@@ -60,6 +60,8 @@
 //!     "demo.echo.echo",
 //!     "把入参原样返回（示例工具）",
 //!     RiskLevel::Low,
+//!     ToolEffect::Read,
+//!     ToolReversibility::L0UndoStack,
 //!     serde_json::json!({ "type": "object" }),
 //! )?;
 //! registry.register(definition, Arc::new(Echo))?;

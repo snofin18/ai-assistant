@@ -13,7 +13,9 @@ mod common;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use assistant_protocol::{ErrorCode, RiskLevel, SourceKind, TruncationReason};
+use assistant_protocol::{
+    ErrorCode, RiskLevel, SourceKind, ToolEffect, ToolReversibility, TruncationReason,
+};
 use assistant_tool_bus::{
     CallContext, MountSelection, SourceDescriptor, ToolBus, ToolBusConfig, ToolDefinition,
     ToolHandler, ToolOutput, ToolRegistry,
@@ -93,6 +95,8 @@ async fn test_envelope_marks_untrusted_content_with_source() {
         "demo.app.read_text",
         "读取目标应用里的正文（测试用）",
         RiskLevel::Low,
+        ToolEffect::Read,
+        ToolReversibility::L0UndoStack,
         json!({ "type": "object", "additionalProperties": false }),
     )
     .expect("the reader definition must be valid");
@@ -239,6 +243,8 @@ async fn test_oversized_payload_is_truncated_not_silently_dropped() {
         "demo.echo.big",
         "返回一个大载荷（测试用）",
         RiskLevel::Low,
+        ToolEffect::Read,
+        ToolReversibility::L0UndoStack,
         json!({ "type": "object", "additionalProperties": false }),
     )
     .expect("the big-payload definition must be valid");
@@ -309,6 +315,8 @@ async fn test_untruncatable_payload_fails_closed() {
         "demo.echo.numbers",
         "返回一个没有字符串叶子的载荷（测试用）",
         RiskLevel::Low,
+        ToolEffect::Read,
+        ToolReversibility::L0UndoStack,
         json!({ "type": "object", "additionalProperties": false }),
     )
     .expect("the numbers definition must be valid");

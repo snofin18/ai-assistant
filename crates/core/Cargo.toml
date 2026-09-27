@@ -1,6 +1,6 @@
 [package]
 name = "assistant-core"
-description = "Core orchestration layer: session/context management, planner, memory assembly (skeleton only, TASK-201)."
+description = "Core orchestration components: sessions, context, planning, and memory retrieval."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -12,6 +12,18 @@ publish.workspace = true
 # the public Core error contract; no third-party dependency is introduced.
 [dependencies.assistant-protocol]
 path = "../protocol"
+version = "0.1.0"
+
+[dependencies.assistant-task-engine]
+# Workspace dependency. Planner reuses the task-engine Plan and Step DAG
+# contract instead of defining a second plan representation.
+path = "../task-engine"
+version = "0.1.0"
+
+[dependencies.assistant-model-gateway]
+# Workspace dependency. Planner consumes the provider trait and normalized
+# completion events; routing, retry, and concrete providers remain outside Core.
+path = "../model-gateway"
 version = "0.1.0"
 
 [lints]

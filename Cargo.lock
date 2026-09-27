@@ -64,7 +64,9 @@ dependencies = [
 name = "assistant-core"
 version = "0.1.0"
 dependencies = [
+ "assistant-model-gateway",
  "assistant-protocol",
+ "assistant-task-engine",
 ]
 
 [[package]]

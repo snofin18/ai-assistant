@@ -38,7 +38,7 @@
 |---|---|---|---|---|---|
 | **会话** | 会话生命周期（创建 / 恢复 / 结束）+ 消息树 | 用户消息、工具信封、时间源 | 会话快照、消息节点 | 经 `assistant-storage` 的公开 API | 不持有 SQLite 连接；不写审计表 |
 | **上下文** | 树裁剪 / 压缩 / 预算 | 会话快照 + 预算 + 模型用量 | 送给模型的上下文片段（含被裁剪 / 被压缩的**显式标记**） | 无（纯计算 + 可选缓存） | 不静默丢消息；裁剪必须留下可审计的理由 |
-| **Planner** | 模型输出 → 可校验的 Plan / Step DAG | `ModelProvider` 的补全结果 + 工具目录（`protocol::ToolSchema` **参数传入**） | `task-engine` 的 `Plan` / `PlanStep` | 无（Plan 的持久化归 `task-engine`） | 不重新定义 `Plan` / `Step`；不放行任何工具 |
+| **Planner** | 模型输出 → 可校验的 Plan / Step DAG | `ModelProvider` 的补全结果 + 工具目录（`protocol::ToolSchema` **参数传入**） | `task-engine` 的 `Plan` / `PlanStep` | 无（Plan 的持久化归 `task-engine`） | 不重新定义 `Plan` / `Step`；不放行任何工具；`effect` / `reversibility` 只从 ToolSchema 注入，模型自报即拒绝（ADR-0055） |
 | **Memory** | App Map 加载 + 检索 | App Map 文件、检索查询 | 按需片段（含来源与置信信息） | 检索走 `assistant-storage` 的检索 API | 不做向量检索（阶段 1 Out of scope）；不把 App Map 内容当可信输入 |
 
 ## 4. 不变量
