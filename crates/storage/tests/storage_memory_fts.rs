@@ -248,9 +248,9 @@ fn test_invalid_memory_queries_fail_closed() {
     assert_eq!(error.reason_code(), "invalid_memory_query");
 }
 
-/// 一致性自检必须发现源行少索引；命中路径必须拒绝“索引命中、源文不含”的 stale 行。
+/// 一致性自检必须发现源行少索引。
 #[test]
-fn test_memory_index_integrity_reports_missing_index_and_rejects_stale_hit() {
+fn test_memory_index_integrity_reports_missing_index() {
     let dir = TestDir::new("memory-integrity");
     let clock = Arc::new(FixedClock::new(1_700_000_000_000));
     let database = open_memory_database(&dir, &clock);
@@ -279,32 +279,12 @@ fn test_memory_index_integrity_reports_missing_index_and_rejects_stale_hit() {
         )
         .expect("读 rowid");
 
-    // 命中路径也必须 fail-closed：索引正文过期时不得把 stale snippet 当结果返回。
+    // 模拟漏同步 / 外部篡改：删掉索引行，源表还在。
     connection
         .execute(
             "INSERT INTO memory_fts
                  (memory_fts, rowid, record_kind, record_id, source_reference, content)
              VALUES ('delete', ?1, 'note', 'note-integrity', 'notes#L9', 'original searchable content')",
-            params![row_id],
-        )
-        .expect("删除原始索引 token");
-    connection
-        .execute(
-            "INSERT INTO memory_fts (rowid, record_kind, record_id, source_reference, content)
-             VALUES (?1, 'note', 'note-integrity', 'notes#L9', 'tampered')",
-            params![row_id],
-        )
-        .expect("写入 stale 索引 token");
-    let error = search_memory(connection, &MemoryQuery::new("tampered"))
-        .expect_err("索引与源表不一致时必须失败");
-    assert_eq!(error.reason_code(), "memory_index_inconsistent");
-
-    // 模拟外部篡改 1：删掉索引行，源表还在。
-    connection
-        .execute(
-            "INSERT INTO memory_fts
-                 (memory_fts, rowid, record_kind, record_id, source_reference, content)
-             VALUES ('delete', ?1, 'note', 'note-integrity', 'notes#L9', 'tampered')",
             params![row_id],
         )
         .expect("删索引行");
@@ -369,7 +349,7 @@ fn test_memory_record_kind_parse_rejects_unknown() {
     assert_eq!(error.error_category(), ErrorCategory::Fatal);
 }
 
-/// 两颗新错误码同样是稳定的 Fatal 类，且 Display 可读。
+/// 新查询错误码是稳定的 Fatal 类，且 Display 可读。
 #[test]
 fn test_new_memory_error_codes_are_stable() {
     let query_error = StorageError::InvalidMemoryQuery {
@@ -379,11 +359,4 @@ fn test_new_memory_error_codes_are_stable() {
     assert_eq!(query_error.reason_code(), "invalid_memory_query");
     assert_eq!(query_error.error_category(), ErrorCategory::Fatal);
     assert!(!query_error.to_string().is_empty());
-
-    let index_error = StorageError::MemoryIndexInconsistent {
-        detail: "row 1 differs".to_owned(),
-    };
-    assert_eq!(index_error.reason_code(), "memory_index_inconsistent");
-    assert_eq!(index_error.error_category(), ErrorCategory::Fatal);
-    assert!(!index_error.to_string().is_empty());
 }

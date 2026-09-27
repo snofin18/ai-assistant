@@ -96,11 +96,6 @@ pub enum StorageError {
         /// 说明。
         detail: String,
     },
-    /// `memory_records` 与 `memory_fts` 不一致。
-    MemoryIndexInconsistent {
-        /// 差异说明。
-        detail: String,
-    },
     /// `blob_id` 不是 64 位小写 hex 的 sha256。
     InvalidBlobId {
         /// 调用方给的原值。
@@ -128,7 +123,6 @@ impl StorageError {
             Self::BlobUnknown { .. } => "blob_unknown",
             Self::InvalidArgument { .. } => "invalid_argument",
             Self::InvalidMemoryQuery { .. } => "invalid_memory_query",
-            Self::MemoryIndexInconsistent { .. } => "memory_index_inconsistent",
             Self::InvalidBlobId { .. } => "invalid_blob_id",
             Self::Compression { .. } => "compression",
         }
@@ -152,7 +146,6 @@ impl StorageError {
             | Self::BlobUnknown { .. }
             | Self::InvalidArgument { .. }
             | Self::InvalidMemoryQuery { .. }
-            | Self::MemoryIndexInconsistent { .. }
             | Self::InvalidBlobId { .. }
             | Self::Compression { .. } => ErrorCategory::Fatal,
         }
@@ -216,9 +209,6 @@ impl fmt::Display for StorageError {
             }
             Self::InvalidMemoryQuery { field, detail } => {
                 write!(f, "记忆检索查询 {field} 非法：{detail}")
-            }
-            Self::MemoryIndexInconsistent { detail } => {
-                write!(f, "memory_records 与 memory_fts 不一致：{detail}")
             }
             Self::InvalidBlobId { value } => {
                 write!(f, "blob_id 非法：{value:?}（要求 64 位小写 hex 的 sha256）")

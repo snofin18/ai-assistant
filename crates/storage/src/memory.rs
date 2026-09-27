@@ -11,8 +11,8 @@
 //!   * 不把查询文本当 FTS5 语法执行：所有用户词项都会转义为字面量，未知语法 fail-closed。
 //!
 //! 不变量：
-//!   1. `memory_fts` 是 contentless 候选索引；每个候选必须再由源正文逐词复核，索引命中而
-//!      源文不含时返回 [`StorageError::MemoryIndexInconsistent`]，不能返回 stale 结果。
+//!   1. `memory_fts` 是 contentless 候选索引，正文只存于 `memory_records`；三个触发器保证
+//!      INSERT / UPDATE / DELETE 同事务同步，[`verify_memory_index`] 负责发现行缺失与孤儿。
 //!   2. 检索结果携带 `record_kind` / `record_id` / `source_reference`；调用方因此能追溯
 //!      到原始记录，而不是只拿到一段不可信文本。
 //!   3. 空查询、超长查询、无字母/数字的词项与超限 limit 都返回带稳定 `reason_code()` 的
@@ -20,10 +20,7 @@
 //!
 //! 相关：`docs/storage-design.md` §3.4 / §4 / §8、架构 v2 §15.1、TASK-206。
 
-use std::fmt::Write as _;
-
-use rusqlite::types::Value;
-use rusqlite::{Connection, params, params_from_iter};
+use rusqlite::{Connection, params};
 
 use crate::error::{StorageError, StorageResult};
 
@@ -178,6 +175,11 @@ pub enum MemoryIndexIssueKind {
     SourceRowMissingFromIndex,
     /// FTS 行存在，但对应源记录不存在。
     IndexRowMissingFromSource,
+    /// FTS5 自身的一致性检查失败（索引结构损坏等）。
+    IndexIntegrityCheckFailed {
+        /// SQLite/FTS5 返回的说明。
+        detail: String,
+    },
 }
 
 /// 写入一条记忆记录；0004 的触发器会在同一事务中同步 `memory_fts`。
@@ -230,49 +232,48 @@ pub fn delete_memory_record(
 ///
 /// # Errors
 /// - [`StorageError::InvalidMemoryQuery`]：空查询 / 超长 / 无字母数字词项 / limit 非法
-/// - [`StorageError::MemoryIndexInconsistent`]：命中的索引行与源表快照不一致，或记录类型无法解析
+/// - [`StorageError::InvalidArgument`]：库里出现无法解析的记录类型
 /// - [`StorageError::Sqlite`]：底层查询失败
 pub fn search_memory(
     connection: &Connection,
     query: &MemoryQuery,
 ) -> StorageResult<Vec<MemorySearchResult>> {
-    let validated = validate_query(query)?;
+    let match_expression = build_match_expression(query)?;
     let limit = i64::try_from(query.limit).map_err(|error| StorageError::InvalidMemoryQuery {
         field: "limit",
         detail: format!("无法转换为 SQLite 整数：{error}"),
     })?;
     let kind = query.kind.map(MemoryRecordKind::as_str);
 
-    let (sql, values) = build_search_statement(&validated, kind, limit)?;
-
-    let mut statement = connection.prepare(&sql)?;
-    let rows = statement.query_map(params_from_iter(values), |row| {
+    let mut statement = connection.prepare(
+        "SELECT m.record_kind, m.record_id, m.source_reference,
+                substr(m.content, 1, 160),
+                bm25(memory_fts)
+         FROM memory_fts
+         JOIN memory_records AS m ON m.id = memory_fts.rowid
+         WHERE memory_fts MATCH ?1
+           AND (?2 IS NULL OR m.record_kind = ?2)
+         ORDER BY bm25(memory_fts), m.record_kind, m.record_id
+         LIMIT ?3",
+    )?;
+    let rows = statement.query_map(params![match_expression, kind, limit], |row| {
         Ok(SearchRow {
-            row_id: row.get(0)?,
-            record_kind: row.get(1)?,
-            record_id: row.get(2)?,
-            source_reference: row.get(3)?,
-            snippet: row.get(4)?,
-            source_matches: row.get(5)?,
-            score: row.get(6)?,
+            record_kind: row.get(0)?,
+            record_id: row.get(1)?,
+            source_reference: row.get(2)?,
+            snippet: row.get(3)?,
+            score: row.get(4)?,
         })
     })?;
 
     let mut results = Vec::new();
     for row in rows {
         let row = row?;
-        if !row.source_matches {
-            return Err(StorageError::MemoryIndexInconsistent {
-                detail: format!(
-                    "memory_fts rowid {} 命中查询，但源正文不包含全部查询词项",
-                    row.row_id
-                ),
-            });
-        }
         let record_kind = MemoryRecordKind::parse(&row.record_kind).map_err(|error| {
-            StorageError::MemoryIndexInconsistent {
+            StorageError::InvalidArgument {
+                field: "record_kind",
                 detail: format!(
-                    "memory_fts 行包含未知 record_kind {:?}: {}",
+                    "库里的 record_kind {:?} 无法解析：{}",
                     row.record_kind,
                     error.reason_code()
                 ),
@@ -289,61 +290,12 @@ pub fn search_memory(
     Ok(results)
 }
 
-fn build_search_statement(
-    validated: &ValidatedQuery,
-    kind: Option<&str>,
-    limit: i64,
-) -> StorageResult<(String, Vec<Value>)> {
-    let mut sql = String::from(
-        "SELECT memory_fts.rowid, m.record_kind, m.record_id, m.source_reference,
-                substr(m.content, 1, 160),
-                CASE WHEN ",
-    );
-    for (offset, _) in validated.terms.iter().enumerate() {
-        if offset > 0 {
-            sql.push_str(" AND ");
-        }
-        write!(sql, "instr(lower(m.content), lower(?{})) > 0", offset + 3).map_err(|error| {
-            StorageError::InvalidMemoryQuery {
-                field: "text",
-                detail: format!("构造查询失败：{error}"),
-            }
-        })?;
-    }
-    let limit_placeholder = validated.terms.len() + 3;
-    write!(
-        sql,
-        " THEN 1 ELSE 0 END AS source_matches, bm25(memory_fts)
-         FROM memory_fts
-         JOIN memory_records AS m ON m.id = memory_fts.rowid
-         WHERE memory_fts MATCH ?1
-           AND (?2 IS NULL OR m.record_kind = ?2)
-         ORDER BY bm25(memory_fts), m.record_kind, m.record_id
-         LIMIT ?{limit_placeholder}"
-    )
-    .map_err(|error| StorageError::InvalidMemoryQuery {
-        field: "text",
-        detail: format!("构造查询失败：{error}"),
-    })?;
-
-    let mut values = Vec::with_capacity(validated.terms.len() + 3);
-    values.push(Value::Text(validated.match_expression.clone()));
-    values.push(kind.map_or(Value::Null, |value| Value::Text(value.to_owned())));
-    for term in &validated.terms {
-        values.push(Value::Text(term.clone()));
-    }
-    values.push(Value::Integer(limit));
-    Ok((sql, values))
-}
-
-/// `search_memory` 的原始行快照；`source_matches` 表示 FTS 候选是否被源正文复核通过。
+/// `search_memory` 的原始行快照。
 struct SearchRow {
-    row_id: i64,
     record_kind: String,
     record_id: String,
     source_reference: String,
     snippet: String,
-    source_matches: bool,
     score: f64,
 }
 
@@ -384,6 +336,18 @@ pub fn verify_memory_index(connection: &Connection) -> StorageResult<Vec<MemoryI
         issues.push(MemoryIndexIssue {
             row_id: row?,
             kind: MemoryIndexIssueKind::IndexRowMissingFromSource,
+        });
+    }
+
+    if let Err(error) = connection.execute(
+        "INSERT INTO memory_fts(memory_fts) VALUES('integrity-check')",
+        [],
+    ) {
+        issues.push(MemoryIndexIssue {
+            row_id: 0,
+            kind: MemoryIndexIssueKind::IndexIntegrityCheckFailed {
+                detail: error.to_string(),
+            },
         });
     }
 
@@ -445,12 +409,7 @@ fn validate_record_id(record_id: &str) -> StorageResult<()> {
     Ok(())
 }
 
-struct ValidatedQuery {
-    match_expression: String,
-    terms: Vec<String>,
-}
-
-fn validate_query(query: &MemoryQuery) -> StorageResult<ValidatedQuery> {
+fn build_match_expression(query: &MemoryQuery) -> StorageResult<String> {
     if query.text.trim().is_empty() {
         return Err(StorageError::InvalidMemoryQuery {
             field: "text",
@@ -473,7 +432,6 @@ fn validate_query(query: &MemoryQuery) -> StorageResult<ValidatedQuery> {
         });
     }
 
-    let mut terms = Vec::new();
     let mut match_terms = Vec::new();
     for term in query.text.split_whitespace() {
         if term.chars().any(char::is_control) {
@@ -489,23 +447,19 @@ fn validate_query(query: &MemoryQuery) -> StorageResult<ValidatedQuery> {
             });
         }
         let escaped = term.replace('"', "\"\"");
-        terms.push(term.to_owned());
         match_terms.push(format!("\"{escaped}\""));
-        if terms.len() > MAX_MEMORY_QUERY_TERMS {
+        if match_terms.len() > MAX_MEMORY_QUERY_TERMS {
             return Err(StorageError::InvalidMemoryQuery {
                 field: "text",
                 detail: format!("词项数超过上限 {MAX_MEMORY_QUERY_TERMS}"),
             });
         }
     }
-    if terms.is_empty() {
+    if match_terms.is_empty() {
         return Err(StorageError::InvalidMemoryQuery {
             field: "text",
             detail: "至少需要一个字面量词项".to_owned(),
         });
     }
-    Ok(ValidatedQuery {
-        match_expression: match_terms.join(" AND "),
-        terms,
-    })
+    Ok(match_terms.join(" AND "))
 }
