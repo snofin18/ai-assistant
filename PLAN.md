@@ -7,12 +7,12 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-27（**TASK-029 二进制骨架 / Host 装配已 Done 并合并 PR #72（merge `21e35bc`）**：`apps/agent-core` 唯一装配点、可执行 `--self-check`、泛型平台注入与非 Windows fail-closed、`apps/desktop-ui` Tauri 2 + React/TS/Tailwind 壳、空 capabilities 与无 `unsafe-inline` CSP 已闭环；三平台 CI 全绿。下一张 **TASK-030** UI 审批卡 / 时间线 / 证据面。此前 TASK-208 / 207 / 206 / 028 / 027 / 026 / 025 / 024 / 023 均 Done）
+更新日期    ：2026-09-27（**TASK-030 UI 审批卡 / 时间线已完成并进入 review**：`app_content` 默认拒绝、高风险仅 `once`、L3 二次确认、diff / 来源 / 证据 / 授权范围与按可逆性禁用的撤销入口已落地，11 个零新增依赖专项测试通过；下一张 **TASK-031 / 032**。此前 TASK-029 / 208 / 207 / 206 / 028 / 027 / 026 / 025 / 024 / 023 均 Done）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
-当前任务卡  ：**A3 批次进行中**：TASK-011~028 全 Done；**TASK-207 ✅**（Planner）、**TASK-206 ✅**（storage FTS5）、**TASK-208 ✅**（Memory）与 **TASK-029 ✅**（binary 装配）已 Done → 下一张 **TASK-030** UI 审批卡 / 时间线 / 证据面；
+当前任务卡  ：**A4 批次进行中**：TASK-011~030 全 Done；**TASK-207 ✅**（Planner）、**TASK-206 ✅**（storage FTS5）、**TASK-208 ✅**（Memory）、**TASK-029 ✅**（binary 装配）与 **TASK-030 ✅**（审批/时间线）已 Done → 下一张 **TASK-031 / 032**；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204** 均 Done；**TASK-205** = Ready
 阻塞项      ：① TASK-002 仍 Blocked；② gov §5.1 门禁清单尚未登记 `check-migrations`（PL-056）；③ **PL-092**（storage 缺 conversation/session 公开记录 API）；④ PL-071 / PL-072 / PL-073 / PL-074 / PL-078 / PL-079 / PL-080 / PL-083 / PL-084 / PL-085 待裁决
-下一步动作  ：① **TASK-030**（UI 审批卡 / 时间线 / 证据面）；随后 TASK-031 / 032 与 Notepad Adapter 闭环
+下一步动作  ：① **TASK-031 / 032**（元素拾取器与目标绑定；策略/能力/成本面板）；随后 Notepad Adapter 闭环
                   → 详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 
