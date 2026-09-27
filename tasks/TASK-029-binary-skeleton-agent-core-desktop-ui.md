@@ -1,6 +1,6 @@
 # TASK-029　二进制骨架：`apps/agent-core` + `apps/desktop-ui`（Tauri 2 + React + TS + Tailwind）+ capabilities 最小化 + CSP ＋ **Host 装配**（把 `core` 组件与 platform / tool-bus / policy / storage / audit 组装起来）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**1a**　批次：**A3**　依赖：028 / 206 / 207 / 208　预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -117,6 +117,7 @@ docs/DEPENDENCIES.md、xtask/src/exemptions.rs、docs/adr/0032-doc-rule-exemptio
 - `cargo llvm-cov --workspace --fail-under-lines 75` → PASS，行覆盖 **75.13%**（新增 binary 路径测试后）。
 - `cargo check --manifest-path apps/desktop-ui/src-tauri/Cargo.toml` → PASS。
 - `pnpm typecheck`、`pnpm build` → PASS。
+- PR #72 以 **merge commit `21e35bcb27497abb5b1a23a64136fb0ecfdf5ca0`** 合并到 `main`；push / pull_request 两个三平台 CI run 均 **success**，包含 Ubuntu/macOS/Windows 的 fmt、clippy、test、build、xtask 门禁与 coverage。
 
 ### 4. DoD 逐条核对
 
@@ -131,6 +132,7 @@ docs/DEPENDENCIES.md、xtask/src/exemptions.rs、docs/adr/0032-doc-rule-exemptio
 - [x] Tauri / 前端依赖已登记；根 Cargo member 只新增 `apps/agent-core`。
 - [x] fmt / clippy / workspace tests / xtask 全门禁 / deny 全绿。
 - [x] LEDGER 与长期记忆已同步。
+- [x] PR #72 已合并；远端三平台 CI 全绿。
 ### 5. 偏差
 
 DRIFT-029-1
@@ -172,6 +174,9 @@ Disconnect/Timeout，未先排空心跳。
 处理：仅在 2 s 截止时间内跳过 `WireMessage::Heartbeat`，再断言真实断连；
 未放宽断连判据，也未删除测试。
 
+Closeout：TASK-029 已由 PR #72 / merge `21e35bc` 合并；push 与 pull_request
+两个 CI run 均 success。最终 review 结论：代码层面通过，无剩余阻塞项。
+
 ### 6. 更合理做法
 
 Host 装配采用显式输入 + async `assemble`，把 SQLite/audit 句柄留在 binary 层；
@@ -198,3 +203,4 @@ Tauri 壳独立 workspace，避免根 `cargo test --workspace` 依赖 Linux WebK
 3. `refscan` 修复是否只是豁免遮蔽；本次同时修正了解析器反引号与真实行号漂移。
 4. 豁免清单解析已改为扫描全部表并拒绝格式错误行；确认没有靠静默跳过维持绿灯。
 5. 平台泛型约束与非 Windows fail-closed 是否真正消除了 self-check 假阳性。
+6. 合并后三平台 CI 是否仍全绿；最终 merge commit 为 `21e35bc`。

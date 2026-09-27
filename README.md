@@ -4,14 +4,14 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-208** `crates/core` Memory 已 Done 并合并 PR #70（merge `e8d95f2`）：App Map 加载/校验、按需 projection、canonical provenance 与显式 omission 全绿；下一张 **TASK-029** 装配。此前 TASK-207 Planner、TASK-206 storage `memory_fts`、TASK-028 `core` 会话/上下文、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-029** `apps/agent-core` Host 装配 + `apps/desktop-ui` Tauri 壳已 Done 并合并 PR #72（merge `21e35bc`）：唯一装配点、可执行 `--self-check`、泛型平台注入与非 Windows fail-closed、空 capabilities 与严格 CSP 全绿；下一张 **TASK-030** UI 审批卡 / 时间线 / 证据面。此前 TASK-208 Memory、TASK-207 Planner、TASK-206 storage `memory_fts`、TASK-028 会话/上下文、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
 > TASK-017 的 7 条 DRIFT 已全部裁决落地（**ADR-0043** 元素解析加 scope / **ADR-0044** 歧义策略收敛为唯一
 > `ErrorAndAsk` / **ADR-0045** 非宿主平台编译门禁进 `AGENTS.md` §6；PL-068 / 069 / 070 闭环），
 > 同 crate 的合成输入（`SendInput`）+ 坐标归一化（DPI / 多屏）+ IME 也已落地（TASK-018 —— 铁律 5 的 **L4** 层；
-> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））、**`crates/policy`**（TASK-021：唯一放行点 / 默认拒绝 / deny 优先 / DSL v0 / 参数护栏）、**`crates/undo`**（TASK-024：L0~L3 + 三类锚点 + 回滚剧本 + 冲突检测 + incident）、**`crates/lease`**（TASK-025：三模式矩阵 + TTL / 续租 / 用户抢占 + 零提交批量获取）、**`crates/model-gateway`**（TASK-026：同步拉取式流 / 路由 / fallback / backoff / cache hint / 成本）与 **`crates/hitl`**（TASK-027：ADR-0048 无损 confirmation 投影 / 审批与四维授权 / 接管与暂停恢复 / diff 数据）均已落地，下一张是 TASK-028。**当前阶段详情以 `PLAN.md` 为准**。
+> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））、**`crates/policy`**（TASK-021：唯一放行点 / 默认拒绝 / deny 优先 / DSL v0 / 参数护栏）、**`crates/undo`**（TASK-024：L0~L3 + 三类锚点 + 回滚剧本 + 冲突检测 + incident）、**`crates/lease`**（TASK-025：三模式矩阵 + TTL / 续租 / 用户抢占 + 零提交批量获取）、**`crates/model-gateway`**（TASK-026：同步拉取式流 / 路由 / fallback / backoff / cache hint / 成本）与 **`crates/hitl`**（TASK-027：ADR-0048 无损 confirmation 投影 / 审批与四维授权 / 接管与暂停恢复 / diff 数据）均已落地；TASK-029 已完成并合并 PR #72（merge `21e35bc`），下一张是 TASK-030。**当前阶段详情以 `PLAN.md` 为准**。
 
 ---
 
@@ -157,6 +157,10 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展（2026-09-27：**TASK-208 —— `core` Memory（App Map + FTS5 检索消费）**；**TASK-206 —— `crates/storage` `memory_fts` FTS5 检索**；**TASK-207 —— `core` Planner（模型输出 → Plan / Step DAG）**；TASK-206 DRIFT-206-1 裁决 + ADR-0054；DRIFT-028 五点落地 —— ADR-0053；2026-09-26：TASK-028 —— 会话 + 上下文；TASK-027 —— HITL 审批与接管；TASK-026 —— 模型网关；TASK-025 —— 目标租约与并发控制；TASK-024 —— 撤销与补偿闭环；2026-09-25：TASK-023 —— 后置断言引擎；TASK-204 —— 工具 schema 关键字判据硬化；TASK-022 —— 任务引擎；TASK-021 —— 唯一策略放行点；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+
+**2026-09-27 —— TASK-029 合并完成**
+
+PR #72 以 **merge commit `21e35bc`** 合并到 `main`。新增 `apps/agent-core` 唯一 Host 装配点与可执行 `--self-check`，显式注入 storage / audit / model runtime / policy / tool-bus 组件，平台以 `WindowProvider + UiAutomationProvider` 约束的泛型注入并在非 Windows fail-closed；新增 `apps/desktop-ui` Tauri 2 + React/TS/Tailwind 壳、空 capabilities、无 `unsafe-inline` 的严格 CSP 与静态安全测试。独立 review 还闭环了审计链探针、App Map root escape、豁免解析 fail-closed 和跨平台测试/ lint 问题；push 与 pull_request 两个三平台 CI run 均全绿。下一张主线卡为 **TASK-030**。
 
 **2026-09-27 —— TASK-208 合并完成**
 
