@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-207** `crates/core` Planner = **Review**：PR #66 已通过独立 review，**ADR-0055** 已闭环 `effect` / `reversibility` 权威元数据缺口；等待最终 CI 与合并。**TASK-206** 暂缓。此前 TASK-028 `core`、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-207** `crates/core` Planner 已 Done 并合并 PR #66（merge `78acfed`）：ADR-0055 建立 `effect` / `reversibility` 权威元数据，Planner 不再信任模型自报；独立 review 两轮问题全部闭环，CI 8/8。下一张 **TASK-206**（storage `memory_fts` FTS5）。此前 TASK-028 `core`、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
@@ -165,6 +165,10 @@ PR #66 的 8/8 CI 全绿后，独立 review 发现并暴露真实问题。已修
 **2026-09-27 —— ADR-0055：ToolSchema 权威 effect / reversibility**
 
 人类确认「继续」后，ADR-0055 落地：`ToolSchema` 新增必填 `effect` / `reversibility`，`ToolDefinition::new` 必须显式声明，工具集指纹包含两者；Planner 的模型输出只接受意图字段，出现 `effect` / `reversibility` 即 `ModelInvalidOutput`，最终 PlanStep 的行为元数据只从可信工具目录注入。这样写步骤 postcondition 与 L3 `point_of_no_return` 校验不再信任模型自报值，`DRIFT-207-1` 闭环。TASK-207 仍为 Review，等待最终 CI、review 和合并。
+
+**2026-09-27 —— TASK-207 合并完成**
+
+PR #66 以 **merge commit `78acfed`** 合并到 `main`。最终 CI 8/8 全绿；两轮独立 review 的问题已由 `abbe1c7` 与 `43d33e8` 闭环，TASK-207 状态收口为 Done。下一张主线卡为 TASK-206。
 
 **2026-09-26 —— TASK-207（`crates/core`：Planner）**
 
