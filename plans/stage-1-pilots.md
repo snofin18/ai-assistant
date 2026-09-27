@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~028 已 Done**；**TASK-207 已 Done 并合并 PR #66**；**TASK-206 已 Done 并合并 PR #68**；**TASK-208 已 Done 并合并 PR #70**；**TASK-029 已 Done 并合并 PR #72**：binary Host 装配 + Tauri 壳；**TASK-030 已实现并进入 review**：审批卡片 + 执行时间线；下一张 = **TASK-031 / 032**）　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~028 已 Done**；**TASK-207 已 Done 并合并 PR #66**；**TASK-206 已 Done 并合并 PR #68**；**TASK-208 已 Done 并合并 PR #70**；**TASK-029 已 Done 并合并 PR #72**：binary Host 装配 + Tauri 壳；**TASK-030 已 Done 并合并 PR #74**：审批卡片 + 执行时间线；下一张 = **TASK-031 / 032**）　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
