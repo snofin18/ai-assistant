@@ -97,36 +97,84 @@ cargo deny check
 
 ### 1. 约束回执
 
-（待填）
+```text
+【任务】TASK-208 `core` Memory：App Map 加载 + 消费 storage FTS5 检索
+【目标】提供可注入、fail-closed 的记忆片段装配，所有片段带来源/位置，超预算显式记录 omission。
+【write scope】crates/core/src/**、crates/core/tests/**、crates/core/Cargo.toml、
+crates/core/README.md、本卡记录区及 AGENTS.md §11.1 指定进度文件。
+【铁律】不可信输入先校验；无静默失败；core 不持有连接/不拼 SQL；契约先行。
+【禁止】FTS5 实现；向量检索；写 adapters；权限判定；黑名单 crate；改 protocol schema。
+【验收】卡内 15 条命令全绿，core 行覆盖 ≥85%，warning 不新增。
+【依赖】TASK-206 / TASK-028 Done。
+【疑问】storage 检索 API 直接接 `&Connection`；本卡用注入式 `MemoryRetriever` 消费 storage
+结果，TASK-029 装配层负责把 trait 接到 storage 公开 API。
+```
 
 ### 2. 实际改动文件
 
-（待填）
+- `crates/core/src/app_map.rs`（新增）
+- `crates/core/src/memory.rs`（新增）
+- `crates/core/src/error.rs`
+- `crates/core/src/lib.rs`
+- `crates/core/Cargo.toml`
+- `crates/core/tests/app_map_tests.rs`（新增）
+- `crates/core/tests/memory_tests.rs`（新增）
+- `crates/core/README.md`
+- `tasks/TASK-208-core-memory-app-map-fts-retrieval.md`（仅记录区）
 
 ### 3. 验收输出摘要
 
-（待填）
+- `cargo fmt --all --check` → PASS（0 diff）
+- `cargo clippy --all-targets -- -D warnings` → PASS
+- `cargo test --workspace` → PASS
+- `cargo test -p assistant-core` → PASS；新增 Memory 测试 17 个
+- `cargo test -p assistant-core arch::` → PASS（10 个 arch tests）
+- `cargo test -p assistant-storage` → PASS（40 tests + 2 doctests）
+- `cargo run -p xtask -- verify-schemas` / `codegen --check` / `hygiene` 0E/4W /
+  `docscan` 0E/468W / `card-check` 0E/27W / `memory-counts` / `adr-index` /
+  `check-ledger` → 全 PASS
+- `cargo deny check` → PASS
+- `cargo llvm-cov -p assistant-core --fail-under-lines 85` → PASS（**88.27%**）
 
 ### 4. DoD 逐条核对
 
-（待填）
+- [x] App Map 加载：合法文件可加载；缺失 / 损坏 / 版本不匹配 / 路径穿越四类负向用例全部带 `ErrorCode`
+- [x] 检索：通过注入式 `MemoryRetriever` 消费 storage 结果；后端错误保留原始 `reason_code` 与 `ErrorCode`
+- [x] 每个注入片段带 `source_reference` 与 `MemorySegmentOrigin`；超预算 / 重复来源产生显式 omission
+- [x] `core` 依赖 ⊆ ADR-0053 D2；`arch::` 全绿
+- [x] Memory 测试零真实 IO / 网络 / 时钟；文件读取与检索均注入
+- [x] `assistant-core` 行覆盖 ≥ 85%（88.27%）
+- [x] 既有测试零改动通过
+- [x] 15 条验收命令全绿；warning 与既有基线一致
+- [ ] §11.1 进度同步：实现 PR 合并后由 closeout 提交完成状态与当前进度块
+- [x] 未产生需要新增的 FACT / PITFALL
 
 ### 5. 偏差
 
-（待填）
+无行为偏差。为满足单文件行数门禁，把 App Map 加载/校验拆入 `app_map.rs`，Memory 装配留在
+`memory.rs`；两者都属本卡 `crates/core/src/**` write scope。独立 review 后补强：
+App Map 的声明 token estimate 只能抬高保守字符数估算、content 有字节上限；来源引用由
+validated path + entry index 生成；omission 携带 origin/token；预算检查先于重复来源判定。
+同一轮 review 发现测试文件超过 hygiene 建议上限，故把 App Map 契约测试拆入
+`app_map_tests.rs`，使 `hygiene` 回到 0E/4W 基线。
 
 ### 6. 更合理做法
 
-（待填）
+App Map 与检索适配器都做成注入 trait，Core 只做纯校验与预算装配；这样单测无真实 IO，
+真实文件读取与 SQLite 连接都留在 TASK-029 装配层。
 
 ### 7. 遗留问题
 
-（待填）
+- TASK-029 需实现 `AppMapFileReader` 与 `MemoryRetriever` 的生产 adapter。
+- App Map v1 只接受已知字段与 caller 指定 entry id，不做隐式全量注入。
+- 检索结果的 token estimate 由 adapter 提供，Core 不猜测 provider 分词。
 
 ### 8. 新增长期记忆
 
-（待填）
+无。
 
 ### 9. 给审阅者的关注点
 
-（待填）
+1. 最高风险：`MemoryRetriever` 是否足以表达 storage 错误透传与 token 估计边界。
+2. 次风险：App Map v1 严格拒绝未知字段，是否会阻碍后续 Adapter 扩展。
+3. 超预算 omission 是显式成功投影，不会自动请求更多预算；调用方需决定是否重试。
