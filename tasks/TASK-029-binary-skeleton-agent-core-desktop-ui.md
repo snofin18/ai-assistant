@@ -72,6 +72,21 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 ### 5. 偏差
 
+DRIFT-029-1
+现象：本卡正文仍是「派单前由 Orchestrator 按 gov §3.2 模板与实际调研补充」的占位版；
+当前 write scope 仅列 `apps/agent-core/**`、`apps/desktop-ui/src-tauri/**`、
+`apps/desktop-ui/*.config.*`，但标题要求 Tauri 2 + React + TS + Tailwind，
+必然需要 `apps/desktop-ui/package.json`、`apps/desktop-ui/src/**`、锁文件/根级前端配置、
+根 `Cargo.toml` 的 workspace member，以及 `docs/DEPENDENCIES.md` 的 Tauri/前端依赖登记。
+影响：继续实现必然同时命中漂移触发器 ①（新增第三方依赖）与 ⑤（超出 write scope）；
+且缺少展开后的 Host 装配接口、启动顺序、持久化 adapter 与 Provider 边界定义，
+无法把「可运行 Host」写成可验收、可复现的任务。
+我的建议：由 Orchestrator/人类先把 TASK-029 正文展开，并明确二选一：
+① 扩展 write scope 到完整 `apps/agent-core/**`、`apps/desktop-ui/**`、根 `Cargo.toml`、
+`docs/DEPENDENCIES.md`（含依赖批准）；或 ② 把 UI 壳与 Host 装配拆成新的独立卡号
+（禁止 sub-suffix），本卡只保留可验收的装配骨架。
+已停止的工作：未创建分支、未新增目录、未写产品代码；仅完成只读启动检查与漂移登记。
+
 ### 6. 更合理做法
 
 ### 7. 遗留问题
