@@ -103,6 +103,9 @@ let hits = search_memory(database.connection(), &MemoryQuery::new("reports"))?;
 - **FTS 查询只接受字面量词项**：用户输入中的 FTS5 运算符不会被直接执行；空查询、超长查询、
   纯标点词项与超出上限的 limit 一律 fail-closed
 - **不做向量 / 语义检索**：阶段 1 只使用 SQLite FTS5；本地嵌入归阶段 4 之后评估
+- **CJK 分词限制**：当前 `unicode61` 不会切分无空格 CJK 序列；`生成报告` 可整体命中，但把
+  `报告` 当短子串单独查询不会命中。需要中文子串检索时应另立卡评估 trigram / 分段器 / 辅助索引，
+  不应在本层偷偷降级成全表 `LIKE`
 
 ## 相关文档
 
