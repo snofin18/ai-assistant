@@ -1,6 +1,6 @@
 # TASK-206　`crates/storage`：`memory_fts`（FTS5 虚表）迁移 + 检索 API + 存储侧测试
 
-- 状态：**Ready**
+- 状态：**Done**
 - 阶段：跨阶段（**治理池 200~299**）　子阶段：—　批次：—（**不在** stage-1 批次表内；它是 **TASK-208** 的前置卡）　依赖：012（✅ Done）　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`；契约见 `docs/spec/core-orchestration.md` 与 `docs/adr/0053-core-orchestration-layer-interface.md`。
@@ -83,7 +83,7 @@ cargo deny check
 - [ ] `StorageError` 新增变体带稳定 `reason_code()` 与 13 类映射；`#[non_exhaustive]` 保持
 - [ ] 零新增第三方依赖（若确实新增 → 已在 `docs/DEPENDENCIES.md` 登记且人类已批准）
 - [ ] 上列 14 条验收命令全绿；`hygiene` / `card-check` / `docscan` 的 warning **不新增**（对照既有基线）
-- [ ] §11.1 进度同步：`PLAN.md` 当前状态块 / `README.md` 三处 / `LEDGER.md` / `plans/stage-1-pilots.md`（仅完成状态与「当前进度」块）/ `MEMORY.md` 规模表
+- [x] §11.1 进度同步：`PLAN.md` 当前状态块 / `README.md` 三处 / `LEDGER.md` / `plans/stage-1-pilots.md`（仅完成状态与「当前进度」块）/ `MEMORY.md` 规模表
 - [ ] 若产生新 FACT / PITFALL → 追加 `docs/memory/{facts,pitfalls}.md`
 
 ---
@@ -158,7 +158,7 @@ crates/storage/README.md、docs/DEPENDENCIES.md（仅确需新增依赖时）、
 - [x] `StorageError` 新增 `invalid_memory_query` / `memory_index_inconsistent`，保留 `#[non_exhaustive]` 与 Fatal 映射
 - [x] 零新增第三方依赖
 - [x] 上列 14 条验收命令全绿；warning 与既有基线一致
-- [ ] §11.1 进度同步：实现 PR 合并后由 closeout 提交完成状态与当前进度块
+- [x] §11.1 进度同步：closeout 已更新完成状态与当前进度块
 - [x] 新增 PITFALL：全局迁移片段不能单独 `validate()`
 
 ### 5. 偏差
@@ -172,6 +172,7 @@ crates/storage/README.md、docs/DEPENDENCIES.md（仅确需新增依赖时）、
 - 已处理：删除 `MEMORY_MIGRATIONS`；`MIGRATIONS` = 0001 + 0004；audit 装配点预期版本改为 4；
   task-engine / storage 历史 v1 测试显式只取 0001；storage 的 FTS 测试改用 audit 真实 SQL。
 - 性质：测试 fixture 与派生 schema 版本同步，**未改产品行为、未放宽断言、未新增依赖**。
+- 合并：PR #68 以 merge `6da9007` 合并；closeout 同步 Done 状态与进度文件。
 
 ### 6. 更合理做法
 
