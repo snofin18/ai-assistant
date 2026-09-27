@@ -29,9 +29,15 @@ export function PropertyPanel({ copy, element }: PropertyPanelProps) {
         <Field
           label={copy.stateLabel}
           value={[
-            `${copy.enabledLabel}: ${String(element.isEnabled)}`,
-            `${copy.focusedLabel}: ${String(element.isFocused)}`,
-            `${copy.keyboardFocusableLabel}: ${String(element.isKeyboardFocusable)}`
+            `${copy.enabledLabel}: ${
+              element.isEnabled ? copy.enabledValue : copy.disabledValue
+            }`,
+            `${copy.focusedLabel}: ${
+              element.isFocused ? copy.enabledValue : copy.disabledValue
+            }`,
+            `${copy.keyboardFocusableLabel}: ${
+              element.isKeyboardFocusable ? copy.enabledValue : copy.disabledValue
+            }`
           ].join(" | ")}
         />
         <Field

@@ -71,8 +71,8 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 ### 2. 实际改动文件
 
-- `apps/desktop-ui/src/features/picker/**`：严格快照解析、元素高亮、属性面板、候选链生成、候选列表与 7 个专项测试。
-- `apps/desktop-ui/src/features/binding/**`：绑定向导、Adapter selector 草稿生成、导出回调与 6 个专项测试。
+- `apps/desktop-ui/src/features/picker/**`：严格快照解析、元素高亮、属性面板、候选链生成、候选列表与 10 个专项测试。
+- `apps/desktop-ui/src/features/binding/**`：绑定向导、Adapter selector 草稿生成、导出回调与 7 个专项测试。
 - `tasks/TASK-031-ui-element-picker-selector-candidates.md`：正文展开与执行记录。
 - 后续同步：`LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md`。
 
@@ -80,7 +80,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 - `pnpm --dir apps/desktop-ui typecheck` -> exit 0。
 - `pnpm --dir apps/desktop-ui build` -> exit 0；Vite 29 modules transformed。
-- `node --test --experimental-strip-types ...pickerModel.test.mjs ...bindingModel.test.mjs` -> 13 tests / 13 passed。
+- `node --test --experimental-strip-types ...pickerModel.test.mjs ...bindingModel.test.mjs` -> 17 tests / 17 passed。
 - `cargo fmt --all --check` -> 0 diff。
 - `cargo clippy --all-targets -- -D warnings` -> exit 0。
 - `cargo test --workspace` -> 全绿。
@@ -91,7 +91,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - [x] 拾取器覆盖悬停/选中高亮、属性、父路径、状态、actions/patterns 与 bounds。
 - [x] Notepad 编辑区快照生成 3 个正分候选，首选为稳定 `class_and_role`，不使用本地化文本。
 - [x] 绑定向导生成 `TargetDescriptor` 形状草稿并通过 `onDraftReady` 回调导出 JSON。
-- [x] 13 个模型/控制器测试覆盖正常、畸形、重复 id、越界 bounds、仅本地化候选、导出失败路径。
+- [x] 17 个模型/控制器测试覆盖正常、畸形、重复 id、越界/偏移 bounds、本地化候选越级、非法/临时候选、仅本地化候选与导出失败路径。
 - [x] UI typecheck 与 production build 全绿。
 - [x] Rust 与 xtask 验收命令全绿。
 - [x] 未修改 Out of scope 文件，未新增依赖。
@@ -100,6 +100,15 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 ### 5. 偏差
 
 none。占位正文在实现前展开；未放宽 lint、未改测试断言、未新增依赖、未改公共接口。
+
+独立 review 首轮发现 1 个 P0 与 3 个 P1 均已在同一 write scope 内闭环：
+
+- P0：`RoleAndParent` 的父候选会被平台解析器当普通候选尝试，可能在 target 未命中时误返回父元素。修复为**不生成该不安全候选**；负向测试断言导出链不含 `role_and_parent`、零分 helper 或 `runtime_id`。
+- P1：本地化候选可能越级为首选。修复为验证链严格降序、首选必须非本地化且分数严格高于所有本地化候选、本地化分数上限 `0.49`。
+- P1：workspace 非零原点被忽略。修复为 bounds containment 与高亮百分比都减去 workspace 原点，并加非零原点正/负测试。
+- P1：binding 最外层 `null` / 非对象会抛异常。修复为 `parseBindingWizardInput(input: unknown)` fail-closed，并加负向测试。
+
+P2/P3 同步收紧：组件不再直出原始 parser error / error key，布尔状态与兜底文案走 `copy`；workspace 增加 group label，向导步骤增加 `aria-current="step"`。
 
 ### 6. 更合理做法
 
@@ -118,5 +127,5 @@ none。占位正文在实现前展开；未放宽 lint、未改测试断言、�
 ### 9. 给审阅者的关注点
 
 1. 核对 `NameRegex` / `A11yPath` / `TitleRegex` / `VisualAnchor` 是否始终被标为本地化依赖，且不能成为首选。
-2. 核对候选链导出前的稳定候选、最少候选数和窗口候选校验是否全部 fail-closed。
-3. 核对 UI 文案是否全部来自 `copy`，以及高亮 bounds 是否只使用已校验快照。
+2. 核对候选验证是否拒绝 `role_and_parent` / `runtime_id`、未排序链、本地化越级和窗口无稳定候选。
+3. 核对 UI 文案是否全部来自 `copy`，以及高亮 bounds 是否正确处理 workspace 非零原点。

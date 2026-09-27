@@ -82,13 +82,16 @@ export interface BindingWizardState {
 }
 
 export type BindingWizardAction =
-  | { type: "replace_input"; input: BindingWizardInput }
+  | { type: "replace_input"; input: unknown }
   | { type: "select_element"; elementId: string }
   | { type: "continue" }
   | { type: "back" }
   | { type: "reset" };
 
-export function parseBindingWizardInput(input: BindingWizardInput): BindingInputParseResult {
+export function parseBindingWizardInput(input: unknown): BindingInputParseResult {
+  if (!isRecord(input)) {
+    return { ok: false, errors: ["binding input must be an object"] };
+  }
   const metadataResult = parseAdapterMetadata(input.metadata);
   const snapshotResult = parsePickerSnapshot(input.snapshot);
   if (!metadataResult.ok || !snapshotResult.ok) {
@@ -110,7 +113,7 @@ export function parseBindingWizardInput(input: BindingWizardInput): BindingInput
 }
 
 export function createInitialBindingWizardState(
-  input: BindingWizardInput
+  input: unknown
 ): BindingWizardState {
   return {
     parseResult: parseBindingWizardInput(input),

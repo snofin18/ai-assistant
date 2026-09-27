@@ -13,6 +13,7 @@ export interface BindingWizardCopy {
   backLabel: string;
   exportLabel: string;
   validationErrorLabel: string;
+  unknownErrorLabel: string;
   picker: PickerCopy;
   errorMessages: Record<string, string>;
 }

@@ -2,11 +2,10 @@ import { ElementPicker } from "../picker/ElementPicker.js";
 import { SelectorCandidateList } from "../picker/SelectorCandidateList.js";
 import type { BindingWizardCopy } from "./bindingCopy.js";
 import { bindingWizardSteps } from "./bindingModel.js";
-import type { BindingWizardInput } from "./bindingModel.js";
 import { useTargetBindingWizard } from "./useTargetBindingWizard.js";
 
 interface TargetBindingWizardProps {
-  input: BindingWizardInput;
+  input: unknown;
   copy: BindingWizardCopy;
   onDraftReady: (serializedDraft: string) => void;
 }
@@ -21,11 +20,6 @@ export function TargetBindingWizard({
     return (
       <div className="border border-red-500 bg-red-950/40 p-3 text-sm text-red-100" role="alert">
         <strong>{copy.validationErrorLabel}</strong>
-        <ul className="mt-2 list-disc pl-5">
-          {state.parseResult.errors.map((error) => (
-            <li key={error}>{error}</li>
-          ))}
-        </ul>
       </div>
     );
   }
@@ -37,6 +31,7 @@ export function TargetBindingWizard({
         <ol className="mt-2 flex flex-wrap gap-2 text-xs">
           {bindingWizardSteps.map((step) => (
             <li
+              aria-current={step === state.step ? "step" : undefined}
               className={
                 step === state.step
                   ? "border border-cyan-500 px-2 py-1 text-cyan-200"
@@ -77,7 +72,7 @@ export function TargetBindingWizard({
       ) : null}
       {state.errorKey === null ? null : (
         <p className="text-sm text-red-200" role="alert">
-          {copy.errorMessages[state.errorKey] ?? state.errorKey}
+          {copy.errorMessages[state.errorKey] ?? copy.unknownErrorLabel}
         </p>
       )}
       <div className="flex gap-2">

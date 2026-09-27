@@ -95,10 +95,69 @@ test("test_picker_notepad_editor_generates_three_resolvable_candidates", () => {
   assert.ok(element);
   const candidates = generateSelectorCandidates(element);
   assert.equal(candidates.filter((candidate) => candidate.score > 0).length, 3);
+  assert.equal(candidates.some((candidate) => candidate.kind === "role_and_parent"), false);
+  assert.equal(candidates.some((candidate) => candidate.score === 0), false);
   const primaryId = getPrimaryCandidateId(candidates);
   const primary = candidates.find((candidate) => candidate.id === primaryId);
   assert.equal(primary?.locale_dependent, false);
   assert.notEqual(primary?.kind, "name_regex");
+});
+
+test("test_picker_validation_rejects_localized_candidate_out_ranking_stable", () => {
+  const candidates = [
+    {
+      id: "name-fallback",
+      kind: "name_regex",
+      value: { text: "Editor" },
+      score: 1,
+      locale_dependent: true,
+      ttl_ms: null
+    },
+    {
+      id: "automation-id",
+      kind: "automation_id",
+      value: { text: "Editor" },
+      score: 0.1,
+      locale_dependent: false,
+      ttl_ms: null
+    }
+  ];
+  assert.equal(getPrimaryCandidateId(candidates), null);
+});
+
+test("test_picker_validation_rejects_unsorted_or_ephemeral_candidates", () => {
+  const unsorted = [
+    {
+      id: "class-and-role",
+      kind: "class_and_role",
+      value: { class_and_role: { class: "Editor", role: "Document" } },
+      score: 0.8,
+      locale_dependent: false,
+      ttl_ms: null
+    },
+    {
+      id: "automation-id",
+      kind: "automation_id",
+      value: { text: "Editor" },
+      score: 0.9,
+      locale_dependent: false,
+      ttl_ms: null
+    }
+  ];
+  assert.equal(getPrimaryCandidateId(unsorted), null);
+  assert.equal(
+    getPrimaryCandidateId([
+      {
+        id: "runtime-id",
+        kind: "runtime_id",
+        value: { text: "42,1,0" },
+        score: 1,
+        locale_dependent: false,
+        ttl_ms: 0
+      }
+    ]),
+    null
+  );
 });
 
 test("test_picker_hover_and_generate_reducer_tracks_selection", () => {
@@ -128,4 +187,35 @@ test("test_picker_highlight_rect_uses_validated_workspace_coordinates", () => {
     widthPercent: 70,
     heightPercent: 71.42857142857143
   });
+});
+
+test("test_picker_nonzero_workspace_origin_is_enforced_and_subtracted", () => {
+  const input = createSnapshot({
+    workspaceBounds: { x: 100, y: 200, width: 1000, height: 700 },
+    window: {
+      ...createSnapshot().window,
+      bounds: { x: 100, y: 200, width: 1000, height: 700 }
+    },
+    elements: [
+      createElement({ bounds: { x: 120, y: 260, width: 700, height: 500 } })
+    ]
+  });
+  const result = parsePickerSnapshot(input);
+  assert.equal(result.ok, true);
+  const element = result.snapshot.elements[0];
+  assert.ok(element);
+  assert.deepEqual(getHighlightRect(element, result.snapshot.workspaceBounds), {
+    leftPercent: 2,
+    topPercent: 8.571428571428571,
+    widthPercent: 70,
+    heightPercent: 71.42857142857143
+  });
+  const outside = parsePickerSnapshot({
+    ...input,
+    elements: [
+      createElement({ bounds: { x: 90, y: 260, width: 700, height: 500 } })
+    ]
+  });
+  assert.equal(outside.ok, false);
+  assert.match(outside.errors.join("\n"), /exceed workspaceBounds/);
 });

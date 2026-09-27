@@ -4,8 +4,6 @@ import {
   bindingWizardReducer,
   createInitialBindingWizardState
 } from "./bindingModel.js";
-import type { BindingWizardInput } from "./bindingModel.js";
-
-export function useTargetBindingWizard(input: BindingWizardInput) {
+export function useTargetBindingWizard(input: unknown) {
   return useReducer(bindingWizardReducer, input, createInitialBindingWizardState);
 }

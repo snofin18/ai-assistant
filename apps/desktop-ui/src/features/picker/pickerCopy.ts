@@ -12,8 +12,10 @@ export interface PickerCopy {
   runtimeIdLabel: string;
   stateLabel: string;
   enabledLabel: string;
+  enabledValue: string;
   focusedLabel: string;
   keyboardFocusableLabel: string;
+  disabledValue: string;
   actionsLabel: string;
   patternsLabel: string;
   boundsLabel: string;
@@ -23,6 +25,7 @@ export interface PickerCopy {
   primaryLabel: string;
   localeDependentLabel: string;
   validationErrorLabel: string;
+  unknownErrorLabel: string;
   emptyValue: string;
   selectLabel: string;
   errorMessages: Record<string, string>;

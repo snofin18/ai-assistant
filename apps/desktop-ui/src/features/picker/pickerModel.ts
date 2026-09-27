@@ -242,35 +242,24 @@ export function generateSelectorCandidates(element: PickerElement): SelectorCand
       ttl_ms: null
     });
   }
-  const parent = element.parentPath.at(-1);
-  if (parent !== undefined && parent.className !== null) {
-    candidates.push({
-      id: "parent-scope",
-      kind: "class_and_role",
-      value: {
-        class_and_role: { class: parent.className, role: parent.role }
-      },
-      score: 0,
-      locale_dependent: false,
-      ttl_ms: null
-    });
-    candidates.push({
-      id: "role-under-parent",
-      kind: "role_and_parent",
-      value: {
-        role_and_parent: { role: element.role, parent_id: "parent-scope" }
-      },
-      score: 0.62,
-      locale_dependent: false,
-      ttl_ms: null
-    });
-  }
   if (element.name.trim() !== "") {
     candidates.push({
       id: "name-fallback",
       kind: "name_regex",
       value: { text: element.name },
       score: 0.22,
+      locale_dependent: true,
+      ttl_ms: null
+    });
+  }
+  if (element.parentPath.length > 0) {
+    candidates.push({
+      id: "a11y-path-fallback",
+      kind: "a11y_path",
+      value: {
+        path: element.parentPath.map((ancestor) => ancestor.name.trim() || ancestor.role)
+      },
+      score: 0.16,
       locale_dependent: true,
       ttl_ms: null
     });
@@ -283,7 +272,8 @@ export function validateSelectorCandidates(candidates: readonly SelectorCandidat
     return false;
   }
   const ids = new Set<string>();
-  let hasStableCandidate = false;
+  let previousScore = Number.POSITIVE_INFINITY;
+  let maximumLocaleScore = 0;
   for (const candidate of candidates) {
     if (
       candidate.id.trim() === "" ||
@@ -291,14 +281,15 @@ export function validateSelectorCandidates(candidates: readonly SelectorCandidat
       !selectorKinds.includes(candidate.kind) ||
       !Number.isFinite(candidate.score) ||
       candidate.score < 0 ||
-      candidate.score > 1
+      candidate.score > 1 ||
+      candidate.score > previousScore ||
+      candidate.kind === "runtime_id" ||
+      candidate.kind === "role_and_parent"
     ) {
       return false;
     }
+    previousScore = candidate.score;
     ids.add(candidate.id);
-    if (!candidate.locale_dependent && candidate.score > 0) {
-      hasStableCandidate = true;
-    }
     if (
       (candidate.kind === "name_regex" ||
         candidate.kind === "title_regex" ||
@@ -308,24 +299,36 @@ export function validateSelectorCandidates(candidates: readonly SelectorCandidat
     ) {
       return false;
     }
+    if (candidate.locale_dependent) {
+      if (candidate.score > 0.49) {
+        return false;
+      }
+      maximumLocaleScore = Math.max(maximumLocaleScore, candidate.score);
+    }
   }
-  return hasStableCandidate;
+  const primary = candidates[0];
+  return (
+    primary !== undefined &&
+    !primary.locale_dependent &&
+    primary.score > 0 &&
+    primary.score > maximumLocaleScore
+  );
 }
 
 export function getPrimaryCandidateId(candidates: readonly SelectorCandidate[]): string | null {
-  const candidate = candidates.find(
-    (entry) => !entry.locale_dependent && entry.score > 0
-  );
-  return candidate?.id ?? null;
+  if (!validateSelectorCandidates(candidates)) {
+    return null;
+  }
+  return candidates[0]?.id ?? null;
 }
 
 export function getHighlightRect(
   element: PickerElement,
-  workspaceBounds: Pick<PickerBounds, "width" | "height">
+  workspaceBounds: PickerBounds
 ): HighlightRect {
   return {
-    leftPercent: (element.bounds.x / workspaceBounds.width) * 100,
-    topPercent: (element.bounds.y / workspaceBounds.height) * 100,
+    leftPercent: ((element.bounds.x - workspaceBounds.x) / workspaceBounds.width) * 100,
+    topPercent: ((element.bounds.y - workspaceBounds.y) / workspaceBounds.height) * 100,
     widthPercent: (element.bounds.width / workspaceBounds.width) * 100,
     heightPercent: (element.bounds.height / workspaceBounds.height) * 100
   };
@@ -498,10 +501,10 @@ function readOptionalText(
 
 function containsBounds(workspace: PickerBounds, element: PickerBounds): boolean {
   return (
-    element.x >= 0 &&
-    element.y >= 0 &&
-    element.x + element.width <= workspace.width &&
-    element.y + element.height <= workspace.height
+    element.x >= workspace.x &&
+    element.y >= workspace.y &&
+    element.x + element.width <= workspace.x + workspace.width &&
+    element.y + element.height <= workspace.y + workspace.height
   );
 }
 

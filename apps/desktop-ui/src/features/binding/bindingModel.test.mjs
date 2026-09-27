@@ -82,6 +82,12 @@ test("test_parse_binding_input_requires_matching_app_ids", () => {
   assert.match(result.errors.join("\n"), /must match snapshot\.appId/);
 });
 
+test("test_parse_binding_input_rejects_non_object_without_throwing", () => {
+  const result = parseBindingWizardInput(null);
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /binding input must be an object/);
+});
+
 test("test_binding_wizard_generates_serialized_descriptor_draft", () => {
   const input = createInput();
   let state = createInitialBindingWizardState(input);

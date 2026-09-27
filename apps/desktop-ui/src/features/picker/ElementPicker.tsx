@@ -21,11 +21,6 @@ export function ElementPicker({ model, copy, onSelectElement }: ElementPickerPro
     return (
       <div className="border border-red-500 bg-red-950/40 p-3 text-sm text-red-100" role="alert">
         <strong>{copy.validationErrorLabel}</strong>
-        <ul className="mt-2 list-disc pl-5">
-          {state.parseResult.errors.map((error) => (
-            <li key={error}>{error}</li>
-          ))}
-        </ul>
       </div>
     );
   }
@@ -44,7 +39,11 @@ export function ElementPicker({ model, copy, onSelectElement }: ElementPickerPro
     <section className="grid gap-3" aria-label={copy.heading}>
       <h2 className="text-lg font-semibold">{copy.heading}</h2>
       <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
-        <div className="relative min-h-72 border border-slate-600 bg-slate-950" aria-label={copy.workspaceLabel}>
+        <div
+          className="relative min-h-72 border border-slate-600 bg-slate-950"
+          aria-label={copy.workspaceLabel}
+          role="group"
+        >
           {highlight === null ? null : (
             <div
               className="pointer-events-none absolute border-2 border-cyan-400 bg-cyan-400/10"
@@ -96,7 +95,7 @@ export function ElementPicker({ model, copy, onSelectElement }: ElementPickerPro
           <SelectorCandidateList candidates={state.candidates} copy={copy} />
           {state.errorKey === null ? null : (
             <p className="text-sm text-red-200" role="alert">
-              {copy.errorMessages[state.errorKey] ?? state.errorKey}
+              {copy.errorMessages[state.errorKey] ?? copy.unknownErrorLabel}
             </p>
           )}
         </div>
