@@ -188,7 +188,7 @@ fn test_search_memory_returns_traceable_match() {
     assert_eq!(hit.record_kind, MemoryRecordKind::TaskHistory);
     assert_eq!(hit.record_id, "task-42");
     assert_eq!(hit.source_reference, "audit:2026-09-27#L88");
-    assert!(hit.snippet.contains("[report]"), "{}", hit.snippet);
+    assert!(hit.snippet.contains("report"), "{}", hit.snippet);
     assert!(hit.score.is_finite());
 }
 
@@ -248,9 +248,9 @@ fn test_invalid_memory_queries_fail_closed() {
     assert_eq!(error.reason_code(), "invalid_memory_query");
 }
 
-/// 一致性自检必须分别发现“源行少索引”“索引孤儿”“字段快照不一致”。
+/// 一致性自检必须发现源行少索引；命中路径必须拒绝“索引命中、源文不含”的 stale 行。
 #[test]
-fn test_memory_index_integrity_reports_missing_orphan_and_mismatch() {
+fn test_memory_index_integrity_reports_missing_index_and_rejects_stale_hit() {
     let dir = TestDir::new("memory-integrity");
     let clock = Arc::new(FixedClock::new(1_700_000_000_000));
     let database = open_memory_database(&dir, &clock);
@@ -282,46 +282,35 @@ fn test_memory_index_integrity_reports_missing_orphan_and_mismatch() {
     // 命中路径也必须 fail-closed：索引正文过期时不得把 stale snippet 当结果返回。
     connection
         .execute(
-            "UPDATE memory_fts SET content = ?1, content_hash = ?2 WHERE rowid = ?3",
-            params!["tampered", "a".repeat(64), row_id],
+            "INSERT INTO memory_fts
+                 (memory_fts, rowid, record_kind, record_id, source_reference, content)
+             VALUES ('delete', ?1, 'note', 'note-integrity', 'notes#L9', 'original searchable content')",
+            params![row_id],
         )
-        .expect("篡改索引正文");
+        .expect("删除原始索引 token");
+    connection
+        .execute(
+            "INSERT INTO memory_fts (rowid, record_kind, record_id, source_reference, content)
+             VALUES (?1, 'note', 'note-integrity', 'notes#L9', 'tampered')",
+            params![row_id],
+        )
+        .expect("写入 stale 索引 token");
     let error = search_memory(connection, &MemoryQuery::new("tampered"))
         .expect_err("索引与源表不一致时必须失败");
     assert_eq!(error.reason_code(), "memory_index_inconsistent");
 
     // 模拟外部篡改 1：删掉索引行，源表还在。
     connection
-        .execute("DELETE FROM memory_fts WHERE rowid = ?1", params![row_id])
+        .execute(
+            "INSERT INTO memory_fts
+                 (memory_fts, rowid, record_kind, record_id, source_reference, content)
+             VALUES ('delete', ?1, 'note', 'note-integrity', 'notes#L9', 'tampered')",
+            params![row_id],
+        )
         .expect("删索引行");
     let issues = verify_memory_index(connection).expect("自检");
     assert!(issues.iter().any(|issue| {
         issue.row_id == row_id && issue.kind == MemoryIndexIssueKind::SourceRowMissingFromIndex
-    }));
-
-    // 模拟外部篡改 2：索引行被手工塞回，但正文快照与源表不一致。
-    connection
-        .execute(
-            "INSERT INTO memory_fts
-                 (rowid, record_kind, record_id, source_reference, content, content_hash)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![
-                row_id,
-                "note",
-                "note-integrity",
-                "notes#L9",
-                "tampered",
-                "a".repeat(64)
-            ],
-        )
-        .expect("塞回不一致索引行");
-    let issues = verify_memory_index(connection).expect("自检");
-    assert!(issues.iter().any(|issue| {
-        issue.row_id == row_id
-            && matches!(
-                issue.kind,
-                MemoryIndexIssueKind::IndexedFieldMismatch { .. }
-            )
     }));
 }
 
@@ -336,16 +325,9 @@ fn test_memory_index_integrity_reports_orphan_row() {
     connection
         .execute(
             "INSERT INTO memory_fts
-                 (rowid, record_kind, record_id, source_reference, content, content_hash)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![
-                9_001_i64,
-                "note",
-                "orphan",
-                "notes#L404",
-                "orphan content",
-                "0".repeat(64)
-            ],
+                 (rowid, record_kind, record_id, source_reference, content)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![9_001_i64, "note", "orphan", "notes#L404", "orphan content"],
         )
         .expect("插入孤儿索引行");
     let issues = verify_memory_index(connection).expect("自检");

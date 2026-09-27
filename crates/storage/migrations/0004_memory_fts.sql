@@ -15,7 +15,6 @@ CREATE TABLE memory_records (
     record_id        TEXT    NOT NULL,
     source_reference TEXT    NOT NULL,
     content          TEXT    NOT NULL,
-    content_hash     TEXT    NOT NULL CHECK (length(content_hash) = 64),
     updated_at       INTEGER NOT NULL,
     UNIQUE (record_kind, record_id)
 );
@@ -27,27 +26,29 @@ CREATE VIRTUAL TABLE memory_fts USING fts5(
     record_id UNINDEXED,
     source_reference UNINDEXED,
     content,
-    content_hash UNINDEXED,
+    content = '',
     tokenize = 'unicode61 remove_diacritics 2'
 );
 
 CREATE TRIGGER memory_records_after_insert
 AFTER INSERT ON memory_records
 BEGIN
-    INSERT INTO memory_fts (rowid, record_kind, record_id, source_reference, content, content_hash)
-    VALUES (new.id, new.record_kind, new.record_id, new.source_reference, new.content, new.content_hash);
+    INSERT INTO memory_fts (rowid, record_kind, record_id, source_reference, content)
+    VALUES (new.id, new.record_kind, new.record_id, new.source_reference, new.content);
 END;
 
 CREATE TRIGGER memory_records_after_delete
 AFTER DELETE ON memory_records
 BEGIN
-    DELETE FROM memory_fts WHERE rowid = old.id;
+    INSERT INTO memory_fts (memory_fts, rowid, record_kind, record_id, source_reference, content)
+    VALUES ('delete', old.id, old.record_kind, old.record_id, old.source_reference, old.content);
 END;
 
 CREATE TRIGGER memory_records_after_update
 AFTER UPDATE ON memory_records
 BEGIN
-    DELETE FROM memory_fts WHERE rowid = old.id;
-    INSERT INTO memory_fts (rowid, record_kind, record_id, source_reference, content, content_hash)
-    VALUES (new.id, new.record_kind, new.record_id, new.source_reference, new.content, new.content_hash);
+    INSERT INTO memory_fts (memory_fts, rowid, record_kind, record_id, source_reference, content)
+    VALUES ('delete', old.id, old.record_kind, old.record_id, old.source_reference, old.content);
+    INSERT INTO memory_fts (rowid, record_kind, record_id, source_reference, content)
+    VALUES (new.id, new.record_kind, new.record_id, new.source_reference, new.content);
 END;
