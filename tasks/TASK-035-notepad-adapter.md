@@ -1,6 +1,6 @@
 # TASK-035　Notepad Adapter：声明式应用适配包 v0
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：1　子阶段：**1a**　批次：**A5**　依赖：017,020,024　预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -108,6 +108,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - Interrupts：未保存三态对话框默认 `cancel`，显式禁止默认 Save / Don't Save。
 - `cargo fmt --all --check` / `cargo clippy --all-targets -- -D warnings` / `cargo test --workspace` 全 PASS；`cargo deny check` PASS（既有 warning）。
 - `hygiene` 0E/4W；`memory-counts` / `adr-index` / `refscan` / `check-ledger` 0E；`docscan` 0E/406W；`card-check` 0E/27W。
+- PR #86：push / pull_request 两个 run 的 **8/8 check-run 全 success**；merge commit `9a979f4b7344ccf540d712a88a5d0a6b7c0f4d19`。
 
 ### 4. DoD 逐条核对
 

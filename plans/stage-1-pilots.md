@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~028 已 Done**；**TASK-207 已 Done 并合并 PR #66**；**TASK-206 已 Done 并合并 PR #68**；**TASK-208 已 Done 并合并 PR #70**；**TASK-029 已 Done 并合并 PR #72**：binary Host 装配 + Tauri 壳；**TASK-030 已 Done 并合并 PR #74**：审批卡片 + 执行时间线；**TASK-031 已 Done**：元素拾取器 + 目标绑定向导；**TASK-032 已 Done**：策略 / 能力 / 成本面板；**TASK-033 已 Done**：notepad-like 故障注入靶机；**TASK-034 已 Done**：录制回放框架 v0；下一张 = **TASK-035**）　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~028 已 Done**；**TASK-207 已 Done 并合并 PR #66**；**TASK-206 已 Done 并合并 PR #68**；**TASK-208 已 Done 并合并 PR #70**；**TASK-029 已 Done 并合并 PR #72**：binary Host 装配 + Tauri 壳；**TASK-030 已 Done 并合并 PR #74**：审批卡片 + 执行时间线；**TASK-031 已 Done**：元素拾取器 + 目标绑定向导；**TASK-032 已 Done**：策略 / 能力 / 成本面板；**TASK-033 已 Done**：notepad-like 故障注入靶机；**TASK-034 已 Done**：录制回放框架 v0；**TASK-035 已 Done**：Notepad Adapter 声明式包 v0；下一张 = **TASK-036**）　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -180,7 +180,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | 卡号 | 批次 | 卡片文件（正文 + 执行记录） | 备注 |
 |---|---|---|---|
 | **TASK-011 ✅** | A1 | `tasks/TASK-011-protocol-schema-codegen.md` | 完整卡（原 plans 的示例逐字搬运）；**已 Done** |
-| TASK-035 | A5 | `tasks/TASK-035-notepad-adapter.md` | ⚠ **仅要点摘录**，展开前不得派单 |
+| **TASK-035 ✅** | A5 | `tasks/TASK-035-notepad-adapter.md` | Done（PR #86 / merge `9a979f4`；声明式 Adapter 包 v0） |
 | **TASK-012 ✅** | A1 | `tasks/TASK-012-storage-layer-sqlite-wal-blob.md` | **完整卡**（2026-09-24 Orchestrator 展开）；**已 Done（2026-09-24）** |
 | **TASK-013 ✅** | A1 | `tasks/TASK-013-audit-append-hash-chain-flush.md` | **完整卡**（2026-09-24 Orchestrator 展开；**已 Done**） |
 | **TASK-014 ✅** | A1 | `tasks/TASK-014-secrets-os-keychain-wrapper.md` | **完整卡**（2026-09-24 Orchestrator 代行展开：`keyring` 4.2 后端 + `zeroize` + 访问审计注入点（fail-closed）；write scope 含 `docs/DEPENDENCIES.md` —— 登记表规则 1「先登记后引入」）；**已 Done（2026-09-24）** |
