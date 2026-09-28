@@ -7,12 +7,12 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-28（**TASK-032 策略 / 能力 / 成本面板已 Done**：三档出域策略 + 逐应用覆盖、常驻状态栏、Capability Matrix 与整数 micro-USD 成本聚合落地；26 个 Node 专项测试通过；下一张 **TASK-033**。此前 TASK-031 / 030 / 029 / 208 / 207 / 206 / 028 / 027 / 026 / 025 / 024 / 023 均 Done）
+更新日期    ：2026-09-28（**TASK-033 靶机应用 v0 `notepad-like` 已 Done**：PowerShell 5.1 内置 WPF、稳定 AutomationId、六种 CLI 故障模式与 UIA 专项测试落地；下一张 **TASK-034**。此前 TASK-032 / 031 / 030 / 029 / 208 / 207 / 206 / 028 / 027 / 026 / 025 / 024 / 023 均 Done）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
-当前任务卡  ：**A4 批次进行中**：TASK-011~032 全 Done；**TASK-207 ✅**（Planner）、**TASK-206 ✅**（storage FTS5）、**TASK-208 ✅**（Memory）、**TASK-029 ✅**（binary 装配）、**TASK-030 ✅**（审批/时间线）、**TASK-031 ✅**（元素拾取/绑定）与 **TASK-032 ✅**（策略/能力/成本）已 Done → 下一张 **TASK-033**；
+当前任务卡  ：**A5 批次进行中**：TASK-011~033 全 Done；**TASK-207 ✅**（Planner）、**TASK-206 ✅**（storage FTS5）、**TASK-208 ✅**（Memory）、**TASK-029 ✅**（binary 装配）、**TASK-030 ✅**（审批/时间线）、**TASK-031 ✅**（元素拾取/绑定）、**TASK-032 ✅**（策略/能力/成本）与 **TASK-033 ✅**（notepad-like 靶机）已 Done → 下一张 **TASK-034**；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204** 均 Done；**TASK-205** = Ready
 阻塞项      ：① TASK-002 仍 Blocked；② gov §5.1 门禁清单尚未登记 `check-migrations`（PL-056）；③ **PL-092**（storage 缺 conversation/session 公开记录 API）；④ **PL-094**（`RoleAndParent` helper 候选需契约治理）；⑤ PL-071 / PL-072 / PL-073 / PL-074 / PL-078 / PL-079 / PL-080 / PL-083 / PL-084 / PL-085 待裁决
-下一步动作  ：① **TASK-033**（Notepad-like 故障注入靶机）；随后录制回放与 Notepad Adapter 闭环
+下一步动作  ：① **TASK-034**（录制回放框架 v0：树快照录制 + 离线回放 + `xtask replay`）；随后 Notepad Adapter 闭环
                   → 详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 

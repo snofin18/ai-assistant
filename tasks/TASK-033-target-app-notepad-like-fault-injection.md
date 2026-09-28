@@ -1,6 +1,6 @@
 # TASK-033　靶机应用 v0：`notepad-like`（WinUI/WPF，全部控件有稳定 AutomationId，CLI 可注入故障：元素消失/超时/歧义多匹配/意外弹窗/忙碌）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**1a**　批次：**A3**　依赖：001　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -96,6 +96,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - `test-notepad-like.ps1`：PASS，7 个非法参数负向用例 + `none`、`disappear`、`timeout`、`ambiguous`、`dialog`、`busy` 六个模式全过。
 - UIA 断言：`none` / `disappear` / `ambiguous` / `busy` 直接读取 UIA 树；`dialog` 验证 `UnexpectedDialog` 已渲染；`timeout` 用 1 秒 dispatcher 探针证明 UI 线程被阻塞。
 - 独立 review 修复：严格参数解析、manifest 唯一性、dialog `ContentRendered` 就绪信号、UIA 语义断言、Timeout dispatcher 探针、临时目录/子进程清理与路径 quoting。
+- 合并证据：PR #82；merge commit `8adb118590a477cfa78cbd514a6f9d2b8ff435a4`；远端 CI 16/16 success。
 - `cargo fmt --all --check`：PASS。
 - `cargo clippy --all-targets -- -D warnings`：PASS。
 - `cargo test --workspace`：PASS。
