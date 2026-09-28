@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-034** 录制回放框架 v0 已 Done：Recording v1、严格树/引用校验、离线 Window/UIA provider、core fixture 与 `xtask replay` 落地；下一张 **TASK-035** Notepad Adapter。此前 TASK-033 `notepad-like`、TASK-032 策略/能力/成本、TASK-031 元素拾取/绑定、TASK-030 审批/时间线、TASK-029 Host 装配、TASK-208 Memory、TASK-207 Planner、TASK-206 storage `memory_fts`、TASK-028 会话/上下文、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-035** Notepad Adapter 声明式包 v0 已 Done：版本/能力元信息、富 App Map + core v1 投影、selector、5 工具、rollback 与 interrupts 落地；下一张 **TASK-036**。此前 TASK-034 录制回放、TASK-033 `notepad-like`、TASK-032 策略/能力/成本、TASK-031 元素拾取/绑定、TASK-030 审批/时间线、TASK-029 Host 装配、TASK-208 Memory、TASK-207 Planner、TASK-206 storage `memory_fts`、TASK-028 会话/上下文、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
@@ -108,8 +108,8 @@ TASK-204 把 `tool-bus` 的 draft-07 判据**显式化**：三张带理由的拒
 TASK-030 把审批与时间线 feature 落地：审批卡片覆盖动作、目标、影响范围、五类 diff、来源归因、工具理由、风险/可逆性、撤销方式、授权范围与证据；`app_content` 标红并默认拒绝，高风险/不可逆只允许 `once`，L3 需输入二次确认词。执行时间线覆盖状态、前后指纹、验证、证据、耗时、成本与可逆性；撤销/重放仅在证据和 Anchor 完整且调用方接线时可用，禁用原因直接显示。所有输入经 fail-closed 运行时校验，零新增依赖，13 个专项测试覆盖关键负向路径。
 TASK-031 把元素拾取器与目标绑定向导 v0 落地：严格校验 Host 注入快照，高亮 workspace 内元素，展示 role/name/AutomationId/ClassName/RuntimeId/状态/actions/patterns/bounds/父路径；候选生成保证严格降序、稳定首选、本地化上限与 `kind/value` 一致，并生成 `TargetDescriptor` 形状的 Adapter selector 草稿。独立 review 发现的 `RoleAndParent` 父候选误选风险已以 fail-closed 省略处理，P0/P1 清零；19 个专项测试与现有 Rust/xtask 门禁全绿。PL-094 跟踪后续平台契约治理。
 TASK-032 把策略、能力与成本三个 UI feature 落地：出域策略按 `local_only` / `redacted` / `full` 三档提供全局与逐应用覆盖，缺少本地模型时拒绝 `local_only`，升级到更宽级别必须逐次确认；常驻状态栏呈现当前有效级别。Capability Matrix 视图严格解析运行时的 probe / channels / capabilities / degradations，并拒绝审批与风险不一致；成本面板使用整数 micro-USD，按 task / today / month 与模型、应用聚合，拒绝非安全整数和非法日期以免静默舍入或错位。新增 26 个 Node 专项测试，UI typecheck/build 与 Rust/xtask 门禁全绿。
-TASK-033 交付 PowerShell WPF `notepad-like` 故障注入靶机；TASK-034 交付 Recording v1、离线 `WindowProvider` / `UiAutomationProvider` 与 `xtask replay`，让逻辑层回归可在无真机环境使用受控树快照。
-＋ Notepad 的 3 个任务闭环。
+TASK-033 交付 PowerShell WPF `notepad-like` 故障注入靶机；TASK-034 交付 Recording v1、离线 `WindowProvider` / `UiAutomationProvider` 与 `xtask replay`，让逻辑层回归可在无真机环境使用受控树快照；TASK-035 交付 `adapters/com.microsoft.notepad/**` 声明式 Adapter 包。
+下一步是 Notepad 的 3 个任务闭环。
 阶段 0（文档与 Spike）已于 2026-09-20 closeout —— 它的产出是 Spike 报告，**不是**产品代码。
 详见 `plans/stage-1-pilots.md`。
 
@@ -160,7 +160,11 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-28：**TASK-034 —— 录制回放框架 v0**；**TASK-033 —— notepad-like 靶机应用**；**TASK-032 —— 策略 / 能力 / 成本面板**；**TASK-031 —— 元素拾取器 + 目标绑定**；2026-09-27：**TASK-208 —— `core` Memory（App Map + FTS5 检索消费）**；**TASK-206 —— `crates/storage` `memory_fts` FTS5 检索**；**TASK-207 —— `core` Planner（模型输出 → Plan / Step DAG）**；TASK-206 DRIFT-206-1 裁决 + ADR-0054；DRIFT-028 五点落地 —— ADR-0053；2026-09-26：TASK-028 —— 会话 + 上下文；TASK-027 —— HITL 审批与接管；TASK-026 —— 模型网关；TASK-025 —— 目标租约与并发控制；TASK-024 —— 撤销与补偿闭环；2026-09-25：TASK-023 —— 后置断言引擎；TASK-204 —— 工具 schema 关键字判据硬化；TASK-022 —— 任务引擎；TASK-021 —— 唯一策略放行点；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+## 最近进展（2026-09-28：**TASK-035 —— Notepad Adapter 声明式包 v0**；**TASK-034 —— 录制回放框架 v0**；**TASK-033 —— notepad-like 靶机应用**；**TASK-032 —— 策略 / 能力 / 成本面板**；**TASK-031 —— 元素拾取器 + 目标绑定**；2026-09-27：**TASK-208 —— `core` Memory（App Map + FTS5 检索消费）**；**TASK-206 —— `crates/storage` `memory_fts` FTS5 检索**；**TASK-207 —— `core` Planner（模型输出 → Plan / Step DAG）**；TASK-206 DRIFT-206-1 裁决 + ADR-0054；DRIFT-028 五点落地 —— ADR-0053；2026-09-26：TASK-028 —— 会话 + 上下文；TASK-027 —— HITL 审批与接管；TASK-026 —— 模型网关；TASK-025 —— 目标租约与并发控制；TASK-024 —— 撤销与补偿闭环；2026-09-25：TASK-023 —— 后置断言引擎；TASK-204 —— 工具 schema 关键字判据硬化；TASK-022 —— 任务引擎；TASK-021 —— 唯一策略放行点；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+
+**2026-09-28 —— TASK-035 Notepad Adapter 声明式包 v0**
+
+新增 `adapters/com.microsoft.notepad/**`：`adapter.toml` 声明 Win11 新版版本范围、`L3_a11y` 与 UIA 通道；`app_map.json` 提供 commands/ui_map/known_pitfalls/undo_capability，另有 core v1 投影 `memory/app_map.v1.json`；`selectors/targets.json` 覆盖 9 个目标且每个 ≥3 候选；`tools/tools.json` 声明 read/replace/save/new_tab/save_as 五个工具；rollback 同时声明 L0 `Ctrl+Z` 与 L1 快照；interrupts 对未保存三态框默认 Cancel。DRIFT-035-1/2 记录当前 ToolSchema 与富 App Map 的 schema 缺口。PR #86 以 merge `9a979f4` 合并，8/8 CI 全绿。
 
 **2026-09-28 —— TASK-034 录制回放框架 v0**
 
