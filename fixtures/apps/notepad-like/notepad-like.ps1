@@ -1,28 +1,62 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-function Get-OptionValue {
-    param(
-        [string[]]$Arguments,
-        [string]$Name
-    )
+function Parse-Arguments {
+    param([string[]]$Arguments)
+    $seen = New-Object System.Collections.Generic.HashSet[string]
+    $values = @{}
+    $selfCheck = $false
+    $help = $false
+
     for ($index = 0; $index -lt $Arguments.Count; $index++) {
-        if ($Arguments[$index] -eq $Name) {
-            if (($index + 1) -ge $Arguments.Count) {
-                throw "Option $Name requires a value."
+        $token = $Arguments[$index]
+        if (-not $token.StartsWith("--")) {
+            throw "Unexpected argument: $token"
+        }
+        if (-not $seen.Add($token)) {
+            throw "Duplicate option: $token"
+        }
+        switch ($token) {
+            "--help" {
+                $help = $true
             }
-            return $Arguments[$index + 1]
+            "--self-check" {
+                $selfCheck = $true
+            }
+            "--fault" {
+                $index++
+                if ($index -ge $Arguments.Count -or $Arguments[$index].StartsWith("--")) {
+                    throw "Option --fault requires a value."
+                }
+                $values["fault"] = $Arguments[$index]
+            }
+            "--state-file" {
+                $index++
+                if ($index -ge $Arguments.Count -or $Arguments[$index].StartsWith("--")) {
+                    throw "Option --state-file requires a value."
+                }
+                $values["state-file"] = $Arguments[$index]
+            }
+            "--auto-close-ms" {
+                $index++
+                if ($index -ge $Arguments.Count -or $Arguments[$index].StartsWith("--")) {
+                    throw "Option --auto-close-ms requires a value."
+                }
+                $values["auto-close-ms"] = $Arguments[$index]
+            }
+            default {
+                throw "Unknown option: $token"
+            }
         }
     }
-    return $null
-}
 
-function Test-Option {
-    param(
-        [string[]]$Arguments,
-        [string]$Name
-    )
-    return $Arguments -contains $Name
+    return [pscustomobject]@{
+        Help = $help
+        SelfCheck = $selfCheck
+        Fault = if ($values.ContainsKey("fault")) { $values["fault"] } else { "none" }
+        StateFile = if ($values.ContainsKey("state-file")) { $values["state-file"] } else { $null }
+        AutoCloseMs = if ($values.ContainsKey("auto-close-ms")) { $values["auto-close-ms"] } else { $null }
+    }
 }
 
 function Show-Usage {
@@ -51,6 +85,38 @@ function Get-RuntimeAutomationIds {
     param([string]$Path)
     $manifest = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
     return @($manifest.runtime)
+}
+
+function Assert-ManifestAutomationIds {
+    param(
+        [string[]]$RequiredIds,
+        [string[]]$RuntimeIds
+    )
+    if ($RequiredIds.Count -eq 0) {
+        throw "automation-ids.json must declare at least one required AutomationId."
+    }
+    $allIds = @($RequiredIds + $RuntimeIds)
+    $duplicateIds = @($allIds | Group-Object | Where-Object { $_.Count -gt 1 })
+    if ($duplicateIds.Count -gt 0) {
+        throw "Duplicate AutomationId in manifest: $($duplicateIds[0].Name)"
+    }
+}
+
+function Assert-RequiredAutomationIdProperties {
+    param(
+        [object]$Window,
+        [string[]]$RequiredIds
+    )
+    foreach ($requiredId in $RequiredIds) {
+        $element = if ($requiredId -eq "MainWindow") { $Window } else { $Window.FindName($requiredId) }
+        if ($null -eq $element) {
+            throw "Required AutomationId element not found: $requiredId"
+        }
+        $actualId = [System.Windows.Automation.AutomationProperties]::GetAutomationId($element)
+        if ($actualId -ne $requiredId) {
+            throw "AutomationId mismatch for ${requiredId}: ${actualId}"
+        }
+    }
 }
 
 function Assert-FaultMode {
@@ -94,19 +160,17 @@ function Get-XamlAutomationIds {
 
 try {
     $arguments = @($args)
-    if (Test-Option $arguments "--help") {
+    $parsedArguments = Parse-Arguments $arguments
+    if ($parsedArguments.Help) {
         Show-Usage
         exit 0
     }
 
-    $fault = Get-OptionValue $arguments "--fault"
-    if ($null -eq $fault) {
-        $fault = "none"
-    }
+    $fault = $parsedArguments.Fault
     Assert-FaultMode $fault
 
-    $stateFile = Get-OptionValue $arguments "--state-file"
-    $autoCloseText = Get-OptionValue $arguments "--auto-close-ms"
+    $stateFile = $parsedArguments.StateFile
+    $autoCloseText = $parsedArguments.AutoCloseMs
     $autoCloseMs = 0
     if ($null -ne $autoCloseText) {
         if (-not [int]::TryParse($autoCloseText, [ref]$autoCloseMs) -or $autoCloseMs -lt 0) {
@@ -121,6 +185,7 @@ try {
     $requiredIds = Get-RequiredAutomationIds $manifestPath
     $runtimeIds = Get-RuntimeAutomationIds $manifestPath
     $allIds = @($requiredIds + $runtimeIds)
+    Assert-ManifestAutomationIds -RequiredIds $requiredIds -RuntimeIds $runtimeIds
     $xamlIds = Get-XamlAutomationIds $xaml
 
     foreach ($requiredId in $requiredIds) {
@@ -134,8 +199,9 @@ try {
     }
 
     $window = [System.Windows.Markup.XamlReader]::Parse($xaml)
+    Assert-RequiredAutomationIdProperties -Window $window -RequiredIds $requiredIds
 
-    if (Test-Option $arguments "--self-check") {
+    if ($parsedArguments.SelfCheck) {
         $summary = [ordered]@{
             schema_version = "1.0"
             app = "notepad-like"
@@ -172,6 +238,21 @@ try {
     }.GetNewClosure())
     $window.Show()
 
+    $script:ModalDialog = $null
+    if ($autoCloseMs -gt 0) {
+        $timer = New-Object System.Windows.Threading.DispatcherTimer
+        $timer.Interval = [TimeSpan]::FromMilliseconds($autoCloseMs)
+        $timer.Add_Tick({
+            $timer.Stop()
+            if ($null -ne $script:ModalDialog) {
+                $script:ModalDialog.Close()
+                $script:ModalDialog = $null
+            }
+            $window.Close()
+        }.GetNewClosure())
+        $timer.Start()
+    }
+
     $details = [ordered]@{}
     $status = "ready"
     switch ($fault) {
@@ -184,9 +265,19 @@ try {
         "timeout" {
             $faultStatusText.Text = "Fault: timeout"
             $status = "fault_applied"
-            $details["behavior"] = "UI thread blocks for 5000 ms after state is written."
+            $details["behavior"] = "UI thread blocks for 8000 ms after state is written."
             Write-StateFile -Path $stateFile -Fault $fault -Status $status -Details $details -AutomationIds $allIds
-            Start-Sleep -Milliseconds 5000
+            if (-not [string]::IsNullOrWhiteSpace($stateFile)) {
+                $probePath = $stateFile + ".probe"
+                $probeTimer = New-Object System.Windows.Threading.DispatcherTimer
+                $probeTimer.Interval = [TimeSpan]::FromMilliseconds(1000)
+                $probeTimer.Add_Tick({
+                    $probeTimer.Stop()
+                    Set-Content -LiteralPath $probePath -Value "dispatcher-ran" -Encoding ASCII
+                }.GetNewClosure())
+                $probeTimer.Start()
+            }
+            $window.Dispatcher.Invoke([System.Action]{ Start-Sleep -Milliseconds 8000 })
         }
         "ambiguous" {
             $duplicate = New-Object System.Windows.Controls.TextBox
@@ -234,10 +325,15 @@ try {
             $dialog.Content = $panel
 
             $faultStatusText.Text = "Fault: dialog"
-            $status = "fault_applied"
             $details["behavior"] = "A modal UnexpectedDialog blocks the main window."
-            Write-StateFile -Path $stateFile -Fault $fault -Status $status -Details $details -AutomationIds $allIds
+            Write-StateFile -Path $stateFile -Fault $fault -Status "fault_pending" -Details $details -AutomationIds $allIds
+            $dialog.Add_ContentRendered({
+                Write-StateFile -Path $stateFile -Fault $fault -Status "fault_applied" -Details $details -AutomationIds $allIds
+            }.GetNewClosure())
+            $script:ModalDialog = $dialog
             $dialog.ShowDialog() | Out-Null
+            $script:ModalDialog = $null
+            $status = "fault_applied"
         }
         "busy" {
             $busyOverlay.Visibility = [System.Windows.Visibility]::Visible
@@ -252,16 +348,6 @@ try {
     }
 
     Write-StateFile -Path $stateFile -Fault $fault -Status $status -Details $details -AutomationIds $allIds
-
-    if ($autoCloseMs -gt 0) {
-        $timer = New-Object System.Windows.Threading.DispatcherTimer
-        $timer.Interval = [TimeSpan]::FromMilliseconds($autoCloseMs)
-        $timer.Add_Tick({
-            $timer.Stop()
-            $window.Close()
-        }.GetNewClosure())
-        $timer.Start()
-    }
 
     [System.Windows.Threading.Dispatcher]::Run()
 } catch {

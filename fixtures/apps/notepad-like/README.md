@@ -65,7 +65,7 @@ The base IDs are listed under `required` in `automation-ids.json` and verified b
 |---|---|
 | `none` | Normal window; editor and controls remain available |
 | `disappear` | `EditorTextBox` is collapsed after startup |
-| `timeout` | UI thread blocks for 5000 ms after writing state |
+| `timeout` | UI thread blocks for 8000 ms after writing state; a dispatcher probe must not run before the block ends |
 | `ambiguous` | A second visible editor with the same AutomationId is added |
 | `dialog` | A modal `UnexpectedDialog` blocks the main window |
 | `busy` | Busy overlay is visible and write controls are disabled |
@@ -74,7 +74,7 @@ The state file records `schema_version`, `app`, `pid`, `fault`, `status`, `start
 
 ## CI
 
-The fixture is intended to run on a Windows GitHub Actions runner with a desktop session. Wiring it into CI is intentionally left to TASK-039; this card only provides the executable fixture and its focused test script.
+The fixture is intended to run on a Windows GitHub Actions runner with a desktop session. Wiring it into CI is intentionally left to TASK-039; this card only provides the executable fixture and its focused test script. The local test script uses UI Automation to verify the real fault shapes and adds negative argument cases for fail-closed CLI parsing.
 
 ## Known limits
 

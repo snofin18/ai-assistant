@@ -92,8 +92,10 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 ### 3. 验收输出摘要
 
-- `notepad-like.ps1 --self-check`：PASS，输出 15 个基础 AutomationId、4 个运行时 AutomationId、6 个故障模式。
-- `test-notepad-like.ps1`：PASS，`none`、`disappear`、`timeout`、`ambiguous`、`dialog`、`busy` 六项全过。
+- `notepad-like.ps1 --self-check`：PASS，输出 15 个基础 AutomationId、4 个运行时 AutomationId、6 个故障模式，并逐控件验证真实 `AutomationProperties.AutomationId`。
+- `test-notepad-like.ps1`：PASS，7 个非法参数负向用例 + `none`、`disappear`、`timeout`、`ambiguous`、`dialog`、`busy` 六个模式全过。
+- UIA 断言：`none` / `disappear` / `ambiguous` / `busy` 直接读取 UIA 树；`dialog` 验证 `UnexpectedDialog` 已渲染；`timeout` 用 1 秒 dispatcher 探针证明 UI 线程被阻塞。
+- 独立 review 修复：严格参数解析、manifest 唯一性、dialog `ContentRendered` 就绪信号、UIA 语义断言、Timeout dispatcher 探针、临时目录/子进程清理与路径 quoting。
 - `cargo fmt --all --check`：PASS。
 - `cargo clippy --all-targets -- -D warnings`：PASS。
 - `cargo test --workspace`：PASS。
@@ -107,7 +109,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - [x] `--self-check` 验证 XAML 可解析、所有关键 AutomationId 存在且无重复。
 - [x] 五种故障模式可由 CLI 触发，专项测试覆盖 `none` + 五种故障并全部通过。
 - [x] 状态文件可被测试读取，字段与 README 声明一致。
-- [x] 未知故障模式与非法参数返回非零退出码（由参数校验和 `try/catch` 收口）。
+- [x] 未知故障模式、未知选项、重复选项、缺值与 `--fault=...` 等非法形式全部返回非零退出码（由严格参数解析和 `try/catch` 收口）。
 - [x] README 记录运行方法、AutomationId、故障语义、Windows CI 前置条件与已知限制。
 - [x] `cargo fmt --all --check` 0 diff。
 - [x] `cargo clippy --all-targets -- -D warnings` 退出码 0。
@@ -124,6 +126,7 @@ none。
 - 选择 Windows PowerShell 5.1 + 内置 WPF，而不是安装 .NET SDK 或引入 WinAppSDK。该路径零新增依赖、符合当前 write scope，也能在 Windows runner 上执行。
 - 把 AutomationId 清单拆成 `required`（基础 XAML）和 `runtime`（故障注入时动态创建）。这样 self-check 不会把尚未创建的模态弹窗误报为缺失，同时测试仍能验证完整 ID 集合。
 - 用状态文件把“应用已启动 / 故障已注入”变成可机器读取的事实，避免测试只靠窗口存在或固定 sleep 猜测。
+- 测试使用真实 UIA 断言与 dispatcher 探针，而不是只比较状态文件字段；这样能抓住“状态写了但故障没真正生效”的假绿。
 
 ### 7. 遗留问题
 

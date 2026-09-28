@@ -55,9 +55,13 @@
             AutomationProperties.AutomationId="EditorTextBox" />
       </StackPanel>
 
-      <Border
+      <Button
           x:Name="BusyOverlay"
           Background="#CCFFFFFF"
+          BorderThickness="0"
+          Focusable="False"
+          IsHitTestVisible="False"
+          IsTabStop="False"
           Visibility="Collapsed"
           AutomationProperties.AutomationId="BusyOverlay">
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -75,7 +79,7 @@
               Margin="0,12,0,0"
               AutomationProperties.AutomationId="BusyProgressBar" />
         </StackPanel>
-      </Border>
+      </Button>
     </Grid>
 
     <StatusBar Grid.Row="2">
