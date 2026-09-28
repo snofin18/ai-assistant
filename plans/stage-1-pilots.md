@@ -27,7 +27,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 - [ ] L3 不可逆动作 100% 经人工确认，且计划 UI 正确标注 point-of-no-return
 - [ ] 四类异常可安全终止或恢复：断网、Core 崩溃、用户中途操作、目标程序退出
 - [ ] 所有写操作有 postcondition 且被验证；所有失败可从时间线定位原因
-- [ ] CI 门禁全绿：**gov §5.1 的 17 行清单 ↔ 16 个 CI 步骤（9 硬 + 7 软）**（含 arch test、schema 校验、类型同步、hygiene **13 项**、回放基准、spike-deny）
+- [ ] CI 门禁全绿：**gov §5.1 与 `.github/workflows/ci.yml` 的现行清单一致**（含 arch test、schema 校验、类型同步、hygiene 规则、回放基准、spike-deny、desktop-ui 检查）
       > 口径由 **ADR-0025 D4** 统一（2026-09-18，PL-001 关闭）。原写「CI 14 项门禁」是过时表述。
 - [ ] 覆盖率：workspace ≥ 75%，`core`/`policy`/`task-engine` ≥ 85%
 - [ ] 每个 crate 有 README（职责/边界/**不变量**/已知限制）
@@ -60,7 +60,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 > ✅ **2026-09-24 TASK-015 已把这段语义边界消掉**：`cargo test -p assistant-core arch::` 现在是 **`running 5 tests`**
 > （`crates/core/tests/arch_layering.rs`：正向 2 + 负向 3），且 CI 的 `[SOFT #5]` 已**转硬**为 `[HARD #5]`
 > （负向验证 = 该文件的三条 `arch::scan_flags_*` 用例，ADR-0019 N1）。同批把 `check-ledger`（gov #16）也转硬。
-> ⚠ 上方 DoD 行的「9 硬 + 7 软」是本次转硬后的实测口径（原写「7 硬 + 9 软」）—— **只改派生计数，DoD 条目内容未动**。
+> ⚠ 硬/软门禁数量不再在本文件手抄；唯一事实源 = `gov §5.1` 与 `.github/workflows/ci.yml` 的步骤名。
 
 ### 批次 A2　平台层（011/015 完成后可 2 路并行）
 
@@ -111,7 +111,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **036** | T1.1：打开文件 → 读全文 → 报告行数与关键词段落（只读） | `adapters/com.microsoft.notepad/tasks/**`、`eval/tasks/notepad/**` | 035 | S | 10 次连续成功率 ≥ 90%；大文件（1 MB）走 L1 文件通道降级并正确标 `truncated` |
 | **037** | T1.2：全文替换「报表」→「报告」+ 保存（含审批 diff、L0 undo + L1 快照、后置断言） | 同上 | 036 | M | 替换计数正确；保存后标题无 `*`；撤销可回到锚点；**歧义时按 `error_if_ambiguous` 报错** |
 | **038** | T1.3：新建标签 → 写入 → 另存为到指定路径（跨进程 Shell 对话框） | 同上 | 037 | M | 跨进程对话框解析成功率 ≥ 90%；**已存在文件绝不静默覆盖**（先备份 + 确认） |
-| **039** | 阶段 1a 集成验收：CI 门禁全启用（gov §5.1 的 17 行清单 ↔ 16 个步骤：7 硬 + 9 软，ADR-0025 D4） + 9 项 DoD 中 1a 相关项 + 对齐审计 | `.github/workflows/**`、`docs/audits/**` | 033~038 | M | 全部绿灯；审计报告产出；偏差项已裁决 |
+| **039** | 阶段 1a 集成验收：CI 门禁全启用（按 gov §5.1 与 CI workflow 现行清单，ADR-0025 D4） + 9 项 DoD 中 1a 相关项 + 对齐审计 | `.github/workflows/**`、`docs/audits/**` | 033~038 | M | 全部绿灯；审计报告产出；偏差项已裁决 |
 
 ---
 
@@ -201,9 +201,9 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-207 ✅** | A2 | `tasks/TASK-207-core-planner-plan-step-dag.md` | **完整卡**（2026-09-26 Orchestrator 代行展开：Planner —— 模型输出 → 可校验的 Plan / Step DAG）；**Done（2026-09-27，PR #66 / merge `78acfed`）** |
 | **TASK-208 ✅** | A2 | `tasks/TASK-208-core-memory-app-map-fts-retrieval.md` | **完整卡**（2026-09-26 Orchestrator 代行展开：Memory —— App Map 加载 + 消费 storage 的检索 API）；**Done（2026-09-27，PR #70 / merge `e8d95f2`）** |
 | **TASK-029 ✅** | A3 | `tasks/TASK-029-binary-skeleton-agent-core-desktop-ui.md` | Done（2026-09-27，PR #72 / merge `21e35bc`） |
-| **TASK-030 ✅** | A3 | `tasks/TASK-030-ui-approval-card-timeline-evidence.md` | Ready（批次表占位派单前补全） |
+| **TASK-030 ✅** | A3 | `tasks/TASK-030-ui-approval-card-timeline-evidence.md` | Done（PR #74 / merge `4823cfd`；审批卡片 + 时间线） |
 | **TASK-031 ✅** | A3 | `tasks/TASK-031-ui-element-picker-selector-candidates.md` | Done（独立 review P0/P1 清零；PL-094 跟踪 RoleAndParent 契约治理） |
-| **TASK-032 ✅** | A3 | `tasks/TASK-032-ui-policy-panel-egress-capability-cost.md` | Ready（批次表占位派单前补全） |
+| **TASK-032 ✅** | A3 | `tasks/TASK-032-ui-policy-panel-egress-capability-cost.md` | Done（PR #78 / merge `ed9fbfd`；策略 / 能力 / 成本面板） |
 | **TASK-033 ✅** | A3 | `tasks/TASK-033-target-app-notepad-like-fault-injection.md` | Done（PR #82 / merge `8adb118`；UIA 六模式专项测试） |
 | **TASK-034 ✅** | A3 | `tasks/TASK-034-record-replay-framework-xtask-replay.md` | Done（PR #84 / merge `167c3f2`；16/16 CI；Recording v1 + 离线 provider + `xtask replay`） |
 | **TASK-036 ✅** | A5 | `tasks/TASK-036-t1-1-open-read-full-text.md` | Done（PR #88 / merge `0b64f85`；T1.1 声明式任务包 + 10 用例评测集） |
@@ -249,6 +249,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-204 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-204-draft07-keyword-verdict.md` | `crates/tool-bus` 的 draft-07 关键字判据硬化（三张显式拒绝表 + `$schema` 方言校验 + **`pattern` / `format` 永久放弃**）；TASK-020 §9 关注点 3「最大设计负债」的落地物；**已 Done（2026-09-25）** |
 | TASK-205 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-205-schema-module-split.md` | `crates/tool-bus/src/schema.rs`（892 行，TASK-204 收尾时只剩 8 行余量）按**职责**拆分为模块目录（注册期 schema 检查 / 运行期实例校验），让每个文件回到 gov §5.4 的 600 行建议线以下、**行为零变化**；人类 2026-09-25 裁决「**合适的时候立卡，拆文件吧**」；**Ready（2026-09-25）** |
 | **TASK-206 ✅** | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-206-storage-memory-fts5-search.md` | `crates/storage` 的 `memory_fts`（FTS5）迁移 + 检索 API + 存储侧测试 —— 原 TASK-028 的 **DRIFT-028-1** 前置卡（**ADR-0053 D6**）；**Done（2026-09-27，PR #68 / merge `6da9007`）** |
+| **TASK-209 ✅** | 治理池 200~299 | `tasks/TASK-209-audit-round-2-governance-remediation.md` | 第二轮审计治理整改：文档漂移、卡片状态、ADR 断表、UI/xtask CI 空转与缺失硬门禁；产品最后一公里另立卡 |
 
 ## 任务卡号段分配（ADR-0037, 2026-09-20 起生效）
 

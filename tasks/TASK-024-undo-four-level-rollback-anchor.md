@@ -1,6 +1,6 @@
 # TASK-024　`undo`：可逆性四级 + 锚点（内容快照/影子副本/步数级）+ 回滚剧本执行 + 冲突检测 + incident 上报
 
-- 状态：**Ready**
+- 状态：**Done**
 - 阶段：1　子阶段：**1a**　批次：**A2**　依赖：012,023　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -130,7 +130,7 @@ xtask refscan                                   -> FAILED（404 files / 151 erro
 
 - 精确反向应用 Agent diff 未实现；当前冲突处理是保守的 whole-anchor restore 或 incident。
 - 影子副本的存在性、完整性和保留期由 storage/executor 负责；本 crate 只校验路径形状与摘要形状。
-- 状态行仍是正文区的 `Ready`：按 ADR-0031 / ADR-0041，Implementer 不修改分界线以上内容；完成状态由 `plans/*`、`PLAN.md`、`README.md`、`LEDGER.md` 同步（PL-073 仍未裁决）。
+- 状态行漂移已由 TASK-209 治理修复校正为 `Done`；完成状态同批由 `plans/*`、`PLAN.md`、`README.md`、`LEDGER.md` 复核（PL-073 的机制性问题仍需后续治理）。
 
 ### 8. 新增长期记忆
 

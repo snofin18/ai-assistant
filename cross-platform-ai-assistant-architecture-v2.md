@@ -1,6 +1,6 @@
 # 跨平台 AI 助理程序架构设计方案 v2
 
-> 状态：设计讨论稿（仅文档阶段，未开始实现）
+> 状态：设计基线（已有部分实现；当前进度以 `PLAN.md` 与 `plans/*.md` 为准）
 > 版本：v2.2
 > 日期：2026-09-16
 > 取代：`cross-platform-ai-assistant-architecture.md`（v1，保留作为历史）
@@ -3025,7 +3025,7 @@ assistant/
 **最小上下文包**（派单时给 subagent 的东西，**不要 fork 整个会话历史**，避免污染）：
 
 ```text
-AGENTS.md（全文，**实际 185 行**，`wc -l` = 185；不要手抄行数 = PL-035 根因；旧 ~140 为 ADR-0019 之前估算，已过期）
+AGENTS.md（全文；行数以 `wc -l AGENTS.md` 现场实测为准，不在文档手抄 = PL-035 根因）
 + plans/<当前阶段>.md 的「本卡相关段落」
 + tasks/TASK-NNN-<slug>.md（全文：正文区 + 记录区骨架）
 + 引用的 docs/spec/*.md 相关章节
