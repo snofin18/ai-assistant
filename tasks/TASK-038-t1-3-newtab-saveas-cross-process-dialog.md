@@ -1,6 +1,6 @@
 # TASK-038　T1.3：新建标签 → 写入 → 另存为到指定路径（跨进程 Shell 对话框）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**1a**　批次：**A5**　依赖：037　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -106,7 +106,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - `cargo fmt --all --check` 0 diff；`cargo clippy --all-targets -- -D warnings` exit 0；`cargo test --workspace` 全绿（含 `xtask` 379 tests）。
 - `hygiene` 0E/4W、`check-ledger` 0E/0W、`check-migrations` 0E/0W、`card-check` 0E/27W、`docscan` 0E/388W。
 - `memory-counts` / `adr-index` / `refscan` / `verify-schemas` / `codegen --check` 全 PASS。
-- PR / CI / merge 证据待后续回填。
+- PR #94 = https://github.com/snofin18/ai-assistant/pull/94 —— base = `main`；**9/9 check-run 全 success**；合并前 `mergeable=MERGEABLE` / `merge_state_status=CLEAN`；merge commit `5860840f9188fd2e446dbb32f7c632421d7d9d8a`。
 
 ### 4. DoD 逐条核对
 
@@ -135,6 +135,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - DRIFT-038-1：注册 write 工具归属待后续卡或阶段 2 Adapter schema 裁决。
 - DRIFT-038-2：自动“备份 + 确认后覆盖”路径需独立工具契约与恢复测试。
 - 真实任务执行器、Host 装配、审批接线、前景键盘文件名字段输入仍未实现；本卡只交付声明式任务与评测。
+- PR #94 已合并，TASK-038 已 closeout；下一张为 TASK-039。
 
 ### 8. 新增长期记忆
 
