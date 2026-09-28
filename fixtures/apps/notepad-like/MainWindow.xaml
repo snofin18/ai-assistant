@@ -1,0 +1,108 @@
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:Name="MainWindow"
+    Title="notepad-like"
+    Width="900"
+    Height="600"
+    WindowStartupLocation="CenterScreen"
+    AutomationProperties.AutomationId="MainWindow">
+  <Grid x:Name="RootGrid" AutomationProperties.AutomationId="RootGrid">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="8">
+      <Button
+          x:Name="FileMenuButton"
+          Content="File"
+          Width="72"
+          Margin="0,0,8,0"
+          AutomationProperties.AutomationId="FileMenuButton" />
+      <Button
+          x:Name="OpenButton"
+          Content="Open"
+          Width="72"
+          Margin="0,0,8,0"
+          AutomationProperties.AutomationId="OpenButton" />
+      <Button
+          x:Name="SaveButton"
+          Content="Save"
+          Width="72"
+          Margin="0,0,8,0"
+          AutomationProperties.AutomationId="SaveButton" />
+      <Button
+          x:Name="SaveAsButton"
+          Content="Save As"
+          Width="88"
+          AutomationProperties.AutomationId="SaveAsButton" />
+    </StackPanel>
+
+    <Grid Grid.Row="1">
+      <StackPanel
+          x:Name="EditorHost"
+          Margin="8"
+          AutomationProperties.AutomationId="EditorHost">
+        <TextBox
+            x:Name="EditorTextBox"
+            Text="notepad-like fixture"
+            AcceptsReturn="True"
+            TextWrapping="Wrap"
+            VerticalScrollBarVisibility="Auto"
+            Height="420"
+            AutomationProperties.AutomationId="EditorTextBox" />
+      </StackPanel>
+
+      <Border
+          x:Name="BusyOverlay"
+          Background="#CCFFFFFF"
+          Visibility="Collapsed"
+          AutomationProperties.AutomationId="BusyOverlay">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+          <TextBlock
+              x:Name="BusyMessageText"
+              Text="Busy"
+              FontSize="24"
+              HorizontalAlignment="Center"
+              AutomationProperties.AutomationId="BusyMessageText" />
+          <ProgressBar
+              x:Name="BusyProgressBar"
+              Width="220"
+              Height="16"
+              IsIndeterminate="True"
+              Margin="0,12,0,0"
+              AutomationProperties.AutomationId="BusyProgressBar" />
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <StatusBar Grid.Row="2">
+      <StatusBarItem>
+        <TextBlock
+            x:Name="StatusText"
+            Text="Ready"
+            AutomationProperties.AutomationId="StatusText" />
+      </StatusBarItem>
+      <StatusBarItem>
+        <TextBlock
+            x:Name="FaultStatusText"
+            Text="Fault: none"
+            AutomationProperties.AutomationId="FaultStatusText" />
+      </StatusBarItem>
+      <StatusBarItem>
+        <TextBlock
+            x:Name="LineCountText"
+            Text="Lines: 1"
+            AutomationProperties.AutomationId="LineCountText" />
+      </StatusBarItem>
+      <StatusBarItem>
+        <TextBlock
+            x:Name="WordCountText"
+            Text="Words: 2"
+            AutomationProperties.AutomationId="WordCountText" />
+      </StatusBarItem>
+    </StatusBar>
+  </Grid>
+</Window>
