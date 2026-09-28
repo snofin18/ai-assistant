@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "task_id": "notepad.t1_1.open_read_full_text",
+  "app_id": "com.microsoft.notepad",
+  "title": "Open file, read full text, report line count and keyword paragraphs",
+  "goal": "Open a specified text file and return a read-only analysis of its canonical text.",
+  "read_only": true,
+  "open_mode": "platform_open_file",
+  "inputs": {
+    "file_path": {
+      "type": "string",
+      "required": true,
+      "description": "Absolute path to the text file to open."
+    },
+    "keywords": {
+      "type": "array",
+      "items": "string",
+      "required": true,
+      "min_items": 1,
+      "max_items": 20,
+      "description": "Literal substrings to find in paragraphs. No regex or case folding."
+    },
+    "max_text_bytes": {
+      "type": "integer",
+      "required": false,
+      "default": 1048576,
+      "minimum": 1
+    },
+    "max_keyword_paragraphs": {
+      "type": "integer",
+      "required": false,
+      "default": 50,
+      "minimum": 1
+    }
+  },
+  "outputs": {
+    "file_path": "string",
+    "text_source": "uia | file_channel",
+    "truncated": "boolean",
+    "analysis_scope": "full_text | truncated_prefix",
+    "file_size_bytes": "integer",
+    "line_count_total": "integer",
+    "line_count_analyzed": "integer",
+    "keyword_paragraphs": "array",
+    "paragraphs_truncated": "boolean",
+    "source_file_unchanged": "boolean"
+  },
+  "steps": [
+    {
+      "id": "open_file",
+      "kind": "platform",
+      "operation": "platform_open_file",
+      "target": "notepad",
+      "args": {
+        "file_path": "$input.file_path"
+      },
+      "notes": [
+        "Open mode is a task precondition until a registered open_file tool exists.",
+        "A file already open in a tab may not reload from disk; use a unique fixture or close stale tabs first."
+      ]
+    },
+    {
+      "id": "read_text",
+      "kind": "tool",
+      "tool": "notepad.file.read_text",
+      "when": "file_size_bytes <= max_text_bytes",
+      "outputs": ["text"]
+    },
+    {
+      "id": "read_file_channel",
+      "kind": "l1_file",
+      "operation": "read_utf8_prefix",
+      "when": "file_size_bytes > max_text_bytes",
+      "args": {
+        "max_text_bytes": "$input.max_text_bytes"
+      },
+      "outputs": ["text", "truncated"]
+    },
+    {
+      "id": "analyze",
+      "kind": "pure",
+      "operation": "count_lines_and_keyword_paragraphs",
+      "args": {
+        "canonical_form": "LF",
+        "keywords": "$input.keywords",
+        "max_keyword_paragraphs": "$input.max_keyword_paragraphs"
+      }
+    }
+  ],
+  "preconditions": [
+    "Notepad app version is within adapter version_range.",
+    "The file path is absolute, normalized, and readable.",
+    "The file is not already open with stale in-memory content.",
+    "No unsaved-changes dialog blocks the target window."
+  ],
+  "postconditions": [
+    {
+      "id": "source_file_unchanged",
+      "description": "Source file size and modification time are unchanged.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "line_count_matches_text",
+      "description": "line_count_total equals logical lines in canonical full text.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "keyword_paragraphs_match",
+      "description": "Every returned paragraph contains at least one requested literal keyword.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "truncation_is_explicit",
+      "description": "If analysis is partial, truncated=true and analysis_scope=truncated_prefix.",
+      "error_code": "VerifyFailed"
+    }
+  ],
+  "failure_mapping": [
+    {"condition": "file_missing", "error_code": "TargetNotFound"},
+    {"condition": "file_unreadable", "error_code": "PlatformPermission"},
+    {"condition": "invalid_file_path", "error_code": "ToolInvalidArgs"},
+    {"condition": "empty_keywords", "error_code": "ToolInvalidArgs"},
+    {"condition": "uia_text_pattern_missing", "error_code": "CapabilityMissing"},
+    {"condition": "window_unresponsive", "error_code": "TargetUnresponsive"}
+  ],
+  "metrics": {
+    "repeat_runs": 10,
+    "minimum_success_rate": 0.9,
+    "silent_failure_rate": 0,
+    "first_selector_hit_rate_min": 0.85,
+    "step_efficiency_max": 1.5,
+    "time_budget_ms": 30000
+  }
+}
