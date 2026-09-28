@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~028 已 Done**；**TASK-207 已 Done 并合并 PR #66**；**TASK-206 已 Done 并合并 PR #68**；**TASK-208 已 Done 并合并 PR #70**；**TASK-029 已 Done 并合并 PR #72**：binary Host 装配 + Tauri 壳；**TASK-030 已 Done 并合并 PR #74**：审批卡片 + 执行时间线；**TASK-031 已 Done**：元素拾取器 + 目标绑定向导；**TASK-032 已 Done**：策略 / 能力 / 成本面板；下一张 = **TASK-033**）　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~028 已 Done**；**TASK-207 已 Done 并合并 PR #66**；**TASK-206 已 Done 并合并 PR #68**；**TASK-208 已 Done 并合并 PR #70**；**TASK-029 已 Done 并合并 PR #72**：binary Host 装配 + Tauri 壳；**TASK-030 已 Done 并合并 PR #74**：审批卡片 + 执行时间线；**TASK-031 已 Done**：元素拾取器 + 目标绑定向导；**TASK-032 已 Done**：策略 / 能力 / 成本面板；**TASK-033 已 Done**：notepad-like 故障注入靶机；下一张 = **TASK-034**）　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -204,7 +204,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-030 ✅** | A3 | `tasks/TASK-030-ui-approval-card-timeline-evidence.md` | Ready（批次表占位派单前补全） |
 | **TASK-031 ✅** | A3 | `tasks/TASK-031-ui-element-picker-selector-candidates.md` | Done（独立 review P0/P1 清零；PL-094 跟踪 RoleAndParent 契约治理） |
 | **TASK-032 ✅** | A3 | `tasks/TASK-032-ui-policy-panel-egress-capability-cost.md` | Ready（批次表占位派单前补全） |
-| TASK-033 | A3 | `tasks/TASK-033-target-app-notepad-like-fault-injection.md` | Ready（批次表占位派单前补全） |
+| **TASK-033 ✅** | A3 | `tasks/TASK-033-target-app-notepad-like-fault-injection.md` | Done（PR #82 / merge `8adb118`；UIA 六模式专项测试） |
 | TASK-034 | A3 | `tasks/TASK-034-record-replay-framework-xtask-replay.md` | Ready（批次表占位派单前补全） |
 | TASK-036 | A5 | `tasks/TASK-036-t1-1-open-read-full-text.md` | Ready（批次表占位派单前补全） |
 | TASK-037 | A5 | `tasks/TASK-037-t1-2-replace-save-approval-diff-undo.md` | Ready（批次表占位派单前补全） |

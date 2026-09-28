@@ -4,14 +4,14 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-032** 策略 / 能力 / 成本面板已 Done：三档出域策略与逐应用覆盖、常驻状态栏、Capability Matrix 与整数 micro-USD 成本聚合落地，26 个 Node 专项测试与独立 review 通过；下一张 **TASK-033**。此前 TASK-031 元素拾取/绑定、TASK-030 审批/时间线、TASK-029 Host 装配、TASK-208 Memory、TASK-207 Planner、TASK-206 storage `memory_fts`、TASK-028 会话/上下文、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-033** `notepad-like` 靶机应用已 Done：PowerShell 5.1 内置 WPF、稳定 AutomationId、六种 CLI 故障模式与 UIA 专项测试落地；下一张 **TASK-034**。此前 TASK-032 策略/能力/成本、TASK-031 元素拾取/绑定、TASK-030 审批/时间线、TASK-029 Host 装配、TASK-208 Memory、TASK-207 Planner、TASK-206 storage `memory_fts`、TASK-028 会话/上下文、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
 > TASK-017 的 7 条 DRIFT 已全部裁决落地（**ADR-0043** 元素解析加 scope / **ADR-0044** 歧义策略收敛为唯一
 > `ErrorAndAsk` / **ADR-0045** 非宿主平台编译门禁进 `AGENTS.md` §6；PL-068 / 069 / 070 闭环），
 > 同 crate 的合成输入（`SendInput`）+ 坐标归一化（DPI / 多屏）+ IME 也已落地（TASK-018 —— 铁律 5 的 **L4** 层；
-> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））、**`crates/policy`**（TASK-021：唯一放行点 / 默认拒绝 / deny 优先 / DSL v0 / 参数护栏）、**`crates/undo`**（TASK-024：L0~L3 + 三类锚点 + 回滚剧本 + 冲突检测 + incident）、**`crates/lease`**（TASK-025：三模式矩阵 + TTL / 续租 / 用户抢占 + 零提交批量获取）、**`crates/model-gateway`**（TASK-026：同步拉取式流 / 路由 / fallback / backoff / cache hint / 成本）与 **`crates/hitl`**（TASK-027：ADR-0048 无损 confirmation 投影 / 审批与四维授权 / 接管与暂停恢复 / diff 数据）均已落地；TASK-029 已完成并合并 PR #72（merge `21e35bc`），下一张是 TASK-030。**当前阶段详情以 `PLAN.md` 为准**。
+> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））、**`crates/policy`**（TASK-021：唯一放行点 / 默认拒绝 / deny 优先 / DSL v0 / 参数护栏）、**`crates/undo`**（TASK-024：L0~L3 + 三类锚点 + 回滚剧本 + 冲突检测 + incident）、**`crates/lease`**（TASK-025：三模式矩阵 + TTL / 续租 / 用户抢占 + 零提交批量获取）、**`crates/model-gateway`**（TASK-026：同步拉取式流 / 路由 / fallback / backoff / cache hint / 成本）与 **`crates/hitl`**（TASK-027：ADR-0048 无损 confirmation 投影 / 审批与四维授权 / 接管与暂停恢复 / diff 数据）均已落地；TASK-033 已完成并合并 PR #82（merge `8adb118`），下一张是 TASK-034。**当前阶段详情以 `PLAN.md` 为准**。
 
 ---
 
@@ -160,6 +160,10 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展（2026-09-27：**TASK-208 —— `core` Memory（App Map + FTS5 检索消费）**；**TASK-206 —— `crates/storage` `memory_fts` FTS5 检索**；**TASK-207 —— `core` Planner（模型输出 → Plan / Step DAG）**；TASK-206 DRIFT-206-1 裁决 + ADR-0054；DRIFT-028 五点落地 —— ADR-0053；2026-09-26：TASK-028 —— 会话 + 上下文；TASK-027 —— HITL 审批与接管；TASK-026 —— 模型网关；TASK-025 —— 目标租约与并发控制；TASK-024 —— 撤销与补偿闭环；2026-09-25：TASK-023 —— 后置断言引擎；TASK-204 —— 工具 schema 关键字判据硬化；TASK-022 —— 任务引擎；TASK-021 —— 唯一策略放行点；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+
+**2026-09-28 —— TASK-033 notepad-like 靶机应用**
+
+新增 `fixtures/apps/notepad-like/**`：使用 Windows PowerShell 5.1 内置 WPF，不引入 .NET SDK 或第三方依赖；主窗口、编辑区、工具栏、状态栏、busy 遮罩与注入弹窗均有稳定 `AutomationId`。CLI 支持 `none` / `disappear` / `timeout` / `ambiguous` / `dialog` / `busy` 六种故障，`--self-check` 真实解析 XAML 并逐控件校验 AutomationId。专项测试用 UIA 检查可见性、重复候选、busy 禁用状态和 dialog 运行时 ID，timeout 用 dispatcher 探针证明 UI 线程阻塞；7 类非法参数 fail-closed。PR #82 以 merge `8adb118` 合并，16/16 CI 全绿；CI 接线仍归 TASK-039。
 
 **2026-09-28 —— TASK-032 策略 / 能力 / 成本面板**
 
