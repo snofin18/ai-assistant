@@ -50,9 +50,12 @@ function Stop-TestProcess {
         if (-not $Process.HasExited) {
             Stop-Process -Id $Process.Id -Force -ErrorAction Stop
         }
-        $Process.WaitForExit(5000) | Out-Null
     } catch {
         # The process may have exited between HasExited and Stop-Process.
+    }
+    $Process.WaitForExit(5000) | Out-Null
+    if (-not $Process.HasExited) {
+        throw "Process did not exit: pid=$($Process.Id)"
     }
 }
 
@@ -113,7 +116,8 @@ function Assert-FaultSemantics {
     param(
         [string]$Mode,
         [int]$ProcessId,
-        [string]$StateFile
+        [string]$StateFile,
+        [string[]]$RuntimeIds
     )
     if ($Mode -eq "dialog") {
         $window = Get-WindowByProcessId -ProcessId $ProcessId
@@ -121,6 +125,13 @@ function Assert-FaultSemantics {
         $visibleDialogs = @($dialogs | Where-Object { -not $_.Current.IsOffscreen })
         if ($visibleDialogs.Count -lt 1) {
             throw "UnexpectedDialog was not rendered"
+        }
+        foreach ($runtimeId in $RuntimeIds) {
+            $runtimeElements = Get-ElementsByAutomationId -Root $window -AutomationId $runtimeId
+            $visibleRuntimeElements = @($runtimeElements | Where-Object { -not $_.Current.IsOffscreen })
+            if ($visibleRuntimeElements.Count -lt 1) {
+                throw "Runtime AutomationId was not rendered: $runtimeId"
+            }
         }
         return
     }
@@ -141,6 +152,9 @@ function Assert-FaultSemantics {
             if ($editors.Count -ne 1) {
                 throw "Expected one visible editor, got $($editors.Count)"
             }
+            if ($editors[0].Current.IsOffscreen -or -not $editors[0].Current.IsEnabled) {
+                throw "EditorTextBox is not visible and enabled in none mode"
+            }
         }
         "disappear" {
             $editors = Get-ElementsByAutomationId -Root $window -AutomationId "EditorTextBox"
@@ -154,6 +168,11 @@ function Assert-FaultSemantics {
             $editors = Get-ElementsByAutomationId -Root $window -AutomationId "EditorTextBox"
             if ($editors.Count -lt 2) {
                 throw "Expected at least two editor matches, got $($editors.Count)"
+            }
+            foreach ($editor in $editors) {
+                if ($editor.Current.IsOffscreen -or -not $editor.Current.IsEnabled) {
+                    throw "Ambiguous mode contains a hidden or disabled editor"
+                }
             }
         }
         "busy" {
@@ -174,7 +193,12 @@ function Assert-InvalidArguments {
     $argumentList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Sta", "-File", (Quote-Argument $scriptPath)) + $Arguments
     $process = Start-Process -FilePath $powershellPath `
         -ArgumentList $argumentList `
-        -Wait -PassThru -WindowStyle Hidden
+        -PassThru -WindowStyle Hidden
+    $process.WaitForExit(5000) | Out-Null
+    if (-not $process.HasExited) {
+        Stop-TestProcess -Process $process
+        throw "Invalid arguments unexpectedly kept the process alive: $($Arguments -join ' ')"
+    }
     if ($process.ExitCode -eq 0) {
         throw "Expected non-zero exit for invalid arguments: $($Arguments -join ' ')"
     }
@@ -229,13 +253,18 @@ foreach ($mode in $faultModes) {
                 throw "State file missing AutomationId: $requiredId"
             }
         }
-        Assert-FaultSemantics -Mode $mode -ProcessId $process.Id -StateFile $stateFile
+        Assert-FaultSemantics -Mode $mode -ProcessId $process.Id -StateFile $stateFile -RuntimeIds $runtimeIds
         Write-Host "PASS fault=$mode"
     } catch {
         $failures.Add("fault=$mode : " + $_.Exception.Message) | Out-Null
         Write-Host "FAIL fault=$mode : $($_.Exception.Message)"
     } finally {
-        Stop-TestProcess -Process $process
+        try {
+            Stop-TestProcess -Process $process
+        } catch {
+            $failures.Add("stop=$mode : " + $_.Exception.Message) | Out-Null
+            Write-Host "FAIL stop=$mode : $($_.Exception.Message)"
+        }
         try {
             Remove-TestDirectory -Path $testDirectory
         } catch {

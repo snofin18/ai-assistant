@@ -102,7 +102,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - `xtask hygiene / memory-counts / adr-index / refscan / docscan / card-check / check-ledger`：PASS。
 - `cargo deny check`：PASS，仅有既有 warnings。
 - `git diff --check`：PASS。
-- 规模提示：fixture 五个文件加卡片展开约 673 行，超过 gov §3 的单卡 400 行审阅建议；功能面集中在单一靶机 fixture，建议审阅者按 XAML / 主脚本 / 测试脚本 / 文档四段审阅。
+- 规模提示：当前 fixture + 卡片记录相对 `main` 约 **935 行新增**，超过 gov §3 的单卡 400 行审阅建议；功能面集中在单一靶机 fixture，建议审阅者按 XAML / 主脚本 / 测试脚本 / 文档四段审阅。
 
 ### 4. DoD 逐条核对
 
@@ -131,7 +131,7 @@ none。
 ### 7. 遗留问题
 
 - CI 接入归 TASK-039；本卡只提供 fixture 和专项测试。
-- `timeout` 与 `dialog` 的专项测试是进程级 smoke test，不尝试自动化注入弹窗内部控件；后续 UIA 回归可在 TASK-034/035 复用该 fixture 扩展。
+- `dialog` 已通过 UIA 验证弹窗渲染及全部运行时 AutomationId；`timeout` 用 dispatcher 探针证明 UI 线程在 2 秒内未执行探针。仍未断言 dialog 自然自动关闭路径与 timeout 结束后 dispatcher 恢复，这两项可在 TASK-034/035 复用 fixture 扩展。
 - fixture 不读写用户文件，不模拟真实 Notepad 的编码/EOL/文件对话框行为。
 
 ### 8. 新增长期记忆

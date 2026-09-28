@@ -25,21 +25,21 @@ function Parse-Arguments {
             }
             "--fault" {
                 $index++
-                if ($index -ge $Arguments.Count -or $Arguments[$index].StartsWith("--")) {
+                if ($index -ge $Arguments.Count -or [string]::IsNullOrWhiteSpace($Arguments[$index]) -or $Arguments[$index].StartsWith("--")) {
                     throw "Option --fault requires a value."
                 }
                 $values["fault"] = $Arguments[$index]
             }
             "--state-file" {
                 $index++
-                if ($index -ge $Arguments.Count -or $Arguments[$index].StartsWith("--")) {
+                if ($index -ge $Arguments.Count -or [string]::IsNullOrWhiteSpace($Arguments[$index]) -or $Arguments[$index].StartsWith("--")) {
                     throw "Option --state-file requires a value."
                 }
                 $values["state-file"] = $Arguments[$index]
             }
             "--auto-close-ms" {
                 $index++
-                if ($index -ge $Arguments.Count -or $Arguments[$index].StartsWith("--")) {
+                if ($index -ge $Arguments.Count -or [string]::IsNullOrWhiteSpace($Arguments[$index]) -or $Arguments[$index].StartsWith("--")) {
                     throw "Option --auto-close-ms requires a value."
                 }
                 $values["auto-close-ms"] = $Arguments[$index]

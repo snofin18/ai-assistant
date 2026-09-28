@@ -81,4 +81,4 @@ The fixture is intended to run on a Windows GitHub Actions runner with a desktop
 - It is a fixture, not a real Notepad replacement.
 - It does not read or write user files.
 - It does not implement encoding or EOL normalization.
-- `timeout` and `dialog` tests are process-level smoke tests; they do not attempt to automate the injected UI.
+- The focused tests validate the rendered dialog and all runtime AutomationIds through UIA. The `timeout` probe proves the dispatcher is blocked for at least 2 seconds, but the test does not assert natural auto-close after the modal closes or dispatcher recovery after the timeout block ends.
