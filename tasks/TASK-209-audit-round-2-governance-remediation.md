@@ -1,6 +1,6 @@
 # TASK-209　第二轮审计：治理、文档与 CI 空转门禁整改
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：跨阶段治理　子阶段：—　批次：治理池　依赖：无
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 
@@ -97,6 +97,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - CI：desktop-ui 增加 typecheck/test/build 硬门禁；doc-consistency 接入 `check-migrations` / `refscan` / `docscan` / `card-check`；`replay` 改为真实 fixture 硬门禁；删除两个占位软门禁。
 - `cargo fmt --all --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test --workspace` 全 PASS。
 - `hygiene` 0E/4W；`memory-counts` / `adr-index` / `refscan` / `check-ledger` 0E；`docscan` 0E/397W；`card-check` 0E/27W。
+- PR #90：**9/9 check-run 全 success**；merge commit `e1c9a279adf2c6638d65cba80205efb34df7c303`。
 
 ### 4. DoD 逐条核对
 
