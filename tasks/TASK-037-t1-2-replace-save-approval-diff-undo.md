@@ -1,6 +1,6 @@
 # TASK-037　T1.2：全文替换「报表」→「报告」+ 保存（含审批 diff、L0 undo + L1 快照、后置断言）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**1a**　批次：**A5**　依赖：036　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -108,6 +108,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - JSON 任务、cases、expected 均可解析；任务只引用 `read_text` / `replace_text` / `save` 三个已注册工具。
 - `cargo fmt --all --check` 0 diff；`cargo clippy --all-targets -- -D warnings` 与 `cargo test --workspace` 全 PASS。
 - `hygiene` 0E/4W、`check-migrations` 0E/0W、`refscan` 0E/0W、`memory-counts` 0E/0W、`adr-index` 0E/0W、`docscan` 0E/397W、`card-check` 0E/27W。
+- PR #92：**9/9 check-run 全 success**；合并前 `mergeable=MERGEABLE` / `merge_state_status=CLEAN`；merge commit `6e9c85a38b5ac2896b827a4dba7cfe922679d578`。
 
 ### 4. DoD 逐条核对
 
@@ -132,7 +133,7 @@ none。打开文件的 `platform_open_file` 前置动作沿用 **DRIFT-036-1**�
 
 - 真实任务执行器、Host 装配、审批接线与真实 Notepad 操作仍不属本声明式任务卡。
 - TASK-038 处理新建标签与跨进程 Save As。
-- PR / CI / merge 证据待 push 后回填。
+- PR / CI / merge 证据已回填；下一张为 TASK-038。
 
 ### 8. 新增长期记忆
 
