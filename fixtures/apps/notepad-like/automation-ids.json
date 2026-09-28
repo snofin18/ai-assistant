@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "required": [
+    "MainWindow",
+    "RootGrid",
+    "FileMenuButton",
+    "OpenButton",
+    "SaveButton",
+    "SaveAsButton",
+    "EditorHost",
+    "EditorTextBox",
+    "StatusText",
+    "FaultStatusText",
+    "LineCountText",
+    "WordCountText",
+    "BusyOverlay",
+    "BusyMessageText",
+    "BusyProgressBar"
+  ],
+  "runtime": [
+    "UnexpectedDialog",
+    "DialogMessageText",
+    "DialogCancelButton",
+    "DialogContinueButton"
+  ]
+}
