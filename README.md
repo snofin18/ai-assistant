@@ -4,14 +4,14 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-037** T1.2 任务包与 11 用例评测集已 Done：全文替换、保存、审批 diff、歧义 fail-closed、L0/L1 撤销证据落地；下一张 **TASK-038**。此前 TASK-036 T1.1 任务包、TASK-035 Notepad Adapter 声明式包、TASK-034 录制回放、TASK-033 `notepad-like`、TASK-032 策略/能力/成本、TASK-031 元素拾取/绑定、TASK-030 审批/时间线、TASK-029 Host 装配、TASK-208 Memory、TASK-207 Planner、TASK-206 storage `memory_fts`、TASK-028 会话/上下文、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；最新 **TASK-038** T1.3 新建标签 / 写入 / 跨进程另存为任务包与 14 用例评测集实现完成，等待 PR / CI / merge；merge 后下一张 **TASK-039**。此前 TASK-037 T1.2 任务包、TASK-036 T1.1 任务包、TASK-035 Notepad Adapter 声明式包、TASK-034 录制回放、TASK-033 `notepad-like`、TASK-032 策略/能力/成本、TASK-031 元素拾取/绑定、TASK-030 审批/时间线、TASK-029 Host 装配、TASK-208 Memory、TASK-207 Planner、TASK-206 storage `memory_fts`、TASK-028 会话/上下文、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
 > TASK-017 的 7 条 DRIFT 已全部裁决落地（**ADR-0043** 元素解析加 scope / **ADR-0044** 歧义策略收敛为唯一
 > `ErrorAndAsk` / **ADR-0045** 非宿主平台编译门禁进 `AGENTS.md` §6；PL-068 / 069 / 070 闭环），
 > 同 crate 的合成输入（`SendInput`）+ 坐标归一化（DPI / 多屏）+ IME 也已落地（TASK-018 —— 铁律 5 的 **L4** 层；
-> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））、**`crates/policy`**（TASK-021：唯一放行点 / 默认拒绝 / deny 优先 / DSL v0 / 参数护栏）、**`crates/undo`**（TASK-024：L0~L3 + 三类锚点 + 回滚剧本 + 冲突检测 + incident）、**`crates/lease`**（TASK-025：三模式矩阵 + TTL / 续租 / 用户抢占 + 零提交批量获取）、**`crates/model-gateway`**（TASK-026：同步拉取式流 / 路由 / fallback / backoff / cache hint / 成本）与 **`crates/hitl`**（TASK-027：ADR-0048 无损 confirmation 投影 / 审批与四维授权 / 接管与暂停恢复 / diff 数据）均已落地；TASK-036 已完成并合并 PR #88（merge `0b64f85`）；TASK-037 已合并 PR #92（merge `6e9c85a`），下一张是 TASK-038。**当前阶段详情以 `PLAN.md` 为准**。
+> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））、**`crates/policy`**（TASK-021：唯一放行点 / 默认拒绝 / deny 优先 / DSL v0 / 参数护栏）、**`crates/undo`**（TASK-024：L0~L3 + 三类锚点 + 回滚剧本 + 冲突检测 + incident）、**`crates/lease`**（TASK-025：三模式矩阵 + TTL / 续租 / 用户抢占 + 零提交批量获取）、**`crates/model-gateway`**（TASK-026：同步拉取式流 / 路由 / fallback / backoff / cache hint / 成本）与 **`crates/hitl`**（TASK-027：ADR-0048 无损 confirmation 投影 / 审批与四维授权 / 接管与暂停恢复 / diff 数据）均已落地；TASK-036 已完成并合并 PR #88（merge `0b64f85`）；TASK-037 已合并 PR #92（merge `6e9c85a`）；TASK-038 已完成实现与本地门禁，等待 PR / CI / merge。**当前阶段详情以 `PLAN.md` 为准**。
 
 ---
 
@@ -160,7 +160,11 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-29：**TASK-037 —— T1.2 替换 / 保存 / 审批 / L0+L1 撤销任务包与评测集**；2026-09-28：**TASK-036 —— T1.1 任务包与评测集**；**TASK-035 —— Notepad Adapter 声明式包 v0**；**TASK-034 —— 录制回放框架 v0**；**TASK-033 —— notepad-like 靶机应用**；**TASK-032 —— 策略 / 能力 / 成本面板**；**TASK-031 —— 元素拾取器 + 目标绑定**；2026-09-27：**TASK-208 —— `core` Memory（App Map + FTS5 检索消费）**；**TASK-206 —— `crates/storage` `memory_fts` FTS5 检索**；**TASK-207 —— `core` Planner（模型输出 → Plan / Step DAG）**；TASK-206 DRIFT-206-1 裁决 + ADR-0054；DRIFT-028 五点落地 —— ADR-0053；2026-09-26：TASK-028 —— 会话 + 上下文；TASK-027 —— HITL 审批与接管；TASK-026 —— 模型网关；TASK-025 —— 目标租约与并发控制；TASK-024 —— 撤销与补偿闭环；2026-09-25：TASK-023 —— 后置断言引擎；TASK-204 —— 工具 schema 关键字判据硬化；TASK-022 —— 任务引擎；TASK-021 —— 唯一策略放行点；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+## 最近进展（2026-09-29：**TASK-038 —— T1.3 新建标签 / 写入 / 跨进程另存为任务包与评测集**；**TASK-037 —— T1.2 替换 / 保存 / 审批 / L0+L1 撤销任务包与评测集**；2026-09-28：**TASK-036 —— T1.1 任务包与评测集**；**TASK-035 —— Notepad Adapter 声明式包 v0**；**TASK-034 —— 录制回放框架 v0**；**TASK-033 —— notepad-like 靶机应用**；**TASK-032 —— 策略 / 能力 / 成本面板**；**TASK-031 —— 元素拾取器 + 目标绑定**；2026-09-27：**TASK-208 —— `core` Memory（App Map + FTS5 检索消费）**；**TASK-206 —— `crates/storage` `memory_fts` FTS5 检索**；**TASK-207 —— `core` Planner（模型输出 → Plan / Step DAG）**；TASK-206 DRIFT-206-1 裁决 + ADR-0054；DRIFT-028 五点落地 —— ADR-0053；2026-09-26：TASK-028 —— 会话 + 上下文；TASK-027 —— HITL 审批与接管；TASK-026 —— 模型网关；TASK-025 —— 目标租约与并发控制；TASK-024 —— 撤销与补偿闭环；2026-09-25：TASK-023 —— 后置断言引擎；TASK-204 —— 工具 schema 关键字判据硬化；TASK-022 —— 任务引擎；TASK-021 —— 唯一策略放行点；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+
+**2026-09-29 —— TASK-038 T1.3 新建标签 / 写入 / 跨进程另存为**
+
+新增 `adapters/com.microsoft.notepad/tasks/t1.3.new-tab-write-save-as.json`：声明新建标签、Host `set_editor_value` 写入后读回、高-risk `once` Save As 审批、`#32770` 跨进程对话框身份校验，以及目标已存在/竞态创建时 `PolicyDenied` 且绝不覆盖。新增 `eval/tasks/notepad/t1.3/**`：14 个用例、确定性 expected、Python fixture 生成器与静态校验器；DRIFT-038-1/2 记录缺少注册 write 工具与自动安全覆盖路径。PR / CI / merge 证据待回填。
 
 **2026-09-29 —— TASK-037 T1.2 替换 / 保存 / 审批 / L0+L1 撤销**
 

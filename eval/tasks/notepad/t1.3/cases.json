@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "task_id": "notepad.t1_3.new_tab_write_save_as",
+  "fixture_directory": "fixtures",
+  "repeat_runs": 10,
+  "primary_case": "new_file_ascii",
+  "cases": [
+    {
+      "id": "new_file_ascii",
+      "fixture": "fixtures/source/ascii.txt",
+      "target_fixture": "fixtures/targets/absent-ascii.txt",
+      "expected_initial_tab_count": 1,
+      "expected": "new_file_ascii"
+    },
+    {
+      "id": "new_file_utf8_cjk",
+      "fixture": "fixtures/source/utf8_cjk.txt",
+      "target_fixture": "fixtures/targets/absent-utf8-cjk.txt",
+      "expected_initial_tab_count": 1,
+      "expected": "new_file_utf8_cjk"
+    },
+    {
+      "id": "new_file_path_with_spaces",
+      "fixture": "fixtures/source/path_with_spaces.txt",
+      "target_fixture": "fixtures/targets/folder with spaces/absent target.txt",
+      "expected_initial_tab_count": 1,
+      "expected": "new_file_path_with_spaces"
+    },
+    {
+      "id": "new_file_empty_text",
+      "fixture": "fixtures/source/empty.txt",
+      "target_fixture": "fixtures/targets/absent-empty.txt",
+      "expected_initial_tab_count": 1,
+      "expected": "new_file_empty_text"
+    },
+    {
+      "id": "existing_target_reject_negative",
+      "fixture": "fixtures/source/existing-target-source.txt",
+      "target_fixture": "fixtures/targets/existing-target.txt",
+      "expected_initial_tab_count": 1,
+      "injected_fault": "target_already_exists",
+      "expected": "existing_target_reject_negative"
+    },
+    {
+      "id": "target_race_before_save_negative",
+      "fixture": "fixtures/source/race-source.txt",
+      "target_fixture": "fixtures/targets/race-target.txt",
+      "expected_initial_tab_count": 1,
+      "injected_fault": "target_race_created_before_save",
+      "expected": "target_race_before_save_negative"
+    },
+    {
+      "id": "approval_denied_negative",
+      "fixture": "fixtures/source/ascii.txt",
+      "target_fixture": "fixtures/targets/absent-approval-denied.txt",
+      "expected_initial_tab_count": 1,
+      "injected_fault": "approval_denied",
+      "expected": "approval_denied_negative"
+    },
+    {
+      "id": "save_dialog_not_found_negative",
+      "fixture": "fixtures/source/ascii.txt",
+      "target_fixture": "fixtures/targets/absent-dialog-not-found.txt",
+      "expected_initial_tab_count": 1,
+      "injected_fault": "save_dialog_not_found",
+      "expected": "save_dialog_not_found_negative"
+    },
+    {
+      "id": "save_dialog_identity_mismatch_negative",
+      "fixture": "fixtures/source/ascii.txt",
+      "target_fixture": "fixtures/targets/absent-dialog-identity.txt",
+      "expected_initial_tab_count": 1,
+      "injected_fault": "save_dialog_identity_mismatch",
+      "expected": "save_dialog_identity_mismatch_negative"
+    },
+    {
+      "id": "filename_entry_capability_missing_negative",
+      "fixture": "fixtures/source/utf8_cjk.txt",
+      "target_fixture": "fixtures/targets/absent-capability.txt",
+      "expected_initial_tab_count": 1,
+      "injected_fault": "filename_entry_capability_missing",
+      "expected": "filename_entry_capability_missing_negative"
+    },
+    {
+      "id": "user_cancelled_save_dialog_negative",
+      "fixture": "fixtures/source/ascii.txt",
+      "target_fixture": "fixtures/targets/absent-user-cancelled.txt",
+      "expected_initial_tab_count": 1,
+      "injected_fault": "user_cancelled_save_dialog",
+      "expected": "user_cancelled_save_dialog_negative"
+    },
+    {
+      "id": "disk_readback_mismatch_negative",
+      "fixture": "fixtures/source/ascii.txt",
+      "target_fixture": "fixtures/targets/absent-readback-mismatch.txt",
+      "expected_initial_tab_count": 1,
+      "injected_fault": "disk_readback_mismatch",
+      "expected": "disk_readback_mismatch_negative"
+    },
+    {
+      "id": "missing_parent_directory_negative",
+      "fixture": "fixtures/source/ascii.txt",
+      "target_fixture": "fixtures/targets/missing-parent/absent.txt",
+      "expected_initial_tab_count": 1,
+      "injected_fault": "missing_parent_directory",
+      "expected": "missing_parent_directory_negative"
+    },
+    {
+      "id": "invalid_relative_target_negative",
+      "fixture": "fixtures/source/ascii.txt",
+      "target_fixture": "relative-target.txt",
+      "expected_initial_tab_count": 1,
+      "injected_fault": "invalid_relative_target",
+      "expected": "invalid_relative_target_negative"
+    }
+  ]
+}

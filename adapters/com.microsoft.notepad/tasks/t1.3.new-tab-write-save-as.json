@@ -1,0 +1,293 @@
+{
+  "schema_version": 1,
+  "task_id": "notepad.t1_3.new_tab_write_save_as",
+  "app_id": "com.microsoft.notepad",
+  "title": "Create a new tab, write text, and Save As to a new path",
+  "goal": "Create a clean Notepad tab, write canonical text through the Host text path, and create a new file through the cross-process Save As dialog without silently overwriting an existing target.",
+  "read_only": false,
+  "open_mode": "none",
+  "approval": {
+    "save_as": {
+      "required": true,
+      "risk": "high",
+      "show_diff": true,
+      "scope_options": ["once"],
+      "diff_step": "prepare_save_as_diff",
+      "decision_step": "approve_save_as",
+      "point_of_no_return": true,
+      "reason": "Save As creates a persistent filesystem object through a cross-process Shell dialog."
+    }
+  },
+  "target_path_policy": {
+    "absolute_path_required": true,
+    "normalize_before_use": true,
+    "parent_directory_must_exist": true,
+    "parent_directory_must_be_writable": true,
+    "existing_target_action": "reject_if_exists",
+    "overwrite_existing": false,
+    "silent_overwrite_forbidden": true,
+    "future_overwrite_requires_backup_and_confirmation": true,
+    "tool_argument_overwrite_existing": false
+  },
+  "dialog_contract": {
+    "window_class": "#32770",
+    "owner_process": "explorer.exe_child_process",
+    "must_differ_from_notepad_process": true,
+    "identity_check_required": true,
+    "filename_entry_strategy": "foreground_unicode_sendinput",
+    "filename_entry_requires_foreground": true,
+    "allow_clipboard_credentials": false,
+    "allow_display_alerts_false": false,
+    "timeouts": {
+      "dialog_appear_ms": 3000,
+      "filename_write_ms": 3000,
+      "save_click_ms": 5000,
+      "disk_readback_ms": 3000
+    }
+  },
+  "inputs": {
+    "text": {
+      "type": "string",
+      "required": true,
+      "description": "Text to write into the new tab. Empty text is valid."
+    },
+    "target_path": {
+      "type": "string",
+      "required": true,
+      "min_length": 1,
+      "description": "Absolute normalized path for a file that must not already exist."
+    },
+    "expected_initial_tab_count": {
+      "type": "integer",
+      "required": true,
+      "minimum": 1
+    }
+  },
+  "outputs": {
+    "target_path": "string",
+    "target_existed_before": "boolean",
+    "file_created": "boolean",
+    "canonical_text_written": "string",
+    "canonical_text_read_back": "string",
+    "approval_evidence": "object",
+    "dialog_evidence": "object",
+    "title_has_unsaved_marker": "boolean",
+    "postconditions_verified": "boolean"
+  },
+  "steps": [
+    {
+      "id": "validate_inputs",
+      "kind": "pure",
+      "operation": "validate_t1_3_inputs",
+      "args": {
+        "text": "$input.text",
+        "target_path": "$input.target_path",
+        "expected_initial_tab_count": "$input.expected_initial_tab_count"
+      },
+      "outputs": ["normalized_target_path"]
+    },
+    {
+      "id": "capture_initial_tab_state",
+      "kind": "platform",
+      "operation": "capture_notepad_tab_state",
+      "target": "notepad",
+      "outputs": ["initial_tab_count", "active_document_fingerprint"]
+    },
+    {
+      "id": "preflight_target_path",
+      "kind": "host_service",
+      "operation": "inspect_target_path",
+      "args": {
+        "target_path": "$normalized_target_path"
+      },
+      "outputs": ["target_existed_before", "target_fingerprint"]
+    },
+    {
+      "id": "reject_existing_target",
+      "kind": "policy",
+      "operation": "reject_existing_target",
+      "when": "target_existed_before",
+      "args": {
+        "error_code": "PolicyDenied",
+        "requires_backup_and_confirmation": true
+      },
+      "outputs": ["policy_decision"]
+    },
+    {
+      "id": "create_new_tab",
+      "kind": "tool",
+      "tool": "notepad.tab.new",
+      "when": "!target_existed_before",
+      "outputs": ["tab_count"]
+    },
+    {
+      "id": "resolve_new_editor",
+      "kind": "platform",
+      "operation": "resolve_target",
+      "target": "notepad.editor",
+      "args": {
+        "on_ambiguous": "error_if_ambiguous"
+      },
+      "outputs": ["target_handle"]
+    },
+    {
+      "id": "write_text",
+      "kind": "host_service",
+      "operation": "set_editor_value",
+      "when": "!target_existed_before",
+      "args": {
+        "text": "$input.text",
+        "canonical_form": "LF"
+      },
+      "outputs": ["canonical_text_written"]
+    },
+    {
+      "id": "read_back_text",
+      "kind": "tool",
+      "tool": "notepad.file.read_text",
+      "when": "!target_existed_before",
+      "outputs": ["canonical_text_read_back", "truncated"]
+    },
+    {
+      "id": "prepare_save_as_diff",
+      "kind": "pure",
+      "operation": "build_text_diff",
+      "when": "!target_existed_before",
+      "args": {
+        "before": "",
+        "after": "$canonical_text_read_back",
+        "format": "line_diff",
+        "persistent_write": true,
+        "target_path": "$normalized_target_path"
+      },
+      "outputs": ["approval_diff"]
+    },
+    {
+      "id": "approve_save_as",
+      "kind": "hitl",
+      "operation": "request_approval",
+      "when": "!target_existed_before",
+      "args": {
+        "risk": "high",
+        "show_diff": true,
+        "scope_options": ["once"],
+        "diff": "$approval_diff",
+        "point_of_no_return": true
+      },
+      "outputs": ["approval_evidence.save_as"]
+    },
+    {
+      "id": "save_as_new_file",
+      "kind": "tool",
+      "tool": "notepad.file.save_as",
+      "when": "!target_existed_before",
+      "args": {
+        "target_path": "$normalized_target_path",
+        "overwrite_existing": false
+      },
+      "outputs": ["target_path", "file_created", "dialog_evidence"]
+    },
+    {
+      "id": "verify_disk_readback",
+      "kind": "l1_file",
+      "operation": "read_utf8",
+      "when": "!target_existed_before && file_created",
+      "args": {
+        "path": "$target_path",
+        "canonical_form": "LF"
+      },
+      "outputs": ["canonical_text_on_disk"]
+    },
+    {
+      "id": "verify_postconditions",
+      "kind": "verify",
+      "operation": "verify_postconditions",
+      "args": {
+        "set": "t1_3_new_tab_write_save_as"
+      },
+      "outputs": ["postconditions_verified"]
+    }
+  ],
+  "preconditions": [
+    "Notepad app version is within adapter version_range.",
+    "The target path is absolute, normalized, and does not already exist.",
+    "The target parent directory exists and is writable.",
+    "The initial tab count equals expected_initial_tab_count.",
+    "The active document is known and no unresolved unsaved-changes dialog is present.",
+    "The Save As dialog can be resolved as a #32770 child process different from Notepad."
+  ],
+  "postconditions": [
+    {
+      "id": "new_tab_count_increased_by_one",
+      "description": "Tab count after notepad.tab.new equals initial_tab_count + 1.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "new_tab_initially_empty",
+      "description": "The new tab is empty before set_editor_value runs.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "written_text_read_back_equals",
+      "description": "Canonical text read back through Notepad equals canonical input text.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "save_as_approval_present",
+      "description": "Save As has once-scope approval evidence with a displayed diff and point_of_no_return=true.",
+      "error_code": "PolicyDenied"
+    },
+    {
+      "id": "save_dialog_is_cross_process",
+      "description": "The observed Save As dialog is class #32770 and belongs to an explorer.exe child process, not the Notepad process.",
+      "error_code": "TargetNotFound"
+    },
+    {
+      "id": "target_file_created",
+      "description": "The requested target file exists after Save As.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "target_existed_before_is_false",
+      "description": "Save As is never invoked when the target existed before the task.",
+      "error_code": "PolicyDenied"
+    },
+    {
+      "id": "disk_content_matches_written_text",
+      "description": "Canonical disk content equals canonical_text_written.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "title_has_no_unsaved_marker",
+      "description": "The active document title contains no unsaved marker after Save As.",
+      "error_code": "VerifyFailed"
+    }
+  ],
+  "failure_mapping": [
+    {"condition": "invalid_text_input", "error_code": "ToolInvalidArgs"},
+    {"condition": "invalid_target_path", "error_code": "ToolInvalidArgs"},
+    {"condition": "target_parent_missing_or_unwritable", "error_code": "PlatformPermission"},
+    {"condition": "target_already_exists", "error_code": "PolicyDenied"},
+    {"condition": "target_race_created_before_save", "error_code": "PolicyDenied"},
+    {"condition": "approval_denied", "error_code": "UserInteraction"},
+    {"condition": "save_dialog_not_found", "error_code": "TargetNotFound"},
+    {"condition": "save_dialog_identity_mismatch", "error_code": "TargetNotFound"},
+    {"condition": "filename_entry_capability_missing", "error_code": "CapabilityMissing"},
+    {"condition": "user_cancelled_save_dialog", "error_code": "UserInteraction"},
+    {"condition": "write_readback_mismatch", "error_code": "VerifyFailed"},
+    {"condition": "save_dialog_timeout", "error_code": "TargetUnresponsive"},
+    {"condition": "disk_readback_mismatch", "error_code": "VerifyFailed"}
+  ],
+  "metrics": {
+    "repeat_runs": 10,
+    "minimum_success_rate": 0.9,
+    "cross_process_dialog_success_rate_min": 0.9,
+    "silent_failure_rate": 0,
+    "silent_overwrite_rate": 0,
+    "existing_target_mutation_rate": 0,
+    "approval_bypass_rate": 0,
+    "first_selector_hit_rate_min": 0.85,
+    "step_efficiency_max": 2.0,
+    "time_budget_ms": 30000
+  }
+}
