@@ -11,7 +11,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 > TASK-017 的 7 条 DRIFT 已全部裁决落地（**ADR-0043** 元素解析加 scope / **ADR-0044** 歧义策略收敛为唯一
 > `ErrorAndAsk` / **ADR-0045** 非宿主平台编译门禁进 `AGENTS.md` §6；PL-068 / 069 / 070 闭环），
 > 同 crate 的合成输入（`SendInput`）+ 坐标归一化（DPI / 多屏）+ IME 也已落地（TASK-018 —— 铁律 5 的 **L4** 层；
-> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））、**`crates/policy`**（TASK-021：唯一放行点 / 默认拒绝 / deny 优先 / DSL v0 / 参数护栏）、**`crates/undo`**（TASK-024：L0~L3 + 三类锚点 + 回滚剧本 + 冲突检测 + incident）、**`crates/lease`**（TASK-025：三模式矩阵 + TTL / 续租 / 用户抢占 + 零提交批量获取）、**`crates/model-gateway`**（TASK-026：同步拉取式流 / 路由 / fallback / backoff / cache hint / 成本）与 **`crates/hitl`**（TASK-027：ADR-0048 无损 confirmation 投影 / 审批与四维授权 / 接管与暂停恢复 / diff 数据）均已落地；TASK-036 已完成并合并 PR #88（merge `0b64f85`）；TASK-037 已完成本地验证并进入 PR 流程，下一张是 TASK-038。**当前阶段详情以 `PLAN.md` 为准**。
+> 真机验收 2/2；新提 PL-074）；`apps/automation-host` + `crates/ipc`（TASK-019：帧 / 握手 token / NamedPipe / 对端身份白名单 / 双向心跳 / 看门狗）也已落地并经真实进程 kill 断连验收；**`crates/tool-bus`**（TASK-020：MCP client(`rmcp`) + **同进程** MCP server + draft-07 子集参数校验（不支持即拒绝） + 统一返回信封（`untrusted` / `truncated`） + 工具集指纹 + 动态挂载（> 40 告警））、**`crates/policy`**（TASK-021：唯一放行点 / 默认拒绝 / deny 优先 / DSL v0 / 参数护栏）、**`crates/undo`**（TASK-024：L0~L3 + 三类锚点 + 回滚剧本 + 冲突检测 + incident）、**`crates/lease`**（TASK-025：三模式矩阵 + TTL / 续租 / 用户抢占 + 零提交批量获取）、**`crates/model-gateway`**（TASK-026：同步拉取式流 / 路由 / fallback / backoff / cache hint / 成本）与 **`crates/hitl`**（TASK-027：ADR-0048 无损 confirmation 投影 / 审批与四维授权 / 接管与暂停恢复 / diff 数据）均已落地；TASK-036 已完成并合并 PR #88（merge `0b64f85`）；TASK-037 已合并 PR #92（merge `6e9c85a`），下一张是 TASK-038。**当前阶段详情以 `PLAN.md` 为准**。
 
 ---
 
@@ -164,7 +164,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 **2026-09-29 —— TASK-037 T1.2 替换 / 保存 / 审批 / L0+L1 撤销**
 
-新增 `adapters/com.microsoft.notepad/tasks/t1.2.replace-save-approval-undo.json`：声明字面量全文替换、两段 `once` + `show_diff` 审批、`error_if_ambiguous` 目标解析、保存后标题/磁盘读回后置条件，以及 L0 保存前撤销与 L1 保存后恢复。新增 `eval/tasks/notepad/t1.2/**`：11 个用例、确定性 expected、Python fixture 生成器与静态校验器；静态校验同时确认任务只引用现有注册工具。CI / merge 证据待本轮收尾回填。
+新增 `adapters/com.microsoft.notepad/tasks/t1.2.replace-save-approval-undo.json`：声明字面量全文替换、两段 `once` + `show_diff` 审批、`error_if_ambiguous` 目标解析、保存后标题/磁盘读回后置条件，以及 L0 保存前撤销与 L1 保存后恢复。新增 `eval/tasks/notepad/t1.2/**`：11 个用例、确定性 expected、Python fixture 生成器与静态校验器；静态校验同时确认任务只引用现有注册工具。PR #92 以 merge `6e9c85a` 合并，9/9 CI 全绿。
 
 **2026-09-28 —— TASK-036 T1.1 任务包与评测集**
 
