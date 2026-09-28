@@ -7,6 +7,8 @@
     "dev": "vite --host 127.0.0.1 --port 1420",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types \"src/features/**/*.test.mjs\"",
     "tauri": "tauri"
   },
   "dependencies": {
