@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "task_id": "notepad.t1_2.replace_save_approval_undo",
+  "fixture_directory": "fixtures",
+  "repeat_runs": 10,
+  "primary_case": "replace_single_occurrence",
+  "cases": [
+    {
+      "id": "replace_single_occurrence",
+      "fixture": "fixtures/single_occurrence.txt",
+      "old_text": "报表",
+      "new_text": "报告",
+      "expected_replacements": 1,
+      "target_resolution_policy": "error_if_ambiguous",
+      "expected": "replace_single_occurrence"
+    },
+    {
+      "id": "replace_multiple_occurrences",
+      "fixture": "fixtures/multiple_occurrences.txt",
+      "old_text": "报表",
+      "new_text": "报告",
+      "expected_replacements": 3,
+      "target_resolution_policy": "error_if_ambiguous",
+      "expected": "replace_multiple_occurrences"
+    },
+    {
+      "id": "replace_crlf_cjk",
+      "fixture": "fixtures/crlf_cjk.txt",
+      "old_text": "报表",
+      "new_text": "报告",
+      "expected_replacements": 2,
+      "target_resolution_policy": "error_if_ambiguous",
+      "expected": "replace_crlf_cjk"
+    },
+    {
+      "id": "no_match_negative",
+      "fixture": "fixtures/no_match.txt",
+      "old_text": "报表",
+      "new_text": "报告",
+      "expected_replacements": 1,
+      "target_resolution_policy": "error_if_ambiguous",
+      "expected": "no_match_negative"
+    },
+    {
+      "id": "replacement_count_mismatch_negative",
+      "fixture": "fixtures/wrong_count.txt",
+      "old_text": "报表",
+      "new_text": "报告",
+      "expected_replacements": 3,
+      "target_resolution_policy": "error_if_ambiguous",
+      "expected": "replacement_count_mismatch_negative"
+    },
+    {
+      "id": "ambiguous_editor_target_negative",
+      "fixture": "fixtures/single_occurrence.txt",
+      "old_text": "报表",
+      "new_text": "报告",
+      "expected_replacements": 1,
+      "target_resolution_policy": "error_if_ambiguous",
+      "injected_fault": "ambiguous_editor_target",
+      "expected": "ambiguous_editor_target_negative"
+    },
+    {
+      "id": "approval_denied_negative",
+      "fixture": "fixtures/single_occurrence.txt",
+      "old_text": "报表",
+      "new_text": "报告",
+      "expected_replacements": 1,
+      "target_resolution_policy": "error_if_ambiguous",
+      "injected_fault": "approval_denied",
+      "expected": "approval_denied_negative"
+    },
+    {
+      "id": "save_postcondition_failed_negative",
+      "fixture": "fixtures/single_occurrence.txt",
+      "old_text": "报表",
+      "new_text": "报告",
+      "expected_replacements": 1,
+      "target_resolution_policy": "error_if_ambiguous",
+      "injected_fault": "disk_readback_mismatch",
+      "expected": "save_postcondition_failed_negative"
+    },
+    {
+      "id": "undo_l0_before_save",
+      "fixture": "fixtures/single_occurrence.txt",
+      "old_text": "报表",
+      "new_text": "报告",
+      "expected_replacements": 1,
+      "target_resolution_policy": "error_if_ambiguous",
+      "undo_phase": "after_replace_before_save",
+      "expected": "undo_l0_before_save"
+    },
+    {
+      "id": "undo_l1_after_save",
+      "fixture": "fixtures/single_occurrence.txt",
+      "old_text": "报表",
+      "new_text": "报告",
+      "expected_replacements": 1,
+      "target_resolution_policy": "error_if_ambiguous",
+      "undo_phase": "after_save",
+      "expected": "undo_l1_after_save"
+    },
+    {
+      "id": "undo_l1_when_l0_unavailable",
+      "fixture": "fixtures/single_occurrence.txt",
+      "old_text": "报表",
+      "new_text": "报告",
+      "expected_replacements": 1,
+      "target_resolution_policy": "error_if_ambiguous",
+      "undo_phase": "after_replace_before_save",
+      "injected_fault": "l0_evidence_missing",
+      "expected": "undo_l1_when_l0_unavailable"
+    }
+  ]
+}

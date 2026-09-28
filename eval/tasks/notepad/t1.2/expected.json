@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "task_id": "notepad.t1_2.replace_save_approval_undo",
+  "text_normalization": {
+    "canonical_form": "LF",
+    "replace_order": ["crlf_to_lf", "cr_to_lf"]
+  },
+  "approval_contract": {
+    "replace_text": {
+      "risk": "medium",
+      "show_diff": true,
+      "scope_options": ["once"]
+    },
+    "save": {
+      "risk": "high",
+      "show_diff": true,
+      "scope_options": ["once"],
+      "point_of_no_return": false
+    }
+  },
+  "rollback_contract": {
+    "required_anchor_levels": ["L0", "L1"],
+    "pre_replace_anchor_required": true,
+    "pre_save_disk_snapshot_required": true,
+    "ctrl_z_after_save_restores_disk": false
+  },
+  "metrics": {
+    "repeat_runs": 10,
+    "minimum_success_rate": 0.9,
+    "silent_failure_rate": 0,
+    "undo_success_rate_min": 0.95,
+    "approval_bypass_rate": 0,
+    "first_selector_hit_rate_min": 0.85,
+    "step_efficiency_max": 2.0,
+    "time_budget_ms": 30000
+  },
+  "cases": {
+    "replace_single_occurrence": {
+      "outcome": "success",
+      "repeat_runs": 10,
+      "minimum_successful_runs": 9,
+      "replacement_count": 1,
+      "canonical_text_after_matches_expected": true,
+      "approval": {
+        "replace_text": {
+          "show_diff": true,
+          "scope_used": "once"
+        },
+        "save": {
+          "show_diff": true,
+          "scope_used": "once"
+        }
+      },
+      "save_result": {
+        "saved": true,
+        "title_has_unsaved_marker": false
+      },
+      "disk_content_matches_canonical_after": true,
+      "postconditions_verified": true,
+      "undo_anchor_levels": ["L0", "L1"]
+    },
+    "replace_multiple_occurrences": {
+      "outcome": "success",
+      "replacement_count": 3,
+      "remaining_old_text_count": 0,
+      "canonical_text_after_matches_expected": true,
+      "postconditions_verified": true
+    },
+    "replace_crlf_cjk": {
+      "outcome": "success",
+      "replacement_count": 2,
+      "canonical_text_after_matches_expected": true,
+      "source_eol_style_preserved_on_disk": true,
+      "postconditions_verified": true
+    },
+    "no_match_negative": {
+      "outcome": "error",
+      "error_code": "VerifyFailed",
+      "replacement_count_observed": 0,
+      "write_started": false,
+      "save_started": false,
+      "rollback_required": false
+    },
+    "replacement_count_mismatch_negative": {
+      "outcome": "error",
+      "error_code": "VerifyFailed",
+      "replacement_count_observed": 2,
+      "expected_replacements": 3,
+      "write_started": true,
+      "save_started": false,
+      "rollback_required": true
+    },
+    "ambiguous_editor_target_negative": {
+      "outcome": "error",
+      "error_code": "TargetAmbiguous",
+      "write_started": false,
+      "save_started": false,
+      "rollback_required": false
+    },
+    "approval_denied_negative": {
+      "outcome": "error",
+      "error_code": "UserInteraction",
+      "write_started": false,
+      "save_started": false,
+      "rollback_required": false
+    },
+    "save_postcondition_failed_negative": {
+      "outcome": "error",
+      "error_code": "VerifyFailed",
+      "replacement_count": 1,
+      "save_result": {
+        "saved": false,
+        "title_has_unsaved_marker": true
+      },
+      "disk_content_matches_canonical_after": false,
+      "rollback_required": true
+    },
+    "undo_l0_before_save": {
+      "outcome": "success",
+      "undo_level_used": "L0",
+      "final_memory_matches_pre_replace_anchor": true,
+      "final_disk_matches_pre_replace_anchor": true,
+      "disk_was_not_written": true
+    },
+    "undo_l1_after_save": {
+      "outcome": "success",
+      "undo_level_used": "L1",
+      "final_memory_matches_pre_replace_anchor": true,
+      "final_disk_matches_pre_replace_anchor": true,
+      "restored_from_pre_save_disk_snapshot": true,
+      "ctrl_z_alone_sufficient": false
+    },
+    "undo_l1_when_l0_unavailable": {
+      "outcome": "success",
+      "undo_level_used": "L1",
+      "fallback_reason": "l0_evidence_missing",
+      "final_memory_matches_pre_replace_anchor": true,
+      "final_disk_matches_pre_replace_anchor": true,
+      "fallback_used": true
+    }
+  }
+}

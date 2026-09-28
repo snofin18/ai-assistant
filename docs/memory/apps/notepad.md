@@ -209,6 +209,9 @@ Window       aid=''                  cls=Notepad                                
 9. **`notepad.exe` 要 `Stdio::null()` 启动**（见 §2）。
 10. **spike crate 自己的 `Cargo.toml` 必须有 `license` 字段**，否则 `cargo deny check licenses`
     报 `error[unlicensed]`（exit 4）→ 与依赖许可证无关，是**被检查的包自身**没声明。
+11. **保存后的 `Ctrl+Z` 只撤销内存态，不能撤销已落盘内容** → T1.2 的替换前锚点同时保留 L0
+    `Ctrl+Z` 与 L1 canonical/disk snapshot；保存前可以验证 L0 回到 pre-replace，保存后必须验证
+    L1 同时恢复文档与磁盘。把保存后 `Ctrl+Z` 当恢复成功会报告错误结果，属静默失败。
 
 ## 7. 通道结论（L1~L5，AGENTS.md 铁律 5「API 优先」）
 

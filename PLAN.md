@@ -7,12 +7,12 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-28（**TASK-036 T1.1 任务包与 10 用例评测集已 Done**：普通 UIA 读、大文件 L1 截断、缺失文件负向用例落地；下一张 **TASK-037**。此前 TASK-035 / 034 / 033 / 032 / 031 / 030 / 029 / 208 / 207 / 206 / 028 / 027 / 026 / 025 / 024 / 023 均 Done）
+更新日期    ：2026-09-29（**TASK-037 T1.2 任务包与 11 用例评测集已 Done**：全文替换、保存、审批 diff、歧义 fail-closed、L0/L1 撤销证据落地；下一张 **TASK-038**。此前 TASK-036 / 035 / 034 / 033 / 032 / 031 / 030 / 029 / 208 / 207 / 206 / 028 / 027 / 026 / 025 / 024 / 023 均 Done）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
-当前任务卡  ：**A5 批次进行中**：TASK-011~036 全 Done；**TASK-207 ✅**（Planner）、**TASK-206 ✅**（storage FTS5）、**TASK-208 ✅**（Memory）、**TASK-029 ✅**（binary 装配）、**TASK-030 ✅**（审批/时间线）、**TASK-031 ✅**（元素拾取/绑定）、**TASK-032 ✅**（策略/能力/成本）、**TASK-033 ✅**（notepad-like 靶机）、**TASK-034 ✅**（录制回放）、**TASK-035 ✅**（Notepad Adapter 声明式包）与 **TASK-036 ✅**（T1.1 任务包/评测集）已 Done → 下一张 **TASK-037**；
+当前任务卡  ：**A5 批次进行中**：TASK-011~037 全 Done；**TASK-207 ✅**（Planner）、**TASK-206 ✅**（storage FTS5）、**TASK-208 ✅**（Memory）、**TASK-029 ✅**（binary 装配）、**TASK-030 ✅**（审批/时间线）、**TASK-031 ✅**（元素拾取/绑定）、**TASK-032 ✅**（策略/能力/成本）、**TASK-033 ✅**（notepad-like 靶机）、**TASK-034 ✅**（录制回放）、**TASK-035 ✅**（Notepad Adapter 声明式包）、**TASK-036 ✅**（T1.1 任务包/评测集）与 **TASK-037 ✅**（T1.2 替换/保存/审批/撤销）已 Done → 下一张 **TASK-038**；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204** 均 Done；**TASK-205** = Ready
 阻塞项      ：① TASK-002 仍 Blocked；② gov §5.1 门禁清单尚未登记 `check-migrations`（PL-056）；③ **PL-092**（storage 缺 conversation/session 公开记录 API）；④ **PL-094**（`RoleAndParent` helper 候选需契约治理）；⑤ PL-071 / PL-072 / PL-073 / PL-074 / PL-078 / PL-079 / PL-080 / PL-083 / PL-084 / PL-085 待裁决
-下一步动作  ：① **TASK-037**（T1.2：全文替换 + 保存 + 审批 diff + L0/L1 撤销）；随后 TASK-038 与阶段 1a 验收
+下一步动作  ：① **TASK-038**（T1.3：新建标签 → 写入 → 另存为到指定路径）；随后 TASK-039 阶段 1a 验收
                   → 详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 
