@@ -1,6 +1,6 @@
 # TASK-034　录制回放框架 v0：树快照录制 + 离线回放（替代真实平台调用）+ `xtask replay`
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：1　子阶段：**1a**　批次：**A3**　依赖：017,022　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -96,6 +96,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - `cargo run -p xtask -- replay fixtures/recordings/core/notepad-like-basic.json`：PASSED，节点 4、稳定 AutomationId 4、0 error。
 - `hygiene` 0E/4W（既有 file-too-long 基线）；`memory-counts` 0E/0W；`adr-index` 0E/0W；`refscan` 0E/0W；`docscan` 0E/414W；`card-check` 0E/27W；`check-ledger` 0E/0W。
 - `verify-schemas`、`codegen --check`、`arch`、`cargo deny check`：PASS（arch 6 条既有 warning，deny 既有 warning）。
+- PR #84：push / pull_request 两个 run 的 **16/16 check-run 全 success**；merge commit `167c3f24166a2c4533f4a4c45e38b54bfb511cfe`。
 
 ### 4. DoD 逐条核对
 
@@ -114,6 +115,8 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 ### 5. 偏差
 
 **DRIFT-034-1（`Cargo.lock` 自动更新）**：新增 `crates/replay` workspace package 后，Cargo 自动在根 `Cargo.lock` 增加 `assistant-replay` 及其对 `assistant-platform-api` / `assistant-protocol` 的依赖边；未新增第三方 crate、未改变既有版本。这是新增 workspace 成员的必要结果，随本卡提交。
+
+合并前自审新增两条 fail-closed 收紧：同一节点重复文本结果改为显式 `DuplicateTextOutcome`；未知窗口上的整窗指纹改为 `TargetNotFound`，不再误报 `CapabilityMissing`。两者均有负向测试，修正后 CI 16/16 全绿。
 
 ### 6. 更合理做法
 
