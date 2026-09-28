@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "app_id": "com.microsoft.notepad",
+  "default_action": "cancel",
+  "interrupts": [
+    {
+      "id": "unsaved-changes-dialog",
+      "match": {
+        "class_name": "#32770",
+        "title_candidates": ["保存更改", "Save changes", "另存为", "Save As"]
+      },
+      "classification": "unsaved_changes_three_way",
+      "buttons": {
+        "save": ["保存", "Save"],
+        "discard": ["不保存", "Don't Save", "Don't save"],
+        "cancel": ["取消", "Cancel"]
+      },
+      "default_action": "cancel",
+      "forbidden_defaults": ["save", "discard"],
+      "requires_human": true,
+      "resume_after": "user_decision",
+      "notes": [
+        "Never default to Save because it can persist an unintended state.",
+        "Never default to Don't Save because it discards user content."
+      ]
+    },
+    {
+      "id": "save-as-dialog",
+      "match": {
+        "class_name": "#32770",
+        "title_candidates": ["另存为", "Save As"]
+      },
+      "classification": "cross_process_shell_dialog",
+      "default_action": "delegate_to_task_038",
+      "requires_human": true,
+      "notes": [
+        "The dialog belongs to an explorer.exe child process.",
+        "Do not overwrite an existing file without an explicit backup and confirmation."
+      ]
+    },
+    {
+      "id": "transient-teaching-tip",
+      "match": {
+        "automation_id_candidates": [
+          "PrivacyTeachingTip",
+          "PsDownloadDetailTeachingTip",
+          "PsDownloadLightTeachingTip"
+        ],
+        "class_name_contains": "TeachingTip"
+      },
+      "classification": "transient_popup",
+      "default_action": "dismiss_explicitly",
+      "forbidden_action": "wait_until_it_disappears",
+      "notes": [
+        "ADR-0022 D9 requires explicit dismissal or explicit tolerance.",
+        "Never use a fixed sleep as the handling strategy."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "app_id": "com.microsoft.notepad",
+  "entries": [
+    {
+      "id": "identity",
+      "title": "Notepad identity and launch",
+      "content": "Use AUMID Microsoft.WindowsNotepad_8wekyb3d8bbwe!App. The launch PID is not the window owner; resolve windows through EnumWindows and GetWindowThreadProcessId.",
+      "source_reference": "adapters/com.microsoft.notepad/app_map.json#identity",
+      "token_estimate": 48
+    },
+    {
+      "id": "editor_selector",
+      "title": "Editor selector",
+      "content": "The editor AutomationId is empty. Prefer Document plus RichEditD2DPT, then Edit plus Edit for legacy Notepad, then localized structural fallback.",
+      "source_reference": "adapters/com.microsoft.notepad/selectors/targets.json#editor",
+      "token_estimate": 45
+    },
+    {
+      "id": "text_conventions",
+      "title": "Text conventions",
+      "content": "UIA read returns bare CR. Canonical form is LF. Normalize CRLF to LF before CR to LF. Compare postconditions only on canonical text.",
+      "source_reference": "docs/memory/apps/notepad.md#text-conventions",
+      "token_estimate": 42
+    },
+    {
+      "id": "undo",
+      "title": "Undo capability",
+      "content": "Ctrl+Z is declared by the adapter, but UIA SetValue is one whole-document action. Capture an L1 content snapshot before writes; Ctrl+Z is not the only rollback path.",
+      "source_reference": "adapters/com.microsoft.notepad/rollback/recipes.json",
+      "token_estimate": 45
+    },
+    {
+      "id": "known_pitfalls",
+      "title": "Known pitfalls",
+      "content": "Save As is a cross-process Shell dialog. Closing an unsaved tab opens a three-way Save/Don't Save/Cancel dialog defaulting to Cancel. Large files should use the file channel.",
+      "source_reference": "adapters/com.microsoft.notepad/app_map.json#known_pitfalls",
+      "token_estimate": 46
+    }
+  ]
+}

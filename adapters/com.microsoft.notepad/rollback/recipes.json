@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "app_id": "com.microsoft.notepad",
+  "policy": {
+    "missing_pre_fingerprint": "fail_closed",
+    "missing_post_fingerprint": "fail_closed",
+    "current_state_mismatch": "fail_closed",
+    "prefer_l0_when_supported": true,
+    "require_l1_snapshot_for_text_writes": true
+  },
+  "recipes": [
+    {
+      "id": "replace-text-l0-l1",
+      "tool": "notepad.file.replace_text",
+      "preconditions": [
+        "Active document is resolved.",
+        "Current canonical text is captured before the write.",
+        "Current whole-window fingerprint is captured before the write."
+      ],
+      "anchor_strategy": [
+        {
+          "level": "L0",
+          "mechanism": "explicit_undo_shortcut",
+          "shortcut": "Ctrl+Z",
+          "granularity": "per_set_value",
+          "max_attempts": 1,
+          "requires_foreground": true,
+          "post_verify": "canonical_text_equals_pre_snapshot"
+        },
+        {
+          "level": "L1",
+          "mechanism": "content_snapshot",
+          "snapshot": {
+            "source": "notepad.file.read_text",
+            "canonical_form": "LF",
+            "capture_before_write": true
+          },
+          "restore": "notepad.file.replace_text",
+          "post_verify": "canonical_text_equals_pre_snapshot"
+        }
+      ],
+      "on_rollback_failure": "publish_incident_and_require_human",
+      "notes": [
+        "L0 is the first attempt because it preserves the application undo stack.",
+        "L1 is required when L0 evidence is unavailable or the app undo stack is exhausted."
+      ]
+    },
+    {
+      "id": "save-l0-l1",
+      "tool": "notepad.file.save",
+      "preconditions": [
+        "Document has a known file path.",
+        "Canonical text and disk content are captured before save.",
+        "File mtime and size are recorded before save."
+      ],
+      "anchor_strategy": [
+        {
+          "level": "L0",
+          "mechanism": "explicit_undo_shortcut",
+          "shortcut": "Ctrl+Z",
+          "granularity": "per_set_value",
+          "max_attempts": 1,
+          "requires_foreground": true,
+          "post_verify": "canonical_text_equals_pre_snapshot"
+        },
+        {
+          "level": "L1",
+          "mechanism": "file_content_snapshot",
+          "snapshot": {
+            "source": "filesystem",
+            "capture_before_write": true,
+            "content_address": "assistant-storage-blob"
+          },
+          "restore": "write_snapshot_then_verify_content",
+          "post_verify": "disk_bytes_equal_pre_snapshot"
+        }
+      ],
+      "on_rollback_failure": "publish_incident_and_require_human",
+      "notes": [
+        "Saving a previously unsaved document must route through save_as first.",
+        "A save operation must never silently replace an unknown disk state."
+      ]
+    },
+    {
+      "id": "new-tab-l1",
+      "tool": "notepad.tab.new",
+      "preconditions": [
+        "Tab count is captured before the operation.",
+        "The active document text is captured before the operation."
+      ],
+      "anchor_strategy": [
+        {
+          "level": "L1",
+          "mechanism": "content_snapshot",
+          "snapshot": {
+            "source": "notepad.file.read_text",
+            "capture_before_write": true
+          },
+          "restore": "close_new_tab_after_confirming_it_is_empty",
+          "post_verify": "tab_count_equals_pre_snapshot"
+        }
+      ],
+      "on_rollback_failure": "publish_incident_and_require_human",
+      "notes": [
+        "Closing an empty new tab must not choose Save or Don't Save automatically."
+      ]
+    }
+  ]
+}
