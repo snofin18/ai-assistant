@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "app_id": "com.microsoft.notepad",
+  "version_range": ">=11.2607.14 <12",
+  "commands": [
+    {
+      "intent": "save_document",
+      "shortcut": "Ctrl+S",
+      "menu_path": ["File", "Save"],
+      "tool": "notepad.file.save",
+      "reliable": true
+    },
+    {
+      "intent": "new_tab",
+      "shortcut": "Ctrl+N",
+      "tool": "notepad.tab.new",
+      "reliable": true
+    },
+    {
+      "intent": "save_as",
+      "shortcut": "Ctrl+Shift+S",
+      "menu_path": ["File", "Save As"],
+      "tool": "notepad.file.save_as",
+      "reliable": false,
+      "notes": "Ctrl+Shift+S is not reliable on Win11 modern Notepad; prefer explicit menu invocation."
+    },
+    {
+      "intent": "undo_last_uia_write",
+      "shortcut": "Ctrl+Z",
+      "tool": "notepad.file.replace_text",
+      "reliable": true,
+      "notes": "Undo granularity is per SetValue, not per character."
+    }
+  ],
+  "ui_map": [
+    {
+      "target": "main_window",
+      "role": "Window",
+      "class_name": "Notepad",
+      "supports": ["inspect", "foreground"],
+      "virtualized": false
+    },
+    {
+      "target": "editor",
+      "role": "Document",
+      "class_name": "RichEditD2DPT",
+      "automation_id": "",
+      "supports": ["read_text", "set_value", "text_pattern"],
+      "virtualized": false,
+      "notes": "AutomationId is empty. Use class+role and ancestor fallbacks, never visible text as the primary selector."
+    },
+    {
+      "target": "tabs",
+      "role": "Tab",
+      "automation_id": "Tabs",
+      "class_name": "Microsoft.UI.Xaml.Controls.TabView",
+      "supports": ["select_tab", "inspect"],
+      "virtualized": false
+    },
+    {
+      "target": "add_tab_button",
+      "role": "Button",
+      "automation_id": "AddButton",
+      "class_name": "Button",
+      "supports": ["invoke"],
+      "virtualized": false
+    },
+    {
+      "target": "file_menu",
+      "role": "MenuItem",
+      "automation_id": "File",
+      "class_name": "Microsoft.UI.Xaml.Controls.MenuBarItem",
+      "supports": ["invoke"],
+      "virtualized": false
+    }
+  ],
+  "workflows": [
+    {
+      "name": "read_document_text",
+      "steps": ["notepad.file.read_text"],
+      "pitfalls": ["Normalize UIA CR output to LF before comparing with disk text."]
+    },
+    {
+      "name": "replace_and_save",
+      "steps": [
+        "notepad.file.read_text",
+        "notepad.file.replace_text",
+        "notepad.file.save"
+      ],
+      "pitfalls": [
+        "Capture an L1 snapshot before replace_text.",
+        "Verify the title loses the unsaved marker after save."
+      ]
+    },
+    {
+      "name": "new_tab_save_as",
+      "steps": ["notepad.tab.new", "notepad.file.save_as"],
+      "pitfalls": [
+        "Save As is a cross-process Win32 #32770 dialog.",
+        "Never silently overwrite an existing target file."
+      ]
+    }
+  ],
+  "known_pitfalls": [
+    "Save As is a Shell-owned cross-process dialog, not an in-window WinUI panel.",
+    "Closing a tab with unsaved changes opens a three-way dialog: Save, Don't Save, Cancel.",
+    "Large files should use the L1 file channel rather than traversing or rendering the UIA text path.",
+    "UIA text returns bare CR; canonical comparisons must normalize CRLF and CR to LF in that order.",
+    "Opening a file already present in a tab does not reload it from disk.",
+    "Startup PID is not the window-owner PID; use window discovery and GetWindowThreadProcessId.",
+    "TeachingTip nodes are transient and must be explicitly dismissed or ignored, not waited out.",
+    "Save As filename text injection is platform-limited on DirectUI Edit; prefer keyboard input only after foreground validation."
+  ],
+  "state_machine": {
+    "states": [
+      "no_document",
+      "document_open_clean",
+      "document_open_dirty",
+      "save_as_dialog",
+      "unsaved_changes_dialog",
+      "busy_or_transient_popup"
+    ],
+    "transitions": [
+      {"from": "document_open_clean", "event": "replace_text", "to": "document_open_dirty"},
+      {"from": "document_open_dirty", "event": "save", "to": "document_open_clean"},
+      {"from": "document_open_dirty", "event": "close_tab", "to": "unsaved_changes_dialog"},
+      {"from": "unsaved_changes_dialog", "event": "cancel", "to": "document_open_dirty"},
+      {"from": "document_open_clean", "event": "save_as", "to": "save_as_dialog"}
+    ]
+  },
+  "undo_capability": {
+    "level": "L0_undo_stack",
+    "shortcut": "Ctrl+Z",
+    "granularity": "per_set_value",
+    "depth_limit": "unknown_but_large",
+    "survives_save": true,
+    "survives_close": false,
+    "caveats": [
+      "UIA SetValue replaces the whole document, so Ctrl+Z returns to the previous SetValue state.",
+      "Ctrl+Z is not sufficient as the only rollback path; capture an L1 content snapshot before writes."
+    ]
+  },
+  "text_conventions": {
+    "canonical_form": "LF",
+    "uia_read_eol": "CR",
+    "disk_eol_preserved_on_save": true,
+    "normalization_order": ["replace_crlf_with_lf", "replace_cr_with_lf"],
+    "postcondition_compare_mode": "normalized",
+    "binding_self_check_required": true
+  }
+}

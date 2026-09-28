@@ -1,0 +1,36 @@
+schema_version = 1
+
+[adapter]
+app_id = "com.microsoft.notepad"
+display_name = "Windows Notepad"
+version_range = ">=11.2607.14 <12"
+os_version_range = ">=10.0.26100"
+capability_level = "L3_a11y"
+maintainer = "assistant-project"
+min_assistant_version = "0.1.0"
+aumid = "Microsoft.WindowsNotepad_8wekyb3d8bbwe!App"
+
+[platforms.windows]
+channel = "uia"
+requires = [
+  "uia.value_pattern",
+  "uia.text_pattern",
+  "uia.invoke_pattern",
+  "win32.foreground_validation",
+]
+elevated_target = false
+requires_dpi_awareness = "per_monitor_v2"
+text_normalization = "lf"
+launch = "aumid_activate"
+window_discovery = "enum_windows_and_window_thread_process_id"
+
+[health]
+selector_success_threshold = 0.85
+auto_degrade = true
+reverify_trigger = "app_version_change_or_two_consecutive_selector_failures"
+
+[safety]
+default_interrupt_action = "cancel"
+allow_unattended = false
+requires_foreground_for_keyboard = true
+prefer_uia_value_pattern_over_keyboard = true

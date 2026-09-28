@@ -1,0 +1,256 @@
+{
+  "schema_version": 1,
+  "app_id": "com.microsoft.notepad",
+  "app_version_range": ">=11.2607.14 <12",
+  "policy": {
+    "on_ambiguous": "error_and_ask",
+    "on_not_found": "escalate_to_human",
+    "min_score_to_try": 0.1,
+    "max_resolve_ms": 3000
+  },
+  "targets": [
+    {
+      "id": "main_window",
+      "scope": "window",
+      "candidates": [
+        {
+          "id": "window-class",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Notepad", "role": "Window"}},
+          "score": 1.0,
+          "locale_dependent": false
+        },
+        {
+          "id": "window-a11y-path",
+          "kind": "a11y_path",
+          "value": {"path": ["Notepad"]},
+          "score": 0.35,
+          "locale_dependent": true
+        },
+        {
+          "id": "window-title-fallback",
+          "kind": "title_regex",
+          "value": {"text": " - Notepad"},
+          "score": 0.2,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "editor",
+      "scope": "element",
+      "candidates": [
+        {
+          "id": "editor-modern",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "RichEditD2DPT", "role": "Document"}},
+          "score": 1.0,
+          "locale_dependent": false
+        },
+        {
+          "id": "editor-legacy",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Edit", "role": "Edit"}},
+          "score": 0.8,
+          "locale_dependent": false
+        },
+        {
+          "id": "editor-a11y-path",
+          "kind": "a11y_path",
+          "value": {"path": ["Notepad", "NotepadTextBox", "文本编辑器"]},
+          "score": 0.3,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "tab_view",
+      "scope": "element",
+      "candidates": [
+        {
+          "id": "tab-view-aid",
+          "kind": "automation_id",
+          "value": {"text": "Tabs"},
+          "score": 1.0,
+          "locale_dependent": false
+        },
+        {
+          "id": "tab-list-aid",
+          "kind": "automation_id",
+          "value": {"text": "TabListView"},
+          "score": 0.8,
+          "locale_dependent": false
+        },
+        {
+          "id": "tab-view-class",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.TabView", "role": "Tab"}},
+          "score": 0.6,
+          "locale_dependent": false
+        }
+      ]
+    },
+    {
+      "id": "add_tab_button",
+      "scope": "element",
+      "candidates": [
+        {
+          "id": "add-tab-aid",
+          "kind": "automation_id",
+          "value": {"text": "AddButton"},
+          "score": 1.0,
+          "locale_dependent": false
+        },
+        {
+          "id": "add-tab-a11y-path",
+          "kind": "a11y_path",
+          "value": {"path": ["Tabs", "添加新标签页"]},
+          "score": 0.3,
+          "locale_dependent": true
+        },
+        {
+          "id": "add-tab-name-fallback",
+          "kind": "name_regex",
+          "value": {"text": "添加新标签页"},
+          "score": 0.15,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "close_tab_button",
+      "scope": "element",
+      "candidates": [
+        {
+          "id": "close-tab-aid",
+          "kind": "automation_id",
+          "value": {"text": "CloseButton"},
+          "score": 1.0,
+          "locale_dependent": false
+        },
+        {
+          "id": "close-tab-a11y-path",
+          "kind": "a11y_path",
+          "value": {"path": ["Tabs", "关闭标签页"]},
+          "score": 0.3,
+          "locale_dependent": true
+        },
+        {
+          "id": "close-tab-name-fallback",
+          "kind": "name_regex",
+          "value": {"text": "关闭标签页"},
+          "score": 0.15,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "file_menu",
+      "scope": "element",
+      "candidates": [
+        {
+          "id": "file-menu-aid",
+          "kind": "automation_id",
+          "value": {"text": "File"},
+          "score": 1.0,
+          "locale_dependent": false
+        },
+        {
+          "id": "file-menu-a11y-path",
+          "kind": "a11y_path",
+          "value": {"path": ["MenuBar", "文件"]},
+          "score": 0.3,
+          "locale_dependent": true
+        },
+        {
+          "id": "file-menu-name-fallback",
+          "kind": "name_regex",
+          "value": {"text": "文件"},
+          "score": 0.15,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "save_as_dialog",
+      "scope": "window",
+      "candidates": [
+        {
+          "id": "save-as-class",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "#32770", "role": "Window"}},
+          "score": 1.0,
+          "locale_dependent": false
+        },
+        {
+          "id": "save-as-a11y-path",
+          "kind": "a11y_path",
+          "value": {"path": ["另存为"]},
+          "score": 0.3,
+          "locale_dependent": true
+        },
+        {
+          "id": "save-as-title-fallback",
+          "kind": "title_regex",
+          "value": {"text": "另存为"},
+          "score": 0.15,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "save_as_filename",
+      "scope": "element",
+      "candidates": [
+        {
+          "id": "filename-class-role",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Edit", "role": "Pane"}},
+          "score": 1.0,
+          "locale_dependent": false
+        },
+        {
+          "id": "filename-a11y-path",
+          "kind": "a11y_path",
+          "value": {"path": ["另存为", "文件名"]},
+          "score": 0.3,
+          "locale_dependent": true
+        },
+        {
+          "id": "filename-name-fallback",
+          "kind": "name_regex",
+          "value": {"text": "文件名"},
+          "score": 0.15,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "save_as_save_button",
+      "scope": "element",
+      "candidates": [
+        {
+          "id": "save-button-class-role",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Button", "role": "Button"}},
+          "score": 1.0,
+          "locale_dependent": false
+        },
+        {
+          "id": "save-button-a11y-path",
+          "kind": "a11y_path",
+          "value": {"path": ["另存为", "保存"]},
+          "score": 0.3,
+          "locale_dependent": true
+        },
+        {
+          "id": "save-button-name-fallback",
+          "kind": "name_regex",
+          "value": {"text": "保存"},
+          "score": 0.15,
+          "locale_dependent": true
+        }
+      ]
+    }
+  ]
+}
