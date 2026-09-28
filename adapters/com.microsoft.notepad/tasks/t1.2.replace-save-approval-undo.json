@@ -1,0 +1,288 @@
+{
+  "schema_version": 1,
+  "task_id": "notepad.t1_2.replace_save_approval_undo",
+  "app_id": "com.microsoft.notepad",
+  "title": "Replace literal text, review diff, save, and verify rollback anchors",
+  "goal": "Replace every literal occurrence of the requested text, save the document after approval, and verify both L0 and L1 recovery paths.",
+  "read_only": false,
+  "open_mode": "platform_open_file",
+  "approval": {
+    "replace_text": {
+      "required": true,
+      "risk": "medium",
+      "show_diff": true,
+      "scope_options": ["once"],
+      "diff_step": "prepare_replace_diff",
+      "decision_step": "approve_replace"
+    },
+    "save": {
+      "required": true,
+      "risk": "high",
+      "show_diff": true,
+      "scope_options": ["once"],
+      "diff_step": "prepare_save_diff",
+      "decision_step": "approve_save",
+      "point_of_no_return": false,
+      "reason": "The file becomes persistent, but the prepared L1 disk snapshot remains the recovery path."
+    }
+  },
+  "rollback": {
+    "replace_recipe": "replace-text-l0-l1",
+    "save_recipe": "save-l0-l1",
+    "required_anchor_levels": ["L0", "L1"],
+    "pre_replace_anchor_required": true,
+    "pre_save_disk_snapshot_required": true,
+    "undo_verification": [
+      {
+        "id": "undo_l0_before_save",
+        "phase": "after_replace_before_save",
+        "expected_level": "L0",
+        "post_verify": "canonical_text_equals_pre_replace_anchor"
+      },
+      {
+        "id": "undo_l1_after_save",
+        "phase": "after_save",
+        "expected_level": "L1",
+        "post_verify": "memory_and_disk_equal_pre_replace_anchor"
+      },
+      {
+        "id": "undo_l1_when_l0_unavailable",
+        "phase": "after_replace_before_save",
+        "expected_level": "L1",
+        "post_verify": "canonical_text_equals_pre_replace_anchor"
+      }
+    ]
+  },
+  "inputs": {
+    "file_path": {
+      "type": "string",
+      "required": true,
+      "description": "Absolute path to the text file to open."
+    },
+    "old_text": {
+      "type": "string",
+      "required": true,
+      "const": "报表"
+    },
+    "new_text": {
+      "type": "string",
+      "required": true,
+      "const": "报告"
+    },
+    "expected_replacements": {
+      "type": "integer",
+      "required": true,
+      "minimum": 1
+    },
+    "target_resolution_policy": {
+      "type": "string",
+      "required": true,
+      "const": "error_if_ambiguous"
+    }
+  },
+  "outputs": {
+    "file_path": "string",
+    "replacement_count": "integer",
+    "canonical_text_before": "string",
+    "canonical_text_after": "string",
+    "approval_diff": "object",
+    "approval_evidence": "object",
+    "save_result": "object",
+    "rollback_anchors": "object",
+    "postconditions_verified": "boolean"
+  },
+  "steps": [
+    {
+      "id": "open_file",
+      "kind": "platform",
+      "operation": "platform_open_file",
+      "target": "notepad",
+      "args": {
+        "file_path": "$input.file_path"
+      },
+      "notes": [
+        "Open mode remains a task precondition until a registered open_file tool exists.",
+        "An already-open tab may retain stale in-memory content."
+      ]
+    },
+    {
+      "id": "resolve_editor",
+      "kind": "platform",
+      "operation": "resolve_target",
+      "target": "notepad.editor",
+      "args": {
+        "on_ambiguous": "$input.target_resolution_policy"
+      },
+      "outputs": ["target_handle"]
+    },
+    {
+      "id": "capture_pre_replace_text",
+      "kind": "tool",
+      "tool": "notepad.file.read_text",
+      "outputs": ["canonical_text_before", "truncated"]
+    },
+    {
+      "id": "prepare_rollback_anchors",
+      "kind": "host_service",
+      "operation": "prepare_rollback_anchors",
+      "args": {
+        "replace_recipe": "$rollback.replace_recipe",
+        "save_recipe": "$rollback.save_recipe",
+        "required_levels": "$rollback.required_anchor_levels"
+      },
+      "outputs": ["rollback_anchors"]
+    },
+    {
+      "id": "compute_replacement",
+      "kind": "pure",
+      "operation": "compute_literal_replacement",
+      "args": {
+        "text": "$canonical_text_before",
+        "old_text": "$input.old_text",
+        "new_text": "$input.new_text"
+      },
+      "outputs": ["canonical_text_expected", "replacement_count"]
+    },
+    {
+      "id": "prepare_replace_diff",
+      "kind": "pure",
+      "operation": "build_text_diff",
+      "args": {
+        "before": "$canonical_text_before",
+        "after": "$canonical_text_expected",
+        "format": "line_diff"
+      },
+      "outputs": ["approval_diff"]
+    },
+    {
+      "id": "approve_replace",
+      "kind": "hitl",
+      "operation": "request_approval",
+      "args": {
+        "risk": "medium",
+        "show_diff": true,
+        "scope_options": ["once"],
+        "diff": "$approval_diff"
+      },
+      "outputs": ["approval_evidence.replace"]
+    },
+    {
+      "id": "replace_text",
+      "kind": "tool",
+      "tool": "notepad.file.replace_text",
+      "args": {
+        "old_text": "$input.old_text",
+        "new_text": "$input.new_text",
+        "expected_replacements": "$input.expected_replacements"
+      },
+      "outputs": ["replacement_count", "canonical_text_after"]
+    },
+    {
+      "id": "prepare_save_diff",
+      "kind": "pure",
+      "operation": "build_text_diff",
+      "args": {
+        "before": "$canonical_text_before",
+        "after": "$canonical_text_after",
+        "format": "line_diff",
+        "persistent_write": true
+      },
+      "outputs": ["approval_diff"]
+    },
+    {
+      "id": "approve_save",
+      "kind": "hitl",
+      "operation": "request_approval",
+      "args": {
+        "risk": "high",
+        "show_diff": true,
+        "scope_options": ["once"],
+        "diff": "$approval_diff",
+        "point_of_no_return": false
+      },
+      "outputs": ["approval_evidence.save"]
+    },
+    {
+      "id": "save_file",
+      "kind": "tool",
+      "tool": "notepad.file.save",
+      "outputs": ["save_result"]
+    },
+    {
+      "id": "verify_postconditions",
+      "kind": "verify",
+      "operation": "verify_postconditions",
+      "args": {
+        "set": "t1_2_replace_save"
+      },
+      "outputs": ["postconditions_verified"]
+    }
+  ],
+  "preconditions": [
+    "Notepad app version is within adapter version_range.",
+    "The file path is absolute, normalized, readable, and writable.",
+    "The document is the active clean file tab and contains no unresolved save dialog.",
+    "The resolved editor target is unique under error_if_ambiguous.",
+    "The prepared L0 and L1 anchors both exist before the first write."
+  ],
+  "postconditions": [
+    {
+      "id": "replacement_count_equals",
+      "description": "replacement_count equals expected_replacements.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "canonical_text_after_equals_expected",
+      "description": "canonical_text_after equals the pre-replace text with every literal old_text occurrence replaced.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "save_reported_success",
+      "description": "notepad.file.save reports saved=true.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "title_has_no_unsaved_marker",
+      "description": "The active document title no longer contains the unsaved marker.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "disk_content_matches_canonical_after",
+      "description": "The disk file is read back and matches canonical_text_after after LF normalization.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "rollback_anchors_are_ready",
+      "description": "L0 undo and L1 snapshot anchors both exist before any write.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "approval_evidence_present",
+      "description": "Both write steps have once-scope approval evidence with a displayed diff.",
+      "error_code": "PolicyDenied"
+    }
+  ],
+  "failure_mapping": [
+    {"condition": "file_missing", "error_code": "TargetNotFound"},
+    {"condition": "file_unreadable_or_unwritable", "error_code": "PlatformPermission"},
+    {"condition": "invalid_file_path", "error_code": "ToolInvalidArgs"},
+    {"condition": "missing_expected_replacements", "error_code": "ToolInvalidArgs"},
+    {"condition": "ambiguous_editor_target", "error_code": "TargetAmbiguous"},
+    {"condition": "approval_denied", "error_code": "UserInteraction"},
+    {"condition": "replacement_count_mismatch", "error_code": "VerifyFailed"},
+    {"condition": "save_postcondition_failed", "error_code": "VerifyFailed"},
+    {"condition": "rollback_anchor_missing", "error_code": "VerifyFailed"},
+    {"condition": "window_unresponsive", "error_code": "TargetUnresponsive"},
+    {"condition": "text_pattern_missing", "error_code": "CapabilityMissing"}
+  ],
+  "metrics": {
+    "repeat_runs": 10,
+    "minimum_success_rate": 0.9,
+    "silent_failure_rate": 0,
+    "undo_success_rate_min": 0.95,
+    "approval_bypass_rate": 0,
+    "first_selector_hit_rate_min": 0.85,
+    "step_efficiency_max": 2.0,
+    "time_budget_ms": 30000
+  }
+}

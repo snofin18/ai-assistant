@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~028 已 Done**；**TASK-207 已 Done 并合并 PR #66**；**TASK-206 已 Done 并合并 PR #68**；**TASK-208 已 Done 并合并 PR #70**；**TASK-029 已 Done 并合并 PR #72**：binary Host 装配 + Tauri 壳；**TASK-030 已 Done 并合并 PR #74**：审批卡片 + 执行时间线；**TASK-031 已 Done**：元素拾取器 + 目标绑定向导；**TASK-032 已 Done**：策略 / 能力 / 成本面板；**TASK-033 已 Done**：notepad-like 故障注入靶机；**TASK-034 已 Done**：录制回放框架 v0；**TASK-035 已 Done**：Notepad Adapter 声明式包 v0；**TASK-036 已 Done**：T1.1 任务包与评测集；下一张 = **TASK-037**）　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~028 已 Done**；**TASK-207 已 Done 并合并 PR #66**；**TASK-206 已 Done 并合并 PR #68**；**TASK-208 已 Done 并合并 PR #70**；**TASK-029 已 Done 并合并 PR #72**：binary Host 装配 + Tauri 壳；**TASK-030 已 Done 并合并 PR #74**：审批卡片 + 执行时间线；**TASK-031 已 Done**：元素拾取器 + 目标绑定向导；**TASK-032 已 Done**：策略 / 能力 / 成本面板；**TASK-033 已 Done**：notepad-like 故障注入靶机；**TASK-034 已 Done**：录制回放框架 v0；**TASK-035 已 Done**：Notepad Adapter 声明式包 v0；**TASK-036 已 Done**：T1.1 任务包与评测集；**TASK-037 已 Done**：T1.2 替换 / 保存 / 审批 / L0+L1 撤销任务包；下一张 = **TASK-038**）　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -109,7 +109,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **034** | 录制回放框架 v0：树快照录制 + 离线回放（替代真实平台调用）+ `xtask replay` | `crates/replay/**`、`xtask/src/replay*`、`fixtures/recordings/**` | 017,022 | M | 逻辑层回归可在无真机的 CI 上跑；回放能复现 Spike 采集的真实快照 |
 | **035** | Notepad Adapter：`adapter.toml` + `app_map.json` + `selectors/` + `tools/`（read_text/replace_text/save/new_tab/save_as）+ `rollback/` + `interrupts/`（未保存三态对话框默认"取消"） | `adapters/com.microsoft.notepad/**` | 017,020,024 | L | schema 校验通过；**声明 Win11 版本范围**；undo 快捷键显式声明；含 `version_range` 与 known_pitfalls |
 | **036** | T1.1：打开文件 → 读全文 → 报告行数与关键词段落（只读） | `adapters/com.microsoft.notepad/tasks/**`、`eval/tasks/notepad/**` | 035 | S | 10 次连续成功率 ≥ 90%；大文件（1 MB）走 L1 文件通道降级并正确标 `truncated` |
-| **037** | T1.2：全文替换「报表」→「报告」+ 保存（含审批 diff、L0 undo + L1 快照、后置断言） | 同上 | 036 | M | 替换计数正确；保存后标题无 `*`；撤销可回到锚点；**歧义时按 `error_if_ambiguous` 报错** |
+| **037 ✅** | T1.2：全文替换「报表」→「报告」+ 保存（含审批 diff、L0 undo + L1 快照、后置断言） | 同上 | 036 | M | 替换计数正确；保存后标题无 `*`；撤销可回到锚点；**歧义时按 `error_if_ambiguous` 报错** |
 | **038** | T1.3：新建标签 → 写入 → 另存为到指定路径（跨进程 Shell 对话框） | 同上 | 037 | M | 跨进程对话框解析成功率 ≥ 90%；**已存在文件绝不静默覆盖**（先备份 + 确认） |
 | **039** | 阶段 1a 集成验收：CI 门禁全启用（按 gov §5.1 与 CI workflow 现行清单，ADR-0025 D4） + 9 项 DoD 中 1a 相关项 + 对齐审计 | `.github/workflows/**`、`docs/audits/**` | 033~038 | M | 全部绿灯；审计报告产出；偏差项已裁决 |
 
@@ -207,7 +207,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-033 ✅** | A3 | `tasks/TASK-033-target-app-notepad-like-fault-injection.md` | Done（PR #82 / merge `8adb118`；UIA 六模式专项测试） |
 | **TASK-034 ✅** | A3 | `tasks/TASK-034-record-replay-framework-xtask-replay.md` | Done（PR #84 / merge `167c3f2`；16/16 CI；Recording v1 + 离线 provider + `xtask replay`） |
 | **TASK-036 ✅** | A5 | `tasks/TASK-036-t1-1-open-read-full-text.md` | Done（PR #88 / merge `0b64f85`；T1.1 声明式任务包 + 10 用例评测集） |
-| TASK-037 | A5 | `tasks/TASK-037-t1-2-replace-save-approval-diff-undo.md` | Ready（批次表占位派单前补全） |
+| **TASK-037 ✅** | A5 | `tasks/TASK-037-t1-2-replace-save-approval-diff-undo.md` | Ready（批次表占位派单前补全） |
 | TASK-038 | A5 | `tasks/TASK-038-t1-3-newtab-saveas-cross-process-dialog.md` | Ready（批次表占位派单前补全） |
 | TASK-039 | A5 | `tasks/TASK-039-stage-1a-integration-audit.md` | Ready（批次表占位派单前补全） |
 | TASK-040 | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Ready（批次表占位派单前补全） |
