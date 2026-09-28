@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "recording_id": "rec-notepad-like-basic-001",
+  "captured_at": "2026-09-28T00:00:00Z",
+  "application": "notepad-like",
+  "window": {
+    "local_handle_id": 1,
+    "display_label": "notepad-like:main",
+    "title": "notepad-like",
+    "fingerprint": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "minimized": false,
+    "foreground": true,
+    "occluded": false
+  },
+  "nodes": [
+    {
+      "local_handle_id": 100,
+      "parent_handle_id": null,
+      "role": "Window",
+      "automation_id": "MainWindow",
+      "class_name": "Window",
+      "name": "notepad-like",
+      "bounds": [0, 0, 900, 600],
+      "is_offscreen": false,
+      "is_enabled": true,
+      "patterns": []
+    },
+    {
+      "local_handle_id": 101,
+      "parent_handle_id": 100,
+      "role": "Pane",
+      "automation_id": "EditorHost",
+      "class_name": "StackPanel",
+      "name": "EditorHost",
+      "bounds": [8, 48, 884, 420],
+      "is_offscreen": false,
+      "is_enabled": true,
+      "patterns": []
+    },
+    {
+      "local_handle_id": 102,
+      "parent_handle_id": 101,
+      "role": "Edit",
+      "automation_id": "EditorTextBox",
+      "class_name": "TextBox",
+      "name": "notepad-like fixture",
+      "bounds": [8, 48, 884, 420],
+      "is_offscreen": false,
+      "is_enabled": true,
+      "patterns": ["TextPattern", "ValuePattern"]
+    },
+    {
+      "local_handle_id": 103,
+      "parent_handle_id": 100,
+      "role": "Text",
+      "automation_id": "StatusText",
+      "class_name": "TextBlock",
+      "name": "Ready",
+      "bounds": [8, 580, 80, 20],
+      "is_offscreen": false,
+      "is_enabled": true,
+      "patterns": ["TextPattern"]
+    }
+  ],
+  "read_text": [
+    {
+      "element_handle_id": 102,
+      "text": "notepad-like fixture"
+    },
+    {
+      "element_handle_id": 103,
+      "text": "Ready"
+    }
+  ]
+}

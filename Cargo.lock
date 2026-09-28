@@ -154,6 +154,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "assistant-replay"
+version = "0.1.0"
+dependencies = [
+ "assistant-platform-api",
+ "assistant-protocol",
+]
+
+[[package]]
 name = "assistant-secrets"
 version = "0.1.0"
 dependencies = [
