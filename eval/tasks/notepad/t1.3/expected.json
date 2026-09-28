@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "task_id": "notepad.t1_3.new_tab_write_save_as",
+  "text_normalization": {
+    "canonical_form": "LF",
+    "replace_order": ["crlf_to_lf", "cr_to_lf"]
+  },
+  "approval_contract": {
+    "save_as": {
+      "risk": "high",
+      "show_diff": true,
+      "scope_options": ["once"],
+      "point_of_no_return": true
+    }
+  },
+  "target_path_policy": {
+    "existing_target_action": "reject_if_exists",
+    "overwrite_existing": false,
+    "silent_overwrite_forbidden": true,
+    "existing_target_must_remain_byte_identical": true,
+    "save_as_tool_must_not_run_on_existing_target": true,
+    "future_overwrite_requires_backup_and_confirmation": true
+  },
+  "dialog_contract": {
+    "window_class": "#32770",
+    "must_differ_from_notepad_process": true,
+    "identity_check_required": true,
+    "filename_entry_strategy": "foreground_unicode_sendinput",
+    "filename_entry_requires_foreground": true,
+    "allow_display_alerts_false": false
+  },
+  "metrics": {
+    "repeat_runs": 10,
+    "minimum_success_rate": 0.9,
+    "cross_process_dialog_success_rate_min": 0.9,
+    "silent_failure_rate": 0,
+    "silent_overwrite_rate": 0,
+    "existing_target_mutation_rate": 0,
+    "approval_bypass_rate": 0,
+    "first_selector_hit_rate_min": 0.85,
+    "step_efficiency_max": 2.0,
+    "time_budget_ms": 30000
+  },
+  "cases": {
+    "new_file_ascii": {
+      "outcome": "success",
+      "repeat_runs": 10,
+      "minimum_successful_runs": 9,
+      "created_new_tab": true,
+      "written_text_matches_canonical_input": true,
+      "save_as_dialog": {
+        "found": true,
+        "window_class": "#32770",
+        "cross_process": true,
+        "filename_entry_succeeded": true,
+        "save_clicked": true
+      },
+      "approval": {
+        "show_diff": true,
+        "scope_used": "once",
+        "point_of_no_return": true
+      },
+      "target_existed_before": false,
+      "file_created": true,
+      "disk_content_matches_canonical_written_text": true,
+      "title_has_unsaved_marker": false,
+      "postconditions_verified": true
+    },
+    "new_file_utf8_cjk": {
+      "outcome": "success",
+      "written_text_matches_canonical_input": true,
+      "disk_content_matches_canonical_written_text": true,
+      "filename_entry_succeeded": true,
+      "postconditions_verified": true
+    },
+    "new_file_path_with_spaces": {
+      "outcome": "success",
+      "target_path_contains_spaces": true,
+      "created_new_tab": true,
+      "file_created": true,
+      "disk_content_matches_canonical_written_text": true,
+      "postconditions_verified": true
+    },
+    "new_file_empty_text": {
+      "outcome": "success",
+      "canonical_text_written": "",
+      "file_created": true,
+      "disk_content_matches_canonical_written_text": true,
+      "postconditions_verified": true
+    },
+    "existing_target_reject_negative": {
+      "outcome": "error",
+      "error_code": "PolicyDenied",
+      "target_existed_before": true,
+      "target_bytes_unchanged": true,
+      "target_metadata_unchanged": true,
+      "save_as_tool_called": false,
+      "dialog_opened": false,
+      "requires_backup_and_confirmation": true
+    },
+    "target_race_before_save_negative": {
+      "outcome": "error",
+      "error_code": "PolicyDenied",
+      "target_existed_before": false,
+      "race_target_created": true,
+      "race_target_bytes_unchanged": true,
+      "save_as_tool_called": false,
+      "dialog_opened": false
+    },
+    "approval_denied_negative": {
+      "outcome": "error",
+      "error_code": "UserInteraction",
+      "save_as_tool_called": false,
+      "dialog_opened": false,
+      "file_created": false
+    },
+    "save_dialog_not_found_negative": {
+      "outcome": "error",
+      "error_code": "TargetNotFound",
+      "save_as_tool_called": true,
+      "dialog_found": false,
+      "file_created": false
+    },
+    "save_dialog_identity_mismatch_negative": {
+      "outcome": "error",
+      "error_code": "TargetNotFound",
+      "dialog_found": true,
+      "dialog_identity_valid": false,
+      "filename_entry_started": false,
+      "file_created": false
+    },
+    "filename_entry_capability_missing_negative": {
+      "outcome": "error",
+      "error_code": "CapabilityMissing",
+      "dialog_found": true,
+      "dialog_identity_valid": true,
+      "filename_entry_succeeded": false,
+      "save_clicked": false,
+      "file_created": false
+    },
+    "user_cancelled_save_dialog_negative": {
+      "outcome": "error",
+      "error_code": "UserInteraction",
+      "dialog_found": true,
+      "dialog_identity_valid": true,
+      "user_cancelled": true,
+      "file_created": false
+    },
+    "disk_readback_mismatch_negative": {
+      "outcome": "error",
+      "error_code": "VerifyFailed",
+      "save_as_dialog_succeeded": true,
+      "file_created": true,
+      "disk_content_matches_canonical_written_text": false,
+      "postconditions_verified": false
+    },
+    "missing_parent_directory_negative": {
+      "outcome": "error",
+      "error_code": "PlatformPermission",
+      "save_as_tool_called": false,
+      "dialog_opened": false,
+      "file_created": false
+    },
+    "invalid_relative_target_negative": {
+      "outcome": "error",
+      "error_code": "ToolInvalidArgs",
+      "save_as_tool_called": false,
+      "dialog_opened": false,
+      "file_created": false
+    }
+  }
+}
