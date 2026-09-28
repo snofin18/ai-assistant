@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "task_id": "notepad.t1_1.open_read_full_text",
+  "fixture_directory": "fixtures",
+  "repeat_runs": 10,
+  "primary_case": "keyword_multiple_paragraphs",
+  "cases": [
+    {
+      "id": "normal_lf",
+      "fixture": "fixtures/normal_lf.txt",
+      "keywords": ["report"],
+      "max_text_bytes": 1048576,
+      "max_keyword_paragraphs": 50,
+      "expected": "normal_lf"
+    },
+    {
+      "id": "normal_crlf",
+      "fixture": "fixtures/normal_crlf.txt",
+      "keywords": ["report"],
+      "max_text_bytes": 1048576,
+      "max_keyword_paragraphs": 50,
+      "expected": "normal_crlf"
+    },
+    {
+      "id": "normal_cr",
+      "fixture": "fixtures/normal_cr.txt",
+      "keywords": ["report"],
+      "max_text_bytes": 1048576,
+      "max_keyword_paragraphs": 50,
+      "expected": "normal_cr"
+    },
+    {
+      "id": "mixed_eol",
+      "fixture": "fixtures/mixed_eol.txt",
+      "keywords": ["report"],
+      "max_text_bytes": 1048576,
+      "max_keyword_paragraphs": 50,
+      "expected": "mixed_eol"
+    },
+    {
+      "id": "cjk_utf8",
+      "fixture": "fixtures/cjk_utf8.txt",
+      "keywords": ["报表", "报告"],
+      "max_text_bytes": 1048576,
+      "max_keyword_paragraphs": 50,
+      "expected": "cjk_utf8"
+    },
+    {
+      "id": "empty_file",
+      "fixture": "fixtures/empty.txt",
+      "keywords": ["report"],
+      "max_text_bytes": 1048576,
+      "max_keyword_paragraphs": 50,
+      "expected": "empty_file"
+    },
+    {
+      "id": "one_line_no_keyword",
+      "fixture": "fixtures/one_line_no_keyword.txt",
+      "keywords": ["missing"],
+      "max_text_bytes": 1048576,
+      "max_keyword_paragraphs": 50,
+      "expected": "one_line_no_keyword"
+    },
+    {
+      "id": "keyword_multiple_paragraphs",
+      "fixture": "fixtures/keyword_multiple_paragraphs.txt",
+      "keywords": ["report", "urgent"],
+      "max_text_bytes": 1048576,
+      "max_keyword_paragraphs": 50,
+      "expected": "keyword_multiple_paragraphs"
+    },
+    {
+      "id": "large_1mb_file_channel",
+      "fixture": "fixtures/large_1mb.txt",
+      "keywords": ["report"],
+      "max_text_bytes": 1048576,
+      "max_keyword_paragraphs": 50,
+      "expected": "large_1mb_file_channel"
+    },
+    {
+      "id": "missing_file_negative",
+      "fixture": "fixtures/missing.txt",
+      "keywords": ["report"],
+      "max_text_bytes": 1048576,
+      "max_keyword_paragraphs": 50,
+      "expected": "missing_file_negative"
+    }
+  ]
+}
