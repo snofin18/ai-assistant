@@ -266,3 +266,32 @@ fn rejects_dangling_text_reference() {
         Err(ReplayError::DanglingTextReference(999))
     );
 }
+
+#[test]
+fn rejects_duplicate_text_outcome() {
+    let raw = mutated_fixture(|value| {
+        let duplicate = value["read_text"][0].clone();
+        let outcomes = value["read_text"].as_array_mut().expect("read_text array");
+        outcomes.push(duplicate);
+    });
+    assert_eq!(
+        Recording::from_json(&raw),
+        Err(ReplayError::DuplicateTextOutcome(102))
+    );
+}
+
+#[test]
+fn fingerprint_on_unknown_window_is_target_not_found() {
+    let session = ReplaySession::from_json(&fixture_json()).expect("fixture must load");
+    let wrong_window = assistant_platform_api::ResolvedWindow::new(
+        assistant_platform_api::LocalHandleId::new(999),
+        "wrong".to_string(),
+    );
+    let error = poll_once(session.ui_automation_provider().fingerprint(
+        &wrong_window,
+        &assistant_platform_api::FingerprintScope::WholeWindow,
+    ))
+    .unwrap_err();
+
+    assert_eq!(error.code(), ErrorCode::TargetNotFound);
+}

@@ -129,9 +129,13 @@ impl Recording {
                     .and_then(|node| node.parent_handle_id());
             }
         }
+        let mut text_handles = HashSet::new();
         for text in &self.read_text {
             if !by_handle.contains_key(&text.element_handle_id()) {
                 return Err(ReplayError::DanglingTextReference(text.element_handle_id()));
+            }
+            if !text_handles.insert(text.element_handle_id()) {
+                return Err(ReplayError::DuplicateTextOutcome(text.element_handle_id()));
             }
         }
         Ok(())

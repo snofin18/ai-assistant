@@ -30,6 +30,8 @@ pub enum ReplayError {
     ParentCycle(u64),
     /// Recorded text references an unknown node.
     DanglingTextReference(u64),
+    /// More than one text outcome was recorded for the same node.
+    DuplicateTextOutcome(u64),
     /// Recording contains no nodes.
     EmptyTree,
 }
@@ -51,6 +53,12 @@ impl fmt::Display for ReplayError {
             Self::ParentCycle(handle) => write!(formatter, "parent cycle at node {handle}"),
             Self::DanglingTextReference(handle) => {
                 write!(formatter, "recorded text references missing node {handle}")
+            }
+            Self::DuplicateTextOutcome(handle) => {
+                write!(
+                    formatter,
+                    "node {handle} has multiple recorded text outcomes"
+                )
             }
             Self::EmptyTree => write!(formatter, "recording contains no tree nodes"),
         }

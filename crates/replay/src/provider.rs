@@ -221,16 +221,23 @@ impl UiAutomationProvider for ReplayUiAutomationProvider {
         window: &ResolvedWindow,
         scope: &assistant_platform_api::FingerprintScope,
     ) -> impl Future<Output = PlatformResult<assistant_platform_api::Fingerprint>> + Send {
-        let result = match scope {
-            assistant_platform_api::FingerprintScope::WholeWindow
-                if window.id().value() == self.recording.window().local_handle_id() =>
-            {
-                assistant_platform_api::Fingerprint::parse(self.recording.window().fingerprint())
+        let result = if window.id().value() == self.recording.window().local_handle_id() {
+            match scope {
+                assistant_platform_api::FingerprintScope::WholeWindow => {
+                    assistant_platform_api::Fingerprint::parse(
+                        self.recording.window().fingerprint(),
+                    )
+                }
+                _ => Err(platform_error(
+                    ErrorCode::CapabilityMissing,
+                    "only the recorded whole-window fingerprint is available",
+                )),
             }
-            _ => Err(platform_error(
-                ErrorCode::CapabilityMissing,
-                "only the recorded whole-window fingerprint is available",
-            )),
+        } else {
+            Err(platform_error(
+                ErrorCode::TargetNotFound,
+                "recorded window handle does not match",
+            ))
         };
         ready(result)
     }

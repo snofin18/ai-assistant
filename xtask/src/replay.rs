@@ -48,6 +48,7 @@ const RULE_SNAPSHOT_DUPLICATE_ID: &str = "replay/snapshot-duplicate-id";
 const RULE_SNAPSHOT_ORPHAN_PARENT: &str = "replay/snapshot-orphan-parent";
 const RULE_SNAPSHOT_PARENT_CYCLE: &str = "replay/snapshot-parent-cycle";
 const RULE_SNAPSHOT_DANGLING_TEXT: &str = "replay/snapshot-dangling-text-reference";
+const RULE_SNAPSHOT_DUPLICATE_TEXT: &str = "replay/snapshot-duplicate-text-reference";
 const RULE_SNAPSHOT_MISSING_APPLICATION: &str = "replay/snapshot-missing-application";
 const RULE_SNAPSHOT_MISSING_CAPTURED_AT: &str = "replay/snapshot-missing-captured-at";
 
@@ -314,6 +315,7 @@ fn validate_read_text_references(
     seen_ids: &std::collections::HashSet<u64>,
     findings: &mut Vec<Finding>,
 ) {
+    let mut seen_text_handles = std::collections::HashSet::new();
     for (i, handle) in snap.read_text_handles.iter().enumerate() {
         if !seen_ids.contains(handle) {
             findings.push(Finding::new(
@@ -322,6 +324,14 @@ fn validate_read_text_references(
                 "<snapshot>",
                 i,
                 format!("read_text 引用不存在的节点 handle = {handle}"),
+            ));
+        } else if !seen_text_handles.insert(*handle) {
+            findings.push(Finding::new(
+                RULE_SNAPSHOT_DUPLICATE_TEXT,
+                Severity::Error,
+                "<snapshot>",
+                i,
+                format!("read_text 对节点 handle = {handle} 重复录制"),
             ));
         }
     }
@@ -557,6 +567,24 @@ mod tests {
         assert!(
             f.iter()
                 .any(|finding| finding.rule == RULE_SNAPSHOT_DANGLING_TEXT)
+        );
+    }
+
+    #[test]
+    fn validate_duplicate_text_reference_errors() {
+        let s = r#"{
+            "schema_version": 1,
+            "nodes": [{"local_handle_id": 1}],
+            "read_text": [
+                {"element_handle_id": 1, "text": "x"},
+                {"element_handle_id": 1, "text": "y"}
+            ]
+        }"#;
+        let snap = parse_snapshot(s).unwrap();
+        let f = validate_snapshot(&snap);
+        assert!(
+            f.iter()
+                .any(|finding| finding.rule == RULE_SNAPSHOT_DUPLICATE_TEXT)
         );
     }
 }

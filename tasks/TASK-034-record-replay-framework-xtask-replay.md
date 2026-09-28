@@ -92,7 +92,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 - `cargo fmt --all --check`：0 diff。
 - `cargo clippy --all-targets -- -D warnings`：exit 0。
-- `cargo test --workspace`：全绿；`assistant-replay` 专项 **14 passed**；`xtask` **378 passed**。
+- `cargo test --workspace`：全绿；`assistant-replay` 专项 **16 passed**；`xtask` **379 passed**。
 - `cargo run -p xtask -- replay fixtures/recordings/core/notepad-like-basic.json`：PASSED，节点 4、稳定 AutomationId 4、0 error。
 - `hygiene` 0E/4W（既有 file-too-long 基线）；`memory-counts` 0E/0W；`adr-index` 0E/0W；`refscan` 0E/0W；`docscan` 0E/414W；`card-check` 0E/27W；`check-ledger` 0E/0W。
 - `verify-schemas`、`codegen --check`、`arch`、`cargo deny check`：PASS（arch 6 条既有 warning，deny 既有 warning）。
@@ -101,7 +101,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 - [x] `assistant-replay` 可从 JSON 加载、校验并重建离线 provider。
 - [x] core fixture 可解析并通过校验；测试复现 AutomationId、父链与读文本结果。
-- [x] 重复 handle、孤儿父节点、环、未知版本、悬空文本引用均被拒绝。
+- [x] 重复 handle、重复文本结果、孤儿父节点、环、未知版本、悬空文本引用均被拒绝。
 - [x] 歧义选择返回 `TargetAmbiguous`，缺失目标返回 `TargetNotFound`。
 - [x] 未录制写动作返回 `CapabilityMissing`；`bring_to_front` 也不再伪造成功。
 - [x] `xtask replay <fixture>` 输出确定性摘要并在合法 fixture 上 exit 0。
