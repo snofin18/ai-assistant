@@ -109,6 +109,8 @@ cargo run -p xtask -- verify-schemas / codegen --check → PASS
 memory-counts / adr-index / check-ledger / card-check / docscan / refscan → 全 PASS（0 error）
 ```
 
+合并证据：PR #98（base `main`）—— push run `36519313243` 与 pull_request run `36519337842` 均 `completed/success`，各 9/9 job success，PR 汇总 18 个 status context 全 success；合并前 `mergeable=MERGEABLE` / `merge_state_status=CLEAN`；merge commit `16c9709`。
+
 ### 4. DoD 逐条核对
 
 - [x] **Agent-core 能装配并执行一个真实 `Plan`**：`runtime_toolbus.rs` 用真实 `ToolBus`（`rmcp` 同进程 MCP 往返，handler 计数断言恰好 1 次）驱动真实 `TaskEngine`，验证 `Committed` 且写入 post fingerprint。
