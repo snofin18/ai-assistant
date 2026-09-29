@@ -138,6 +138,6 @@ cargo run -p xtask -- adr-index       → PASS（scanned=40，0 error / 0 warnin
 
 ### 9. 给审阅者的关注点
 
-1. **三类 canary 的退出码断言**：fmt=1、clippy=101、build=101，且分别钉住 `Diff in` / `clippy::unwrap_used`+`clippy::dbg_macro` / `error[E0425]`；请确认没有把断言弱化为“非零即可”。
+1. **三类 canary 的退出码断言**：fmt=1、clippy=101、build=101，且分别钉住 `Diff in` / `-D clippy::unwrap-used`+`-D clippy::dbg-macro` / `error[E0425]`；请确认没有把断言弱化为“非零即可”。
 2. **坏样本还原路径**：每个负向步都先备份 `xtask/src/main.rs`，捕获退出码后立即还原；请核对 CI 输出中正向步与负向步的断言都执行。
 3. **check-comments 接入时机**：本 PR 同时包含 TASK-212 的 9 处注释修复；若拆分提交，必须保持 TASK-212 先于 #15 硬门禁生效，否则主 CI 会按设计变红。

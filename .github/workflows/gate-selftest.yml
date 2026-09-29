@@ -307,15 +307,15 @@ jobs:
             echo "FAIL: 期望 deny lint 返回 exit 101，实际 $code"
             exit 1
           fi
-          if ! echo "$out" | grep -q "clippy::unwrap_used"; then
-            echo "FAIL: 输出不含 clippy::unwrap_used —— workspace deny 没有生效 (ADR-0019)"
+          if ! echo "$out" | grep -q -- "-D clippy::unwrap-used"; then
+            echo "FAIL: 输出不含 -D clippy::unwrap-used —— workspace deny 没有生效 (ADR-0019)"
             exit 1
           fi
-          if ! echo "$out" | grep -q "clippy::dbg_macro"; then
-            echo "FAIL: 输出不含 clippy::dbg_macro —— 调试宏禁令没有生效 (ADR-0019)"
+          if ! echo "$out" | grep -q -- "-D clippy::dbg-macro"; then
+            echo "FAIL: 输出不含 -D clippy::dbg-macro —— 调试宏禁令没有生效 (ADR-0019)"
             exit 1
           fi
-          echo "OK: 负向通过（exit=$code，unwrap_used 与 dbg_macro 均被指名拒绝）"
+          echo "OK: 负向通过（exit=$code，unwrap-used 与 dbg-macro 均被指名拒绝）"
   # ==========================================================================
   # build 门禁的负向验证（ADR-0019 N3）
   #
