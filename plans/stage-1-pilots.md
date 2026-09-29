@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~028 已 Done**；**TASK-207 已 Done 并合并 PR #66**；**TASK-206 已 Done 并合并 PR #68**；**TASK-208 已 Done 并合并 PR #70**；**TASK-029 已 Done 并合并 PR #72**：binary Host 装配 + Tauri 壳；**TASK-030 已 Done 并合并 PR #74**：审批卡片 + 执行时间线；**TASK-031 已 Done**：元素拾取器 + 目标绑定向导；**TASK-032 已 Done**：策略 / 能力 / 成本面板；**TASK-033 已 Done**：notepad-like 故障注入靶机；**TASK-034 已 Done**：录制回放框架 v0；**TASK-035 已 Done**：Notepad Adapter 声明式包 v0；**TASK-036 已 Done**：T1.1 任务包与评测集；**TASK-037 已 Done**：T1.2 替换 / 保存 / 审批 / L0+L1 撤销任务包；**TASK-038 已 Done 并合并 PR #94**：T1.3 新建标签 / 写入 / 跨进程另存为任务包；**TASK-039 = Review：集成审计完成，阶段 1a 结论 = NO-GO**；**TASK-102 = Done：ADR-0056 Accepted**；**TASK-103 = Done：真实任务执行器 + Host 分发 + VerifyReceipt 接线（999 passed / 0 failed）**；**TASK-104 = Done：UI ↔ Core typed IPC 与审批接线（两侧黄金样本 + zod/serde 双校验；真实传输未接通，记 PL-095）**；**TASK-210 = Done：UI 与提交质量门禁（Prettier / ESLint / Vitest+Testing Library / commitlint 接入 CI 并各带负向验证；src-tauri 纳入 Windows CI）**；下一张 **TASK-087**（TASK-105 需先裁决 PL-095）；不得在阻断项闭环前进入 1b）　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~028 已 Done**；**TASK-207 已 Done 并合并 PR #66**；**TASK-206 已 Done 并合并 PR #68**；**TASK-208 已 Done 并合并 PR #70**；**TASK-029 已 Done 并合并 PR #72**：binary Host 装配 + Tauri 壳；**TASK-030 已 Done 并合并 PR #74**：审批卡片 + 执行时间线；**TASK-031 已 Done**：元素拾取器 + 目标绑定向导；**TASK-032 已 Done**：策略 / 能力 / 成本面板；**TASK-033 已 Done**：notepad-like 故障注入靶机；**TASK-034 已 Done**：录制回放框架 v0；**TASK-035 已 Done**：Notepad Adapter 声明式包 v0；**TASK-036 已 Done**：T1.1 任务包与评测集；**TASK-037 已 Done**：T1.2 替换 / 保存 / 审批 / L0+L1 撤销任务包；**TASK-038 已 Done 并合并 PR #94**：T1.3 新建标签 / 写入 / 跨进程另存为任务包；**TASK-039 = Review：集成审计完成，阶段 1a 结论 = NO-GO**；**TASK-102 = Done：ADR-0056 Accepted**；**TASK-103 = Done：真实任务执行器 + Host 分发 + VerifyReceipt 接线（999 passed / 0 failed）**；**TASK-104 = Done：UI ↔ Core typed IPC 与审批接线（两侧黄金样本 + zod/serde 双校验；真实传输未接通，记 PL-095）**；**TASK-210 = Done：UI 与提交质量门禁（Prettier / ESLint / Vitest+Testing Library / commitlint 接入 CI 并各带负向验证；src-tauri 纳入 Windows CI）**；**TASK-087 = Review：fmt/clippy/build canary 与 check-comments CI 接线已实现，gate-selftest 成功 run 待回填**；**TASK-212 = Done：9 处 check-comments 真实违规只加注释清零**；下一张 **TASK-105**（需先裁决 PL-095）；不得在阻断项闭环前进入 1b）　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -127,6 +127,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-087 | CI 硬门禁负向验证与 `check-comments` 落地 | `.github/workflows/**`、`xtask/src/**`、`xtask/README.md`、ADR-0019 登记 | 015、039 | L | fmt/clippy/build canary；`check-comments` 真实现；PL-018 可关闭 |
 | **TASK-210 ✅** | UI 与提交质量门禁：Prettier / ESLint / Vitest / commitlint | `apps/desktop-ui/**`、`.github/workflows/**`、`docs/DEPENDENCIES.md` | 039 | L | 新依赖已登记；UI 与 commit 正负门禁入 CI |
 | TASK-211 | 阶段 1a 复验准备与停车位收口 | `docs/PARKING_LOT.md`、`docs/audits/**`、状态同步文件 | 102~105、087、210 | S | PL-018/056/058 证据矩阵；复验清单；不得提前宣称 1a 通过 |
+| **TASK-212 ✅** | 修掉 `check-comments` 首次真跑发现的 9 处真实违规（DRIFT-087-1） | `crates/policy/src/dsl.rs`、`crates/ipc/src/frame.rs`、`crates/platform/windows/src/uia/{actions,tree}.rs` | 087 | S | 只加注释；`check-comments` 0 error；diff 不含可执行语句改动 |
 
 ---
 
@@ -231,6 +232,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-105 | A5-REMEDIATION | `tasks/TASK-105-notepad-t1-runtime-validation.md` | Ready（T1 真实运行验收） |
 | TASK-087 | A5-REMEDIATION | `tasks/TASK-087-ci-negative-verification-and-check-comments.md` | Ready（CI 硬门禁与 check-comments） |
 | **TASK-210 ✅** | A5-REMEDIATION | `tasks/TASK-210-ui-and-commit-quality-gates.md` | Ready（UI/提交质量门禁） |
+| **TASK-212 ✅** | A5-REMEDIATION | `tasks/TASK-212-check-comments-violation-fix.md` | Ready（DRIFT-087-1 的 9 处违规修复） |
 | TASK-211 | A5-REMEDIATION | `tasks/TASK-211-stage1a-reaudit-and-parking-closeout.md` | Ready（复验与停车位收口） |
 | TASK-040 | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Ready（批次表占位派单前补全） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |

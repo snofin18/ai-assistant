@@ -71,8 +71,8 @@ cargo run -p xtask -- docscan
 【铁律】1 无静默失败（未实现必须可见）；9 不得静默扩大范围（超出 write scope 必须停下升级）；10 契约先行（规则集来自 naming §10）
 【禁止】UI Prettier/ESLint/Vitest；commitlint；放宽现有 lint 或删除门禁；修改 core/policy/task-engine 的产品行为
 【验收】cargo fmt/clippy/test --workspace；cargo test -p xtask；xtask check-comments / hygiene / refscan / docscan；手工触发 gate-selftest 并记录 run
-【依赖】TASK-015、TASK-039（均 Done，已核对 LEDGER）
-【疑问】**已在执行中命中**：check-comments 首次真跑发现 9 处真实违规位于 `crates/ipc` / `crates/policy` / `crates/platform/windows` —— 不在本卡 write scope 内 → 见 §5 DRIFT-087-1，已停止接入阻断。
+【依赖】TASK-015、TASK-039、TASK-212（均 Done/已完成，TASK-212 已清零 9 处真实违规）
+【疑问】DRIFT-087-1 已由人类派单 TASK-212 修复；gate-selftest 的成功 run number 待推送后回填。
 ```
 
 ### 2. 实际改动文件
@@ -84,6 +84,10 @@ cargo run -p xtask -- docscan
 | `xtask/src/main.rs` | 声明 `mod comments`；分派 `check-comments` → 新增 `run_check_comments`（遍历 + 排序 + `-- rule-coverage` 行）；两处 deferred 测试改用 `replay-skeleton` |
 | `xtask/src/deferred.rs` | 从 `DEFERRED_COMMANDS` 移除 `check-comments`；删除随之失去引用的 `UNASSIGNED_CARD` |
 | `xtask/src/cli.rs` | 用法文本把 `check-comments` 从「未实现」移到已实现列表 |
+| `.github/workflows/gate-selftest.yml` | 新增 fmt / clippy / build 三个 N3 canary job：各含正向基线 + 注入坏样本 + 具体退出码/故障文本断言 + 还原 |
+| `.github/workflows/ci.yml` | 新增 `[HARD #15] xtask check-comments`，并把头部硬门禁说明同步到 #15 |
+| `docs/adr/0019-hard-gate-negative-verification.md` | 登记表 #1/#2/#3/#10 转 N3 ✅；新增 #15 check-comments 的 N1+N2 登记 |
+| `xtask/README.md` | 把 `check-comments` 从未实现列表移到已实现清单，并登记 `comments.rs` 模块 |
 
 ### 3. 验收输出摘要
 
@@ -93,29 +97,29 @@ cargo clippy --all-targets -- -D warnings → PASS（exit 0）
 cargo test -p xtask                    → PASS（411 passed / 0 failed，其中 comments 模块 27 条用例）
 cargo test --workspace                 → PASS（1041 passed / 0 failed）
 cargo run -p xtask -- hygiene          → PASS（scanned=292，0 error，4 warning —— 与基线一致）
-cargo run -p xtask -- check-comments   → 扫描 291 个文件：9 error / 67 warning
+cargo run -p xtask -- check-comments   → PASS：扫描 292 个文件，0 error / 67 warning
                                           rule-coverage 行打印 8 条规则各自的实现位置
 cargo run -p xtask -- --list-deferred  → 只剩 replay-skeleton（check-comments 已移出）
+cargo run -p xtask -- refscan          → PASS（scanned=536，0 error / 0 warning）
+cargo run -p xtask -- docscan          → PASS（0 error / 397 warning，既有基线）
+cargo run -p xtask -- card-check       → PASS（0 error / 27 warning，既有基线）
+cargo run -p xtask -- check-ledger     → PASS（0 error / 0 warning）
+cargo run -p xtask -- memory-counts    → PASS（scanned=8，0 error / 0 warning）
+cargo run -p xtask -- adr-index       → PASS（scanned=40，0 error / 0 warning）
 ```
 
 ### 4. DoD 逐条核对
 
-- [ ] **fmt / clippy / build 三类 canary**：**未做**（被 §5 的 DRIFT 阻断，见 §7）。
+- [ ] **fmt / clippy / build 三类 canary**：实现已完成（正向 + 负向 + 具体退出码/故障文本断言）；待一次 gate-selftest 成功 run 后勾选。
 - [x] **`check-comments` 不再是 exit 3 stub，负向/正向测试齐全**：实现 8 条规则；27 条单测含每条的通过/违规/边界用例，以及「`pub const fn` 不得把 `fn` 当名字」「多行 SAFETY 说明」「空行切断 SAFETY 组」「`#[doc]` 属性算文档」四条实跑发现的回归用例。
-- [ ] **CI 将 `check-comments` 作为真实门禁**：**未接**。它当前在真实仓库上返回 exit 1（9 处真实违规），接成阻断会得到一条**永久红灯** —— 正是 ADR-0019 明确要消灭的东西（"永久红灯会让人学会忽略 CI"）。需先裁决 §5。
-- [ ] **ADR-0019 登记表同步 / PL-018 可关闭**：**未做**（同上，等裁决）。
-- [ ] **gate-selftest 成功 run 记录在 LEDGER**：**未做**。
-- [x] **未修改 Out of scope 文件**：未改任何产品代码；`crates/ipc` 等 9 处违规**未擅自修复**（见 §5）。
+- [x] **CI 将 `check-comments` 作为真实门禁**：`ci.yml` 的 `[HARD #15]` 已接入；TASK-212 已把 9 处 Error 清零，不会形成永久红灯。
+- [ ] **ADR-0019 登记表同步 / PL-018 可关闭**：登记表已同步；PL-018 关闭行待 gate-selftest 成功 run 后同批追加。
+- [ ] **gate-selftest 至少一次成功 run 记录在 LEDGER**：待本 PR 推送后手工触发。
+- [x] **未修改 Out of scope 文件**：TASK-212 按人类派单单独修复 9 处真实违规；本卡未改 core/policy/task-engine 行为。
 
 ### 5. 偏差
 
-- **DRIFT-087-1（超出 write scope，已停止）**：`check-comments` 首次真跑（扫描 291 个文件）报出 **9 条 Error**，全部位于本卡 write scope 之外：
-  - `crates/policy/src/dsl.rs:13`：`pub fn parse_rule_set` 缺文档注释（规则 ③）
-  - `crates/ipc/src/frame.rs:19`：`pub struct FramePrefix` 缺文档注释（规则 ③）
-  - `crates/platform/windows/src/uia/actions.rs:71/92/124/157/197/323` 与 `tree.rs:189`：`unsafe` 块缺少 `// SAFETY:`（规则 ⑤）
-  **影响**：把 `check-comments` 接成 CI 硬门禁会立刻让主 CI 永久变红，违反本卡「先证明门禁会红，再接入阻断」与 ADR-0019「不许永久红灯」。
-  **建议（三选一，需人类裁决）**：① 立一张小卡（或把 `crates/ipc` / `crates/policy` / `crates/platform/windows` 加进本卡 write scope）修掉这 9 处，再接入阻断；② 把规则 ③⑤ 的判据放宽到能覆盖现状（**不推荐** —— 那是"为让门禁变绿而放宽规则"，正是本卡禁止项）；③ 先只接入当前为绿的部分规则（同样不推荐，等于把 8 条规则拆成两套口径）。
-  **已停止的工作**：未修改上述产品文件；未把 `check-comments` 写进 `ci.yml`；未改 ADR-0019 登记表（避免登记"已完成"）。
+- **DRIFT-087-1（已由 TASK-212 裁决/修复）**：首次真跑的 9 条 Error 已按推荐方案 ① 立卡修复，只加注释、不改可执行语句；`check-comments` 当前 0 error。无新增偏差。
 
 ### 6. 更合理做法
 
@@ -125,15 +129,15 @@ cargo run -p xtask -- --list-deferred  → 只剩 replay-skeleton（check-commen
 
 ### 7. 遗留问题
 
-- **fmt / clippy / build 三类 canary 未写**：它们的形状与既有 deny canary 相同（注入坏样本 → 断言**具体退出码** → 还原），但因为本卡停在 DRIFT-087-1，未继续。
+- **gate-selftest 实跑待完成**：三类 canary 已写入 workflow，但 ADR-0019 的 N3 证据要求一次成功 run number；推送本 PR 后手工触发并回填 LEDGER。
 - **`deferred.rs` 的 `replay-skeleton` 条目疑似过期**：它的 reason 写「真实 fixture + diff 留待 TASK-034 完整版」，而 TASK-034 已 Done。它现在是 `--list-deferred` 与 `deferred-inventory` CI 步骤的唯一对象；是否删除需治理裁决（属 PL-059 同型：登记表指向已完成的卡）。
 
 ### 8. 新增长期记忆
 
-无新增 `docs/memory/*` 条目（本卡停在 DRIFT，未形成可复用的长期结论；实现经验写在本卡 §6）。
+无新增 `docs/memory/*` 条目（实现经验写在本卡 §6；DRIFT-087-1 的处置已记录在 TASK-212 与本卡 §5）。
 
 ### 9. 给审阅者的关注点
 
-1. **本卡未完成，请勿按"Done"合并**：`check-comments` 已可用且自测齐全，但**未接入 CI**，DoD 的 4 项未达成。
-2. **DRIFT-087-1 需要裁决**：9 处真实违规在 write scope 之外。我的建议是**方案 ①**（立小卡或扩 scope 修掉），因为方案 ②③ 都是"为让门禁变绿而放宽规则"。
-3. **规则 ③ 的判据范围**：我只对「`crates/*/src/**` 且非生成物」判文档缺失。测试辅助模块（`tests/common/mod.rs`，28 条）与 `xtask` 二进制、`protocol` 生成代码都排除了 —— 理由是它们没有"外部读者"。若你认为测试辅助函数也该有文档，这会新增 28 条 Error，需要一并纳入 §5 的裁决。
+1. **三类 canary 的退出码断言**：fmt=1、clippy=101、build=101，且分别钉住 `Diff in` / `clippy::unwrap_used`+`clippy::dbg_macro` / `error[E0425]`；请确认没有把断言弱化为“非零即可”。
+2. **坏样本还原路径**：每个负向步都先备份 `xtask/src/main.rs`，捕获退出码后立即还原；请核对 CI 输出中正向步与负向步的断言都执行。
+3. **check-comments 接入时机**：本 PR 同时包含 TASK-212 的 9 处注释修复；若拆分提交，必须保持 TASK-212 先于 #15 硬门禁生效，否则主 CI 会按设计变红。

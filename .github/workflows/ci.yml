@@ -3,7 +3,7 @@
 # 上线策略（TASK-001）：
 #   硬门禁（任一失败即阻塞合并；数量以本文件步骤名为准，不在注释手抄）：
 #     fmt / clippy(含禁用项 lint) / test / verify-schemas
-#     / codegen --check / deny / build / hygiene / spike-deny / doc-consistency
+#     / codegen --check / deny / build / hygiene / check-comments / spike-deny / doc-consistency
 #     / arch test(gov #5，2026-09-24 TASK-015 转硬) / check-ledger(gov #16，同日转硬)
 #     / desktop-ui format:check + lint + typecheck + test + build（TASK-210 补齐 Prettier/ESLint/Vitest）
 #     / commitlint（仅 pull_request：校验 PR 区间提交信息，TASK-210）
@@ -88,6 +88,10 @@ jobs:
       #     留作软门禁等于白白放弃一道已就绪的防线 → 记为 DRIFT-001-2，见任务卡执行记录。
       - name: "[HARD #12] xtask hygiene"
         run: cargo run -p xtask -- hygiene
+
+      # --- 硬门禁 #15：注释与命名规则（TASK-087 转硬；naming §10 的 8 条规则）---
+      - name: "[HARD #15] xtask check-comments"
+        run: cargo run -p xtask -- check-comments
 
       # =========================================================================
       # 软门禁：到了对应任务卡就转为硬门禁（删掉 continue-on-error）

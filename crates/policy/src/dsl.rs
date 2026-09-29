@@ -11,6 +11,17 @@ use crate::{
     RuleConditions, RuleEffect, RuleId, RuleSet, ScopeOption,
 };
 
+/// Parse one complete rule-set JSON document into a [`RuleSet`].
+///
+/// The parser is deterministic and performs no I/O. It is idempotent for the
+/// same input: repeated calls return either the same parsed value or the same
+/// validation failure. Rule order is preserved.
+///
+/// # Errors
+/// Returns [`PolicyError::InvalidRuleSet`] when the input is not valid JSON,
+/// is not a JSON object, contains an unknown field, omits or mis-types a
+/// required field, uses an unsupported enum value, or otherwise violates the
+/// strict DSL v0 grammar. Invalid input never yields an implicit allow rule.
 pub fn parse_rule_set(json: &str) -> PolicyResult<RuleSet> {
     let value: Value = assistant_protocol::serde_json::from_str(json).map_err(|error| {
         PolicyError::InvalidRuleSet {

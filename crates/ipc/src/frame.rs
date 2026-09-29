@@ -15,6 +15,11 @@ pub const MAX_ENVELOPE_SIZE: usize = 16 * 1024 * 1024;
 const PREFIX_SIZE: usize = 8;
 const CHECKSUM_SIZE: usize = 4;
 
+/// The decoded eight-byte frame prefix (`magic` plus declared envelope size).
+///
+/// This is a pure value type: it owns no I/O state and carries no element or
+/// process handle. Construction and inspection are side-effect free and
+/// idempotent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FramePrefix {
     pub envelope_size: usize,

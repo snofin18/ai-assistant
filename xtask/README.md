@@ -9,8 +9,10 @@
 - `adr-index`：`docs/adr/README.md` 编号登记表 ↔ `docs/adr/NNNN-*.md` ↔ `docs/memory/decisions.md` 是否一致（ADR-0030 D3，**11** 条规则）
 - `guard`：文件改写互斥锁（ADR-0028），操作 = `acquire` / `release` / `status` / `reap`
 - `--list-deferred`：打印**未实现**的子命令与规则，含归属任务卡号
-- 其余子命令（`verify-schemas` / `codegen` / `replay` / `check-comments` / `check-ledger` /
-  `card-check`）已登记但**未实现**，运行会以退出码 3 显式失败
+- `check-comments`：`docs/spec/naming.md` §10 的 8 条注释与命名规则（公共 API 文档、
+  模块头、`SAFETY`、`PITFALL` 标签、受控词汇与缩写）
+- 其余子命令（`verify-schemas` / `codegen` / `replay` / `check-ledger` / `card-check`）
+  已登记但**未实现**，运行会以退出码 3 显式失败
 
 ## 边界（不做什么）
 
@@ -48,6 +50,7 @@
 | `repowalk.rs` | 定位仓库根、遍历源文件、路径归一化 | **是** |
 | `rustscan.rs` | 把源码拆成「注释列表」与「降噪代码」两个视图 | 否 |
 | `hygiene.rs` | gov §5.4 卫生规则判定 | 否 |
+| `comments.rs` | naming §10 注释与命名规则判定 | 否 |
 | `deferred.rs` | 未实现项登记表 | 否 |
 | `report.rs` | `Finding` / `Report` 模型与渲染 | 否 |
 | `memory_table.rs` | `MEMORY.md` 规模表解析 + 行数/条目数判据（ADR-0030） | 否 |
