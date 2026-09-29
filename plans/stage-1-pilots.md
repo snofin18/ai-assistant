@@ -113,6 +113,21 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **038** | T1.3：新建标签 → 写入 → 另存为到指定路径（跨进程 Shell 对话框） | 同上 | 037 | M | 跨进程对话框解析成功率 ≥ 90%；**已存在文件绝不静默覆盖**（先备份 + 确认） |
 | **039** | 阶段 1a 集成验收：CI 门禁全启用（按 gov §5.1 与 CI workflow 现行清单，ADR-0025 D4） + 9 项 DoD 中 1a 相关项 + 对齐审计 | `.github/workflows/**`、`docs/audits/**` | 033~038 | M | 全部绿灯；审计报告产出；偏差项已裁决 |
 
+### 1a 补救批次 A5-REMEDIATION（2026-09-29 审计后新增）
+
+> 来源：`docs/audits/stage-1a-integration-audit-2026-09-29.md` 的 NO-GO 阻断项。
+> 这些卡不是 1b 工作；在它们和复验完成前，`TASK-040` 不得开工。
+
+| 卡号 | 标题 | write scope | 依赖 | 预估 | 验收要点 |
+|---|---|---|---|---|---|
+| TASK-102 | 运行执行链路契约：Planner → TaskEngine → Policy → ToolBus → Host → Verify → Undo | `docs/adr/0056-*`、`docs/spec/runtime-execution.md`、登记文件 | 029、037、038、039 | M | ADR/spec 明确所有权、取消/超时、错误与审计边界；`VerifyOutcome` 强制接线方案 |
+| TASK-103 | 真实任务执行器：Host 分发、上下文装配与 `VerifyOutcome` 接线 | `apps/agent-core/src/**`、`apps/automation-host/src/**`、`crates/task-engine/**`、`crates/ipc/**` | 102 | L | 一个真实 Plan 可执行；Host 分发闭环；缺验证不得成功；断连/超时/拒绝有负向测试 |
+| TASK-104 | UI ↔ Core typed IPC 与审批接线 | `apps/desktop-ui/**`、`apps/agent-core/src/**` 的 IPC 适配层 | 102、103 | L | UI 请求可到 Core；审批决策可回传；时间线显示真实验证；非法 IPC fail-closed |
+| TASK-105 | Notepad T1.x 真实运行验收与 10 次证据 | `fixtures/apps/notepad-like/**`、`eval/tasks/notepad/**`、`docs/audits/**` | 103、104 | M | T1.1~T1.3 各 10 次；静默失败 0；审批/撤销/恢复证据落盘 |
+| TASK-087 | CI 硬门禁负向验证与 `check-comments` 落地 | `.github/workflows/**`、`xtask/src/**`、`xtask/README.md`、ADR-0019 登记 | 015、039 | L | fmt/clippy/build canary；`check-comments` 真实现；PL-018 可关闭 |
+| TASK-210 | UI 与提交质量门禁：Prettier / ESLint / Vitest / commitlint | `apps/desktop-ui/**`、`.github/workflows/**`、`docs/DEPENDENCIES.md` | 039 | L | 新依赖已登记；UI 与 commit 正负门禁入 CI |
+| TASK-211 | 阶段 1a 复验准备与停车位收口 | `docs/PARKING_LOT.md`、`docs/audits/**`、状态同步文件 | 102~105、087、210 | S | PL-018/056/058 证据矩阵；复验清单；不得提前宣称 1a 通过 |
+
 ---
 
 ## 子阶段 1b：Paint（TASK-040 ~ TASK-047）
@@ -210,6 +225,13 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-037 ✅** | A5 | `tasks/TASK-037-t1-2-replace-save-approval-diff-undo.md` | Ready（批次表占位派单前补全） |
 | **TASK-038 ✅** | A5 | `tasks/TASK-038-t1-3-newtab-saveas-cross-process-dialog.md` | Ready（批次表占位派单前补全） |
 | TASK-039 | A5 | `tasks/TASK-039-stage-1a-integration-audit.md` | Ready（批次表占位派单前补全） |
+| TASK-102 | A5-REMEDIATION | `tasks/TASK-102-runtime-execution-contract.md` | Ready（1a 执行链路契约） |
+| TASK-103 | A5-REMEDIATION | `tasks/TASK-103-runtime-executor-host-dispatch-verifyoutcome.md` | Ready（真实执行器） |
+| TASK-104 | A5-REMEDIATION | `tasks/TASK-104-ui-core-ipc-approval-wiring.md` | Ready（UI/IPC/审批接线） |
+| TASK-105 | A5-REMEDIATION | `tasks/TASK-105-notepad-t1-runtime-validation.md` | Ready（T1 真实运行验收） |
+| TASK-087 | A5-REMEDIATION | `tasks/TASK-087-ci-negative-verification-and-check-comments.md` | Ready（CI 硬门禁与 check-comments） |
+| TASK-210 | A5-REMEDIATION | `tasks/TASK-210-ui-and-commit-quality-gates.md` | Ready（UI/提交质量门禁） |
+| TASK-211 | A5-REMEDIATION | `tasks/TASK-211-stage1a-reaudit-and-parking-closeout.md` | Ready（复验与停车位收口） |
 | TASK-040 | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Ready（批次表占位派单前补全） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
 | TASK-042 | 1b | `tasks/TASK-042-visual-verify-phash-dhash-confidence.md` | Ready（批次表占位派单前补全） |
