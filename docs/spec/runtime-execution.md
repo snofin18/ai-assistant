@@ -2,7 +2,7 @@
 
 > 摘要：定义 binary 装配层 `RuntimeExecutor` 的单步执行契约，串联 TaskEngine、
 > Policy、HITL、Lease、ToolBus、Host、Verify、Undo 与 Audit。
-> 状态：Draft（ADR-0056 Proposed）　版本：0.1　日期：2026-09-29
+> 状态：Draft（ADR-0056 Accepted）　版本：0.1　日期：2026-09-29
 > 上位：`AGENTS.md` §2、架构 v2 §7 / §8 / §9 / §12、ADR-0053、ADR-0056、ADR-0055
 > 强制性：ADR-0056 转 Accepted 后即作为实现契约；违反由 Reviewer 拒绝合并，能机器化的
 > 部分由 TASK-103/105 的测试固定。

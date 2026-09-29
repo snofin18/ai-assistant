@@ -1,6 +1,6 @@
 # TASK-102　运行执行链路契约：Planner → TaskEngine → Policy → ToolBus → Host → Verify → Undo
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：029、037、038、039
 - 预估：M　难度：M
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。
@@ -87,6 +87,7 @@ cargo run -p xtask -- hygiene
 - `cargo run -p xtask -- adr-index`：PASS（0056 登记与下一可用号一致）。
 - `cargo run -p xtask -- docscan` / `refscan` / `hygiene`：PASS（仅存量 warning）。
 - `cargo test --workspace`：PASS。
+- 人类 2026-09-29 接受 ADR-0056 三项关键设计；ADR 已由 Proposed 转 Accepted。
 
 ### 4. DoD 逐条核对
 
@@ -99,7 +100,8 @@ cargo run -p xtask -- hygiene
 
 ### 5. 偏差
 
-none。实现细节（Host 分发、UI/IPC、真实 T1 运行）明确留给 TASK-103~105。
+none。人类已接受 ADR-0056；实现细节（Host 分发、UI/IPC、真实 T1 运行）
+按契约留给 TASK-103~105。
 
 ### 6. 更合理做法
 

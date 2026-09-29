@@ -1,6 +1,6 @@
 # ADR-0056　运行执行链路契约：装配层执行器 + VerifyReceipt 提交门
 
-状态：**Proposed**（等待人类确认后转 Accepted；TASK-103 不得在转正前开工）
+状态：**Accepted**（2026-09-29，人类确认接受三项关键设计；TASK-103 可开工）
 日期：2026-09-29
 Supersedes：—
 Superseded by：—

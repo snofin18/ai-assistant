@@ -7,12 +7,12 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-29（**TASK-102 运行执行链路契约已进入 Review**：ADR-0056 + `docs/spec/runtime-execution.md` 已产出，当前为 **Proposed / Draft**，等待人类裁决；TASK-103 在转 Accepted 前不得开工。TASK-039 审计结论仍为阶段 1a **NO-GO**）
+更新日期    ：2026-09-29（**TASK-102 运行执行链路契约已 Done**：ADR-0056 已由人类接受为 **Accepted**，`docs/spec/runtime-execution.md` 为 Draft；下一张 **TASK-103**（真实执行器 + Host 分发 + VerifyReceipt 接线）。TASK-039 审计结论仍为阶段 1a **NO-GO**）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
-当前任务卡  ：**A5 批次进行中**：TASK-011~038 全 Done；**TASK-207 ✅**（Planner）、**TASK-206 ✅**（storage FTS5）、**TASK-208 ✅**（Memory）、**TASK-029 ✅**（binary 装配）、**TASK-030 ✅**（审批/时间线）、**TASK-031 ✅**（元素拾取/绑定）、**TASK-032 ✅**（策略/能力/成本）、**TASK-033 ✅**（notepad-like 靶机）、**TASK-034 ✅**（录制回放）、**TASK-035 ✅**（Notepad Adapter 声明式包）、**TASK-036 ✅**（T1.1 任务包/评测集）、**TASK-037 ✅**（T1.2 替换/保存/审批/撤销）与 **TASK-038 ✅**（T1.3 新建标签/写入/跨进程另存为）均 Done；**TASK-039 = Review（审计完成，阶段 1a NO-GO）**；**TASK-102 = Review（ADR-0056 Proposed）**；
+当前任务卡  ：**A5 批次进行中**：TASK-011~038 全 Done；**TASK-207 ✅**（Planner）、**TASK-206 ✅**（storage FTS5）、**TASK-208 ✅**（Memory）、**TASK-029 ✅**（binary 装配）、**TASK-030 ✅**（审批/时间线）、**TASK-031 ✅**（元素拾取/绑定）、**TASK-032 ✅**（策略/能力/成本）、**TASK-033 ✅**（notepad-like 靶机）、**TASK-034 ✅**（录制回放）、**TASK-035 ✅**（Notepad Adapter 声明式包）、**TASK-036 ✅**（T1.1 任务包/评测集）、**TASK-037 ✅**（T1.2 替换/保存/审批/撤销）与 **TASK-038 ✅**（T1.3 新建标签/写入/跨进程另存为）均 Done；**TASK-039 = Review（审计完成，阶段 1a NO-GO）**；**TASK-102 = Done（ADR-0056 Accepted）**；下一张 **TASK-103**；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204** 均 Done；**TASK-205** = Ready
 阻塞项      ：① 阶段 1a 缺真实任务执行器/Host 分发/审批接线，T1.x 的 10 次运行成功率、静默失败与撤销成功率尚未验证；② `check-comments` 仍为 exit 3 stub、commitlint 缺失、UI Prettier/ESLint/Vitest 未接入；③ PL-018（fmt / clippy / build 负向验证）仍开放；④ TASK-002 仍 Blocked；⑤ **PL-092**（storage 缺 conversation/session 公开记录 API）；⑥ **PL-094**（`RoleAndParent` helper 候选需契约治理）
-下一步动作  ：先由人类裁决 ADR-0056（Proposed → Accepted）。转正后按顺序推进 **TASK-103 → 104 → 105**（真实执行链路与 T1.x 运行证据）；并行推进 **TASK-087**（CI 负向验证 + `check-comments`）与 **TASK-210**（UI/commit 质量门禁）；最后由 **TASK-211** 收口停车位并触发 1a 复验。阻断项闭环前不得进入 1b。
+下一步动作  ：按顺序推进 **TASK-103 → 104 → 105**（真实执行链路与 T1.x 运行证据）；并行推进 **TASK-087**（CI 负向验证 + `check-comments`）与 **TASK-210**（UI/commit 质量门禁）；最后由 **TASK-211** 收口停车位并触发 1a 复验。阻断项闭环前不得进入 1b。
                   → 审计证据见 `docs/audits/stage-1a-integration-audit-2026-09-29.md`；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 
