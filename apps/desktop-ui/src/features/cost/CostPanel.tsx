@@ -1,10 +1,6 @@
 import { useState } from "react";
 
-import {
-  costPeriods,
-  parseCostPanelModel,
-  summarizeCosts
-} from "./costModel.js";
+import { costPeriods, parseCostPanelModel, summarizeCosts } from "./costModel.js";
 import type { CostBreakdown, CostPeriod, CostSummary } from "./costModel.js";
 import type { CostPanelCopy } from "./costCopy.js";
 
@@ -66,14 +62,20 @@ export function CostPanel({ model, copy, nowIso }: CostPanelProps) {
 function Totals({ copy, summary }: { copy: CostPanelCopy; summary: CostSummary }) {
   return (
     <dl className="mt-4 grid gap-2 text-xs md:grid-cols-3">
-      <Metric label={copy.totalCostLabel} value={copy.formatMicroUsd(summary.totals.costMicroUsd)} />
+      <Metric
+        label={copy.totalCostLabel}
+        value={copy.formatMicroUsd(summary.totals.costMicroUsd)}
+      />
       <Metric label={copy.callCountLabel} value={String(summary.totals.callCount)} />
       <Metric label={copy.inputTokensLabel} value={copy.formatTokens(summary.totals.inputTokens)} />
       <Metric
         label={copy.cachedTokensLabel}
         value={copy.formatTokens(summary.totals.cachedInputTokens)}
       />
-      <Metric label={copy.outputTokensLabel} value={copy.formatTokens(summary.totals.outputTokens)} />
+      <Metric
+        label={copy.outputTokensLabel}
+        value={copy.formatTokens(summary.totals.outputTokens)}
+      />
       <Metric label={copy.latencyLabel} value={copy.formatLatency(summary.totals.latencyMs)} />
     </dl>
   );
@@ -83,7 +85,7 @@ function BreakdownTable({
   heading,
   keyLabel,
   breakdowns,
-  copy
+  copy,
 }: {
   heading: string;
   keyLabel: string;

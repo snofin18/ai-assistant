@@ -8,7 +8,7 @@ export {
   getBindingBlockReason,
   MIN_SCORE_TO_TRY,
   parseAdapterMetadata,
-  parseBindingWizardInput
+  parseBindingWizardInput,
 } from "./bindingModel.js";
 export type {
   AdapterMetadata,
@@ -20,6 +20,6 @@ export type {
   BindingWizardStep,
   ParsedBindingWizardInput,
   ResolutionPolicyDraft,
-  TargetDescriptorDraft
+  TargetDescriptorDraft,
 } from "./bindingModel.js";
 export type { BindingWizardCopy } from "./bindingCopy.js";

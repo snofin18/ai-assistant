@@ -17,7 +17,13 @@ interface ApprovalCardProps {
   onDryRun: () => void;
 }
 
-export function ApprovalCard({ model, copy, onDecision, onRequestModification, onDryRun }: ApprovalCardProps) {
+export function ApprovalCard({
+  model,
+  copy,
+  onDecision,
+  onRequestModification,
+  onDryRun,
+}: ApprovalCardProps) {
   const { state, dispatch } = useApprovalCard(model);
   useEffect(() => {
     if (state.decision === null) {
@@ -42,7 +48,7 @@ export function ApprovalCard({ model, copy, onDecision, onRequestModification, o
   const blockReason = getApprovalBlockReason(
     parsedModel,
     state,
-    copy.irreversibleConfirmationPhrase
+    copy.irreversibleConfirmationPhrase,
   );
   const isApprovalBlocked = blockReason !== null;
   return (
@@ -70,7 +76,7 @@ export function ApprovalCard({ model, copy, onDecision, onRequestModification, o
           value={
             parsedModel.undo.isAvailable
               ? `${copy.undoMethodMessages[parsedModel.undo.methodKey] ?? parsedModel.undo.methodKey} (${parsedModel.undo.anchorId})`
-              : copy.errorMessages[parsedModel.undo.disabledReasonKey ?? ""] ?? copy.notApplicable
+              : (copy.errorMessages[parsedModel.undo.disabledReasonKey ?? ""] ?? copy.notApplicable)
           }
         />
       </dl>

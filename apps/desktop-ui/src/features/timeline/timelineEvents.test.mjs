@@ -22,7 +22,12 @@ function step(overrides = {}) {
     durationMs: 0,
     cost: { tokensIn: 0, tokensOut: 0, usd: 0, latencyMs: 0 },
     reversibility: "L0UndoStack",
-    undo: { isAvailable: false, methodKey: "undo.none", anchorId: null, disabledReasonKey: "undo.none" },
+    undo: {
+      isAvailable: false,
+      methodKey: "undo.none",
+      anchorId: null,
+      disabledReasonKey: "undo.none",
+    },
     canReplay: false,
     replayDisabledReasonKey: null,
     ...overrides,

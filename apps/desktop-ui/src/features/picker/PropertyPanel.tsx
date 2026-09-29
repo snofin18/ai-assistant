@@ -20,34 +20,21 @@ export function PropertyPanel({ copy, element }: PropertyPanelProps) {
       <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
         <Field label={copy.roleLabel} value={element.role} />
         <Field label={copy.nameLabel} value={element.name || copy.emptyValue} />
-        <Field
-          label={copy.automationIdLabel}
-          value={element.automationId ?? copy.emptyValue}
-        />
+        <Field label={copy.automationIdLabel} value={element.automationId ?? copy.emptyValue} />
         <Field label={copy.classNameLabel} value={element.className ?? copy.emptyValue} />
         <Field label={copy.runtimeIdLabel} value={element.runtimeId ?? copy.emptyValue} />
         <Field
           label={copy.stateLabel}
           value={[
-            `${copy.enabledLabel}: ${
-              element.isEnabled ? copy.enabledValue : copy.disabledValue
-            }`,
-            `${copy.focusedLabel}: ${
-              element.isFocused ? copy.enabledValue : copy.disabledValue
-            }`,
+            `${copy.enabledLabel}: ${element.isEnabled ? copy.enabledValue : copy.disabledValue}`,
+            `${copy.focusedLabel}: ${element.isFocused ? copy.enabledValue : copy.disabledValue}`,
             `${copy.keyboardFocusableLabel}: ${
               element.isKeyboardFocusable ? copy.enabledValue : copy.disabledValue
-            }`
+            }`,
           ].join(" | ")}
         />
-        <Field
-          label={copy.actionsLabel}
-          value={element.actions.join(", ") || copy.emptyValue}
-        />
-        <Field
-          label={copy.patternsLabel}
-          value={element.patterns.join(", ") || copy.emptyValue}
-        />
+        <Field label={copy.actionsLabel} value={element.actions.join(", ") || copy.emptyValue} />
+        <Field label={copy.patternsLabel} value={element.patterns.join(", ") || copy.emptyValue} />
         <Field
           label={copy.boundsLabel}
           value={`${element.bounds.x},${element.bounds.y} ${element.bounds.width}x${element.bounds.height}`}
@@ -55,9 +42,8 @@ export function PropertyPanel({ copy, element }: PropertyPanelProps) {
         <Field
           label={copy.parentPathLabel}
           value={
-            element.parentPath
-              .map((ancestor) => `${ancestor.role}:${ancestor.name}`)
-              .join(" > ") || copy.emptyValue
+            element.parentPath.map((ancestor) => `${ancestor.role}:${ancestor.name}`).join(" > ") ||
+            copy.emptyValue
           }
         />
       </dl>

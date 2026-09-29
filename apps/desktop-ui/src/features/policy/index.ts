@@ -7,7 +7,7 @@ export {
   egressPolicyControllerReducer,
   getEffectiveEgressLevel,
   isValidAppId,
-  parseEgressPolicy
+  parseEgressPolicy,
 } from "./egressPolicy.js";
 export type {
   EgressLevel,
@@ -15,6 +15,6 @@ export type {
   EgressPolicyChange,
   EgressPolicyControllerAction,
   EgressPolicyControllerState,
-  EgressPolicyParseResult
+  EgressPolicyParseResult,
 } from "./egressPolicy.js";
 export type { EgressPolicyCopy } from "./policyCopy.js";

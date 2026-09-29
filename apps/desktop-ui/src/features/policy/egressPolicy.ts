@@ -17,8 +17,7 @@ export interface EgressPolicy {
 }
 
 export type EgressPolicyParseResult =
-  | { ok: true; policy: EgressPolicy }
-  | { ok: false; errors: string[] };
+  { ok: true; policy: EgressPolicy } | { ok: false; errors: string[] };
 
 export interface EgressPolicyChange {
   defaultLevel: EgressLevel;
@@ -49,7 +48,7 @@ export type EgressPolicyControllerAction =
 const egressRank: Record<EgressLevel, number> = {
   local_only: 0,
   redacted: 1,
-  full: 2
+  full: 2,
 };
 
 export function parseEgressPolicy(input: unknown): EgressPolicyParseResult {
@@ -63,18 +62,13 @@ export function parseEgressPolicy(input: unknown): EgressPolicyParseResult {
     errors.push("hasLocalModel must be boolean");
   }
   const appOverrides = parseAppOverrides(input.appOverrides, errors);
-  if (
-    defaultLevel === null ||
-    typeof hasLocalModel !== "boolean" ||
-    appOverrides === null
-  ) {
+  if (defaultLevel === null || typeof hasLocalModel !== "boolean" || appOverrides === null) {
     return { ok: false, errors };
   }
   const policy = { defaultLevel, appOverrides, hasLocalModel };
   if (
     !hasLocalModel &&
-    (defaultLevel === "local_only" ||
-      Object.values(appOverrides).includes("local_only"))
+    (defaultLevel === "local_only" || Object.values(appOverrides).includes("local_only"))
   ) {
     errors.push("local_only requires an available local model");
   }
@@ -86,13 +80,13 @@ export function createInitialEgressPolicyState(input: unknown): EgressPolicyCont
     parseResult: parseEgressPolicy(input),
     pendingChange: null,
     errorKey: null,
-    change: null
+    change: null,
   };
 }
 
 export function egressPolicyControllerReducer(
   state: EgressPolicyControllerState,
-  action: EgressPolicyControllerAction
+  action: EgressPolicyControllerAction,
 ): EgressPolicyControllerState {
   if (action.type === "replace_policy") {
     return createInitialEgressPolicyState(action.policy);
@@ -100,7 +94,6 @@ export function egressPolicyControllerReducer(
   if (!state.parseResult.ok) {
     return state;
   }
-  const policy = state.parseResult.policy;
   switch (action.type) {
     case "request_change":
       return requestPolicyChange(state, action.request);
@@ -119,7 +112,7 @@ export function egressPolicyControllerReducer(
 
 export function getEffectiveEgressLevel(
   policy: EgressPolicy,
-  appId: string | null
+  appId: string | null,
 ): EgressLevel | null {
   if (appId === null) {
     return policy.defaultLevel;
@@ -137,7 +130,7 @@ export function isValidAppId(appId: string): boolean {
 function applyPolicyChange(
   state: EgressPolicyControllerState,
   request: EgressPolicyRequest,
-  isUpgradeConfirmed: boolean
+  isUpgradeConfirmed: boolean,
 ): EgressPolicyControllerState {
   if (!state.parseResult.ok) {
     return state;
@@ -153,43 +146,40 @@ function applyPolicyChange(
       ...state,
       pendingChange: null,
       errorKey: "policy.error.local_model_unavailable",
-      change: null
+      change: null,
     };
   }
-  if (
-    egressRank[change.changedLevel] > egressRank[resolved.currentLevel] &&
-    !isUpgradeConfirmed
-  ) {
+  if (egressRank[change.changedLevel] > egressRank[resolved.currentLevel] && !isUpgradeConfirmed) {
     return {
       ...state,
       pendingChange: request,
       errorKey: "policy.error.upgrade_confirmation_required",
-      change: null
+      change: null,
     };
   }
   const nextPolicy: EgressPolicy = {
     defaultLevel: change.defaultLevel,
     appOverrides: change.appOverrides,
-    hasLocalModel: policy.hasLocalModel
+    hasLocalModel: policy.hasLocalModel,
   };
   return {
     parseResult: { ok: true, policy: nextPolicy },
     pendingChange: null,
     errorKey: null,
-    change
+    change,
   };
 }
 
 function requestPolicyChange(
   state: EgressPolicyControllerState,
-  request: EgressPolicyRequest
+  request: EgressPolicyRequest,
 ): EgressPolicyControllerState {
   return applyPolicyChange(state, request, false);
 }
 
 function resolvePolicyRequest(
   policy: EgressPolicy,
-  request: EgressPolicyRequest
+  request: EgressPolicyRequest,
 ):
   | {
       ok: true;
@@ -205,8 +195,8 @@ function resolvePolicyRequest(
         defaultLevel: request.level,
         appOverrides: { ...policy.appOverrides },
         changedLevel: request.level,
-        appId: null
-      }
+        appId: null,
+      },
     };
   }
   if (!isValidAppId(request.appId)) {
@@ -224,8 +214,8 @@ function resolvePolicyRequest(
         defaultLevel: policy.defaultLevel,
         appOverrides: { ...policy.appOverrides, [request.appId]: request.level },
         changedLevel: request.level,
-        appId: request.appId
-      }
+        appId: request.appId,
+      },
     };
   }
   const nextOverrides = { ...policy.appOverrides };
@@ -237,15 +227,12 @@ function resolvePolicyRequest(
       defaultLevel: policy.defaultLevel,
       appOverrides: nextOverrides,
       changedLevel: policy.defaultLevel,
-      appId: request.appId
-    }
+      appId: request.appId,
+    },
   };
 }
 
-function parseAppOverrides(
-  value: unknown,
-  errors: string[]
-): Record<string, EgressLevel> | null {
+function parseAppOverrides(value: unknown, errors: string[]): Record<string, EgressLevel> | null {
   if (!isRecord(value)) {
     errors.push("appOverrides must be an object");
     return null;
@@ -268,7 +255,7 @@ function parseAppOverrides(
 function readEgressLevel(
   record: Record<string, unknown>,
   key: string,
-  errors: string[]
+  errors: string[],
 ): EgressLevel | null {
   const value = record[key];
   if (!isEgressLevel(value)) {

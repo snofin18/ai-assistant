@@ -1,10 +1,7 @@
 import type { CSSProperties } from "react";
 
 import type { PickerCopy } from "./pickerCopy.js";
-import {
-  getElementById,
-  getHighlightRect
-} from "./pickerModel.js";
+import { getElementById, getHighlightRect } from "./pickerModel.js";
 import { PropertyPanel } from "./PropertyPanel.js";
 import { SelectorCandidateList } from "./SelectorCandidateList.js";
 import { useElementPicker } from "./useElementPicker.js";
@@ -25,16 +22,15 @@ export function ElementPicker({ model, copy, onSelectElement }: ElementPickerPro
     );
   }
   const snapshot = state.parseResult.snapshot;
-  const hoveredElement = state.hoveredElementId === null
-    ? null
-    : getElementById(snapshot, state.hoveredElementId);
-  const selectedElement = state.selectedElementId === null
-    ? null
-    : getElementById(snapshot, state.selectedElementId);
+  const hoveredElement =
+    state.hoveredElementId === null ? null : getElementById(snapshot, state.hoveredElementId);
+  const selectedElement =
+    state.selectedElementId === null ? null : getElementById(snapshot, state.selectedElementId);
   const highlightedElement = hoveredElement ?? selectedElement;
-  const highlight = highlightedElement === null
-    ? null
-    : getHighlightRect(highlightedElement, snapshot.workspaceBounds);
+  const highlight =
+    highlightedElement === null
+      ? null
+      : getHighlightRect(highlightedElement, snapshot.workspaceBounds);
   return (
     <section className="grid gap-3" aria-label={copy.heading}>
       <h2 className="text-lg font-semibold">{copy.heading}</h2>
@@ -114,6 +110,6 @@ function highlightStyle(rect: {
     left: `${rect.leftPercent}%`,
     top: `${rect.topPercent}%`,
     width: `${rect.widthPercent}%`,
-    height: `${rect.heightPercent}%`
+    height: `${rect.heightPercent}%`,
   };
 }

@@ -9,19 +9,11 @@
 import {
   generateSelectorCandidates,
   parsePickerSnapshot,
-  validateSelectorCandidates
+  validateSelectorCandidates,
 } from "../picker/pickerModel.js";
-import type {
-  PickerSnapshot,
-  SelectorCandidate
-} from "../picker/pickerModel.js";
+import type { PickerSnapshot, SelectorCandidate } from "../picker/pickerModel.js";
 
-export const bindingWizardSteps = [
-  "application",
-  "target",
-  "review",
-  "export"
-] as const;
+export const bindingWizardSteps = ["application", "target", "review", "export"] as const;
 export type BindingWizardStep = (typeof bindingWizardSteps)[number];
 export const MIN_SCORE_TO_TRY = 0.15;
 
@@ -70,8 +62,7 @@ export interface ParsedBindingWizardInput {
 }
 
 export type BindingInputParseResult =
-  | { ok: true; value: ParsedBindingWizardInput }
-  | { ok: false; errors: string[] };
+  { ok: true; value: ParsedBindingWizardInput } | { ok: false; errors: string[] };
 
 export interface BindingWizardState {
   parseResult: BindingInputParseResult;
@@ -100,8 +91,8 @@ export function parseBindingWizardInput(input: unknown): BindingInputParseResult
       ok: false,
       errors: [
         ...(!metadataResult.ok ? metadataResult.errors : []),
-        ...(!snapshotResult.ok ? snapshotResult.errors : [])
-      ]
+        ...(!snapshotResult.ok ? snapshotResult.errors : []),
+      ],
     };
   }
   if (metadataResult.metadata.appId !== snapshotResult.snapshot.appId) {
@@ -109,26 +100,24 @@ export function parseBindingWizardInput(input: unknown): BindingInputParseResult
   }
   return {
     ok: true,
-    value: { metadata: metadataResult.metadata, snapshot: snapshotResult.snapshot }
+    value: { metadata: metadataResult.metadata, snapshot: snapshotResult.snapshot },
   };
 }
 
-export function createInitialBindingWizardState(
-  input: unknown
-): BindingWizardState {
+export function createInitialBindingWizardState(input: unknown): BindingWizardState {
   return {
     parseResult: parseBindingWizardInput(input),
     step: "application",
     selectedElementId: null,
     candidates: [],
     serializedDraft: null,
-    errorKey: null
+    errorKey: null,
   };
 }
 
 export function bindingWizardReducer(
   state: BindingWizardState,
-  action: BindingWizardAction
+  action: BindingWizardAction,
 ): BindingWizardState {
   if (action.type === "replace_input") {
     return createInitialBindingWizardState(action.input);
@@ -140,10 +129,7 @@ export function bindingWizardReducer(
     return state;
   }
   if (action.type === "select_element") {
-    const element = getSnapshotElement(
-      state.parseResult.value.snapshot,
-      action.elementId
-    );
+    const element = getSnapshotElement(state.parseResult.value.snapshot, action.elementId);
     if (element === null) {
       return { ...state, errorKey: "binding.error.element_not_found" };
     }
@@ -157,7 +143,7 @@ export function bindingWizardReducer(
       selectedElementId: element.elementId,
       candidates,
       serializedDraft: null,
-      errorKey: null
+      errorKey: null,
     };
   }
   if (action.type === "back") {
@@ -184,7 +170,7 @@ export function bindingWizardReducer(
     const draft = createAdapterSelectorDraft(
       state.parseResult.value.snapshot,
       state.parseResult.value.metadata,
-      state.selectedElementId
+      state.selectedElementId,
     );
     return draft.ok
       ? { ...state, step: "export", serializedDraft: draft.serialized, errorKey: null }
@@ -196,10 +182,8 @@ export function bindingWizardReducer(
 export function createAdapterSelectorDraft(
   snapshotInput: unknown,
   metadataInput: unknown,
-  elementId: unknown
-):
-  | { ok: true; draft: AdapterSelectorDraft; serialized: string }
-  | { ok: false; errorKey: string } {
+  elementId: unknown,
+): { ok: true; draft: AdapterSelectorDraft; serialized: string } | { ok: false; errorKey: string } {
   if (typeof elementId !== "string" || elementId.trim() === "") {
     return { ok: false, errorKey: "binding.error.element_not_found" };
   }
@@ -241,32 +225,28 @@ export function createAdapterSelectorDraft(
         on_ambiguous: "error_and_ask",
         on_not_found: {
           retry_after_ms: [50, 150, 400],
-          then_escalate: true
+          then_escalate: true,
         },
         max_resolve_ms: 3000,
-        min_score_to_try: MIN_SCORE_TO_TRY
-      }
-    }
+        min_score_to_try: MIN_SCORE_TO_TRY,
+      },
+    },
   };
   return { ok: true, draft, serialized: JSON.stringify(draft, null, 2) };
 }
 
-export function getBindingBlockReason(
-  candidates: readonly SelectorCandidate[]
-): string | null {
+export function getBindingBlockReason(candidates: readonly SelectorCandidate[]): string | null {
   if (!validateSelectorCandidates(candidates)) {
     return "binding.error.candidates_invalid";
   }
-  if (
-    candidates.filter((candidate) => candidate.score >= MIN_SCORE_TO_TRY).length < 3
-  ) {
+  if (candidates.filter((candidate) => candidate.score >= MIN_SCORE_TO_TRY).length < 3) {
     return "binding.error.candidate_count_insufficient";
   }
   return null;
 }
 
 export function parseAdapterMetadata(
-  input: unknown
+  input: unknown,
 ): { ok: true; metadata: AdapterMetadata } | { ok: false; errors: string[] } {
   if (!isRecord(input)) {
     return { ok: false, errors: ["metadata must be an object"] };
@@ -294,11 +274,7 @@ function getSnapshotElement(snapshot: PickerSnapshot, elementId: string) {
   return snapshot.elements.find((element) => element.elementId === elementId) ?? null;
 }
 
-function readText(
-  record: Record<string, unknown>,
-  key: string,
-  errors: string[]
-): string | null {
+function readText(record: Record<string, unknown>, key: string, errors: string[]): string | null {
   const value = record[key];
   if (typeof value !== "string" || value.trim() === "") {
     errors.push(`metadata.${key} must be a non-empty string`);

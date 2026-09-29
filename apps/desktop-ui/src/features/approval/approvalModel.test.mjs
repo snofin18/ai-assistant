@@ -63,12 +63,12 @@ test("test_approval_app_content_requires_explicit_override_before_approval", () 
   const initial = createInitialApprovalControllerState(result.model);
   assert.equal(
     getApprovalBlockReason(result.model, initial),
-    "approval.error.app_content_override_required"
+    "approval.error.app_content_override_required",
   );
   const selected = approvalControllerReducer(initial, { type: "select_scope", scope: "once" });
   assert.equal(
     getApprovalBlockReason(result.model, selected),
-    "approval.error.app_content_override_required"
+    "approval.error.app_content_override_required",
   );
   const overridden = approvalControllerReducer(selected, {
     type: "set_app_content_override",
@@ -84,7 +84,7 @@ test("test_approval_app_content_requires_explicit_override_before_approval", () 
 
 test("test_parse_approval_card_high_risk_with_broad_scope_is_rejected", () => {
   const result = parseApprovalCardModel(
-    createModel({ riskLevel: "high", scopeOptions: ["once", "this_task"] })
+    createModel({ riskLevel: "high", scopeOptions: ["once", "this_task"] }),
   );
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /only the once scope/);
@@ -97,7 +97,7 @@ test("test_parse_approval_card_irreversible_with_undo_is_rejected", () => {
       reversibility: "L3Irreversible",
       diff: { kind: "irreversible", warningKey: "approval.warning.point_of_no_return" },
       scopeOptions: ["once"],
-    })
+    }),
   );
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /must not advertise an undo path/);
@@ -116,13 +116,13 @@ test("test_approval_irreversible_requires_exact_secondary_confirmation", () => {
         disabledReasonKey: "approval.undo.irreversible",
       },
       scopeOptions: ["once"],
-    })
+    }),
   );
   assert.equal(result.ok, true);
   const initial = createInitialApprovalControllerState(result.model);
   assert.equal(
     getApprovalBlockReason(result.model, initial, "CONFIRM"),
-    "approval.error.irreversible_confirmation_required"
+    "approval.error.irreversible_confirmation_required",
   );
   const typed = approvalControllerReducer(initial, {
     type: "set_irreversible_confirmation",
@@ -152,7 +152,7 @@ test("test_parse_approval_card_external_evidence_link_is_rejected", () => {
           href: "javascript:alert(1)",
         },
       ],
-    })
+    }),
   );
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /evidence entry is malformed/);

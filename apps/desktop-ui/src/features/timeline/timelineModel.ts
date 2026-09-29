@@ -6,12 +6,7 @@
  * false success state.
  */
 
-export const timelineStepStatuses = [
-  "succeeded",
-  "failed",
-  "awaiting_approval",
-  "undone",
-] as const;
+export const timelineStepStatuses = ["succeeded", "failed", "awaiting_approval", "undone"] as const;
 export type TimelineStepStatus = (typeof timelineStepStatuses)[number];
 
 export const verificationStatuses = ["passed", "failed", "not_applicable"] as const;
@@ -65,8 +60,7 @@ export interface TimelineStepModel {
 }
 
 export type TimelineModelParseResult =
-  | { ok: true; steps: TimelineStepModel[] }
-  | { ok: false; errors: string[] };
+  { ok: true; steps: TimelineStepModel[] } | { ok: false; errors: string[] };
 
 export interface TimelineControllerState {
   parseResult: TimelineModelParseResult;
@@ -128,7 +122,7 @@ export function createInitialTimelineControllerState(model: unknown): TimelineCo
 
 export function timelineControllerReducer(
   state: TimelineControllerState,
-  action: TimelineControllerAction
+  action: TimelineControllerAction,
 ): TimelineControllerState {
   if (action.type === "replace_model") {
     return createInitialTimelineControllerState(action.model);
@@ -193,7 +187,7 @@ export function parseTimelineModel(input: unknown): TimelineModelParseResult {
 function parseTimelineStep(
   value: unknown,
   index: number,
-  errors: string[]
+  errors: string[],
 ): TimelineStepModel | null {
   if (!isRecord(value)) {
     errors.push(`step ${index}: must be an object`);
@@ -210,7 +204,7 @@ function parseTimelineStep(
     "reversibility",
     timelineReversibilityLevels,
     prefix,
-    errors
+    errors,
   );
   const preFingerprint = readNullableText(value, "preFingerprint", prefix, errors);
   const postFingerprint = readNullableText(value, "postFingerprint", prefix, errors);
@@ -219,7 +213,7 @@ function parseTimelineStep(
     value,
     "replayDisabledReasonKey",
     prefix,
-    errors
+    errors,
   );
   const evidence = parseEvidence(value.evidence, prefix, errors);
   const undo = parseUndoPlan(value.undo, prefix, errors);
@@ -289,7 +283,7 @@ function parseTimelineStep(
 function parseEvidence(
   value: unknown,
   prefix: string,
-  errors: string[]
+  errors: string[],
 ): TimelineEvidence[] | null {
   if (!Array.isArray(value) || value.length === 0) {
     errors.push(`${prefix}: evidence must be a non-empty array`);
@@ -319,11 +313,7 @@ function parseEvidence(
   return evidence;
 }
 
-function parseUndoPlan(
-  value: unknown,
-  prefix: string,
-  errors: string[]
-): TimelineUndoPlan | null {
+function parseUndoPlan(value: unknown, prefix: string, errors: string[]): TimelineUndoPlan | null {
   if (!isRecord(value) || typeof value.isAvailable !== "boolean") {
     errors.push(`${prefix}: undo must contain isAvailable`);
     return null;
@@ -370,7 +360,7 @@ function readText(
   record: Record<string, unknown>,
   key: string,
   prefix: string,
-  errors: string[]
+  errors: string[],
 ): string | null {
   const value = record[key];
   if (typeof value !== "string" || value.trim() === "") {
@@ -384,7 +374,7 @@ function readNullableText(
   record: Record<string, unknown>,
   key: string,
   prefix: string,
-  errors: string[]
+  errors: string[],
 ): string | null | undefined {
   const value = record[key];
   if (value === null || (typeof value === "string" && value.trim() !== "")) {
@@ -399,7 +389,7 @@ function readEnum<const Values extends readonly string[]>(
   key: string,
   values: Values,
   prefix: string,
-  errors: string[]
+  errors: string[],
 ): Values[number] | null {
   const value = record[key];
   if (!isEnumValue(value, values)) {
@@ -411,7 +401,7 @@ function readEnum<const Values extends readonly string[]>(
 
 function isEnumValue<const Values extends readonly string[]>(
   value: unknown,
-  values: Values
+  values: Values,
 ): value is Values[number] {
   return typeof value === "string" && values.includes(value as Values[number]);
 }

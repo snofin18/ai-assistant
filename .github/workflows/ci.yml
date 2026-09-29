@@ -5,6 +5,8 @@
 #     fmt / clippy(含禁用项 lint) / test / verify-schemas
 #     / codegen --check / deny / build / hygiene / spike-deny / doc-consistency
 #     / arch test(gov #5，2026-09-24 TASK-015 转硬) / check-ledger(gov #16，同日转硬)
+#     / desktop-ui format:check + lint + typecheck + test + build（TASK-210 补齐 Prettier/ESLint/Vitest）
+#     / commitlint（仅 pull_request：校验 PR 区间提交信息，TASK-210）
 #     （DRIFT-001-2-a 裁决确认：前 6 项 = 卡面原定 5 项 + hygiene；计数口径见
 #      tasks/TASK-001-repo-skeleton.md §5.2。第 7 项 spike-deny 由 ADR-0024 D2 新增，
 #      对应 gov §5.1 的 #8b —— 因为 spikes/ 被 workspace exclude，主 deny job 覆盖不到它。
@@ -271,12 +273,78 @@ jobs:
           cache-dependency-path: apps/desktop-ui/pnpm-lock.yaml
       - name: install
         run: pnpm install --frozen-lockfile
+      - name: "[HARD] format:check（Prettier）"
+        run: pnpm format:check
+      - name: "[HARD] lint（ESLint，零 warning 容忍）"
+        run: pnpm lint
       - name: typecheck
         run: pnpm typecheck
       - name: test
         run: pnpm test
       - name: build
         run: pnpm build
+
+      # 负向验证（ADR-0019 形式 N2）：新门禁必须证明"该红的时候真的会红"。
+      # 做法 = 注入已知坏样本 → 断言**具体退出码 1** → 立即删除注入物。
+      # 断言非零不够：命令因用法错误 exit 2 也"非零"，那不叫拦住漂移（TASK-011 的假绿通道）。
+      - name: "[N2 ui] 注入坏格式 → format:check 必须 exit 1"
+        run: |
+          set -uo pipefail
+          canary=src/__gate_canary__.ts
+          printf 'export const canary = {a:1,b:2}\n' > "$canary"
+          set +e
+          pnpm format:check
+          code=$?
+          set -e
+          rm -f "$canary"
+          if [ "$code" -eq 0 ]; then
+            echo "FAIL: 注入坏格式后 format:check 仍然 exit 0 —— 门禁形同虚设"
+            exit 1
+          fi
+          if [ "$code" -ne 1 ]; then
+            echo "FAIL: 期望阻塞级退出码 1，实际 $code"
+            exit 1
+          fi
+          echo "OK: format:check 对坏格式返回 exit 1"
+
+      - name: "[N2 ui] 注入 lint 违规 → lint 必须 exit 1"
+        run: |
+          set -uo pipefail
+          canary=src/__gate_canary__.ts
+          printf 'export function canary(): void {\n  console.log("canary");\n}\n' > "$canary"
+          set +e
+          pnpm lint
+          code=$?
+          set -e
+          rm -f "$canary"
+          if [ "$code" -eq 0 ]; then
+            echo "FAIL: 注入 no-console 违规后 lint 仍然 exit 0 —— 门禁形同虚设"
+            exit 1
+          fi
+          if [ "$code" -ne 1 ]; then
+            echo "FAIL: 期望阻塞级退出码 1，实际 $code"
+            exit 1
+          fi
+          echo "OK: lint 对违规样本返回 exit 1"
+
+      - name: "[N2 commit] 合法/非法提交信息 → commitlint 必须分别 exit 0 / 1"
+        run: |
+          set -uo pipefail
+          set +e
+          echo "feat(task-210): add ui and commit quality gates" | pnpm exec commitlint
+          good=$?
+          echo "closeout-task-029" | pnpm exec commitlint
+          bad=$?
+          set -e
+          if [ "$good" -ne 0 ]; then
+            echo "FAIL: 合法提交信息被 commitlint 拒绝（exit $good）—— 规则与现有风格不一致"
+            exit 1
+          fi
+          if [ "$bad" -ne 1 ]; then
+            echo "FAIL: 非法提交信息未被 commitlint 拒绝（exit $bad，期望 1）"
+            exit 1
+          fi
+          echo "OK: commitlint 正负样本分别 exit 0 / 1"
 
   # ==========================================================================
   # 硬门禁 #6 / #7 的负向验证（ADR-0019 形式 N2：CI 内建显式失败步骤）
@@ -292,6 +360,63 @@ jobs:
   # 也"非零"，但那不叫拦住漂移 —— 这正是 TASK-011 复核里发现的假绿通道之一。
   # 单测侧的 N1（纯逻辑负向用例）见 xtask/src/{verify_schemas,codegen}.rs 的 tests 模块。
   # ==========================================================================
+  # TASK-104 记录的缺口：`apps/desktop-ui/src-tauri` 是**独立 Cargo workspace**
+  # （它的存在就是为了让根 `cargo test --workspace` 不依赖 Linux WebKit 系统包），
+  # 因此根 workspace 的 fmt / clippy / test 三道门禁都覆盖不到它。
+  # TASK-210 把它纳入 CI，只跑 Windows runner：Linux 需要额外安装 webkit2gtk
+  # 等系统包，那属于发布/打包卡的范畴。
+  # 实测：dev profile 下 `tauri::generate_context!` 不要求 `../dist` 存在
+  # （`cargo clean -p assistant-desktop-ui` 后无 dist 仍 `cargo check --all-targets` 通过），
+  # 所以本 job 不需要先构建前端。
+  desktop-ui-tauri:
+    name: desktop-ui tauri (windows)
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/desktop-ui/src-tauri
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop-ui/src-tauri
+      - name: "[HARD] cargo fmt --check"
+        run: cargo fmt --check
+      - name: "[HARD] cargo clippy -D warnings"
+        run: cargo clippy --all-targets -- -D warnings
+      - name: "[HARD] cargo test"
+        run: cargo test
+
+  # 提交信息门禁（TASK-210）：只校验 PR 引入的提交，不重写历史。
+  # merge / revert 提交由 commitlint 的 `defaultIgnores` 跳过（默认开启），
+  # 所以本仓库的 merge-commit 合并流程不需要改。
+  commit-lint:
+    name: commitlint
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/desktop-ui/pnpm-lock.yaml
+      - name: install
+        working-directory: apps/desktop-ui
+        run: pnpm install --frozen-lockfile
+      - name: "[HARD] commitlint（PR 区间）"
+        working-directory: apps/desktop-ui
+        run: |
+          pnpm exec commitlint \
+            --from "origin/${{ github.base_ref }}" \
+            --to HEAD \
+            --verbose
+
   gate-negative:
     name: gate negative verification (#6 / #7)
     runs-on: ubuntu-latest

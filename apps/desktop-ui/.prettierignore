@@ -1,0 +1,8 @@
+# Generated or vendored trees: never reformat them, they are not authored here.
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/icons/
+# pnpm owns this file's layout; Prettier rewriting it would fight the package manager.
+pnpm-lock.yaml

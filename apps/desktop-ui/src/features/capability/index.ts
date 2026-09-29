@@ -6,7 +6,7 @@ export {
   capabilitySideEffects,
   channelAvailabilities,
   getCapabilityStats,
-  parseCapabilityMatrix
+  parseCapabilityMatrix,
 } from "./capabilityMatrix.js";
 export type {
   CapabilityApproval,
@@ -20,6 +20,6 @@ export type {
   CapabilityRiskLevel,
   CapabilitySideEffect,
   CapabilityStats,
-  ChannelAvailability
+  ChannelAvailability,
 } from "./capabilityMatrix.js";
 export type { CapabilityMatrixCopy } from "./capabilityCopy.js";

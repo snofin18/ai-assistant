@@ -7,11 +7,7 @@ interface EgressStatusBarProps {
   currentAppId?: string;
 }
 
-export function EgressStatusBar({
-  policy,
-  copy,
-  currentAppId
-}: EgressStatusBarProps) {
+export function EgressStatusBar({ policy, copy, currentAppId }: EgressStatusBarProps) {
   const parsed = parseEgressPolicy(policy);
   const effectiveLevel = parsed.ok
     ? getEffectiveEgressLevel(parsed.policy, currentAppId ?? null)
@@ -24,9 +20,7 @@ export function EgressStatusBar({
     >
       <span>{copy.statusLabel}: </span>
       <strong>
-        {effectiveLevel === null
-          ? copy.invalidPolicyLabel
-          : copy.levelLabels[effectiveLevel]}
+        {effectiveLevel === null ? copy.invalidPolicyLabel : copy.levelLabels[effectiveLevel]}
       </strong>
       {currentAppId === undefined ? null : (
         <span className="ml-2 font-mono text-slate-400">{currentAppId}</span>

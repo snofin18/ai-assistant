@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { egressLevels } from "./egressPolicy.js";
-import type {
-  EgressPolicyChange,
-  EgressLevel
-} from "./egressPolicy.js";
+import type { EgressPolicyChange, EgressLevel } from "./egressPolicy.js";
 import type { EgressPolicyCopy } from "./policyCopy.js";
 import { useEgressPolicy } from "./useEgressPolicy.js";
 
@@ -44,7 +41,9 @@ export function EgressPolicyPanel({ policy, copy, onChange }: EgressPolicyPanelP
       <LevelSelector
         copy={copy}
         label={copy.defaultLevelLabel}
-        onSelect={(level) => dispatch({ type: "request_change", request: { kind: "default", level } })}
+        onSelect={(level) =>
+          dispatch({ type: "request_change", request: { kind: "default", level } })
+        }
         selectedLevel={parsedPolicy.defaultLevel}
       />
       {state.pendingChange === null ? null : (
@@ -96,8 +95,8 @@ export function EgressPolicyPanel({ policy, copy, onChange }: EgressPolicyPanelP
                   request: {
                     kind: "app_override",
                     appId: appId.trim(),
-                    level
-                  }
+                    level,
+                  },
                 })
               }
               type="button"
@@ -113,8 +112,8 @@ export function EgressPolicyPanel({ policy, copy, onChange }: EgressPolicyPanelP
                 type: "request_change",
                 request: {
                   kind: "clear_app_override",
-                  appId: appId.trim()
-                }
+                  appId: appId.trim(),
+                },
               })
             }
             type="button"
@@ -124,7 +123,10 @@ export function EgressPolicyPanel({ policy, copy, onChange }: EgressPolicyPanelP
         </div>
         <dl className="mt-3 grid gap-2 text-xs text-slate-300 md:grid-cols-2">
           {Object.entries(parsedPolicy.appOverrides).map(([overrideAppId, level]) => (
-            <div className="flex justify-between gap-3 border border-slate-700 p-2" key={overrideAppId}>
+            <div
+              className="flex justify-between gap-3 border border-slate-700 p-2"
+              key={overrideAppId}
+            >
               <dt className="font-mono">{overrideAppId}</dt>
               <dd>{copy.levelLabels[level]}</dd>
             </div>
@@ -144,7 +146,7 @@ function LevelSelector({
   label,
   selectedLevel,
   copy,
-  onSelect
+  onSelect,
 }: {
   label: string;
   selectedLevel: EgressLevel;

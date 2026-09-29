@@ -1,6 +1,9 @@
 import { useEffect, useReducer } from "react";
 
-import { createInitialTimelineControllerState, timelineControllerReducer } from "./timelineModel.js";
+import {
+  createInitialTimelineControllerState,
+  timelineControllerReducer,
+} from "./timelineModel.js";
 import type { TimelineControllerAction } from "./timelineModel.js";
 
 /**
@@ -13,7 +16,7 @@ export function useTimeline(model: unknown): {
   const [state, dispatch] = useReducer(
     timelineControllerReducer,
     model,
-    createInitialTimelineControllerState
+    createInitialTimelineControllerState,
   );
   useEffect(() => {
     dispatch({ type: "replace_model", model });

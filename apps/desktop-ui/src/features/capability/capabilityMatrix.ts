@@ -22,7 +22,7 @@ export const capabilitySideEffects = [
   "process_spawn",
   "network_egress",
   "clipboard",
-  "external_system"
+  "external_system",
 ] as const;
 export type CapabilitySideEffect = (typeof capabilitySideEffects)[number];
 
@@ -66,8 +66,7 @@ export interface CapabilityMatrixView {
 }
 
 export type CapabilityMatrixParseResult =
-  | { ok: true; matrix: CapabilityMatrixView }
-  | { ok: false; errors: string[] };
+  { ok: true; matrix: CapabilityMatrixView } | { ok: false; errors: string[] };
 
 export interface CapabilityStats {
   total: number;
@@ -100,15 +99,12 @@ export function parseCapabilityMatrix(input: unknown): CapabilityMatrixParseResu
 export function getCapabilityStats(matrix: CapabilityMatrixView): CapabilityStats {
   return {
     total: matrix.capabilities.length,
-    requiresApproval: matrix.capabilities.filter(
-      (capability) => capability.approval === "required"
-    ).length,
-    forbidden: matrix.capabilities.filter(
-      (capability) => capability.approval === "forbidden"
-    ).length,
-    degradedChannels: matrix.channels.filter(
-      (channel) => channel.availability !== "available"
-    ).length
+    requiresApproval: matrix.capabilities.filter((capability) => capability.approval === "required")
+      .length,
+    forbidden: matrix.capabilities.filter((capability) => capability.approval === "forbidden")
+      .length,
+    degradedChannels: matrix.channels.filter((channel) => channel.availability !== "available")
+      .length,
   };
 }
 
@@ -185,7 +181,7 @@ function parseCapabilities(value: unknown, errors: string[]): CapabilityEntryVie
 function parseCapability(
   value: unknown,
   index: number,
-  errors: string[]
+  errors: string[],
 ): CapabilityEntryView | null {
   if (!isRecord(value)) {
     errors.push(`capabilities[${index}] must be an object`);
@@ -214,10 +210,7 @@ function parseCapability(
   return { id, resource, sideEffect, risk, approval };
 }
 
-function parseDegradations(
-  value: unknown,
-  errors: string[]
-): CapabilityDegradationView[] | null {
+function parseDegradations(value: unknown, errors: string[]): CapabilityDegradationView[] | null {
   if (!Array.isArray(value)) {
     errors.push("degradations must be an array");
     return null;
@@ -244,10 +237,7 @@ function parseDegradations(
   return degradations.length === value.length ? degradations : null;
 }
 
-function isApprovalConsistent(
-  risk: CapabilityRiskLevel,
-  approval: CapabilityApproval
-): boolean {
+function isApprovalConsistent(risk: CapabilityRiskLevel, approval: CapabilityApproval): boolean {
   if (risk === "l3" || risk === "l4") {
     return approval === "required";
   }
@@ -265,7 +255,7 @@ function readText(
   record: Record<string, unknown>,
   key: string,
   errors: string[],
-  prefix = "probe"
+  prefix = "probe",
 ): string | null {
   const value = record[key];
   if (typeof value !== "string" || value.trim() === "") {
@@ -278,7 +268,7 @@ function readText(
 function readUtcTimestamp(
   record: Record<string, unknown>,
   key: string,
-  errors: string[]
+  errors: string[],
 ): string | null {
   const value = record[key];
   if (typeof value !== "string" || parseUtcTimestamp(value) === null) {
@@ -300,7 +290,7 @@ function readPlatformOs(record: Record<string, unknown>, errors: string[]): stri
 function readBoolean(
   record: Record<string, unknown>,
   key: string,
-  errors: string[]
+  errors: string[],
 ): boolean | null {
   const value = record[key];
   if (typeof value !== "boolean") {
@@ -312,7 +302,7 @@ function readBoolean(
 
 function isEnumValue<const Values extends readonly string[]>(
   value: unknown,
-  values: Values
+  values: Values,
 ): value is Values[number] {
   return typeof value === "string" && values.includes(value as Values[number]);
 }
