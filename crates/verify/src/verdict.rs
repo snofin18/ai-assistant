@@ -146,6 +146,25 @@ impl VerifyOutcome {
     }
 }
 
+/// Opaque proof that a step's postconditions were all verified.
+///
+/// The inner outcome is private, there is no public constructor, and the type
+/// intentionally does not implement `Deserialize`. Callers can only obtain a
+/// receipt from [`verify_postconditions_with_receipt`] when the verdict is
+/// exactly [`VerifyOutcome::Verified`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VerificationReceipt {
+    outcome: VerifyOutcome,
+}
+
+impl VerificationReceipt {
+    /// Returns the verified outcome carried by this receipt.
+    #[must_use]
+    pub const fn outcome(&self) -> &VerifyOutcome {
+        &self.outcome
+    }
+}
+
 /// Evaluates every postcondition of a step against one observation.
 #[must_use]
 pub fn verify_postconditions(
@@ -199,5 +218,23 @@ pub fn verify_postconditions(
             unevaluable,
             reason,
         }
+    }
+}
+
+/// Evaluates postconditions and returns an opaque receipt only on success.
+///
+/// # Errors
+///
+/// Returns the original [`VerifyOutcome`] when the verdict is `Violated` or
+/// `Inconclusive`.
+pub fn verify_postconditions_with_receipt(
+    postconditions: &[Postcondition],
+    observation: &Observation,
+) -> Result<VerificationReceipt, VerifyOutcome> {
+    let outcome = verify_postconditions(postconditions, observation);
+    if outcome.is_verified() {
+        Ok(VerificationReceipt { outcome })
+    } else {
+        Err(outcome)
     }
 }

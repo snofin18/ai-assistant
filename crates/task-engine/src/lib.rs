@@ -65,6 +65,7 @@
 
 mod budget;
 mod checkpoint;
+mod commit;
 mod engine;
 mod error;
 mod identifiers;
@@ -80,6 +81,7 @@ pub use checkpoint::{
     CheckpointStore, CheckpointStoreError, MemoryCheckpointStore, SqliteCheckpointStore,
     TaskCheckpoint,
 };
+pub use commit::StepCommit;
 pub use engine::TaskEngine;
 pub use error::{TaskEngineError, TaskEngineResult};
 pub use identifiers::{PlanId, StepId, TaskId};

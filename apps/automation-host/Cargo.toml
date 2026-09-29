@@ -11,5 +11,9 @@ publish.workspace = true
 path = "../../crates/ipc"
 version = "0.1.0"
 
+[dev-dependencies.assistant-protocol]
+path = "../../crates/protocol"
+version = "0.1.0"
+
 [lints]
 workspace = true

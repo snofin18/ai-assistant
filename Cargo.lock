@@ -54,7 +54,9 @@ dependencies = [
  "assistant-policy",
  "assistant-protocol",
  "assistant-storage",
+ "assistant-task-engine",
  "assistant-tool-bus",
+ "assistant-verify",
  "serde_json",
  "thiserror",
  "tokio",
@@ -76,6 +78,7 @@ name = "assistant-automation-host"
 version = "0.1.0"
 dependencies = [
  "assistant-ipc",
+ "assistant-protocol",
 ]
 
 [[package]]
@@ -185,8 +188,10 @@ dependencies = [
 name = "assistant-task-engine"
 version = "0.1.0"
 dependencies = [
+ "assistant-platform-api",
  "assistant-protocol",
  "assistant-storage",
+ "assistant-verify",
  "serde",
  "thiserror",
 ]

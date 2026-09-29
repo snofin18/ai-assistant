@@ -8,6 +8,8 @@ TASK-029 的 binary-layer Host 装配库。
 - 显式注入 session、memory、model、policy、tool-bus、audit 与 platform 组件。
 - 保持 `crates/core` 只作为可装配组件库，不承担装配。
 - 暴露 Host 装配正向测试与缺组件负向测试。
+- 提供 `RuntimeExecutor`，按 ADR-0056 单步驱动 Policy → Tool → Verify → Commit，
+  并附带真实 `ToolBusInvoker` 与 `EnvelopeObservationCollector` 边界适配器。
 
 ## 边界
 
@@ -22,6 +24,12 @@ TASK-029 的 binary-layer Host 装配库。
 2. 数据库句柄只由本装配层持有，并通过互斥锁共享给短生命周期 adapter。
 3. 装配失败必须返回带 `ErrorCode` 的结构化错误，不返回半装配 Host。
 4. 工具通道必须在 tokio 运行时内启动，并在 `shutdown` 时显式关闭。
+5. 成功提交必须消费 verify 的不透明 receipt；Policy deny、审批缺失、
+   verification failure 与未知工具结果都不能当成成功。
+6. `RuntimeExecutor::advance` 通过 `ToolInvoker` 异步调用工具；工具返回
+   `ok = false` 时按信封里的 `ErrorCode` 失败，不得进入 verify。
+7. `EnvelopeObservationCollector` 要求信封 `data` 带 `fingerprint`；缺失即显式
+   observation 失败并升级人工，不伪造默认指纹。
 
 ## 已知限制
 
@@ -35,5 +43,8 @@ TASK-029 的 binary-layer Host 装配库。
 ## 相关文档
 
 - `docs/spec/core-orchestration.md`
+- `docs/spec/runtime-execution.md`
+- `docs/adr/0056-runtime-execution-contract.md`
 - `docs/adr/0053-core-orchestration-layer-interface.md`
 - `tasks/TASK-029-binary-skeleton-agent-core-desktop-ui.md`
+- `tasks/TASK-103-runtime-executor-host-dispatch-verifyoutcome.md`

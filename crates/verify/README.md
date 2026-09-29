@@ -9,6 +9,7 @@
 - Parse `PlanStep.postconditions` JSON into a strongly typed `Postcondition`, fail-closed.
 - Evaluate every postcondition against a caller-supplied `Observation` and reduce the
   results to one `VerifyOutcome`.
+- Mint an opaque `VerificationReceipt` only when every postcondition is verified.
 - Build a state fingerprint from a `FingerprintSubject` plus a per-adapter ignore set.
 - Classify whether a previous step was applied, for crash recovery.
 - Map a violated postcondition to the action the Host must take.
@@ -43,6 +44,8 @@
 5. **Idempotency never guesses.** Incomplete evidence yields `Unknown`, never `Applied`.
 6. **Ignores are explicit.** There is no default ignore list; a global default would be an
    implicit rule nobody can audit (section 7.3).
+7. **Receipts cannot be forged.** `VerificationReceipt` has a private outcome,
+   no public constructor, and no deserializer; only `Verified` can mint one.
 
 ## The 11 assertion kinds
 

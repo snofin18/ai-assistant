@@ -8,7 +8,7 @@ use assistant_task_engine::{
     Budget, BudgetCheck, BudgetLimit, MemoryCheckpointStore, Plan, TaskEngine, TaskEvent,
     TaskHoldReason, TaskId, TaskStatus, UsageDelta, WatchdogDecision,
 };
-use common::{read_step, single_read_plan};
+use common::{read_step, single_read_plan, verified_receipt};
 
 fn runnable_engine(plan: Plan) -> (TaskEngine<MemoryCheckpointStore>, TaskId) {
     let task_id = plan.task_id.clone();
@@ -77,7 +77,12 @@ fn test_max_steps_is_persisted_as_needs_human() {
         .begin_verify(&task_id, &first_step, 2_030)
         .expect("verify first");
     engine
-        .commit_step(&task_id, &first_step, None, false, 2_100)
+        .commit_step(
+            &task_id,
+            &first_step,
+            assistant_task_engine::StepCommit::new(verified_receipt(), None, false),
+            2_100,
+        )
         .expect("commit first");
     let exhausted = engine
         .begin_step(&task_id, &second_step, 2_200)

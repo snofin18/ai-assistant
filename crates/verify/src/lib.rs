@@ -104,4 +104,7 @@ pub use on_violation::{
 pub use postcondition::{
     AssertValue, CompareOp, FileChangeKind, Postcondition, StateField, parse_postconditions,
 };
-pub use verdict::{Unevaluable, Verification, VerifyOutcome, Violation, verify_postconditions};
+pub use verdict::{
+    Unevaluable, Verification, VerificationReceipt, VerifyOutcome, Violation,
+    verify_postconditions, verify_postconditions_with_receipt,
+};

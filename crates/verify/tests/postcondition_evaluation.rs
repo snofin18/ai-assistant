@@ -12,7 +12,7 @@ use assistant_protocol::serde_json::{Number, json};
 use assistant_verify::{
     AssertValue, AssertionOutcome, CompareOp, FileChangeKind, FileSnapshot, FileTransition,
     Observation, ObservedElement, Postcondition, StateField, VerifyOutcome, evaluate_postcondition,
-    parse_postconditions, render_text, verify_postconditions,
+    parse_postconditions, render_text, verify_postconditions, verify_postconditions_with_receipt,
 };
 
 /// Builds a fingerprint from a repeated hex digit.
@@ -503,4 +503,21 @@ fn test_verified_outcome_serializes_without_a_failure_code() {
     let json = assistant_protocol::serde_json::to_string(&outcome).expect("serialize");
     assert!(json.contains("verified"), "{json}");
     assert_eq!(outcome.error_code(), None);
+}
+
+#[test]
+fn test_receipt_is_returned_only_for_verified_outcome() {
+    let postconditions = vec![Postcondition::TextContains {
+        text: "hello".to_owned(),
+    }];
+    let receipt = verify_postconditions_with_receipt(&postconditions, &base_observation())
+        .expect("satisfied postconditions must mint a receipt");
+    assert!(receipt.outcome().is_verified());
+
+    let failed = vec![Postcondition::TextContains {
+        text: "absent".to_owned(),
+    }];
+    let outcome = verify_postconditions_with_receipt(&failed, &base_observation())
+        .expect_err("falsified postconditions must not mint a receipt");
+    assert!(outcome.is_violated());
 }
