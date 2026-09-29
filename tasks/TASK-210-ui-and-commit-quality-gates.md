@@ -108,6 +108,8 @@ cargo run -p xtask -- docscan / hygiene（0E/4W）/ check-migrations / verify-sc
 cargo test --workspace                                 → PASS（1009 passed / 0 failed，Rust 侧未改动）
 ```
 
+合并证据：PR #102（base `main`）—— push run `36535204879` 与 pull_request run `36535240334` 各 11 个 job：pull_request 侧 11/11 success（含新 `commitlint`、`desktop-ui checks`、`desktop-ui tauri (windows)`），push 侧 10 success + `commitlint` 按 `if:` 条件 skipping（设计如此）；合并前 `mergeable=MERGEABLE` / `merge_state_status=CLEAN`；merge commit `ea626a6`。
+
 ### 4. DoD 逐条核对
 
 - [x] **Prettier、ESLint、Vitest/Testing Library 已真实接入并有正负测试**：三者都有配置 + 脚本 + CI 步骤；Prettier/ESLint 的负向样本在 desktop-ui job 内注入并断言 exit 1；Vitest 的负向样本是 `IntentLauncher.test.tsx` 里"Core 返回契约外 outcome 必须被拒绝、不得渲染成成功"。
