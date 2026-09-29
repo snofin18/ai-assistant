@@ -8,7 +8,7 @@ registerHooks({
       return nextResolve(`${specifier.slice(0, -3)}.ts`, context);
     }
     return nextResolve(specifier, context);
-  }
+  },
 });
 
 const {
@@ -16,7 +16,7 @@ const {
   createAdapterSelectorDraft,
   createInitialBindingWizardState,
   getBindingBlockReason,
-  parseBindingWizardInput
+  parseBindingWizardInput,
 } = await import("./bindingModel.ts");
 
 function createInput() {
@@ -25,7 +25,7 @@ function createInput() {
       appId: "com.microsoft.notepad",
       displayName: "Notepad",
       targetName: "editor",
-      versionRange: ">=11 <12"
+      versionRange: ">=11 <12",
     },
     snapshot: {
       appId: "com.microsoft.notepad",
@@ -44,7 +44,7 @@ function createInput() {
         actions: [],
         patterns: ["window"],
         bounds: { x: 0, y: 0, width: 1000, height: 700 },
-        parentPath: []
+        parentPath: [],
       },
       elements: [
         {
@@ -65,12 +65,12 @@ function createInput() {
               role: "Pane",
               name: "Notepad text box",
               automationId: null,
-              className: "NotepadTextBox"
-            }
-          ]
-        }
-      ]
-    }
+              className: "NotepadTextBox",
+            },
+          ],
+        },
+      ],
+    },
   };
 }
 
@@ -121,11 +121,7 @@ test("test_binding_only_locale_dependent_candidates_is_rejected", () => {
   const snapshot = input.snapshot;
   snapshot.elements[0].className = null;
   snapshot.elements[0].parentPath = [];
-  const draft = createAdapterSelectorDraft(
-    snapshot,
-    input.metadata,
-    "editor"
-  );
+  const draft = createAdapterSelectorDraft(snapshot, input.metadata, "editor");
   assert.equal(draft.ok, false);
   assert.equal(draft.errorKey, "binding.error.candidates_invalid");
 });
@@ -134,11 +130,7 @@ test("test_binding_window_without_stable_candidate_is_rejected", () => {
   const input = createInput();
   input.snapshot.window.className = null;
   input.snapshot.window.name = "";
-  const draft = createAdapterSelectorDraft(
-    input.snapshot,
-    input.metadata,
-    "editor"
-  );
+  const draft = createAdapterSelectorDraft(input.snapshot, input.metadata, "editor");
   assert.equal(draft.ok, false);
   assert.equal(draft.errorKey, "binding.error.window_candidates_invalid");
 });
@@ -151,7 +143,7 @@ test("test_binding_block_reason_requires_three_threshold_eligible_candidates", (
       value: { text: "Editor" },
       score: 0.98,
       locale_dependent: false,
-      ttl_ms: null
+      ttl_ms: null,
     },
     {
       id: "name-fallback",
@@ -159,11 +151,8 @@ test("test_binding_block_reason_requires_three_threshold_eligible_candidates", (
       value: { text: "Text editor" },
       score: 0.2,
       locale_dependent: true,
-      ttl_ms: null
-    }
+      ttl_ms: null,
+    },
   ];
-  assert.equal(
-    getBindingBlockReason(candidates),
-    "binding.error.candidate_count_insufficient"
-  );
+  assert.equal(getBindingBlockReason(candidates), "binding.error.candidate_count_insufficient");
 });

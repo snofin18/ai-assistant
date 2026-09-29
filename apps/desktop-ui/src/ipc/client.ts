@@ -8,11 +8,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 
-import {
-  UI_IPC_VERSION,
-  parseUiCommandEnvelope,
-  parseUiCommandOutcome,
-} from "./contract.js";
+import { UI_IPC_VERSION, parseUiCommandEnvelope, parseUiCommandOutcome } from "./contract.js";
 import type { UiCommand, UiCommandOutcome } from "./contract.js";
 
 /** Tauri command name registered by `src-tauri` for UI commands. */
@@ -31,10 +27,7 @@ export class HostIpcError extends Error {
   }
 }
 
-export async function invokeHost<T>(
-  command: string,
-  args?: Record<string, unknown>
-): Promise<T> {
+export async function invokeHost<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   return invoke<T>(command, args);
 }
 

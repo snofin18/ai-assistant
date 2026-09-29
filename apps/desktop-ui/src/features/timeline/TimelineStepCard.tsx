@@ -79,7 +79,9 @@ export function TimelineStepCard({
             className="border border-amber-500 px-3 py-1 text-sm disabled:opacity-50"
             disabled={!undo.isAvailable}
             onClick={onUndo}
-            title={undo.reasonKey === null ? copy.undoLabel : copy.operationMessages[undo.reasonKey]}
+            title={
+              undo.reasonKey === null ? copy.undoLabel : copy.operationMessages[undo.reasonKey]
+            }
             type="button"
           >
             {copy.undoLabel}

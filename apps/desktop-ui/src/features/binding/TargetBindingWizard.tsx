@@ -10,11 +10,7 @@ interface TargetBindingWizardProps {
   onDraftReady: (serializedDraft: string) => void;
 }
 
-export function TargetBindingWizard({
-  input,
-  copy,
-  onDraftReady
-}: TargetBindingWizardProps) {
+export function TargetBindingWizard({ input, copy, onDraftReady }: TargetBindingWizardProps) {
   const [state, dispatch] = useTargetBindingWizard(input);
   if (!state.parseResult.ok) {
     return (

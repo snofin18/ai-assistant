@@ -7,11 +7,7 @@
  */
 
 import type { UiEvent } from "../../ipc/contract.js";
-import type {
-  TimelineStepModel,
-  TimelineStepStatus,
-  VerificationStatus,
-} from "./timelineModel.js";
+import type { TimelineStepModel, TimelineStepStatus, VerificationStatus } from "./timelineModel.js";
 
 const timelineStatusByCoreStatus: Readonly<Record<string, TimelineStepStatus>> = {
   committed: "succeeded",
@@ -39,7 +35,7 @@ export function verificationFromCoreStatus(status: string): VerificationStatus {
  */
 export function applyUiEventToStep(
   step: TimelineStepModel,
-  event: UiEvent
+  event: UiEvent,
 ): TimelineStepModel | null {
   if (event.kind !== "step_state_changed" || event.step_id !== step.stepId) {
     return null;
@@ -58,7 +54,7 @@ export function applyUiEventToStep(
 
 export function applyUiEventToTimeline(
   steps: readonly TimelineStepModel[],
-  event: UiEvent
+  event: UiEvent,
 ): TimelineStepModel[] {
   return steps.map((step) => applyUiEventToStep(step, event) ?? step);
 }

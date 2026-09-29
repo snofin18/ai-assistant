@@ -94,10 +94,10 @@ test("outcomes must match a known status", () => {
       request_id: "a_1",
       scope: "once",
     }).ok,
-    true
+    true,
   );
   assert.equal(
     parseUiCommandOutcome({ status: "silently_succeeded", request_id: "a_1" }).ok,
-    false
+    false,
   );
 });

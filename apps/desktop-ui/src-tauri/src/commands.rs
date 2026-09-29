@@ -187,16 +187,20 @@ mod tests {
 
     #[test]
     fn test_unknown_kind_and_version_are_rejected() {
-        assert!(validate_envelope(&json!({
-            "version": "1.0",
-            "command": {"kind": "run_shell", "command_line": "whoami"},
-        }))
-        .is_err());
-        assert!(validate_envelope(&json!({
-            "version": "9.9",
-            "command": {"kind": "pause_task", "task_id": "t_1"},
-        }))
-        .is_err());
+        assert!(
+            validate_envelope(&json!({
+                "version": "1.0",
+                "command": {"kind": "run_shell", "command_line": "whoami"},
+            }))
+            .is_err()
+        );
+        assert!(
+            validate_envelope(&json!({
+                "version": "9.9",
+                "command": {"kind": "pause_task", "task_id": "t_1"},
+            }))
+            .is_err()
+        );
     }
 
     #[test]

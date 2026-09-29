@@ -8,6 +8,6 @@ export type {
   CostRecord,
   CostSummary,
   CostSummaryResult,
-  CostTotals
+  CostTotals,
 } from "./costModel.js";
 export type { CostPanelCopy } from "./costCopy.js";

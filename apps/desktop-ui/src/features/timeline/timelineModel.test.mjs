@@ -98,7 +98,9 @@ test("test_timeline_replay_requires_tree_snapshot_evidence", () => {
 });
 
 test("test_timeline_controller_rejects_unavailable_replay", () => {
-  const result = parseTimelineModel([createStep({ canReplay: false, replayDisabledReasonKey: "timeline.replay.unavailable" })]);
+  const result = parseTimelineModel([
+    createStep({ canReplay: false, replayDisabledReasonKey: "timeline.replay.unavailable" }),
+  ]);
   assert.equal(result.ok, true);
   const initial = createInitialTimelineControllerState(result.steps);
   const next = timelineControllerReducer(initial, {

@@ -8,7 +8,7 @@ export {
   getPrimaryCandidateId,
   parsePickerSnapshot,
   pickerControllerReducer,
-  validateSelectorCandidates
+  validateSelectorCandidates,
 } from "./pickerModel.js";
 export type {
   HighlightRect,
@@ -21,6 +21,6 @@ export type {
   PickerSnapshot,
   SelectorCandidate,
   SelectorKind,
-  SelectorValue
+  SelectorValue,
 } from "./pickerModel.js";
 export type { PickerCopy } from "./pickerCopy.js";

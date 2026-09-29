@@ -111,9 +111,7 @@ export type UiCommandEnvelope = z.infer<typeof uiCommandEnvelopeSchema>;
 export type UiEvent = z.infer<typeof uiEventSchema>;
 export type UiCommandOutcome = z.infer<typeof uiCommandOutcomeSchema>;
 
-export type ContractParseResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; errors: string[] };
+export type ContractParseResult<T> = { ok: true; value: T } | { ok: false; errors: string[] };
 
 export function parseUiCommandEnvelope(input: unknown): ContractParseResult<UiCommandEnvelope> {
   return parseWith(uiCommandEnvelopeSchema, input);
@@ -129,7 +127,7 @@ export function parseUiCommandOutcome(input: unknown): ContractParseResult<UiCom
 
 function parseWith<Schema extends z.ZodType>(
   schema: Schema,
-  input: unknown
+  input: unknown,
 ): ContractParseResult<z.infer<Schema>> {
   const result = schema.safeParse(input);
   if (result.success) {

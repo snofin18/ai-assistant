@@ -3,7 +3,7 @@ import type {
   CapabilityRiskLevel,
   CapabilitySideEffect,
   CapabilityResource,
-  ChannelAvailability
+  ChannelAvailability,
 } from "./capabilityMatrix.js";
 
 /**

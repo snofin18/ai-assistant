@@ -7,10 +7,7 @@ interface SelectorCandidateListProps {
   copy: PickerCopy;
 }
 
-export function SelectorCandidateList({
-  candidates,
-  copy
-}: SelectorCandidateListProps) {
+export function SelectorCandidateList({ candidates, copy }: SelectorCandidateListProps) {
   const primaryCandidateId = getPrimaryCandidateId(candidates);
   if (candidates.length === 0) {
     return null;

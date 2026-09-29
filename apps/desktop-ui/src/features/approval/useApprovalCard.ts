@@ -16,7 +16,7 @@ export function useApprovalCard(model: unknown): {
   const [state, dispatch] = useReducer(
     approvalControllerReducer,
     model,
-    createInitialApprovalControllerState
+    createInitialApprovalControllerState,
   );
   useEffect(() => {
     dispatch({ type: "replace_model", model });

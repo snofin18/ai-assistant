@@ -101,8 +101,7 @@ export interface ApprovalCardModel {
 }
 
 export type ApprovalModelParseResult =
-  | { ok: true; model: ApprovalCardModel }
-  | { ok: false; errors: string[] };
+  { ok: true; model: ApprovalCardModel } | { ok: false; errors: string[] };
 
 export interface ApprovalControllerState {
   parseResult: ApprovalModelParseResult;
@@ -143,7 +142,7 @@ export function isHighRisk(model: ApprovalCardModel): boolean {
 export function getApprovalBlockReason(
   model: ApprovalCardModel,
   state: ApprovalControllerState,
-  requiredIrreversibleConfirmation: string | null = null
+  requiredIrreversibleConfirmation: string | null = null,
 ): string | null {
   if (model.isExpired) {
     return "approval.error.expired";
@@ -188,7 +187,7 @@ export function createInitialApprovalControllerState(model: unknown): ApprovalCo
 
 export function approvalControllerReducer(
   state: ApprovalControllerState,
-  action: ApprovalControllerAction
+  action: ApprovalControllerAction,
 ): ApprovalControllerState {
   if (action.type === "replace_model") {
     return createInitialApprovalControllerState(action.model);
@@ -216,7 +215,7 @@ export function approvalControllerReducer(
       const blockReason = getApprovalBlockReason(
         model,
         state,
-        action.requiredIrreversibleConfirmation
+        action.requiredIrreversibleConfirmation,
       );
       if (blockReason !== null || state.selectedScope === null) {
         return { ...state, errorKey: blockReason ?? "approval.error.scope_required" };
@@ -498,7 +497,7 @@ function readText(record: Record<string, unknown>, key: string, errors: string[]
 function readNullableText(
   record: Record<string, unknown>,
   key: string,
-  errors: string[]
+  errors: string[],
 ): string | null | undefined {
   const value = record[key];
   if (value === null || (typeof value === "string" && value.trim() !== "")) {
@@ -512,7 +511,7 @@ function readEnum<const Values extends readonly string[]>(
   record: Record<string, unknown>,
   key: string,
   values: Values,
-  errors: string[]
+  errors: string[],
 ): Values[number] | null {
   const value = record[key];
   if (!isEnumValue(value, values)) {
@@ -524,7 +523,7 @@ function readEnum<const Values extends readonly string[]>(
 
 function isEnumValue<const Values extends readonly string[]>(
   value: unknown,
-  values: Values
+  values: Values,
 ): value is Values[number] {
   return typeof value === "string" && values.includes(value as Values[number]);
 }

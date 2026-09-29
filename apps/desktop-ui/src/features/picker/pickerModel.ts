@@ -15,7 +15,7 @@ export const selectorKinds = [
   "a11y_path",
   "title_regex",
   "name_regex",
-  "visual_anchor"
+  "visual_anchor",
 ] as const;
 export type SelectorKind = (typeof selectorKinds)[number];
 
@@ -74,8 +74,7 @@ export interface SelectorCandidate {
 }
 
 export type PickerParseResult =
-  | { ok: true; snapshot: PickerSnapshot }
-  | { ok: false; errors: string[] };
+  { ok: true; snapshot: PickerSnapshot } | { ok: false; errors: string[] };
 
 export interface PickerControllerState {
   parseResult: PickerParseResult;
@@ -136,7 +135,7 @@ export function parsePickerSnapshot(input: unknown): PickerParseResult {
   }
   return {
     ok: true,
-    snapshot: { appId, windowTitle, workspaceBounds, window: windowElement, elements }
+    snapshot: { appId, windowTitle, workspaceBounds, window: windowElement, elements },
   };
 }
 
@@ -146,13 +145,13 @@ export function createInitialPickerControllerState(input: unknown): PickerContro
     hoveredElementId: null,
     selectedElementId: null,
     candidates: [],
-    errorKey: null
+    errorKey: null,
   };
 }
 
 export function pickerControllerReducer(
   state: PickerControllerState,
-  action: PickerControllerAction
+  action: PickerControllerAction,
 ): PickerControllerState {
   if (action.type === "replace_snapshot") {
     return createInitialPickerControllerState(action.snapshot);
@@ -178,7 +177,7 @@ export function pickerControllerReducer(
         ...state,
         selectedElementId: element.elementId,
         candidates: [],
-        errorKey: null
+        errorKey: null,
       };
     }
     case "generate_candidates": {
@@ -201,17 +200,14 @@ export function pickerControllerReducer(
         hoveredElementId: null,
         selectedElementId: null,
         candidates: [],
-        errorKey: null
+        errorKey: null,
       };
     default:
       return state;
   }
 }
 
-export function getElementById(
-  snapshot: PickerSnapshot,
-  elementId: string
-): PickerElement | null {
+export function getElementById(snapshot: PickerSnapshot, elementId: string): PickerElement | null {
   if (snapshot.window.elementId === elementId) {
     return snapshot.window;
   }
@@ -227,7 +223,7 @@ export function generateSelectorCandidates(element: PickerElement): SelectorCand
       value: { text: element.automationId },
       score: 0.98,
       locale_dependent: false,
-      ttl_ms: null
+      ttl_ms: null,
     });
   }
   if (element.className !== null) {
@@ -235,11 +231,11 @@ export function generateSelectorCandidates(element: PickerElement): SelectorCand
       id: "class-and-role",
       kind: "class_and_role",
       value: {
-        class_and_role: { class: element.className, role: element.role }
+        class_and_role: { class: element.className, role: element.role },
       },
       score: 0.84,
       locale_dependent: false,
-      ttl_ms: null
+      ttl_ms: null,
     });
   }
   if (element.name.trim() !== "") {
@@ -249,7 +245,7 @@ export function generateSelectorCandidates(element: PickerElement): SelectorCand
       value: { text: element.name },
       score: 0.22,
       locale_dependent: true,
-      ttl_ms: null
+      ttl_ms: null,
     });
   }
   if (element.parentPath.length > 0) {
@@ -257,11 +253,11 @@ export function generateSelectorCandidates(element: PickerElement): SelectorCand
       id: "a11y-path-fallback",
       kind: "a11y_path",
       value: {
-        path: element.parentPath.map((ancestor) => ancestor.name.trim() || ancestor.role)
+        path: element.parentPath.map((ancestor) => ancestor.name.trim() || ancestor.role),
       },
       score: 0.16,
       locale_dependent: true,
-      ttl_ms: null
+      ttl_ms: null,
     });
   }
   return candidates.sort((left, right) => right.score - left.score);
@@ -364,13 +360,13 @@ export function getPrimaryCandidateId(candidates: readonly SelectorCandidate[]):
 
 export function getHighlightRect(
   element: PickerElement,
-  workspaceBounds: PickerBounds
+  workspaceBounds: PickerBounds,
 ): HighlightRect {
   return {
     leftPercent: ((element.bounds.x - workspaceBounds.x) / workspaceBounds.width) * 100,
     topPercent: ((element.bounds.y - workspaceBounds.y) / workspaceBounds.height) * 100,
     widthPercent: (element.bounds.width / workspaceBounds.width) * 100,
-    heightPercent: (element.bounds.height / workspaceBounds.height) * 100
+    heightPercent: (element.bounds.height / workspaceBounds.height) * 100,
   };
 }
 
@@ -437,14 +433,14 @@ function parseElement(value: unknown, prefix: string, errors: string[]): PickerE
     actions,
     patterns,
     bounds,
-    parentPath
+    parentPath,
   };
 }
 
 function parseParentPath(
   value: unknown,
   prefix: string,
-  errors: string[]
+  errors: string[],
 ): PickerAncestor[] | null {
   if (!Array.isArray(value)) {
     errors.push(`${prefix} must be an array`);
@@ -461,12 +457,7 @@ function parseParentPath(
     const name = readText(entry, "name", errors, entryPrefix, true);
     const automationId = readOptionalText(entry, "automationId", errors, entryPrefix);
     const className = readOptionalText(entry, "className", errors, entryPrefix);
-    if (
-      role === null ||
-      name === null ||
-      automationId === undefined ||
-      className === undefined
-    ) {
+    if (role === null || name === null || automationId === undefined || className === undefined) {
       return null;
     }
     ancestors.push({ role, name, automationId, className });
@@ -496,7 +487,7 @@ function readStringArray(
   value: unknown,
   key: string,
   errors: string[],
-  prefix: string
+  prefix: string,
 ): string[] | null {
   if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) {
     errors.push(`${prefix}.${key} must be a string array`);
@@ -515,7 +506,7 @@ function readText(
   key: string,
   errors: string[],
   prefix = "snapshot",
-  allowEmpty = false
+  allowEmpty = false,
 ): string | null {
   const value = record[key];
   if (typeof value !== "string" || (!allowEmpty && value.trim() === "")) {
@@ -529,7 +520,7 @@ function readOptionalText(
   record: Record<string, unknown>,
   key: string,
   errors: string[],
-  prefix: string
+  prefix: string,
 ): string | null | undefined {
   const value = record[key];
   if (value === null || (typeof value === "string" && value.trim() !== "")) {

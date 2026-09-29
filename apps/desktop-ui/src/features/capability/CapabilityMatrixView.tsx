@@ -1,7 +1,4 @@
-import {
-  getCapabilityStats,
-  parseCapabilityMatrix
-} from "./capabilityMatrix.js";
+import { getCapabilityStats, parseCapabilityMatrix } from "./capabilityMatrix.js";
 import type { CapabilityMatrixCopy } from "./capabilityCopy.js";
 
 interface CapabilityMatrixViewProps {
@@ -68,7 +65,8 @@ export function CapabilityMatrixView({ model, copy }: CapabilityMatrixViewProps)
                 <th className="py-2 pr-3 font-mono font-normal">{capability.id}</th>
                 <td className="py-2 pr-3">{copy.resourceLabels[capability.resource]}</td>
                 <td className="py-2 pr-3">
-                  {copy.riskLabels[capability.risk]} / {copy.sideEffectLabels[capability.sideEffect]}
+                  {copy.riskLabels[capability.risk]} /{" "}
+                  {copy.sideEffectLabels[capability.sideEffect]}
                 </td>
                 <td className="py-2 pr-3">{copy.approvalLabels[capability.approval]}</td>
               </tr>

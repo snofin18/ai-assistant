@@ -28,8 +28,7 @@ export interface CostPanelModel {
 }
 
 export type CostPanelParseResult =
-  | { ok: true; model: CostPanelModel }
-  | { ok: false; errors: string[] };
+  { ok: true; model: CostPanelModel } | { ok: false; errors: string[] };
 
 export interface CostTotals {
   callCount: number;
@@ -52,8 +51,7 @@ export interface CostSummary {
 }
 
 export type CostSummaryResult =
-  | { ok: true; summary: CostSummary }
-  | { ok: false; errors: string[] };
+  { ok: true; summary: CostSummary } | { ok: false; errors: string[] };
 
 export function parseCostPanelModel(input: unknown): CostPanelParseResult {
   if (!isRecord(input)) {
@@ -71,14 +69,14 @@ export function parseCostPanelModel(input: unknown): CostPanelParseResult {
 export function summarizeCosts(
   model: CostPanelModel,
   period: CostPeriod,
-  nowIso: string
+  nowIso: string,
 ): CostSummaryResult {
   const now = parseTimestamp(nowIso);
   if (now === null) {
     return { ok: false, errors: ["nowIso must be a UTC RFC 3339 timestamp"] };
   }
   const records = model.records.filter((record) =>
-    isRecordInPeriod(record, model.currentTaskId, period, now)
+    isRecordInPeriod(record, model.currentTaskId, period, now),
   );
   const totals = aggregateRecords(records, "all");
   const byModel = aggregateByKey(records, (record) => record.modelId);
@@ -98,8 +96,8 @@ export function summarizeCosts(
       period,
       totals: totals.totals,
       byModel: byModel.breakdowns,
-      byApp: byApp.breakdowns
-    }
+      byApp: byApp.breakdowns,
+    },
   };
 }
 
@@ -169,7 +167,7 @@ function parseRecord(value: unknown, index: number, errors: string[]): CostRecor
     cachedInputTokens,
     outputTokens,
     costMicroUsd,
-    latencyMs
+    latencyMs,
   };
 }
 
@@ -177,7 +175,7 @@ function isRecordInPeriod(
   record: CostRecord,
   currentTaskId: string,
   period: CostPeriod,
-  now: Date
+  now: Date,
 ): boolean {
   if (period === "task") {
     return record.taskId === currentTaskId;
@@ -198,16 +196,14 @@ function isRecordInPeriod(
 
 function aggregateByKey(
   records: readonly CostRecord[],
-  getKey: (record: CostRecord) => string
-):
-  | { ok: true; breakdowns: CostBreakdown[] }
-  | { ok: false; errors: string[] } {
+  getKey: (record: CostRecord) => string,
+): { ok: true; breakdowns: CostBreakdown[] } | { ok: false; errors: string[] } {
   const keys = [...new Set(records.map(getKey))].sort();
   const breakdowns: CostBreakdown[] = [];
   for (const key of keys) {
     const totals = aggregateRecords(
       records.filter((record) => getKey(record) === key),
-      key
+      key,
     );
     if (!totals.ok) {
       return totals;
@@ -219,7 +215,7 @@ function aggregateByKey(
 
 function aggregateRecords(
   records: readonly CostRecord[],
-  key: string
+  key: string,
 ): { ok: true; totals: CostTotals } | { ok: false; errors: string[] } {
   let callCount = 0;
   let inputTokens = 0;
@@ -234,7 +230,7 @@ function aggregateRecords(
       [cachedInputTokens, record.cachedInputTokens],
       [outputTokens, record.outputTokens],
       [costMicroUsd, record.costMicroUsd],
-      [latencyMs, record.latencyMs]
+      [latencyMs, record.latencyMs],
     ] as const;
     for (const [current, increment] of fields) {
       if (!Number.isSafeInteger(current + increment)) {
@@ -256,8 +252,8 @@ function aggregateRecords(
       cachedInputTokens,
       outputTokens,
       costMicroUsd,
-      latencyMs
-    }
+      latencyMs,
+    },
   };
 }
 
@@ -265,7 +261,7 @@ function readIdentifier(
   record: Record<string, unknown>,
   key: string,
   prefix: string,
-  errors: string[]
+  errors: string[],
 ): string | null {
   const value = record[key];
   if (
@@ -284,7 +280,7 @@ function readTimestamp(
   record: Record<string, unknown>,
   key: string,
   prefix: string,
-  errors: string[]
+  errors: string[],
 ): string | null {
   const value = record[key];
   if (typeof value !== "string" || parseUtcTimestamp(value) === null) {
@@ -298,7 +294,7 @@ function readNonNegativeInteger(
   record: Record<string, unknown>,
   key: string,
   prefix: string,
-  errors: string[]
+  errors: string[],
 ): number | null {
   const value = record[key];
   if (!Number.isSafeInteger(value) || typeof value !== "number" || value < 0) {

@@ -7,7 +7,7 @@ import {
   getHighlightRect,
   getPrimaryCandidateId,
   parsePickerSnapshot,
-  pickerControllerReducer
+  pickerControllerReducer,
 } from "./pickerModel.ts";
 
 function createElement(overrides = {}) {
@@ -29,10 +29,10 @@ function createElement(overrides = {}) {
         role: "Pane",
         name: "Notepad text box",
         automationId: null,
-        className: "NotepadTextBox"
-      }
+        className: "NotepadTextBox",
+      },
     ],
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -54,10 +54,10 @@ function createSnapshot(overrides = {}) {
       actions: [],
       patterns: ["window"],
       bounds: { x: 0, y: 0, width: 1000, height: 700 },
-      parentPath: []
+      parentPath: [],
     },
     elements: [createElement()],
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -71,8 +71,8 @@ test("test_parse_picker_snapshot_valid_model_preserves_properties", () => {
 test("test_parse_picker_snapshot_duplicate_element_id_is_rejected", () => {
   const result = parsePickerSnapshot(
     createSnapshot({
-      elements: [createElement({ elementId: "window" })]
-    })
+      elements: [createElement({ elementId: "window" })],
+    }),
   );
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /duplicate elementId/);
@@ -81,8 +81,8 @@ test("test_parse_picker_snapshot_duplicate_element_id_is_rejected", () => {
 test("test_parse_picker_snapshot_out_of_workspace_bounds_is_rejected", () => {
   const result = parsePickerSnapshot(
     createSnapshot({
-      elements: [createElement({ bounds: { x: 900, y: 60, width: 200, height: 100 } })]
-    })
+      elements: [createElement({ bounds: { x: 900, y: 60, width: 200, height: 100 } })],
+    }),
   );
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /exceed workspaceBounds/);
@@ -95,8 +95,14 @@ test("test_picker_notepad_editor_generates_three_threshold_eligible_candidates",
   assert.ok(element);
   const candidates = generateSelectorCandidates(element);
   assert.equal(candidates.filter((candidate) => candidate.score > 0).length, 3);
-  assert.equal(candidates.some((candidate) => candidate.kind === "role_and_parent"), false);
-  assert.equal(candidates.some((candidate) => candidate.score === 0), false);
+  assert.equal(
+    candidates.some((candidate) => candidate.kind === "role_and_parent"),
+    false,
+  );
+  assert.equal(
+    candidates.some((candidate) => candidate.score === 0),
+    false,
+  );
   const primaryId = getPrimaryCandidateId(candidates);
   const primary = candidates.find((candidate) => candidate.id === primaryId);
   assert.equal(primary?.locale_dependent, false);
@@ -111,7 +117,7 @@ test("test_picker_validation_rejects_localized_candidate_out_ranking_stable", ()
       value: { text: "Editor" },
       score: 1,
       locale_dependent: true,
-      ttl_ms: null
+      ttl_ms: null,
     },
     {
       id: "automation-id",
@@ -119,8 +125,8 @@ test("test_picker_validation_rejects_localized_candidate_out_ranking_stable", ()
       value: { text: "Editor" },
       score: 0.1,
       locale_dependent: false,
-      ttl_ms: null
-    }
+      ttl_ms: null,
+    },
   ];
   assert.equal(getPrimaryCandidateId(candidates), null);
 });
@@ -133,7 +139,7 @@ test("test_picker_validation_rejects_unsorted_or_ephemeral_candidates", () => {
       value: { class_and_role: { class: "Editor", role: "Document" } },
       score: 0.8,
       locale_dependent: false,
-      ttl_ms: null
+      ttl_ms: null,
     },
     {
       id: "automation-id",
@@ -141,8 +147,8 @@ test("test_picker_validation_rejects_unsorted_or_ephemeral_candidates", () => {
       value: { text: "Editor" },
       score: 0.9,
       locale_dependent: false,
-      ttl_ms: null
-    }
+      ttl_ms: null,
+    },
   ];
   assert.equal(getPrimaryCandidateId(unsorted), null);
   assert.equal(
@@ -153,10 +159,10 @@ test("test_picker_validation_rejects_unsorted_or_ephemeral_candidates", () => {
         value: { text: "42,1,0" },
         score: 1,
         locale_dependent: false,
-        ttl_ms: 0
-      }
+        ttl_ms: 0,
+      },
     ]),
-    null
+    null,
   );
 });
 
@@ -168,8 +174,8 @@ test("test_picker_validation_rejects_kind_value_mismatch_and_invalid_score", () 
       value: { class_and_role: { class: "Editor", role: "Document" } },
       score: 0.9,
       locale_dependent: false,
-      ttl_ms: null
-    }
+      ttl_ms: null,
+    },
   ];
   assert.equal(getPrimaryCandidateId(mismatched), null);
   const invalidScore = [
@@ -179,8 +185,8 @@ test("test_picker_validation_rejects_kind_value_mismatch_and_invalid_score", () 
       value: { text: "Editor" },
       score: 1.1,
       locale_dependent: false,
-      ttl_ms: null
-    }
+      ttl_ms: null,
+    },
   ];
   assert.equal(getPrimaryCandidateId(invalidScore), null);
   const unknownKind = [
@@ -190,8 +196,8 @@ test("test_picker_validation_rejects_kind_value_mismatch_and_invalid_score", () 
       value: { text: "Editor" },
       score: 0.9,
       locale_dependent: false,
-      ttl_ms: null
-    }
+      ttl_ms: null,
+    },
   ];
   assert.equal(getPrimaryCandidateId(unknownKind), null);
 });
@@ -221,7 +227,7 @@ test("test_picker_highlight_rect_uses_validated_workspace_coordinates", () => {
     leftPercent: 2,
     topPercent: 8.571428571428571,
     widthPercent: 70,
-    heightPercent: 71.42857142857143
+    heightPercent: 71.42857142857143,
   });
 });
 
@@ -230,11 +236,9 @@ test("test_picker_nonzero_workspace_origin_is_enforced_and_subtracted", () => {
     workspaceBounds: { x: 100, y: 200, width: 1000, height: 700 },
     window: {
       ...createSnapshot().window,
-      bounds: { x: 100, y: 200, width: 1000, height: 700 }
+      bounds: { x: 100, y: 200, width: 1000, height: 700 },
     },
-    elements: [
-      createElement({ bounds: { x: 120, y: 260, width: 700, height: 500 } })
-    ]
+    elements: [createElement({ bounds: { x: 120, y: 260, width: 700, height: 500 } })],
   });
   const result = parsePickerSnapshot(input);
   assert.equal(result.ok, true);
@@ -244,13 +248,11 @@ test("test_picker_nonzero_workspace_origin_is_enforced_and_subtracted", () => {
     leftPercent: 2,
     topPercent: 8.571428571428571,
     widthPercent: 70,
-    heightPercent: 71.42857142857143
+    heightPercent: 71.42857142857143,
   });
   const outside = parsePickerSnapshot({
     ...input,
-    elements: [
-      createElement({ bounds: { x: 90, y: 260, width: 700, height: 500 } })
-    ]
+    elements: [createElement({ bounds: { x: 90, y: 260, width: 700, height: 500 } })],
   });
   assert.equal(outside.ok, false);
   assert.match(outside.errors.join("\n"), /exceed workspaceBounds/);

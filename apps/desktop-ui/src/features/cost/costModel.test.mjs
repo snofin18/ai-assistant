@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  parseCostPanelModel,
-  summarizeCosts
-} from "./costModel.ts";
+import { parseCostPanelModel, summarizeCosts } from "./costModel.ts";
 
 function createRecord(overrides = {}) {
   return {
@@ -18,14 +15,14 @@ function createRecord(overrides = {}) {
     outputTokens: 100,
     costMicroUsd: 4200,
     latencyMs: 900,
-    ...overrides
+    ...overrides,
   };
 }
 
 test("test_parse_cost_panel_valid_record_preserves_micro_usd", () => {
   const result = parseCostPanelModel({
     currentTaskId: "task-1",
-    records: [createRecord()]
+    records: [createRecord()],
   });
   assert.equal(result.ok, true);
   assert.equal(result.model.records[0]?.costMicroUsd, 4200);
@@ -34,7 +31,7 @@ test("test_parse_cost_panel_valid_record_preserves_micro_usd", () => {
 test("test_parse_cost_panel_cached_tokens_above_input_is_rejected", () => {
   const result = parseCostPanelModel({
     currentTaskId: "task-1",
-    records: [createRecord({ cachedInputTokens: 1001 })]
+    records: [createRecord({ cachedInputTokens: 1001 })],
   });
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /cachedInputTokens exceeds/);
@@ -43,7 +40,7 @@ test("test_parse_cost_panel_cached_tokens_above_input_is_rejected", () => {
 test("test_parse_cost_panel_unsafe_integer_cost_is_rejected", () => {
   const result = parseCostPanelModel({
     currentTaskId: "task-1",
-    records: [createRecord({ costMicroUsd: Number.MAX_SAFE_INTEGER + 1 })]
+    records: [createRecord({ costMicroUsd: Number.MAX_SAFE_INTEGER + 1 })],
   });
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /safe non-negative integer/);
@@ -52,7 +49,7 @@ test("test_parse_cost_panel_unsafe_integer_cost_is_rejected", () => {
 test("test_parse_cost_panel_invalid_calendar_timestamp_is_rejected", () => {
   const result = parseCostPanelModel({
     currentTaskId: "task-1",
-    records: [createRecord({ occurredAt: "2026-02-30T00:00:00Z" })]
+    records: [createRecord({ occurredAt: "2026-02-30T00:00:00Z" })],
   });
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /UTC RFC 3339/);
@@ -61,7 +58,7 @@ test("test_parse_cost_panel_invalid_calendar_timestamp_is_rejected", () => {
 test("test_parse_cost_panel_invalid_clock_timestamp_is_rejected", () => {
   const result = parseCostPanelModel({
     currentTaskId: "task-1",
-    records: [createRecord({ occurredAt: "2026-09-28T99:00:00Z" })]
+    records: [createRecord({ occurredAt: "2026-09-28T99:00:00Z" })],
   });
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /UTC RFC 3339/);
@@ -70,7 +67,7 @@ test("test_parse_cost_panel_invalid_clock_timestamp_is_rejected", () => {
 test("test_parse_cost_panel_leap_second_timestamp_is_rejected", () => {
   const result = parseCostPanelModel({
     currentTaskId: "task-1",
-    records: [createRecord({ occurredAt: "2026-09-28T00:00:60Z" })]
+    records: [createRecord({ occurredAt: "2026-09-28T00:00:60Z" })],
   });
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /UTC RFC 3339/);
@@ -89,7 +86,7 @@ test("test_summarize_cost_panel_filters_task_today_and_month", () => {
         inputTokens: 10,
         cachedInputTokens: 0,
         outputTokens: 1,
-        latencyMs: 10
+        latencyMs: 10,
       }),
       createRecord({
         recordId: "record-3",
@@ -99,9 +96,9 @@ test("test_summarize_cost_panel_filters_task_today_and_month", () => {
         inputTokens: 5,
         cachedInputTokens: 0,
         outputTokens: 1,
-        latencyMs: 5
-      })
-    ]
+        latencyMs: 5,
+      }),
+    ],
   });
   assert.equal(parsed.ok, true);
   const task = summarizeCosts(parsed.model, "task", "2026-09-28T12:00:00Z");
@@ -125,27 +122,27 @@ test("test_summarize_cost_panel_splits_by_model_and_app", () => {
         inputTokens: 10,
         cachedInputTokens: 0,
         outputTokens: 1,
-        latencyMs: 10
-      })
-    ]
+        latencyMs: 10,
+      }),
+    ],
   });
   assert.equal(parsed.ok, true);
   const summary = summarizeCosts(parsed.model, "task", "2026-09-28T12:00:00Z");
   assert.equal(summary.ok, true);
   assert.deepEqual(
     summary.summary.byModel.map((entry) => entry.key),
-    ["chat_small", "plan_large"]
+    ["chat_small", "plan_large"],
   );
   assert.deepEqual(
     summary.summary.byApp.map((entry) => entry.key),
-    ["browser.edge", "com.microsoft.notepad"]
+    ["browser.edge", "com.microsoft.notepad"],
   );
 });
 
 test("test_summarize_cost_panel_invalid_now_is_rejected", () => {
   const parsed = parseCostPanelModel({
     currentTaskId: "task-1",
-    records: [createRecord()]
+    records: [createRecord()],
   });
   assert.equal(parsed.ok, true);
   const summary = summarizeCosts(parsed.model, "today", "2026-09-28");

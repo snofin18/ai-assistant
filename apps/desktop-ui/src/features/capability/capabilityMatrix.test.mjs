@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  getCapabilityStats,
-  parseCapabilityMatrix
-} from "./capabilityMatrix.ts";
+import { getCapabilityStats, parseCapabilityMatrix } from "./capabilityMatrix.ts";
 
 function createMatrix(overrides = {}) {
   return {
@@ -13,11 +10,11 @@ function createMatrix(overrides = {}) {
       platform_os: "windows",
       session_locked: false,
       session_remote: false,
-      session_headless: false
+      session_headless: false,
     },
     channels: {
       uia_tree: { availability: "available" },
-      portal_input: { availability: "needs_consent", detail: "user approval required" }
+      portal_input: { availability: "needs_consent", detail: "user approval required" },
     },
     capabilities: [
       {
@@ -25,18 +22,18 @@ function createMatrix(overrides = {}) {
         resource: "read",
         side_effect: "none",
         risk: "l1",
-        approval: "auto"
+        approval: "auto",
       },
       {
         id: "file.delete",
         resource: "destroy",
         side_effect: "disk",
         risk: "l3",
-        approval: "required"
-      }
+        approval: "required",
+      },
     ],
     degradations: [{ id: "no_takeover_detection", impact: "confirmation frequency raised" }],
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -55,16 +52,16 @@ test("test_parse_capability_matrix_duplicate_capability_is_rejected", () => {
         resource: "read",
         side_effect: "none",
         risk: "l1",
-        approval: "auto"
+        approval: "auto",
       },
       {
         id: "tree.walk",
         resource: "read",
         side_effect: "none",
         risk: "l1",
-        approval: "auto"
-      }
-    ]
+        approval: "auto",
+      },
+    ],
   });
   const result = parseCapabilityMatrix(matrix);
   assert.equal(result.ok, false);
@@ -79,9 +76,9 @@ test("test_parse_capability_matrix_approval_mismatch_is_rejected", () => {
         resource: "send",
         side_effect: "network_egress",
         risk: "l4",
-        approval: "auto"
-      }
-    ]
+        approval: "auto",
+      },
+    ],
   });
   const result = parseCapabilityMatrix(matrix);
   assert.equal(result.ok, false);
@@ -92,8 +89,8 @@ test("test_parse_capability_matrix_invalid_channel_is_rejected", () => {
   const matrix = createMatrix({
     channels: {
       uia_tree: { availability: "available" },
-      portal_input: { availability: "maybe" }
-    }
+      portal_input: { availability: "maybe" },
+    },
   });
   const result = parseCapabilityMatrix(matrix);
   assert.equal(result.ok, false);
@@ -107,8 +104,8 @@ test("test_parse_capability_matrix_invalid_probe_timestamp_is_rejected", () => {
       platform_os: "windows",
       session_locked: false,
       session_remote: false,
-      session_headless: false
-    }
+      session_headless: false,
+    },
   });
   const result = parseCapabilityMatrix(matrix);
   assert.equal(result.ok, false);
@@ -122,8 +119,8 @@ test("test_parse_capability_matrix_unknown_platform_is_rejected", () => {
       platform_os: "plan9",
       session_locked: false,
       session_remote: false,
-      session_headless: false
-    }
+      session_headless: false,
+    },
   });
   const result = parseCapabilityMatrix(matrix);
   assert.equal(result.ok, false);
@@ -137,8 +134,8 @@ test("test_parse_capability_matrix_leap_second_timestamp_is_rejected", () => {
       platform_os: "windows",
       session_locked: false,
       session_remote: false,
-      session_headless: false
-    }
+      session_headless: false,
+    },
   });
   const result = parseCapabilityMatrix(matrix);
   assert.equal(result.ok, false);
@@ -152,6 +149,6 @@ test("test_capability_stats_counts_approval_and_degraded_channels", () => {
     total: 2,
     requiresApproval: 1,
     forbidden: 0,
-    degradedChannels: 1
+    degradedChannels: 1,
   });
 });
