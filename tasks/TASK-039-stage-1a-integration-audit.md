@@ -148,6 +148,10 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - `cargo build --release`：PASS。
 - `pnpm --dir apps/desktop-ui lint / typecheck / test / build`：全部 PASS；
   UI test 58/58。
+- PR #96 = https://github.com/snofin18/ai-assistant/pull/96：push run
+  `36508279613` 与 pull_request run `36508298832` 均 `completed / success`，
+  各 **9/9 job success**，PR 汇总 **18 个 status context 全 success**；
+  `mergeable=MERGEABLE` / `merge_state_status=CLEAN`。
 
 ### 4. DoD 逐条核对
 
