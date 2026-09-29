@@ -20,12 +20,6 @@
 //! 3. 每一项都必须有非空的 `owning_card`（可以是"未分配"，但不能留空 ——
 //!    留空意味着没人负责，那才是真正的静默失败）。
 
-/// 尚未分配任务卡时的占位说明。
-///
-/// 这不是"留空"：它明确指出了**该去哪里补**（`docs/PARKING_LOT.md`），
-/// 因此仍然满足不变量 3 的意图（有人类可执行的下一步）。
-pub const UNASSIGNED_CARD: &str = "未分配（见 docs/PARKING_LOT.md PL-002，需人类补卡）";
-
 /// gov §5.4 表格中的卫生规则总项数（**13 项**，口径由 ADR-0025 统一）。
 ///
 /// 这个数字必须与 gov §5.4 的表格行数一致；不一致由下面的不变量 1 单测拦不住
@@ -44,7 +38,7 @@ pub struct DeferredCommand {
     pub command: &'static str,
     /// 它对应 gov §5.1 的哪一项 CI 门禁（用于说明"缺了它会漏掉什么"）。
     pub ci_gate: &'static str,
-    /// 归属任务卡号；未拆卡时为 `UNASSIGNED_CARD`。
+    /// 归属任务卡号；未拆卡时写「未分配（见 `docs/PARKING_LOT.md` PL-xxx）」。
     pub owning_card: &'static str,
     /// 为什么现在还不能实现（前置条件），一句话。
     pub reason: &'static str,
@@ -64,20 +58,12 @@ pub struct DeferredRule {
 /// 未实现的子命令清单。
 ///
 /// 顺序即 `--list-deferred` 的输出顺序，保持稳定以便 diff。
-pub const DEFERRED_COMMANDS: &[DeferredCommand] = &[
-    DeferredCommand {
-        command: "replay-skeleton",
-        ci_gate: "gov §5.1 #13",
-        owning_card: "TASK-034",
-        reason: "skeleton 已实现（TASK-015-pt3，dry-run 解析+校验）；真实 fixture + diff 留待 TASK-034 完整版",
-    },
-    DeferredCommand {
-        command: "check-comments",
-        ci_gate: "gov §5.1 #15",
-        owning_card: UNASSIGNED_CARD,
-        reason: "naming §10 的 8 条注释/命名规则尚未拆成任务卡",
-    },
-];
+pub const DEFERRED_COMMANDS: &[DeferredCommand] = &[DeferredCommand {
+    command: "replay-skeleton",
+    ci_gate: "gov §5.1 #13",
+    owning_card: "TASK-034",
+    reason: "skeleton 已实现（TASK-015-pt3，dry-run 解析+校验）；真实 fixture + diff 留待 TASK-034 完整版",
+}];
 
 /// 未拆卡的卫生规则归属说明（PL-060：需要 ADR / 阈值设计前置，尚无任务卡）。
 ///

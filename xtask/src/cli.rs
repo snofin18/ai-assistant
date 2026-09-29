@@ -49,7 +49,7 @@ pub const USAGE: &str = r#"xtask — 仓库护栏与开发任务工具（只读�
                      LEDGER.md 末行日期 + README.md 有 `> 状态：` 行且含当前阶段名）
   check-migrations   迁移登记表一致性（PL-047：号段全局唯一 + 与
                      docs/storage-design.md §3.4 逐行一致 + 含迁移的 crate 公开 MIGRATIONS）
-  check-comments     [未实现 · 待补卡]       命名与注释规范检查（naming §10）
+  check-comments     命名与注释规范检查（naming §10 的 8 条规则；输出含 rule-coverage 行）
 
 guard 的选项（其它子命令不接受）：
   --owner <标识>     持有者；acquire/release **必填**，且必须会话级唯一

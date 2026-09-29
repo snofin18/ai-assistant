@@ -70,6 +70,7 @@ mod arch;
 mod card_check;
 mod cli;
 mod codegen;
+mod comments;
 mod deferred;
 mod doccheck;
 mod docscan;
@@ -265,6 +266,9 @@ fn execute(arguments: &[String], output: &mut dyn Write) -> Result<u8, Failure> 
     if command == "check-migrations" {
         return run_check_migrations(&invocation, output);
     }
+    if command == "check-comments" {
+        return run_check_comments(&invocation, output);
+    }
     if command == "arch" {
         return run_arch(&invocation, output);
     }
@@ -364,6 +368,63 @@ fn run_replay(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Fai
         .ok_or_else(|| Failure::Usage("replay 需要快照路径".to_string()))?;
     let path = std::path::Path::new(snapshot);
     replay::run(path, output).map_err(Failure::Io)
+}
+
+/// 执行命名与注释规范检查（`docs/spec/naming.md` §10 的 8 条规则）。
+///
+/// 形状与 `run_hygiene` 一致：遍历 Rust 源文件 → 纯函数判定 → 排序 → 渲染。
+/// 规则 ①② 复用 `hygiene` 的判据（见 `comments.rs` 模块头），其余 6 条在 `comments` 内实现。
+fn run_check_comments(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
+    let root = resolve_repo_root(invocation.repo.as_deref())
+        .map_err(|error| Failure::from_walk(&error))?;
+    let files = collect_rust_files(&root).map_err(|error| Failure::from_walk(&error))?;
+
+    let mut report = Report::new("check-comments");
+    report.scanned_files = files.len();
+
+    let mut findings: Vec<Finding> = Vec::new();
+    for file in &files {
+        let source = std::fs::read_to_string(file)
+            .map_err(|error| Failure::from_io(&format!("读取 {}", file.display()), &error))?;
+        let relative = relative_display_path(&root, file);
+        findings.extend(comments::check_rust_source(&relative, &source));
+    }
+    // 排序保证输出确定性（report.rs 不变量 3 要求调用方排好序再插入）
+    findings.sort_by(|left, right| {
+        (&left.path, left.line, left.rule).cmp(&(&right.path, right.line, right.rule))
+    });
+    report.extend(findings);
+
+    // 不变量：0 个文件时 PASSED 是假信号，必须显式说出来
+    if files.is_empty() {
+        report.push(Finding::new(
+            "xtask/no-source-files",
+            Severity::Warning,
+            "xtask",
+            0,
+            format!(
+                "在 {} 下没有找到任何 .rs 文件（扫描根：{}）。PASSED 只代表没有代码可查，不代表代码合规。",
+                root.display(),
+                repowalk::SCANNED_SOURCE_ROOTS.join(", ")
+            ),
+        ));
+    }
+
+    let summary = report
+        .summary_line()
+        .map_err(|error| Failure::Internal(format!("生成报告摘要失败：{error}")))?;
+    write_line(output, &format!("-- machine-summary: {summary}"))?;
+    // naming §10 的要求：未知规则不得静默忽略 —— 主动声明 8 条规则各自的实现位置。
+    write_line(output, &comments::rule_coverage_note())?;
+    report
+        .render(output)
+        .map_err(|error| Failure::from_io("渲染报告", &error))?;
+
+    Ok(if report.is_failure() {
+        EXIT_FINDINGS
+    } else {
+        EXIT_OK
+    })
 }
 
 /// 执行仓库卫生检查。
@@ -494,17 +555,17 @@ mod tests {
 
     #[test]
     fn test_execute_deferred_command_fails_with_distinct_code() {
-        // TASK-011: codegen + verify-schemas now implemented. Use check-comments (still deferred) instead.
-        let failure = expect_failure(&["check-comments"]);
+        // TASK-011 实现了 codegen / verify-schemas，TASK-087 实现了 check-comments，
+        // 因此改用仍未实现的 `replay-skeleton` 来证明"未实现 ≠ 成功"。
+        let failure = expect_failure(&["replay-skeleton"]);
         assert_eq!(
             failure.exit_code(),
             EXIT_NOT_IMPLEMENTED,
             "未实现必须区别于成功（铁律 1）"
         );
-        // check-comments is UNASSIGNED (PL-002); verify either TASK-011 ref or PL-002 path
         let s = failure.to_string();
         assert!(
-            s.contains("TASK-011") || s.contains("PL-002") || s.contains("未分配"),
+            s.contains("TASK-034") || s.contains("未分配"),
             "deferred failure must reference owning card or PL: {s}"
         );
     }
@@ -539,7 +600,10 @@ mod tests {
         let code = execute(&args(&["--list-deferred"]), &mut output).expect("不应失败");
         assert_eq!(code, EXIT_OK);
         let text = String::from_utf8(output).expect("应为 UTF-8");
-        assert!(text.contains("check-comments"), "清单应包含未实现子命令");
+        assert!(
+            text.contains("replay-skeleton"),
+            "清单应包含未实现子命令（TASK-087 实现 check-comments 后，剩余的是 replay-skeleton）"
+        );
         assert!(text.contains("单函数行数"), "清单应包含未实现的卫生规则");
     }
 
