@@ -1,0 +1,7 @@
+{
+  "version": "1.0",
+  "command": {
+    "kind": "take_over_task",
+    "task_id": "t_1"
+  }
+}

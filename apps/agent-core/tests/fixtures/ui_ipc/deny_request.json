@@ -1,0 +1,8 @@
+{
+  "version": "1.0",
+  "command": {
+    "kind": "deny_request",
+    "request_id": "a_1",
+    "reason": "user rejected the diff"
+  }
+}

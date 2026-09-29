@@ -8,13 +8,14 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types \"src/features/**/*.test.mjs\"",
+    "test": "node --test --experimental-strip-types \"src/**/*.test.mjs\"",
     "tauri": "tauri"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",

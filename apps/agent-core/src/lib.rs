@@ -26,6 +26,8 @@ pub mod adapters;
 mod assembly;
 mod error;
 mod runtime;
+mod ui_control;
+mod ui_ipc;
 
 pub use adapters::{
     AuditSink, CharacterTokenEstimator, RootedAppMapReader, StorageMemoryRetriever,
@@ -36,4 +38,10 @@ pub use error::HostAssemblyError;
 pub use runtime::{
     EnvelopeObservationCollector, ObservationCollector, RuntimeExecutionError, RuntimeExecutor,
     StepExecutionOutcome, StepPolicy, ToolBusInvoker, ToolInvoker,
+};
+pub use ui_control::TaskControlHandler;
+pub use ui_ipc::{
+    UI_IPC_VERSION, UiAuthorizationScope, UiCommand, UiCommandError, UiCommandHandler,
+    UiCommandOutcome, UiEvent, dispatch_ui_command, parse_ui_command, project_snapshot_events,
+    task_status_name,
 };

@@ -1,4 +1,5 @@
 export { ApprovalCard } from "./ApprovalCard.js";
+export { toApprovalCommand } from "./approvalCommand.js";
 export { useApprovalCard } from "./useApprovalCard.js";
 export {
   approvalControllerReducer,

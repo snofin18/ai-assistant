@@ -10,6 +10,9 @@ TASK-029 的 binary-layer Host 装配库。
 - 暴露 Host 装配正向测试与缺组件负向测试。
 - 提供 `RuntimeExecutor`，按 ADR-0056 单步驱动 Policy → Tool → Verify → Commit，
   并附带真实 `ToolBusInvoker` 与 `EnvelopeObservationCollector` 边界适配器。
+- 提供 UI 命令/事件适配层（`ui_ipc` + `ui_control`）：版本化命令信封、未知字段/
+  未知 kind 的 fail-closed 解析、以及把 approve/deny/pause/cancel/takeover 应用到
+  真实 task-engine 的处理器。
 
 ## 边界
 
@@ -30,6 +33,11 @@ TASK-029 的 binary-layer Host 装配库。
    `ok = false` 时按信封里的 `ErrorCode` 失败，不得进入 verify。
 7. `EnvelopeObservationCollector` 要求信封 `data` 带 `fingerprint`；缺失即显式
    observation 失败并升级人工，不伪造默认指纹。
+8. UI 命令在解析通过前不得触达处理器；拒绝必须带稳定 `ErrorCode`
+   （非法输入 → `ToolInvalidArgs`，未知任务 → `TargetNotFound`，未知审批 →
+   `UserInteraction`）。
+9. UI 事件只从 task snapshot 投影；committed 步骤携带真实 post fingerprint，
+   未知状态不映射为成功。
 
 ## 已知限制
 
@@ -48,3 +56,4 @@ TASK-029 的 binary-layer Host 装配库。
 - `docs/adr/0053-core-orchestration-layer-interface.md`
 - `tasks/TASK-029-binary-skeleton-agent-core-desktop-ui.md`
 - `tasks/TASK-103-runtime-executor-host-dispatch-verifyoutcome.md`
+- `tasks/TASK-104-ui-core-ipc-approval-wiring.md`

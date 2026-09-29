@@ -1,0 +1,7 @@
+{
+  "version": "9.9",
+  "command": {
+    "kind": "pause_task",
+    "task_id": "t_1"
+  }
+}

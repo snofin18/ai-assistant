@@ -1,0 +1,8 @@
+{
+  "version": "1.0",
+  "command": {
+    "kind": "submit_intent",
+    "intent_id": "i_1",
+    "goal": "把报表替换成报告并保存"
+  }
+}

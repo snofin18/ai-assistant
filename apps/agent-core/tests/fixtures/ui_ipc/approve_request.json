@@ -1,0 +1,8 @@
+{
+  "version": "1.0",
+  "command": {
+    "kind": "approve_request",
+    "request_id": "a_1",
+    "scope": "once"
+  }
+}

@@ -1,14 +1,32 @@
-//! Minimal Tauri 2 shell.
+//! Tauri 2 shell for the desktop UI.
 //!
-//! The shell has no system plugin and no business logic. Typed IPC commands are
-//! added by the feature cards that consume this skeleton.
+//! The shell still has no system plugin and no business logic. It exposes the
+//! typed UI command boundary from [`commands`]: payloads are validated locally
+//! and forwarded to the Core process through an injected transport.
 
-/// Runs the desktop shell.
+mod commands;
+
+pub use commands::{CommandState, CoreCommandTransport, UiCommandRejection, send_ui_command};
+
+/// Runs the desktop shell with no Core transport installed.
 ///
 /// # Errors
 ///
 /// Returns the Tauri startup error when the webview cannot be created or the
 /// event loop exits abnormally.
 pub fn run() -> Result<(), tauri::Error> {
-    tauri::Builder::default().run(tauri::generate_context!())
+    run_with_state(CommandState::unavailable())
+}
+
+/// Runs the desktop shell over an injected Core transport.
+///
+/// # Errors
+///
+/// Returns the Tauri startup error when the webview cannot be created or the
+/// event loop exits abnormally.
+pub fn run_with_state(state: CommandState) -> Result<(), tauri::Error> {
+    tauri::Builder::default()
+        .manage(state)
+        .invoke_handler(tauri::generate_handler![commands::send_ui_command])
+        .run(tauri::generate_context!())
 }
