@@ -1,4 +1,10 @@
 export { ExecutionTimeline } from "./ExecutionTimeline.js";
+export {
+  applyUiEventToStep,
+  applyUiEventToTimeline,
+  timelineStatusFromCoreStatus,
+  verificationFromCoreStatus,
+} from "./timelineEvents.js";
 export { useTimeline } from "./useTimeline.js";
 export {
   createInitialTimelineControllerState,

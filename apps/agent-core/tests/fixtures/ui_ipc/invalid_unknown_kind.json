@@ -1,0 +1,7 @@
+{
+  "version": "1.0",
+  "command": {
+    "kind": "run_shell",
+    "command_line": "whoami"
+  }
+}

@@ -7,12 +7,12 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-29（**TASK-103 真实任务执行器已 Done**：ADR-0056 最小闭环落地 —— 不透明 `VerificationReceipt` + `StepCommit` 提交门、`RuntimeExecutor` 单步链路、真实 `ToolBus` MCP 往返、`automation-host` 请求分发；下一张 **TASK-104**（UI ↔ Core typed IPC 与审批接线）。TASK-039 审计结论仍为阶段 1a **NO-GO**）
+更新日期    ：2026-09-29（**TASK-104 UI ↔ Core typed IPC 与审批接线已 Done**：版本化命令/事件契约 + 两侧 fail-closed 校验、Core 侧命令处理器落到真实 task-engine、TS zod 校验与时间线投影、`src-tauri` 校验边界；真实 UI↔Core 传输未接通，记 **PL-095**；下一张 **TASK-105**（Notepad T1.x 真实运行验收）。TASK-039 审计结论仍为阶段 1a **NO-GO**）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
-当前任务卡  ：**A5 批次进行中**：TASK-011~038 全 Done；**TASK-207 ✅**（Planner）、**TASK-206 ✅**（storage FTS5）、**TASK-208 ✅**（Memory）、**TASK-029 ✅**（binary 装配）、**TASK-030 ✅**（审批/时间线）、**TASK-031 ✅**（元素拾取/绑定）、**TASK-032 ✅**（策略/能力/成本）、**TASK-033 ✅**（notepad-like 靶机）、**TASK-034 ✅**（录制回放）、**TASK-035 ✅**（Notepad Adapter 声明式包）、**TASK-036 ✅**（T1.1 任务包/评测集）、**TASK-037 ✅**（T1.2 替换/保存/审批/撤销）与 **TASK-038 ✅**（T1.3 新建标签/写入/跨进程另存为）均 Done；**TASK-039 = Review（审计完成，阶段 1a NO-GO）**；**TASK-102 = Done（ADR-0056 Accepted）**、**TASK-103 ✅（真实执行器 + Host 分发 + VerifyReceipt 接线）**；下一张 **TASK-104**；
+当前任务卡  ：**A5 批次进行中**：TASK-011~038 全 Done；**TASK-207 ✅**（Planner）、**TASK-206 ✅**（storage FTS5）、**TASK-208 ✅**（Memory）、**TASK-029 ✅**（binary 装配）、**TASK-030 ✅**（审批/时间线）、**TASK-031 ✅**（元素拾取/绑定）、**TASK-032 ✅**（策略/能力/成本）、**TASK-033 ✅**（notepad-like 靶机）、**TASK-034 ✅**（录制回放）、**TASK-035 ✅**（Notepad Adapter 声明式包）、**TASK-036 ✅**（T1.1 任务包/评测集）、**TASK-037 ✅**（T1.2 替换/保存/审批/撤销）与 **TASK-038 ✅**（T1.3 新建标签/写入/跨进程另存为）均 Done；**TASK-039 = Review（审计完成，阶段 1a NO-GO）**；**TASK-102 = Done（ADR-0056 Accepted）**、**TASK-103 ✅（真实执行器 + Host 分发 + VerifyReceipt 接线）**、**TASK-104 ✅（UI ↔ Core typed IPC 与审批接线）**；下一张 **TASK-105**；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204** 均 Done；**TASK-205** = Ready
-阻塞项      ：① 真实执行器与 Host 分发契约已落地（TASK-103），但 UI↔Core typed IPC / 审批接线（TASK-104）与 T1.x 10 次运行成功率、静默失败、撤销成功率（TASK-105）仍未验证；② `check-comments` 仍为 exit 3 stub、commitlint 缺失、UI Prettier/ESLint/Vitest 未接入；③ PL-018（fmt / clippy / build 负向验证）仍开放；④ TASK-002 仍 Blocked；⑤ **PL-092**（storage 缺 conversation/session 公开记录 API）；⑥ **PL-094**（`RoleAndParent` helper 候选需契约治理）
-下一步动作  ：按顺序推进 **TASK-104 → 105**（UI/IPC 接线与 T1.x 真实运行证据）；并行推进 **TASK-087**（CI 负向验证 + `check-comments`）与 **TASK-210**（UI/commit 质量门禁）；最后由 **TASK-211** 收口停车位并触发 1a 复验。阻断项闭环前不得进入 1b。
+阻塞项      ：① 真实执行器（TASK-103）与 UI↔Core 契约/审批接线（TASK-104）已落地，但**真实 UI↔Core 传输未接通（PL-095）**，且 T1.x 10 次运行成功率、静默失败、撤销成功率（TASK-105）仍未验证；② `check-comments` 仍为 exit 3 stub、commitlint 缺失、UI Prettier/ESLint/Vitest 未接入；③ PL-018（fmt / clippy / build 负向验证）仍开放；④ TASK-002 仍 Blocked；⑤ **PL-092**（storage 缺 conversation/session 公开记录 API）；⑥ **PL-094**（`RoleAndParent` helper 候选需契约治理）；⑦ **PL-095**（UI↔Core 线上传输与事件推送待立卡 + ADR）
+下一步动作  ：按顺序推进 **TASK-105**（T1.x 真实运行证据，需先裁决 PL-095 的传输卡）；并行推进 **TASK-087**（CI 负向验证 + `check-comments`）与 **TASK-210**（UI/commit 质量门禁）；最后由 **TASK-211** 收口停车位并触发 1a 复验。阻断项闭环前不得进入 1b。
                   → 审计证据见 `docs/audits/stage-1a-integration-audit-2026-09-29.md`；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 

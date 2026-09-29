@@ -57,6 +57,7 @@ dependencies = [
  "assistant-task-engine",
  "assistant-tool-bus",
  "assistant-verify",
+ "serde",
  "serde_json",
  "thiserror",
  "tokio",
