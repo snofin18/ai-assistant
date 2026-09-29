@@ -154,3 +154,7 @@
 ## 2026-09-27 追加（ADR-0055，Accepted）
 
 - [2026-09-27][DECISION][src:ADR-0055] **ToolSchema 的 `effect` / `reversibility` 是权威必填元数据，Planner 只从可信工具目录注入**：ToolSchema 新增 `effect = read|write` 与 `reversibility = l0_undo_stack|l1_snapshot|l2_compensation|l3_irreversible`；`ToolDefinition::new` 必须显式声明，禁止按风险级推断；Planner 的模型输出不得携带这两个字段，出现即 `ModelInvalidOutput`；Planner 在 PlanStep 反序列化前从目录注入。工具集指纹同步包含它们。此次为公开前单一 1.0 schema 的修正，冻结后同类改动必须 version bump。关闭 TASK-207 `DRIFT-207-1`。
+
+## 2026-09-29 追加（ADR-0056，Proposed）
+
+- [2026-09-29][DECISION][src:ADR-0056] **运行执行链路由 binary 装配层的 `RuntimeExecutor` 独占编排，成功提交必须消费 verify 的不透明 `VerificationReceipt`**：固定单步顺序 = Resolve → Precheck → Policy → Approval → Lease → Anchor → Execute → Verify → Commit/Escalate；只有 `RuntimeExecutor` 能推进任务状态，Policy 仍是唯一放行点，Host 只定位/执行，UI 只提交意图与控制。`VerificationReceipt` 字段私有、无公开构造器、不可反序列化；`Verified` 之外不能产生它，因此 `Violated` / `Inconclusive` 在类型上无法进入 task-engine 成功提交。未知执行边界、取消、超时、接管与崩溃恢复均 fail-closed。状态为 **Proposed**；TASK-103 不得在人类转 Accepted 前开工。

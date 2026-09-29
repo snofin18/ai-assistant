@@ -57,8 +57,9 @@
 | **0053** | `0053-core-orchestration-layer-interface.md` | **Accepted** | `core` 编排层的接口面与**依赖白名单**（D2 白名单 = `protocol` / `storage` / `platform/api`（仅 trait）/ `task-engine` / `model-gateway`；D3 黑名单含 `tool-bus` / `policy` / `audit` / `hitl` / `verify` / `undo` / `lease` …）；**「组装」下沉到 binary（TASK-029）**；FTS5 检索归 `crates/storage`（前置卡 TASK-206）；原 TASK-028 拆为 TASK-028（会话 + 上下文）/ **207**（Planner）/ **208**（Memory）—— DRIFT-028-1~5 全部闭环 |
 | **0054** | `0054-automation-run-evidence-landing.md` | **Accepted** | 自动化 run **先落地，再自删**（本轮产生留痕却没可合并 PR → 必须先开 docs-only PR 再自删；唯一例外 = 完全没产生留痕）+ **轮次编号只数 `main`**（`git ls-tree`，禁止数工作区；`round-<N>` 已占用则顺延、禁止覆盖）；动机 = 2026-09-26 的 14:15 一次性自动化把 DRIFT-206-1 证据留在未 push 的本地分支后自删 + 同日两轮撞 `round-1` |
 | **0055** | `0055-tool-schema-authoritative-effect-reversibility.md` | **Accepted** | ToolSchema 新增必填 `effect` / `reversibility`；Planner 只从可信工具目录注入，拒绝模型自报，关闭 DRIFT-207-1（TASK-207） |
+| **0056** | `0056-runtime-execution-contract.md` | **Proposed** | 运行执行链路由 binary 装配层 `RuntimeExecutor` 独占编排；verify 产生不透明 `VerificationReceipt`，task-engine 只有消费 receipt 才能成功提交（TASK-102；等待人类转 Accepted 后由 TASK-103 实现） |
 
-**下一个可用编号：0056**（= §1 与 §2 已用最大号 **0055** + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0057**（= §1 与 §2 已用最大号 **0056** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是可用号** —— 它是 §2 的**待建号**，已预留给「`#[allow]` 的唯一合法位置」那条决策
