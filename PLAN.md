@@ -7,13 +7,13 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-29（**TASK-038 T1.3 任务包与 14 用例评测集已 Done**：新建标签、写入读回、跨进程 Save As、审批、已存在目标 fail-closed 与 9/9 CI 证据落地；下一张 **TASK-039**。此前 TASK-037 / 036 / 035 / 034 / 033 / 032 / 031 / 030 / 029 / 208 / 207 / 206 / 028 / 027 / 026 / 025 / 024 / 023 均 Done）
+更新日期    ：2026-09-29（**TASK-039 阶段 1a 集成审计已进入 Review，结论 = NO-GO**：审计报告已产出；CI 门禁仍有真实缺口，T1.x 只有声明式包、没有真实任务执行器可验证 10 次运行成功率。此前 TASK-038 / 037 / 036 / 035 / 034 / 033 / 032 / 031 / 030 / 029 / 208 / 207 / 206 / 028 / 027 / 026 / 025 / 024 / 023 均 Done）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
-当前任务卡  ：**A5 批次进行中**：TASK-011~038 全 Done；**TASK-207 ✅**（Planner）、**TASK-206 ✅**（storage FTS5）、**TASK-208 ✅**（Memory）、**TASK-029 ✅**（binary 装配）、**TASK-030 ✅**（审批/时间线）、**TASK-031 ✅**（元素拾取/绑定）、**TASK-032 ✅**（策略/能力/成本）、**TASK-033 ✅**（notepad-like 靶机）、**TASK-034 ✅**（录制回放）、**TASK-035 ✅**（Notepad Adapter 声明式包）、**TASK-036 ✅**（T1.1 任务包/评测集）、**TASK-037 ✅**（T1.2 替换/保存/审批/撤销）与 **TASK-038 ✅**（T1.3 新建标签/写入/跨进程另存为）均 Done → 下一张 **TASK-039**；
+当前任务卡  ：**A5 批次进行中**：TASK-011~038 全 Done；**TASK-207 ✅**（Planner）、**TASK-206 ✅**（storage FTS5）、**TASK-208 ✅**（Memory）、**TASK-029 ✅**（binary 装配）、**TASK-030 ✅**（审批/时间线）、**TASK-031 ✅**（元素拾取/绑定）、**TASK-032 ✅**（策略/能力/成本）、**TASK-033 ✅**（notepad-like 靶机）、**TASK-034 ✅**（录制回放）、**TASK-035 ✅**（Notepad Adapter 声明式包）、**TASK-036 ✅**（T1.1 任务包/评测集）、**TASK-037 ✅**（T1.2 替换/保存/审批/撤销）与 **TASK-038 ✅**（T1.3 新建标签/写入/跨进程另存为）均 Done；**TASK-039 = Review（审计完成，阶段 1a NO-GO）**；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204** 均 Done；**TASK-205** = Ready
-阻塞项      ：① TASK-002 仍 Blocked；② gov §5.1 门禁清单尚未登记 `check-migrations`（PL-056）；③ **PL-092**（storage 缺 conversation/session 公开记录 API）；④ **PL-094**（`RoleAndParent` helper 候选需契约治理）；⑤ PL-071 / PL-072 / PL-073 / PL-074 / PL-078 / PL-079 / PL-080 / PL-083 / PL-084 / PL-085 待裁决
-下一步动作  ：① **TASK-039** 阶段 1a 验收（CI 门禁全启用 + 1a DoD + 对齐审计）
-                  → 详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
+阻塞项      ：① 阶段 1a 缺真实任务执行器/Host 分发/审批接线，T1.x 的 10 次运行成功率、静默失败与撤销成功率尚未验证；② `check-comments` 仍为 exit 3 stub、commitlint 缺失、UI Prettier/ESLint/Vitest 未接入；③ PL-018（fmt / clippy / build 负向验证）仍开放；④ TASK-002 仍 Blocked；⑤ **PL-092**（storage 缺 conversation/session 公开记录 API）；⑥ **PL-094**（`RoleAndParent` helper 候选需契约治理）
+下一步动作  ：按顺序处理 1a 补救卡：**TASK-102 → 103 → 104 → 105**（真实执行链路与 T1.x 运行证据）；并行推进 **TASK-087**（CI 负向验证 + `check-comments`）与 **TASK-210**（UI/commit 质量门禁）；最后由 **TASK-211** 收口停车位并触发 1a 复验。阻断项闭环前不得进入 1b。
+                  → 审计证据见 `docs/audits/stage-1a-integration-audit-2026-09-29.md`；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 
 ## 阶段索引（点开当前阶段那一个就够）
