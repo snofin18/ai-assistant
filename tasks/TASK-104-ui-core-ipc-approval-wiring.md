@@ -105,6 +105,8 @@ cd apps/desktop-ui/src-tauri && cargo check/test → PASS（4 个边界校验用
 cargo run -p xtask -- check-migrations / hygiene（0E/4W）/ verify-schemas / codegen --check / memory-counts / adr-index / refscan / docscan → 全 PASS
 ```
 
+合并证据：PR #100（base `main`）—— push run `36523017341` 与 pull_request run `36523044998` 均 `completed/success`，各 9/9 job success，PR 汇总 18 个 status context 全 success（含新增 `zod` 后的 `desktop-ui checks`）；合并前 `mergeable=MERGEABLE` / `merge_state_status=CLEAN`；merge commit `e397f9a`。
+
 ### 4. DoD 逐条核对
 
 - [x] **至少一条 UI 发起的执行请求能到达 Agent-core**：`IntentLauncher` 是真实调用点；`apps/agent-core/tests/fixtures/ui_ipc/submit_intent.json` 由 TS 客户端与 Core 解析器**两侧各解析一遍**，Core 侧 `dispatch_ui_command` 用例断言命令恰好触达处理器一次。
