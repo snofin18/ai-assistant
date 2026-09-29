@@ -66,6 +66,13 @@ pub enum TaskEngineError {
         step_id: String,
     },
 
+    /// A successful commit was attempted without a verified receipt.
+    #[error("step {step_id} cannot commit without verified postconditions")]
+    UnverifiedCommit {
+        /// Step that lacked verification.
+        step_id: String,
+    },
+
     /// A tool name does not use the required `<app>.<domain>.<action>` shape.
     #[error("invalid tool name {tool:?} for step {step_id}")]
     InvalidToolName {
@@ -151,6 +158,7 @@ impl TaskEngineError {
             | Self::MissingPostconditions { .. }
             | Self::InvalidToolName { .. }
             | Self::StepNotFound { .. } => ErrorCode::ToolInvalidArgs,
+            Self::UnverifiedCommit { .. } => ErrorCode::VerifyFailed,
             Self::TaskNotFound { .. } => ErrorCode::TargetNotFound,
             Self::InvalidTaskTransition { .. }
             | Self::InvalidStepTransition { .. }

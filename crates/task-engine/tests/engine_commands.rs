@@ -11,7 +11,7 @@ use assistant_task_engine::{
     Budget, BudgetCheck, MemoryCheckpointStore, Plan, RecoveryEvidence, StepId, TaskEngine,
     TaskEvent, TaskHoldReason, TaskId, TaskStatus, UsageDelta, WatchdogDecision,
 };
-use common::{read_step, single_read_plan};
+use common::{read_step, single_read_plan, verified_receipt};
 
 fn running_engine(plan: Plan) -> (TaskEngine<MemoryCheckpointStore>, TaskId) {
     let task_id = plan.task_id.clone();
@@ -57,8 +57,11 @@ fn finish_active_step(
         .commit_step(
             task_id,
             step_id,
-            Some("fp_after".to_owned()),
-            warning,
+            assistant_task_engine::StepCommit::new(
+                verified_receipt(),
+                Some("fp_after".to_owned()),
+                warning,
+            ),
             now_ms + 30,
         )
         .expect("commit")

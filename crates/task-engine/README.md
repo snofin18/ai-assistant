@@ -13,6 +13,7 @@
 - Restore a task from its latest checkpoint and apply externally supplied
   recovery evidence.
 - Apply pause, cancellation, takeover, budget, and watchdog transitions.
+- Consume an opaque `VerificationReceipt` before any successful step commit.
 
 ## Boundaries
 
@@ -42,6 +43,9 @@
 6. **Bounded execution**: steps, elapsed time, tokens, and cost are checked
    against the task budget. Exhaustion is persisted as `NeedsHuman`; it is not
    silently retried.
+7. **No unverified commit**: `verify` owns receipt creation; task-engine cannot
+   enter `Committed` through a fingerprint string or boolean alone. The only
+   commit entry point consumes a `StepCommit` that owns a `VerificationReceipt`.
 
 ## Typical Use
 
@@ -61,6 +65,21 @@ let evidence = BTreeMap::from([
 ]);
 let assessment = engine.recover(&task_id, &evidence, 2_000)?;
 assert_eq!(assessment.snapshot.task_id, task_id);
+# Ok(())
+# }
+```
+
+`commit_step` takes a `StepCommit` built from a `VerificationReceipt` plus the
+post-step fingerprint and warning flag:
+
+```rust
+# use assistant_task_engine::StepCommit;
+# use assistant_verify::VerificationReceipt;
+# fn commit(engine: &mut assistant_task_engine::TaskEngine<assistant_task_engine::MemoryCheckpointStore>, receipt: VerificationReceipt) -> Result<(), Box<dyn std::error::Error>> {
+let task_id = assistant_task_engine::TaskId::new("t_1")?;
+let step_id = assistant_task_engine::StepId::new("s_1")?;
+let commit = StepCommit::new(receipt, Some("sha256:post".to_owned()), false);
+engine.commit_step(&task_id, &step_id, commit, 3_000)?;
 # Ok(())
 # }
 ```
@@ -94,4 +113,7 @@ assert_eq!(assessment.snapshot.task_id, task_id);
   8.9.
 - `docs/storage-design.md` sections 3.1, 4, 6, and 8.
 - `docs/spec/error-codes.md`.
+- `docs/spec/runtime-execution.md` sections 5.5 and 5.6.
+- `docs/adr/0056-runtime-execution-contract.md`.
 - `tasks/TASK-022-task-engine-state-machine-dag-checkpoint.md`.
+- `tasks/TASK-103-runtime-executor-host-dispatch-verifyoutcome.md`.

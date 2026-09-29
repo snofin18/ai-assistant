@@ -25,6 +25,7 @@
 pub mod adapters;
 mod assembly;
 mod error;
+mod runtime;
 
 pub use adapters::{
     AuditSink, CharacterTokenEstimator, RootedAppMapReader, StorageMemoryRetriever,
@@ -32,3 +33,7 @@ pub use adapters::{
 };
 pub use assembly::{HostAssembly, HostAssemblyInput, HostComponents};
 pub use error::HostAssemblyError;
+pub use runtime::{
+    EnvelopeObservationCollector, ObservationCollector, RuntimeExecutionError, RuntimeExecutor,
+    StepExecutionOutcome, StepPolicy, ToolBusInvoker, ToolInvoker,
+};

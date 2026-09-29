@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；**TASK-102 运行执行链路契约已 Done**：ADR-0056 已接受为 **Accepted**，`runtime-execution` spec 为 Draft；下一张 **TASK-103**。TASK-039 的阶段 1a 审计结论仍为 **NO-GO**，补救卡 **TASK-102~105 / 087 / 210 / 211** 已登记。此前 TASK-038 T1.3 任务包、TASK-037 T1.2 任务包、TASK-036 T1.1 任务包、TASK-035 Notepad Adapter 声明式包、TASK-034 录制回放、TASK-033 `notepad-like`、TASK-032 策略/能力/成本、TASK-031 元素拾取/绑定、TASK-030 审批/时间线、TASK-029 Host 装配、TASK-208 Memory、TASK-207 Planner、TASK-206 storage `memory_fts`、TASK-028 会话/上下文、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；**TASK-102 运行执行链路契约已 Done**（ADR-0056 **Accepted**，`runtime-execution` spec 为 Draft）；**TASK-103 真实任务执行器已 Done**：不透明 `VerificationReceipt` + `StepCommit` 消费式提交门、`RuntimeExecutor` 单步链路、真实 `ToolBus`（`rmcp` 同进程 MCP 往返）、`automation-host` 请求分发与 correlation 校验（`cargo test --workspace` **999 passed / 0 failed**）；下一张 **TASK-104**（UI ↔ Core typed IPC 与审批接线）。TASK-039 的阶段 1a 审计结论仍为 **NO-GO**，补救卡 **TASK-102~105 / 087 / 210 / 211** 已登记。此前 TASK-038 T1.3 任务包、TASK-037 T1.2 任务包、TASK-036 T1.1 任务包、TASK-035 Notepad Adapter 声明式包、TASK-034 录制回放、TASK-033 `notepad-like`、TASK-032 策略/能力/成本、TASK-031 元素拾取/绑定、TASK-030 审批/时间线、TASK-029 Host 装配、TASK-208 Memory、TASK-207 Planner、TASK-206 storage `memory_fts`、TASK-028 会话/上下文、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
@@ -118,6 +118,8 @@ TASK-039 的集成审计已进入 Review：workspace 行覆盖率 75.18%、Rust/
 **装配点唯一在 binary**；原 TASK-028（五合一）拆为 **TASK-028**（会话 + 上下文）/ **TASK-207**（Planner）/ **TASK-208**（Memory），
 FTS5 检索（`memory_fts`）归 `crates/storage` 的前置卡 **TASK-206**，「组装」下沉 **TASK-029**；契约见 `docs/spec/core-orchestration.md`。
 
+TASK-103 把 **ADR-0056 的最小执行闭环**落地：`crates/verify` 新增不透明 `VerificationReceipt`（字段私有 / 无公开构造器 / 不实现反序列化，只有 `Verified` 能铸出），`crates/task-engine` 的成功提交入口改为消费持有该 receipt 的 `StepCommit`（不提供未验证提交重载）；`apps/agent-core` 新增 binary 装配层 `RuntimeExecutor`，按 Policy → Approval → Execute → Observe → Verify → Commit 单步驱动，并提供真实 `ToolBusInvoker`（`rmcp` 同进程 MCP 往返）与 `EnvelopeObservationCollector`；`apps/automation-host` 新增 `RequestDispatcher` / `run_host_with_dispatcher` / correlation 校验，收到 `Request` 返回 `Response`，其余消息 fail-closed。工具返回 `ok=false` → `ToolFailed`（带信封 `ErrorCode`），传输失败 / 未知边界 → `NeedsHuman`，两条路径都不进入 commit。
+
 平台基线：**Windows 11 24H2+**（唯一正式基线；Windows 10 已 EOL，仅 C 级尽力）。
 Linux 侧 **Wayland-first**（GNOME 50 已移除 X11 后端）。
 
@@ -160,7 +162,15 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-29：**TASK-102 —— 运行执行链路契约，Done；ADR-0056 Accepted**；**TASK-039 —— 阶段 1a 集成审计，Review / NO-GO；补齐 1a 补救卡 TASK-102~105 / 087 / 210 / 211**；**TASK-038 —— T1.3 任务包与评测集**；**TASK-037 —— T1.2 任务包与评测集**；2026-09-28：**TASK-036 —— T1.1 任务包与评测集**；**TASK-035 —— Notepad Adapter 声明式包 v0**；**TASK-034 —— 录制回放框架 v0**；**TASK-033 —— notepad-like 靶机应用**；**TASK-032 —— 策略 / 能力 / 成本面板**；**TASK-031 —— 元素拾取器 + 目标绑定**；2026-09-27：**TASK-208 —— `core` Memory（App Map + FTS5 检索消费）**；**TASK-206 —— `crates/storage` `memory_fts` FTS5 检索**；**TASK-207 —— `core` Planner（模型输出 → Plan / Step DAG）**；TASK-206 DRIFT-206-1 裁决 + ADR-0054；DRIFT-028 五点落地 —— ADR-0053；2026-09-26：TASK-028 —— 会话 + 上下文；TASK-027 —— HITL 审批与接管；TASK-026 —— 模型网关；TASK-025 —— 目标租约与并发控制；TASK-024 —— 撤销与补偿闭环；2026-09-25：TASK-023 —— 后置断言引擎；TASK-204 —— 工具 schema 关键字判据硬化；TASK-022 —— 任务引擎；TASK-021 —— 唯一策略放行点；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+## 最近进展（2026-09-29：**TASK-103 —— 真实任务执行器（Host 分发 + VerifyReceipt 接线），Done**；**TASK-102 —— 运行执行链路契约，Done；ADR-0056 Accepted**；**TASK-039 —— 阶段 1a 集成审计，Review / NO-GO；补齐 1a 补救卡 TASK-102~105 / 087 / 210 / 211**；**TASK-038 —— T1.3 任务包与评测集**；**TASK-037 —— T1.2 任务包与评测集**；2026-09-28：**TASK-036 —— T1.1 任务包与评测集**；**TASK-035 —— Notepad Adapter 声明式包 v0**；**TASK-034 —— 录制回放框架 v0**；**TASK-033 —— notepad-like 靶机应用**；**TASK-032 —— 策略 / 能力 / 成本面板**；**TASK-031 —— 元素拾取器 + 目标绑定**；2026-09-27：**TASK-208 —— `core` Memory（App Map + FTS5 检索消费）**；**TASK-206 —— `crates/storage` `memory_fts` FTS5 检索**；**TASK-207 —— `core` Planner（模型输出 → Plan / Step DAG）**；TASK-206 DRIFT-206-1 裁决 + ADR-0054；DRIFT-028 五点落地 —— ADR-0053；2026-09-26：TASK-028 —— 会话 + 上下文；TASK-027 —— HITL 审批与接管；TASK-026 —— 模型网关；TASK-025 —— 目标租约与并发控制；TASK-024 —— 撤销与补偿闭环；2026-09-25：TASK-023 —— 后置断言引擎；TASK-204 —— 工具 schema 关键字判据硬化；TASK-022 —— 任务引擎；TASK-021 —— 唯一策略放行点；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+
+**2026-09-29 —— TASK-103 真实任务执行器（Host 分发 + VerifyReceipt 接线）**
+
+- `crates/verify`：新增不透明 `VerificationReceipt`（字段私有 / 无公开构造器 / 不实现反序列化，只有 `Verified` 可铸）与 `verify_postconditions_with_receipt`。
+- `crates/task-engine`：`commit_step` 改为消费持有 receipt 的 `StepCommit`，不提供未验证提交重载。
+- `apps/agent-core`：新增 `RuntimeExecutor`（Policy → Approval → Execute → Observe → Verify → Commit）、真实 `ToolBusInvoker`（`rmcp` 同进程 MCP 往返）与 `EnvelopeObservationCollector`。
+- `apps/automation-host`：新增 `RequestDispatcher` / `run_host_with_dispatcher` / correlation 校验；默认 dispatcher 对 `Request` fail-closed。
+- 验收：`cargo test --workspace` **999 passed / 0 failed**；fmt / clippy / hygiene / check-migrations / verify-schemas / codegen 全绿。
 
 **2026-09-29 —— TASK-038 T1.3 新建标签 / 写入 / 跨进程另存为**
 

@@ -2,10 +2,14 @@
 
 #![allow(dead_code, clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 
+use assistant_platform_api::Fingerprint;
 use assistant_protocol::serde_json::{Value, json};
 use assistant_task_engine::{
     Budget, CheckpointPolicy, Plan, PlanStep, Reversibility, StepEffect, StepId, StepTimeouts,
     TaskId,
+};
+use assistant_verify::{
+    Observation, VerificationReceipt, parse_postconditions, verify_postconditions_with_receipt,
 };
 
 /// Builds a plan with one read step.
@@ -62,4 +66,21 @@ pub fn write_step(step_id: &str, sequence: u32, depends_on: Vec<&str>) -> PlanSt
 /// Returns a representative postcondition.
 pub fn postcondition() -> Value {
     json!({"kind": "element_exists"})
+}
+
+/// Builds a receipt that can only be produced by a successful verification.
+pub fn verified_receipt() -> VerificationReceipt {
+    let postconditions = parse_postconditions(&[json!({
+        "kind": "text_contains",
+        "value": "ok"
+    })])
+    .expect("postcondition");
+    let fingerprint =
+        Fingerprint::parse(format!("sha256:{}", "a".repeat(64))).expect("fingerprint");
+    let observation = Observation {
+        text: "ok".to_owned(),
+        ..Observation::new("test.scope", "test", fingerprint)
+    };
+    verify_postconditions_with_receipt(&postconditions, &observation)
+        .expect("satisfied postcondition must mint receipt")
 }

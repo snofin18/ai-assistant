@@ -79,6 +79,22 @@ pub struct RequestMessage {
     pub tool_invoke: ToolEnvelope,
 }
 
+impl RequestMessage {
+    /// Creates a validated request payload.
+    #[must_use]
+    pub fn new(
+        correlation_id: impl Into<String>,
+        target: impl Into<String>,
+        tool_invoke: ToolEnvelope,
+    ) -> Self {
+        Self {
+            correlation_id: correlation_id.into(),
+            target: target.into(),
+            tool_invoke,
+        }
+    }
+}
+
 /// Response payload. Tool semantics are intentionally owned by TASK-020.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
@@ -87,6 +103,17 @@ pub struct ResponseMessage {
     pub correlation_id: String,
     /// Existing protocol envelope carrying the result or error.
     pub result: ToolEnvelope,
+}
+
+impl ResponseMessage {
+    /// Creates a response payload with a matching correlation id.
+    #[must_use]
+    pub fn new(correlation_id: impl Into<String>, result: ToolEnvelope) -> Self {
+        Self {
+            correlation_id: correlation_id.into(),
+            result,
+        }
+    }
 }
 
 /// Fire-and-forget audit event sent by the server.

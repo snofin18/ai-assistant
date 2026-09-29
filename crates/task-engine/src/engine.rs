@@ -2,10 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use assistant_protocol::ErrorCode;
-
 use crate::budget::{BudgetCheck, UsageDelta};
 use crate::checkpoint::{CheckpointStore, TaskCheckpoint};
+use crate::commit::StepCommit;
 use crate::error::{TaskEngineError, TaskEngineResult};
 use crate::identifiers::{StepId, TaskId};
 use crate::plan::Plan;
@@ -14,6 +13,7 @@ use crate::scheduler::{apply_step_event, mutable_step, ready_step_ids};
 use crate::snapshot::{SNAPSHOT_SCHEMA_VERSION, StepSnapshot, TaskHoldReason, TaskSnapshot};
 use crate::status::{StepEvent, StepStatus, TaskEvent, TaskStatus, transition_task};
 use crate::watchdog::{WatchdogDecision, check_watchdog, elapsed_ms};
+use assistant_protocol::ErrorCode;
 
 /// Deterministic orchestration facade.
 #[derive(Debug)]
@@ -209,18 +209,30 @@ impl<Store: CheckpointStore> TaskEngine<Store> {
 
     /// Commits a verified step and advances the task state machine.
     ///
+    /// The commit consumes a [`StepCommit`] carrying an
+    /// [`assistant_verify::VerificationReceipt`] that can only be minted after
+    /// every postcondition reports `Verified`; there is no unverified commit
+    /// API. The receipt is re-checked here as defense in depth even though the
+    /// type system already guarantees it.
+    ///
     /// # Errors
     ///
-    /// Returns an invalid step transition, clock error, or checkpoint-store
-    /// failure.
+    /// Returns [`TaskEngineError::UnverifiedCommit`] if the receipt is not
+    /// verified, or an invalid step transition, clock error, or
+    /// checkpoint-store failure.
     pub fn commit_step(
         &mut self,
         task_id: &TaskId,
         step_id: &StepId,
-        post_fingerprint: Option<String>,
-        had_warning: bool,
+        commit: StepCommit,
         now_ms: i64,
     ) -> TaskEngineResult<TaskSnapshot> {
+        if !commit.verification().outcome().is_verified() {
+            return Err(TaskEngineError::UnverifiedCommit {
+                step_id: step_id.to_string(),
+            });
+        }
+        let (_, post_fingerprint, had_warning) = commit.into_parts();
         let mut snapshot = self.load_snapshot(task_id)?;
         apply_step_event(&mut snapshot, step_id, StepEvent::Commit)?;
         let step = mutable_step(&mut snapshot, step_id)?;
