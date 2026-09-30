@@ -117,6 +117,7 @@ cargo run -p xtask -- adr-index / check-ledger               → PASS
 cargo run -p xtask -- check-migrations / refscan             → PASS
 cargo run -p xtask -- check-comments                         → 0E / 67W（基线）
 cargo deny check                                             → advisories / bans / licenses / sources OK
+PR #121 push / pull_request CI                               → 全绿；mergeable=CLEAN
 ```
 
 ### 4. DoD 逐条核对
