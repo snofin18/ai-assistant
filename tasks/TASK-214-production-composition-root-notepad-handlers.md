@@ -1,6 +1,6 @@
 # TASK-214　生产装配根：真实 Host 进程 + Notepad Host handler + 1a Plan 来源
 
-- 状态：**Ready（ADR-0058 已于 2026-09-30 转 Accepted；可开工）**
+- 状态：**InProgress（第 1 片已落地：确定性 Plan 来源 + 1a 断言映射表；装配根与 handler 本体未做）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：103、213、**ADR-0058 Accepted**
 - 预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
@@ -122,15 +122,37 @@ pnpm --dir apps/desktop-ui lint; pnpm --dir apps/desktop-ui format:check; pnpm -
 
 ### 2. 实际改动文件
 
-（待填）
+- **新增** `apps/agent-core/src/task_package.rs`：确定性 `TaskPackageProvider`（ADR-0058 D2）＋ **1a 断言映射表**（DRIFT-214-1 方案 ①）。
+- **新增** `apps/agent-core/tests/task_package.rs`：9 条契约测试（确定性、只取 `kind=tool`、断言被 `verify` 接受、四类 fail-closed）。
+- **改** `apps/agent-core/src/lib.rs`：注册 `mod task_package` 并导出 `TaskPackageProvider` / `TaskPackageError` / `TASK_PACKAGE_MODEL_ID`。
+- **改** 本卡、`tasks/TASK-105-*.md`、`LEDGER.md`、`docs/PARKING_LOT.md`：记录与停车位（均为 §8 允许的追加面）。
+
+本轮**未**触碰 `crates/**`、`adapters/**`、`fixtures/**`、`.github/**`，未加依赖。
 
 ### 3. 验收输出摘要
 
-（待填）
+```text
+cargo test -p assistant-agent-core --test task_package  → 9 passed / 0 failed
+cargo test --workspace                                  → 全部 test result: ok（0 failed；含 xtask 411 passed）
+cargo fmt --all --check                                 → clean
+cargo clippy --all-targets -- -D warnings               → Finished，0 warning
+xtask hygiene                                           → 0 error / 4 warning（= 基线）
+xtask card-check / docscan / refscan / memory-counts     → PASSED
+xtask adr-index / check-ledger / check-migrations       → PASSED
+xtask verify-schemas / codegen --check / check-comments  → PASSED（0 drift；check-comments 0 error / 67 warning）
+```
 
 ### 4. DoD 逐条核对
 
-（待填）
+- [ ] 生产模式可启动：显式装配 `TaskEngine` + `RuntimeExecutor` + `ToolRegistry` + `UiServer` + `SnapshotEventSource`；`--self-check` 仍可用 —— **未做**
+- [ ] 5 个 Notepad handler 注册进 `ToolBus` —— **未做**（本轮只落地了 Plan 来源；断言映射表已覆盖 5 个工具名）
+- [x] 确定性 Plan 来源：同一任务包产出同一 `Plan` —— **已做**（`test_t1_1_package_renders_identical_plan_twice` 断言逐字相同）
+- [ ] 靶机 T1.1 干跑成功 —— **未做**（依赖 handler 与装配根）
+- [ ] fail-closed：缺 provider / 空 registry / handler 数不符 → 启动拒绝 —— **部分**（Plan 来源侧四类 fail-closed 已做且有负向用例：空工具步 / 未绑定参数 / 表外工具 / 非法 JSON；装配侧未做）
+- [ ] 事件经 `ui_server` 推出 `step_state_changed` —— **未做**
+- [x] 未修改 Out of scope 文件；未新增第三方依赖；未改 `crates/**` 公共接口 —— 已核对（`git diff --stat` 仅本卡 write scope）
+- [ ] 上列 16 条验收命令全绿 —— **本轮已跑**：fmt / clippy / `cargo test --workspace` / `cargo test -p assistant-agent-core` / hygiene / docscan / card-check / memory-counts / adr-index / check-ledger / check-migrations / refscan / verify-schemas / codegen --check / check-comments **全 PASS**；`cargo deny check` 与 UI 三项未跑（本轮无依赖与 UI 变更）
+- [ ] §11.1 进度同步 —— **Done 时执行**（本轮为 InProgress，只追加 LEDGER）
 
 ### 5. 偏差
 
@@ -141,18 +163,27 @@ pnpm --dir apps/desktop-ui lint; pnpm --dir apps/desktop-ui format:check; pnpm -
 3. **建议（不改任务包，也不改 `crates/**`）**：把断言模板做成 **binary 层的显式、可审阅映射表**（每个 1a 工具一条，随确定性 provider 一起提交并接受 review），并把「映射缺失」当作注册期失败（fail-closed）。理由：① 任务包与工具声明属 `adapters/**`，不在本卡 write scope（触发漂移触发器 ⑤）；② 映射表放在 binary 层符合 ADR-0058 D1（装配单点在 binary）；③ 断言值一旦是人工写死且可审阅，就不是"伪造验证"，而是"1a 的确定性断言集"。
 4. **已停工作**：本卡**未写任何产品代码**。先记录本 DRIFT 并等人类裁决（漂移触发器 ③⑧：涉及"哪种 postcondition 才是 1a 的合法断言"这一语义决定）。
 
+**DRIFT-214-1 后续（2026-09-30，人类指示「按推荐先做了试试」）**
+
+人类采纳建议 ①，本卡恢复编码：1a 断言映射表落在 `apps/agent-core/src/task_package.rs` 的 `assertion_table()`，覆盖 5 个 Notepad 工具名，**每个断言的取值要么固定、要么取自该步骤自己的参数**（例如 `replace_text` 用 `new_text`、`save_as` 用 `target_path`），不做任何推断。表外工具、未绑定 `$input.` 参数、无工具步骤、非法 JSON 四类一律构造期失败；`tests/task_package.rs` 用 `assistant_verify::parse_postconditions` 反向证明产出的断言确实被 `verify` 接受。任务包与 `crates/**` 未改。
+
 ### 6. 更合理做法
 
-（待填）
+把「声明」与「可执行断言」分开是对的：任务包描述的是**意图**（`source_file_unchanged`），`verify` 要的是**可求值的断言**。本轮没有让 provider 去猜，而是把翻译显式化在 binary 层，代价是"新增一个工具就要新增一条映射"——这条成本被 `MissingAssertion` 的 fail-closed 挡住，不会静默漏掉。
 
 ### 7. 遗留问题
 
-（待填）
+- 装配根本体（`TaskEngine` + `RuntimeExecutor` + `UiServer` + `SnapshotEventSource` + 生产入口）尚未落地。
+- 5 个 Notepad handler 的**实现体**（走 `UiAutomationProvider` / `WindowProvider`）尚未落地；`TargetDescriptor` 与 selector 链目前还没有注入点。
+- 靶机 `com.example.notepad-like` 的 selector 与工具声明（`DRIFT-105-2` / `PL-097`）需另立卡。
+- `notepad.file.save` / `notepad.tab.new` 目前只断言 `state_changed`；「保存后标题无未保存标记」「标签数 +1」需要 `state_assert` / `value_equals` 的字段口径，待 handler 落地时一并收紧。
 
 ### 8. 新增长期记忆
 
-（待填）
+（无长期记忆新增 —— 本轮的结论已由 `DRIFT-214-1` 与 `docs/PARKING_LOT.md` 的 `PL-096` / `PL-097` 承载。）
 
 ### 9. 给审阅者的关注点
 
-（待填）
+1. **断言映射表是本轮的审查重点**：`apps/agent-core/src/task_package.rs` 的 `assertion_table()` 是"1a 的合法断言集"的唯一落点。请重点看三个取值是否可接受：`read_text → state_unchanged`、`replace_text → text_contains(new_text) + state_changed`、`save/tab.new → state_changed`、`save_as → file_changed(target_path, any)`。
+2. `read_text` 用 `state_unchanged` 而不是 `text_equals`：因为我们没有可信的"期望文本"来源，用等值断言就必须猜，属伪造验证。
+3. 本卡仍是 **InProgress**，`PLAN.md` / `README.md` / `plans/*` 尚未按 Done 同步（符合 InProgress 约定）；阶段 1a 仍 **NO-GO**。

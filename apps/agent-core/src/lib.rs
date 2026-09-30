@@ -26,6 +26,7 @@ pub mod adapters;
 mod assembly;
 mod error;
 mod runtime;
+mod task_package;
 mod ui_control;
 mod ui_events;
 mod ui_ipc;
@@ -41,6 +42,7 @@ pub use runtime::{
     EnvelopeObservationCollector, ObservationCollector, RuntimeExecutionError, RuntimeExecutor,
     StepExecutionOutcome, StepPolicy, ToolBusInvoker, ToolInvoker,
 };
+pub use task_package::{TASK_PACKAGE_MODEL_ID, TaskPackageError, TaskPackageProvider};
 pub use ui_control::TaskControlHandler;
 pub use ui_events::SnapshotEventSource;
 pub use ui_ipc::{
