@@ -47,5 +47,6 @@ pub use ui_ipc::{
     task_status_name,
 };
 pub use ui_server::{
-    UiServerConfig, looks_like_image_path, process_ui_request, serve as serve_ui, serve_session,
+    NoEvents, UiEventSource, UiServerConfig, looks_like_image_path, process_ui_request,
+    push_events, serve as serve_ui, serve_session, serve_session_with_events,
 };

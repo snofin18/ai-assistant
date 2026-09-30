@@ -18,7 +18,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use assistant_ipc::{
-    NamedPipeTransport, Transport, UiIpcRequest, UiIpcResult, WireMessage, client_handshake,
+    IpcError, NamedPipeTransport, Transport, UiIpcRequest, UiIpcResult, WireMessage,
+    client_handshake,
 };
 use serde_json::Value;
 
@@ -62,15 +63,15 @@ impl CorePipeTransport {
     }
 }
 
-impl CoreCommandTransport for CorePipeTransport {
-    fn send(&self, envelope: Value) -> Result<Value, UiTransportFailure> {
+impl CorePipeTransport {
+    /// Connects and authenticates one session.
+    fn open_session(&self) -> Result<NamedPipeTransport, UiTransportFailure> {
         let token = std::env::var(&self.config.token_environment_variable).map_err(|_| {
             UiTransportFailure::unavailable(format!(
                 "{} is not set",
                 self.config.token_environment_variable
             ))
         })?;
-
         let mut transport = NamedPipeTransport::client(&self.config.pipe_name)
             .map_err(|error| UiTransportFailure::unavailable(error.to_string()))?;
         transport
@@ -83,7 +84,37 @@ impl CoreCommandTransport for CorePipeTransport {
             self.config.connect_timeout,
         )
         .map_err(|error| UiTransportFailure::unavailable(error.to_string()))?;
+        Ok(transport)
+    }
 
+    /// Subscribes to Core's one-way event stream until Core closes it.
+    ///
+    /// An idle stream is normal (Core heartbeats on the same pipe), so a read
+    /// timeout just keeps waiting; a disconnect ends the subscription cleanly.
+    ///
+    /// # Errors
+    ///
+    /// Fails when connect/handshake fails, the peer sends a non-event message,
+    /// or `on_event` rejects an event.
+    pub fn subscribe<F>(&self, mut on_event: F) -> Result<(), UiTransportFailure>
+    where
+        F: FnMut(Value) -> Result<(), UiTransportFailure>,
+    {
+        let mut transport = self.open_session()?;
+        loop {
+            match transport.recv(self.config.request_timeout) {
+                Ok(message) => on_event(interpret_event(message)?)?,
+                Err(IpcError::Disconnected { .. }) => return Ok(()),
+                Err(IpcError::Timeout { .. }) => continue,
+                Err(error) => return Err(UiTransportFailure::unavailable(error.to_string())),
+            }
+        }
+    }
+}
+
+impl CoreCommandTransport for CorePipeTransport {
+    fn send(&self, envelope: Value) -> Result<Value, UiTransportFailure> {
+        let mut transport = self.open_session()?;
         let correlation_id = self.next_correlation_id();
         let request = WireMessage::UiRequest(UiIpcRequest::new(correlation_id.clone(), envelope));
         transport
@@ -133,6 +164,24 @@ pub(crate) fn interpret_response(
     }
 }
 
+/// Maps one message from the event stream onto the event payload.
+///
+/// The payload stays opaque JSON here; the webview's zod boundary validates it
+/// before it reaches the timeline model.
+///
+/// # Errors
+///
+/// Fails for any non-`UiEvent` message: a tool-shaped frame or a stray response
+/// on the event channel must never be rendered.
+pub(crate) fn interpret_event(message: WireMessage) -> Result<Value, UiTransportFailure> {
+    match message {
+        WireMessage::UiEvent(event) => Ok(event.event),
+        other => Err(UiTransportFailure::unavailable(format!(
+            "unexpected {} on the UI event channel",
+            other.kind()
+        ))),
+    }
+}
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
@@ -140,7 +189,7 @@ mod tests {
     use assistant_ipc::{UiIpcResponse, WireMessage};
     use serde_json::json;
 
-    use super::{CorePipeConfig, CorePipeTransport, interpret_response};
+    use super::{CorePipeConfig, CorePipeTransport, interpret_event, interpret_response};
     use crate::commands::{CoreCommandTransport, UiTransportFailure};
 
     fn config() -> CorePipeConfig {
@@ -221,5 +270,37 @@ mod tests {
         let transport = CorePipeTransport::new(config());
         assert_eq!(transport.next_correlation_id(), "ui_1");
         assert_eq!(transport.next_correlation_id(), "ui_2");
+    }
+
+    #[test]
+    fn test_ui_event_payload_is_passed_through() {
+        let payload = json!({ "kind": "task_state_changed", "task_id": "t_1" });
+        let result = interpret_event(WireMessage::UiEvent(assistant_ipc::UiIpcEvent::new(
+            payload.clone(),
+        )));
+        assert_eq!(result, Ok(payload));
+    }
+
+    #[test]
+    fn test_non_event_message_on_event_channel_fails_closed() {
+        let result = interpret_event(WireMessage::Heartbeat(assistant_ipc::Heartbeat {
+            session_id: "018f6d4e-52a1-7b03-8f22-1234567890ab".to_owned(),
+            timestamp_unix_ms: 1,
+            alive: true,
+        }));
+        assert!(matches!(
+            result,
+            Err(ref failure) if failure.code == "core_transport_unavailable"
+        ));
+    }
+
+    #[test]
+    fn test_subscribe_without_token_fails_before_connecting() {
+        let transport = CorePipeTransport::new(config());
+        let result = transport.subscribe(|_| Ok(()));
+        assert!(matches!(
+            result,
+            Err(ref failure) if failure.code == "core_transport_unavailable"
+        ));
     }
 }
