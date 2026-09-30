@@ -27,6 +27,7 @@ mod assembly;
 mod error;
 mod runtime;
 mod ui_control;
+mod ui_events;
 mod ui_ipc;
 mod ui_server;
 
@@ -41,6 +42,7 @@ pub use runtime::{
     StepExecutionOutcome, StepPolicy, ToolBusInvoker, ToolInvoker,
 };
 pub use ui_control::TaskControlHandler;
+pub use ui_events::SnapshotEventSource;
 pub use ui_ipc::{
     UI_IPC_VERSION, UiAuthorizationScope, UiCommand, UiCommandError, UiCommandHandler,
     UiCommandOutcome, UiEvent, dispatch_ui_command, parse_ui_command, project_snapshot_events,

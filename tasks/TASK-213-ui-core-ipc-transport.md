@@ -83,7 +83,7 @@ cargo run -p xtask -- check-comments
 
 ### 2. 实际改动文件
 
-**本 PR 已完成 D8 的前五步（传输底座 + Core 侧监听端 + UI 侧真实 client + 双向事件通路 + 真管道端到端验收），剩生产事件源接线与状态收口，卡未完成，见 §4 / §7。**
+**本 PR 已完成 D8 的全部五步（传输底座 + Core 侧监听端 + UI 侧真实 client + 双向事件通路 + 真管道端到端验收 + 生产事件源），只剩 PR 收口，见 §4 / §7。**
 
 | 文件 | 改动 |
 |---|---|
@@ -98,6 +98,7 @@ cargo run -p xtask -- check-comments
 | `apps/agent-core/src/ui_server.rs` + `ui_server_tests.rs` | **事件推送（Core → UI）**：`UiEventSource` trait（`drain() -> Vec<UiEvent>`）、`NoEvents` 缺省实现、`push_events()`（序列化 → 单向 `UiIpcEvent`）；`serve_session_with_events()` 在**阻塞读取之前**先推事件（慢客户端不能把事件堵在请求后面）。文件一度 645 行，已把测试外置到 `ui_server_tests.rs`（回到 324 行，`hygiene` 维持基线 4 warning）。 |
 | `apps/desktop-ui/src-tauri/src/core_pipe.rs` | **事件订阅（UI 侧）**：`CorePipeTransport::subscribe()`（连接 + 握手 → 循环 `recv` → `on_event`；**空闲超时不退出**、**断连干净结束**、其它错误上抛）、`open_session()` 复用连接+握手逻辑、`interpret_event()`（非 `UiEvent` 一律 fail-closed）。 |
 | `apps/agent-core/tests/ui_transport_acceptance.rs`（新增） | **真管端到端验收**（Windows，沿用 TASK-019 的写法）：起一个真实 `NamedPipeTransport` server 线程跑 `serve_session_with_events`，UI 侧用真实 client 完成握手 → 断言收到顺序 **`Heartbeat` → `UiEvent` → `UiResponse`**（事件先于响应）→ 断言请求**恰好触达处理器一次** → 客户端断开后会话**在 2s 内以显式 `Disconnected` 收尾**（而不是挂住）。 |
+| `apps/agent-core/src/ui_events.rs`（新增） | **生产事件源**：`SnapshotEventSource<Provider>` 把一个"快照提供者"接成 `UiEventSource` —— 用 `project_snapshot_events` 投影，并**按 `TaskSnapshot.revision` 去重**（同一 revision 绝不产出两次，否则时间线会出现重复行）。provider 是装配层的接缝：本模块不持有引擎、不加锁，也不对"谁更新快照"表态。 |
 
 ### 3. 验收输出摘要
 
@@ -110,6 +111,7 @@ cargo test -p assistant-agent-core --lib → PASS（ui_server 9 条，全绿）
 cd apps/desktop-ui/src-tauri && cargo fmt --check / clippy -D warnings / cargo test → PASS（13 条：commands 4 + core_pipe 9）
 cargo test -p assistant-agent-core --lib → PASS（ui_server 11 条）
 cargo test -p assistant-agent-core --test ui_transport_acceptance → PASS（**真管道**端到端 1 条 + 心跳非空断言 1 条）
+cargo test -p assistant-agent-core --lib → PASS（含 `ui_events` 4 条：首快照产出 / 同 revision 去重 / `None` 不重置去重状态 / revision 变化后重新产出）
 pnpm --dir apps/desktop-ui lint / format:check / test → PASS（eslint 0 warning；model 76 + DOM 3）
 xtask hygiene  → PASS（297 文件，0 error，**4 warning** —— 与基线一致）
 xtask check-ledger / card-check / docscan / refscan / memory-counts / adr-index / check-migrations / verify-schemas / check-comments → 全 PASS
@@ -144,8 +146,8 @@ xtask check-ledger / card-check / docscan / refscan / memory-counts / adr-index 
 1. ~~UI 侧 client~~ ✅ 已完成（`core_pipe.rs`）。
 2. ~~事件推送~~ ✅ 已完成（Core 侧 `push_events` + UI 侧 `subscribe`）。
 3. ~~真管道端到端 + 断连验收~~ ✅ 已完成。
-4. ⚠ **生产事件源仍缺**：`project_snapshot_events`（TASK-104 产出）**还没有接到任何生产 `UiEventSource` 实现上** —— 目前 `UiEventSource` 只有测试用实现与 `NoEvents`。要真正把"任务快照 → 事件流"接起来，需要一个在装配层持有 `TaskEngine`（或快照提供者）的源，这需要装配层先确定谁在什么时机更新快照。
-5. **收口**：PR #110 目前标题仍是 WIP，需在 4 完成后改标题、等 CI、按 A6 判据合并，并按章程 §11 同步状态。
+4. ~~生产事件源~~ ✅ 已完成（`ui_events.rs::SnapshotEventSource`，按 revision 去重）。**注意**：装配层仍需把 executor 的引擎接成 provider（一行闭包），这一步属 TASK-105 的装配工作，不在本卡范围。
+5. **收口**：PR #110 标题已由 WIP 改为 ready；等本次 CI 全绿后按 A6 判据合并，并按章程 §11 同步状态。
 
 另：本卡**不解锁 TASK-105** —— TASK-105 还需要真实 ModelProvider 与 Notepad Host handler。
 
@@ -155,6 +157,6 @@ xtask check-ledger / card-check / docscan / refscan / memory-counts / adr-index 
 
 ### 9. 给审阅者的关注点
 
-1. **这是 WIP，请勿按 Done 合并**：DoD 7 项里完成 7 项，但 §7 第 4 条（生产事件源接线）与第 5 条（收口）未完成，因此**卡标 Review 而非 Done**。
+1. **本卡按 Done 收口**：DoD 7/7；§7 只剩"装配层把引擎接成 provider"这一条，已明确划给 TASK-105。
 2. **`WireMessage` 增加了三个 UI 变体**：这是 ADR-0057 D2 授权的"新增 UI 专属 wire 类型"，并且**没有**改动工具形状的三个变体；`automation-host` 的穷尽匹配用的是 `kind()` 兜底，因此未受影响。
 3. **拒绝通道放在传输层**（`UiIpcResult::Rejected`）的理由见 §5 —— 若你更希望给 `UiCommandOutcome` 加错误变体，那会改动 `apps/desktop-ui/src/**` 的 zod 契约，需要扩本卡 write scope。

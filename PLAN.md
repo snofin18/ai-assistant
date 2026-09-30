@@ -7,12 +7,12 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-09-30（**ADR-0057 已由人类转 Accepted** → PL-095 不再阻塞 **TASK-213**（已解锁）；**TASK-087 / TASK-212 / TASK-211 已 Done**：fmt/clippy/build canary + `check-comments` CI 硬门禁（gate-selftest run `36598959358` 全绿，**PL-018 关闭**）、阶段 1a 复验清单与证据矩阵、**PL-056 / PL-058 关闭**。TASK-039 审计结论仍为阶段 1a **NO-GO**）
+更新日期    ：2026-09-30（**TASK-213 UI↔Core 真实传输已 Done** → **PL-095 闭环**：ADR-0057 Accepted、共享 wire 信封、Core 侧监听端、UI 侧真实 client、双向事件通路、**真管道端到端验收**、生产事件源 `SnapshotEventSource`；**TASK-087 / TASK-212 / TASK-211 已 Done**（fmt/clippy/build canary + `check-comments` 硬门禁、1a 复验清单、**PL-018 / PL-056 / PL-058 关闭**）。TASK-039 审计结论仍为阶段 1a **NO-GO**）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
-当前任务卡  ：**A5 批次进行中**：TASK-011~038 全 Done；**TASK-207 ✅**、**TASK-206 ✅**、**TASK-208 ✅**、**TASK-029 ✅**、**TASK-030 ✅**、**TASK-031 ✅**、**TASK-032 ✅**、**TASK-033 ✅**、**TASK-034 ✅**、**TASK-035 ✅**、**TASK-036 ✅**、**TASK-037 ✅**、**TASK-038 ✅** 均 Done；**TASK-039 = Review（审计完成，阶段 1a NO-GO）**；**TASK-102 ✅**（ADR-0056 Accepted）、**TASK-103 ✅**、**TASK-104 ✅**、**TASK-210 ✅**、**TASK-087 ✅**、**TASK-212 ✅**、**TASK-211 ✅**；**TASK-213 = Ready 且已解锁（ADR-0057 2026-09-30 转 Accepted）—— 当前应开工的卡**；下一张 **TASK-105**（前置：TASK-213 Done + 真实 ModelProvider + Notepad Host handler）；
+当前任务卡  ：**A5 批次进行中**：TASK-011~038 全 Done；**TASK-207 ✅**、**TASK-206 ✅**、**TASK-208 ✅**、**TASK-029 ✅**、**TASK-030 ✅**、**TASK-031 ✅**、**TASK-032 ✅**、**TASK-033 ✅**、**TASK-034 ✅**、**TASK-035 ✅**、**TASK-036 ✅**、**TASK-037 ✅**、**TASK-038 ✅** 均 Done；**TASK-039 = Review（审计完成，阶段 1a NO-GO）**；**TASK-102 ✅**、**TASK-103 ✅**、**TASK-104 ✅**、**TASK-210 ✅**、**TASK-087 ✅**、**TASK-212 ✅**、**TASK-211 ✅**、**TASK-213 ✅（UI↔Core 真实传输）**；下一张 **TASK-105**（前置：装配层把 executor 引擎接成事件 provider + 真实 ModelProvider + Notepad Host handler）；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204** 均 Done；**TASK-205** = Ready
-阻塞项      ：① **TASK-213 尚未实现**（ADR-0057 已 Accepted，实现未开工）→ UI↔Core 真实传输仍不通，T1.x 运行证据因此仍缺；② 真实 ModelProvider 与 Notepad Host handler 仍不存在（TASK-105 的另一半前置）；③ TASK-002 仍 Blocked；④ **PL-092**（storage 缺 conversation/session 公开记录 API）；⑤ **PL-094**（`RoleAndParent` helper 候选需契约治理）；⑥ gov **#9 覆盖率**与 **#11 `cargo doc`** 仍是 SOFT 门禁
-下一步动作  ：**开工 TASK-213**（UI↔Core 真实传输：Core 侧监听端 + UI 侧 client + 事件推送，按 `docs/spec/ui-ipc-protocol.md` 与 ADR-0057 D1~D8）→ 补齐真实 ModelProvider + Notepad Host handler → **TASK-105**（1a 转 GO 的唯一硬缺口，复验入口见 `docs/audits/stage-1a-reaudit-checklist-2026-09-30.md`）。阻断项闭环前不得进入 1b。
+阻塞项      ：① UI↔Core 传输已通，但**装配层还没把 executor 的引擎接成事件 provider**（一行闭包，属 TASK-105 的装配工作）；② 真实 ModelProvider 与 Notepad Host handler 仍不存在（TASK-105 的另一半前置）→ T1.x 运行证据因此仍缺；③ TASK-002 仍 Blocked；④ **PL-092**（storage 缺 conversation/session 公开记录 API）；⑤ **PL-094**（`RoleAndParent` helper 候选需契约治理）；⑥ gov **#9 覆盖率**与 **#11 `cargo doc`** 仍是 SOFT 门禁
+下一步动作  ：**TASK-105**（1a 转 GO 的唯一硬缺口）：先把装配层的快照 provider 接上、补真实 ModelProvider 与 Notepad Host handler，再跑 T1.1~T1.3 各 10 次并产出运行证据（复验入口见 `docs/audits/stage-1a-reaudit-checklist-2026-09-30.md`）。阻断项闭环前不得进入 1b。
                   → 审计证据见 `docs/audits/stage-1a-integration-audit-2026-09-29.md`；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 
