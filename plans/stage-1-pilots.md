@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 / A2 / A3 既有卡均 Done**；**TASK-039 = Review：阶段 1a 结论 = NO-GO**；**TASK-102 / 103 / 104 / 210 / 087 / 212 / 211 / 213 / 214 均 Done**；**TASK-213 完成 UI↔Core 真管道与 `SnapshotEventSource`，PL-095 闭环**；**TASK-214 完成生产装配根、确定性 task-package Plan 来源、5 个 Notepad handler、真 UIA T1.1 干跑、真 UI 管道 `step_state_changed` 与 fail-closed 收口，PL-096 闭环**；**TASK-105 的 T1.1 生产对象已就绪，但 T1.2/T1.3 仍被 PL-097 的靶机能力缺口阻塞**；阶段 1a 仍 NO-GO，不得在阻断项闭环前进入 1b）　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 / A2 / A3 既有卡均 Done**；**TASK-039 = Review：阶段 1a 结论 = NO-GO**；**TASK-102 / 103 / 104 / 210 / 087 / 212 / 211 / 213 / 214 均 Done**；**TASK-213 完成 UI↔Core 真管道与 `SnapshotEventSource`，PL-095 闭环**；**TASK-214 完成生产装配根、确定性 task-package Plan 来源、5 个 Notepad handler、真 UIA T1.1 干跑、真 UI 管道 `step_state_changed` 与 fail-closed 收口，PL-096 闭环**；**TASK-205 完成 `tool-bus` schema 模块拆分，`hygiene` 长文件 warning 4→3**；**TASK-105 的 T1.1 生产对象已就绪，但 T1.2/T1.3 仍被 PL-097 的靶机能力缺口阻塞**；阶段 1a 仍 NO-GO，不得在阻断项闭环前进入 1b）　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -275,7 +275,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-202 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-202-storage-migration-registry.md` | 存储迁移注册表（**ADR-0038**：storage 只提供机制、各 crate 自持迁移 + 唯一装配点）；PL-046 的落地物；**已 Done（2026-09-24）** |
 | TASK-203 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-203-audit-log-column-semantics.md` | `audit_logs` 列语义去重 + 显式链序（**ADR-0040**：删与 `id` 同义的 `hash`、加 `sequence`；迁移 0003 重建表）；PL-043 / PL-045 的落地物；**已 Done（2026-09-24）** |
 | TASK-204 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-204-draft07-keyword-verdict.md` | `crates/tool-bus` 的 draft-07 关键字判据硬化（三张显式拒绝表 + `$schema` 方言校验 + **`pattern` / `format` 永久放弃**）；TASK-020 §9 关注点 3「最大设计负债」的落地物；**已 Done（2026-09-25）** |
-| TASK-205 | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-205-schema-module-split.md` | `crates/tool-bus/src/schema.rs`（892 行，TASK-204 收尾时只剩 8 行余量）按**职责**拆分为模块目录（注册期 schema 检查 / 运行期实例校验），让每个文件回到 gov §5.4 的 600 行建议线以下、**行为零变化**；人类 2026-09-25 裁决「**合适的时候立卡，拆文件吧**」；**Ready（2026-09-25）** |
+| **TASK-205 ✅** | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-205-schema-module-split.md` | `crates/tool-bus/src/schema.rs`（892 行，TASK-204 收尾时只剩 8 行余量）按**职责**拆分为模块目录（注册期 schema 检查 / 运行期实例校验），让每个文件回到 gov §5.4 的 600 行建议线以下、**行为零变化**；人类 2026-09-25 裁决「**合适的时候立卡，拆文件吧**」；**Ready（2026-09-25）** |
 | **TASK-206 ✅** | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-206-storage-memory-fts5-search.md` | `crates/storage` 的 `memory_fts`（FTS5）迁移 + 检索 API + 存储侧测试 —— 原 TASK-028 的 **DRIFT-028-1** 前置卡（**ADR-0053 D6**）；**Done（2026-09-27，PR #68 / merge `6da9007`）** |
 | **TASK-209 ✅** | 治理池 200~299 | `tasks/TASK-209-audit-round-2-governance-remediation.md` | 第二轮审计治理整改：文档漂移、卡片状态、ADR 断表、UI/xtask CI 空转与缺失硬门禁；产品最后一公里另立卡 |
 

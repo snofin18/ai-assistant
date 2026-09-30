@@ -84,36 +84,69 @@ cargo deny check
 
 ### 1. 约束回执
 
-（待填）
+【任务】TASK-205 `crates/tool-bus/src/schema.rs` 按职责拆分
+【目标】把 892 行单文件纯搬移到 `schema/` 模块目录，行为零变化并减少一条 `file-too-long` 警告
+【write scope】仅：`crates/tool-bus/src/schema.rs` → `schema/mod.rs` + 子模块、`crates/tool-bus/src/lib.rs`（仅必要时）、`crates/tool-bus/tests/schema_keywords.rs`（仅新增）、`crates/tool-bus/README.md`（仅路径变化时）、本卡记录、进度同步文件
+【铁律】1 无静默失败；8 不以拆分改变公共可见性；9 不扩大范围；10 契约先行
+【禁止】不改行为、不加关键字、不放宽 lint、不加 `#[allow]`/`unsafe`、不引依赖、不改 `registry.rs`、不顺手重构
+【验收】卡面 14 条命令全绿；`hygiene` 的 `schema.rs:892` 警告消失且不新增警告；既有测试零改动
+【依赖】TASK-020、TASK-204 已在 `LEDGER.md` 记为 Done
+【疑问】无
 
 ### 2. 实际改动文件
 
-（待填）
+- `crates/tool-bus/src/schema.rs` → 删除单文件形态。
+- `crates/tool-bus/src/schema/mod.rs`：保留原模块文档并只做公共项 re-export。
+- `crates/tool-bus/src/schema/registration.rs`：注册期关键字表、方言校验、schema 形状检查与递归遍历。
+- `crates/tool-bus/src/schema/instance.rs`：运行期实例校验、对象 / 数组 / 字符串 / 数值 / 组合子检查。
+- `crates/tool-bus/src/schema/shared.rs`：递归深度、JSON pointer 与错误位置 helper。
+- 本卡记录与 `LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md` 的强制进度同步。
 
 ### 3. 验收输出摘要
 
-（待填）
+```text
+cargo fmt --all --check                                      → PASS
+cargo clippy --all-targets -- -D warnings                    → PASS
+cargo test --workspace                                       → PASS（0 failed）
+cargo test -p assistant-tool-bus                             → PASS（22 passed / 0 failed）
+cargo run -p xtask -- verify-schemas                         → PASS
+cargo run -p xtask -- codegen --check                        → PASS（0 drift）
+cargo run -p xtask -- hygiene                                → 0E / 3W（基线 4W；schema.rs:892 警告消失）
+cargo run -p xtask -- docscan / card-check / memory-counts   → PASS
+cargo run -p xtask -- adr-index / check-ledger               → PASS
+cargo run -p xtask -- check-migrations / refscan             → PASS
+cargo run -p xtask -- check-comments                         → 0E / 67W（基线）
+cargo deny check                                             → advisories / bans / licenses / sources OK
+```
 
 ### 4. DoD 逐条核对
 
-（待填）
+- [x] `schema.rs` 已拆为模块目录，所有文件均低于 600 行。
+- [x] `hygiene` 警告数由 4 降至 3，且没有新增 warning。
+- [x] 既有测试零改动通过；`tests/schema_keywords.rs` 9 个用例保持原样。
+- [x] 行为零变化：关键字表、四类标签、pointer 格式、`$schema` 判据与两个上限均未变。
+- [x] `pub` 可见性集合不变；`lib.rs` 仍从 `schema` re-export 同一组公共项。
+- [x] 卡面 14 条验收命令全绿。
+- [x] §11.1 进度同步已随本卡 Done 一并提交。
 
 ### 5. 偏差
 
-（待填）
+none。所有改动都在卡面 write scope 内；没有新增依赖、公共接口、`#[allow]` 或 `unsafe`。
 
 ### 6. 更合理做法
 
-（待填）
+按职责拆成注册期、运行期与共享 helper 三层；`mod.rs` 只保留模块文档和 re-export，避免将原 892 行文件换名后继续堆积。
 
 ### 7. 遗留问题
 
-（待填）
+无新增遗留。仓库另有 3 条既有 `file-too-long` warning（`xtask/src/card_check.rs` / `docscan.rs` / `main.rs`），不属本卡 write scope。
 
 ### 8. 新增长期记忆
 
-（待填）
+无。
 
 ### 9. 给审阅者的关注点
 
-（待填）
+1. 重点检查 `mod.rs` 的 re-export 集合是否与原 `schema.rs` 的公开项完全一致。
+2. 重点检查 `registration.rs` 与 `instance.rs` 是否只是搬移；共享 helper 仅提升到 `pub(super)`，没有扩大外部 API。
+3. `hygiene` 只应减少 `schema.rs:892` 一条，不应影响其余三条基线 warning。
