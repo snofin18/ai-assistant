@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；阶段 1a 补救卡 **TASK-102 / 103 / 104 / 210 / 212 / 087 均 Done**（TASK-087 已完成 fmt/clippy/build 负向 canary、`check-comments` CI 硬门禁与 gate-selftest run `36598959358` 全绿，PL-018 关闭）。TASK-039 的阶段 1a 审计结论仍为 **NO-GO**：真实 UI↔Core 传输未接通（**PL-095**），T1.x 10 次运行证据仍缺；下一张 **TASK-105**（需先裁决 PL-095）。
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；阶段 1a 补救卡 **TASK-102 / 103 / 104 / 210 / 212 / 087 均 Done**（TASK-087 已完成 fmt/clippy/build 负向 canary、`check-comments` CI 硬门禁与 gate-selftest run `36598959358` 全绿，PL-018 关闭）。**PL-095 已推进**：UI↔Core 传输契约立为 **ADR-0057（Proposed，待人类接受）**，配套 spec `ui-ipc-protocol` 为 Draft，实现卡 **TASK-213** 已派单。TASK-039 的阶段 1a 审计结论仍为 **NO-GO**：真实 UI↔Core 传输未接通，T1.x 10 次运行证据仍缺；**下一张仍取决于 ADR-0057 的裁决**（接受 → TASK-213 → TASK-105）。
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
@@ -127,6 +127,8 @@ TASK-210 把**非 Rust 侧的质量门禁**补齐：`apps/desktop-ui` 接入 **P
 
 TASK-087/TASK-212 把注释与 CI 元门禁补齐：`check-comments` 真实现 naming §10 的 8 条规则，TASK-212 只加 30 行注释把首次实跑的 9 处 Error 清零；`gate-selftest.yml` 新增 fmt（exit 1 + `Diff in`）、clippy（exit 101 + `unwrap_used` / `dbg_macro`）、build（exit 101 + `error[E0425]`）三类 canary，主 CI 新增 `[HARD #15] xtask check-comments`。gate-selftest 的成功 run number 待推送 PR #104 后触发并回填。
 
+**PL-095（UI↔Core 真实传输）** 已完成到「待裁决」这一步：新增 `docs/adr/0057-ui-core-ipc-transport-contract.md`（**Proposed**）与配套 `docs/spec/ui-ipc-protocol.md`（Draft），并派单实现卡 `tasks/TASK-213-ui-core-ipc-transport.md`。ADR 的关键取舍：Core 与 UI **保持独立进程**（架构 v2 §12.7），但**不复用** `crates/ipc` 的工具形状信封去承载 UI 命令 —— 新增 UI 专属的 `UiIpcRequest` / `UiIpcResponse` / `UiIpcEvent`，传输复用 NamedPipe 帧 + 一次性 token + 对端进程镜像白名单，命令带 `correlation_id`、事件单向推送。**该 ADR 未转 Accepted 前 TASK-213 不得开工，TASK-105 也随之仍被阻塞。**
+
 平台基线：**Windows 11 24H2+**（唯一正式基线；Windows 10 已 EOL，仅 C 级尽力）。
 Linux 侧 **Wayland-first**（GNOME 50 已移除 X11 后端）。
 
@@ -170,6 +172,15 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展（2026-09-30：**TASK-087 —— CI 负向验证 + `check-comments` 硬门禁，Done**；**TASK-212 —— check-comments 9 处真实违规修复，Done**；2026-09-29：**TASK-210 —— UI 与提交质量门禁（Prettier / ESLint / Vitest / commitlint），Done**；**TASK-104 —— UI ↔ Core typed IPC 与审批接线，Done**；**TASK-103 —— 真实任务执行器（Host 分发 + VerifyReceipt 接线），Done**；**TASK-102 —— 运行执行链路契约，Done；ADR-0056 Accepted**；**TASK-039 —— 阶段 1a 集成审计，Review / NO-GO**；**TASK-038 —— T1.3 任务包与评测集**；**TASK-037 —— T1.2 任务包与评测集**；2026-09-28：**TASK-036 —— T1.1 任务包与评测集**；**TASK-035 —— Notepad Adapter 声明式包 v0**；**TASK-034 —— 录制回放框架 v0**；**TASK-033 —— notepad-like 靶机应用**；**TASK-032 —— 策略 / 能力 / 成本面板**；**TASK-031 —— 元素拾取器 + 目标绑定**；2026-09-27：**TASK-208 —— `core` Memory（App Map + FTS5 检索消费）**；**TASK-206 —— `crates/storage` `memory_fts` FTS5 检索**；**TASK-207 —— `core` Planner（模型输出 → Plan / Step DAG）**；2026-09-26：TASK-028 —— 会话 + 上下文；TASK-027 —— HITL 审批与接管；TASK-026 —— 模型网关；TASK-025 —— 目标租约与并发控制；TASK-024 —— 撤销与补偿闭环；2026-09-25：TASK-023 —— 后置断言引擎；TASK-204 —— 工具 schema 关键字判据硬化；TASK-022 —— 任务引擎；TASK-021 —— 唯一策略放行点；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+
+**2026-09-30 —— PL-095 推进：ADR-0057（UI↔Core 传输契约，Proposed）+ TASK-213 派单**
+
+- 人类指示「把自动化任务没有做完的都做掉」→ 执行原 6 轮自动化 prompt 的第 3 项（PL-095：先立 ADR 并停下等人类接受）。
+- `docs/adr/0057-ui-core-ipc-transport-contract.md`（**Proposed**）：分进程 + UI 专属 wire 信封（不复用工具信封）+ NamedPipe/token/对端镜像白名单 + 命令带 correlation / 事件单向推送；含 5 条被否决选项与 4 项验证方式。
+- `docs/spec/ui-ipc-protocol.md`（Draft）：传输/握手、三个信封、六个 fail-closed 点、错误映射、7 条不变量、5 项验证清单。
+- `tasks/TASK-213-ui-core-ipc-transport.md`（Ready）：Core 侧监听端 + UI 侧 client + 事件推送；**开工前置 = ADR-0057 转 Accepted**。
+- 登记同步：`docs/adr/README.md` 下一个可用编号 → **0058**；`docs/memory/decisions.md` 追加 Proposed 决策条目；`docs/PARKING_LOT.md` PL-095 状态更新为「待人类接受 ADR」。
+- 结论不变：**TASK-105 仍被 PL-095 阻塞，阶段 1a 仍为 NO-GO**。
 
 **2026-09-30 —— TASK-087 CI 负向验证 + `check-comments` 硬门禁**
 

@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~028 已 Done**；**TASK-207 已 Done 并合并 PR #66**；**TASK-206 已 Done 并合并 PR #68**；**TASK-208 已 Done 并合并 PR #70**；**TASK-029 已 Done 并合并 PR #72**：binary Host 装配 + Tauri 壳；**TASK-030 已 Done 并合并 PR #74**：审批卡片 + 执行时间线；**TASK-031 已 Done**：元素拾取器 + 目标绑定向导；**TASK-032 已 Done**：策略 / 能力 / 成本面板；**TASK-033 已 Done**：notepad-like 故障注入靶机；**TASK-034 已 Done**：录制回放框架 v0；**TASK-035 已 Done**：Notepad Adapter 声明式包 v0；**TASK-036 已 Done**：T1.1 任务包与评测集；**TASK-037 已 Done**：T1.2 替换 / 保存 / 审批 / L0+L1 撤销任务包；**TASK-038 已 Done 并合并 PR #94**：T1.3 新建标签 / 写入 / 跨进程另存为任务包；**TASK-039 = Review：集成审计完成，阶段 1a 结论 = NO-GO**；**TASK-102 = Done：ADR-0056 Accepted**；**TASK-103 = Done：真实任务执行器 + Host 分发 + VerifyReceipt 接线（999 passed / 0 failed）**；**TASK-104 = Done：UI ↔ Core typed IPC 与审批接线（两侧黄金样本 + zod/serde 双校验；真实传输未接通，记 PL-095）**；**TASK-210 = Done：UI 与提交质量门禁（Prettier / ESLint / Vitest+Testing Library / commitlint 接入 CI 并各带负向验证；src-tauri 纳入 Windows CI）**；**TASK-087 = Done：fmt/clippy/build canary、check-comments CI 硬门禁与 gate-selftest run 36598959358 全绿，PL-018 已关闭**；**TASK-212 = Done：9 处 check-comments 真实违规只加注释清零**；下一张 **TASK-105**（需先裁决 PL-095）；不得在阻断项闭环前进入 1b）　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 全部 Done**：TASK-011~015；A2 **TASK-016~028 已 Done**；**TASK-207 已 Done 并合并 PR #66**；**TASK-206 已 Done 并合并 PR #68**；**TASK-208 已 Done 并合并 PR #70**；**TASK-029 已 Done 并合并 PR #72**：binary Host 装配 + Tauri 壳；**TASK-030 已 Done 并合并 PR #74**：审批卡片 + 执行时间线；**TASK-031 已 Done**：元素拾取器 + 目标绑定向导；**TASK-032 已 Done**：策略 / 能力 / 成本面板；**TASK-033 已 Done**：notepad-like 故障注入靶机；**TASK-034 已 Done**：录制回放框架 v0；**TASK-035 已 Done**：Notepad Adapter 声明式包 v0；**TASK-036 已 Done**：T1.1 任务包与评测集；**TASK-037 已 Done**：T1.2 替换 / 保存 / 审批 / L0+L1 撤销任务包；**TASK-038 已 Done 并合并 PR #94**：T1.3 新建标签 / 写入 / 跨进程另存为任务包；**TASK-039 = Review：集成审计完成，阶段 1a 结论 = NO-GO**；**TASK-102 = Done：ADR-0056 Accepted**；**TASK-103 = Done：真实任务执行器 + Host 分发 + VerifyReceipt 接线（999 passed / 0 failed）**；**TASK-104 = Done：UI ↔ Core typed IPC 与审批接线（两侧黄金样本 + zod/serde 双校验；真实传输未接通，记 PL-095）**；**TASK-210 = Done：UI 与提交质量门禁（Prettier / ESLint / Vitest+Testing Library / commitlint 接入 CI 并各带负向验证；src-tauri 纳入 Windows CI）**；**TASK-087 = Done：fmt/clippy/build canary、check-comments CI 硬门禁与 gate-selftest run 36598959358 全绿，PL-018 已关闭**；**TASK-212 = Done：9 处 check-comments 真实违规只加注释清零**；**PL-095 已推进：ADR-0057（UI↔Core 传输契约）已立为 Proposed，配套 spec `ui-ipc-protocol` 为 Draft，实现卡 TASK-213 已派单（开工前置 = ADR-0057 转 Accepted）**；下一张 **TASK-105**（前置：ADR-0057 Accepted + TASK-213 Done）；不得在阻断项闭环前进入 1b）　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -128,6 +128,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-210 ✅** | UI 与提交质量门禁：Prettier / ESLint / Vitest / commitlint | `apps/desktop-ui/**`、`.github/workflows/**`、`docs/DEPENDENCIES.md` | 039 | L | 新依赖已登记；UI 与 commit 正负门禁入 CI |
 | TASK-211 | 阶段 1a 复验准备与停车位收口 | `docs/PARKING_LOT.md`、`docs/audits/**`、状态同步文件 | 102~105、087、210 | S | PL-018/056/058 证据矩阵；复验清单；不得提前宣称 1a 通过 |
 | **TASK-212 ✅** | 修掉 `check-comments` 首次真跑发现的 9 处真实违规（DRIFT-087-1） | `crates/policy/src/dsl.rs`、`crates/ipc/src/frame.rs`、`crates/platform/windows/src/uia/{actions,tree}.rs` | 087 | S | 只加注释；`check-comments` 0 error；diff 不含可执行语句改动 |
+| TASK-213 | UI↔Core 真实传输：Core 侧监听端 + UI 侧 client + 事件推送 | `apps/agent-core/src/**`、`apps/desktop-ui/src-tauri/**`、`crates/ipc/**`（仅必要小改）、`.github/workflows/**`、README | 0057（ADR Accepted）、104、103、019 | L | 真实管道端到端；六个 fail-closed 点各有断言具体 ErrorCode 的负向用例；事件推送；断连 2s 内检测 |
 
 ---
 
@@ -234,6 +235,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-210 ✅** | A5-REMEDIATION | `tasks/TASK-210-ui-and-commit-quality-gates.md` | Ready（UI/提交质量门禁） |
 | **TASK-212 ✅** | A5-REMEDIATION | `tasks/TASK-212-check-comments-violation-fix.md` | Ready（DRIFT-087-1 的 9 处违规修复） |
 | TASK-211 | A5-REMEDIATION | `tasks/TASK-211-stage1a-reaudit-and-parking-closeout.md` | Ready（复验与停车位收口） |
+| TASK-213 | A5-REMEDIATION | `tasks/TASK-213-ui-core-ipc-transport.md` | Ready（**ADR-0057 转 Accepted 后才可开工**） |
 | TASK-040 | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Ready（批次表占位派单前补全） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
 | TASK-042 | 1b | `tasks/TASK-042-visual-verify-phash-dhash-confidence.md` | Ready（批次表占位派单前补全） |
