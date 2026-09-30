@@ -134,6 +134,25 @@ impl UiServerConfig {
 /// Fails closed for a missing token, rejected peer identity, handshake failure,
 /// tool-shaped traffic on the UI channel, or transport timeout/disconnect.
 pub fn serve<H: UiCommandHandler>(config: &UiServerConfig, handler: &mut H) -> IpcResult<()> {
+    let mut events = NoEvents;
+    serve_with_events(config, handler, &mut events)
+}
+
+/// Serves exactly one UI session while pushing events from `source`.
+///
+/// # Errors
+///
+/// Same failure set as [`serve`], plus event serialization or transport errors
+/// produced by [`push_events`].
+pub fn serve_with_events<H, S>(
+    config: &UiServerConfig,
+    handler: &mut H,
+    source: &mut S,
+) -> IpcResult<()>
+where
+    H: UiCommandHandler,
+    S: UiEventSource,
+{
     let authentication_token = std::env::var(&config.token_environment_variable)
         .map_err(|_| IpcError::InvalidAuthenticationToken)?;
 
@@ -155,11 +174,12 @@ pub fn serve<H: UiCommandHandler>(config: &UiServerConfig, handler: &mut H) -> I
         &session_id,
         config.handshake_timeout,
     )?;
-    serve_session(
+    serve_session_with_events(
         &mut transport,
         &handshake.server_hello,
         config.heartbeat_timeout,
         handler,
+        source,
     )
 }
 

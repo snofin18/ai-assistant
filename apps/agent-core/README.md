@@ -10,6 +10,9 @@ TASK-029 的 binary-layer Host 装配库。
 - 暴露 Host 装配正向测试与缺组件负向测试。
 - 提供 `RuntimeExecutor`，按 ADR-0056 单步驱动 Policy → Tool → Verify → Commit，
   并附带真实 `ToolBusInvoker` 与 `EnvelopeObservationCollector` 边界适配器。
+- 提供 ADR-0058 的 `--production` 装配根：加载 Notepad Adapter 声明、注册 5 个
+  Host handler、注入确定性 TaskPackage Provider，并把 RuntimeExecutor 快照接到
+  `SnapshotEventSource`。`--serve-ui` 会在任务结束后进入 UI 监听循环。
 - 提供 UI 命令/事件适配层（`ui_ipc` + `ui_control`）：版本化命令信封、未知字段/
   未知 kind 的 fail-closed 解析、以及把 approve/deny/pause/cancel/takeover 应用到
   真实 task-engine 的处理器。
@@ -43,7 +46,11 @@ TASK-029 的 binary-layer Host 装配库。
 
 - 生产 `SessionStore` 仍等待 storage conversation/session 记录 API（PL-092）；
   当前装配接受注入的 store，测试使用 `MemorySessionStore`。
-- 具体模型 Provider 仍归后续 provider integration 卡；本卡只装配 trait 注入点。
+- 1a 的 Plan 来源是确定性 TaskPackage Provider；真实 LLM Provider 仍归 1c 前。
+- `notepad.tab.new` 在平台 API 暴露稳定 tab count 之前显式 `CapabilityMissing`，
+  不猜测成功；对应靶机/Adapter 缺口由 PL-097 跟踪。
+- `notepad.file.save_as` 已接 Adapter selector 和文件 before/after observation，
+  但 `notepad-like` 靶机没有跨进程对话框，真机路径仍待后续靶机扩展。
 - Host 以 `WindowProvider + UiAutomationProvider` 约束的泛型平台注入具体实现；
   `WindowsPlatform` 当前未实现 `PlatformService` trait，因此不把未实现的 trait
   当作已满足的能力。装配入口在非 Windows 目标上显式失败，避免 self-check 假阳性。

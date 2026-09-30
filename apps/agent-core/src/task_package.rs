@@ -40,6 +40,7 @@ use assistant_model_gateway::{
     FinishReason, Message, ModelGatewayError, ModelId, ModelProvider, ModelResult, Pricing,
     ProviderCapabilities, ProviderFeatures, TokenCount, Usage,
 };
+use assistant_task_engine::TaskId;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -112,6 +113,8 @@ pub enum TaskPackageError {
 struct DeclaredPackage {
     task_id: String,
     #[serde(default)]
+    goal: Option<String>,
+    #[serde(default)]
     steps: Vec<DeclaredStep>,
 }
 
@@ -135,6 +138,9 @@ struct DeclaredStep {
 #[derive(Debug, Clone)]
 pub struct TaskPackageProvider {
     model_id: ModelId,
+    declared_task_id: String,
+    task_id: TaskId,
+    goal: String,
     plan_json: String,
 }
 
@@ -151,6 +157,21 @@ impl TaskPackageProvider {
             serde_json::from_str(package_json).map_err(|error| TaskPackageError::Malformed {
                 reason: error.to_string(),
             })?;
+        // Task packages use dotted ids for human readability, while the task
+        // engine accepts only ASCII letters, digits, `_`, and `-`. Normalize
+        // deterministically at the binary boundary and retain the declared id
+        // for diagnostics; this is not a model-generated value.
+        let declared_task_id = package.task_id.clone();
+        let normalized_task_id = normalize_task_id(&declared_task_id);
+        let task_id =
+            TaskId::new(normalized_task_id).map_err(|error| TaskPackageError::Malformed {
+                reason: format!("task package task_id is invalid after normalization: {error}"),
+            })?;
+        let goal = package
+            .goal
+            .clone()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| format!("Execute task package {}", task_id.as_str()));
         let model_id =
             ModelId::new(TASK_PACKAGE_MODEL_ID).map_err(|error| TaskPackageError::Malformed {
                 reason: error.to_string(),
@@ -158,6 +179,9 @@ impl TaskPackageProvider {
         let plan_json = render_plan(&package)?;
         Ok(Self {
             model_id,
+            declared_task_id,
+            task_id,
+            goal,
             plan_json,
         })
     }
@@ -180,6 +204,24 @@ impl TaskPackageProvider {
     #[must_use]
     pub fn plan_json(&self) -> &str {
         &self.plan_json
+    }
+
+    /// Returns the task identifier declared by the package.
+    #[must_use]
+    pub const fn task_id(&self) -> &TaskId {
+        &self.task_id
+    }
+
+    /// Returns the original, human-readable task identifier declared by the package.
+    #[must_use]
+    pub fn declared_task_id(&self) -> &str {
+        &self.declared_task_id
+    }
+
+    /// Returns the goal declared by the package.
+    #[must_use]
+    pub fn goal(&self) -> &str {
+        &self.goal
     }
 }
 
@@ -330,6 +372,19 @@ fn contains_placeholder(value: &Value) -> bool {
         Value::Object(fields) => fields.values().any(contains_placeholder),
         _ => false,
     }
+}
+
+fn normalize_task_id(value: &str) -> String {
+    value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || character == '_' || character == '-' {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect()
 }
 
 /// The 1a assertion table (DRIFT-214-1).
