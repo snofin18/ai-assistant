@@ -44,6 +44,7 @@ mod frame;
 mod handshake;
 mod heartbeat;
 mod transport;
+mod ui_wire;
 
 #[cfg(windows)]
 #[allow(unsafe_code)]
@@ -64,3 +65,4 @@ pub use handshake::{
 };
 pub use heartbeat::HeartbeatMonitor;
 pub use transport::{NamedPipeTransport, Transport, peer_process_image_path};
+pub use ui_wire::{UiIpcEvent, UiIpcRequest, UiIpcResponse, UiIpcResult};

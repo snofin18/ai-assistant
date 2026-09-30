@@ -60,5 +60,11 @@ version = "0.1.0"
 path = "../../crates/verify"
 version = "0.1.0"
 
+[dependencies.assistant-ipc]
+# ADR-0057: the Core-side UI command listener owns the transport end of the
+# UI↔Core contract. Workspace dependency, not a new third-party crate.
+path = "../../crates/ipc"
+version = "0.1.0"
+
 [lints]
 workspace = true

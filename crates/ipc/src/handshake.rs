@@ -10,6 +10,8 @@ use std::time::Duration;
 use assistant_protocol::{AuditEvent, Capability, ToolEnvelope};
 use serde::{Deserialize, Serialize};
 
+use crate::ui_wire::{UiIpcEvent, UiIpcRequest, UiIpcResponse};
+
 use crate::{IpcError, IpcResult, Transport};
 
 /// Current wire protocol version.
@@ -140,6 +142,12 @@ pub enum WireMessage {
     Response(ResponseMessage),
     /// One-way audit event.
     AuditEvent(Box<AuditEventMessage>),
+    /// UI command request (ADR-0057 D2). **Not** a tool invocation.
+    UiRequest(UiIpcRequest),
+    /// UI command response (ADR-0057 D5).
+    UiResponse(UiIpcResponse),
+    /// UI event push (ADR-0057 D5).
+    UiEvent(UiIpcEvent),
 }
 
 impl WireMessage {
@@ -173,6 +181,9 @@ impl WireMessage {
             Self::Request(_) => "Request",
             Self::Response(_) => "Response",
             Self::AuditEvent(_) => "AuditEvent",
+            Self::UiRequest(_) => "UiRequest",
+            Self::UiResponse(_) => "UiResponse",
+            Self::UiEvent(_) => "UiEvent",
         }
     }
 }

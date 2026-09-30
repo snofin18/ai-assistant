@@ -48,6 +48,7 @@ version = "0.1.0"
 dependencies = [
  "assistant-audit",
  "assistant-core",
+ "assistant-ipc",
  "assistant-model-gateway",
  "assistant-platform-api",
  "assistant-platform-windows",

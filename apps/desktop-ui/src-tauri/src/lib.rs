@@ -5,8 +5,10 @@
 //! and forwarded to the Core process through an injected transport.
 
 mod commands;
+mod core_pipe;
 
 pub use commands::{CommandState, CoreCommandTransport, UiCommandRejection, send_ui_command};
+pub use core_pipe::{CorePipeConfig, CorePipeTransport};
 
 /// Runs the desktop shell with no Core transport installed.
 ///
@@ -29,4 +31,16 @@ pub fn run_with_state(state: CommandState) -> Result<(), tauri::Error> {
         .manage(state)
         .invoke_handler(tauri::generate_handler![commands::send_ui_command])
         .run(tauri::generate_context!())
+}
+
+/// Runs the desktop shell over the real Core UI pipe (ADR-0057 D7).
+///
+/// # Errors
+///
+/// Returns the Tauri startup error when the webview cannot be created or the
+/// event loop exits abnormally.
+pub fn run_with_core_pipe(config: CorePipeConfig) -> Result<(), tauri::Error> {
+    run_with_state(CommandState::with_transport(std::sync::Arc::new(
+        CorePipeTransport::new(config),
+    )))
 }

@@ -27,7 +27,9 @@ mod assembly;
 mod error;
 mod runtime;
 mod ui_control;
+mod ui_events;
 mod ui_ipc;
+mod ui_server;
 
 pub use adapters::{
     AuditSink, CharacterTokenEstimator, RootedAppMapReader, StorageMemoryRetriever,
@@ -40,8 +42,13 @@ pub use runtime::{
     StepExecutionOutcome, StepPolicy, ToolBusInvoker, ToolInvoker,
 };
 pub use ui_control::TaskControlHandler;
+pub use ui_events::SnapshotEventSource;
 pub use ui_ipc::{
     UI_IPC_VERSION, UiAuthorizationScope, UiCommand, UiCommandError, UiCommandHandler,
     UiCommandOutcome, UiEvent, dispatch_ui_command, parse_ui_command, project_snapshot_events,
     task_status_name,
+};
+pub use ui_server::{
+    NoEvents, UiEventSource, UiServerConfig, looks_like_image_path, process_ui_request,
+    push_events, serve as serve_ui, serve_session, serve_session_with_events,
 };
