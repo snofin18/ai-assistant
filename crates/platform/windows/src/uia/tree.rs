@@ -186,6 +186,8 @@ fn canonical_line(
     let automation_id = unsafe { element.CurrentAutomationId() }
         .map(|value| bstr_to_string(&value))
         .map_err(|failure| error::error_from_hresult(failure.code().0, "CurrentAutomationId"))?;
+    // SAFETY: 只读 BOOL 属性；COM 引用保持在当前 STA 线程，windows 绑定把返回值
+    // 表示为按值拥有的 BOOL，随后仅做无损布尔转换。
     let enabled = unsafe { element.CurrentIsEnabled() }
         .map_err(|failure| error::error_from_hresult(failure.code().0, "CurrentIsEnabled"))?;
     Ok(format!(

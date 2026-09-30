@@ -68,6 +68,8 @@ pub fn invoke_action(element: &ResolvedElement, action: &str) -> PlatformResult<
 
 /// `InvokePattern::Invoke()` + **弱**后置条件（元素仍可达；理由见模块头）。
 fn invoke(element: &IUIAutomationElement) -> PlatformResult<()> {
+    // SAFETY: COM 引用在当前 STA 线程内传递，接口指针由 windows 绑定保持有效；
+    // 调用不转交所有权、不读写缓冲区，返回值是绑定层的 Result。
     let pattern: IUIAutomationInvokePattern = unsafe {
         element.GetCurrentPatternAs(UIA_InvokePatternId)
     }
@@ -89,6 +91,8 @@ fn invoke(element: &IUIAutomationElement) -> PlatformResult<()> {
 
 /// `TogglePattern::Toggle()` + **强**后置条件（`ToggleState` 必须改变）。
 fn toggle(element: &IUIAutomationElement) -> PlatformResult<()> {
+    // SAFETY: COM 引用在当前 STA 线程内传递，接口指针由 windows 绑定保持有效；
+    // 调用不转交所有权、不读写缓冲区，返回值是绑定层的 Result。
     let pattern: IUIAutomationTogglePattern = unsafe {
         element.GetCurrentPatternAs(UIA_TogglePatternId)
     }
@@ -120,6 +124,8 @@ fn set_expanded(element: &IUIAutomationElement, expand: bool) -> PlatformResult<
     } else {
         "invoke_action(collapse)"
     };
+    // SAFETY: COM 引用在当前 STA 线程内传递，接口指针由 windows 绑定保持有效；
+    // 调用不转交所有权、不读写缓冲区，返回值是绑定层的 Result。
     let pattern: IUIAutomationExpandCollapsePattern =
         unsafe { element.GetCurrentPatternAs(UIA_ExpandCollapsePatternId) }
             .map_err(|failure| pattern_missing(&failure, context, "ExpandCollapsePattern"))?;
@@ -153,6 +159,8 @@ fn set_expanded(element: &IUIAutomationElement, expand: bool) -> PlatformResult<
 
 /// `SelectionItemPattern::Select()` + **强**后置条件（`IsSelected` 必须为真）。
 fn select_item(element: &IUIAutomationElement, context: &str) -> PlatformResult<()> {
+    // SAFETY: COM 引用在当前 STA 线程内传递，接口指针由 windows 绑定保持有效；
+    // 调用不转交所有权、不读写缓冲区，返回值是绑定层的 Result。
     let pattern: IUIAutomationSelectionItemPattern =
         unsafe { element.GetCurrentPatternAs(UIA_SelectionItemPatternId) }
             .map_err(|failure| pattern_missing(&failure, context, "SelectionItemPattern"))?;
@@ -193,6 +201,8 @@ fn focus(element: &IUIAutomationElement) -> PlatformResult<()> {
 
 /// `ScrollItemPattern::ScrollIntoView()` + **强**后置条件（元素不再离屏）。
 fn scroll_into_view(element: &IUIAutomationElement) -> PlatformResult<()> {
+    // SAFETY: COM 引用在当前 STA 线程内传递，接口指针由 windows 绑定保持有效；
+    // 调用不转交所有权、不读写缓冲区，返回值是绑定层的 Result。
     let pattern: IUIAutomationScrollItemPattern =
         unsafe { element.GetCurrentPatternAs(UIA_ScrollItemPatternId) }.map_err(|failure| {
             pattern_missing(
@@ -319,6 +329,8 @@ pub fn scroll(element: &ResolvedElement, target: &ScrollTarget) -> PlatformResul
         )));
     }
     handles::with_element(element.id(), |uia| {
+        // SAFETY: COM 引用在当前 STA 线程内传递，接口指针由 windows 绑定保持有效；
+        // 调用不转交所有权、不读写缓冲区，返回值是绑定层的 Result。
         let pattern: IUIAutomationScrollPattern =
             unsafe { uia.GetCurrentPatternAs(UIA_ScrollPatternId) }
                 .map_err(|failure| pattern_missing(&failure, "scroll", "ScrollPattern"))?;

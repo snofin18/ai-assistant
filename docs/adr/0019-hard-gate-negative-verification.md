@@ -47,21 +47,22 @@
   ① 改动任何硬门禁（软转硬、改命令、改版本钉法）后必须手工跑一次 `gate-selftest`；
   ② 每个阶段末评审（gov §7.2）必须跑一次并把运行编号记入 `LEDGER.md`。
 
-## 硬门禁负向验证登记表（截至 2026-09-24）
+## 硬门禁负向验证登记表（截至 2026-09-29）
 
 | gov §5.1 # | 硬门禁 | 形式 | 负向验证内容 | 状态 |
 |---|---|---|---|---|
-| 1 | `cargo fmt --all --check` | — | 注入一个格式错误的 `.rs`，断言 exit ≠ 0 | ❌ **缺**（PL-018） |
-| 2 / 3 | `cargo clippy -D warnings`（含 `[workspace.lints]` 禁用项） | — | 注入一个含 `unwrap()` / `dbg!` 的 `.rs`，断言 exit ≠ 0 | ❌ **缺**（PL-018） |
+| 1 | `cargo fmt --all --check` | **N3** | 正：真实仓库 `cargo fmt --all --check` → exit 0；负：向 `xtask/src/main.rs` 注入一个语法有效但未格式化的 test 模块 → 断言 **exit 1**、输出含 `Diff in` 且指名 `xtask/src/main.rs` | ✅ 2026-09-29 本行随 TASK-087 落地 |
+| 2 / 3 | `cargo clippy -D warnings`（含 `[workspace.lints]` 禁用项） | **N3** | 正：真实仓库 `cargo clippy --all-targets -- -D warnings` → exit 0；负：注入含 `unwrap()` 与 `dbg!` 的 test 模块 → 断言 **exit 101**、输出同时含 `-D clippy::unwrap-used` 与 `-D clippy::dbg-macro`（Clippy 渲染 lint 名用连字符，2026-09-30 首跑修正断言口径） | ✅ 2026-09-30 本行随 TASK-087 落地 |
 | 4 | `cargo test --workspace` | N1 | 99 个测试中大量为负向用例（任务卡 §7.3） | ✅ |
 | 5 | `cargo test -p assistant-core arch::`（**2026-09-24 由软转硬**，TASK-015） | **N1** | `crates/core/tests/arch_layering.rs`：正向 2 条（扫 `crates/core/src/**` 不得出现平台实现引用；`crates/core/Cargo.toml` 的 `[dependencies]` 不得出现平台实现 crate）+ 负向 3 条（喂 `windows::` 引用 / `windows = "0.62"` 依赖 / `[dependencies.winapi]` 表头形态 → 断言扫描器必须报；反向用例证明`assistant-platform-api` 与文档注释里提到的平台目录名**不被误报**）+ 2 条「必须先真的扫到源码/清单」的空断言防护（否则「一个文件都没扫到」会伪装成通过）。**转硬理由**：ADR-0039 之前的 #5 是 `continue-on-error`，而 `cargo test -p assistant-core arch::` 跑的是 `running 0 tests` —— 看着是绿的、实际什么都没查 | ✅ 2026-09-24 本行随 TASK-015 落地 |
 | 6 | `cargo run -p xtask -- verify-schemas`（**2026-09-24 由软转硬**，TASK-011 收尾） | **N1 + N2** | N1：`xtask/src/verify_schemas.rs` 的 tests 模块 8 条用例 —— 13 类同序一致 → 零发现项（正向基线，证明断言不是恒真）；12 类 / 数据数组与 `enum` 不同序 / 缺 `categories` / capability 为空 / capability id 重复 → 各自必须产生对应发现项；仓库根指向不存在的目录 → 必须 `Ok(1)`（**读不到 ≠ 通过**，铁律 1）。N2：`ci.yml` 的 `gate-negative` job 把 error-codes schema 顶层 `version` 注入成 `9.9` → 断言 **exit 1**（不是"非零"：2 = 用法错误不算拦住漂移） | ✅ 2026-09-24 本行随 TASK-011 收尾落地 |
 | 7 | `cargo run -p xtask -- codegen --check`（**2026-09-24 由软转硬**，TASK-011 收尾） | **N1 + N2** | N1：`xtask/src/codegen.rs` 的 tests 模块 4 条用例 —— 两侧一致 → 无差异（正向基线）；手改第 2 行 → 报出首个差异行号与两侧原文；追加尾行 → 报出 `<missing line>`；schema 读不到 → `run` 必须 `Err`（禁止"什么都没读到 → 0 drift → exit 0"）。N2：`ci.yml` 的 `gate-negative` job 往 `crates/protocol/src/generated/tool_schema.rs` 追加一行 → 断言 **exit 1** | ✅ 2026-09-24 本行随 TASK-011 收尾落地 |
 | 8 | `cargo deny check` | **N3** | 正：`cargo deny check licenses bans sources` → exit 0；负：`cargo deny --config <坏配置>`（`db-path` 写成数组）→ 断言 exit 1 **且** stderr 含 `expected a string` | ✅ 本 ADR 落地 |
 | **8b** | `cargo deny check licenses sources`（逐个 `spikes/*/Cargo.toml`；ADR-0024 D2） | **N3** | 正：复刻 ci.yml 的枚举逻辑跑真实 `spikes/`（含 `windows =0.62.2`）→ `licenses ok, sources ok` exit 0；负：注入本地 path 依赖 + `license = "GPL-3.0-only"` 的 fixture → 断言 exit ≠ 0 **且**输出含 `license is not explicitly allowed` **且**含 `GPL-3.0-only`（本机 2026-09-18 实测 exit **4**） | ✅ 本行随 ADR-0024 落地 |
-| 10 | `cargo build --release` | — | 注入一个编译不过的 `.rs`，断言 exit ≠ 0 | ❌ **缺**（PL-018） |
+| 10 | `cargo build --release` | **N3** | 正：真实仓库 `cargo build --release` → exit 0；负：注入读取未定义值的函数 → 断言 **exit 101**、输出含 `error[E0425]` 且指名 `undefined_gate_selftest_value` | ✅ 2026-09-29 本行随 TASK-087 落地 |
 | 12 | `xtask hygiene` | N1 + N2 | 测试含三条规则各自的 通过 / 告警 / 失败 / 边界 四类用例；CI 另有 `deferred-inventory` 断言未实现子命令 exit 3 | ✅ |
 | **12b** | `xtask memory-counts` + `xtask adr-index`（文档一致性；ADR-0030 D5，**2026-09-18 追加**） | **N1** | `memory_counts.rs`（8 条规则）与 `adr_index.rs`（11 条规则）的单测里，**每条规则都有至少一个「喂不一致输入 → 必须产生该规则 id 的 Error」的负向用例**；另含两条「表结构解析不到必须失败而不是静默通过」的用例（`memory/scale-table-unparsable`、`adr/registry-section-missing`，铁律 1），与「一致输入 → 零发现项」的正向用例、以及「同一输入两次结果逐字节相同」的确定性用例。ADR-0030 验证方式 2 / 4 另给了两处**真仓库**负向实证：把规模表里 `facts.md` 的行数改成 `1` → exit 1 且输出含 `memory/line-count-mismatch`；往登记表 §2 临时加一行 `0019` → exit 1 且输出含 `adr/number-collision`（即 0019 双重占用事故的机器判据） | ✅ 本行随 ADR-0030 落地 |
+| 15 | `cargo run -p xtask -- check-comments`（**2026-09-29 由软转硬**，TASK-087） | **N1 + N2** | N1：`xtask/src/comments_tests.rs` 的 27 条用例覆盖 naming §10 的 8 条规则，含每条规则的正向、负向与边界（`pub const fn` 不得把 `fn` 当名字、多行 `SAFETY`、空行切断 `SAFETY` 组、`#[doc]` 属性算文档）；N2：主 CI `[HARD #15] xtask check-comments` 直接作为 PR/push 硬门禁。**转硬前置**：TASK-212 已修掉首次实跑的 9 处真实违规，接入时不是永久红灯 | ✅ 2026-09-29 本行随 TASK-087 落地 |
 | 16 | `cargo run -p xtask -- check-ledger`（**2026-09-24 由软转硬**，TASK-015；ADR-0039 D3） | **N1** | `xtask/src/ledger_check.rs` 的 tests 模块 14 条用例：正向 2 条（`PLAN.md` 日期与 `LEDGER.md` 末行同日算新鲜 → 零发现项；`README.md` 状态行含当前阶段名 → 零发现项）+ 负向 4 条（PLAN 日期落后于 LEDGER 末行 → `ledger/plan-date-stale`；README 缺 `> 状态：` 行 → `ledger/readme-status-line`；状态行阶段名不符 → 同规则；解析不到「更新日期 / 末行日期 / 当前阶段」→ 解析函数必须返回 `None` 并由 `run` 转成 `Err`，**禁止静默当成 PASSED**，铁律 1）+ 回归用例 1 条（`当前阶段` 这四个字**自身含** `阶段`，实现必须先跳过它）。**转硬理由**：ADR-0039「验证方式 2」原文要求「TASK-015 落地 check-ledger 后由 CI 硬拦」 | ✅ 2026-09-24 本行随 TASK-015 落地 |
 
 > **规则（自本 ADR 生效起适用于 TASK-015 及之后所有卡）**：

@@ -11,8 +11,8 @@
 #   规程（ADR-0019）：① 改动任何硬门禁后跑一次；② 每个阶段末评审跑一次，
 #   并把运行编号记入 LEDGER.md。
 #
-# 覆盖范围：gov §5.1 #8（deny）与 #8b（spike-deny，ADR-0024 D2）。
-#   fmt / clippy / build 的 canary 缺失，见 docs/PARKING_LOT.md PL-018（归 TASK-015）。
+# 覆盖范围：gov §5.1 #1/#2/#3/#10（fmt / clippy / build）与 #8/#8b（deny / spike-deny）。
+#   #15 check-comments 的负向验证是 N1 单测 + 主 CI 的真实红灯，不进本 workflow。
 #
 # 修改本文件的规则：新增 canary 段 = 正常演进（须在 ADR-0019 登记表补一行）；
 #   删除或放宽断言 = 削弱护栏，属漂移触发器，需 ADR + 人类批准。
@@ -194,3 +194,178 @@ jobs:
             exit 1
           fi
           echo "OK: 负向通过（exit=$code，输出含 'license is not explicitly allowed' 与 'GPL-3.0-only'）"
+  # ==========================================================================
+  # fmt 门禁的负向验证（ADR-0019 N3）
+  #
+  # 要证明的命题：cargo fmt --all --check 在「存在真实格式漂移」时会红，
+  #   且失败文本必须指名漂移文件，而不是被无关错误碰巧变成非零退出。
+  # ==========================================================================
+  fmt-gate:
+    name: "fmt 门禁负向验证 (ADR-0019 N3)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: "positive: repository formatting baseline passes"
+        run: |
+          set -euo pipefail
+          cargo fmt --all --check
+          echo "OK: 正向通过（当前仓库没有格式漂移）"
+
+      - name: "negative: injected formatting drift must fail with exit 1"
+        run: |
+          set -uo pipefail
+          target=xtask/src/main.rs
+          backup="$(mktemp)"
+          cp "$target" "$backup"
+          cat >> "$target" <<'RUST'
+
+          #[cfg(test)]
+          mod gate_selftest_fmt_canary {
+          #[test]
+          fn gate_selftest_fmt_canary_is_unformatted() {
+          let value=1;
+          assert_eq!(value,1);
+          }
+          }
+          RUST
+          if out="$(CARGO_TERM_COLOR=never cargo fmt --all --check 2>&1)"; then
+            code=0
+          else
+            code=$?
+          fi
+          mv "$backup" "$target"
+          echo "----- cargo fmt output (exit=$code) -----"
+          echo "$out"
+          echo "----------------------------------------"
+          if [ "$code" -ne 1 ]; then
+            echo "FAIL: 期望格式漂移返回 exit 1，实际 $code"
+            exit 1
+          fi
+          if ! echo "$out" | grep -q "Diff in"; then
+            echo "FAIL: 输出不含 'Diff in' —— 断言与 rustfmt 的真实故障模式脱钩 (ADR-0019)"
+            exit 1
+          fi
+          if ! echo "$out" | grep -q "xtask/src/main.rs"; then
+            echo "FAIL: 输出未指名漂移文件 —— 断言不够具体 (ADR-0019)"
+            exit 1
+          fi
+          echo "OK: 负向通过（exit=$code，输出指名 xtask/src/main.rs 的 Diff）"
+  # ==========================================================================
+  # clippy 门禁的负向验证（ADR-0019 N3）
+  #
+  # 同时注入 unwrap_used 与 dbg_macro：一个证明 workspace deny 生效，
+  # 一个证明本仓库的调试宏禁令没有被绕过。
+  # ==========================================================================
+  clippy-gate:
+    name: "clippy 门禁负向验证 (ADR-0019 N3)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: "positive: repository clippy baseline passes"
+        run: |
+          set -euo pipefail
+          cargo clippy --all-targets -- -D warnings
+          echo "OK: 正向通过（当前仓库没有 clippy 违规）"
+
+      - name: "negative: unwrap and dbg lints must fail with exit 101"
+        run: |
+          set -uo pipefail
+          target=xtask/src/main.rs
+          backup="$(mktemp)"
+          cp "$target" "$backup"
+          cat >> "$target" <<'RUST'
+
+          #[cfg(test)]
+          mod gate_selftest_clippy_canary {
+          #[test]
+          fn gate_selftest_clippy_canary_fails_lints() {
+          let value: Option<u8>=None;
+          let unwrapped=value.unwrap();
+          let debugged=dbg!(unwrapped);
+          assert_eq!(debugged, 0);
+          }
+          }
+          RUST
+          if out="$(CARGO_TERM_COLOR=never cargo clippy --all-targets -- -D warnings 2>&1)"; then
+            code=0
+          else
+            code=$?
+          fi
+          mv "$backup" "$target"
+          echo "----- cargo clippy output (exit=$code) -----"
+          echo "$out"
+          echo "------------------------------------------"
+          if [ "$code" -ne 101 ]; then
+            echo "FAIL: 期望 deny lint 返回 exit 101，实际 $code"
+            exit 1
+          fi
+          if ! echo "$out" | grep -q -- "-D clippy::unwrap-used"; then
+            echo "FAIL: 输出不含 -D clippy::unwrap-used —— workspace deny 没有生效 (ADR-0019)"
+            exit 1
+          fi
+          if ! echo "$out" | grep -q -- "-D clippy::dbg-macro"; then
+            echo "FAIL: 输出不含 -D clippy::dbg-macro —— 调试宏禁令没有生效 (ADR-0019)"
+            exit 1
+          fi
+          echo "OK: 负向通过（exit=$code，unwrap-used 与 dbg-macro 均被指名拒绝）"
+  # ==========================================================================
+  # build 门禁的负向验证（ADR-0019 N3）
+  #
+  # 注入 E0425 未定义值：这是编译器错误，不是 lint 或测试失败；
+  # 断言必须指名错误码与标识符，防止无关非零退出假绿。
+  # ==========================================================================
+  build-gate:
+    name: "build 门禁负向验证 (ADR-0019 N3)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: "positive: release build baseline passes"
+        run: |
+          set -euo pipefail
+          cargo build --release
+          echo "OK: 正向通过（当前仓库 release build 可用）"
+
+      - name: "negative: undefined value must fail with exit 101 and E0425"
+        run: |
+          set -uo pipefail
+          target=xtask/src/main.rs
+          backup="$(mktemp)"
+          cp "$target" "$backup"
+          cat >> "$target" <<'RUST'
+
+          fn gate_selftest_build_canary() -> u32 {
+              undefined_gate_selftest_value
+          }
+          RUST
+          if out="$(CARGO_TERM_COLOR=never cargo build --release 2>&1)"; then
+            code=0
+          else
+            code=$?
+          fi
+          mv "$backup" "$target"
+          echo "----- cargo build output (exit=$code) -----"
+          echo "$out"
+          echo "-------------------------------------------"
+          if [ "$code" -ne 101 ]; then
+            echo "FAIL: 期望编译错误返回 exit 101，实际 $code"
+            exit 1
+          fi
+          if ! echo "$out" | grep -q "error\\[E0425\\]"; then
+            echo "FAIL: 输出不含 error[E0425] —— 断言与未定义值错误脱钩 (ADR-0019)"
+            exit 1
+          fi
+          if ! echo "$out" | grep -q "undefined_gate_selftest_value"; then
+            echo "FAIL: 输出未指名未定义标识符 —— 断言不够具体 (ADR-0019)"
+            exit 1
+          fi
+          echo "OK: 负向通过（exit=$code，E0425 指名 undefined_gate_selftest_value）"
