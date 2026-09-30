@@ -1,6 +1,6 @@
 # ADR-0057　UI↔Core 传输契约：独立进程 + UI 专属 wire 类型
 
-状态：**Proposed**（等待人类接受；接受前不得实现 TASK-213）
+状态：**Accepted**（2026-09-30 人类确认接受；TASK-213 已解锁，可开工）
 日期：2026-09-30
 Supersedes：—
 Superseded by：—
@@ -59,7 +59,7 @@ TASK-104 已经把 UI↔Core 的**契约形状**落进代码：`apps/agent-core/
 ## 影响
 
 - 新增配套 contract：`docs/spec/ui-ipc-protocol.md`。
-- 新增卡 **TASK-213**（UI↔Core 传输实现），依赖本 ADR 转 **Accepted**。
+- 新增卡 **TASK-213**（UI↔Core 传输实现）——本 ADR 已于 **2026-09-30 转 Accepted**，该卡已解锁。
 - **TASK-105 在本 ADR + TASK-213 完成前不可开工**（阶段 1a 的 NO-GO 不会因为本 ADR 而改变）。
 - `crates/ipc` 的公共类型**不需要**改动（UI 信封是新类型）。若实现中发现必须改它的公共接口 → 回本 ADR 补充，不得顺手改。
 - `apps/desktop-ui/src-tauri` 会增加对 `crates/ipc` 的 workspace path 依赖（非第三方依赖，无需登记）。

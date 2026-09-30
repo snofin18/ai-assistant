@@ -1,9 +1,9 @@
 # spec: UI↔Core IPC 协议（ui-ipc-protocol）
 
 > 摘要：定义桌面 UI 进程与 Core 进程之间的命令 / 响应 / 事件线上契约。
-> 状态：Draft（ADR-0057 **Proposed**）　版本：0.1　日期：2026-09-30
+> 状态：Draft（ADR-0057 **Accepted**，2026-09-30）　版本：0.1　日期：2026-09-30
 > 上位：`AGENTS.md` §2、架构 v2 §12.7 / §14、ADR-0057、ADR-0056、`docs/spec/ipc-protocol.md`
-> 强制性：ADR-0057 转 **Accepted** 后即作为实现契约；违反由 Reviewer 拒绝合并，能机器化的
+> 强制性：ADR-0057 已于 2026-09-30 转 **Accepted**，本文即作为实现契约；违反由 Reviewer 拒绝合并，能机器化的
 > 部分由 TASK-213 的测试固定。
 > 变更门槛：新增字段或修改类型 → 需 ADR（漂移触发器 ③）。
 
@@ -111,4 +111,5 @@ Core -> UI  : UiIpcEvent    { event: UiEvent }          // 单向推送，无 co
 
 | 日期 | 变更 | 依据 |
 |---|---|---|
-| 2026-09-30 | 建立 UI↔Core 传输契约（Draft） | ADR-0057（**Proposed**）/ PL-095 |
+| 2026-09-30 | 建立 UI↔Core 传输契约（Draft） | ADR-0057 / PL-095 |
+| 2026-09-30 | ADR-0057 由 Proposed 转 **Accepted**（人类确认），本文成为实现契约 | 人类裁决 |
