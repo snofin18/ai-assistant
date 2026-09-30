@@ -1,6 +1,6 @@
 # ADR-0058　生产装配根与阶段 1a 的 Plan 来源契约
 
-状态：**Proposed**（待人类接受；接受前不得据本 ADR 开工）
+状态：**Accepted**（2026-09-30 人类确认接受；TASK-214 已解锁，可开工）
 日期：2026-09-30
 Supersedes：—
 Superseded by：—
