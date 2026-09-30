@@ -25,6 +25,41 @@ pub const UI_COMMAND_INVALID: &str = "ui_command_invalid";
 /// Error code for a missing Core transport.
 pub const CORE_TRANSPORT_UNAVAILABLE: &str = "core_transport_unavailable";
 
+/// Structured failure raised by a [`CoreCommandTransport`].
+///
+/// `code` is either [`CORE_TRANSPORT_UNAVAILABLE`] (the UI could not reach
+/// Core) or the `ErrorCode` name Core itself reported for a rejection. Keeping
+/// the two apart is what lets the webview tell "Core refused this command" from
+/// "Core is not reachable" — collapsing them would be a silent failure.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct UiTransportFailure {
+    /// Machine-readable code.
+    pub code: String,
+    /// Human-readable reason.
+    pub message: String,
+}
+
+impl UiTransportFailure {
+    /// Builds an "unreachable" failure.
+    #[must_use]
+    pub fn unavailable(message: impl Into<String>) -> Self {
+        Self {
+            code: CORE_TRANSPORT_UNAVAILABLE.to_owned(),
+            message: message.into(),
+        }
+    }
+
+    /// Builds a failure carrying `code` (typically an `ErrorCode` name).
+    #[must_use]
+    pub fn with_code(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            code: code.into(),
+            message: message.into(),
+        }
+    }
+}
+
 /// Boundary that forwards one validated command to the Core process.
 ///
 /// The UI process never links Core; a real implementation talks to
@@ -36,15 +71,18 @@ pub trait CoreCommandTransport: Send + Sync + 'static {
     ///
     /// # Errors
     ///
-    /// Returns a human-readable reason when the command cannot be forwarded.
-    fn send(&self, command: Value) -> Result<Value, String>;
+    /// Returns a structured failure when the command cannot be forwarded or
+    /// Core rejects it.
+    fn send(&self, command: Value) -> Result<Value, UiTransportFailure>;
 }
 
 struct UnavailableTransport;
 
 impl CoreCommandTransport for UnavailableTransport {
-    fn send(&self, _command: Value) -> Result<Value, String> {
-        Err("the Core IPC transport is not wired yet".to_owned())
+    fn send(&self, _command: Value) -> Result<Value, UiTransportFailure> {
+        Err(UiTransportFailure::unavailable(
+            "the Core IPC transport is not wired yet",
+        ))
     }
 }
 
@@ -73,7 +111,7 @@ impl CommandState {
 #[derive(Debug, Serialize)]
 pub struct UiCommandRejection {
     /// Stable machine-readable code.
-    pub code: &'static str,
+    pub code: String,
     /// Human-readable explanation.
     pub message: String,
 }
@@ -81,7 +119,7 @@ pub struct UiCommandRejection {
 impl UiCommandRejection {
     fn invalid(message: impl Into<String>) -> Self {
         Self {
-            code: UI_COMMAND_INVALID,
+            code: UI_COMMAND_INVALID.to_owned(),
             message: message.into(),
         }
     }
@@ -102,9 +140,9 @@ pub fn send_ui_command(
     state
         .transport
         .send(envelope)
-        .map_err(|message| UiCommandRejection {
-            code: CORE_TRANSPORT_UNAVAILABLE,
-            message,
+        .map_err(|failure| UiCommandRejection {
+            code: failure.code,
+            message: failure.message,
         })
 }
 
@@ -182,7 +220,7 @@ mod tests {
             "command": {"kind": "pause_task", "task_id": "t_1", "extra": "attacker"},
         });
         let rejection = validate_envelope(&value).err().map(|error| error.code);
-        assert_eq!(rejection, Some(UI_COMMAND_INVALID));
+        assert_eq!(rejection, Some(UI_COMMAND_INVALID.to_owned()));
     }
 
     #[test]

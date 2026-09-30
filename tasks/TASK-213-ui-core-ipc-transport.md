@@ -83,7 +83,7 @@ cargo run -p xtask -- check-comments
 
 ### 2. 实际改动文件
 
-**本 PR 只做 D8 的前两步（命令路径的传输底座 + Core 侧监听端），卡未完成，见 §4 / §7。**
+**本 PR 已做 D8 的前三步（传输底座 + Core 侧监听端 + UI 侧真实 client），事件推送与端到端/CI 收口未做，卡未完成，见 §4 / §7。**
 
 | 文件 | 改动 |
 |---|---|
@@ -92,6 +92,9 @@ cargo run -p xtask -- check-comments
 | `crates/ipc/src/lib.rs` | 声明 `mod ui_wire;` 并从该模块导出四个类型。 |
 | `apps/agent-core/src/ui_server.rs`（新增） | Core 侧监听端：`UiServerConfig`（pipe 名 / token 环境变量 / 对端镜像白名单 / 两个超时）、`serve()`（NamedPipe 接受 → 对端身份校验 → `server_handshake` → 会话循环）、`serve_session<T: Transport, H>`（白盒接缝，脚本化 transport 可测）、`process_ui_request()`（先解析后执行，拒绝带 `ErrorCode`）。 |
 | `apps/agent-core/src/lib.rs`、`Cargo.toml` | 导出 `UiServerConfig` / `serve_ui` / `serve_session` / `process_ui_request`；新增 workspace 依赖 `assistant-ipc`（ADR-0057 D7）。 |
+| `apps/desktop-ui/src-tauri/src/core_pipe.rs`（新增） | UI 侧**真实 client**：`CorePipeConfig`（pipe 名 / token 环境变量 / connect 与 request 超时）、`CorePipeTransport`（NamedPipe connect → `client_handshake` → `UiIpcRequest` → 按 correlation 匹配 `UiIpcResponse`），以及可单测的 `interpret_response`。**不自动重试**（重试可能重复副作用）。 |
+| `apps/desktop-ui/src-tauri/src/commands.rs` | `CoreCommandTransport::send` 的失败类型由 `String` 升级为 `UiTransportFailure { code, message }` —— **把"Core 拒绝了这个命令"（带 `ErrorCode`）与"Core 不可达"分开**；`UiCommandRejection.code` 随之改为 `String`。 |
+| `apps/desktop-ui/src-tauri/src/lib.rs`、`Cargo.toml` | 导出 `CorePipeConfig` / `CorePipeTransport` 并新增 `run_with_core_pipe()` 组合入口；新增 workspace 依赖 `assistant-ipc`（**不链接 Core**，符合架构 v2 §12.7 与 ADR-0057 D1）。 |
 
 ### 3. 验收输出摘要
 
@@ -101,6 +104,7 @@ cargo clippy --all-targets -- -D warnings → PASS（exit 0）
 cargo test --workspace                 → PASS（1054 passed / 0 failed）
 cargo test -p assistant-ipc            → PASS（25 条，含 5 条 UI 信封用例）
 cargo test -p assistant-agent-core --lib → PASS（ui_server 9 条，全绿）
+cd apps/desktop-ui/src-tauri && cargo fmt --check / clippy -D warnings / cargo test → PASS（10 条：commands 4 + core_pipe 6）
 xtask hygiene  → PASS（294 文件，0 error，**4 warning** —— 与基线一致）
 xtask check-ledger / card-check / docscan / refscan / memory-counts / adr-index / check-migrations / verify-schemas / check-comments → 全 PASS
 ```
@@ -110,8 +114,8 @@ xtask check-ledger / card-check / docscan / refscan / memory-counts / adr-index 
 ### 4. DoD 逐条核对
 
 - [x] **Core 侧真实起监听端**：`ui_server::serve()` 完成 pipe 接受 + 对端镜像白名单 + 一次性 token 握手 + 会话循环。
-- [ ] **UI 侧 `CoreCommandTransport` 真实实现**：**未做**（见 §7）。
-- [ ] **真实管道端到端**：**未做**（需要 UI 侧 client 才能跑通两端）。
+- [x] **UI 侧 `CoreCommandTransport` 真实实现**：`CorePipeTransport` 完成 connect + 握手 + 发送 + 按 correlation 匹配响应；`Rejected` 保留 Core 的 `ErrorCode`；非 UI 响应/错 correlation/缺 token 全部显式失败（6 条单测）。`run_with_core_pipe()` 是组合入口。
+- [ ] **真实管道端到端**：**未做**（两侧实现都在了，但还没有一条"内核 + UI 进程"的真管道验收用例）。
 - [ ] **Core → UI 事件推送**：**未做**（`UiIpcEvent` 与 `WireMessage::UiEvent` 已就位，推送侧未接）。
 - [x] **六个 fail-closed 点各有负向用例**：本 PR 覆盖「未知字段 / 版本漂移 / 未知消息类型 / 处理器拒绝 / 缺响应的会话终止（Disconnected）/ 对端被拒」六类中的五类（"缺响应"以脚本化 transport 耗尽模拟）。
 - [ ] **断连 2s 内检测**：**未做**（需要真实管道 + 客户端）。
@@ -131,9 +135,10 @@ xtask check-ledger / card-check / docscan / refscan / memory-counts / adr-index 
 
 **本卡未完成，剩余三步（按 D8 顺序）：**
 
-1. `apps/desktop-ui/src-tauri`：把 `CoreCommandTransport` 的占位实现换成真实 NamedPipe client（用 `crates/ipc` 的 `client_handshake` + `UiIpcRequest`/`UiIpcResponse`），并把 `Rejected` 映射为 Tauri `Err`（TS 契约因此无需改动）。
+1. ~~UI 侧 client~~ ✅ 已完成（`core_pipe.rs`）。
 2. **事件推送**：Core 侧把 `project_snapshot_events` 的产物包成 `UiIpcEvent` 单向推送；UI 侧经 zod 校验后落到 `timelineEvents.ts`。
-3. **真管道端到端 + 断连验收**（沿用 TASK-019 的真实子进程写法）+ **CI 门禁与负向验证**（ADR-0019）+ 状态同步收口。
+3. **真管道端到端 + 断连验收**：需要一个"启动 Core 侧监听端 → UI 侧 client 连上 → `submit_intent` 往返 → kill → 2s 内检测断连"的真子进程用例（沿用 TASK-019 的写法）。
+4. **CI 门禁与负向验证**（ADR-0019）+ 状态同步收口。
 
 另：本卡**不解锁 TASK-105** —— TASK-105 还需要真实 ModelProvider 与 Notepad Host handler。
 
@@ -143,6 +148,6 @@ xtask check-ledger / card-check / docscan / refscan / memory-counts / adr-index 
 
 ### 9. 给审阅者的关注点
 
-1. **这是 WIP，请勿按 Done 合并**：DoD 6 项里完成 3 项，剩余 3 项（UI client / 事件推送 / 端到端+CI）见 §7。
+1. **这是 WIP，请勿按 Done 合并**：DoD 7 项里完成 5 项，剩余 2 项（事件推送 / 端到端+CI）见 §7。
 2. **`WireMessage` 增加了三个 UI 变体**：这是 ADR-0057 D2 授权的"新增 UI 专属 wire 类型"，并且**没有**改动工具形状的三个变体；`automation-host` 的穷尽匹配用的是 `kind()` 兜底，因此未受影响。
 3. **拒绝通道放在传输层**（`UiIpcResult::Rejected`）的理由见 §5 —— 若你更希望给 `UiCommandOutcome` 加错误变体，那会改动 `apps/desktop-ui/src/**` 的 zod 契约，需要扩本卡 write scope。
