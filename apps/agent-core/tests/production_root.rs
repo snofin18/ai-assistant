@@ -1,8 +1,4 @@
-//! Production-root acceptance tests for TASK-214.
-//!
-//! The platform implementation is deterministic and in-memory: this proves the
-//! real assembly, `ToolBus`, `RuntimeExecutor`, verification receipt, and event
-//! projection without operating a real commercial application.
+//! Production-root acceptance tests for TASK-214 without a real commercial application.
 
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 
@@ -12,9 +8,14 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use assistant_agent_core::UiServerConfig;
-use assistant_agent_core::{ProductionConfig, assemble_production_host};
+use assistant_agent_core::{ProductionConfig, ProductionError, assemble_production_host};
 #[cfg(windows)]
-use assistant_agent_core::{UiEvent, UiEventSource};
+use assistant_agent_core::{TaskControlHandler, UiEvent, UiEventSource, serve_session_with_events};
+#[cfg(windows)]
+use assistant_ipc::{
+    IpcError, NamedPipeTransport, Transport, WireMessage, client_handshake, generate_session_id,
+    server_handshake,
+};
 use assistant_platform_api::{
     CaptureOptions, ErrorCode, Fingerprint, FingerprintScope, FocusPolicy, ImageRef, KeyChord,
     KeyTarget, NormalizedPoint, PlatformError, PlatformResult, PointerAction, ResolvedElement,
@@ -29,6 +30,8 @@ use assistant_task_engine::{StepStatus, TaskStatus};
 const FIXED_NOW_MS: i64 = 1_700_000_000_000;
 const WINDOW_ID: u64 = 1;
 const EDITOR_ID: u64 = 2;
+#[cfg(windows)]
+const UI_TEST_TOKEN: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
 struct FixedClock;
 
@@ -318,6 +321,145 @@ fn production_config(data_root: &Path) -> ProductionConfig {
 }
 
 #[cfg(windows)]
+fn unique_ui_pipe_name() -> String {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    format!("assistant-agent-core-ui-{}-{nanos}", std::process::id())
+}
+
+#[cfg(windows)]
+fn read_step_event(
+    transport: &mut NamedPipeTransport,
+) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    loop {
+        match transport.recv(Duration::from_secs(2))? {
+            WireMessage::UiEvent(event)
+                if event.event.get("kind").and_then(serde_json::Value::as_str)
+                    == Some("step_state_changed") =>
+            {
+                return Ok(event.event);
+            }
+            WireMessage::UiEvent(_) | WireMessage::Heartbeat(_) => {}
+            other => {
+                return Err(format!(
+                    "unexpected {} on the production UI event pipe",
+                    other.kind()
+                )
+                .into());
+            }
+        }
+    }
+}
+
+#[cfg(windows)]
+fn assert_step_event(
+    step_event: &serde_json::Value,
+    task_id: &str,
+    expected_fingerprint: &Fingerprint,
+) {
+    assert_eq!(step_event.as_object().map(serde_json::Map::len), Some(6));
+    assert_eq!(
+        step_event
+            .get("task_id")
+            .and_then(serde_json::Value::as_str),
+        Some(task_id)
+    );
+    assert_eq!(
+        step_event
+            .get("step_id")
+            .and_then(serde_json::Value::as_str),
+        Some("read_text")
+    );
+    assert_eq!(
+        step_event.get("status").and_then(serde_json::Value::as_str),
+        Some("committed")
+    );
+    assert!(
+        step_event
+            .get("phase")
+            .is_some_and(serde_json::Value::is_null)
+    );
+    assert_eq!(
+        step_event
+            .get("post_fingerprint")
+            .and_then(serde_json::Value::as_str),
+        Some(expected_fingerprint.as_str())
+    );
+}
+
+#[cfg(windows)]
+fn join_ui_server(server: std::thread::JoinHandle<Result<(), IpcError>>) {
+    let disconnected = std::time::Instant::now() + Duration::from_secs(2);
+    while !server.is_finished() && std::time::Instant::now() < disconnected {
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert!(
+        server.is_finished(),
+        "UI server did not stop after disconnect"
+    );
+    let ended = server.join().expect("UI server thread");
+    assert!(
+        matches!(ended, Err(IpcError::Disconnected { .. })),
+        "expected explicit disconnect, got {ended:?}"
+    );
+}
+
+#[cfg(windows)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn test_production_step_event_over_real_ui_pipe() -> Result<(), Box<dyn std::error::Error>> {
+    let directory = TestDirectory::new("production-ui-pipe")?;
+    let platform = FakePlatform::new("alpha\nbeta\n");
+    let mut config = production_config(&directory.path);
+    let pipe_name = unique_ui_pipe_name();
+    config.ui_config.pipe_name.clone_from(&pipe_name);
+    let host = assemble_production_host(config, platform.clone(), Arc::new(FixedClock)).await?;
+    let plan = host.plan_task()?;
+    let run = host.execute_plan(plan, FIXED_NOW_MS).await?;
+    let expected_fingerprint = platform.fingerprint();
+
+    let mut source = host.snapshot_event_source();
+    let mut handler = TaskControlHandler::new(run.into_engine(), Arc::new(FixedClock));
+    let server_pipe = pipe_name.clone();
+    let server = std::thread::spawn(move || -> Result<(), IpcError> {
+        let mut transport = NamedPipeTransport::server(&server_pipe)?;
+        transport.accept(Duration::from_secs(5))?;
+        let session_id = generate_session_id()?;
+        let handshake = server_handshake(
+            &mut transport,
+            UI_TEST_TOKEN,
+            Vec::new(),
+            &session_id,
+            Duration::from_secs(5),
+        )?;
+        serve_session_with_events(
+            &mut transport,
+            &handshake.server_hello,
+            Duration::from_secs(2),
+            &mut handler,
+            &mut source,
+        )
+    });
+
+    let mut transport = NamedPipeTransport::client(&pipe_name)?;
+    transport.connect(Duration::from_secs(5))?;
+    let _server_hello = client_handshake(
+        &mut transport,
+        UI_TEST_TOKEN,
+        Vec::new(),
+        Duration::from_secs(5),
+    )?;
+    let step_event = read_step_event(&mut transport)?;
+    assert_step_event(&step_event, host.task_id().as_str(), &expected_fingerprint);
+
+    drop(transport);
+    join_ui_server(server);
+    host.shutdown().await?;
+    Ok(())
+}
+
+#[cfg(windows)]
 #[tokio::test]
 async fn test_production_t1_1_commits_through_real_tool_bus_and_receipt()
 -> Result<(), Box<dyn std::error::Error>> {
@@ -377,6 +519,67 @@ async fn test_production_missing_task_package_fails_closed()
         panic!("missing task package must fail");
     };
     assert!(error.to_string().contains("could not be read"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_production_missing_plan_provider_reports_capability_missing()
+-> Result<(), Box<dyn std::error::Error>> {
+    let directory = TestDirectory::new("production-missing-provider")?;
+    let mut config = production_config(&directory.path);
+    config.task_package_path = directory.path.join("missing-provider.json");
+    let platform = FakePlatform::new("text");
+    let Err(error) = assemble_production_host(config, platform, Arc::new(FixedClock)).await else {
+        panic!("missing plan provider must fail");
+    };
+    assert!(matches!(error, ProductionError::TaskPackage(_)));
+    assert_eq!(error.error_code(), ErrorCode::CapabilityMissing);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_production_handler_count_mismatch_fails_closed()
+-> Result<(), Box<dyn std::error::Error>> {
+    let directory = TestDirectory::new("production-handler-count")?;
+    let adapter_root = directory.path.join("adapter");
+    let source_adapter_root = workspace_root().join("adapters/com.microsoft.notepad");
+    std::fs::create_dir_all(adapter_root.join("selectors"))?;
+    std::fs::create_dir_all(adapter_root.join("tools"))?;
+    std::fs::copy(
+        source_adapter_root.join("selectors").join("targets.json"),
+        adapter_root.join("selectors").join("targets.json"),
+    )?;
+    let tools_body = std::fs::read_to_string(source_adapter_root.join("tools").join("tools.json"))?;
+    let mut tools: serde_json::Value = serde_json::from_str(&tools_body)?;
+    let declared_tools = tools
+        .get_mut("tools")
+        .and_then(serde_json::Value::as_array_mut)
+        .ok_or_else(|| std::io::Error::other("tools.json has no tools array"))?;
+    declared_tools.pop();
+    std::fs::write(
+        adapter_root.join("tools").join("tools.json"),
+        serde_json::to_vec(&tools)?,
+    )?;
+
+    let mut config = production_config(&directory.path);
+    config.adapter_root = adapter_root;
+    let platform = FakePlatform::new("text");
+    let Err(error) = assemble_production_host(config, platform, Arc::new(FixedClock)).await else {
+        panic!("handler count mismatch must fail");
+    };
+    assert!(matches!(
+        error,
+        ProductionError::InvalidConfiguration {
+            field: "adapter_root.tools.tools",
+            ..
+        }
+    ));
+    assert_eq!(error.error_code(), ErrorCode::ToolInvalidArgs);
+    assert!(
+        error
+            .to_string()
+            .contains("expected 5 declared tools, found 4")
+    );
     Ok(())
 }
 

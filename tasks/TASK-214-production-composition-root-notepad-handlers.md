@@ -1,6 +1,6 @@
 # TASK-214　生产装配根：真实 Host 进程 + Notepad Host handler + 1a Plan 来源
 
-- 状态：**InProgress（第 1 片已落地：确定性 Plan 来源 + 1a 断言映射表；装配根与 handler 本体未做）**
+- 状态：**Done（2026-10-01：确定性 Plan 来源 + 生产装配根 + 5 个 Notepad handler + 真 UIA 干跑 + 真 UI 管道事件 + fail-closed 收口）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：103、213、**ADR-0058 Accepted**
 - 预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
@@ -234,10 +234,68 @@ pnpm desktop-ui lint / format:check / test                   → PASS（76 model
 真 UIA 干跑细节：测试临时生成靶机 selector 包，启动 `notepad-like`，经生产根完成
 T1.1 的 1 个 read step；断言最终 `TaskStatus::Completed`、1 个 committed snapshot。
 
-#### 10.4 本轮遗留（因此仍不标 Done）
+#### 10.4 第 2 片当时遗留（已由 §11 收口）
 
 1. `notepad.tab.new` 仍不能在无 tab-count observation 的平台上真实完成。
 2. `notepad.file.save_as` 已有实现路径，但靶机缺少跨进程对话框，未取得真实成功证据。
 3. “同一次运行经 `ui_server` + 真管道推出 `step_state_changed`”尚未补端到端验收。
 4. 缺 provider / handler 数不符的专门负向用例仍未补齐；当前只有装配校验与部分负向。
 5. TASK-105 仍不可开工；阶段 1a 仍 **NO-GO**。
+
+### 11. 第 3 片补充记录（2026-10-01：真 UI 管道事件 + fail-closed 收口 + Done）
+
+#### 11.1 实际改动
+
+- `apps/agent-core/src/production.rs`：新增 `ProductionError::error_code()`，把启动与运行失败映射到稳定
+  `ErrorCode`；抽出 `validate_registry_not_empty()`，让空 registry 的 fail-closed 分支可被白盒测试。
+- `apps/agent-core/src/production_tests.rs`：新增空 registry 负向用例，断言拒绝并返回
+  `ErrorCode::ToolInvalidArgs`。
+- `apps/agent-core/tests/production_root.rs`：新增可复现的
+  `test_production_step_event_over_real_ui_pipe`（真实 NamedPipe + `serve_session_with_events` + 生产
+  `SnapshotEventSource`），断言同一次 T1.1 dry run 的 `step_state_changed` 六个严格字段、committed 状态、
+  null phase 与真实 post fingerprint；新增缺 Plan provider 与 handler 数不符的负向用例。
+
+#### 11.2 验收输出摘要
+
+```text
+cargo fmt --all --check                                      → PASS
+cargo clippy --all-targets -- -D warnings                    → PASS
+cargo test --workspace                                       → 0 failed（含 agent-core 18 unit / 41 integration + 1 ignored）
+cargo test -p assistant-agent-core                           → 0 failed（1 ignored 真 UIA 用例）
+cargo test -p assistant-agent-core --test production_root_uia -- --ignored --nocapture
+                                                             → 1 passed / 0 failed（真实 notepad-like + UIA + ToolBus + receipt）
+cargo test -p assistant-agent-core --test production_root    → 6 passed / 0 failed
+cargo test -p assistant-agent-core test_empty_registry_is_rejected_with_tool_invalid_args
+                                                             → 1 passed / 0 failed
+xtask verify-schemas / codegen --check                       → PASS（0 drift）
+xtask hygiene                                                → 0E / 4W（= 基线）
+xtask docscan / card-check / memory-counts / adr-index       → PASS
+xtask check-ledger / check-migrations / refscan              → PASS
+xtask check-comments                                         → 0E / 67W（= 基线）
+cargo deny check                                             → advisories/bans/licenses/sources OK
+pnpm --dir apps/desktop-ui test                              → 76 model + 3 DOM passed
+pnpm --dir apps/desktop-ui lint / format:check               → PASS
+```
+
+UI 事件验收分两层记录：Rust 真管道测试证明生产事件源在同一次运行中推出 strict 六字段
+`step_state_changed`（`task_id` / `step_id` / `status` / `phase` / `post_fingerprint` / `kind`），
+UI 侧既有 `parseUiEvent` zod 用例通过并验证同构字段；未伪造跨语言同进程校验。
+
+#### 11.3 DoD 最终核对
+
+- [x] 生产模式可启动：`TaskEngine` + `RuntimeExecutor` + `ToolRegistry` + `UiServer` + `SnapshotEventSource`
+  由 `--production` 显式装配；`--self-check` 保持可用。
+- [x] 5 个 Notepad handler 注册进 `ToolBus`，工具名与 `tools.json` 一致。
+- [x] 确定性 Plan 来源：同一任务包重复产出同一 `Plan`。
+- [x] 靶机 T1.1 干跑成功：真实 UIA + 真 ToolBus + receipt + task-engine 提交。
+- [x] fail-closed：缺 Plan provider、空 registry、handler 数不符、空 UI peer 白名单均有负向用例并带稳定
+  `ErrorCode`；`notepad.tab.new` 无 tab-count observation 时仍显式 fail-closed。
+- [x] 事件：同一次生产运行经真实 `ui_server` 会话管道推出 `step_state_changed`；UI 侧 zod 用例验证同构严格字段。
+- [x] 未修改 Out of scope 文件；未新增第三方依赖；未改 `crates/**` 公共接口。
+- [x] 卡面验收命令全绿；`hygiene` 保持 0E/4W 基线。
+- [x] §11.1 进度同步完成：`LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md`。
+
+#### 11.4 本轮遗留
+
+`notepad.file.save_as` 仍缺跨进程对话框靶机证据，`notepad.tab.new` 仍缺稳定 tab-count observation；
+两者仍由 `PL-097` 承载，TASK-105 的 T1.2/T1.3 因此仍不能据靶机给出真实运行证据。阶段 1a 仍 **NO-GO**。
