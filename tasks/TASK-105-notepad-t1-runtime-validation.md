@@ -101,14 +101,25 @@ cargo run -p xtask -- docscan
 3. **建议**：立 **TASK-214**（生产装配根 + Notepad Host handler + 1a Plan 来源），其契约依据为 **ADR-0058（Proposed）**。ADR 需要裁决的关键点是"1a 的 Plan 来源口径"——`docs/memory/open.md` **M3** 已把本地模型选型判给 1c 前，故建议 1a 用确定性「任务包 → `Plan`」的 `ModelProvider`，真实 LLM 另立卡 + 网络/依赖 ADR。
 4. **已停工作**：本卡未写任何 fixture / eval 编排 / 审计报告，未产生任何运行证据，未修改 Out of scope 文件。**等待人类接受 ADR-0058 并完成 TASK-214 后再开工。**
 
+**DRIFT-105-2（T1.2 / T1.3 在 `notepad-like` 靶机上没有可执行对象）**
+
+1. **现象**：本卡要求 T1.1 / T1.2 / T1.3 都在 `fixtures/apps/notepad-like` 上真实运行。但该靶机自述「**It does not read or write user files. It does not implement encoding or EOL normalization.**」（`fixtures/apps/notepad-like/README.md`），核对证据：
+   - T1.2 要求「替换 + 保存 + 保存后标题无 `*` + L0 undo + L1 快照」。靶机只有一个 `EditorTextBox`，`SaveButton` / `OpenButton` / `SaveAsButton` 在 XAML 里存在但**脚本里没有任何点击处理**（`notepad-like.ps1` 只在 `--fault busy` 分支把它们 `IsEnabled = $false`），点击不会写文件，也没有 `*` 未保存标记。
+   - T1.3 要求「新建标签 → 写入 → 另存为到指定路径（**跨进程 Shell 对话框**）」。靶机**没有标签页**，也没有 Shell 对话框；`automation-ids.json` 里只有单个 `EditorTextBox`。
+   - 另：`adapters/com.microsoft.notepad/selectors/targets.json` 的候选链针对**真实 Notepad**（class `Notepad` / `RichEditD2DPT` / `Microsoft.UI.Xaml.Controls.TabView` / 另存为 `#32770`），与靶机的 AutomationId（`MainWindow` / `EditorTextBox` / `SaveButton` …）**不匹配**。
+2. **影响**：T1.1 的只读路径可以在靶机上跑（窗口 + `EditorTextBox` + 读文本），但 **T1.2 / T1.3 按卡面无法在靶机上取得证据**。硬跑只能得到"按钮点了没反应"或伪造的成功率。
+3. **建议（三选一，需人类裁决）**：① **扩靶机**：给 `notepad-like` 加文件读写 / 标签页 / 一个真实的跨进程对话框，并补一份 `com.example.notepad-like` 的 selector 与工具声明（改动落在本卡 write scope 与 `adapters/**`，需另立卡）；② **改判据**：把 T1.2 / T1.3 的真实运行改到**真实 Notepad**（与 `TASK-105` Out of scope「操作真实商业 Notepad」冲突，需裁决）；③ **拆卡**：T1.1 先在靶机收口，T1.2 / T1.3 各自落到能提供对应能力的靶机上。**推荐 ①**（保持"不碰商业应用 + 确定性"两条既有约束）。
+4. **已停工作**：本卡仍不产生任何运行证据；阶段 1a 维持 **NO-GO**。
+
 ### 6. 更合理做法
 
 先补"可运行对象"再谈"运行验收"。原 WBS 把 TASK-029（装配）当作已交付，但 TASK-029 的 DoD 只要求"装配点可执行 + 缺组件 fail-closed"，所以它交付的是 self-check 而非生产根；这两者在 WBS 上同名不同物，是本次阻塞的结构性根因。
 
 ### 7. 遗留问题
 
-- **TASK-214 未完成前本卡不可开工**（ADR-0058 待人类接受）。
-- 人类接受 ADR-0058 后，`PLAN.md` 当前状态块里「真实 ModelProvider」的措辞需同步澄清为「1a = 确定性任务包 provider；真实 LLM 归 1c 前」。
+- **TASK-214 未完成前本卡不可开工**（ADR-0058 已于 2026-09-30 Accepted，TASK-214 已解锁；本行随 TASK-214 完成而失效）。
+- **`DRIFT-105-2` 未裁决前，T1.2 / T1.3 没有可执行对象**：靶机 `notepad-like` 不读写文件、无标签页、无跨进程对话框，selector 也与 `adapters/com.microsoft.notepad` 不匹配。推荐方案 ①（扩靶机 + 补 `com.example.notepad-like` 适配声明），需另立卡。
+- `PLAN.md` 当前状态块里「真实 ModelProvider」的措辞需同步澄清为「1a = 确定性任务包 provider；真实 LLM 归 1c 前」（ADR-0058 已接受，待 TASK-214 收口时一并改）。
 - 靶机 `notepad-like` 的 UIA 通道需在 TASK-214 里被真实驱动一次（当前只有 TASK-033 的自测脚本）。
 
 ### 8. 新增长期记忆

@@ -111,7 +111,14 @@ pnpm --dir apps/desktop-ui lint; pnpm --dir apps/desktop-ui format:check; pnpm -
 
 ### 1. 约束回执
 
-（待填）
+【任务】TASK-214 生产装配根：真实 Host 进程 + Notepad Host handler + 1a Plan 来源
+【目标】在 `apps/agent-core` binary 层落一个可运行的生产装配根，让 TASK-105 有对象可跑
+【write scope】仅：`apps/agent-core/src/**`、`apps/agent-core/tests/**`、`apps/agent-core/README.md`、`apps/agent-core/Cargo.toml`（仅 feature）、本卡、`LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md` / `MEMORY.md`（进度同步）、`docs/PARKING_LOT.md` / `docs/memory/{facts,pitfalls}.md`（仅追加）
+【铁律】1 无静默失败；3 策略是唯一放行点；4 每个写操作必须有 postcondition；8 element/句柄不跨进程；10 契约先行
+【禁止】真实 LLM Provider / 新第三方依赖 / 改 `crates/**` 公共接口 / 新 crate / 通用 shell 工具 / 操作真实商业 Notepad / 改测试断言
+【验收】16 条命令全绿 + 靶机 T1.1 干跑实测输出 + 5 个 handler 负向用例
+【依赖】103 ✅、213 ✅、**ADR-0058 ✅（2026-09-30 Accepted）**
+【疑问】开工即撞到 plan 来源的 postcondition 形状缺口 → 见 §5 **DRIFT-214-1**。默认处理 = 断言模板作为 binary 层显式映射表，不猜、不改任务包，先记录再落地。
 
 ### 2. 实际改动文件
 
@@ -127,7 +134,12 @@ pnpm --dir apps/desktop-ui lint; pnpm --dir apps/desktop-ui format:check; pnpm -
 
 ### 5. 偏差
 
-（待填）
+**DRIFT-214-1（ADR-0058 D2 的落地缺口：任务包的 postcondition 不是 `verify` 的形状）**
+
+1. **现象**：ADR-0058 D2 规定 1a 的 Plan 来源是「读 `adapters/com.microsoft.notepad/tasks/t1.*.json` → 渲染计划 JSON」的确定性 `ModelProvider`，而 `RuntimeExecutor` 只走 `verify::parse_postconditions`（`crates/verify/src/postcondition.rs`，**11 种 `kind` 的闭集**，未知 kind 与多余字段一律拒绝）。但任务包的 `postconditions[].id` 是**说明性标识**（`source_file_unchanged` / `line_count_matches_text` / `keyword_paragraphs_match` / `truncation_is_explicit`），`adapters/com.microsoft.notepad/tools/tools.json` 的服务端后置条件同样是说明性标识（`read_only_no_state_change` / `canonical_text_compare` / `text_equals` / `replacement_count_equals` / `title_has_no_unsaved_marker` / `file_content_or_mtime_verified` / `tab_count_increased_by_one` / `file_exists` / `existing_file_not_overwritten`）。**两处都不是可被 `parse_postconditions` 接受的形状**。
+2. **影响**：确定性 provider 必须把说明性 id 翻成断言。若让它**凭空生成**断言值（例如猜 `text_equals` 的期望文本），那就是伪造验证 —— 直接违反铁律 1 与铁律 4，并让「写操作必有 postcondition」退化成装饰。仅凭现有任务包与工具声明，机器无法推出这些断言。
+3. **建议（不改任务包，也不改 `crates/**`）**：把断言模板做成 **binary 层的显式、可审阅映射表**（每个 1a 工具一条，随确定性 provider 一起提交并接受 review），并把「映射缺失」当作注册期失败（fail-closed）。理由：① 任务包与工具声明属 `adapters/**`，不在本卡 write scope（触发漂移触发器 ⑤）；② 映射表放在 binary 层符合 ADR-0058 D1（装配单点在 binary）；③ 断言值一旦是人工写死且可审阅，就不是"伪造验证"，而是"1a 的确定性断言集"。
+4. **已停工作**：本卡**未写任何产品代码**。先记录本 DRIFT 并等人类裁决（漂移触发器 ③⑧：涉及"哪种 postcondition 才是 1a 的合法断言"这一语义决定）。
 
 ### 6. 更合理做法
 
