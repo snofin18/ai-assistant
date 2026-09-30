@@ -11,8 +11,10 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use assistant_agent_core::UiServerConfig;
 use assistant_agent_core::{ProductionConfig, assemble_production_host};
-use assistant_agent_core::{UiEvent, UiEventSource, UiServerConfig};
+#[cfg(windows)]
+use assistant_agent_core::{UiEvent, UiEventSource};
 use assistant_platform_api::{
     CaptureOptions, ErrorCode, Fingerprint, FingerprintScope, FocusPolicy, ImageRef, KeyChord,
     KeyTarget, NormalizedPoint, PlatformError, PlatformResult, PointerAction, ResolvedElement,
@@ -21,6 +23,7 @@ use assistant_platform_api::{
     WindowState,
 };
 use assistant_storage::Clock;
+#[cfg(windows)]
 use assistant_task_engine::{StepStatus, TaskStatus};
 
 const FIXED_NOW_MS: i64 = 1_700_000_000_000;
@@ -314,6 +317,7 @@ fn production_config(data_root: &Path) -> ProductionConfig {
     ProductionConfig::new(data_root, adapter_root, task_package_path, ui_config)
 }
 
+#[cfg(windows)]
 #[tokio::test]
 async fn test_production_t1_1_commits_through_real_tool_bus_and_receipt()
 -> Result<(), Box<dyn std::error::Error>> {
