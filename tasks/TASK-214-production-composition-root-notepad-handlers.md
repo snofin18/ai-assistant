@@ -1,6 +1,6 @@
 # TASK-214　生产装配根：真实 Host 进程 + Notepad Host handler + 1a Plan 来源
 
-- 状态：**Ready（开工前置 = ADR-0058 转 Accepted）**
+- 状态：**Ready（ADR-0058 已于 2026-09-30 转 Accepted；可开工）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：103、213、**ADR-0058 Accepted**
 - 预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
