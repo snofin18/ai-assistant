@@ -144,14 +144,14 @@ xtask verify-schemas / codegen --check / check-comments  → PASSED（0 drift；
 
 ### 4. DoD 逐条核对
 
-- [ ] 生产模式可启动：显式装配 `TaskEngine` + `RuntimeExecutor` + `ToolRegistry` + `UiServer` + `SnapshotEventSource`；`--self-check` 仍可用 —— **未做**
-- [ ] 5 个 Notepad handler 注册进 `ToolBus` —— **未做**（本轮只落地了 Plan 来源；断言映射表已覆盖 5 个工具名）
+- [x] 生产模式可启动：显式装配 `TaskEngine` + `RuntimeExecutor` + `ToolRegistry` + `SnapshotEventSource`，并提供 `--production` / `--serve-ui`；`--self-check` 仍可用 —— **第 2 片已做**
+- [x] 5 个 Notepad handler 注册进 `ToolBus` —— **第 2 片已做**（`notepad.tab.new` 因平台缺 tab count 观测而显式 fail-closed，不是假成功）
 - [x] 确定性 Plan 来源：同一任务包产出同一 `Plan` —— **已做**（`test_t1_1_package_renders_identical_plan_twice` 断言逐字相同）
-- [ ] 靶机 T1.1 干跑成功 —— **未做**（依赖 handler 与装配根）
-- [ ] fail-closed：缺 provider / 空 registry / handler 数不符 → 启动拒绝 —— **部分**（Plan 来源侧四类 fail-closed 已做且有负向用例：空工具步 / 未绑定参数 / 表外工具 / 非法 JSON；装配侧未做）
-- [ ] 事件经 `ui_server` 推出 `step_state_changed` —— **未做**
+- [x] 靶机 T1.1 干跑成功 —— **第 2 片已做**：`production_root_uia`（ignored，显式运行）真实启动 `notepad-like`，经真 UIA + 真 ToolBus + 真 receipt 完成 1 step
+- [ ] fail-closed：缺 provider / 空 registry / handler 数不符 → 启动拒绝 —— **部分**（已有缺失 task package / 空 UI peer / 空 registry 校验与 `new_tab` 负向；缺 provider 与 handler 数不足仍缺专门负向用例）
+- [ ] 事件经 `ui_server` 推出 `step_state_changed` —— **部分**（`SnapshotEventSource` 投影已测；`serve_with_events` 已接生产入口，但尚未补“同一次运行走真管道”验收）
 - [x] 未修改 Out of scope 文件；未新增第三方依赖；未改 `crates/**` 公共接口 —— 已核对（`git diff --stat` 仅本卡 write scope）
-- [ ] 上列 16 条验收命令全绿 —— **本轮已跑**：fmt / clippy / `cargo test --workspace` / `cargo test -p assistant-agent-core` / hygiene / docscan / card-check / memory-counts / adr-index / check-ledger / check-migrations / refscan / verify-schemas / codegen --check / check-comments **全 PASS**；`cargo deny check` 与 UI 三项未跑（本轮无依赖与 UI 变更）
+- [x] 上列 16 条验收命令全绿 —— **第 2 片已跑**：fmt / workspace clippy / workspace tests / agent-core tests / 全部 xtask 门禁 / `cargo deny check` / UI lint-format-test / ignored 真 UIA 干跑 **全 PASS**；`hygiene` 0E/4W
 - [ ] §11.1 进度同步 —— **Done 时执行**（本轮为 InProgress，只追加 LEDGER）
 
 ### 5. 偏差
@@ -187,3 +187,57 @@ xtask verify-schemas / codegen --check / check-comments  → PASSED（0 drift；
 1. **断言映射表是本轮的审查重点**：`apps/agent-core/src/task_package.rs` 的 `assertion_table()` 是"1a 的合法断言集"的唯一落点。请重点看三个取值是否可接受：`read_text → state_unchanged`、`replace_text → text_contains(new_text) + state_changed`、`save/tab.new → state_changed`、`save_as → file_changed(target_path, any)`。
 2. `read_text` 用 `state_unchanged` 而不是 `text_equals`：因为我们没有可信的"期望文本"来源，用等值断言就必须猜，属伪造验证。
 3. 本卡仍是 **InProgress**，`PLAN.md` / `README.md` / `plans/*` 尚未按 Done 同步（符合 InProgress 约定）；阶段 1a 仍 **NO-GO**。
+
+### 10. 第 2 片补充记录（2026-10-01：生产装配根 + 5 handler + 真 UIA 干跑）
+
+#### 10.1 实际改动
+
+- 新增生产装配根：`apps/agent-core/src/production.rs`、`production_run.rs`、`production_support.rs`。
+- 新增 Adapter 加载与 handler：`notepad_targets.rs`、`notepad_registry.rs`、`notepad_handlers.rs`、`notepad_files.rs`。
+- 新增测试：`tests/production_root.rs`（内存平台，真 ToolBus / receipt / event projection）、
+  `tests/production_root_uia.rs`（ignored，交互式 Windows 真 UIA 干跑）。
+- 改 `main.rs`：新增 `--production` 与可选 `--serve-ui`；保留 `--self-check`。
+- 改 `runtime.rs`：`EnvelopeObservationCollector` 读取 `previous_fingerprint` / `elapsed_ms` / `files`，使 verify 不再因缺观测而假失败。
+- 改 `ui_server.rs`：新增 `serve_with_events` 包装，复用既有 session loop；未改既有函数语义。
+- 改 `task_package.rs`：保留声明 task id，并确定性归一化为 task-engine 合法 id；新增访问器。
+- 更新 `apps/agent-core/README.md` 的生产模式边界与已知限制。
+
+#### 10.2 新增偏差/兼容处理
+
+- **DRIFT-214-2（兼容处理，已记 pitfall）**：`tools.json` 对只读工具声明
+  `reversibility = "none_readonly"`，但 `ToolSchema` 闭集没有该值。写 scope 不含
+  `adapters/**`，因此在 binary 解析层只对该精确组合归一为 `l0_undo_stack`；其他未知值仍 fail-closed。
+- **DRIFT-214-3（兼容处理）**：任务包 `task_id`（如
+  `notepad.t1_1.open_read_full_text`）含点号，而 task-engine 的 `TaskId` 只接受
+  ASCII 字母/数字/`_`/`-`。provider 保留 declared id，并确定性归一化给 task-engine；不猜测语义。
+- `notepad.tab.new` 当前**不做不可验证动作**：平台 API 尚无稳定 tab-count observation，
+  handler 在动作前返回 `CapabilityMissing`。该缺口与 `DRIFT-105-2` / PL-097 同源。
+
+#### 10.3 验收输出摘要
+
+```text
+cargo fmt --all --check                                      → PASS
+cargo clippy --all-targets -- -D warnings                    → PASS
+cargo test --workspace                                       → 全部 test result: ok（0 failed）
+cargo test -p assistant-agent-core                           → 56 passed / 0 failed（另有 1 ignored）
+cargo test -p assistant-agent-core --test production_root_uia -- --ignored --nocapture
+                                                             → 1 passed / 0 failed
+cargo run -p xtask -- hygiene                                → 0E / 4W（= 基线）
+xtask verify-schemas / codegen --check                       → PASS
+xtask docscan / card-check / memory-counts / adr-index       → PASS
+xtask check-ledger / check-migrations / refscan              → PASS
+xtask check-comments                                         → 0E / 67W（= 基线）
+cargo deny check                                             → advisories/bans/licenses/sources OK
+pnpm desktop-ui lint / format:check / test                   → PASS（76 model + 3 DOM）
+```
+
+真 UIA 干跑细节：测试临时生成靶机 selector 包，启动 `notepad-like`，经生产根完成
+T1.1 的 1 个 read step；断言最终 `TaskStatus::Completed`、1 个 committed snapshot。
+
+#### 10.4 本轮遗留（因此仍不标 Done）
+
+1. `notepad.tab.new` 仍不能在无 tab-count observation 的平台上真实完成。
+2. `notepad.file.save_as` 已有实现路径，但靶机缺少跨进程对话框，未取得真实成功证据。
+3. “同一次运行经 `ui_server` + 真管道推出 `step_state_changed`”尚未补端到端验收。
+4. 缺 provider / handler 数不符的专门负向用例仍未补齐；当前只有装配校验与部分负向。
+5. TASK-105 仍不可开工；阶段 1a 仍 **NO-GO**。

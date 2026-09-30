@@ -1,15 +1,19 @@
-//! Executable self-check composition root.
+//! Executable self-check and production composition roots.
 //!
-//! The production composition root will supply a real Provider, persistent
-//! `SessionStore`, and adapter package. This binary proves that the assembly
-//! point is executable with explicit deterministic dependencies and fails
-//! closed when any required component is missing.
+//! `--self-check` proves the assembly point is executable with deterministic
+//! dependencies. `--production` assembles the adapter tools, task-package Plan
+//! source, `RuntimeExecutor`, and UI event source for the 1a dry run.
 
 use std::io::{self, Write};
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
+use std::time::Duration;
 
-use assistant_agent_core::{HostAssembly, HostAssemblyError, HostAssemblyInput};
+use assistant_agent_core::{
+    HostAssembly, HostAssemblyError, HostAssemblyInput, ProductionConfig, ProductionError,
+    TaskControlHandler, UiServerConfig, assemble_production_host, serve_with_events,
+};
 use assistant_audit::Durability;
 use assistant_core::{
     AppMapFileReader, AppMapReadError, CompressionError, ContextFragment, ContextSummary,
@@ -23,7 +27,7 @@ use assistant_model_gateway::{
 };
 use assistant_platform_windows::WindowsPlatform;
 use assistant_policy::RuleSet;
-use assistant_storage::{MemoryQuery, SystemClock};
+use assistant_storage::{Clock, MemoryQuery, SystemClock};
 use assistant_tool_bus::ToolRegistry;
 
 struct EmptyRetriever;
@@ -126,29 +130,170 @@ impl ModelProvider for NoopProvider {
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    let mut arguments = std::env::args().skip(1);
-    if let Some(argument) = arguments.next()
-        && argument != "--self-check"
+    let arguments = std::env::args().skip(1).collect::<Vec<_>>();
+    if arguments.is_empty()
+        || (arguments.len() == 1
+            && arguments
+                .first()
+                .is_some_and(|argument| argument == "--self-check"))
     {
-        return ExitCode::from(2);
-    }
-    if arguments.next().is_some() {
-        return ExitCode::from(2);
-    }
-
-    match run_self_check().await {
-        Ok(()) => {
-            if report_ok() {
-                ExitCode::SUCCESS
-            } else {
-                ExitCode::FAILURE
+        return match run_self_check().await {
+            Ok(()) => {
+                if report_ok() {
+                    ExitCode::SUCCESS
+                } else {
+                    ExitCode::FAILURE
+                }
             }
-        }
-        Err(error) => {
-            let _ = report_error(&error);
-            ExitCode::from(2)
+            Err(error) => {
+                let _ = report_error(&error.to_string());
+                ExitCode::from(2)
+            }
+        };
+    }
+    if arguments
+        .first()
+        .is_some_and(|argument| argument == "--production")
+    {
+        let rest = arguments.get(1..).unwrap_or(&[]);
+        return match parse_production_options(rest) {
+            Ok(options) => match run_production(options.config, options.serve_ui).await {
+                Ok(report) => {
+                    if report_production_ok(&report) {
+                        ExitCode::SUCCESS
+                    } else {
+                        ExitCode::FAILURE
+                    }
+                }
+                Err(error) => {
+                    let _ = report_error(&error.to_string());
+                    ExitCode::from(2)
+                }
+            },
+            Err(reason) => {
+                let _ = report_error(&reason);
+                ExitCode::from(2)
+            }
+        };
+    }
+    let _ = report_error(
+        "usage: assistant-agent-core [--self-check | --production \
+         --task-package <path> --ui-peer <path> [--adapter-root <path>] \
+         [--data-root <path>] [--ui-pipe <name>] [--ui-token-env <name>] [--serve-ui]]",
+    );
+    ExitCode::from(2)
+}
+
+struct ProductionOptions {
+    config: ProductionConfig,
+    serve_ui: bool,
+}
+
+fn parse_production_options(arguments: &[String]) -> Result<ProductionOptions, String> {
+    let mut adapter_root = PathBuf::from("adapters/com.microsoft.notepad");
+    let mut data_root = std::env::temp_dir().join(format!(
+        "assistant-agent-core-production-{}",
+        std::process::id()
+    ));
+    let mut task_package_path = None;
+    let mut ui_pipe = "assistant-agent-core-ui".to_owned();
+    let mut ui_token_environment_variable = "ASSISTANT_AGENT_CORE_UI_TOKEN".to_owned();
+    let mut ui_peer = None;
+    let mut serve_ui = false;
+    let mut iterator = arguments.iter();
+    while let Some(argument) = iterator.next() {
+        match argument.as_str() {
+            "--adapter-root" => {
+                adapter_root = PathBuf::from(next_value(&mut iterator, argument)?);
+            }
+            "--data-root" => {
+                data_root = PathBuf::from(next_value(&mut iterator, argument)?);
+            }
+            "--task-package" => {
+                task_package_path = Some(PathBuf::from(next_value(&mut iterator, argument)?));
+            }
+            "--ui-pipe" => {
+                ui_pipe = next_value(&mut iterator, argument)?;
+            }
+            "--ui-token-env" => {
+                ui_token_environment_variable = next_value(&mut iterator, argument)?;
+            }
+            "--ui-peer" => {
+                ui_peer = Some(PathBuf::from(next_value(&mut iterator, argument)?));
+            }
+            "--serve-ui" => {
+                serve_ui = true;
+            }
+            _ => return Err(format!("unknown production argument `{argument}`")),
         }
     }
+    let task_package_path =
+        task_package_path.ok_or_else(|| "missing --task-package <path>".to_owned())?;
+    let ui_peer = ui_peer.ok_or_else(|| "missing --ui-peer <path>".to_owned())?;
+    let ui_config = UiServerConfig::new(
+        ui_pipe,
+        ui_token_environment_variable,
+        Duration::from_secs(10),
+    )
+    .with_allowed_peer(ui_peer);
+    Ok(ProductionOptions {
+        config: ProductionConfig::new(data_root, adapter_root, task_package_path, ui_config),
+        serve_ui,
+    })
+}
+
+fn next_value(iterator: &mut std::slice::Iter<'_, String>, option: &str) -> Result<String, String> {
+    iterator
+        .next()
+        .filter(|value| !value.starts_with("--"))
+        .cloned()
+        .ok_or_else(|| format!("{option} requires a value"))
+}
+
+struct ProductionReport {
+    task_id: String,
+    status: &'static str,
+    committed_steps: usize,
+}
+
+async fn run_production(
+    config: ProductionConfig,
+    serve_ui: bool,
+) -> Result<ProductionReport, ProductionError> {
+    let clock: Arc<dyn Clock> = Arc::new(SystemClock);
+    let now_ms = clock.now_unix_ms();
+    let host = assemble_production_host(config, WindowsPlatform::new(), Arc::clone(&clock)).await?;
+    let plan = host.plan_task()?;
+    let task_id = plan.task_id.to_string();
+    let run = host.execute_plan(plan, now_ms).await?;
+    let report = ProductionReport {
+        task_id,
+        status: run.final_snapshot.status.as_str(),
+        committed_steps: run.snapshots.len(),
+    };
+    if serve_ui {
+        let mut handler = TaskControlHandler::new(run.into_engine(), Arc::clone(&clock));
+        let mut events = host.snapshot_event_source();
+        serve_with_events(host.ui_config(), &mut handler, &mut events).map_err(|error| {
+            ProductionError::UiServer {
+                reason: error.to_string(),
+            }
+        })?;
+    } else {
+        let _engine = run.into_engine();
+    }
+    host.shutdown().await?;
+    Ok(report)
+}
+
+fn report_production_ok(report: &ProductionReport) -> bool {
+    let mut stdout = io::stdout().lock();
+    writeln!(
+        stdout,
+        "assistant-agent-core production: task={} status={} committed_steps={}",
+        report.task_id, report.status, report.committed_steps
+    )
+    .is_ok()
 }
 
 async fn run_self_check() -> Result<(), HostAssemblyError> {
@@ -213,9 +358,9 @@ fn report_ok() -> bool {
     writeln!(stdout, "assistant-agent-core self-check: ok").is_ok()
 }
 
-fn report_error(error: &HostAssemblyError) -> bool {
+fn report_error(error: &str) -> bool {
     let mut stderr = io::stderr().lock();
-    writeln!(stderr, "assistant-agent-core self-check failed: {error}").is_ok()
+    writeln!(stderr, "assistant-agent-core failed: {error}").is_ok()
 }
 
 #[cfg(test)]

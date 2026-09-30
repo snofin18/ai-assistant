@@ -25,6 +25,13 @@
 pub mod adapters;
 mod assembly;
 mod error;
+pub mod notepad_files;
+pub mod notepad_handlers;
+pub mod notepad_registry;
+pub mod notepad_targets;
+mod production;
+mod production_run;
+pub mod production_support;
 mod runtime;
 mod task_package;
 mod ui_control;
@@ -38,6 +45,8 @@ pub use adapters::{
 };
 pub use assembly::{HostAssembly, HostAssemblyInput, HostComponents};
 pub use error::HostAssemblyError;
+pub use production::{ProductionConfig, ProductionError, ProductionHost, assemble_production_host};
+pub use production_run::ProductionRun;
 pub use runtime::{
     EnvelopeObservationCollector, ObservationCollector, RuntimeExecutionError, RuntimeExecutor,
     StepExecutionOutcome, StepPolicy, ToolBusInvoker, ToolInvoker,
@@ -52,5 +61,5 @@ pub use ui_ipc::{
 };
 pub use ui_server::{
     NoEvents, UiEventSource, UiServerConfig, looks_like_image_path, process_ui_request,
-    push_events, serve as serve_ui, serve_session, serve_session_with_events,
+    push_events, serve as serve_ui, serve_session, serve_session_with_events, serve_with_events,
 };

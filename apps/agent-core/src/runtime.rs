@@ -454,9 +454,38 @@ impl ObservationCollector for EnvelopeObservationCollector {
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default()
             .to_owned();
-        Ok(Observation {
-            text,
-            ..Observation::new(step.tool.clone(), envelope.tool.clone(), fingerprint)
-        })
+        let previous_fingerprint = match data
+            .0
+            .get("previous_fingerprint")
+            .and_then(serde_json::Value::as_str)
+        {
+            Some(value) => Some(Fingerprint::parse(value).map_err(|error| {
+                RuntimeExecutionError::Observation {
+                    reason: format!(
+                        "tool {} returned an invalid previous fingerprint: {error}",
+                        envelope.tool
+                    ),
+                }
+            })?),
+            None => None,
+        };
+        let elapsed_since_previous_ms =
+            data.0.get("elapsed_ms").and_then(serde_json::Value::as_u64);
+        let mut observation =
+            Observation::new(step.tool.clone(), envelope.tool.clone(), fingerprint);
+        observation.text = text;
+        observation.previous_fingerprint = previous_fingerprint;
+        observation.elapsed_since_previous_ms = elapsed_since_previous_ms;
+        if let Some(files) = data.0.get("files") {
+            observation.files = serde_json::from_value(files.clone()).map_err(|error| {
+                RuntimeExecutionError::Observation {
+                    reason: format!(
+                        "tool {} returned invalid file observations: {error}",
+                        envelope.tool
+                    ),
+                }
+            })?;
+        }
+        Ok(observation)
     }
 }
