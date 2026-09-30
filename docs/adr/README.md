@@ -59,8 +59,9 @@
 | **0055** | `0055-tool-schema-authoritative-effect-reversibility.md` | **Accepted** | ToolSchema 新增必填 `effect` / `reversibility`；Planner 只从可信工具目录注入，拒绝模型自报，关闭 DRIFT-207-1（TASK-207） |
 | **0056** | `0056-runtime-execution-contract.md` | **Accepted** | 运行执行链路由 binary 装配层 `RuntimeExecutor` 独占编排；verify 产生不透明 `VerificationReceipt`，task-engine 只有消费 receipt 才能成功提交（TASK-102，2026-09-29 人类确认） |
 | **0057** | `0057-ui-core-ipc-transport-contract.md` | **Accepted** | UI↔Core 传输契约：Core 与 UI 分进程；新增 UI 专属 wire 信封（不复用工具形状的 `RequestMessage`/`ResponseMessage`）；传输复用 `crates/ipc` 的 NamedPipe 帧与「一次性 token + 对端镜像白名单」；命令带 correlation、事件单向推送（PL-095，2026-09-30 人类确认接受 → TASK-213 解锁） |
+| **0058** | `0058-production-composition-root-and-plan-source.md` | **Proposed** | 生产装配根由 `apps/agent-core` binary 层独占；阶段 1a 的 Plan 来源 = 确定性「任务包 → Plan」`ModelProvider`（不是 LLM，真实 LLM 归 1c 前 + M3）；Notepad Host handler 在 binary 层实现并注册进 `ToolBus`；解锁 TASK-105 的前置是 TASK-214（待人类接受） |
 
-**下一个可用编号：0058**（= §1 与 §2 已用最大号 **0057** + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0059**（= §1 与 §2 已用最大号 **0058** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是可用号** —— 它是 §2 的**待建号**，已预留给「`#[allow]` 的唯一合法位置」那条决策

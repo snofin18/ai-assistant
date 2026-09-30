@@ -63,18 +63,60 @@ cargo run -p xtask -- docscan
 
 ### 1. 约束回执
 
+【任务】TASK-105 Notepad T1.x 真实运行验收与 10 次证据
+【目标】让 T1.1 / T1.2 / T1.3 在 `notepad-like` 靶机上真实运行各 10 次并产出可复现证据
+【write scope】仅：`fixtures/apps/notepad-like/**`、`eval/tasks/notepad/**`、`docs/audits/stage-1a-runtime-validation-*.md`、本卡记录、必要 memory 条目
+【铁律】1 无静默失败；4 每个写操作必有 postcondition；8 element/句柄不跨进程；10 契约先行
+【禁止】改 Core/Host/Policy 规避失败；操作真实商业 Notepad；Paint/Edge/Excel；伪造成功率或跳过失败样本
+【验收】`cargo test --workspace`、`xtask replay`、三个 `validate.py`、`xtask docscan` + 3 组各 10 次真实运行
+【依赖】103、104 —— `LEDGER.md` 均已记 Done
+【疑问】**无法开工**：本卡的三条硬前置都不存在（见 §5 `DRIFT-105-1`）。默认处理 = 记录阻塞并转 TASK-214，不伪造运行证据。
+
 ### 2. 实际改动文件
+
+（无 —— 本卡未进入实现阶段，仅登记阻塞。见 §5。）
 
 ### 3. 验收输出摘要
 
+（无 —— 无运行对象可跑。见 §5。）
+
 ### 4. DoD 逐条核对
+
+- [ ] T1.1 ×10、T1.2 ×10、T1.3 ×10 均有可复现记录 —— **未做**（无生产装配根 / 无 handler / 无 Plan 来源）
+- [ ] 静默失败 = 0 —— **不可度量**（没有一次真实运行）
+- [ ] 成功路径与失败恢复路径都有证据 —— **未做**
+- [ ] 审批与 point-of-no-return 行为符合声明 —— **未做**
+- [ ] 结果报告落 `docs/audits/` —— **未做**
+- [x] 未修改 Out of scope 文件 —— 本次只写本卡记录
 
 ### 5. 偏差
 
+**DRIFT-105-1（阻塞：本卡无运行对象，不属于"可做但未做"）**
+
+1. **现象**：本卡的 In scope 要求"每个用例必须从真实入口启动，不使用静态断言替代运行"。但截至 2026-09-30，三条前置实体全部不存在：
+   - **(a) 生产装配根** —— `apps/agent-core/src/main.rs` 只有 `--self-check`，其文件头自述 *"The production composition root will supply a real Provider, persistent `SessionStore`, and adapter package."*；`HostAssembly`（`assembly.rs` 的 `HostComponents`）不拥有 `TaskEngine` / `RuntimeExecutor` / `ToolRegistry` 内容 / `UiServer` / `SnapshotEventSource`。
+   - **(b) Notepad Host handler** —— 生产 `ToolRegistry` 为空（self-check 传 `ToolRegistry::new()`）；handler 只在测试里（`apps/agent-core/tests/runtime_toolbus.rs` 的 `WriteTextHandler`）。ToolBus 上没有任何可调工具。
+   - **(c) Plan 来源** —— `Planner` 需要 `Arc<dyn ModelProvider>`，生产实现不存在；`NoopProvider` 只产 usage+stop，产不出 `Plan`。
+2. **影响**：本卡的 6 条 DoD 中 5 条无法开工（唯一"不可度量"的一条也没有数据可计）。若强行跑，只能得到伪造或静态推算的成功率 —— 违反铁律 1、本卡「不得从静态用例推算」与 Out of scope「伪造成功率」。**阶段 1a 因此仍为 NO-GO**，且这与 TASK-039 / TASK-211 的结论一致。
+3. **建议**：立 **TASK-214**（生产装配根 + Notepad Host handler + 1a Plan 来源），其契约依据为 **ADR-0058（Proposed）**。ADR 需要裁决的关键点是"1a 的 Plan 来源口径"——`docs/memory/open.md` **M3** 已把本地模型选型判给 1c 前，故建议 1a 用确定性「任务包 → `Plan`」的 `ModelProvider`，真实 LLM 另立卡 + 网络/依赖 ADR。
+4. **已停工作**：本卡未写任何 fixture / eval 编排 / 审计报告，未产生任何运行证据，未修改 Out of scope 文件。**等待人类接受 ADR-0058 并完成 TASK-214 后再开工。**
+
 ### 6. 更合理做法
+
+先补"可运行对象"再谈"运行验收"。原 WBS 把 TASK-029（装配）当作已交付，但 TASK-029 的 DoD 只要求"装配点可执行 + 缺组件 fail-closed"，所以它交付的是 self-check 而非生产根；这两者在 WBS 上同名不同物，是本次阻塞的结构性根因。
 
 ### 7. 遗留问题
 
+- **TASK-214 未完成前本卡不可开工**（ADR-0058 待人类接受）。
+- 人类接受 ADR-0058 后，`PLAN.md` 当前状态块里「真实 ModelProvider」的措辞需同步澄清为「1a = 确定性任务包 provider；真实 LLM 归 1c 前」。
+- 靶机 `notepad-like` 的 UIA 通道需在 TASK-214 里被真实驱动一次（当前只有 TASK-033 的自测脚本）。
+
 ### 8. 新增长期记忆
 
+（无长期记忆新增 —— 阻塞本身记在 §5 与 `docs/PARKING_LOT.md`；若 ADR-0058 被接受，再按 ADR 追加 `decisions.md` 条目。）
+
 ### 9. 给审阅者的关注点
+
+1. 本卡**没有**产出任何运行证据，请勿把本文件当成 T1.x 已验收的证据。
+2. 阻塞根因是 WBS 缺口（无生产装配根），不是执行失败；请优先裁决 ADR-0058 的 Proposal 状态。
+3. 若认为"1a 必须包含真实 LLM"，请直接否决 ADR-0058 D2/D3 —— 那会改变 1a 的范围与依赖。
