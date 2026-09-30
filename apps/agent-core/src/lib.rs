@@ -28,6 +28,7 @@ mod error;
 mod runtime;
 mod ui_control;
 mod ui_ipc;
+mod ui_server;
 
 pub use adapters::{
     AuditSink, CharacterTokenEstimator, RootedAppMapReader, StorageMemoryRetriever,
@@ -44,4 +45,7 @@ pub use ui_ipc::{
     UI_IPC_VERSION, UiAuthorizationScope, UiCommand, UiCommandError, UiCommandHandler,
     UiCommandOutcome, UiEvent, dispatch_ui_command, parse_ui_command, project_snapshot_events,
     task_status_name,
+};
+pub use ui_server::{
+    UiServerConfig, looks_like_image_path, process_ui_request, serve as serve_ui, serve_session,
 };
