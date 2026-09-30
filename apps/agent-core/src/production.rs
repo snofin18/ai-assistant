@@ -35,12 +35,13 @@ use assistant_model_gateway::{
 };
 use assistant_platform_api::{UiAutomationProvider, WindowProvider};
 use assistant_policy::{Decision, Effect, EgressDestination, Reversibility, RuleSet};
-use assistant_protocol::ToolSchema;
+use assistant_protocol::{ErrorCode, ToolSchema};
 use assistant_storage::Clock;
 use assistant_task_engine::{
     Budget, MemoryCheckpointStore, Plan, PlanId, PlanStep, StepId, TaskEngine, TaskEvent, TaskId,
     TaskSnapshot,
 };
+use assistant_tool_bus::ToolRegistry;
 use thiserror::Error;
 
 use crate::HostAssembly;
@@ -149,6 +150,20 @@ pub enum ProductionError {
         /// Failure detail.
         reason: String,
     },
+}
+
+impl ProductionError {
+    /// Returns the stable protocol category for this startup or run failure.
+    #[must_use]
+    pub const fn error_code(&self) -> ErrorCode {
+        match self {
+            Self::InvalidConfiguration { .. } => ErrorCode::ToolInvalidArgs,
+            Self::TaskPackage(_) | Self::ModelRouter { .. } => ErrorCode::CapabilityMissing,
+            Self::Host(error) => error.error_code(),
+            Self::Planner { .. } => ErrorCode::ModelInvalidOutput,
+            _ => ErrorCode::Fatal,
+        }
+    }
 }
 
 /// Production Host plus its deterministic Plan source and UI event state.
@@ -268,14 +283,19 @@ where
         field: "adapter_root.tools.tools",
         reason: error.to_string(),
     })?;
-    if registry_build.registry.is_empty() {
-        return Err(ProductionError::InvalidConfiguration {
-            field: "tool_registry",
-            reason: "production tool registry must not be empty".to_owned(),
-        });
-    }
+    validate_registry_not_empty(&registry_build.registry)?;
     let provider = TaskPackageProvider::from_package_file(&config.task_package_path)?;
     Ok((targets, registry_build, provider))
+}
+
+fn validate_registry_not_empty(registry: &ToolRegistry) -> Result<(), ProductionError> {
+    if !registry.is_empty() {
+        return Ok(());
+    }
+    Err(ProductionError::InvalidConfiguration {
+        field: "tool_registry",
+        reason: "production tool registry must not be empty".to_owned(),
+    })
 }
 
 impl<P> ProductionHost<P>
@@ -574,3 +594,7 @@ fn validate_config(config: &ProductionConfig) -> Result<(), ProductionError> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "production_tests.rs"]
+mod tests;
