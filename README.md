@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；**TASK-102 运行执行链路契约已 Done**（ADR-0056 **Accepted**，`runtime-execution` spec 为 Draft）；**TASK-103 真实任务执行器已 Done**（`VerificationReceipt` + `StepCommit` 提交门、`RuntimeExecutor`、真实 `ToolBus` MCP 往返、Host 请求分发）；**TASK-104 UI ↔ Core typed IPC 与审批接线已 Done**（版本化命令/事件契约 + 两侧 fail-closed 校验、Core 侧命令落到真实 task-engine、时间线投影真实 post fingerprint）；**TASK-210 UI 与提交质量门禁已 Done**：Prettier / ESLint（flat config）/ Vitest + Testing Library / commitlint 四套门禁接入 CI 并各带负向验证，`src-tauri` 纳入 Windows CI job；**TASK-212 已 Done**（`check-comments` 9 处真实违规只加注释清零）；**TASK-087 已进入 Review**（fmt/clippy/build 三类 canary 与 `check-comments` CI 接线已实现，gate-selftest 成功 run 待回填）。**真实 UI↔Core 传输尚未接通（PL-095）**；下一张 **TASK-105**（需先裁决 PL-095）。TASK-039 的阶段 1a 审计结论仍为 **NO-GO**，补救卡 **TASK-102~105 / 087 / 210 / 211 / 212** 已登记。此前 TASK-038 T1.3 任务包、TASK-037 T1.2 任务包、TASK-036 T1.1 任务包、TASK-035 Notepad Adapter 声明式包、TASK-034 录制回放、TASK-033 `notepad-like`、TASK-032 策略/能力/成本、TASK-031 元素拾取/绑定、TASK-030 审批/时间线、TASK-029 Host 装配、TASK-208 Memory、TASK-207 Planner、TASK-206 storage `memory_fts`、TASK-028 会话/上下文、TASK-027 `hitl`、TASK-026 `model-gateway`、TASK-025 `lease`、TASK-024 `undo`、TASK-023 `verify` 与跨阶段治理卡 TASK-200~204 均已 Done；
+> 状态：**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）** —— 阶段 0 已于 2026-09-20 closeout；阶段 1a 补救卡 **TASK-102 / 103 / 104 / 210 / 212 / 087 均 Done**（TASK-087 已完成 fmt/clippy/build 负向 canary、`check-comments` CI 硬门禁与 gate-selftest run `36598959358` 全绿，PL-018 关闭）。TASK-039 的阶段 1a 审计结论仍为 **NO-GO**：真实 UI↔Core 传输未接通（**PL-095**），T1.x 10 次运行证据仍缺；下一张 **TASK-105**（需先裁决 PL-095）。
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
@@ -70,6 +70,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ## 当前阶段
 
 **阶段 1 — 三试点闭环**（Notepad → Paint → Edge/Chrome；TASK-011 ~ TASK-058）。
+阶段 1a 补救治理已把运行链路、typed IPC、UI/commit 质量门禁与 `check-comments` 门禁收口；`gate-selftest` 的 fmt / clippy / build canary 已有成功 run 证据（`36598959358`）。
 子阶段 1a 已开工：地基层的 `crates/protocol`（schema + codegen）/ `crates/storage`（SQLite WAL + 迁移注册表 + blob + **TASK-206 `memory_fts` FTS5 检索**）/
 `crates/audit`（append-only hash chain）/ `crates/core`（会话 + 上下文 + Planner + Memory）/ `crates/secrets`（OS keychain 封装）/
 `xtask` 护栏（`docscan` 4 条结构规则 + `check-ledger` + `check-migrations` + `crates/core` 分层断言）/
@@ -168,7 +169,13 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 
 ---
 
-## 最近进展（2026-09-29：**TASK-212 —— check-comments 9 处真实违规修复，Done**；**TASK-087 —— CI 硬门禁负向验证 + check-comments 落地，Review（gate-selftest 待跑）**；**TASK-210 —— UI 与提交质量门禁（Prettier / ESLint / Vitest / commitlint），Done**；**TASK-104 —— UI ↔ Core typed IPC 与审批接线，Done**；**TASK-103 —— 真实任务执行器（Host 分发 + VerifyReceipt 接线），Done**；**TASK-102 —— 运行执行链路契约，Done；ADR-0056 Accepted**；**TASK-039 —— 阶段 1a 集成审计，Review / NO-GO；补齐 1a 补救卡 TASK-102~105 / 087 / 210 / 211 / 212**；**TASK-038 —— T1.3 任务包与评测集**；**TASK-037 —— T1.2 任务包与评测集**；2026-09-28：**TASK-036 —— T1.1 任务包与评测集**；**TASK-035 —— Notepad Adapter 声明式包 v0**；**TASK-034 —— 录制回放框架 v0**；**TASK-033 —— notepad-like 靶机应用**；**TASK-032 —— 策略 / 能力 / 成本面板**；**TASK-031 —— 元素拾取器 + 目标绑定**；2026-09-27：**TASK-208 —— `core` Memory（App Map + FTS5 检索消费）**；**TASK-206 —— `crates/storage` `memory_fts` FTS5 检索**；**TASK-207 —— `core` Planner（模型输出 → Plan / Step DAG）**；TASK-206 DRIFT-206-1 裁决 + ADR-0054；DRIFT-028 五点落地 —— ADR-0053；2026-09-26：TASK-028 —— 会话 + 上下文；TASK-027 —— HITL 审批与接管；TASK-026 —— 模型网关；TASK-025 —— 目标租约与并发控制；TASK-024 —— 撤销与补偿闭环；2026-09-25：TASK-023 —— 后置断言引擎；TASK-204 —— 工具 schema 关键字判据硬化；TASK-022 —— 任务引擎；TASK-021 —— 唯一策略放行点；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+## 最近进展（2026-09-30：**TASK-087 —— CI 负向验证 + `check-comments` 硬门禁，Done**；**TASK-212 —— check-comments 9 处真实违规修复，Done**；2026-09-29：**TASK-210 —— UI 与提交质量门禁（Prettier / ESLint / Vitest / commitlint），Done**；**TASK-104 —— UI ↔ Core typed IPC 与审批接线，Done**；**TASK-103 —— 真实任务执行器（Host 分发 + VerifyReceipt 接线），Done**；**TASK-102 —— 运行执行链路契约，Done；ADR-0056 Accepted**；**TASK-039 —— 阶段 1a 集成审计，Review / NO-GO**；**TASK-038 —— T1.3 任务包与评测集**；**TASK-037 —— T1.2 任务包与评测集**；2026-09-28：**TASK-036 —— T1.1 任务包与评测集**；**TASK-035 —— Notepad Adapter 声明式包 v0**；**TASK-034 —— 录制回放框架 v0**；**TASK-033 —— notepad-like 靶机应用**；**TASK-032 —— 策略 / 能力 / 成本面板**；**TASK-031 —— 元素拾取器 + 目标绑定**；2026-09-27：**TASK-208 —— `core` Memory（App Map + FTS5 检索消费）**；**TASK-206 —— `crates/storage` `memory_fts` FTS5 检索**；**TASK-207 —— `core` Planner（模型输出 → Plan / Step DAG）**；2026-09-26：TASK-028 —— 会话 + 上下文；TASK-027 —— HITL 审批与接管；TASK-026 —— 模型网关；TASK-025 —— 目标租约与并发控制；TASK-024 —— 撤销与补偿闭环；2026-09-25：TASK-023 —— 后置断言引擎；TASK-204 —— 工具 schema 关键字判据硬化；TASK-022 —— 任务引擎；TASK-021 —— 唯一策略放行点；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+
+**2026-09-30 —— TASK-087 CI 负向验证 + `check-comments` 硬门禁**
+
+- `gate-selftest.yml`：新增 fmt / clippy / build 三类 N3 canary，正向基线 + 注入坏样本 + 具体退出码与故障文本断言 + 还原；首跑发现 Clippy 诊断渲染 lint 名用连字符，已把断言钉为 `-D clippy::unwrap-used` / `-D clippy::dbg-macro`，未放宽 exit 101 要求。
+- `ci.yml`：`check-comments` 以 `[HARD #15]` 接入；TASK-212 已把 9 处真实 Error 清零，避免永久红灯。
+- 验收：gate-selftest run `36598959358` 五个 canary job 全绿；PR #104 的 push / pull_request CI 全部 success；PL-018 关闭。
 
 **2026-09-29 —— TASK-210 UI 与提交质量门禁**
 

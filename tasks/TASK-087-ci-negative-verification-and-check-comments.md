@@ -106,20 +106,28 @@ cargo run -p xtask -- card-check       → PASS（0 error / 27 warning，既有�
 cargo run -p xtask -- check-ledger     → PASS（0 error / 0 warning）
 cargo run -p xtask -- memory-counts    → PASS（scanned=8，0 error / 0 warning）
 cargo run -p xtask -- adr-index       → PASS（scanned=40，0 error / 0 warning）
+gate-selftest                         → 首跑 36598318298 FAILURE（clippy 门禁真实 exit 101，
+                                          但断言钉错为下划线 lint 名）；修正渲染口径为
+                                          `-D clippy::unwrap-used` / `-D clippy::dbg-macro`
+                                          并提交 d4d38ac 后，run 36598959358 SUCCESS：
+                                          fmt / clippy / build / deny / spike-deny 五个 job
+                                          的正向与负向步全部 success
 ```
 
 ### 4. DoD 逐条核对
 
-- [ ] **fmt / clippy / build 三类 canary**：实现已完成（正向 + 负向 + 具体退出码/故障文本断言）；待一次 gate-selftest 成功 run 后勾选。
+- [x] **fmt / clippy / build 三类 canary**：实现已完成（正向 + 负向 + 具体退出码/故障文本断言）；gate-selftest run `36598959358` 五个 job 全部 success。
 - [x] **`check-comments` 不再是 exit 3 stub，负向/正向测试齐全**：实现 8 条规则；27 条单测含每条的通过/违规/边界用例，以及「`pub const fn` 不得把 `fn` 当名字」「多行 SAFETY 说明」「空行切断 SAFETY 组」「`#[doc]` 属性算文档」四条实跑发现的回归用例。
 - [x] **CI 将 `check-comments` 作为真实门禁**：`ci.yml` 的 `[HARD #15]` 已接入；TASK-212 已把 9 处 Error 清零，不会形成永久红灯。
-- [ ] **ADR-0019 登记表同步 / PL-018 可关闭**：登记表已同步；PL-018 关闭行待 gate-selftest 成功 run 后同批追加。
-- [ ] **gate-selftest 至少一次成功 run 记录在 LEDGER**：待本 PR 推送后手工触发。
+- [x] **ADR-0019 登记表同步 / PL-018 可关闭**：登记表已同步；PL-018 以 gate-selftest run `36598959358` 为成功证据关闭。
+- [x] **gate-selftest 至少一次成功 run 记录在 LEDGER**：run `36598959358` 于 2026-09-30 记录。
 - [x] **未修改 Out of scope 文件**：TASK-212 按人类派单单独修复 9 处真实违规；本卡未改 core/policy/task-engine 行为。
 
 ### 5. 偏差
 
 - **DRIFT-087-1（已由 TASK-212 裁决/修复）**：首次真跑的 9 条 Error 已按推荐方案 ① 立卡修复，只加注释、不改可执行语句；`check-comments` 当前 0 error。无新增偏差。
+
+**gate-selftest 首跑失败（非 DRIFT，卡内修复）**：run `36598318298` 中 clippy 负向步证明门禁真实返回 exit 101，但 canary 断言写成了 Clippy 源码配置名的下划线形式，而 Clippy 诊断输出渲染为连字符形式。修复仅改断言与登记口径为 `-D clippy::unwrap-used` / `-D clippy::dbg-macro`，仍要求 exit 101 且两个 lint 都被指名；未放宽门禁。
 
 ### 6. 更合理做法
 
@@ -129,7 +137,6 @@ cargo run -p xtask -- adr-index       → PASS（scanned=40，0 error / 0 warnin
 
 ### 7. 遗留问题
 
-- **gate-selftest 实跑待完成**：三类 canary 已写入 workflow，但 ADR-0019 的 N3 证据要求一次成功 run number；推送本 PR 后手工触发并回填 LEDGER。
 - **`deferred.rs` 的 `replay-skeleton` 条目疑似过期**：它的 reason 写「真实 fixture + diff 留待 TASK-034 完整版」，而 TASK-034 已 Done。它现在是 `--list-deferred` 与 `deferred-inventory` CI 步骤的唯一对象；是否删除需治理裁决（属 PL-059 同型：登记表指向已完成的卡）。
 
 ### 8. 新增长期记忆
