@@ -47,6 +47,8 @@ where
             &window,
             super::TOOL_TAB_NEW,
         )?;
+        let previous_fingerprint = self.fingerprint_event(&window, super::TOOL_TAB_NEW)?;
+        let started = std::time::Instant::now();
         self.invoke_element(&add_button, "invoke", super::TOOL_TAB_NEW)?;
         let after = parse_tab_count(&self.read_element_text(&count_element, super::TOOL_TAB_NEW)?)?;
         if after != before.saturating_add(1) {
@@ -65,6 +67,8 @@ where
                 "tab_count": after,
                 "previous_tab_count": before,
                 "fingerprint": fingerprint.as_str(),
+                "previous_fingerprint": previous_fingerprint.as_str(),
+                "elapsed_ms": super::elapsed_ms(started),
             }),
         ))
     }

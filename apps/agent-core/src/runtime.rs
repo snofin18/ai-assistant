@@ -21,12 +21,13 @@ use assistant_platform_api::Fingerprint;
 use assistant_policy::Decision;
 use assistant_protocol::{ErrorCode, ToolEnvelope};
 use assistant_task_engine::{
-    CheckpointStore, PlanStep, StepCommit, StepId, TaskEngine, TaskEvent, TaskId, TaskSnapshot,
-    TaskStatus,
+    CheckpointStore, PlanStep, StepCommit, StepId, StepStatus, TaskEngine, TaskEvent, TaskId,
+    TaskSnapshot, TaskStatus,
 };
 use assistant_tool_bus::{CallContext, ToolBus};
 use assistant_verify::{
-    Observation, VerifyOutcome, parse_postconditions, verify_postconditions_with_receipt,
+    AssertValue, Observation, VerifyOutcome, parse_postconditions,
+    verify_postconditions_with_receipt,
 };
 use thiserror::Error;
 
@@ -209,26 +210,64 @@ where
         now_ms: i64,
     ) -> Result<StepExecutionOutcome, RuntimeExecutionError> {
         let step = self.running_step(task_id, step_id)?;
-        self.engine.begin_step(task_id, step_id, now_ms)?;
+        self.ensure_step_prechecking(task_id, step_id, now_ms)?;
         if let Some(outcome) = self.apply_policy(task_id, step_id, &step, now_ms)? {
             return Ok(outcome);
         }
+        // Approval requests are local control steps. Evaluate them while the
+        // step is still in Prechecking so "no decision recorded" can leave a
+        // resumable pause instead of failing after the Execute boundary.
+        let prechecked_envelope = if step.tool == crate::runtime_tools::TOOL_REQUEST_APPROVAL {
+            let envelope = self.invoker.invoke(task_id, &step).await?;
+            if is_pending_approval_envelope(&envelope) {
+                return Ok(StepExecutionOutcome::AwaitingApproval);
+            }
+            if !envelope.ok {
+                return self.fail_from_envelope(task_id, step_id, &envelope, now_ms);
+            }
+            Some(envelope)
+        } else {
+            None
+        };
         self.engine.approve_step(task_id, step_id, now_ms)?;
         self.engine.begin_execute(task_id, step_id, now_ms)?;
-        let envelope = match self.invoker.invoke(task_id, &step).await {
-            Ok(envelope) => envelope,
-            Err(error) => {
-                return self.enter_needs_human(
-                    task_id,
-                    now_ms,
-                    format!("tool outcome unknown: {error}"),
-                );
-            }
+        let envelope = match prechecked_envelope {
+            Some(envelope) => envelope,
+            None => match self.invoker.invoke(task_id, &step).await {
+                Ok(envelope) => envelope,
+                Err(error) => {
+                    return self.enter_needs_human(
+                        task_id,
+                        now_ms,
+                        format!("tool outcome unknown: {error}"),
+                    );
+                }
+            },
         };
         if !envelope.ok {
             return self.fail_from_envelope(task_id, step_id, &envelope, now_ms);
         }
         self.verify_and_commit(task_id, step_id, &step, &envelope, now_ms)
+    }
+
+    /// Starts a fresh step, or keeps a previously suspended Prechecking step at
+    /// the same point so an approval resume never replays committed work.
+    fn ensure_step_prechecking(
+        &mut self,
+        task_id: &TaskId,
+        step_id: &StepId,
+        now_ms: i64,
+    ) -> Result<(), RuntimeExecutionError> {
+        let snapshot = self.engine.load_snapshot(task_id)?;
+        if snapshot.current_step.as_ref() == Some(step_id)
+            && snapshot
+                .step(step_id)
+                .is_some_and(|step| step.status == StepStatus::Prechecking)
+        {
+            return Ok(());
+        }
+        self.engine.begin_step(task_id, step_id, now_ms)?;
+        Ok(())
     }
 
     /// Loads the step about to run, failing closed when the task is not running
@@ -368,6 +407,16 @@ where
     }
 }
 
+fn is_pending_approval_envelope(envelope: &ToolEnvelope) -> bool {
+    !envelope.ok
+        && envelope.error.as_ref().is_some_and(|error| {
+            matches!(
+                error.code,
+                ErrorCode::UserInteraction | ErrorCode::PolicyDenied
+            )
+        })
+}
+
 /// Invokes tools through the in-process MCP [`ToolBus`].
 ///
 /// The executor owns this adapter by value; the bus itself is borrowed for the
@@ -477,6 +526,13 @@ impl ObservationCollector for EnvelopeObservationCollector {
         observation.text = text;
         observation.previous_fingerprint = previous_fingerprint;
         observation.elapsed_since_previous_ms = elapsed_since_previous_ms;
+        if let Some(object) = data.0.as_object() {
+            for (name, value) in object {
+                if let Ok(assert_value) = serde_json::from_value::<AssertValue>(value.clone()) {
+                    observation.values.insert(name.clone(), assert_value);
+                }
+            }
+        }
         if let Some(files) = data.0.get("files") {
             observation.files = serde_json::from_value(files.clone()).map_err(|error| {
                 RuntimeExecutionError::Observation {

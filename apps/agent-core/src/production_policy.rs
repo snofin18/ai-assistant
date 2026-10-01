@@ -104,7 +104,7 @@ impl StepPolicy for CatalogStepPolicy {
         } else {
             assistant_policy::EvaluationContext {
                 effect: policy_effect(step.effect),
-                risk_level: metadata.risk_level,
+                risk_level: effective_risk_level(metadata),
                 reversibility: policy_reversibility(step.reversibility),
                 unattended: false,
                 tainted: false,
@@ -117,6 +117,18 @@ impl StepPolicy for CatalogStepPolicy {
             .map_err(|error| RuntimeExecutionError::Policy {
                 reason: error.to_string(),
             })
+    }
+}
+
+/// A low-risk write that the adapter explicitly marks as approval-required is
+/// promoted to the existing medium-risk confirmation rule. The policy engine
+/// still makes the decision; this only translates authoritative tool metadata
+/// into a context it can evaluate.
+fn effective_risk_level(schema: &ToolSchema) -> assistant_protocol::RiskLevel {
+    if schema.requires_approval && schema.risk_level == assistant_protocol::RiskLevel::Low {
+        assistant_protocol::RiskLevel::Medium
+    } else {
+        schema.risk_level
     }
 }
 
