@@ -21,7 +21,7 @@
 use std::future::Future;
 use std::sync::{Arc, Mutex};
 
-use assistant_protocol::serde_json::json;
+use assistant_protocol::serde_json::{Map, Value, json};
 use assistant_protocol::{ErrorCode, ToolEnvelope};
 use assistant_task_engine::{PlanStep, StepStatus, TaskId, TaskSnapshot};
 use assistant_tool_bus::{CallContext, ToolBus};
@@ -66,6 +66,9 @@ impl ToolInvoker for ReservedRuntimeInvoker<'_> {
         async move {
             if tool == crate::runtime_tools::TOOL_VERIFY_POSTCONDITIONS {
                 return self.verify_postconditions(&call, &step_id, sequence);
+            }
+            if tool == crate::runtime_tools::TOOL_PREPARE_ANCHORS {
+                return self.prepare_anchors(&call, &step_id, sequence, arguments.as_ref());
             }
             if crate::runtime_tools::RESERVED_RUNTIME_TOOLS.contains(&tool.as_str()) {
                 return Ok(ToolEnvelope::error(
@@ -155,6 +158,113 @@ impl ReservedRuntimeInvoker<'_> {
             step_id.to_owned(),
             json!({ "fingerprint": fingerprint }),
         ))
+    }
+
+    /// ADR-0059 D3 / ADR-0060 D4: decide and **validate** the anchors a write step
+    /// requires, and refuse early when they cannot be honoured, so the step never
+    /// reaches Execute.
+    ///
+    /// Scope, stated plainly: this executor validates the declared levels and the
+    /// recipe references and reports the plan. **Capturing the physical snapshot is
+    /// the Host/adapter's job at Execute time.** What this step guarantees is the
+    /// contract's real content - *do not proceed without a viable anchor plan* -
+    /// and it guarantees it by failing here.
+    fn prepare_anchors(
+        &self,
+        call: &CallContext,
+        step_id: &str,
+        sequence: u32,
+        arguments: Option<&Map<String, Value>>,
+    ) -> Result<ToolEnvelope, RuntimeExecutionError> {
+        let refused = |code: ErrorCode, message: String| {
+            ToolEnvelope::error(
+                crate::runtime_tools::TOOL_PREPARE_ANCHORS.to_owned(),
+                call.task_id().to_owned(),
+                step_id.to_owned(),
+                code,
+                message,
+            )
+        };
+        let Some(arguments) = arguments else {
+            return Ok(refused(
+                ErrorCode::ToolInvalidArgs,
+                "prepare_anchors requires arguments".to_owned(),
+            ));
+        };
+        let Some(levels) = arguments.get("required_levels").and_then(Value::as_array) else {
+            return Ok(refused(
+                ErrorCode::ToolInvalidArgs,
+                "required_levels must be an array".to_owned(),
+            ));
+        };
+        if levels.is_empty() {
+            return Ok(refused(
+                ErrorCode::ToolInvalidArgs,
+                "required_levels must not be empty".to_owned(),
+            ));
+        }
+        for level in levels {
+            let Some(name) = level.as_str() else {
+                return Ok(refused(
+                    ErrorCode::ToolInvalidArgs,
+                    "required_levels entries must be strings".to_owned(),
+                ));
+            };
+            match name {
+                "l0_undo_stack" | "l1_snapshot" | "l2_compensation" => {}
+                "l3_irreversible" => {
+                    return Ok(refused(
+                        ErrorCode::PolicyDenied,
+                        "an irreversible step cannot be anchored; it requires human confirmation"
+                            .to_owned(),
+                    ));
+                }
+                other => {
+                    return Ok(refused(
+                        ErrorCode::ToolInvalidArgs,
+                        format!("unknown anchor level `{other}`"),
+                    ));
+                }
+            }
+        }
+        for key in ["replace_recipe", "save_recipe"] {
+            match arguments.get(key).and_then(Value::as_str) {
+                Some(value) if !value.trim().is_empty() => {}
+                _ => {
+                    return Ok(refused(
+                        ErrorCode::ToolInvalidArgs,
+                        format!("{key} must be a non-empty string"),
+                    ));
+                }
+            }
+        }
+        let Some(fingerprint) = self.current_fingerprint(sequence)? else {
+            return Ok(refused(
+                ErrorCode::VerifyFailed,
+                "no prior step recorded a post fingerprint; cannot prove state is unchanged"
+                    .to_owned(),
+            ));
+        };
+        Ok(ToolEnvelope::ok(
+            crate::runtime_tools::TOOL_PREPARE_ANCHORS.to_owned(),
+            call.task_id().to_owned(),
+            step_id.to_owned(),
+            json!({ "anchor_levels": levels, "fingerprint": fingerprint }),
+        ))
+    }
+
+    /// The fingerprint the app is currently sitting at: the post fingerprint of
+    /// the last committed step before `sequence`.
+    fn current_fingerprint(&self, sequence: u32) -> Result<Option<String>, RuntimeExecutionError> {
+        let Some(snapshot) = self.current_snapshot()? else {
+            return Ok(None);
+        };
+        Ok(snapshot
+            .steps
+            .iter()
+            .filter(|prior| prior.sequence < sequence)
+            .filter_map(|prior| prior.post_fingerprint.clone())
+            .next_back())
     }
 
     /// Copies the published snapshot out of the lock in a single expression, so
