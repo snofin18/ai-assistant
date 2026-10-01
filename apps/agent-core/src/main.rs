@@ -272,7 +272,8 @@ async fn run_production(
         committed_steps: run.snapshots.len(),
     };
     if serve_ui {
-        let mut handler = TaskControlHandler::new(run.into_engine(), Arc::clone(&clock));
+        let mut handler = TaskControlHandler::new(run.into_engine(), Arc::clone(&clock))
+            .with_approvals(host.approvals());
         let mut events = host.snapshot_event_source();
         serve_with_events(host.ui_config(), &mut handler, &mut events).map_err(|error| {
             ProductionError::UiServer {

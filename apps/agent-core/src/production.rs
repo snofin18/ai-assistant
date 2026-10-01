@@ -458,6 +458,13 @@ where
         }
     }
 
+    /// Shares the assembly-owned approval table with the UI command handler, so
+    /// the decision the human makes is the very object a runtime step consumes.
+    #[must_use]
+    pub fn approvals(&self) -> Arc<ApprovalGrants> {
+        Arc::clone(&self.approvals)
+    }
+
     /// Creates a production event source reading the latest executed snapshot.
     #[must_use]
     pub fn snapshot_event_source(

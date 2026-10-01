@@ -2,8 +2,9 @@
 
 > 摘要：定义 binary 装配层 `RuntimeExecutor` 的单步执行契约，串联 TaskEngine、
 > Policy、HITL、Lease、ToolBus、Host、Verify、Undo 与 Audit。
-> 状态：Draft（ADR-0056 Accepted）　版本：0.1　日期：2026-09-29
-> 上位：`AGENTS.md` §2、架构 v2 §7 / §8 / §9 / §12、ADR-0053、ADR-0056、ADR-0055
+> 状态：Draft（ADR-0056 Accepted）　版本：0.2　日期：2026-10-01
+> 上位：`AGENTS.md` §2、架构 v2 §7 / §8 / §9 / §12、ADR-0053、ADR-0055、ADR-0056、
+> ADR-0059、ADR-0060
 > 强制性：ADR-0056 转 Accepted 后即作为实现契约；违反由 Reviewer 拒绝合并，能机器化的
 > 部分由 TASK-103/105 的测试固定。
 > 变更门槛：新增公开接口、改变提交门或错误语义 → 需 ADR。
@@ -50,6 +51,10 @@
 | `Undo` | Anchor、rollback recipe、冲突与 incident | 不决定是否放行、不执行平台动作 |
 | `Audit` | append-only 事件持久化 | 不改回状态、不替 RuntimeExecutor 决策 |
 
+`hitl` / `host_service` / `verify` 三类步骤不进入模型可见的 ToolBus 挂载集。
+运行时把它们映射到三个 `assistant.runtime.*` 保留工具，并在 binary 层本地执行
+（ADR-0059、ADR-0060）。模型看不到、也调用不到这三个名字。
+
 ## 4. 运行前置条件
 
 1. 任务已由 Planner 产生 `Plan` 并通过 `Plan::validate`。
@@ -72,6 +77,11 @@
   target_app、egress。
 - `AllowWithConfirmation` 必须经过 HITL；`once`/scope/TTL 必须满足。
 - `Deny` 路径的工具调用数必须为 0。
+- `hitl` 步骤映射为 `assistant.runtime.request_approval`：请求形状不合法时显式拒绝；
+  没有已记录的人类批准时返回 `UserInteraction`；批准只按声明的有界 scope/TTL 放行，
+  且一次批准只能覆盖一次运行时消费。
+- `point_of_no_return: true` 的步骤在无人批准时不得执行；人类按 `once` 批准后也只放行
+  该步骤一次，永不转成无人值守授权。
 
 ### 5.3 Lease / Anchor
 
@@ -79,6 +89,9 @@
 - 需要跨多个资源的 Step 按稳定 key 顺序获取，失败时释放已获取租约。
 - L0/L1/L2 写步骤在执行前建立 Anchor；L3 只允许 point-of-no-return 证据。
 - Anchor/Lease 创建失败则不进入 Execute。
+- `host_service` 步骤映射为 `assistant.runtime.prepare_anchors`：校验声明的 anchor levels
+  与 rollback/save recipe；`l3_irreversible` 或无法读取指纹时必须在进入 Execute 前失败。
+  物理快照的采集仍由 Host/Adapter 在 Execute 边界完成。
 
 ### 5.4 Execute
 
@@ -93,6 +106,9 @@
 - `Verified` 产生不透明的 `VerificationReceipt`。
 - `Violated` / `Inconclusive` 不允许成功提交，并按 `on_violation` 分派。
 - 验证所需 Observation 由 Host/Reader 提供；缺失即 `Inconclusive`。
+- `verify` 步骤映射为 `assistant.runtime.verify_postconditions`：它断言该步骤之前的
+  所有 Step 已提交，并用最后一个已提交 Step 的 post fingerprint 证明运行时状态未变；
+  无快照、前序未提交或缺指纹时都显式失败。
 
 ### 5.6 Commit
 
@@ -162,3 +178,4 @@ RuntimeExecutor 至少投影以下运行事件：
 | 日期 | 变更 | 依据 |
 |---|---|---|
 | 2026-09-29 | 建立单步运行执行链路契约 | TASK-102 / ADR-0056（Proposed） |
+| 2026-10-01 | 补充三类保留运行时步骤与一次性审批语义 | TASK-216 / ADR-0059 / ADR-0060 |

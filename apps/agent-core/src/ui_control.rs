@@ -26,6 +26,10 @@ use crate::ui_ipc::{
     UiAuthorizationScope, UiCommand, UiCommandError, UiCommandHandler, UiCommandOutcome,
 };
 
+use assistant_hitl::ApprovalScope;
+
+use crate::approval_grants::{ApprovalGrants, GrantRequest};
+
 /// One approval the runtime is waiting on.
 #[derive(Debug, Clone)]
 struct PendingApproval {
@@ -39,7 +43,12 @@ pub struct TaskControlHandler<Store> {
     engine: TaskEngine<Store>,
     clock: Arc<dyn Clock>,
     pending: BTreeMap<String, PendingApproval>,
+    approvals: Arc<ApprovalGrants>,
 }
+
+/// How long a UI approval stays usable. Bounded on purpose: an approval the user
+/// gave for one step must not linger into an unrelated later action.
+const APPROVAL_TTL_MS: i64 = 300_000;
 
 impl<Store> TaskControlHandler<Store> {
     /// Creates a handler over the assembly-owned engine and clock.
@@ -49,7 +58,16 @@ impl<Store> TaskControlHandler<Store> {
             engine,
             clock,
             pending: BTreeMap::new(),
+            approvals: Arc::new(ApprovalGrants::new()),
         }
+    }
+
+    /// Shares the assembly-owned approval table, so a UI decision is visible to
+    /// the runtime step that is waiting for it.
+    #[must_use]
+    pub fn with_approvals(mut self, approvals: Arc<ApprovalGrants>) -> Self {
+        self.approvals = approvals;
+        self
     }
 
     /// Registers a pending approval published by the runtime executor.
@@ -88,6 +106,62 @@ impl<Store> TaskControlHandler<Store> {
         Ok(())
     }
 
+    /// Records the human decision so the waiting runtime step can proceed **once**.
+    ///
+    /// A standing scope is refused: the grant table will not hold one, and a
+    /// step-level approval must not become a permanent authorization.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UiCommandError::UnknownApproval`] for an id that is not pending,
+    /// [`UiCommandError::ScopeNotOffered`] when the scope was never offered, and
+    /// [`UiCommandError::Handler`] when a standing scope is requested or the
+    /// grant table cannot record the decision.
+    fn approve_request(
+        &mut self,
+        request_id: String,
+        scope: UiAuthorizationScope,
+        now_ms: i64,
+    ) -> Result<UiCommandOutcome, UiCommandError> {
+        let (task_id, step_id) = {
+            let pending =
+                self.pending
+                    .get(&request_id)
+                    .ok_or_else(|| UiCommandError::UnknownApproval {
+                        request_id: request_id.clone(),
+                    })?;
+            if !pending.scopes.contains(&scope) {
+                return Err(UiCommandError::ScopeNotOffered { request_id, scope });
+            }
+            (pending.task_id.clone(), pending.step_id.clone())
+        };
+        let granted = match scope {
+            UiAuthorizationScope::Once => ApprovalScope::Once,
+            UiAuthorizationScope::ThisStepPattern => ApprovalScope::ThisStepPattern,
+            UiAuthorizationScope::ThisTask => ApprovalScope::ThisTask,
+            UiAuthorizationScope::ThisAppSession => ApprovalScope::ThisAppSession,
+            UiAuthorizationScope::Persistent => {
+                return Err(UiCommandError::Handler {
+                    reason: "a standing approval cannot be granted to a runtime step".to_owned(),
+                });
+            }
+        };
+        self.approvals
+            .grant(&GrantRequest {
+                task_id: task_id.as_str(),
+                step_id: step_id.as_str(),
+                scope: granted,
+                now_ms,
+                ttl_ms: APPROVAL_TTL_MS,
+                uses: 1,
+            })
+            .map_err(|error| UiCommandError::Handler {
+                reason: error.to_string(),
+            })?;
+        self.pending.remove(&request_id);
+        Ok(UiCommandOutcome::ApprovalGranted { request_id, scope })
+    }
+
     /// Returns the engine so the assembly can hand it back to the executor.
     #[must_use]
     pub fn into_engine(self) -> TaskEngine<Store> {
@@ -103,15 +177,7 @@ impl<Store: CheckpointStore> UiCommandHandler for TaskControlHandler<Store> {
                 Ok(UiCommandOutcome::IntentAccepted { intent_id })
             }
             UiCommand::ApproveRequest { request_id, scope } => {
-                let pending = self.pending.get(&request_id).ok_or_else(|| {
-                    UiCommandError::UnknownApproval {
-                        request_id: request_id.clone(),
-                    }
-                })?;
-                if !pending.scopes.contains(&scope) {
-                    return Err(UiCommandError::ScopeNotOffered { request_id, scope });
-                }
-                Ok(UiCommandOutcome::ApprovalGranted { request_id, scope })
+                self.approve_request(request_id, scope, now_ms)
             }
             UiCommand::DenyRequest { request_id, reason } => {
                 let pending = self.pending.remove(&request_id).ok_or_else(|| {
