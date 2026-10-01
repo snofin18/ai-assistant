@@ -165,8 +165,11 @@ fn t1_2_package_path() -> std::path::PathBuf {
         .join("../../adapters/com.microsoft.notepad/tasks/t1.2.replace-save-approval-undo.json")
 }
 
+/// ADR-0059 (D6 as amended) puts `host_service` in the runtime coverage set. No
+/// executor implements it yet, so rendering T1.2 must **fail closed** instead of
+/// quietly dropping the step the way it used to.
 #[test]
-fn test_t1_2_package_renders_once_inputs_are_bound() {
+fn test_t1_2_package_fails_closed_on_unexecuted_step_kinds() {
     let body = std::fs::read_to_string(t1_2_package_path()).expect("read t1.2 package");
     let bound = inputs(&[
         ("old_text", json!("报表")),
@@ -174,35 +177,71 @@ fn test_t1_2_package_renders_once_inputs_are_bound() {
         ("expected_replacements", json!(1)),
     ]);
 
-    let provider =
-        TaskPackageProvider::from_package_json_with_inputs(&body, &bound).expect("render");
-    let plan: Value = serde_json::from_str(provider.plan_json()).expect("plan is JSON");
-    let steps = plan
-        .get("steps")
-        .and_then(Value::as_array)
-        .expect("plan has steps");
+    let error = TaskPackageProvider::from_package_json_with_inputs(&body, &bound)
+        .expect_err("must fail closed until coverage-set kinds have executors");
+    assert!(matches!(
+        error,
+        TaskPackageError::UnexecutedStepKind { ref kind, .. } if kind == "host_service"
+    ));
+}
 
-    assert!(
-        steps
-            .iter()
-            .any(|step| step.get("tool").and_then(Value::as_str)
-                == Some("notepad.file.replace_text")),
-        "T1.2 的 replace_text 步骤必须进入 Plan"
-    );
-    assert!(
-        !provider.plan_json().contains("$input."),
-        "绑定后不得残留 `$input.` 字面量"
-    );
+/// The four kinds owned elsewhere are **recorded**, not silently dropped.
+#[test]
+fn test_t1_1_plan_records_the_declared_not_executed_kinds() {
+    let provider = TaskPackageProvider::from_package_file(&t1_1_package_path()).expect("render");
+    let kinds: Vec<&str> = provider
+        .declared_not_executed()
+        .iter()
+        .filter_map(|entry| entry.get("kind").and_then(Value::as_str))
+        .collect();
+    assert_eq!(kinds, vec!["platform", "l1_file", "pure"]);
+
+    // The plan itself must stay a single-field object: the Planner rejects
+    // anything else, so the not-executed kinds deliberately travel out of band.
+    let plan: Value = serde_json::from_str(provider.plan_json()).expect("plan is JSON");
+    let fields = plan.as_object().expect("plan is an object");
+    assert_eq!(fields.len(), 1, "plan must contain only the steps field");
 }
 
 #[test]
 fn test_missing_input_is_rejected() {
-    let body = std::fs::read_to_string(t1_2_package_path()).expect("read t1.2 package");
-    // 故意不给 old_text / new_text / expected_replacements
+    let package = json!({
+        "task_id": "notepad.missing-input",
+        "steps": [{
+            "id": "replace",
+            "kind": "tool",
+            "tool": "notepad.file.replace_text",
+            "args": {
+                "old_text": "$input.old_text",
+                "new_text": "y",
+                "expected_replacements": 1,
+            },
+        }],
+    })
+    .to_string();
+
     let error =
-        TaskPackageProvider::from_package_json_with_inputs(&body, &inputs(&[("x", json!(1))]))
+        TaskPackageProvider::from_package_json_with_inputs(&package, &inputs(&[("x", json!(1))]))
             .expect_err("must fail closed");
     assert!(matches!(error, TaskPackageError::MissingInput { .. }));
+}
+
+#[test]
+fn test_unknown_step_kind_is_rejected() {
+    let package = json!({
+        "task_id": "notepad.unknown-kind",
+        "steps": [
+            {"id": "read", "kind": "tool", "tool": "notepad.file.read_text"},
+            {"id": "weird", "kind": "frobnicate"},
+        ],
+    })
+    .to_string();
+
+    let error = TaskPackageProvider::from_package_json(&package).expect_err("must fail closed");
+    assert!(matches!(
+        error,
+        TaskPackageError::UnknownStepKind { ref kind, .. } if kind == "frobnicate"
+    ));
 }
 
 #[test]
