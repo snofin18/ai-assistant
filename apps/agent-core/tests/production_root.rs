@@ -27,7 +27,6 @@ use assistant_platform_api::{
     WindowState,
 };
 use assistant_storage::Clock;
-#[cfg(windows)]
 use assistant_task_engine::{StepStatus, TaskStatus};
 
 const FIXED_NOW_MS: i64 = 1_700_000_000_000;
