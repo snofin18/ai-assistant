@@ -73,7 +73,12 @@ where
             context: Arc::clone(context),
         }),
     );
-    handlers.insert(TOOL_TAB_NEW.to_owned(), Arc::new(NewTabHandler));
+    handlers.insert(
+        TOOL_TAB_NEW.to_owned(),
+        Arc::new(NewTabHandler {
+            context: Arc::clone(context),
+        }),
+    );
     handlers.insert(
         TOOL_SAVE_AS.to_owned(),
         Arc::new(SaveAsHandler {
@@ -134,15 +139,20 @@ where
     }
 }
 
-struct NewTabHandler;
+struct NewTabHandler<P> {
+    context: Arc<NotepadHandlerContext<P>>,
+}
 
-impl ToolHandler for NewTabHandler {
+impl<P> ToolHandler for NewTabHandler<P>
+where
+    P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
+{
     fn call(
         &self,
         _call: &CallContext,
         _arguments: &Map<String, Value>,
     ) -> Result<ToolOutput, ToolBusError> {
-        new_tab_output()
+        self.context.new_tab_output()
     }
 }
 
@@ -478,17 +488,53 @@ where
         }
         Err(last_error.unwrap_or_else(|| invalid_arguments(tool, "save-as dialog did not appear")))
     }
+
+    /// Creates a new tab and proves the tab count actually increased by one.
+    ///
+    /// The count is read from the adapter's **optional** `tab_count` target. An
+    /// adapter that does not declare it fails closed in `resolve_element` with
+    /// that target's name, rather than reporting a fabricated number; the action
+    /// is therefore never performed unverifiably.
+    fn new_tab_output(&self) -> Result<ToolOutput, ToolBusError> {
+        let window = self.resolve_window(MAIN_WINDOW_TARGET, TOOL_TAB_NEW)?;
+        let count_element = self.resolve_element(
+            crate::notepad_targets::TAB_COUNT_TARGET,
+            &window,
+            TOOL_TAB_NEW,
+        )?;
+        let before = parse_tab_count(&self.read_element_text(&count_element, TOOL_TAB_NEW)?)?;
+        let add_button = self.resolve_element(
+            crate::notepad_targets::ADD_TAB_BUTTON_TARGET,
+            &window,
+            TOOL_TAB_NEW,
+        )?;
+        self.invoke_element(&add_button, "invoke", TOOL_TAB_NEW)?;
+        let after = parse_tab_count(&self.read_element_text(&count_element, TOOL_TAB_NEW)?)?;
+        if after != before.saturating_add(1) {
+            return Err(ToolBusError::Mcp {
+                code: -32_004,
+                message: format!(
+                    "{TOOL_TAB_NEW}: tab count did not increase by one \
+                     (before={before}, after={after}) (VerifyFailed)"
+                ),
+            });
+        }
+        let fingerprint = self.fingerprint_event(&window, TOOL_TAB_NEW)?;
+        Ok(ToolOutput::json(json!({
+            "tab_count": after,
+            "previous_tab_count": before,
+            "fingerprint": fingerprint.as_str(),
+        })))
+    }
 }
 
-fn new_tab_output() -> Result<ToolOutput, ToolBusError> {
-    // The current platform API exposes no stable tab-count observation. Performing
-    // the click and then reporting failure would leave an unknown side effect, so
-    // this handler fails before the action until PL-097 supplies that observation.
-    Err(ToolBusError::Mcp {
+/// Parses the `Tabs: <n>` readout the fixture exposes as `TabCountText`.
+fn parse_tab_count(text: &str) -> Result<u64, ToolBusError> {
+    let value = text.rsplit(':').next().unwrap_or(text).trim();
+    value.parse::<u64>().map_err(|_| ToolBusError::Mcp {
         code: -32_601,
         message: format!(
-            "{TOOL_TAB_NEW}: tab_count_increased_by_one cannot be observed through the current \
-             platform API; refusing to perform an unverifiable tab action (CapabilityMissing)"
+            "{TOOL_TAB_NEW}: tab count readout `{text}` is not `Tabs: <n>` (CapabilityMissing)"
         ),
     })
 }
@@ -571,7 +617,7 @@ fn elapsed_ms(started: Instant) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{new_tab_output, normalize_line_endings};
+    use super::{normalize_line_endings, parse_tab_count};
 
     #[test]
     fn test_normalize_line_endings_handles_crlf_and_cr() {
@@ -579,8 +625,14 @@ mod tests {
     }
 
     #[test]
-    fn test_new_tab_fails_closed_without_tab_count_observation() {
-        let error = new_tab_output().err();
+    fn test_parse_tab_count_reads_the_fixture_readout() {
+        assert_eq!(parse_tab_count("Tabs: 1").ok(), Some(1));
+        assert_eq!(parse_tab_count("Tabs: 12").ok(), Some(12));
+    }
+
+    #[test]
+    fn test_parse_tab_count_rejects_a_readout_that_is_not_a_count() {
+        let error = parse_tab_count("no tabs here").err();
         assert!(matches!(
             error,
             Some(assistant_tool_bus::ToolBusError::Mcp { code: -32_601, .. })
