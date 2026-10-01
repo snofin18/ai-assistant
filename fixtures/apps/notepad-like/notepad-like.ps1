@@ -96,6 +96,16 @@ function Get-RuntimeAutomationIds {
     return @($manifest.runtime)
 }
 
+function Get-SaveAsAutomationIds {
+    param([string]$Path)
+    $manifest = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+    $declared = $manifest.PSObject.Properties["save_as"]
+    if ($null -eq $declared) {
+        return @()
+    }
+    return @($manifest.save_as)
+}
+
 function Assert-ManifestAutomationIds {
     param(
         [string[]]$RequiredIds,
@@ -193,8 +203,9 @@ try {
     $xaml = Get-Content -LiteralPath $xamlPath -Raw
     $requiredIds = Get-RequiredAutomationIds $manifestPath
     $runtimeIds = Get-RuntimeAutomationIds $manifestPath
+    $saveAsIds = Get-SaveAsAutomationIds $manifestPath
     $allIds = @($requiredIds + $runtimeIds)
-    Assert-ManifestAutomationIds -RequiredIds $requiredIds -RuntimeIds $runtimeIds
+    Assert-ManifestAutomationIds -RequiredIds $requiredIds -RuntimeIds @($runtimeIds + $saveAsIds)
     $xamlIds = Get-XamlAutomationIds $xaml
 
     foreach ($requiredId in $requiredIds) {
@@ -218,6 +229,7 @@ try {
             fault_modes = @("none", "disappear", "timeout", "ambiguous", "dialog", "busy")
             required_automation_ids = $requiredIds
             runtime_automation_ids = $runtimeIds
+            save_as_automation_ids = $saveAsIds
         }
         $summary | ConvertTo-Json -Depth 5 -Compress
         exit 0
@@ -233,6 +245,7 @@ try {
     $wordCountText = $window.FindName("WordCountText")
     $tabCountText = $window.FindName("TabCountText")
     $saveButton = $window.FindName("SaveButton")
+    $saveAsButton = $window.FindName("SaveAsButton")
     $addTabButton = $window.FindName("AddTabButton")
 
     # ---- document binding (T1.2 needs a real file to save back to) ----------
@@ -255,13 +268,13 @@ try {
         $docState.Path = (Resolve-Path -LiteralPath $documentArgument).Path
         $editor.Text = [System.IO.File]::ReadAllText($docState.Path)
     }
-    $baseTitle = if ($null -ne $docState.Path) {
-        Split-Path -Leaf $docState.Path
-    } else {
-        "notepad-like"
-    }
     $applyTitle = {
-        $window.Title = if ($docState.Dirty) { $baseTitle + " *" } else { $baseTitle }
+        $base = if ($null -ne $docState.Path) {
+            Split-Path -Leaf $docState.Path
+        } else {
+            "notepad-like"
+        }
+        $window.Title = if ($docState.Dirty) { $base + " *" } else { $base }
     }.GetNewClosure()
     & $applyTitle
 
@@ -285,6 +298,98 @@ try {
         $docState.Dirty = $false
         & $applyTitle
         $statusText.Text = "new tab: " + $docState.Tabs
+    }.GetNewClosure())
+
+    # ---- Save As: a real cross-process dialog (T1.3) ------------------------
+    #
+    # The child process owns the dialog window, so the production handler can find
+    # it as a separate top-level window and drive it through UIA. The editor text is
+    # staged to a temp file first; the dialog copies it to the chosen path. The parent
+    # UI thread must stay responsive (a blocked WPF thread would also block UIA reads
+    # of the main window), so completion is collected by a polling timer.
+    $saveAsState = @{
+        "Process" = $null
+        "Staging" = $null
+        "ResultPath" = $null
+        "StartedAt" = $null
+        "Timer" = $null
+    }
+    $saveAsTimer = New-Object System.Windows.Threading.DispatcherTimer
+    $saveAsTimer.Interval = [TimeSpan]::FromMilliseconds(200)
+    $saveAsState.Timer = $saveAsTimer
+
+    $saveAsTimer.Add_Tick({
+        if ($null -eq $saveAsState.Process) {
+            return
+        }
+        $elapsed = ((Get-Date) - $saveAsState.StartedAt).TotalSeconds
+        if (-not $saveAsState.Process.HasExited) {
+            if ($elapsed -gt 30) {
+                $saveAsState.Process.Kill()
+                $statusText.Text = "save as: timed out"
+                $saveAsTimer.Stop()
+                $saveAsState.Process = $null
+            }
+            return
+        }
+        $saveAsTimer.Stop()
+        $savedTarget = $null
+        if ([System.IO.File]::Exists($saveAsState.ResultPath)) {
+            $payload = [System.IO.File]::ReadAllText($saveAsState.ResultPath) | ConvertFrom-Json
+            if ($payload.saved) {
+                $savedTarget = $payload.target
+            } elseif ($payload.reason -eq "exists") {
+                $statusText.Text = "save as: refused, target already exists"
+            } else {
+                $statusText.Text = "save as: cancelled"
+            }
+        } else {
+            $statusText.Text = "save as: no result reported"
+        }
+        if ($null -ne $savedTarget) {
+            $docState.Path = $savedTarget
+            $docState.Dirty = $false
+            & $applyTitle
+            $statusText.Text = "saved as: " + (Split-Path -Leaf $savedTarget)
+        }
+        Remove-Item -LiteralPath $saveAsState.Staging, $saveAsState.ResultPath -ErrorAction SilentlyContinue
+        $saveAsState.Process = $null
+    }.GetNewClosure())
+
+    $launchSaveAs = {
+        if ($null -ne $saveAsState.Process) {
+            $statusText.Text = "save as: dialog already open"
+            return
+        }
+        $staging = Join-Path $env:TEMP ("notepad-like-staging-" + $PID + "-" + [guid]::NewGuid().ToString("N") + ".txt")
+        [System.IO.File]::WriteAllText($staging, $editor.Text)
+        $resultPath = $staging + ".result.json"
+        $startDirectory = if ($null -ne $docState.Path) { Split-Path -Parent $docState.Path } else { $env:TEMP }
+        $initialName = if ($null -ne $docState.Path) { Split-Path -Leaf $docState.Path } else { "untitled.txt" }
+        $dialogScript = Join-Path $PSScriptRoot "save-as-dialog.ps1"
+        $saveAsState.Process = Start-Process -FilePath "powershell.exe" -PassThru -ArgumentList @(
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $dialogScript,
+            "--staging", $staging,
+            "--result", $resultPath,
+            "--start-directory", $startDirectory,
+            "--initial-name", $initialName
+        )
+        $saveAsState.Staging = $staging
+        $saveAsState.ResultPath = $resultPath
+        $saveAsState.StartedAt = Get-Date
+        $saveAsState.Timer.Start()
+        $statusText.Text = "save as: dialog opened"
+    }.GetNewClosure()
+
+    $saveAsButton.Add_Click($launchSaveAs)
+    $window.Add_KeyDown({
+        param($sender, $eventArgs)
+        $isCtrlShiftS = $eventArgs.Key -eq [System.Windows.Input.Key]::S -and
+            $eventArgs.KeyboardDevice.Modifiers -eq ([System.Windows.Input.ModifierKeys]::Control -bor [System.Windows.Input.ModifierKeys]::Shift)
+        if ($isCtrlShiftS) {
+            $eventArgs.Handled = $true
+            & $launchSaveAs
+        }
     }.GetNewClosure())
 
     $updateCounts = {

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`notepad-like` is a Windows WPF target application for UIA and failure-injection tests. It is deliberately simple and deterministic: it is not a replacement for the real Notepad and does not try to reproduce its file dialogs, encoding rules, EOL behavior, or full menu model.
+`notepad-like` is a Windows WPF target application for UIA and failure-injection tests. It is deliberately simple and deterministic: it is not a replacement for the real Notepad and does not try to reproduce its encoding rules, EOL behavior, or full menu model. It does now hold a real document (`--document` / `Save`) and a real cross-process Save As dialog, because T1.2 / T1.3 need those surfaces.
 
 The fixture is implemented with Windows PowerShell 5.1 and the built-in WPF assemblies. It does not require the .NET SDK, NuGet, WinAppSDK, or any third-party dependency.
 
@@ -56,6 +56,11 @@ The base IDs are listed under `required` in `automation-ids.json` and verified b
 | `BusyMessageText` | Busy-state message |
 | `BusyProgressBar` | Busy-state progress indicator |
 | `UnexpectedDialog` | Injected modal dialog |
+| `SaveAsDialogWindow` | Cross-process Save As dialog window (child `powershell.exe`) |
+| `SaveAsFileNameBox` | Target path field in the Save As dialog |
+| `SaveAsConfirmButton` | Confirms the Save As target; refuses to overwrite an existing file |
+| `SaveAsCancelButton` | Cancels the Save As dialog |
+| `SaveAsStatusText` | Save As dialog status line |
 | `DialogMessageText` | Injected dialog message |
 | `DialogCancelButton` | Dialog cancel action |
 | `DialogContinueButton` | Dialog continue action |

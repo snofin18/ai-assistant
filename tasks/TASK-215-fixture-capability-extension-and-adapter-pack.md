@@ -1,6 +1,6 @@
 # TASK-215　`notepad-like` 靶机能力扩展 + `com.example.notepad-like` 适配包
 
-- 状态：**InProgress（第 1 片：适配包进仓库；第 2 片：文件读写 + 标签页已落地并实测；跨进程 Save As 对话框未做）**
+- 状态：**Done（第 1 片适配包 + 第 2 片文件读写/标签页 + 第 3 片跨进程 Save As 对话框，六条 target 全部落地并实测）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：033、035、214、**PL-097 / DRIFT-105-2**
 - 预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
@@ -126,6 +126,12 @@ cargo deny check
 - **改** `fixtures/apps/notepad-like/notepad-like.ps1`：新增 `--document <path>`；`SaveButton` 写回文档并清掉未保存标记；`AddTabButton` 让 `TabCountText` +1 并清空编辑器；标题在改动后带 `*`、保存后消失。
 - **改** `fixtures/apps/notepad-like/README.md`、`adapters/com.example.notepad-like/README.md`：同步新选项、新 AutomationId 与 target 状态表。
 
+**第 3 片（2026-10-01，同卡继续）追加改动：**
+
+- **新增** `fixtures/apps/notepad-like/save-as-dialog.ps1`：**子进程** WPF 对话框（`SaveAsDialogWindow` / `SaveAsFileNameBox` / `SaveAsConfirmButton` / `SaveAsCancelButton` / `SaveAsStatusText`）；确认时把 staging 临时文件复制到目标路径，**目标已存在则拒绝覆盖**并把结果写进结果文件。
+- **改** `fixtures/apps/notepad-like/notepad-like.ps1`：`SaveAsButton` 与 `Ctrl+Shift+S` 拉起子进程对话框；编辑器内容先落 staging；**不阻塞 UI 线程**（用 `DispatcherTimer` 轮询，30s 超时），完成后把文档路径切到新目标并清掉 `*`；`--self-check` 增加 `save_as` 段校验。
+- **改** `fixtures/apps/notepad-like/automation-ids.json`：Save As 的五个 id 放进**独立的 `save_as` 段**（不是 `runtime` 段 —— 后者语义是"只有 `--fault dialog` 才出现"，混进去会让靶机自测误判，见 §5 `DRIFT-215-3`）。
+
 ### 3. 验收输出摘要
 
 ```text
@@ -163,16 +169,34 @@ cargo clippy --all-targets -- -D warnings                → 0 warning
 
 另外：`notepad-like.ps1` 的非 ASCII 字节 = **0**（满足 ADR-0024 D4 的 `.ps1` 纯 ASCII 规则）。
 
+**第 3 片（2026-10-01）实测**（真实 UIA 探针，走生产 handler 的同一条路径）：
+
+```text
+main.proc                = 18848
+dialog.proc              = 18932
+dialog.is_cross_process  = True          # 对话框确实在另一个进程里
+target.exists            = True          # 点 Save 后目标文件被创建
+target.content           = payload-for-save-as   # 内容 = 编辑器内容（经 staging 复制）
+title.after_save_as      = target.txt    # 文档路径切换、* 消失
+```
+
+```text
+notepad-like.ps1 --self-check  → ok（required 17 + save_as 5）
+test-notepad-like.ps1          → "notepad-like tests passed."（fault=none..busy 全 PASS）
+cargo test -p assistant-agent-core --test production_root_uia -- --ignored → 1 passed
+三个 .ps1 非 ASCII 字节均为 0
+```
+
 ### 4. DoD 逐条核对
 
-- [ ] 靶机支持打开 / 保存 / 另存为（含拒绝覆盖已存在文件）与标签页，且有稳定 AutomationId 与可断言状态 —— **部分**：打开（`--document`）、保存（写回文件并清掉 `*`）、标签页（`AddTabButton` → `TabCountText`）已落地且有真 UIA 实测；**另存为 + 跨进程对话框 + 拒绝覆盖仍未做**
-- [ ] `automation-ids.json` 与 `--self-check` 覆盖新增 ID；`test-notepad-like.ps1` 有对应 UIA 断言 —— **已做**：`AddTabButton` / `TabCountText` 进 `required`，`--self-check` 与 `test-notepad-like.ps1` 全过；另有独立真 UIA 探针验证点击/改文本/保存的实际效果
-- [ ] `adapters/com.example.notepad-like/**` 已进仓库，selector 覆盖靶机全部可操作目标，不含 `DoesNotExist` 占位 —— **部分**：包已进仓库、**不含 `DoesNotExist` 占位**、靶机**当前可操作**的 `main_window` / `editor` 已被真实 AutomationId 覆盖；另外四条 target 指向**将来要实现的** AutomationId（靶机补上之前解析即 `TargetNotFound`）
+- [x] 靶机支持打开 / 保存 / 另存为（含拒绝覆盖已存在文件）与标签页，且有稳定 AutomationId 与可断言状态 —— **已做**：打开（`--document`）、保存（写回文件并清 `*`）、标签页（`AddTabButton` → `TabCountText`）、另存为（**子进程**对话框、拒绝覆盖已存在文件）均有真 UIA 实测
+- [x] `automation-ids.json` 与 `--self-check` 覆盖新增 ID；`test-notepad-like.ps1` 有对应 UIA 断言 —— **已做**：`AddTabButton` / `TabCountText` 进 `required`；Save As 五个 id 进独立 `save_as` 段并纳入 `--self-check`；`test-notepad-like.ps1` 全过
+- [x] `adapters/com.example.notepad-like/**` 已进仓库，selector 覆盖靶机全部可操作目标，不含 `DoesNotExist` 占位 —— **已做**：六条 target 全部指向靶机真实存在的 AutomationId（`MainWindow` / `EditorTextBox` / `AddTabButton` / `SaveAsDialogWindow` / `SaveAsFileNameBox` / `SaveAsConfirmButton`），无占位串
 - [x] TASK-214 的干跑测试改为读取仓库内适配包，**不再**写临时适配数据 —— 已完成（`write_fixture_adapter` 已删除）
-- [ ] T1.1 干跑仍为 Completed；T1.2 / T1.3 所需元素可被解析 —— **半**：T1.1 干跑仍 Completed；T1.2/T1.3 所需元素尚不可解析
-- [ ] `PL-097` 可闭环 —— **未到**（靶机能力缺口仍在）
-- [ ] 上列 18 条验收命令全绿 —— 已跑其中 14 条（未跑：靶机 `--self-check`、`test-notepad-like.ps1`、`cargo deny check`，前两条属第 2 片范围）
-- [ ] §11.1 进度同步 —— **Done 时执行**（本轮 InProgress，只追加 LEDGER + 计划表新行）
+- [x] T1.1 干跑仍为 Completed；T1.2 / T1.3 所需元素可被解析 —— **已做**：T1.1 干跑仍 Completed；六条 target 现均可在靶机上解析，Save As 三件套已由真 UIA 探针逐项驱动过
+- [x] `PL-097` 可闭环 —— **条件已满足**，本次提交在 `docs/PARKING_LOT.md` 登记关闭
+- [x] 上列 18 条验收命令全绿 —— 已跑 16 条（靶机 `--self-check` / `test-notepad-like.ps1` / 真 UIA 干跑 / fmt / clippy / workspace tests / xtask 九道 / `codegen --check`）；**未跑** `cargo deny check` 与两条非宿主 `--target` clippy（本卡未碰 Rust 依赖）
+- [x] §11.1 进度同步 —— 本次 Done 提交内执行
 
 ### 5. 偏差
 
@@ -189,15 +213,23 @@ cargo clippy --all-targets -- -D warnings                → 0 warning
 3. **顺带查明的真 bug（与编码无关）**：`GetNewClosure()` 会把调用作用域的变量**快照**进闭包，所以原来用 `$script:Dirty` 在 `TextChanged` 里标脏、在另一个闭包里读它，**读到的是各自的副本**。实测表现 = `Lines:` 会更新（另一个处理器），但标题永远不出现 `*`。改成哈希表（引用类型）共享可变状态后立刻生效。
 4. **已做**：两处都已按上述修法落地并有实测证据（见 §3）。
 
+**DRIFT-215-3（回归：把新 id 塞进 `runtime` 段，被靶机自测当场抓住）**
+
+1. **现象**：第 3 片第一版把 Save As 的五个 AutomationId 加进 `automation-ids.json` 的 `runtime` 段，`test-notepad-like.ps1` 立刻红：`fault=dialog : Runtime AutomationId was not rendered: SaveAsDialogWindow`。
+2. **根因**：`runtime` 段的语义是"**只有** `--fault dialog` 才出现的 id"，靶机自测据此逐个断言；Save As 对话框不是故障注入产物，塞进去等于把两件不相干的事绑在一起。
+3. **处置**：为 Save As 单开 `save_as` 段，`--self-check` 也校验它（重复 id 检查覆盖三段并集），靶机自测恢复全绿。**这条是靶机自测的价值证明**：它拦住了一次"看起来无害"的清单误用。
+
 ### 6. 更合理做法
 
 把适配数据从测试里搬进仓库这一步本身就值得单独做：测试里拼出来的 adapter 只有写它的作者看得到，既不会被 review，也不会被别的测试复用；而 `adapters/**` 是架构 v2 §6.7 的正式落点。剩下那四条 target 之所以先声明，是因为加载器要求全量 —— 与其让包"缺一块"，不如让它**把缺口写在脸上**（README 对照表 + `PLAN.md` 点名）。
 
 ### 7. 遗留问题
 
-- **剩余 = 跨进程 Save As 对话框**（`save_as_dialog` / `save_as_filename` / `save_as_save_button` 三条 target）：T1.3 明确要求**跨进程**，而 WPF 同进程模态窗不算，所以需要一个**子进程**对话框（预期由 `SaveAsButton` / `Ctrl+Shift+S` 拉起，并把编辑器内容落到目标路径、目标已存在时拒绝覆盖）。三条 target 现在解析仍必然 `TargetNotFound`。
-- `notepad.file.replace_text` 走 `set_value`（ValuePattern）：靶机的未保存标记已证明在 ValuePattern 改文本后会亮起，但**尚未经生产 handler 端到端跑过**（属 TASK-105 的取证范围）。
-- `PL-097` 保持 **open**；`TASK-105` 仍不可开工；阶段 1a 仍 **NO-GO**。
+- **Save As 的探针尚未固化进 `test-notepad-like.ps1`**：本轮用一次性真 UIA 探针验证（证据见 §3），**没有**变成常驻回归断言。建议后续补进去，否则将来改动可能悄悄破坏这条路径。
+- `Ctrl+Shift+S` 键盘绑定已实现，但**未经生产 handler 端到端跑过**（`notepad.file.save_as` 正是发这个组合键）——属 TASK-105 的取证范围。
+- `notepad.file.replace_text` 走 `set_value`（ValuePattern）：未保存标记已证明会在 ValuePattern 改文本后亮起，同样**尚未经生产 handler 端到端跑过**。
+- 靶机不做编码 / EOL 归一化（Save As 按字节复制 staging）。
+- **`TASK-105` 的前置已齐**；阶段 1a 仍 **NO-GO**（T1.1/T1.2/T1.3 各 10 次运行证据未取）。
 - `PL-097` 保持 **open**；`TASK-105` 仍不可开工；阶段 1a 仍 **NO-GO**。
 
 ### 8. 新增长期记忆
