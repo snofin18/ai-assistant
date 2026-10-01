@@ -38,6 +38,12 @@
           Content="Save As"
           Width="88"
           AutomationProperties.AutomationId="SaveAsButton" />
+      <Button
+          x:Name="AddTabButton"
+          Content="New tab"
+          Width="96"
+          Margin="8,0,0,0"
+          AutomationProperties.AutomationId="AddTabButton" />
     </StackPanel>
 
     <Grid Grid.Row="1">
@@ -106,6 +112,12 @@
             x:Name="WordCountText"
             Text="Words: 2"
             AutomationProperties.AutomationId="WordCountText" />
+      </StatusBarItem>
+      <StatusBarItem>
+        <TextBlock
+            x:Name="TabCountText"
+            Text="Tabs: 1"
+            AutomationProperties.AutomationId="TabCountText" />
       </StatusBarItem>
     </StatusBar>
   </Grid>

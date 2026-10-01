@@ -21,7 +21,7 @@
 |---|---|
 | `main_window` | ✅ 已实现（AutomationId `MainWindow`） |
 | `editor` | ✅ 已实现（AutomationId `EditorTextBox`） |
-| `add_tab_button` | ⛔ **尚未实现** —— 期望 id = `AddTabButton` |
+| `add_tab_button` | ✅ 已实现（AutomationId `AddTabButton`，点击后 `TabCountText` +1） |
 | `save_as_dialog` | ⛔ **尚未实现** —— 期望 id = `SaveAsDialogWindow` |
 | `save_as_filename` | ⛔ **尚未实现** —— 期望 id = `SaveAsFileNameBox` |
 | `save_as_save_button` | ⛔ **尚未实现** —— 期望 id = `SaveAsConfirmButton` |
@@ -31,7 +31,12 @@
 要用的** AutomationId：靶机补上之前，解析只会得到 `TargetNotFound`，即**显式失败而不是
 静默命中别的控件**——这正是我们要的 fail-closed 行为。
 
-`TASK-215` 的目标就是把这四行从"尚未实现"变成"已实现"，并给每条补正/负断言。
+`TASK-215` 的目标就是把这些行从"尚未实现"变成"已实现"，并给每条补正/负断言。
+**当前进度**：`add_tab_button` 已于 2026-10-01 落地；剩下三条（跨进程 Save As 对话框）
+仍是 `TASK-215` 第 2 片的剩余工作。
+
+另外，靶机的文件能力已经可用：`notepad-like.ps1 --document <path>` 会把文件读进编辑器，
+`SaveButton` 写回该文件并清掉标题里的 `*` 未保存标记（实测见 `TASK-215` 执行记录 §3）。
 
 ## Validation
 

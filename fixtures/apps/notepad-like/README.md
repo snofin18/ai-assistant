@@ -26,6 +26,7 @@ Options:
 | Option | Meaning |
 |---|---|
 | `--fault <mode>` | `none`, `disappear`, `timeout`, `ambiguous`, `dialog`, or `busy` |
+| `--document <path>` | Load this file into the editor at startup; `Save` writes back to it. |
 | `--state-file <path>` | Write a JSON state file after startup or fault application |
 | `--auto-close-ms <n>` | Close the window after `n` milliseconds when the dispatcher is responsive |
 | `--self-check` | Validate XAML and the AutomationId manifest, then exit |
@@ -49,6 +50,8 @@ The base IDs are listed under `required` in `automation-ids.json` and verified b
 | `FaultStatusText` | Current fault mode |
 | `LineCountText` | Line count |
 | `WordCountText` | Word count |
+| `AddTabButton` | Create a new tab (increments `TabCountText`, clears the editor) |
+| `TabCountText` | Current tab count |
 | `BusyOverlay` | Busy-state overlay |
 | `BusyMessageText` | Busy-state message |
 | `BusyProgressBar` | Busy-state progress indicator |
