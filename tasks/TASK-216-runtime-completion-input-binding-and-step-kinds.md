@@ -137,6 +137,12 @@ cargo fmt --all --check                                  → clean
 
 ### 5. 偏差
 
+**B 片第 1 步（2026-10-01）：`tab_count` 采用「可选 target」**
+
+按人类 2026-10-01「按你的计划去做」，`tab_count` 不塞进 `REQUIRED_TARGETS`（那会把 TASK-215 已裁决的六条全声明设计改掉，并逼真实 Notepad 包声明一个它没有的元素），而是新增 **`OPTIONAL_TARGETS`**：适配包声明了就启用、`load()` 会像必选一样校验它；**没声明不是错误** —— 语义是"该适配包不提供这项观测"，调用方必须 fail-closed，**不许编一个数**。靶机包已声明 `tab_count` → `TabCountText`，真实 Notepad 包不变。
+
+**注意**：handler（`notepad.tab.new`）**还没消费**这个 target，所以它仍然 fail-closed —— 本轮只把"能声明"这一步做完。
+
 **DRIFT-216-1（A 片的一处取舍：空输入表仍报 `UnboundArguments`）**
 
 1. **现象**：有了输入绑定层之后，"参数里还有 `$input.`"其实有两种含义 —— ① 调用方**根本没给**输入；② 给了输入但**这个键缺失**。
