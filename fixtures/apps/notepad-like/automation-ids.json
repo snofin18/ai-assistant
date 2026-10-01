@@ -13,6 +13,8 @@
     "FaultStatusText",
     "LineCountText",
     "WordCountText",
+    "AddTabButton",
+    "TabCountText",
     "BusyOverlay",
     "BusyMessageText",
     "BusyProgressBar"

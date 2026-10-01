@@ -1,6 +1,6 @@
 # TASK-215　`notepad-like` 靶机能力扩展 + `com.example.notepad-like` 适配包
 
-- 状态：**InProgress（第 1 片：适配包已进仓库；靶机能力扩展未做）**
+- 状态：**InProgress（第 1 片：适配包进仓库；第 2 片：文件读写 + 标签页已落地并实测；跨进程 Save As 对话框未做）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：033、035、214、**PL-097 / DRIFT-105-2**
 - 预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
@@ -117,7 +117,14 @@ cargo deny check
 - **改** `apps/agent-core/tests/production_root_uia.rs`：**删除**测试内的 `write_fixture_adapter()`（原先把适配数据临时拼到 temp 目录），改为 `fixture_adapter_root()` 直接读仓库内适配包。
 - **改** 本卡、`PLAN.md`（当前状态块：修掉残留的 `TASK-205 = Ready`，并写明 TASK-215 的两片边界）、`plans/stage-1-pilots.md`（A5-REMEDIATION 表 + 位置表各加一行）、`LEDGER.md`、`docs/PARKING_LOT.md`。
 
-本轮**未**改 `crates/**`、`fixtures/apps/notepad-like/**`、`adapters/com.microsoft.notepad/**`，未加依赖。
+本轮**未**改 `crates/**`、`adapters/com.microsoft.notepad/**`，未加依赖。
+
+**第 2 片（2026-10-01，同卡继续）追加改动：**
+
+- **改** `fixtures/apps/notepad-like/MainWindow.xaml`：工具栏加 `AddTabButton`，状态栏加 `TabCountText`。
+- **改** `fixtures/apps/notepad-like/automation-ids.json`：把 `AddTabButton` / `TabCountText` 加进 `required`。
+- **改** `fixtures/apps/notepad-like/notepad-like.ps1`：新增 `--document <path>`；`SaveButton` 写回文档并清掉未保存标记；`AddTabButton` 让 `TabCountText` +1 并清空编辑器；标题在改动后带 `*`、保存后消失。
+- **改** `fixtures/apps/notepad-like/README.md`、`adapters/com.example.notepad-like/README.md`：同步新选项、新 AutomationId 与 target 状态表。
 
 ### 3. 验收输出摘要
 
@@ -136,10 +143,30 @@ xtask check-ledger / check-migrations / check-comments                       →
 
 关键点：干跑测试**改为读仓库内适配包后仍然通过** —— 说明这份包不是摆设，而是真的能被生产 Host 加载并驱动靶机。
 
+**第 2 片（2026-10-01）实测**（真实 UIA 探针，非静态断言）：
+
+```text
+window.title.before = nl-doc-<guid>.txt          # --document 读入文件后标题 = 文件名叶子
+tabcount.before     = Tabs: 1
+tabcount.after      = Tabs: 2                    # UIA Invoke AddTabButton 生效
+window.title.dirty  = nl-doc-<guid>.txt *        # ValuePattern 改文本后出现未保存标记
+window.title.saved  = nl-doc-<guid>.txt          # UIA Invoke SaveButton 后标记消失
+file.after          = gamma                      # 保存真的写回了文件
+```
+
+```text
+powershell notepad-like.ps1 --self-check                 → status=ok，17 个 required id 全在
+powershell test-notepad-like.ps1                         → "notepad-like tests passed."（含 fault=none..busy）
+cargo test -p assistant-agent-core --test production_root_uia -- --ignored → 1 passed
+cargo clippy --all-targets -- -D warnings                → 0 warning
+```
+
+另外：`notepad-like.ps1` 的非 ASCII 字节 = **0**（满足 ADR-0024 D4 的 `.ps1` 纯 ASCII 规则）。
+
 ### 4. DoD 逐条核对
 
-- [ ] 靶机支持打开 / 保存 / 另存为（含拒绝覆盖已存在文件）与标签页，且有稳定 AutomationId 与可断言状态 —— **未做**
-- [ ] `automation-ids.json` 与 `--self-check` 覆盖新增 ID；`test-notepad-like.ps1` 有对应 UIA 断言 —— **未做**
+- [ ] 靶机支持打开 / 保存 / 另存为（含拒绝覆盖已存在文件）与标签页，且有稳定 AutomationId 与可断言状态 —— **部分**：打开（`--document`）、保存（写回文件并清掉 `*`）、标签页（`AddTabButton` → `TabCountText`）已落地且有真 UIA 实测；**另存为 + 跨进程对话框 + 拒绝覆盖仍未做**
+- [ ] `automation-ids.json` 与 `--self-check` 覆盖新增 ID；`test-notepad-like.ps1` 有对应 UIA 断言 —— **已做**：`AddTabButton` / `TabCountText` 进 `required`，`--self-check` 与 `test-notepad-like.ps1` 全过；另有独立真 UIA 探针验证点击/改文本/保存的实际效果
 - [ ] `adapters/com.example.notepad-like/**` 已进仓库，selector 覆盖靶机全部可操作目标，不含 `DoesNotExist` 占位 —— **部分**：包已进仓库、**不含 `DoesNotExist` 占位**、靶机**当前可操作**的 `main_window` / `editor` 已被真实 AutomationId 覆盖；另外四条 target 指向**将来要实现的** AutomationId（靶机补上之前解析即 `TargetNotFound`）
 - [x] TASK-214 的干跑测试改为读取仓库内适配包，**不再**写临时适配数据 —— 已完成（`write_fixture_adapter` 已删除）
 - [ ] T1.1 干跑仍为 Completed；T1.2 / T1.3 所需元素可被解析 —— **半**：T1.1 干跑仍 Completed；T1.2/T1.3 所需元素尚不可解析
@@ -155,17 +182,22 @@ xtask check-ledger / check-migrations / check-comments                       →
 2. **影响**：这是**有意的 fail-closed 设计**（宁可加载失败也不静默少一个目标），但它把"靶机尚未实现"这件事从"包外"推到了"包内"，必须显式写出来才不会误导人。
 3. **处置（未改任何代码）**：把这四条**指向将来才存在的 AutomationId**（`AddTabButton` / `SaveAsDialogWindow` / `SaveAsFileNameBox` / `SaveAsConfirmButton`），并在 `adapters/com.example.notepad-like/README.md` 用表格写明"尚未实现"、在 `PLAN.md` 的下一步动作里点名。**未用 `DoesNotExist` 这类无语义占位**，也未让它们指向别的真实控件 —— 那会变成"静默命中错控件"。
 
+**DRIFT-215-2（自伤：在 `.ps1` 里写了中文注释，直接把脚本写成语法错误）**
+
+1. **现象**：第 2 片第一版在 `notepad-like.ps1` 里加了中文注释，保存后脚本**无法启动**；`Parser::ParseFile` 报 `Try statement is missing its Catch or Finally block` / `Unexpected token '}'`，但大括号计数是**平衡的**（末深度 = 0），只有第三次报错指向了真正的 `$docState = @{` 那一行。
+2. **根因**：ADR-0024 D4 早就规定 `.ps1` **必须纯 ASCII**（Windows PowerShell 5.1 无 BOM 时按 ANSI 代码页解码 UTF-8 字节），中文注释被解成乱码后破坏了语法。**这条规则本来就是防这个的，是我先违规了**。修法 = 注释改回 ASCII，随后 `非 ASCII 字节 = 0` 且 `ParseFile` 无错误。
+3. **顺带查明的真 bug（与编码无关）**：`GetNewClosure()` 会把调用作用域的变量**快照**进闭包，所以原来用 `$script:Dirty` 在 `TextChanged` 里标脏、在另一个闭包里读它，**读到的是各自的副本**。实测表现 = `Lines:` 会更新（另一个处理器），但标题永远不出现 `*`。改成哈希表（引用类型）共享可变状态后立刻生效。
+4. **已做**：两处都已按上述修法落地并有实测证据（见 §3）。
+
 ### 6. 更合理做法
 
 把适配数据从测试里搬进仓库这一步本身就值得单独做：测试里拼出来的 adapter 只有写它的作者看得到，既不会被 review，也不会被别的测试复用；而 `adapters/**` 是架构 v2 §6.7 的正式落点。剩下那四条 target 之所以先声明，是因为加载器要求全量 —— 与其让包"缺一块"，不如让它**把缺口写在脸上**（README 对照表 + `PLAN.md` 点名）。
 
 ### 7. 遗留问题
 
-- **靶机能力扩展未做**（本卡第 2 片）：`notepad-like` 仍需补
-  ① 打开 / 保存 / 另存为（含拒绝覆盖已存在文件）；② 标签页（新建 / 计数 / 当前标签）
-  与未保存标记；③ **跨进程** Save As 对话框（T1.3 明确要求跨进程，WPF 同进程模态窗口不满足）。
-- 四条 target 目前解析必然 `TargetNotFound`；第 2 片落地后要把候选链指向真实 AutomationId，并补正/负断言。
-- `automation-ids.json` 的 `required` / `runtime` 清单与 `--self-check` 需随第 2 片同步。
+- **剩余 = 跨进程 Save As 对话框**（`save_as_dialog` / `save_as_filename` / `save_as_save_button` 三条 target）：T1.3 明确要求**跨进程**，而 WPF 同进程模态窗不算，所以需要一个**子进程**对话框（预期由 `SaveAsButton` / `Ctrl+Shift+S` 拉起，并把编辑器内容落到目标路径、目标已存在时拒绝覆盖）。三条 target 现在解析仍必然 `TargetNotFound`。
+- `notepad.file.replace_text` 走 `set_value`（ValuePattern）：靶机的未保存标记已证明在 ValuePattern 改文本后会亮起，但**尚未经生产 handler 端到端跑过**（属 TASK-105 的取证范围）。
+- `PL-097` 保持 **open**；`TASK-105` 仍不可开工；阶段 1a 仍 **NO-GO**。
 - `PL-097` 保持 **open**；`TASK-105` 仍不可开工；阶段 1a 仍 **NO-GO**。
 
 ### 8. 新增长期记忆

@@ -37,6 +37,13 @@ function Parse-Arguments {
                 }
                 $values["state-file"] = $Arguments[$index]
             }
+            "--document" {
+                $index++
+                if ($index -ge $Arguments.Count -or [string]::IsNullOrWhiteSpace($Arguments[$index]) -or $Arguments[$index].StartsWith("--")) {
+                    throw "Option --document requires a value."
+                }
+                $values["document"] = $Arguments[$index]
+            }
             "--auto-close-ms" {
                 $index++
                 if ($index -ge $Arguments.Count -or [string]::IsNullOrWhiteSpace($Arguments[$index]) -or $Arguments[$index].StartsWith("--")) {
@@ -55,6 +62,7 @@ function Parse-Arguments {
         SelfCheck = $selfCheck
         Fault = if ($values.ContainsKey("fault")) { $values["fault"] } else { "none" }
         StateFile = if ($values.ContainsKey("state-file")) { $values["state-file"] } else { $null }
+        Document = if ($values.ContainsKey("document")) { $values["document"] } else { $null }
         AutoCloseMs = if ($values.ContainsKey("auto-close-ms")) { $values["auto-close-ms"] } else { $null }
     }
 }
@@ -68,6 +76,7 @@ Usage:
 
 Options:
   --fault <mode>          none | disappear | timeout | ambiguous | dialog | busy
+  --document <path>       Open this file into the editor and save back to it.
   --state-file <path>     Write startup state JSON to this path.
   --auto-close-ms <n>     Close the window after n milliseconds when possible.
   --self-check            Validate XAML and AutomationId manifest, then exit.
@@ -222,6 +231,61 @@ try {
     $faultStatusText = $window.FindName("FaultStatusText")
     $lineCountText = $window.FindName("LineCountText")
     $wordCountText = $window.FindName("WordCountText")
+    $tabCountText = $window.FindName("TabCountText")
+    $saveButton = $window.FindName("SaveButton")
+    $addTabButton = $window.FindName("AddTabButton")
+
+    # ---- document binding (T1.2 needs a real file to save back to) ----------
+    #
+    # Mutable state lives in a hashtable, not in script-scope variables:
+    # GetNewClosure() snapshots the caller's variables, so "Dirty" written inside one
+    # WPF event handler is invisible to the next one (measured: the title never gained
+    # the unsaved marker). A hashtable is a reference, so every closure shares it.
+    $docState = @{
+        "Path" = $null
+        "Tabs" = 1
+        "Dirty" = $false
+        "Suppress" = $true
+    }
+    $documentArgument = $parsedArguments.Document
+    if (-not [string]::IsNullOrWhiteSpace($documentArgument)) {
+        if (-not (Test-Path -LiteralPath $documentArgument -PathType Leaf)) {
+            throw "Option --document must point to an existing file: $documentArgument"
+        }
+        $docState.Path = (Resolve-Path -LiteralPath $documentArgument).Path
+        $editor.Text = [System.IO.File]::ReadAllText($docState.Path)
+    }
+    $baseTitle = if ($null -ne $docState.Path) {
+        Split-Path -Leaf $docState.Path
+    } else {
+        "notepad-like"
+    }
+    $applyTitle = {
+        $window.Title = if ($docState.Dirty) { $baseTitle + " *" } else { $baseTitle }
+    }.GetNewClosure()
+    & $applyTitle
+
+    $saveButton.Add_Click({
+        if ($null -eq $docState.Path) {
+            $statusText.Text = "save: no document path (Save As is not implemented yet)"
+            return
+        }
+        [System.IO.File]::WriteAllText($docState.Path, $editor.Text)
+        $docState.Dirty = $false
+        & $applyTitle
+        $statusText.Text = "saved: " + (Split-Path -Leaf $docState.Path)
+    }.GetNewClosure())
+
+    $addTabButton.Add_Click({
+        $docState.Tabs = $docState.Tabs + 1
+        $tabCountText.Text = "Tabs: " + $docState.Tabs
+        $docState.Suppress = $true
+        $editor.Text = ""
+        $docState.Suppress = $false
+        $docState.Dirty = $false
+        & $applyTitle
+        $statusText.Text = "new tab: " + $docState.Tabs
+    }.GetNewClosure())
 
     $updateCounts = {
         $text = $editor.Text
@@ -229,9 +293,14 @@ try {
         $words = @($text -split "\s+" | Where-Object { $_ -ne "" })
         $lineCountText.Text = "Lines: " + $lines.Count
         $wordCountText.Text = "Words: " + $words.Count
+        if (-not $docState.Suppress) {
+            $docState.Dirty = $true
+            & $applyTitle
+        }
     }.GetNewClosure()
     $editor.Add_TextChanged($updateCounts)
     & $updateCounts
+    $docState.Suppress = $false
 
     $window.Add_Closed({
         [System.Windows.Threading.Dispatcher]::CurrentDispatcher.InvokeShutdown()
