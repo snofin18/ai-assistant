@@ -166,6 +166,7 @@ cargo deny check                                 → advisories / bans / license
 - **实现取舍**：T1.1 的 `count_lines_and_keyword_paragraphs` 未声明文本输入且输出无人消费，继续作为“声明但不执行”，避免伪造分析结果。
 - **策略桥接**：保留运行时工具在 policy 适配器里按低风险内部控制操作建模；普通应用写工具仍走原策略。已提交的 `request_approval` 只为**下一个写步骤**打开一次策略窗口，避免重复确认或无限授权。
 - **CI 环境修正（跨卡）**：GitHub runner 的 Rust 1.99 新增 `clippy::assert_is_empty`，打红了 `crates/lease/tests/lease_contract.rs` 与 `crates/undo/tests/rollback_contract.rs` 的既有断言。本 slice 把 4 处 `.is_empty()` 断言改为显式 `len() == 0`，避免把已知红灯 PR 合入 `main`；本地 Rust 1.98 与 workflow 均通过。
+- **DRIFT-217-2（lint allow）**：Rust 1.99 的 `clippy::assert_is_empty` 还命中仓库大量既有断言。逐个改写会造成与 TASK-217 无关的大范围 churn，因此仅在 workspace lint 中允许这一条纯风格 lint；所有安全/静默失败相关 deny 保持不变。
 
 ### 6. 更合理做法
 
