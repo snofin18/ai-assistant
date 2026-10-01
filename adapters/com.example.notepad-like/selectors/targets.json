@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "app_id": "powershell.exe",
+  "app_version_range": "any",
+  "policy": {
+    "on_ambiguous": "error_and_ask",
+    "on_not_found": "escalate_to_human",
+    "min_score_to_try": 0.1,
+    "max_resolve_ms": 3000
+  },
+  "targets": [
+    {
+      "id": "main_window",
+      "scope": "window",
+      "candidates": [
+        {
+          "id": "fixture-window-aid",
+          "kind": "automation_id",
+          "value": {"text": "MainWindow"},
+          "score": 1.0,
+          "locale_dependent": false
+        }
+      ]
+    },
+    {
+      "id": "editor",
+      "scope": "element",
+      "candidates": [
+        {
+          "id": "fixture-editor-aid",
+          "kind": "automation_id",
+          "value": {"text": "EditorTextBox"},
+          "score": 1.0,
+          "locale_dependent": false
+        }
+      ]
+    },
+    {
+      "id": "add_tab_button",
+      "scope": "element",
+      "candidates": [
+        {
+          "id": "fixture-add-tab-aid",
+          "kind": "automation_id",
+          "value": {"text": "AddTabButton"},
+          "score": 1.0,
+          "locale_dependent": false
+        }
+      ]
+    },
+    {
+      "id": "save_as_dialog",
+      "scope": "window",
+      "candidates": [
+        {
+          "id": "fixture-save-as-dialog-aid",
+          "kind": "automation_id",
+          "value": {"text": "SaveAsDialogWindow"},
+          "score": 1.0,
+          "locale_dependent": false
+        }
+      ]
+    },
+    {
+      "id": "save_as_filename",
+      "scope": "element",
+      "candidates": [
+        {
+          "id": "fixture-save-as-filename-aid",
+          "kind": "automation_id",
+          "value": {"text": "SaveAsFileNameBox"},
+          "score": 1.0,
+          "locale_dependent": false
+        }
+      ]
+    },
+    {
+      "id": "save_as_save_button",
+      "scope": "element",
+      "candidates": [
+        {
+          "id": "fixture-save-as-confirm-aid",
+          "kind": "automation_id",
+          "value": {"text": "SaveAsConfirmButton"},
+          "score": 1.0,
+          "locale_dependent": false
+        }
+      ]
+    }
+  ]
+}

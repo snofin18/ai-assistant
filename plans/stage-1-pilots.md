@@ -130,6 +130,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-212 ✅** | 修掉 `check-comments` 首次真跑发现的 9 处真实违规（DRIFT-087-1） | `crates/policy/src/dsl.rs`、`crates/ipc/src/frame.rs`、`crates/platform/windows/src/uia/{actions,tree}.rs` | 087 | S | 只加注释；`check-comments` 0 error；diff 不含可执行语句改动 |
 | **TASK-213 ✅** | UI↔Core 真实传输：Core 侧监听端 + UI 侧 client + 事件推送 | `apps/agent-core/src/**`、`apps/desktop-ui/src-tauri/**`、`crates/ipc/**`（仅必要小改）、`.github/workflows/**`、README | 0057（ADR Accepted）、104、103、019 | L | 真实管道端到端；六个 fail-closed 点各有断言具体 ErrorCode 的负向用例；事件推送；断连 2s 内检测 |
 | **TASK-214 ✅** | 生产装配根：真实 Host 进程 + Notepad Host handler + 1a Plan 来源 | `apps/agent-core/src/**`、`apps/agent-core/tests/**`、本卡与状态同步文件 | 103、213、**ADR-0058 Accepted** | L | 生产模式可启动；5 个 handler 入 ToolBus；确定性 Plan 来源；靶机 T1.1 干跑（真 UIA + 真 receipt）；fail-closed |
+| TASK-215 | `notepad-like` 靶机能力扩展 + `com.example.notepad-like` 适配包（**PL-097 闭环卡**） | `fixtures/apps/notepad-like/**`、`adapters/com.example.notepad-like/**`、`apps/agent-core/tests/production_root_uia.rs`、状态同步文件 | 033、035、214、**PL-097 / DRIFT-105-2** | L | 靶机支持打开/保存/另存为/标签页且有稳定 AutomationId；适配包进仓库且干跑改读它；T1.2/T1.3 所需元素可解析；PL-097 可闭环 |
 
 ---
 
@@ -238,6 +239,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-211 ✅** | A5-REMEDIATION | `tasks/TASK-211-stage1a-reaudit-and-parking-closeout.md` | Ready（复验与停车位收口） |
 | **TASK-213 ✅** | A5-REMEDIATION | `tasks/TASK-213-ui-core-ipc-transport.md` | Ready（**ADR-0057 转 Accepted 后才可开工**） |
 | **TASK-214 ✅** | A5-REMEDIATION | `tasks/TASK-214-production-composition-root-notepad-handlers.md` | Ready（**ADR-0058 转 Accepted 后才可开工**） |
+| TASK-215 | A5-REMEDIATION | `tasks/TASK-215-fixture-capability-extension-and-adapter-pack.md` | InProgress（第 1 片：适配包已进仓库；靶机能力扩展未做） |
 | TASK-040 | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Ready（批次表占位派单前补全） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
 | TASK-042 | 1b | `tasks/TASK-042-visual-verify-phash-dhash-confidence.md` | Ready（批次表占位派单前补全） |

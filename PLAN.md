@@ -10,9 +10,9 @@
 更新日期    ：2026-10-01（**TASK-214 已 Done** → **PL-096 闭环**：ADR-0058 Accepted、生产装配根、确定性 task-package Plan 来源、5 个 Notepad handler、真 UIA T1.1 干跑、真 UI 管道 `step_state_changed`、缺 provider / 空 registry / handler 数不等等 fail-closed 全部落地。`DRIFT-214-1/2/3` 已按 binary 层显式映射处理；此前 **TASK-213 UI↔Core 真实传输已 Done** → **PL-095 闭环**；本轮 **TASK-205 ✅** 把 `tool-bus` schema 校验拆到 600 行建议线下，`hygiene` 长文件 warning 4→3。TASK-039 审计结论仍为阶段 1a **NO-GO**）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
 当前任务卡  ：**A5 批次进行中**：TASK-011~038 全 Done；**TASK-207 ✅**、**TASK-206 ✅**、**TASK-208 ✅**、**TASK-029 ✅**、**TASK-030 ✅**、**TASK-031 ✅**、**TASK-032 ✅**、**TASK-033 ✅**、**TASK-034 ✅**、**TASK-035 ✅**、**TASK-036 ✅**、**TASK-037 ✅**、**TASK-038 ✅** 均 Done；**TASK-039 = Review（审计完成，阶段 1a NO-GO）**；**TASK-102 ✅**、**TASK-103 ✅**、**TASK-104 ✅**、**TASK-210 ✅**、**TASK-087 ✅**、**TASK-212 ✅**、**TASK-211 ✅**、**TASK-213 ✅（UI↔Core 真实传输）**、**TASK-214 ✅（生产装配根 + Notepad Host handler + 1a Plan 来源）**、**TASK-205 ✅（tool-bus schema 模块拆分）**；下一张 **TASK-105**，但 T1.2/T1.3 仍受 **PL-097** 靶机能力缺口阻塞；
-                  跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204** 均 Done；**TASK-205** = Ready
+                  跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done；**PL-097** 的靶机能力扩展 = **TASK-215**（InProgress：适配包已进仓库，靶机文件/标签页/对话框能力未做）
 阻塞项      ：① **PL-097：notepad-like 靶机不读写文件、无标签页、无跨进程对话框**，T1.2/T1.3 没有可执行对象；② TASK-002 仍 Blocked；③ **PL-092**（storage 缺 conversation/session 公开记录 API）；④ **PL-094**（`RoleAndParent` helper 候选需契约治理）；⑤ gov **#9 覆盖率**与 **#11 `cargo doc`** 仍是 SOFT 门禁
-下一步动作  ：**先落地 PL-097 的靶机扩展或相应裁决**；TASK-105 的 T1.1 生产对象已就绪，但 T1.2/T1.3 仍不能在当前靶机上取得真实证据。阶段 1a 仍是 NO-GO（复验入口见 `docs/audits/stage-1a-reaudit-checklist-2026-09-30.md`）。阻断项闭环前不得进入 1b。
+下一步动作  ：**继续 TASK-215**（PL-097 闭环卡）：第 1 片已把 `adapters/com.example.notepad-like/**` 沉淀进仓库、干跑测试改为读仓库内适配包；**未做**靶机的文件读写、标签页与跨进程 Save As 对话框能力（`add_tab_button` / `save_as_dialog` / `save_as_filename` / `save_as_save_button` 四条 target 目前指向"将来才存在的" AutomationId，解析即 `TargetNotFound`，属显式 fail-closed）。靶机能力补齐后 TASK-105 才能取 T1.2/T1.3 证据。阶段 1a 仍是 NO-GO（复验入口见 `docs/audits/stage-1a-reaudit-checklist-2026-09-30.md`）。阻断项闭环前不得进入 1b。
                   → 审计证据见 `docs/audits/stage-1a-integration-audit-2026-09-29.md`；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 
