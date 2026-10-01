@@ -17,18 +17,24 @@
 //! 3. an ordinary tool behaves exactly as `ToolBusInvoker` did.
 
 use std::future::Future;
-use std::path::{Component, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use assistant_protocol::serde_json::{Map, Value, json};
 use assistant_protocol::{ErrorCode, ToolEnvelope};
-use assistant_storage::Clock;
+use assistant_storage::{BlobId, Clock};
 use assistant_task_engine::{PlanStep, StepStatus, TaskId, TaskSnapshot};
 use assistant_tool_bus::{CallContext, ToolBus};
 
 use crate::approval_grants::ApprovalGrants;
 use crate::runtime::{RuntimeExecutionError, ToolInvoker};
 use crate::runtime_host_ops::ReservedHostOperations;
+
+#[path = "reserved_approval.rs"]
+mod reserved_approval;
+#[path = "reserved_host.rs"]
+mod reserved_host;
+#[path = "reserved_pure.rs"]
+mod reserved_pure;
 
 /// Reason reported while a reserved runtime executor is still missing.
 pub const RESERVED_EXECUTOR_MISSING: &str = "reserved runtime tool executor is not implemented yet";
@@ -99,7 +105,7 @@ impl ToolInvoker for ReservedRuntimeInvoker<'_> {
                 return self.request_approval_step(&call, &step_id, sequence, arguments.as_ref());
             }
             if tool == crate::runtime_tools::TOOL_PURE_COMPUTE_LITERAL_REPLACEMENT {
-                return self.compute_literal_replacement(
+                return Self::compute_literal_replacement(
                     &call,
                     &step_id,
                     sequence,
@@ -107,10 +113,10 @@ impl ToolInvoker for ReservedRuntimeInvoker<'_> {
                 );
             }
             if tool == crate::runtime_tools::TOOL_PURE_BUILD_TEXT_DIFF {
-                return self.build_text_diff(&call, &step_id, sequence, arguments.as_ref());
+                return Self::build_text_diff(&call, &step_id, sequence, arguments.as_ref());
             }
             if tool == crate::runtime_tools::TOOL_PURE_VALIDATE_T1_3_INPUTS {
-                return self.validate_t1_3_inputs(&call, &step_id, sequence, arguments.as_ref());
+                return Self::validate_t1_3_inputs(&call, &step_id, sequence, arguments.as_ref());
             }
             if tool == crate::runtime_tools::TOOL_HOST_INSPECT_TARGET_PATH {
                 return self.inspect_target_path(&call, &step_id, sequence, arguments.as_ref());
@@ -316,7 +322,7 @@ impl ReservedRuntimeInvoker<'_> {
                 "scope_options must not be empty".to_owned(),
             );
         }
-        if let Some(reason) = approval_scope_refusal(scopes) {
+        if let Some(reason) = reserved_approval::approval_scope_refusal(scopes) {
             return refused(ErrorCode::ToolInvalidArgs, reason);
         }
         if arguments
@@ -449,271 +455,6 @@ impl ReservedRuntimeInvoker<'_> {
         )
     }
 
-    fn compute_literal_replacement(
-        &self,
-        call: &CallContext,
-        step_id: &str,
-        sequence: u32,
-        arguments: Option<&Map<String, Value>>,
-    ) -> Result<ToolEnvelope, RuntimeExecutionError> {
-        let Some(arguments) = arguments else {
-            return Ok(argument_error(
-                crate::runtime_tools::TOOL_PURE_COMPUTE_LITERAL_REPLACEMENT,
-                call,
-                step_id,
-                "compute_literal_replacement requires arguments",
-            ));
-        };
-        let Some(text) = arguments.get("text").and_then(Value::as_str) else {
-            return Ok(argument_error(
-                crate::runtime_tools::TOOL_PURE_COMPUTE_LITERAL_REPLACEMENT,
-                call,
-                step_id,
-                "text must be a string",
-            ));
-        };
-        let Some(old_text) = arguments.get("old_text").and_then(Value::as_str) else {
-            return Ok(argument_error(
-                crate::runtime_tools::TOOL_PURE_COMPUTE_LITERAL_REPLACEMENT,
-                call,
-                step_id,
-                "old_text must be a string",
-            ));
-        };
-        let Some(new_text) = arguments.get("new_text").and_then(Value::as_str) else {
-            return Ok(argument_error(
-                crate::runtime_tools::TOOL_PURE_COMPUTE_LITERAL_REPLACEMENT,
-                call,
-                step_id,
-                "new_text must be a string",
-            ));
-        };
-        if old_text.is_empty() {
-            return Ok(argument_error(
-                crate::runtime_tools::TOOL_PURE_COMPUTE_LITERAL_REPLACEMENT,
-                call,
-                step_id,
-                "old_text must not be empty",
-            ));
-        }
-        let replacement_count = text.matches(old_text).count();
-        let canonical_text_expected = text.replace(old_text, new_text);
-        self.ok_with_current_fingerprint(
-            crate::runtime_tools::TOOL_PURE_COMPUTE_LITERAL_REPLACEMENT,
-            call,
-            step_id,
-            sequence,
-            &json!({
-                "canonical_text_expected": canonical_text_expected,
-                "replacement_count": replacement_count,
-            }),
-        )
-    }
-
-    fn build_text_diff(
-        &self,
-        call: &CallContext,
-        step_id: &str,
-        sequence: u32,
-        arguments: Option<&Map<String, Value>>,
-    ) -> Result<ToolEnvelope, RuntimeExecutionError> {
-        let Some(arguments) = arguments else {
-            return Ok(argument_error(
-                crate::runtime_tools::TOOL_PURE_BUILD_TEXT_DIFF,
-                call,
-                step_id,
-                "build_text_diff requires arguments",
-            ));
-        };
-        let Some(before) = arguments.get("before").and_then(Value::as_str) else {
-            return Ok(argument_error(
-                crate::runtime_tools::TOOL_PURE_BUILD_TEXT_DIFF,
-                call,
-                step_id,
-                "before must be a string",
-            ));
-        };
-        let Some(after) = arguments.get("after").and_then(Value::as_str) else {
-            return Ok(argument_error(
-                crate::runtime_tools::TOOL_PURE_BUILD_TEXT_DIFF,
-                call,
-                step_id,
-                "after must be a string",
-            ));
-        };
-        if arguments
-            .get("format")
-            .and_then(Value::as_str)
-            .is_some_and(|format| format != "line_diff")
-        {
-            return Ok(argument_error(
-                crate::runtime_tools::TOOL_PURE_BUILD_TEXT_DIFF,
-                call,
-                step_id,
-                "format must be `line_diff`",
-            ));
-        }
-        self.ok_with_current_fingerprint(
-            crate::runtime_tools::TOOL_PURE_BUILD_TEXT_DIFF,
-            call,
-            step_id,
-            sequence,
-            &json!({ "approval_diff": render_text_diff(before, after) }),
-        )
-    }
-
-    fn validate_t1_3_inputs(
-        &self,
-        call: &CallContext,
-        step_id: &str,
-        sequence: u32,
-        arguments: Option<&Map<String, Value>>,
-    ) -> Result<ToolEnvelope, RuntimeExecutionError> {
-        let Some(arguments) = arguments else {
-            return Ok(argument_error(
-                crate::runtime_tools::TOOL_PURE_VALIDATE_T1_3_INPUTS,
-                call,
-                step_id,
-                "validate_t1_3_inputs requires arguments",
-            ));
-        };
-        if arguments.get("text").and_then(Value::as_str).is_none()
-            || arguments
-                .get("expected_initial_tab_count")
-                .and_then(Value::as_u64)
-                .is_none()
-        {
-            return Ok(argument_error(
-                crate::runtime_tools::TOOL_PURE_VALIDATE_T1_3_INPUTS,
-                call,
-                step_id,
-                "text and expected_initial_tab_count are required",
-            ));
-        }
-        let Some(target_path) = arguments.get("target_path").and_then(Value::as_str) else {
-            return Ok(argument_error(
-                crate::runtime_tools::TOOL_PURE_VALIDATE_T1_3_INPUTS,
-                call,
-                step_id,
-                "target_path must be a string",
-            ));
-        };
-        let path = PathBuf::from(target_path);
-        if !path.is_absolute()
-            || path
-                .components()
-                .any(|component| matches!(component, Component::ParentDir))
-        {
-            return Ok(argument_error(
-                crate::runtime_tools::TOOL_PURE_VALIDATE_T1_3_INPUTS,
-                call,
-                step_id,
-                "target_path must be absolute and must not contain `..`",
-            ));
-        }
-        self.ok_with_current_fingerprint(
-            crate::runtime_tools::TOOL_PURE_VALIDATE_T1_3_INPUTS,
-            call,
-            step_id,
-            sequence,
-            &json!({ "normalized_target_path": path.to_string_lossy() }),
-        )
-    }
-
-    fn inspect_target_path(
-        &self,
-        call: &CallContext,
-        step_id: &str,
-        sequence: u32,
-        arguments: Option<&Map<String, Value>>,
-    ) -> Result<ToolEnvelope, RuntimeExecutionError> {
-        let Some(target_path) = arguments
-            .and_then(|arguments| arguments.get("target_path"))
-            .and_then(Value::as_str)
-        else {
-            return Ok(argument_error(
-                crate::runtime_tools::TOOL_HOST_INSPECT_TARGET_PATH,
-                call,
-                step_id,
-                "target_path must be a string",
-            ));
-        };
-        let Some(operations) = self.host_operations.as_ref() else {
-            return Ok(capability_error(
-                crate::runtime_tools::TOOL_HOST_INSPECT_TARGET_PATH,
-                call,
-                step_id,
-                "host target-path inspection is not assembled",
-            ));
-        };
-        let data = match operations.inspect_target_path(target_path) {
-            Ok(data) => data,
-            Err(message) => {
-                return Ok(ToolEnvelope::error(
-                    crate::runtime_tools::TOOL_HOST_INSPECT_TARGET_PATH.to_owned(),
-                    call.task_id().to_owned(),
-                    step_id.to_owned(),
-                    ErrorCode::ToolInvalidArgs,
-                    message,
-                ));
-            }
-        };
-        self.ok_with_current_fingerprint(
-            crate::runtime_tools::TOOL_HOST_INSPECT_TARGET_PATH,
-            call,
-            step_id,
-            sequence,
-            &data,
-        )
-    }
-
-    fn set_editor_value(
-        &self,
-        call: &CallContext,
-        step_id: &str,
-        sequence: u32,
-        arguments: Option<&Map<String, Value>>,
-    ) -> Result<ToolEnvelope, RuntimeExecutionError> {
-        let Some(text) = arguments
-            .and_then(|arguments| arguments.get("text"))
-            .and_then(Value::as_str)
-        else {
-            return Ok(argument_error(
-                crate::runtime_tools::TOOL_HOST_SET_EDITOR_VALUE,
-                call,
-                step_id,
-                "text must be a string",
-            ));
-        };
-        let Some(operations) = self.host_operations.as_ref() else {
-            return Ok(capability_error(
-                crate::runtime_tools::TOOL_HOST_SET_EDITOR_VALUE,
-                call,
-                step_id,
-                "host text writing is not assembled",
-            ));
-        };
-        let data = match operations.set_editor_value(text) {
-            Ok(data) => data,
-            Err(message) => {
-                return Ok(ToolEnvelope::error(
-                    crate::runtime_tools::TOOL_HOST_SET_EDITOR_VALUE.to_owned(),
-                    call.task_id().to_owned(),
-                    step_id.to_owned(),
-                    ErrorCode::VerifyFailed,
-                    message,
-                ));
-            }
-        };
-        self.ok_with_current_fingerprint(
-            crate::runtime_tools::TOOL_HOST_SET_EDITOR_VALUE,
-            call,
-            step_id,
-            sequence,
-            &data,
-        )
-    }
-
     fn ok_with_current_fingerprint(
         &self,
         tool: &str,
@@ -722,21 +463,58 @@ impl ReservedRuntimeInvoker<'_> {
         sequence: u32,
         data: &Value,
     ) -> Result<ToolEnvelope, RuntimeExecutionError> {
-        let Some(fingerprint) = self.current_fingerprint(sequence)? else {
-            return Ok(ToolEnvelope::error(
-                tool.to_owned(),
-                call.task_id().to_owned(),
-                step_id.to_owned(),
-                ErrorCode::VerifyFailed,
-                "no prior step recorded a post fingerprint; cannot prove state is unchanged"
-                    .to_owned(),
-            ));
-        };
         let mut object = data.as_object().cloned().unwrap_or_default();
-        object.insert("fingerprint".to_owned(), Value::String(fingerprint.clone()));
+        let needs_snapshot =
+            !object.contains_key("fingerprint") || !object.contains_key("previous_fingerprint");
+        if needs_snapshot {
+            let Some(fingerprint) = self.current_fingerprint(sequence)? else {
+                return Ok(ToolEnvelope::error(
+                    tool.to_owned(),
+                    call.task_id().to_owned(),
+                    step_id.to_owned(),
+                    ErrorCode::VerifyFailed,
+                    "no prior step recorded a post fingerprint; cannot prove state is unchanged"
+                        .to_owned(),
+                ));
+            };
+            object
+                .entry("fingerprint".to_owned())
+                .or_insert_with(|| Value::String(fingerprint.clone()));
+            object
+                .entry("previous_fingerprint".to_owned())
+                .or_insert(Value::String(fingerprint));
+        }
+        Ok(ToolEnvelope::ok(
+            tool.to_owned(),
+            call.task_id().to_owned(),
+            step_id.to_owned(),
+            Value::Object(object),
+        ))
+    }
+
+    /// Builds a pure-operation success envelope.
+    ///
+    /// A pure operation does not touch application state, so it must not pretend
+    /// to have a platform state fingerprint. Its `sha256:` value is instead the
+    /// SHA-256 of the canonical output payload, and the explicit
+    /// `pure_result: true` marker is what postconditions assert.
+    fn ok_with_pure_fingerprint(
+        tool: &str,
+        call: &CallContext,
+        step_id: &str,
+        data: &Value,
+    ) -> Result<ToolEnvelope, RuntimeExecutionError> {
+        let mut object = data.as_object().cloned().unwrap_or_default();
+        object.insert("pure_result".to_owned(), Value::Bool(true));
+        let canonical = Value::Object(object.clone());
+        let encoded = assistant_protocol::serde_json::to_vec(&canonical).map_err(|error| {
+            RuntimeExecutionError::Tool {
+                reason: format!("pure result could not be serialized: {error}"),
+            }
+        })?;
         object.insert(
-            "previous_fingerprint".to_owned(),
-            Value::String(fingerprint),
+            "fingerprint".to_owned(),
+            Value::String(format!("sha256:{}", BlobId::of_content(&encoded).as_str())),
         );
         Ok(ToolEnvelope::ok(
             tool.to_owned(),
@@ -811,27 +589,6 @@ fn normalize_anchor_level(value: &str) -> Option<&'static str> {
     }
 }
 
-/// Returns why the declared approval scopes are unusable, if they are.
-fn approval_scope_refusal(scopes: &[Value]) -> Option<String> {
-    for scope in scopes {
-        match scope.as_str() {
-            Some("once" | "task" | "session") => {}
-            Some(other) => return Some(format!("unknown approval scope `{other}`")),
-            None => return Some("scope_options entries must be strings".to_owned()),
-        }
-    }
-    None
-}
-
 #[cfg(test)]
-mod tests {
-    use super::RESERVED_EXECUTOR_MISSING;
-    use crate::runtime_tools::{TOOL_PREPARE_ANCHORS, TOOL_REQUEST_APPROVAL};
-
-    #[test]
-    fn test_reserved_reason_is_stable_and_names_no_model_visibility() {
-        assert!(RESERVED_EXECUTOR_MISSING.contains("not implemented"));
-        assert!(TOOL_REQUEST_APPROVAL.starts_with("assistant.runtime."));
-        assert!(TOOL_PREPARE_ANCHORS.starts_with("assistant.runtime."));
-    }
-}
+#[path = "reserved_invoker_tests.rs"]
+mod tests;

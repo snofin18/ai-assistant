@@ -1,6 +1,6 @@
 # TASK-217　运行时任务数据流、确定性本地操作与可恢复审批
 
-- 状态：**InProgress（ADR-0061 Accepted 2026-10-01）**
+- 状态：**Done（2026-10-01；ADR-0061 Accepted）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：TASK-216、**ADR-0061 Accepted**、**DRIFT-216-4**
 - 预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031）。分界线以上为正文（Orchestrator 所有，Implementer 只读）。
@@ -128,6 +128,8 @@ cargo test -p assistant-agent-core --test production_root_uia -- --ignored
 - **改** `apps/agent-core/src/notepad_handlers.rs`、`notepad_registry.rs`：host operation 使用既有 Notepad handler context。
 - **改** `apps/agent-core/src/main.rs`：新增 `--task-inputs <path>`。
 - **改** `apps/agent-core/tests/task_package.rs`、`production_root.rs`、`production_root_uia.rs`：输入绑定、T1.2 真执行与现有 T1.1 回归。
+- **增** `production_resume.rs`、`runtime_dataflow_tests.rs`、`reserved_pure.rs`、`reserved_host.rs`、`reserved_approval.rs`、`notepad_handlers_support.rs`、`task_package_render.rs`、`tests/support/production_fixture.rs`：拆分 600 行软上限并承载恢复、pure/host operation 与测试夹具。
+- **改** `production_run.rs`、`ui_control.rs`、`runtime_tools.rs`、`notepad_tab.rs`、`production_policy.rs`：pending approval registry、`resume_plan`、UI approve/deny/timeout 可观测入口、低风险写策略映射、新标签写前/写后指纹。
 - **改** ADR-0061、ADR 登记、decisions、`docs/spec/runtime-execution.md`、本卡与状态同步文件。
 
 ### 3. 验收输出摘要
@@ -139,6 +141,7 @@ cargo test --workspace                           → EXIT 0
 cargo test -p assistant-agent-core               → EXIT 0（lib 33 passed）
 cargo test -p assistant-agent-core --test task_package → 14 passed
 cargo test -p assistant-agent-core --test production_root → 7 passed
+  （新增后 9 passed；含 T1.3 fake platform Completed、T1.2 UI approve/resume）
 xtask verify-schemas / codegen --check / hygiene / docscan / card-check / refscan
   / memory-counts / adr-index / check-ledger / check-migrations / check-comments → 全部 EXIT 0
 cargo deny check                                 → advisories / bans / licenses / sources ok
@@ -148,15 +151,15 @@ cargo deny check                                 → advisories / bans / license
 
 - [x] 整值 `$name` 引用解析落地；部分插值 / 表达式 / 未知引用 / 类型错有负向用例。
 - [x] 已提交步骤输出进入上下文；失败、跳过、验证未提交不发布。
-- [ ] T1.2/T1.3 都在 fake platform 执行到 `Completed` —— **T1.2 已完成；T1.3 待做**。
+- [x] T1.2/T1.3 都在 fake platform 执行到 `Completed`。
 - [x] `when` 的布尔引用、取反、比较与 `&&` 可用；复合表达式明确拒绝。
 - [x] `pure` / host operation 按白名单执行；未知 operation 拒绝。
-- [ ] 无授权时 `AwaitingApproval` 并可从同一快照恢复 —— **当前只验证了预置有界授权的成功路径；可恢复暂停仍待做**。
-- [ ] 未重放已提交步骤、事件顺序可复核 —— T1.2 顺序已跑通，暂停/恢复事件待补。
+- [x] 无授权时 `AwaitingApproval` 并可从同一快照恢复。
+- [x] 未重放已提交步骤、事件顺序可复核 —— 暂停/恢复测试断言已提交步骤 attempts 不增加。
 - [x] 模型可见挂载集不含 `assistant.runtime.*`。
 - [x] 未改任务包声明；未加第三方依赖；未改 `crates/**` 公共接口。
 - [x] 上列正常验收命令全绿（`hygiene` 0E/3W）。
-- [ ] §11.1 进度同步 —— 本 slice 同步 LEDGER / PLAN / plans；TASK-217 尚未 Done。
+- [x] §11.1 进度同步 —— 本 slice 同步 LEDGER / PLAN / README / plans / MEMORY 事实。
 
 ### 5. 偏差
 
@@ -165,6 +168,9 @@ cargo deny check                                 → advisories / bans / license
 - **ADR-0061 修订 3**：保留工具名必须是三段式。`assistant.runtime.pure.*` 被 Planner 正确拒绝，改为 `assistant.runtime.pure_*` / `assistant.runtime.host_*`。
 - **实现取舍**：T1.1 的 `count_lines_and_keyword_paragraphs` 未声明文本输入且输出无人消费，继续作为“声明但不执行”，避免伪造分析结果。
 - **策略桥接**：保留运行时工具在 policy 适配器里按低风险内部控制操作建模；普通应用写工具仍走原策略。已提交的 `request_approval` 只为**下一个写步骤**打开一次策略窗口，避免重复确认或无限授权。
+- **策略补口**：低风险写且 adapter `requires_approval=false`（T1.3 `notepad.tab.new`）需要明确 allow 规则；若低风险写被 schema 标成 `requires_approval=true`，adapter 将其提升到中风险确认规则，避免把“无审批要求的低风险写”误判成 deny，同时不绕过 policy。
+- **pure 指纹**：pure operation 不触碰应用状态，返回 `sha256` 内容指纹与 `pure_result=true`，postcondition 只断言自身输出；不伪造 before/after 平台状态。
+- **T1.3 证据**：`save_as` 的 postcondition 以 handler 返回的 `file_created=true` 为可验证事实；跨进程磁盘内容由 T1.3 测试的磁盘读回断言补证。
 - **CI 环境修正（跨卡）**：GitHub runner 的 Rust 1.99 新增 `clippy::assert_is_empty`，打红了 `crates/lease/tests/lease_contract.rs` 与 `crates/undo/tests/rollback_contract.rs` 的既有断言。本 slice 把 4 处 `.is_empty()` 断言改为显式 `len() == 0`，避免把已知红灯 PR 合入 `main`；本地 Rust 1.98 与 workflow 均通过。
 - **DRIFT-217-2（lint allow）**：Rust 1.99 的 `clippy::assert_is_empty` 还命中仓库大量既有断言。逐个改写会造成与 TASK-217 无关的大范围 churn，因此仅在 workspace lint 中允许这一条纯风格 lint；所有安全/静默失败相关 deny 保持不变。
 
@@ -175,15 +181,17 @@ cargo deny check                                 → advisories / bans / license
 
 ### 7. 遗留问题
 
-- **T1.3** 尚未在 fake platform 上执行到 `Completed`；需要补 tab-count 读取、新标签写入、跨进程 Save As 的文件创建模拟或真靶机证据。
-- **可恢复审批** 尚未实现：当前成功路径依赖调用方在运行前预置有界授权；无授权时仍返回 `AwaitingApproval` 并终止本次 `execute_plan`，没有持久化恢复句柄与 UI resume 入口。
+- **T1.3** 已在 fake platform 上执行到 `Completed`，覆盖 tab-count、写入、Save As 文件创建模拟与磁盘读回。
+- **可恢复审批** 已实现为 `ProductionHost::resume_plan`：无授权时暂停在 Prechecking，UI approve 写入有界授权后从同一快照恢复；deny/过期授权不会自动继续。持久化恢复句柄仍不在 1a 范围内。
 - `check-comments` 对 `runtime_tools.rs` 的 PITFALL 标签格式仍有 warning；不是 error，后续小卡清理。
 
 ### 8. 新增长期记忆
 
 - **FACT**：T1.2 已能在 fake platform 上通过完整 runtime（输入绑定、pure diff、两次审批、锚点、替换、保存、verify）到 `Completed`。
+- **FACT**：T1.3 已能在 fake platform 上通过 runtime（输入校验、路径 preflight、新标签、文本写回、diff、Save As 审批、文件创建与磁盘读回）到 `Completed`。
+- **FACT**：无授权时保留审批步骤停在 Prechecking 并注册 pending；UI approve 后有界授权只放行一次，恢复不重放已提交步骤。
 - **FACT**：Planner 工具名严格三段式；四段保留名会在启动时被拒绝。
-- **PITFALL**：`state_unchanged` 需要 previous fingerprint；所有保留/pure/host 成功信封都必须同时给 before/after。
+- **PITFALL**：平台状态断言需要真实 previous/after fingerprint；pure operation 必须用内容指纹 + `pure_result`，不得伪造为应用状态未变。
 
 ### 9. 给审阅者的关注点
 

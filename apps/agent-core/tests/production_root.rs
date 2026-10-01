@@ -1,18 +1,30 @@
 //! Production-root acceptance tests for TASK-214 without a real commercial application.
 
-#![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+#![allow(
+    clippy::expect_used,
+    clippy::panic,
+    clippy::too_many_lines,
+    clippy::unwrap_used
+)]
 
-use std::future::{Future, ready};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+#[path = "support/production_fixture.rs"]
+mod fixture;
+
+use fixture::{FIXED_NOW_MS, FakePlatform, FixedClock};
 
 #[cfg(windows)]
 use assistant_agent_core::GrantRequest;
 use assistant_agent_core::UiServerConfig;
 use assistant_agent_core::{ProductionConfig, ProductionError, assemble_production_host};
 #[cfg(windows)]
-use assistant_agent_core::{TaskControlHandler, UiEvent, UiEventSource, serve_session_with_events};
+use assistant_agent_core::{
+    TaskControlHandler, UiAuthorizationScope, UiCommand, UiCommandHandler, UiEvent, UiEventSource,
+    serve_session_with_events,
+};
 #[cfg(windows)]
 use assistant_hitl::ApprovalScope;
 #[cfg(windows)]
@@ -20,263 +32,12 @@ use assistant_ipc::{
     IpcError, NamedPipeTransport, Transport, WireMessage, client_handshake, generate_session_id,
     server_handshake,
 };
-use assistant_platform_api::{
-    CaptureOptions, ErrorCode, Fingerprint, FingerprintScope, FocusPolicy, ImageRef, KeyChord,
-    KeyTarget, NormalizedPoint, PlatformError, PlatformResult, PointerAction, ResolvedElement,
-    ResolvedWindow, ScrollTarget, Selection, SelectorChain, TargetDescriptor, TextEditOp, Timeout,
-    TreeOptions, TreeSnapshot, UiAutomationProvider, WindowFilter, WindowInfo, WindowProvider,
-    WindowState,
-};
-use assistant_storage::Clock;
+use assistant_platform_api::{ErrorCode, Fingerprint};
 #[cfg(windows)]
-use assistant_task_engine::{StepStatus, TaskStatus};
+use assistant_task_engine::{MemoryCheckpointStore, StepStatus, TaskEngine, TaskStatus};
 
-const FIXED_NOW_MS: i64 = 1_700_000_000_000;
-const WINDOW_ID: u64 = 1;
-const EDITOR_ID: u64 = 2;
 #[cfg(windows)]
 const UI_TEST_TOKEN: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-
-struct FixedClock;
-
-impl Clock for FixedClock {
-    fn now_unix_ms(&self) -> i64 {
-        FIXED_NOW_MS
-    }
-}
-
-#[derive(Clone)]
-struct FakePlatform {
-    state: Arc<Mutex<FakeState>>,
-}
-
-struct FakeState {
-    text: String,
-    revision: u64,
-    read_calls: usize,
-    set_calls: usize,
-    key_calls: usize,
-}
-
-impl FakePlatform {
-    fn new(text: impl Into<String>) -> Self {
-        Self {
-            state: Arc::new(Mutex::new(FakeState {
-                text: text.into(),
-                revision: 1,
-                read_calls: 0,
-                set_calls: 0,
-                key_calls: 0,
-            })),
-        }
-    }
-
-    fn fingerprint(&self) -> Fingerprint {
-        let revision = self.state.lock().expect("fake state").revision;
-        Fingerprint::parse(format!("sha256:{revision:064x}")).expect("fingerprint")
-    }
-}
-
-impl WindowProvider for FakePlatform {
-    fn list_windows(
-        &self,
-        _filter: &WindowFilter,
-    ) -> impl Future<Output = PlatformResult<Vec<WindowInfo>>> + Send {
-        ready(Ok(vec![WindowInfo::new(
-            window(),
-            "com.microsoft.notepad".to_owned(),
-            "fixture.txt - Notepad".to_owned(),
-        )]))
-    }
-
-    fn resolve_window(
-        &self,
-        _descriptor: &TargetDescriptor,
-    ) -> impl Future<Output = PlatformResult<ResolvedWindow>> + Send {
-        ready(Ok(window()))
-    }
-
-    fn window_state(
-        &self,
-        _window: &ResolvedWindow,
-    ) -> impl Future<Output = PlatformResult<WindowState>> + Send {
-        ready(Ok(WindowState::new(false, true, false)))
-    }
-
-    fn bring_to_front(
-        &self,
-        _window: &ResolvedWindow,
-        _policy: FocusPolicy,
-    ) -> impl Future<Output = PlatformResult<()>> + Send {
-        ready(Ok(()))
-    }
-
-    fn capture(
-        &self,
-        _window: &ResolvedWindow,
-        _options: &CaptureOptions,
-    ) -> impl Future<Output = PlatformResult<ImageRef>> + Send {
-        ready(Err(platform_error(
-            ErrorCode::CapabilityMissing,
-            "capture not implemented in fixture",
-        )))
-    }
-}
-
-impl UiAutomationProvider for FakePlatform {
-    fn snapshot_tree(
-        &self,
-        root: &ResolvedWindow,
-        _options: &TreeOptions,
-    ) -> impl Future<Output = PlatformResult<TreeSnapshot>> + Send {
-        ready(Ok(TreeSnapshot::new(root.clone(), self.fingerprint(), 4)))
-    }
-
-    fn resolve_element(
-        &self,
-        _scope: &ResolvedWindow,
-        chain: &SelectorChain,
-    ) -> impl Future<Output = PlatformResult<ResolvedElement>> + Send {
-        if chain.candidates().is_empty() {
-            return ready(Err(platform_error(
-                ErrorCode::ToolInvalidArgs,
-                "empty selector chain",
-            )));
-        }
-        ready(Ok(editor()))
-    }
-
-    fn wait_for(
-        &self,
-        _scope: &ResolvedWindow,
-        _query: &assistant_platform_api::ElementQuery,
-        _state: &assistant_platform_api::ElementState,
-        _timeout: Timeout,
-    ) -> impl Future<Output = PlatformResult<ResolvedElement>> + Send {
-        ready(Err(platform_error(
-            ErrorCode::CapabilityMissing,
-            "wait_for not implemented in fixture",
-        )))
-    }
-
-    fn read_text(
-        &self,
-        _element: &ResolvedElement,
-    ) -> impl Future<Output = PlatformResult<String>> + Send {
-        let mut state = self.state.lock().expect("fake state");
-        state.read_calls += 1;
-        let text = state.text.clone();
-        drop(state);
-        ready(Ok(text))
-    }
-
-    fn set_value(
-        &self,
-        _element: &ResolvedElement,
-        value: &str,
-    ) -> impl Future<Output = PlatformResult<()>> + Send {
-        let mut state = self.state.lock().expect("fake state");
-        value.clone_into(&mut state.text);
-        state.revision = state.revision.saturating_add(1);
-        state.set_calls += 1;
-        drop(state);
-        ready(Ok(()))
-    }
-
-    fn edit_text(
-        &self,
-        _element: &ResolvedElement,
-        _operation: &TextEditOp,
-    ) -> impl Future<Output = PlatformResult<()>> + Send {
-        ready(Err(platform_error(
-            ErrorCode::CapabilityMissing,
-            "edit_text not implemented in fixture",
-        )))
-    }
-
-    fn invoke_action(
-        &self,
-        _element: &ResolvedElement,
-        _action: &str,
-    ) -> impl Future<Output = PlatformResult<()>> + Send {
-        let mut state = self.state.lock().expect("fake state");
-        state.revision = state.revision.saturating_add(1);
-        drop(state);
-        ready(Ok(()))
-    }
-
-    fn select(
-        &self,
-        _element: &ResolvedElement,
-        _selection: &Selection,
-    ) -> impl Future<Output = PlatformResult<()>> + Send {
-        ready(Err(platform_error(
-            ErrorCode::CapabilityMissing,
-            "select not implemented in fixture",
-        )))
-    }
-
-    fn scroll(
-        &self,
-        _element: &ResolvedElement,
-        _target: &ScrollTarget,
-    ) -> impl Future<Output = PlatformResult<()>> + Send {
-        ready(Err(platform_error(
-            ErrorCode::CapabilityMissing,
-            "scroll not implemented in fixture",
-        )))
-    }
-
-    fn pointer_action(
-        &self,
-        _point: NormalizedPoint,
-        _action: &PointerAction,
-    ) -> impl Future<Output = PlatformResult<()>> + Send {
-        ready(Err(platform_error(
-            ErrorCode::CapabilityMissing,
-            "pointer actions not implemented in fixture",
-        )))
-    }
-
-    fn key_action(
-        &self,
-        _chord: &KeyChord,
-        _target: &KeyTarget,
-    ) -> impl Future<Output = PlatformResult<()>> + Send {
-        let mut state = self.state.lock().expect("fake state");
-        state.key_calls += 1;
-        state.revision = state.revision.saturating_add(1);
-        drop(state);
-        ready(Ok(()))
-    }
-
-    fn fingerprint(
-        &self,
-        _window: &ResolvedWindow,
-        _scope: &FingerprintScope,
-    ) -> impl Future<Output = PlatformResult<Fingerprint>> + Send {
-        ready(Ok(self.fingerprint()))
-    }
-}
-
-fn window() -> ResolvedWindow {
-    ResolvedWindow::new(
-        assistant_platform_api::LocalHandleId::new(WINDOW_ID),
-        "fixture window".to_owned(),
-    )
-}
-
-fn editor() -> ResolvedElement {
-    ResolvedElement::new(
-        assistant_platform_api::LocalHandleId::new(EDITOR_ID),
-        assistant_platform_api::LocalHandleId::new(WINDOW_ID),
-        "Document".to_owned(),
-    )
-}
-
-fn platform_error(code: ErrorCode, message: impl Into<String>) -> PlatformError {
-    PlatformError::new(code, message)
-}
 
 struct TestDirectory {
     path: PathBuf,
@@ -332,15 +93,6 @@ fn production_config(data_root: &Path) -> ProductionConfig {
     .expect("task input object");
     ProductionConfig::new(data_root, adapter_root, task_package_path, ui_config)
         .with_task_inputs(task_inputs)
-}
-
-#[cfg(windows)]
-fn unique_ui_pipe_name() -> String {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("clock")
-        .as_nanos();
-    format!("assistant-agent-core-ui-{}-{nanos}", std::process::id())
 }
 
 #[cfg(windows)]
@@ -426,7 +178,7 @@ async fn test_production_step_event_over_real_ui_pipe() -> Result<(), Box<dyn st
     let directory = TestDirectory::new("production-ui-pipe")?;
     let platform = FakePlatform::new("alpha\nbeta\n");
     let mut config = production_config(&directory.path);
-    let pipe_name = unique_ui_pipe_name();
+    let pipe_name = fixture::unique_ui_pipe_name();
     config.ui_config.pipe_name.clone_from(&pipe_name);
     let host = assemble_production_host(config, platform.clone(), Arc::new(FixedClock)).await?;
     let plan = host.plan_task()?;
@@ -580,6 +332,175 @@ async fn test_production_t1_2_runs_with_bounded_approvals() -> Result<(), Box<dy
     );
     assert_eq!(platform.state.lock().expect("fake state").text, "报告 报告");
     assert_eq!(platform.state.lock().expect("fake state").key_calls, 1);
+    host.shutdown().await?;
+    Ok(())
+}
+
+#[cfg(windows)]
+#[tokio::test]
+async fn test_production_t1_2_pauses_and_resumes_with_ui_approval()
+-> Result<(), Box<dyn std::error::Error>> {
+    let directory = TestDirectory::new("production-t1-2-resume")?;
+    let adapter_root = workspace_root().join("adapters/com.microsoft.notepad");
+    let task_package_path = adapter_root
+        .join("tasks")
+        .join("t1.2.replace-save-approval-undo.json");
+    let ui_config = UiServerConfig::new(
+        "assistant-agent-core-production-t1-2-resume",
+        "ASSISTANT_AGENT_CORE_TEST_TOKEN",
+        Duration::from_secs(1),
+    )
+    .with_allowed_peer("C:\\fixture\\peer.exe");
+    let task_inputs = serde_json::json!({
+        "input.old_text": "报表",
+        "input.new_text": "报告",
+        "input.expected_replacements": 2,
+        "rollback.replace_recipe": "replace-text-l0-l1",
+        "rollback.save_recipe": "save-l0-l1",
+        "rollback.required_anchor_levels": ["L0", "L1"],
+    })
+    .as_object()
+    .cloned()
+    .expect("task input object");
+    let config = ProductionConfig::new(
+        directory.path.join("data"),
+        adapter_root,
+        task_package_path,
+        ui_config,
+    )
+    .with_task_inputs(task_inputs);
+    let platform = FakePlatform::new("报表 报表");
+    let host = assemble_production_host(config, platform.clone(), Arc::new(FixedClock)).await?;
+
+    let run = host.execute_plan(host.plan_task()?, FIXED_NOW_MS).await?;
+    let first_pause = run
+        .pending_approval()
+        .cloned()
+        .expect("the replace step must pause for approval");
+    assert_eq!(first_pause.step_id.as_str(), "approve_replace");
+    let mut handler = TaskControlHandler::new(
+        TaskEngine::new(MemoryCheckpointStore::new()),
+        Arc::new(FixedClock),
+    )
+    .with_pending(host.pending_approvals())
+    .with_approvals(host.approvals());
+    handler
+        .handle(UiCommand::ApproveRequest {
+            request_id: first_pause.request_id,
+            scope: UiAuthorizationScope::Once,
+        })
+        .expect("UI approval for replace");
+
+    let run = host
+        .resume_plan(run, FIXED_NOW_MS.saturating_add(10))
+        .await?;
+    let second_pause = run
+        .pending_approval()
+        .cloned()
+        .expect("the save step must pause for approval");
+    assert_eq!(second_pause.step_id.as_str(), "approve_save");
+    assert_eq!(
+        run.final_snapshot
+            .step(&assistant_task_engine::StepId::new(
+                "capture_pre_replace_text"
+            )?)
+            .map(|step| step.attempts),
+        Some(1),
+        "resuming an approval must not replay committed read steps"
+    );
+    assert_eq!(platform.state.lock().expect("fake state").text, "报告 报告");
+
+    handler
+        .handle(UiCommand::ApproveRequest {
+            request_id: second_pause.request_id,
+            scope: UiAuthorizationScope::Once,
+        })
+        .expect("UI approval for save");
+    let run = host
+        .resume_plan(run, FIXED_NOW_MS.saturating_add(20))
+        .await?;
+
+    assert_eq!(run.final_snapshot.status, TaskStatus::Completed);
+    assert!(!run.is_awaiting_approval());
+    assert!(
+        run.final_snapshot
+            .steps
+            .iter()
+            .all(|step| step.status == StepStatus::Committed)
+    );
+    assert_eq!(platform.state.lock().expect("fake state").key_calls, 1);
+    host.shutdown().await?;
+    Ok(())
+}
+
+#[cfg(windows)]
+#[tokio::test]
+async fn test_production_t1_3_creates_a_new_file_through_fake_platform()
+-> Result<(), Box<dyn std::error::Error>> {
+    let directory = TestDirectory::new("production-t1-3")?;
+    let adapter_root = workspace_root().join("adapters/com.example.notepad-like");
+    let task_package_path = workspace_root()
+        .join("adapters/com.microsoft.notepad/tasks/t1.3.new-tab-write-save-as.json");
+    let target_path = directory.path.join("created-by-t1-3.txt");
+    let text = "alpha\nbeta\n";
+    let ui_config = UiServerConfig::new(
+        "assistant-agent-core-production-t1-3",
+        "ASSISTANT_AGENT_CORE_TEST_TOKEN",
+        Duration::from_secs(1),
+    )
+    .with_allowed_peer("C:\\fixture\\peer.exe");
+    let task_inputs = serde_json::json!({
+        "input.text": text,
+        "input.target_path": target_path.to_string_lossy(),
+        "input.expected_initial_tab_count": 1,
+    })
+    .as_object()
+    .cloned()
+    .expect("task input object");
+    let config = ProductionConfig::new(
+        directory.path.join("data"),
+        adapter_root,
+        task_package_path,
+        ui_config,
+    )
+    .with_task_inputs(task_inputs);
+    let platform = FakePlatform::new("original");
+    let host = assemble_production_host(config, platform.clone(), Arc::new(FixedClock)).await?;
+
+    let run = host.execute_plan(host.plan_task()?, FIXED_NOW_MS).await?;
+    let pause = run
+        .pending_approval()
+        .cloned()
+        .expect("Save As must pause for approval");
+    assert_eq!(pause.step_id.as_str(), "approve_save_as");
+
+    let mut handler = TaskControlHandler::new(
+        TaskEngine::new(MemoryCheckpointStore::new()),
+        Arc::new(FixedClock),
+    )
+    .with_pending(host.pending_approvals())
+    .with_approvals(host.approvals());
+    handler
+        .handle(UiCommand::ApproveRequest {
+            request_id: pause.request_id,
+            scope: UiAuthorizationScope::Once,
+        })
+        .expect("UI approval for Save As");
+
+    let run = host
+        .resume_plan(run, FIXED_NOW_MS.saturating_add(10))
+        .await?;
+    assert_eq!(run.final_snapshot.status, TaskStatus::Completed);
+    assert!(!run.is_awaiting_approval());
+    assert_eq!(std::fs::read_to_string(&target_path)?, text);
+    assert_eq!(platform.state.lock().expect("fake state").tab_count, 2);
+    assert_eq!(platform.state.lock().expect("fake state").text, text);
+    assert!(
+        run.final_snapshot
+            .steps
+            .iter()
+            .all(|step| step.status == StepStatus::Committed)
+    );
     host.shutdown().await?;
     Ok(())
 }

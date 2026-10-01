@@ -34,8 +34,8 @@ use assistant_model_gateway::{
     CancellationToken, ModelProvider, ModelRouter, NoJitter, SystemMonotonicClock, ThreadSleeper,
 };
 use assistant_platform_api::{UiAutomationProvider, WindowProvider};
-use assistant_policy::RuleSet;
-use assistant_protocol::{ErrorCode, ToolSchema};
+use assistant_policy::{Effect, PolicyRule, RuleConditions, RuleEffect, RuleId, RuleSet};
+use assistant_protocol::{ErrorCode, RiskLevel, ToolSchema};
 use assistant_storage::Clock;
 use assistant_task_engine::{
     Budget, MemoryCheckpointStore, Plan, PlanId, StepId, TaskEngine, TaskEvent, TaskId,
@@ -53,19 +53,23 @@ use crate::notepad_targets::NotepadTargetCatalog;
 use crate::production_policy::{ApprovalWindows, CatalogStepPolicy};
 use crate::production_run::ProductionRun;
 use crate::production_support::{EmptyRetriever, NoopCompressor};
-use crate::runtime::{
-    EnvelopeObservationCollector, RuntimeExecutionError, RuntimeExecutor, StepExecutionOutcome,
-};
+use crate::runtime::{EnvelopeObservationCollector, RuntimeExecutionError, RuntimeExecutor};
 use crate::runtime_binding::{BindingInvoker, RuntimeBindingState};
 use crate::runtime_host_ops::ReservedHostOperations;
 use crate::task_package::{TaskPackageError, TaskPackageProvider};
+use crate::ui_control::PendingApprovals;
 use crate::ui_events::SnapshotEventSource;
 use crate::ui_server::UiServerConfig;
+
+#[path = "production_resume.rs"]
+mod resume;
 
 const PRODUCTION_PLAN_BUDGET_STEPS: u64 = 32;
 const PRODUCTION_PLAN_BUDGET_MS: u64 = 120_000;
 const PRODUCTION_PLAN_BUDGET_TOKENS: u64 = 100_000;
 const PRODUCTION_PLAN_BUDGET_COST_USD: f64 = 1.0;
+
+type StepHandle = (StepId, u32, String);
 
 /// Paths and UI configuration required by the production mode.
 #[derive(Debug, Clone)]
@@ -190,6 +194,7 @@ pub struct ProductionHost<P> {
     latest_snapshot: Arc<Mutex<Option<TaskSnapshot>>>,
     clock: Arc<dyn Clock>,
     approvals: Arc<ApprovalGrants>,
+    pending_approvals: Arc<PendingApprovals>,
     host_operations: Arc<dyn ReservedHostOperations>,
     task_inputs: Map<String, Value>,
     ui_config: UiServerConfig,
@@ -242,7 +247,7 @@ where
             Arc::new(ThreadSleeper),
             Arc::new(NoJitter),
         )
-        .with_policy_rules(RuleSet::example_v0())
+        .with_policy_rules(production_policy_rules())
         .with_tool_registry(registry_build.registry)
         .with_history_compressor(Arc::new(NoopCompressor) as Arc<dyn HistoryCompressor>)
         .with_durability(Durability::Immediate);
@@ -269,6 +274,7 @@ where
         latest_snapshot: Arc::new(Mutex::new(None)),
         clock,
         approvals: Arc::new(ApprovalGrants::new()),
+        pending_approvals: Arc::new(PendingApprovals::new()),
         host_operations,
         task_inputs: config.task_inputs.clone(),
         ui_config: config.ui_config,
@@ -379,11 +385,7 @@ where
         now_ms: i64,
     ) -> Result<ProductionRun, ProductionError> {
         let task_id = plan.task_id.clone();
-        let steps = plan
-            .ordered_steps()
-            .into_iter()
-            .map(|step| (step.id.clone(), step.sequence, step.tool.clone()))
-            .collect::<Vec<_>>();
+        let steps = resume::ordered_step_handles(&plan);
         let mut engine = TaskEngine::new(MemoryCheckpointStore::new());
         engine.create_task(plan, now_ms)?;
         engine.apply_task_event(
@@ -415,96 +417,22 @@ where
             Arc::clone(&binding_state),
             Arc::clone(&self.latest_snapshot),
         );
-        let mut executor = RuntimeExecutor::new(
+        let executor = RuntimeExecutor::new(
             engine,
             policy,
             binding_invoker,
             EnvelopeObservationCollector,
         );
-        let mut snapshots = Vec::with_capacity(steps.len());
-        for (step_id, sequence, tool) in steps {
-            let outcome = executor
-                .advance(&task_id, &step_id, now_ms.saturating_add(3))
-                .await?;
-            let committed = matches!(&outcome, StepExecutionOutcome::Committed(_));
-            let mut state = binding_state.lock().map_err(|_| {
-                ProductionError::Runtime(RuntimeExecutionError::Tool {
-                    reason: "runtime binding state is unavailable".to_owned(),
-                })
-            })?;
-            if committed {
-                state.commit(step_id.as_str());
-            } else {
-                state.discard(step_id.as_str());
-            }
-            drop(state);
-            if committed && tool == crate::runtime_tools::TOOL_REQUEST_APPROVAL {
-                approval_windows.record(sequence)?;
-            }
-            self.apply_step_outcome(outcome, &mut snapshots, &step_id, &task_id)?;
-        }
-        let engine = executor.into_engine();
-        let final_snapshot = engine.load_snapshot(&task_id)?;
-        self.set_latest_snapshot(&final_snapshot);
-        Ok(ProductionRun::new(snapshots, final_snapshot, engine))
-    }
-
-    fn apply_step_outcome(
-        &self,
-        outcome: StepExecutionOutcome,
-        snapshots: &mut Vec<TaskSnapshot>,
-        step_id: &StepId,
-        task_id: &TaskId,
-    ) -> Result<(), ProductionError> {
-        match outcome {
-            StepExecutionOutcome::Committed(snapshot) => {
-                self.set_latest_snapshot(&snapshot);
-                snapshots.push(snapshot);
-                Ok(())
-            }
-            StepExecutionOutcome::PolicyDenied(snapshot) => {
-                self.set_latest_snapshot(&snapshot);
-                Err(ProductionError::Runtime(RuntimeExecutionError::Policy {
-                    reason: format!(
-                        "policy denied step {} in task {}",
-                        step_id.as_str(),
-                        task_id.as_str()
-                    ),
-                }))
-            }
-            StepExecutionOutcome::AwaitingApproval => {
-                Err(ProductionError::Runtime(RuntimeExecutionError::Policy {
-                    reason: format!(
-                        "step {} requires human approval before execution",
-                        step_id.as_str()
-                    ),
-                }))
-            }
-            StepExecutionOutcome::ToolFailed {
-                snapshot,
-                code,
-                message,
-            } => {
-                self.set_latest_snapshot(&snapshot);
-                Err(ProductionError::Runtime(RuntimeExecutionError::Tool {
-                    reason: format!("step {} failed with {code:?}: {message}", step_id.as_str()),
-                }))
-            }
-            StepExecutionOutcome::NeedsHuman { snapshot, reason } => {
-                self.set_latest_snapshot(&snapshot);
-                Err(ProductionError::Runtime(
-                    RuntimeExecutionError::Observation { reason },
-                ))
-            }
-            StepExecutionOutcome::VerificationFailed { snapshot, outcome } => {
-                self.set_latest_snapshot(&snapshot);
-                Err(ProductionError::Runtime(
-                    RuntimeExecutionError::Postconditions {
-                        reason: format!("verification failed: {outcome:?}"),
-                    },
-                ))
-            }
-        }
+        self.drive_steps(
+            executor,
+            task_id,
+            steps,
+            binding_state,
+            approval_windows,
+            Vec::new(),
+            now_ms,
+        )
+        .await
     }
 
     /// Shares the assembly-owned approval table with the UI command handler, so
@@ -512,6 +440,12 @@ where
     #[must_use]
     pub fn approvals(&self) -> Arc<ApprovalGrants> {
         Arc::clone(&self.approvals)
+    }
+
+    /// Shares the runtime-owned pending approval registry with the UI handler.
+    #[must_use]
+    pub fn pending_approvals(&self) -> Arc<PendingApprovals> {
+        Arc::clone(&self.pending_approvals)
     }
 
     /// Creates a production event source reading the latest executed snapshot.
@@ -564,6 +498,20 @@ where
             *latest = Some(snapshot.clone());
         }
     }
+}
+
+fn production_policy_rules() -> RuleSet {
+    let mut rules = RuleSet::example_v0().rules().to_vec();
+    rules.push(PolicyRule {
+        id: RuleId::new("allow_low_risk_write"),
+        conditions: RuleConditions {
+            effect: Some(vec![Effect::Write]),
+            risk_level: Some(vec![RiskLevel::Low]),
+            ..RuleConditions::default()
+        },
+        effect: RuleEffect::Allow,
+    });
+    RuleSet::new(rules)
 }
 
 fn validate_config(config: &ProductionConfig) -> Result<(), ProductionError> {

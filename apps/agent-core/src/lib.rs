@@ -54,7 +54,7 @@ pub use approval_grants::{ApprovalGrants, GrantError, GrantRequest};
 pub use assembly::{HostAssembly, HostAssemblyInput, HostComponents};
 pub use error::HostAssemblyError;
 pub use production::{ProductionConfig, ProductionError, ProductionHost, assemble_production_host};
-pub use production_run::ProductionRun;
+pub use production_run::{PendingRuntimeApproval, ProductionRun};
 pub use reserved_invoker::ReservedRuntimeInvoker;
 pub use runtime::{
     EnvelopeObservationCollector, ObservationCollector, RuntimeExecutionError, RuntimeExecutor,
@@ -66,7 +66,7 @@ pub use runtime_dataflow::{
     RuntimeStepBinding, collect_references, parse_condition, resolve_references,
 };
 pub use task_package::{TASK_PACKAGE_MODEL_ID, TaskPackageError, TaskPackageProvider};
-pub use ui_control::TaskControlHandler;
+pub use ui_control::{PendingApproval, PendingApprovals, TaskControlHandler};
 pub use ui_events::SnapshotEventSource;
 pub use ui_ipc::{
     UI_IPC_VERSION, UiAuthorizationScope, UiCommand, UiCommandError, UiCommandHandler,

@@ -29,8 +29,8 @@ use std::task::{Context, Poll, Waker};
 use std::time::{Duration, Instant};
 
 use assistant_platform_api::{
-    ErrorCode, Fingerprint, FingerprintScope, KeyChord, KeyModifier, KeyTarget, PlatformError,
-    ResolvedElement, ResolvedWindow, UiAutomationProvider, WindowFilter, WindowProvider,
+    Fingerprint, FingerprintScope, KeyChord, KeyModifier, KeyTarget, ResolvedElement,
+    ResolvedWindow, UiAutomationProvider, WindowFilter, WindowProvider,
 };
 use assistant_protocol::serde_json;
 use assistant_tool_bus::{CallContext, SourceDescriptor, ToolBusError, ToolHandler, ToolOutput};
@@ -44,6 +44,9 @@ use crate::notepad_targets::{
     EDITOR_TARGET, MAIN_WINDOW_TARGET, NotepadTargetCatalog, SAVE_AS_DIALOG_TARGET,
     SAVE_AS_FILENAME_TARGET, SAVE_AS_SAVE_BUTTON_TARGET,
 };
+
+#[path = "notepad_handlers_support.rs"]
+mod support;
 
 const SAVE_AS_DIALOG_ATTEMPTS: usize = 30;
 const SAVE_AS_DIALOG_INTERVAL_MS: u64 = 100;
@@ -194,19 +197,19 @@ where
         let new_text = required_text(arguments, "new_text")?;
         let expected = required_u64(arguments, "expected_replacements")?;
         if old_text.is_empty() {
-            return Err(invalid_arguments(
+            return Err(support::invalid_arguments(
                 TOOL_REPLACE_TEXT,
                 "old_text must not be empty",
             ));
         }
         if expected == 0 {
-            return Err(invalid_arguments(
+            return Err(support::invalid_arguments(
                 TOOL_REPLACE_TEXT,
                 "expected_replacements must be >= 1",
             ));
         }
         if old_text == new_text {
-            return Err(invalid_arguments(
+            return Err(support::invalid_arguments(
                 TOOL_REPLACE_TEXT,
                 "new_text must differ from old_text",
             ));
@@ -216,7 +219,7 @@ where
         let current = normalize_line_endings(&self.read_element_text(&editor, TOOL_REPLACE_TEXT)?);
         let count = current.matches(old_text).count();
         if u64::try_from(count).unwrap_or(u64::MAX) != expected {
-            return Err(invalid_arguments(
+            return Err(support::invalid_arguments(
                 TOOL_REPLACE_TEXT,
                 format!("expected {expected} replacement(s), found {count}"),
             ));
@@ -266,20 +269,20 @@ where
     fn save_as_output(&self, arguments: &Map<String, Value>) -> Result<ToolOutput, ToolBusError> {
         let target_path = PathBuf::from(required_text(arguments, "target_path")?.to_owned());
         if !target_path.is_absolute() {
-            return Err(invalid_arguments(
+            return Err(support::invalid_arguments(
                 TOOL_SAVE_AS,
                 "target_path must be absolute",
             ));
         }
         if arguments.get("overwrite_existing").and_then(Value::as_bool) != Some(false) {
-            return Err(invalid_arguments(
+            return Err(support::invalid_arguments(
                 TOOL_SAVE_AS,
                 "overwrite_existing must be false",
             ));
         }
         let before_file = snapshot_file(&target_path, TOOL_SAVE_AS)?;
         if before_file.exists {
-            return Err(invalid_arguments(
+            return Err(support::invalid_arguments(
                 TOOL_SAVE_AS,
                 format!("target file already exists: {}", target_path.display()),
             ));
@@ -354,7 +357,7 @@ where
             tool,
             "resolve_window",
         )?;
-        result.map_err(|error| map_platform_error(tool, &error))
+        result.map_err(|error| support::map_platform_error(tool, &error))
     }
 
     fn resolve_element(
@@ -377,7 +380,7 @@ where
             tool,
             "resolve_element",
         )?;
-        result.map_err(|error| map_platform_error(tool, &error))
+        result.map_err(|error| support::map_platform_error(tool, &error))
     }
 
     fn read_element_text(
@@ -386,7 +389,7 @@ where
         tool: &str,
     ) -> Result<String, ToolBusError> {
         let result = poll_immediate(self.platform.read_text(element), tool, "read_text")?;
-        result.map_err(|error| map_platform_error(tool, &error))
+        result.map_err(|error| support::map_platform_error(tool, &error))
     }
 
     fn set_element_value(
@@ -396,7 +399,7 @@ where
         tool: &str,
     ) -> Result<(), ToolBusError> {
         let result = poll_immediate(self.platform.set_value(element, value), tool, "set_value")?;
-        result.map_err(|error| map_platform_error(tool, &error))
+        result.map_err(|error| support::map_platform_error(tool, &error))
     }
 
     pub(crate) fn inspect_target_path_data(
@@ -405,7 +408,7 @@ where
     ) -> Result<Value, ToolBusError> {
         let path = PathBuf::from(target_path);
         if !path.is_absolute() {
-            return Err(invalid_arguments(
+            return Err(support::invalid_arguments(
                 crate::runtime_tools::TOOL_HOST_INSPECT_TARGET_PATH,
                 "target_path must be absolute",
             ));
@@ -476,7 +479,7 @@ where
             tool,
             "invoke_action",
         )?;
-        result.map_err(|error| map_platform_error(tool, &error))
+        result.map_err(|error| support::map_platform_error(tool, &error))
     }
 
     fn fingerprint_event(
@@ -490,7 +493,7 @@ where
             tool,
             "fingerprint",
         )?;
-        result.map_err(|error| map_platform_error(tool, &error))
+        result.map_err(|error| support::map_platform_error(tool, &error))
     }
 
     fn send_key(
@@ -507,7 +510,7 @@ where
             tool,
             "key_action",
         )?;
-        result.map_err(|error| map_platform_error(tool, &error))
+        result.map_err(|error| support::map_platform_error(tool, &error))
     }
 
     fn window_title(&self, window: &ResolvedWindow, tool: &str) -> Result<String, ToolBusError> {
@@ -516,7 +519,7 @@ where
             tool,
             "list_windows",
         )?;
-        let windows = result.map_err(|error| map_platform_error(tool, &error))?;
+        let windows = result.map_err(|error| support::map_platform_error(tool, &error))?;
         windows
             .into_iter()
             .find(|candidate| candidate.window().id() == window.id())
@@ -535,7 +538,8 @@ where
             }
             std::thread::sleep(Duration::from_millis(SAVE_AS_DIALOG_INTERVAL_MS));
         }
-        Err(last_error.unwrap_or_else(|| invalid_arguments(tool, "save-as dialog did not appear")))
+        Err(last_error
+            .unwrap_or_else(|| support::invalid_arguments(tool, "save-as dialog did not appear")))
     }
 }
 
@@ -543,26 +547,18 @@ fn required_text<'a>(
     arguments: &'a Map<String, Value>,
     field: &str,
 ) -> Result<&'a str, ToolBusError> {
-    arguments
-        .get(field)
-        .and_then(Value::as_str)
-        .ok_or_else(|| invalid_arguments("notepad.handler", format!("{field} must be a string")))
+    arguments.get(field).and_then(Value::as_str).ok_or_else(|| {
+        support::invalid_arguments("notepad.handler", format!("{field} must be a string"))
+    })
 }
 
 fn required_u64(arguments: &Map<String, Value>, field: &str) -> Result<u64, ToolBusError> {
     arguments.get(field).and_then(Value::as_u64).ok_or_else(|| {
-        invalid_arguments(
+        support::invalid_arguments(
             "notepad.handler",
             format!("{field} must be a non-negative integer"),
         )
     })
-}
-
-fn invalid_arguments(tool: &str, reason: impl Into<String>) -> ToolBusError {
-    ToolBusError::InvalidArguments {
-        tool: tool.to_owned(),
-        reason: reason.into(),
-    }
 }
 
 /// Executes only immediately-ready provider futures.
@@ -583,27 +579,6 @@ fn poll_immediate<F: Future>(
         Poll::Pending => Err(ToolBusError::Transport {
             reason: format!("{tool}: {operation} future unexpectedly returned Pending"),
         }),
-    }
-}
-
-fn map_platform_error(tool: &str, error: &PlatformError) -> ToolBusError {
-    let reason = format!("{:?}: {}", error.code(), error.message());
-    match error.code() {
-        ErrorCode::ToolInvalidArgs => ToolBusError::InvalidArguments {
-            tool: tool.to_owned(),
-            reason,
-        },
-        ErrorCode::TargetNotFound => ToolBusError::UnknownTool {
-            tool: format!("{tool}: {reason}"),
-        },
-        ErrorCode::CapabilityMissing => ToolBusError::Mcp {
-            code: -32_601,
-            message: format!("{tool}: {reason}"),
-        },
-        _ => ToolBusError::Mcp {
-            code: -32_000,
-            message: format!("{tool}: {reason}"),
-        },
     }
 }
 

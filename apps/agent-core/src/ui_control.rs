@@ -17,7 +17,7 @@
 //! - timestamps come from the injected clock, never from wall-clock calls here.
 
 use std::collections::BTreeMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use assistant_storage::Clock;
 use assistant_task_engine::{CheckpointStore, StepId, TaskEngine, TaskEngineError, TaskId};
@@ -32,17 +32,107 @@ use crate::approval_grants::{ApprovalGrants, GrantRequest};
 
 /// One approval the runtime is waiting on.
 #[derive(Debug, Clone)]
-struct PendingApproval {
+pub struct PendingApproval {
     task_id: TaskId,
     step_id: StepId,
     scopes: Vec<UiAuthorizationScope>,
+}
+
+impl PendingApproval {
+    /// Task that owns the approval request.
+    #[must_use]
+    pub const fn task_id(&self) -> &TaskId {
+        &self.task_id
+    }
+
+    /// Step that must wait for the decision.
+    #[must_use]
+    pub const fn step_id(&self) -> &StepId {
+        &self.step_id
+    }
+
+    /// Scopes the runtime actually offered to the user.
+    #[must_use]
+    pub fn scopes(&self) -> &[UiAuthorizationScope] {
+        &self.scopes
+    }
+}
+
+/// Shared registry of approval requests the runtime is waiting on.
+#[derive(Debug, Default)]
+pub struct PendingApprovals {
+    entries: Mutex<BTreeMap<String, PendingApproval>>,
+}
+
+impl PendingApprovals {
+    /// Creates an empty registry.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Registers one pending approval.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UiCommandError::EmptyField`] for a blank request id and
+    /// [`UiCommandError::Handler`] when no scope is offered, because an
+    /// approval with no selectable scope can never be answered.
+    pub fn register(
+        &self,
+        request_id: impl Into<String>,
+        task_id: TaskId,
+        step_id: StepId,
+        scopes: Vec<UiAuthorizationScope>,
+    ) -> Result<(), UiCommandError> {
+        let request_id = request_id.into();
+        if request_id.trim().is_empty() {
+            return Err(UiCommandError::EmptyField {
+                field: "request_id",
+            });
+        }
+        if scopes.is_empty() {
+            return Err(UiCommandError::Handler {
+                reason: "a pending approval must offer at least one scope".to_owned(),
+            });
+        }
+        let mut entries = self.entries.lock().map_err(|_| UiCommandError::Handler {
+            reason: "the pending approval registry is unavailable".to_owned(),
+        })?;
+        entries.insert(
+            request_id,
+            PendingApproval {
+                task_id,
+                step_id,
+                scopes,
+            },
+        );
+        drop(entries);
+        Ok(())
+    }
+
+    fn get(&self, request_id: &str) -> Result<Option<PendingApproval>, UiCommandError> {
+        let entries = self.entries.lock().map_err(|_| UiCommandError::Handler {
+            reason: "the pending approval registry is unavailable".to_owned(),
+        })?;
+        Ok(entries.get(request_id).cloned())
+    }
+
+    fn remove(&self, request_id: &str) -> Result<Option<PendingApproval>, UiCommandError> {
+        let mut entries = self.entries.lock().map_err(|_| UiCommandError::Handler {
+            reason: "the pending approval registry is unavailable".to_owned(),
+        })?;
+        let entry = entries.remove(request_id);
+        drop(entries);
+        Ok(entry)
+    }
 }
 
 /// Applies UI commands to the task engine owned by the binary layer.
 pub struct TaskControlHandler<Store> {
     engine: TaskEngine<Store>,
     clock: Arc<dyn Clock>,
-    pending: BTreeMap<String, PendingApproval>,
+    pending: Arc<PendingApprovals>,
     approvals: Arc<ApprovalGrants>,
 }
 
@@ -57,9 +147,17 @@ impl<Store> TaskControlHandler<Store> {
         Self {
             engine,
             clock,
-            pending: BTreeMap::new(),
+            pending: Arc::new(PendingApprovals::new()),
             approvals: Arc::new(ApprovalGrants::new()),
         }
+    }
+
+    /// Shares the runtime-owned pending registry, so an authorization card is
+    /// visible before the human responds.
+    #[must_use]
+    pub fn with_pending(mut self, pending: Arc<PendingApprovals>) -> Self {
+        self.pending = pending;
+        self
     }
 
     /// Shares the assembly-owned approval table, so a UI decision is visible to
@@ -78,32 +176,13 @@ impl<Store> TaskControlHandler<Store> {
     /// [`UiCommandError::Handler`] when no scope is offered, because an
     /// approval with no selectable scope can never be answered.
     pub fn register_pending_approval(
-        &mut self,
+        &self,
         request_id: impl Into<String>,
         task_id: TaskId,
         step_id: StepId,
         scopes: Vec<UiAuthorizationScope>,
     ) -> Result<(), UiCommandError> {
-        let request_id = request_id.into();
-        if request_id.trim().is_empty() {
-            return Err(UiCommandError::EmptyField {
-                field: "request_id",
-            });
-        }
-        if scopes.is_empty() {
-            return Err(UiCommandError::Handler {
-                reason: "a pending approval must offer at least one scope".to_owned(),
-            });
-        }
-        self.pending.insert(
-            request_id,
-            PendingApproval {
-                task_id,
-                step_id,
-                scopes,
-            },
-        );
-        Ok(())
+        self.pending.register(request_id, task_id, step_id, scopes)
     }
 
     /// Records the human decision so the waiting runtime step can proceed **once**.
@@ -118,7 +197,7 @@ impl<Store> TaskControlHandler<Store> {
     /// [`UiCommandError::Handler`] when a standing scope is requested or the
     /// grant table cannot record the decision.
     fn approve_request(
-        &mut self,
+        &self,
         request_id: String,
         scope: UiAuthorizationScope,
         now_ms: i64,
@@ -126,14 +205,14 @@ impl<Store> TaskControlHandler<Store> {
         let (task_id, step_id) = {
             let pending =
                 self.pending
-                    .get(&request_id)
+                    .get(&request_id)?
                     .ok_or_else(|| UiCommandError::UnknownApproval {
                         request_id: request_id.clone(),
                     })?;
             if !pending.scopes.contains(&scope) {
                 return Err(UiCommandError::ScopeNotOffered { request_id, scope });
             }
-            (pending.task_id.clone(), pending.step_id.clone())
+            (pending.task_id, pending.step_id)
         };
         let granted = match scope {
             UiAuthorizationScope::Once => ApprovalScope::Once,
@@ -158,7 +237,7 @@ impl<Store> TaskControlHandler<Store> {
             .map_err(|error| UiCommandError::Handler {
                 reason: error.to_string(),
             })?;
-        self.pending.remove(&request_id);
+        let _ = self.pending.remove(&request_id)?;
         Ok(UiCommandOutcome::ApprovalGranted { request_id, scope })
     }
 
@@ -180,7 +259,7 @@ impl<Store: CheckpointStore> UiCommandHandler for TaskControlHandler<Store> {
                 self.approve_request(request_id, scope, now_ms)
             }
             UiCommand::DenyRequest { request_id, reason } => {
-                let pending = self.pending.remove(&request_id).ok_or_else(|| {
+                let pending = self.pending.remove(&request_id)?.ok_or_else(|| {
                     UiCommandError::UnknownApproval {
                         request_id: request_id.clone(),
                     }

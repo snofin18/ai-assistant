@@ -77,6 +77,9 @@
   target_app、egress。
 - `AllowWithConfirmation` 必须经过 HITL；`once`/scope/TTL 必须满足。
 - `Deny` 路径的工具调用数必须为 0。
+- 低风险写且 adapter 明确 `requires_approval=false` 时，policy 规则可以 allow；若同一
+  schema 标成 `requires_approval=true`，装配层必须把风险提升到中风险确认规则，不允许
+  绕过 policy 自行放行。
 - `hitl` 步骤映射为 `assistant.runtime.request_approval`：请求形状不合法时显式拒绝；
   没有已记录的人类批准时返回 `UserInteraction`；批准只按声明的有界 scope/TTL 放行，
   且一次批准只能覆盖一次运行时消费。
@@ -91,6 +94,9 @@
   不发布输出。后续步骤可以重绑同名输出，引用解析到此前最近一次已提交的生产者。
 - `when` 只接受封闭谓词子集：布尔引用、`!` 取反、`==` / `!=` / `<` / `<=` / `>` / `>=`
   比较，以及这些谓词之间的 `&&`。未知引用、类型不匹配、括号、函数、算术和 `||` 都失败关闭。
+- `pure` operation 不触碰应用状态，因此它的 `sha256:` 指纹是**输出内容的 SHA-256**，
+  不是伪造的平台状态指纹；其 postcondition 断言 `pure_result=true`。只有 host/tool
+  操作才允许携带 before/after 应用指纹。
 
 ### 5.3 Lease / Anchor
 
