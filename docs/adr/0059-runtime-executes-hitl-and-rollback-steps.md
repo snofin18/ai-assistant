@@ -1,6 +1,6 @@
 # ADR-0059　1a 运行时真的执行 `hitl` / `host_service` / `verify` 步骤
 
-状态：**Proposed**（待人类接受；接受前不得据本 ADR 写 B 片代码）
+状态：**Accepted**（2026-10-01 人类确认接受；TASK-216 B 片已解锁）
 日期：2026-10-01
 Supersedes：—
 Superseded by：—

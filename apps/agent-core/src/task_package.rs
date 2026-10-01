@@ -94,6 +94,32 @@ pub enum TaskPackageError {
         step_id: String,
     },
 
+    /// A `$input.` reference has no value in the supplied input map.
+    #[error(
+        "task package `{task_id}` step `{step_id}` references `{reference}`, which the supplied inputs do not define"
+    )]
+    MissingInput {
+        /// Declared task identifier.
+        task_id: String,
+        /// Declared step identifier.
+        step_id: String,
+        /// The unresolved reference, as written in the package.
+        reference: String,
+    },
+
+    /// A `$`-prefixed reference this binding layer does not support.
+    #[error(
+        "task package `{task_id}` step `{step_id}` uses `{reference}`, which the 1a input binding layer does not support"
+    )]
+    UnsupportedReference {
+        /// Declared task identifier.
+        task_id: String,
+        /// Declared step identifier.
+        step_id: String,
+        /// The unsupported reference, as written in the package.
+        reference: String,
+    },
+
     /// A tool step has no entry in the 1a assertion table.
     #[error(
         "task package `{task_id}` step `{step_id}` calls `{tool}`, which the 1a assertion table does not cover"
@@ -153,6 +179,26 @@ impl TaskPackageProvider {
     /// executable tool step, keeps `$input.` bindings, or names a tool the 1a
     /// assertion table does not cover.
     pub fn from_package_json(package_json: &str) -> Result<Self, TaskPackageError> {
+        Self::from_package_json_with_inputs(package_json, &serde_json::Map::new())
+    }
+
+    /// Builds a provider with an explicit task input map (TASK-216 slice A).
+    ///
+    /// `$input.<name>` placeholders inside a step's `args` are replaced by the
+    /// supplied value before the plan is rendered. Only that form is supported:
+    /// any other `$`-prefixed reference (for example a derived `$normalized_*`
+    /// value this layer cannot compute) is rejected rather than left in the plan
+    /// as a literal.
+    ///
+    /// # Errors
+    ///
+    /// Adds [`TaskPackageError::MissingInput`] when a reference has no supplied
+    /// value, and [`TaskPackageError::UnsupportedReference`] for any other
+    /// `$`-prefixed reference. Every error of [`Self::from_package_json`] applies.
+    pub fn from_package_json_with_inputs(
+        package_json: &str,
+        inputs: &serde_json::Map<String, Value>,
+    ) -> Result<Self, TaskPackageError> {
         let package: DeclaredPackage =
             serde_json::from_str(package_json).map_err(|error| TaskPackageError::Malformed {
                 reason: error.to_string(),
@@ -176,7 +222,7 @@ impl TaskPackageProvider {
             ModelId::new(TASK_PACKAGE_MODEL_ID).map_err(|error| TaskPackageError::Malformed {
                 reason: error.to_string(),
             })?;
-        let plan_json = render_plan(&package)?;
+        let plan_json = render_plan(&package, inputs)?;
         Ok(Self {
             model_id,
             declared_task_id,
@@ -293,7 +339,10 @@ impl CompletionStream for TaskPackageStream {
 }
 
 /// Renders the executable subset of a declared package as Planner input.
-fn render_plan(package: &DeclaredPackage) -> Result<String, TaskPackageError> {
+fn render_plan(
+    package: &DeclaredPackage,
+    inputs: &serde_json::Map<String, Value>,
+) -> Result<String, TaskPackageError> {
     let mut steps = Vec::new();
     let mut sequence: u32 = 1;
     for step in &package.steps {
@@ -308,7 +357,7 @@ fn render_plan(package: &DeclaredPackage) -> Result<String, TaskPackageError> {
                 ),
             });
         };
-        let arguments = normalize_arguments(&package.task_id, step)?;
+        let arguments = resolve_arguments(&package.task_id, step, inputs)?;
         let Some(postconditions) = assertion_table(tool, &arguments) else {
             return Err(TaskPackageError::MissingAssertion {
                 task_id: package.task_id.clone(),
@@ -342,36 +391,74 @@ fn render_plan(package: &DeclaredPackage) -> Result<String, TaskPackageError> {
     })
 }
 
-/// Returns the step arguments, refusing declarations that still bind inputs.
-fn normalize_arguments(task_id: &str, step: &DeclaredStep) -> Result<Value, TaskPackageError> {
-    if contains_placeholder(&step.args) {
-        return Err(TaskPackageError::UnboundArguments {
-            task_id: task_id.to_owned(),
-            step_id: step.id.clone(),
-        });
+/// Resolves the step arguments against the supplied task inputs.
+///
+/// An empty input map keeps the older "unbound declaration" error, so a package
+/// that was never handed inputs still fails closed with the same message.
+fn resolve_arguments(
+    task_id: &str,
+    step: &DeclaredStep,
+    inputs: &serde_json::Map<String, Value>,
+) -> Result<Value, TaskPackageError> {
+    fn walk(
+        value: &Value,
+        task_id: &str,
+        step_id: &str,
+        inputs: &serde_json::Map<String, Value>,
+    ) -> Result<Value, TaskPackageError> {
+        match value {
+            Value::String(text) if text.starts_with("$input.") => {
+                if inputs.is_empty() {
+                    return Err(TaskPackageError::UnboundArguments {
+                        task_id: task_id.to_owned(),
+                        step_id: step_id.to_owned(),
+                    });
+                }
+                let name = text.trim_start_matches("$input.");
+                inputs
+                    .get(name)
+                    .cloned()
+                    .ok_or_else(|| TaskPackageError::MissingInput {
+                        task_id: task_id.to_owned(),
+                        step_id: step_id.to_owned(),
+                        reference: text.clone(),
+                    })
+            }
+            Value::String(text) if text.starts_with('$') => {
+                Err(TaskPackageError::UnsupportedReference {
+                    task_id: task_id.to_owned(),
+                    step_id: step_id.to_owned(),
+                    reference: text.clone(),
+                })
+            }
+            Value::String(_) | Value::Null | Value::Bool(_) | Value::Number(_) => Ok(value.clone()),
+            Value::Array(items) => items
+                .iter()
+                .map(|item| walk(item, task_id, step_id, inputs))
+                .collect::<Result<Vec<Value>, _>>()
+                .map(Value::Array),
+            Value::Object(fields) => fields
+                .iter()
+                .map(|(key, item)| {
+                    walk(item, task_id, step_id, inputs).map(|resolved| (key.clone(), resolved))
+                })
+                .collect::<Result<serde_json::Map<String, Value>, _>>()
+                .map(Value::Object),
+        }
     }
-    if step.args.is_object() {
-        return Ok(step.args.clone());
-    }
+
     if step.args.is_null() {
         return Ok(json!({}));
     }
-    Err(TaskPackageError::Malformed {
-        reason: format!(
-            "task package step `{}` arguments must be a JSON object",
-            step.id
-        ),
-    })
-}
-
-/// True when the declaration still carries an `$input.` binding anywhere.
-fn contains_placeholder(value: &Value) -> bool {
-    match value {
-        Value::String(text) => text.starts_with("$input."),
-        Value::Array(items) => items.iter().any(contains_placeholder),
-        Value::Object(fields) => fields.values().any(contains_placeholder),
-        _ => false,
+    if !step.args.is_object() {
+        return Err(TaskPackageError::Malformed {
+            reason: format!(
+                "task package step `{}` arguments must be a JSON object",
+                step.id
+            ),
+        });
     }
+    walk(&step.args, task_id, &step.id, inputs)
 }
 
 fn normalize_task_id(value: &str) -> String {

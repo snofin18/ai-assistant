@@ -150,6 +150,85 @@ fn test_malformed_body_is_rejected() {
     assert!(matches!(error, TaskPackageError::Malformed { .. }));
 }
 
+/// Builds an input map from `(name, value)` pairs.
+fn inputs(pairs: &[(&str, Value)]) -> serde_json::Map<String, Value> {
+    let mut map = serde_json::Map::new();
+    for (name, value) in pairs {
+        map.insert((*name).to_owned(), value.clone());
+    }
+    map
+}
+
+/// Absolute path to the declared T1.2 package.
+fn t1_2_package_path() -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../adapters/com.microsoft.notepad/tasks/t1.2.replace-save-approval-undo.json")
+}
+
+#[test]
+fn test_t1_2_package_renders_once_inputs_are_bound() {
+    let body = std::fs::read_to_string(t1_2_package_path()).expect("read t1.2 package");
+    let bound = inputs(&[
+        ("old_text", json!("报表")),
+        ("new_text", json!("报告")),
+        ("expected_replacements", json!(1)),
+    ]);
+
+    let provider =
+        TaskPackageProvider::from_package_json_with_inputs(&body, &bound).expect("render");
+    let plan: Value = serde_json::from_str(provider.plan_json()).expect("plan is JSON");
+    let steps = plan
+        .get("steps")
+        .and_then(Value::as_array)
+        .expect("plan has steps");
+
+    assert!(
+        steps
+            .iter()
+            .any(|step| step.get("tool").and_then(Value::as_str)
+                == Some("notepad.file.replace_text")),
+        "T1.2 的 replace_text 步骤必须进入 Plan"
+    );
+    assert!(
+        !provider.plan_json().contains("$input."),
+        "绑定后不得残留 `$input.` 字面量"
+    );
+}
+
+#[test]
+fn test_missing_input_is_rejected() {
+    let body = std::fs::read_to_string(t1_2_package_path()).expect("read t1.2 package");
+    // 故意不给 old_text / new_text / expected_replacements
+    let error =
+        TaskPackageProvider::from_package_json_with_inputs(&body, &inputs(&[("x", json!(1))]))
+            .expect_err("must fail closed");
+    assert!(matches!(error, TaskPackageError::MissingInput { .. }));
+}
+
+#[test]
+fn test_unsupported_reference_is_rejected() {
+    let package = json!({
+        "task_id": "notepad.derived",
+        "steps": [{
+            "id": "save_as",
+            "kind": "tool",
+            "tool": "notepad.file.save_as",
+            "args": {"target_path": "$normalized_target_path", "overwrite_existing": false},
+        }],
+    })
+    .to_string();
+
+    let error = TaskPackageProvider::from_package_json_with_inputs(
+        &package,
+        &inputs(&[("target_path", json!("C:/tmp/out.txt"))]),
+    )
+    .expect_err("must fail closed");
+    assert!(matches!(
+        error,
+        TaskPackageError::UnsupportedReference { .. }
+    ));
+}
+
 #[test]
 fn test_stream_emits_plan_json_then_usage_then_stop() {
     let provider = TaskPackageProvider::from_package_file(&t1_1_package_path()).expect("render");
