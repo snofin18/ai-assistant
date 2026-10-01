@@ -399,6 +399,72 @@ where
         result.map_err(|error| map_platform_error(tool, &error))
     }
 
+    pub(crate) fn inspect_target_path_data(
+        &self,
+        target_path: &str,
+    ) -> Result<Value, ToolBusError> {
+        let path = PathBuf::from(target_path);
+        if !path.is_absolute() {
+            return Err(invalid_arguments(
+                crate::runtime_tools::TOOL_HOST_INSPECT_TARGET_PATH,
+                "target_path must be absolute",
+            ));
+        }
+        let snapshot = snapshot_file(&path, crate::runtime_tools::TOOL_HOST_INSPECT_TARGET_PATH)?;
+        let target_fingerprint =
+            serde_json::to_value(&snapshot).map_err(|error| ToolBusError::EnvelopeAssembly {
+                tool: crate::runtime_tools::TOOL_HOST_INSPECT_TARGET_PATH.to_owned(),
+                reason: error.to_string(),
+            })?;
+        let window = self.resolve_window(
+            MAIN_WINDOW_TARGET,
+            crate::runtime_tools::TOOL_HOST_INSPECT_TARGET_PATH,
+        )?;
+        let fingerprint =
+            self.fingerprint_event(&window, crate::runtime_tools::TOOL_HOST_INSPECT_TARGET_PATH)?;
+        Ok(json!({
+            "target_existed_before": snapshot.exists,
+            "target_fingerprint": target_fingerprint,
+            "fingerprint": fingerprint.as_str(),
+            "previous_fingerprint": fingerprint.as_str(),
+            "elapsed_ms": 0,
+        }))
+    }
+
+    pub(crate) fn set_editor_value_data(&self, text: &str) -> Result<Value, ToolBusError> {
+        let (window, editor) =
+            self.resolve_editor(crate::runtime_tools::TOOL_HOST_SET_EDITOR_VALUE)?;
+        let before =
+            self.fingerprint_event(&window, crate::runtime_tools::TOOL_HOST_SET_EDITOR_VALUE)?;
+        let started = Instant::now();
+        self.set_element_value(
+            &editor,
+            text,
+            crate::runtime_tools::TOOL_HOST_SET_EDITOR_VALUE,
+        )?;
+        let observed = normalize_line_endings(
+            &self.read_element_text(&editor, crate::runtime_tools::TOOL_HOST_SET_EDITOR_VALUE)?,
+        );
+        let expected = normalize_line_endings(text);
+        if observed != expected {
+            return Err(ToolBusError::Mcp {
+                code: -32_004,
+                message: format!(
+                    "{}: read-back differs after UIA set_value (VerifyFailed)",
+                    crate::runtime_tools::TOOL_HOST_SET_EDITOR_VALUE
+                ),
+            });
+        }
+        let after =
+            self.fingerprint_event(&window, crate::runtime_tools::TOOL_HOST_SET_EDITOR_VALUE)?;
+        Ok(json!({
+            "canonical_text_written": observed,
+            "fingerprint": after.as_str(),
+            "previous_fingerprint": before.as_str(),
+            "elapsed_ms": elapsed_ms(started),
+        }))
+    }
+
     fn invoke_element(
         &self,
         element: &ResolvedElement,

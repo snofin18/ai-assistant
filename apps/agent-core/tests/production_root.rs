@@ -8,9 +8,12 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use assistant_agent_core::UiServerConfig;
-use assistant_agent_core::{ProductionConfig, ProductionError, assemble_production_host};
+use assistant_agent_core::{
+    GrantRequest, ProductionConfig, ProductionError, assemble_production_host,
+};
 #[cfg(windows)]
 use assistant_agent_core::{TaskControlHandler, UiEvent, UiEventSource, serve_session_with_events};
+use assistant_hitl::ApprovalScope;
 #[cfg(windows)]
 use assistant_ipc::{
     IpcError, NamedPipeTransport, Transport, WireMessage, client_handshake, generate_session_id,
@@ -317,7 +320,17 @@ fn production_config(data_root: &Path) -> ProductionConfig {
         Duration::from_secs(1),
     )
     .with_allowed_peer("C:\\fixture\\peer.exe");
+    let task_inputs = serde_json::json!({
+        "file_size_bytes": 10,
+        "max_text_bytes": 1024,
+        "input.keywords": ["report"],
+        "input.max_keyword_paragraphs": 50,
+    })
+    .as_object()
+    .cloned()
+    .expect("task input object");
     ProductionConfig::new(data_root, adapter_root, task_package_path, ui_config)
+        .with_task_inputs(task_inputs)
 }
 
 #[cfg(windows)]
@@ -504,6 +517,67 @@ async fn test_production_t1_1_commits_through_real_tool_bus_and_receipt()
     );
     let serialized = serde_json::to_string(&projected)?;
     assert!(serialized.contains("step_state_changed"));
+    host.shutdown().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_production_t1_2_runs_with_bounded_approvals() -> Result<(), Box<dyn std::error::Error>>
+{
+    let directory = TestDirectory::new("production-t1-2")?;
+    let adapter_root = workspace_root().join("adapters/com.microsoft.notepad");
+    let task_package_path = adapter_root
+        .join("tasks")
+        .join("t1.2.replace-save-approval-undo.json");
+    let ui_config = UiServerConfig::new(
+        "assistant-agent-core-production-t1-2",
+        "ASSISTANT_AGENT_CORE_TEST_TOKEN",
+        Duration::from_secs(1),
+    )
+    .with_allowed_peer("C:\\fixture\\peer.exe");
+    let task_inputs = serde_json::json!({
+        "input.old_text": "报表",
+        "input.new_text": "报告",
+        "input.expected_replacements": 2,
+        "rollback.replace_recipe": "replace-text-l0-l1",
+        "rollback.save_recipe": "save-l0-l1",
+        "rollback.required_anchor_levels": ["L0", "L1"],
+    })
+    .as_object()
+    .cloned()
+    .expect("task input object");
+    let config = ProductionConfig::new(
+        directory.path.join("data"),
+        adapter_root,
+        task_package_path,
+        ui_config,
+    )
+    .with_task_inputs(task_inputs);
+    let platform = FakePlatform::new("报表 报表");
+    let host = assemble_production_host(config, platform.clone(), Arc::new(FixedClock)).await?;
+    let approvals = host.approvals();
+    for step_id in ["approve_replace", "approve_save"] {
+        approvals.grant(&GrantRequest {
+            task_id: host.task_id().as_str(),
+            step_id,
+            scope: ApprovalScope::Once,
+            now_ms: FIXED_NOW_MS,
+            ttl_ms: 60_000,
+            uses: 1,
+        })?;
+    }
+
+    let plan = host.plan_task()?;
+    let run = host.execute_plan(plan, FIXED_NOW_MS).await?;
+    assert_eq!(run.final_snapshot.status, TaskStatus::Completed);
+    assert!(
+        run.final_snapshot
+            .steps
+            .iter()
+            .all(|step| step.status == StepStatus::Committed)
+    );
+    assert_eq!(platform.state.lock().expect("fake state").text, "报告 报告");
+    assert_eq!(platform.state.lock().expect("fake state").key_calls, 1);
     host.shutdown().await?;
     Ok(())
 }

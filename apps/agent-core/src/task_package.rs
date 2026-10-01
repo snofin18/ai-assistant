@@ -33,6 +33,7 @@
 //! Related documents: `docs/adr/0058-production-composition-root-and-plan-source.md`,
 //! `docs/spec/runtime-execution.md`, `tasks/TASK-214-production-composition-root-notepad-handlers.md`.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use assistant_model_gateway::{
@@ -43,6 +44,10 @@ use assistant_model_gateway::{
 use assistant_task_engine::TaskId;
 use serde::Deserialize;
 use serde_json::{Value, json};
+
+use crate::runtime_dataflow::{
+    ConditionExpr, DataflowError, RuntimeDataflowPlan, RuntimeStepBinding, parse_condition,
+};
 
 /// Model identity reported by the deterministic 1a Plan source.
 pub const TASK_PACKAGE_MODEL_ID: &str = "task_package";
@@ -146,6 +151,32 @@ pub enum TaskPackageError {
         kind: String,
     },
 
+    /// A step needs an operation to select its reserved runtime tool.
+    #[error("task package `{task_id}` step `{step_id}` uses kind `{kind}` without an operation")]
+    MissingOperation {
+        /// Declared task identifier.
+        task_id: String,
+        /// Declared step identifier.
+        step_id: String,
+        /// The step kind.
+        kind: String,
+    },
+
+    /// A `when` condition is outside the closed predicate subset.
+    #[error(
+        "task package `{task_id}` step `{step_id}` has invalid condition `{condition}`: {reason}"
+    )]
+    InvalidCondition {
+        /// Declared task identifier.
+        task_id: String,
+        /// Declared step identifier.
+        step_id: String,
+        /// Original condition.
+        condition: String,
+        /// Parser reason.
+        reason: String,
+    },
+
     /// A tool step has no entry in the 1a assertion table.
     #[error(
         "task package `{task_id}` step `{step_id}` calls `{tool}`, which the 1a assertion table does not cover"
@@ -177,9 +208,15 @@ struct DeclaredStep {
     id: String,
     kind: String,
     #[serde(default)]
+    operation: Option<String>,
+    #[serde(default)]
     tool: Option<String>,
     #[serde(default)]
     args: Value,
+    #[serde(default)]
+    when: Option<String>,
+    #[serde(default)]
+    outputs: Vec<String>,
 }
 
 /// Deterministic `ModelProvider` over one declared task package.
@@ -195,6 +232,7 @@ pub struct TaskPackageProvider {
     goal: String,
     plan_json: String,
     declared_not_executed: Vec<Value>,
+    dataflow: RuntimeDataflowPlan,
 }
 
 impl TaskPackageProvider {
@@ -249,7 +287,7 @@ impl TaskPackageProvider {
             ModelId::new(TASK_PACKAGE_MODEL_ID).map_err(|error| TaskPackageError::Malformed {
                 reason: error.to_string(),
             })?;
-        let (plan_json, declared_not_executed) = render_plan(&package, inputs)?;
+        let (plan_json, declared_not_executed, dataflow) = render_plan(&package, inputs)?;
         Ok(Self {
             model_id,
             declared_task_id,
@@ -257,6 +295,7 @@ impl TaskPackageProvider {
             goal,
             plan_json,
             declared_not_executed,
+            dataflow,
         })
     }
 
@@ -267,11 +306,24 @@ impl TaskPackageProvider {
     /// Returns [`TaskPackageError::Read`] when the file cannot be read, and the
     /// same errors as [`Self::from_package_json`] otherwise.
     pub fn from_package_file(path: &Path) -> Result<Self, TaskPackageError> {
+        Self::from_package_file_with_inputs(path, &serde_json::Map::new())
+    }
+
+    /// Builds a provider from a task package file plus explicit inputs.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TaskPackageError::Read`] when the file cannot be read, and the
+    /// same errors as [`Self::from_package_json_with_inputs`] otherwise.
+    pub fn from_package_file_with_inputs(
+        path: &Path,
+        inputs: &serde_json::Map<String, Value>,
+    ) -> Result<Self, TaskPackageError> {
         let body = std::fs::read_to_string(path).map_err(|error| TaskPackageError::Read {
             path: path.display().to_string(),
             reason: error.to_string(),
         })?;
-        Self::from_package_json(&body)
+        Self::from_package_json_with_inputs(&body, inputs)
     }
 
     /// Returns the rendered plan JSON handed to the Planner.
@@ -289,6 +341,12 @@ impl TaskPackageProvider {
     #[must_use]
     pub fn declared_not_executed(&self) -> &[Value] {
         &self.declared_not_executed
+    }
+
+    /// Returns the side-channel dataflow contract for the rendered Plan.
+    #[must_use]
+    pub const fn dataflow_plan(&self) -> &RuntimeDataflowPlan {
+        &self.dataflow
     }
 
     /// Returns the task identifier declared by the package.
@@ -381,68 +439,25 @@ impl CompletionStream for TaskPackageStream {
 fn render_plan(
     package: &DeclaredPackage,
     inputs: &serde_json::Map<String, Value>,
-) -> Result<(String, Vec<Value>), TaskPackageError> {
+) -> Result<(String, Vec<Value>, RuntimeDataflowPlan), TaskPackageError> {
     let mut steps = Vec::new();
     let mut declared_not_executed = Vec::new();
+    let mut dataflow = RuntimeDataflowPlan::new();
+    let mut known_outputs: BTreeMap<String, String> = BTreeMap::new();
     let mut sequence: u32 = 1;
     for step in &package.steps {
-        // ADR-0059 (D6 as amended 2026-10-01): the runtime coverage set is the
-        // closed set `tool` / `hitl` / `host_service` / `verify` plus the four
-        // kinds explicitly owned elsewhere. Anything outside that closed set
-        // fails closed, so no step is ever skipped silently.
-        match step.kind.as_str() {
-            // ADR-0060 D3: `hitl` / `host_service` / `verify` become reserved
-            // runtime tools instead of a new PlanStep shape, so the step executes
-            // without `task-engine` changing. They are never model-visible.
-            "tool" | "hitl" | "host_service" | "verify" => {}
-            "platform" | "l1_file" | "pure" | "policy" => {
-                declared_not_executed.push(json!({ "id": step.id, "kind": step.kind }));
-                continue;
-            }
-            other => {
-                return Err(TaskPackageError::UnknownStepKind {
-                    task_id: package.task_id.clone(),
-                    step_id: step.id.clone(),
-                    kind: other.to_owned(),
-                });
-            }
+        if let Some(rendered) = render_step(
+            package,
+            step,
+            inputs,
+            &mut known_outputs,
+            &mut dataflow,
+            sequence,
+            &mut declared_not_executed,
+        )? {
+            steps.push(rendered);
+            sequence = sequence.saturating_add(1);
         }
-        // `hitl` / `host_service` / `verify` name no tool in the package; ADR-0060
-        // maps them onto a reserved runtime tool (never model-visible).
-        let tool = match step.tool.as_deref() {
-            Some(tool) => tool,
-            None => crate::runtime_tools::tool_for_step_kind(&step.kind).ok_or_else(|| {
-                TaskPackageError::Malformed {
-                    reason: format!(
-                        "task package step `{}` is kind={} but declares no tool",
-                        step.id, step.kind
-                    ),
-                }
-            })?,
-        };
-        let arguments = resolve_arguments(&package.task_id, step, inputs)?;
-        let Some(postconditions) = assertion_table(tool, &arguments) else {
-            return Err(TaskPackageError::MissingAssertion {
-                task_id: package.task_id.clone(),
-                step_id: step.id.clone(),
-                tool: tool.to_owned(),
-            });
-        };
-        steps.push(json!({
-            "id": step.id,
-            "sequence": sequence,
-            "tool": tool,
-            "args": arguments,
-            "depends_on": [],
-            "postconditions": postconditions,
-            "point_of_no_return": false,
-            "timeouts": {
-                "resolve_ms": STEP_RESOLVE_TIMEOUT_MS,
-                "execute_ms": STEP_EXECUTE_TIMEOUT_MS,
-                "verify_ms": STEP_VERIFY_TIMEOUT_MS,
-            },
-        }));
-        sequence = sequence.saturating_add(1);
     }
     if steps.is_empty() {
         return Err(TaskPackageError::NoToolSteps {
@@ -457,23 +472,155 @@ fn render_plan(
             reason: error.to_string(),
         }
     })?;
-    Ok((plan_json, declared_not_executed))
+    Ok((plan_json, declared_not_executed, dataflow))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn render_step(
+    package: &DeclaredPackage,
+    step: &DeclaredStep,
+    inputs: &serde_json::Map<String, Value>,
+    known_outputs: &mut BTreeMap<String, String>,
+    dataflow: &mut RuntimeDataflowPlan,
+    sequence: u32,
+    declared_not_executed: &mut Vec<Value>,
+) -> Result<Option<Value>, TaskPackageError> {
+    let condition = parse_step_condition(package, step)?;
+    if step.kind == "pure"
+        && step.operation.as_deref() == Some("count_lines_and_keyword_paragraphs")
+    {
+        declared_not_executed.push(json!({ "id": step.id, "kind": step.kind }));
+        return Ok(None);
+    }
+    if !matches!(
+        step.kind.as_str(),
+        "tool" | "hitl" | "host_service" | "verify" | "pure"
+    ) {
+        match step.kind.as_str() {
+            "platform" | "l1_file" | "policy" => {
+                declared_not_executed.push(json!({ "id": step.id, "kind": step.kind }));
+                return Ok(None);
+            }
+            other => {
+                return Err(TaskPackageError::UnknownStepKind {
+                    task_id: package.task_id.clone(),
+                    step_id: step.id.clone(),
+                    kind: other.to_owned(),
+                });
+            }
+        }
+    }
+    let tool = resolve_step_tool(package, step)?;
+    validate_condition_references(package, step, condition.as_ref(), inputs, known_outputs)?;
+    let output_names = known_outputs.keys().cloned().collect::<BTreeSet<_>>();
+    let arguments = resolve_arguments(&package.task_id, step, inputs, &output_names)?;
+    let Some(postconditions) = assertion_table(tool, &arguments) else {
+        return Err(TaskPackageError::MissingAssertion {
+            task_id: package.task_id.clone(),
+            step_id: step.id.clone(),
+            tool: tool.to_owned(),
+        });
+    };
+    register_step_dataflow(step, tool, condition, known_outputs, dataflow)?;
+    Ok(Some(json!({
+        "id": step.id,
+        "sequence": sequence,
+        "tool": tool,
+        "args": arguments,
+        "depends_on": [],
+        "postconditions": postconditions,
+        "point_of_no_return": false,
+        "timeouts": {
+            "resolve_ms": STEP_RESOLVE_TIMEOUT_MS,
+            "execute_ms": STEP_EXECUTE_TIMEOUT_MS,
+            "verify_ms": STEP_VERIFY_TIMEOUT_MS,
+        },
+    })))
+}
+
+fn resolve_step_tool<'a>(
+    package: &DeclaredPackage,
+    step: &'a DeclaredStep,
+) -> Result<&'a str, TaskPackageError> {
+    match step.kind.as_str() {
+        "tool" => step
+            .tool
+            .as_deref()
+            .ok_or_else(|| TaskPackageError::Malformed {
+                reason: format!(
+                    "task package step `{}` is kind=tool but declares no tool",
+                    step.id
+                ),
+            }),
+        kind => crate::runtime_tools::tool_for_step(kind, step.operation.as_deref()).ok_or_else(
+            || {
+                step.operation
+                    .as_deref()
+                    .map_or_else(|| TaskPackageError::MissingOperation {
+                        task_id: package.task_id.clone(),
+                        step_id: step.id.clone(),
+                        kind: kind.to_owned(),
+                    }, |operation| TaskPackageError::Malformed {
+                    reason: format!(
+                        "task package step `{}` uses unsupported kind/operation `{kind}/{operation}`",
+                        step.id
+                    ),
+                })
+            },
+        ),
+    }
+}
+
+fn register_step_dataflow(
+    step: &DeclaredStep,
+    tool: &str,
+    condition: Option<ConditionExpr>,
+    known_outputs: &mut BTreeMap<String, String>,
+    dataflow: &mut RuntimeDataflowPlan,
+) -> Result<(), TaskPackageError> {
+    for output in &step.outputs {
+        // A later step may deliberately rebind an output name (for example
+        // "expected count" -> "observed count"). References always resolve to
+        // the latest producer that has already committed.
+        known_outputs.insert(output.clone(), step.id.clone());
+    }
+    dataflow
+        .insert(
+            step.id.clone(),
+            RuntimeStepBinding {
+                tool: tool.to_owned(),
+                condition,
+                outputs: step.outputs.clone(),
+            },
+        )
+        .map_err(|error| match error {
+            DataflowError::DuplicateStep { step_id } => TaskPackageError::Malformed {
+                reason: format!("duplicate executable step `{step_id}`"),
+            },
+            other => TaskPackageError::Malformed {
+                reason: other.to_string(),
+            },
+        })
 }
 
 /// Resolves the step arguments against the supplied task inputs.
 ///
-/// An empty input map keeps the older "unbound declaration" error, so a package
-/// that was never handed inputs still fails closed with the same message.
+/// Explicit inputs are substituted immediately. References to previously
+/// declared step outputs remain as whole-value `$name` placeholders for the
+/// runtime binder. An empty input map keeps the older "unbound declaration"
+/// error for input-like references.
 fn resolve_arguments(
     task_id: &str,
     step: &DeclaredStep,
     inputs: &serde_json::Map<String, Value>,
+    known_outputs: &BTreeSet<String>,
 ) -> Result<Value, TaskPackageError> {
     fn walk(
         value: &Value,
         task_id: &str,
         step_id: &str,
         inputs: &serde_json::Map<String, Value>,
+        known_outputs: &BTreeSet<String>,
     ) -> Result<Value, TaskPackageError> {
         match value {
             // One rule for every reference form the packages use (`$input.*`,
@@ -482,32 +629,36 @@ fn resolve_arguments(
             // supply fails closed - this layer never computes a derived value and
             // never leaves a literal behind.
             Value::String(text) if text.starts_with('$') => {
+                let name = text.trim_start_matches('$');
+                if let Some(value) = inputs.get(name) {
+                    return Ok(value.clone());
+                }
+                if known_outputs.contains(name) {
+                    return Ok(Value::String(text.clone()));
+                }
                 if inputs.is_empty() {
                     return Err(TaskPackageError::UnboundArguments {
                         task_id: task_id.to_owned(),
                         step_id: step_id.to_owned(),
                     });
                 }
-                let name = text.trim_start_matches('$');
-                inputs
-                    .get(name)
-                    .cloned()
-                    .ok_or_else(|| TaskPackageError::MissingInput {
-                        task_id: task_id.to_owned(),
-                        step_id: step_id.to_owned(),
-                        reference: text.clone(),
-                    })
+                Err(TaskPackageError::MissingInput {
+                    task_id: task_id.to_owned(),
+                    step_id: step_id.to_owned(),
+                    reference: text.clone(),
+                })
             }
             Value::String(_) | Value::Null | Value::Bool(_) | Value::Number(_) => Ok(value.clone()),
             Value::Array(items) => items
                 .iter()
-                .map(|item| walk(item, task_id, step_id, inputs))
+                .map(|item| walk(item, task_id, step_id, inputs, known_outputs))
                 .collect::<Result<Vec<Value>, _>>()
                 .map(Value::Array),
             Value::Object(fields) => fields
                 .iter()
                 .map(|(key, item)| {
-                    walk(item, task_id, step_id, inputs).map(|resolved| (key.clone(), resolved))
+                    walk(item, task_id, step_id, inputs, known_outputs)
+                        .map(|resolved| (key.clone(), resolved))
                 })
                 .collect::<Result<serde_json::Map<String, Value>, _>>()
                 .map(Value::Object),
@@ -525,7 +676,51 @@ fn resolve_arguments(
             ),
         });
     }
-    walk(&step.args, task_id, &step.id, inputs)
+    walk(&step.args, task_id, &step.id, inputs, known_outputs)
+}
+
+fn parse_step_condition(
+    package: &DeclaredPackage,
+    step: &DeclaredStep,
+) -> Result<Option<ConditionExpr>, TaskPackageError> {
+    let Some(source) = step.when.as_deref() else {
+        return Ok(None);
+    };
+    parse_condition(source).map(Some).map_err(|error| {
+        let reason = match error {
+            DataflowError::InvalidCondition { reason, .. } => reason,
+            other => other.to_string(),
+        };
+        TaskPackageError::InvalidCondition {
+            task_id: package.task_id.clone(),
+            step_id: step.id.clone(),
+            condition: source.to_owned(),
+            reason,
+        }
+    })
+}
+
+fn validate_condition_references(
+    package: &DeclaredPackage,
+    step: &DeclaredStep,
+    condition: Option<&ConditionExpr>,
+    inputs: &serde_json::Map<String, Value>,
+    known_outputs: &BTreeMap<String, String>,
+) -> Result<(), TaskPackageError> {
+    let Some(condition) = condition else {
+        return Ok(());
+    };
+    for reference in condition.references() {
+        if inputs.contains_key(&reference) || known_outputs.contains_key(&reference) {
+            continue;
+        }
+        return Err(TaskPackageError::MissingInput {
+            task_id: package.task_id.clone(),
+            step_id: step.id.clone(),
+            reference: format!("${reference}"),
+        });
+    }
+    Ok(())
 }
 
 fn normalize_task_id(value: &str) -> String {
@@ -573,9 +768,14 @@ fn assertion_table(tool: &str, arguments: &Value) -> Option<Vec<Value>> {
                 "expect": "any",
             })])
         }
-        // ADR-0060: the reserved runtime steps have **no application side
-        // effect** - they only move runtime state - so the honest, checkable
-        // postcondition is that the application fingerprint did not change.
+        // The host text write is the one reserved step with a real application
+        // side effect; every other reserved operation is read-only/runtime-only.
+        crate::runtime_tools::TOOL_HOST_SET_EDITOR_VALUE => Some(vec![json!({
+            "kind": "state_changed",
+            "within_ms": STATE_CHANGED_WINDOW_MS,
+        })]),
+        // ADR-0060 / ADR-0061: reserved runtime and pure operations do not alter
+        // the application, so they must prove the fingerprint stayed unchanged.
         other if crate::runtime_tools::RESERVED_RUNTIME_TOOLS.contains(&other) => {
             Some(vec![json!({ "kind": "state_unchanged" })])
         }

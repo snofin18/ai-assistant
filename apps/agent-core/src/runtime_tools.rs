@@ -25,24 +25,48 @@ pub const TOOL_REQUEST_APPROVAL: &str = "assistant.runtime.request_approval";
 pub const TOOL_PREPARE_ANCHORS: &str = "assistant.runtime.prepare_anchors";
 /// Reserved tool representing a `verify` step.
 pub const TOOL_VERIFY_POSTCONDITIONS: &str = "assistant.runtime.verify_postconditions";
+/// Reserved pure operation: compute literal replacement and its count.
+pub const TOOL_PURE_COMPUTE_LITERAL_REPLACEMENT: &str =
+    "assistant.runtime.pure_compute_literal_replacement";
+/// Reserved pure operation: build a deterministic text diff.
+pub const TOOL_PURE_BUILD_TEXT_DIFF: &str = "assistant.runtime.pure_build_text_diff";
+/// Reserved pure operation: validate and normalize T1.3 inputs.
+pub const TOOL_PURE_VALIDATE_T1_3_INPUTS: &str = "assistant.runtime.pure_validate_t1_3_inputs";
+/// Reserved host operation: inspect a target path without modifying it.
+pub const TOOL_HOST_INSPECT_TARGET_PATH: &str = "assistant.runtime.host_inspect_target_path";
+/// Reserved host operation: set the editor value through the injected platform.
+pub const TOOL_HOST_SET_EDITOR_VALUE: &str = "assistant.runtime.host_set_editor_value";
 
 /// The closed set of reserved runtime tool names.
 pub const RESERVED_RUNTIME_TOOLS: &[&str] = &[
     TOOL_REQUEST_APPROVAL,
     TOOL_PREPARE_ANCHORS,
     TOOL_VERIFY_POSTCONDITIONS,
+    TOOL_PURE_COMPUTE_LITERAL_REPLACEMENT,
+    TOOL_PURE_BUILD_TEXT_DIFF,
+    TOOL_PURE_VALIDATE_T1_3_INPUTS,
+    TOOL_HOST_INSPECT_TARGET_PATH,
+    TOOL_HOST_SET_EDITOR_VALUE,
 ];
 
-/// Maps a declared package step kind onto its reserved runtime tool.
-///
-/// Returns `None` for kinds that are either executable as ordinary tools
-/// (`tool`) or owned elsewhere (`platform` / `l1_file` / `pure` / `policy`).
+/// Maps a declared package step kind + operation onto its reserved tool.
 #[must_use]
-pub fn tool_for_step_kind(kind: &str) -> Option<&'static str> {
+pub fn tool_for_step(kind: &str, operation: Option<&str>) -> Option<&'static str> {
     match kind {
         "hitl" => Some(TOOL_REQUEST_APPROVAL),
-        "host_service" => Some(TOOL_PREPARE_ANCHORS),
+        "host_service" => match operation {
+            Some("prepare_rollback_anchors") => Some(TOOL_PREPARE_ANCHORS),
+            Some("inspect_target_path") => Some(TOOL_HOST_INSPECT_TARGET_PATH),
+            Some("set_editor_value") => Some(TOOL_HOST_SET_EDITOR_VALUE),
+            _ => None,
+        },
         "verify" => Some(TOOL_VERIFY_POSTCONDITIONS),
+        "pure" => match operation {
+            Some("compute_literal_replacement") => Some(TOOL_PURE_COMPUTE_LITERAL_REPLACEMENT),
+            Some("build_text_diff") => Some(TOOL_PURE_BUILD_TEXT_DIFF),
+            Some("validate_t1_3_inputs") => Some(TOOL_PURE_VALIDATE_T1_3_INPUTS),
+            _ => None,
+        },
         _ => None,
     }
 }
@@ -54,7 +78,40 @@ pub fn tool_for_step_kind(kind: &str) -> Option<&'static str> {
 /// Returns the serde reason when a schema cannot be assembled; a reserved tool
 /// with a malformed schema must stop assembly rather than disappear.
 pub fn planner_schemas() -> Result<Vec<ToolSchema>, String> {
-    let declarations = [
+    let declarations = reserved_tool_declarations();
+    let mut schemas = Vec::with_capacity(declarations.len());
+    for (name, description, risk_level, effect, reversibility, requires_approval) in declarations {
+        let value: Value = json!({
+            "version": "1.0",
+            "name": name,
+            "description": description,
+            "input": {"type": "object"},
+            "output": {},
+            "risk_level": risk_level,
+            "effect": effect,
+            "reversibility": reversibility,
+            "requires_approval": requires_approval,
+            "idempotent": false,
+        });
+        schemas.push(
+            serde_json::from_value(value)
+                .map_err(|error| format!("reserved runtime tool `{name}`: {error}"))?,
+        );
+    }
+    Ok(schemas)
+}
+
+type ToolDeclaration = (
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+    bool,
+);
+
+const fn reserved_tool_declarations() -> [ToolDeclaration; 8] {
+    [
         (
             TOOL_REQUEST_APPROVAL,
             "Ask a human to approve the step that follows (runtime-owned; not callable by the model).",
@@ -83,51 +140,70 @@ pub fn planner_schemas() -> Result<Vec<ToolSchema>, String> {
             "l0_undo_stack",
             false,
         ),
-    ];
-
-    let mut schemas = Vec::with_capacity(declarations.len());
-    for (name, description, risk_level, effect, reversibility, requires_approval) in declarations {
-        let value: Value = json!({
-            "version": "1.0",
-            "name": name,
-            "description": description,
-            "input": {"type": "object"},
-            "output": {},
-            "risk_level": risk_level,
-            "effect": effect,
-            "reversibility": reversibility,
-            "requires_approval": requires_approval,
-            "idempotent": false,
-        });
-        schemas.push(
-            serde_json::from_value(value)
-                .map_err(|error| format!("reserved runtime tool `{name}`: {error}"))?,
-        );
-    }
-    Ok(schemas)
+        (
+            TOOL_PURE_COMPUTE_LITERAL_REPLACEMENT,
+            "Compute a literal replacement and count without touching the application.",
+            "low",
+            "read",
+            "l0_undo_stack",
+            false,
+        ),
+        (
+            TOOL_PURE_BUILD_TEXT_DIFF,
+            "Build a deterministic text diff for approval display.",
+            "low",
+            "read",
+            "l0_undo_stack",
+            false,
+        ),
+        (
+            TOOL_PURE_VALIDATE_T1_3_INPUTS,
+            "Validate and normalize T1.3 input values.",
+            "low",
+            "read",
+            "l0_undo_stack",
+            false,
+        ),
+        (
+            TOOL_HOST_INSPECT_TARGET_PATH,
+            "Inspect whether a target path already exists without modifying it.",
+            "low",
+            "read",
+            "l0_undo_stack",
+            false,
+        ),
+        (
+            TOOL_HOST_SET_EDITOR_VALUE,
+            "Set the editor value through the injected platform boundary.",
+            "medium",
+            "write",
+            "l0_undo_stack",
+            false,
+        ),
+    ]
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{RESERVED_RUNTIME_TOOLS, planner_schemas, tool_for_step_kind};
+    use super::{RESERVED_RUNTIME_TOOLS, planner_schemas, tool_for_step};
 
     #[test]
     fn test_step_kind_mapping_is_closed_and_explicit() {
         assert_eq!(
-            tool_for_step_kind("hitl"),
+            tool_for_step("hitl", Some("request_approval")),
             Some("assistant.runtime.request_approval")
         );
         assert_eq!(
-            tool_for_step_kind("host_service"),
+            tool_for_step("host_service", Some("prepare_rollback_anchors")),
             Some("assistant.runtime.prepare_anchors")
         );
         assert_eq!(
-            tool_for_step_kind("verify"),
+            tool_for_step("verify", Some("verify_postconditions")),
             Some("assistant.runtime.verify_postconditions")
         );
-        assert_eq!(tool_for_step_kind("tool"), None);
-        assert_eq!(tool_for_step_kind("pure"), None);
-        assert_eq!(tool_for_step_kind("frobnicate"), None);
+        assert_eq!(tool_for_step("tool", None), None);
+        assert_eq!(tool_for_step("pure", None), None);
+        assert_eq!(tool_for_step("frobnicate", None), None);
     }
 
     #[test]

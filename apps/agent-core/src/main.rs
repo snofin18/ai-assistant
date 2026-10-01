@@ -5,7 +5,7 @@
 //! source, `RuntimeExecutor`, and UI event source for the 1a dry run.
 
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
@@ -29,6 +29,7 @@ use assistant_platform_windows::WindowsPlatform;
 use assistant_policy::RuleSet;
 use assistant_storage::{Clock, MemoryQuery, SystemClock};
 use assistant_tool_bus::ToolRegistry;
+use serde_json::{Map, Value};
 
 struct EmptyRetriever;
 
@@ -178,7 +179,7 @@ async fn main() -> ExitCode {
     }
     let _ = report_error(
         "usage: assistant-agent-core [--self-check | --production \
-         --task-package <path> --ui-peer <path> [--adapter-root <path>] \
+         --task-package <path> --ui-peer <path> [--task-inputs <path>] [--adapter-root <path>] \
          [--data-root <path>] [--ui-pipe <name>] [--ui-token-env <name>] [--serve-ui]]",
     );
     ExitCode::from(2)
@@ -196,6 +197,7 @@ fn parse_production_options(arguments: &[String]) -> Result<ProductionOptions, S
         std::process::id()
     ));
     let mut task_package_path = None;
+    let mut task_inputs_path = None;
     let mut ui_pipe = "assistant-agent-core-ui".to_owned();
     let mut ui_token_environment_variable = "ASSISTANT_AGENT_CORE_UI_TOKEN".to_owned();
     let mut ui_peer = None;
@@ -211,6 +213,9 @@ fn parse_production_options(arguments: &[String]) -> Result<ProductionOptions, S
             }
             "--task-package" => {
                 task_package_path = Some(PathBuf::from(next_value(&mut iterator, argument)?));
+            }
+            "--task-inputs" => {
+                task_inputs_path = Some(PathBuf::from(next_value(&mut iterator, argument)?));
             }
             "--ui-pipe" => {
                 ui_pipe = next_value(&mut iterator, argument)?;
@@ -229,6 +234,10 @@ fn parse_production_options(arguments: &[String]) -> Result<ProductionOptions, S
     }
     let task_package_path =
         task_package_path.ok_or_else(|| "missing --task-package <path>".to_owned())?;
+    let task_inputs = match task_inputs_path {
+        Some(path) => read_task_inputs(&path)?,
+        None => Map::new(),
+    };
     let ui_peer = ui_peer.ok_or_else(|| "missing --ui-peer <path>".to_owned())?;
     let ui_config = UiServerConfig::new(
         ui_pipe,
@@ -237,9 +246,25 @@ fn parse_production_options(arguments: &[String]) -> Result<ProductionOptions, S
     )
     .with_allowed_peer(ui_peer);
     Ok(ProductionOptions {
-        config: ProductionConfig::new(data_root, adapter_root, task_package_path, ui_config),
+        config: ProductionConfig::new(data_root, adapter_root, task_package_path, ui_config)
+            .with_task_inputs(task_inputs),
         serve_ui,
     })
+}
+
+fn read_task_inputs(path: &Path) -> Result<Map<String, Value>, String> {
+    let body = std::fs::read_to_string(path)
+        .map_err(|error| format!("failed to read task inputs `{}`: {error}", path.display()))?;
+    let value: Value = serde_json::from_str(&body).map_err(|error| {
+        format!(
+            "task inputs `{}` are not valid JSON: {error}",
+            path.display()
+        )
+    })?;
+    value
+        .as_object()
+        .cloned()
+        .ok_or_else(|| "task inputs must be a JSON object".to_owned())
 }
 
 fn next_value(iterator: &mut std::slice::Iter<'_, String>, option: &str) -> Result<String, String> {

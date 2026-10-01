@@ -451,6 +451,7 @@ impl ObservationCollector for EnvelopeObservationCollector {
         let text = data
             .0
             .get("text")
+            .or_else(|| data.0.get("canonical_text"))
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default()
             .to_owned();

@@ -36,6 +36,9 @@ mod production_run;
 pub mod production_support;
 mod reserved_invoker;
 mod runtime;
+mod runtime_binding;
+mod runtime_dataflow;
+mod runtime_host_ops;
 mod runtime_tools;
 mod task_package;
 mod ui_control;
@@ -56,6 +59,11 @@ pub use reserved_invoker::ReservedRuntimeInvoker;
 pub use runtime::{
     EnvelopeObservationCollector, ObservationCollector, RuntimeExecutionError, RuntimeExecutor,
     StepExecutionOutcome, StepPolicy, ToolBusInvoker, ToolInvoker,
+};
+pub use runtime_binding::{BindingInvoker, RuntimeBindingState};
+pub use runtime_dataflow::{
+    ConditionExpr, ConditionOperand, ConditionOperator, DataflowError, RuntimeDataflowPlan,
+    RuntimeStepBinding, collect_references, parse_condition, resolve_references,
 };
 pub use task_package::{TASK_PACKAGE_MODEL_ID, TaskPackageError, TaskPackageProvider};
 pub use ui_control::TaskControlHandler;

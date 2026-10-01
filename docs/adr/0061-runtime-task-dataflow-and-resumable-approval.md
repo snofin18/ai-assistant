@@ -1,6 +1,6 @@
 # ADR-0061　运行时任务包数据流、确定性本地操作与可恢复审批
 
-状态：**Proposed**（待人类接受；接受前 TASK-217 不得开工）
+状态：**Accepted**（2026-10-01 人类接受；TASK-217 解锁）
 日期：2026-10-01
 Supersedes：ADR-0059 D6 中 `pure` 一律“不执行、由包外注入”的单行处置（**其余 D1~D5/D7 保留**）
 Superseded by：—
@@ -43,12 +43,12 @@ operation 和 `(kind, operation)` 映射执行步骤；条件只允许布尔引�
 |---|---|
 | **D1 上下文归属** | `TaskExecutionContext` 只在 binary 装配层存在，持有 `name -> serde_json::Value`。它是单次运行的内存状态，不持久化成第二份会话真相。 |
 | **D2 引用语法** | `$name` 仅在**整个字符串就是这个引用**时允许，替换后保留原 JSON 类型；`"prefix-$name"`、`"$a + $b"`、嵌套函数等一律拒绝。未知名字、类型不匹配、已跳过步骤的输出 → 执行前 fail-closed。 |
-| **D3 输出发布** | 任务包 `steps[].outputs` 是输出声明。只有当产生该输出的步骤完成验证并提交后，声明值才进入上下文；失败、被拒绝、被跳过或验证未提交都不发布输出。输出名必须唯一，且生产者必须早于所有消费者。 |
+| **D3 输出发布** | 任务包 `steps[].outputs` 是输出声明。只有当产生该输出的步骤完成验证并提交后，声明值才进入上下文；失败、被拒绝、被跳过或验证未提交都不发布输出。生产者必须早于所有消费者；**后来的步骤可以重绑同名输出**（例如预期计数 → 实际计数），引用始终解析到此前最近一次已提交的生产者。 |
 | **D4 数据流旁路** | 任务包 provider 额外暴露 binary 内部使用的 `RuntimeDataflowPlan`（步骤 id → `when` / outputs / 引用）。它**不进入模型输出、不进入 Plan JSON**；`Planner` 仍只接受 `steps` 单字段。 |
 | **D5 运行时覆盖面** | 运行时执行闭集为 `{tool, hitl, host_service, verify, pure}`。`platform` 与 `l1_file` 仍是任务前置条件/文件通道，不由运行时执行；若后续步骤依赖它们的输出，任务包在构造期失败，不能靠猜值继续。此项**取代 ADR-0059 D6 中 `pure` 不执行的单行处置**。 |
 | **D6 `pure` operation** | `pure` 不变成自由表达式，而是**闭集白名单 operation**：每个 operation 有结构化 args / outputs、纯函数、无 IO / 网络 / 进程副作用。1a 至少包含 `compute_literal_replacement`、`build_text_diff`、`validate_t1_3_inputs`。未知 operation 一律拒绝。 |
-| **D7 `host_service` operation** | 保留工具名按 operation 区分，建议形式 `assistant.runtime.host.<operation>`；`prepare_rollback_anchors` 保持既有语义，1a 还需 `inspect_target_path`（只读文件系统检查）与 `set_editor_value`（经已注入的平台写路径）。它们只进 Planner 目录，不进模型可见 ToolBus。 |
-| **D8 `when` 条件** | 只允许 `name` 或 `!name` 两种形式，指向上下文中已有的布尔值；禁止逻辑与、逻辑或、比较、括号和函数。条件在执行策略/工具调用前求值；未知名字或非布尔值 → fail-closed。被跳过步骤不产生输出，若后续真正执行且引用该输出则失败。 |
+| **D7 `host_service` operation** | 保留工具名按 operation 区分，且必须满足 Planner 的 `<app>.<domain>.<action>` 三段命名：使用 `assistant.runtime.host_inspect_target_path` / `assistant.runtime.host_set_editor_value`；`prepare_rollback_anchors` 保持既有语义，1a 还需 `inspect_target_path`（只读文件系统检查）与 `set_editor_value`（经已注入的平台写路径）。它们只进 Planner 目录，不进模型可见 ToolBus。 |
+| **D8 `when` 条件** | 只允许一个**封闭谓词子集**：布尔引用、`!` 取反、数值/字符串比较，以及这些谓词之间的 `&&`。比较左值必须是引用或字面量，操作符仅限 `==` / `!=` / `<` / `<=` / `>` / `>=`；仍禁止逻辑或、括号、函数、算术和任意表达式。条件在执行策略/工具调用前求值；未知名字、类型不匹配或无法解析 → fail-closed。被跳过步骤不产生输出，若后续真正执行且引用该输出则失败。 |
 | **D9 审批暂停/恢复** | 无授权时 `request_approval` 返回 **`AwaitingApproval`**，注册稳定的 pending 项（由 task_id + step_id 派生）并保留任务快照；它**不是** `ToolFailed`。UI approve 写入有界授权，deny 使步骤/任务失败，超时保持失败关闭。恢复时重新读取同一任务快照、核验 fingerprint 与待审批步骤后从该步骤继续，**不得重放已提交步骤或重复副作用**。 |
 | **D10 无人值守边界** | 没有可交互 UI、pending 无法注册或恢复条件不成立时，审批步骤不得继续；`point_of_no_return` 仍遵守 ADR-0059 的人工一次批准语义，永久禁止无人值守。 |
 | **D11 形状不变** | `PlanStep` / `Plan` / `Planner` / `task-engine` 的公共形状不改；数据流职责放在 binary 层的上下文与 invoker 包装中。 |
@@ -81,6 +81,15 @@ operation 和 `(kind, operation)` 映射执行步骤；条件只允许布尔引�
 6. 无授权时得到 `AwaitingApproval`；approve 后从同一快照恢复一次；deny/超时不继续。
 7. 恢复检查不重放任何已提交步骤，事件中可看到暂停、批准、恢复与提交顺序。
 8. 模型侧调用任一 `assistant.runtime.*` 均失败。
+
+## 修订记录
+
+| 日期 | 变更 | 依据 |
+|---|---|---|
+| 2026-10-01 | 人类接受 ADR 并解锁 TASK-217 | 人类 chat |
+| 2026-10-01 | D8 从“仅布尔引用”修订为封闭谓词子集 | 实现核对：T1.1 需要 `file_size_bytes <= max_text_bytes`，T1.3 需要 `!target_existed_before && file_created`；拒绝这些现成声明会打断已通过的 T1.1，故只开放可枚举谓词，不开放括号/函数/算术/逻辑或 |
+| 2026-10-01 | D3 允许后续步骤重绑同名输出 | 实现核对：T1.2 先由 `pure` 产生预期 `replacement_count`，再由真实替换步骤产生实际计数；禁止重绑会拒绝现成任务包。重绑仍保持“生产者先于消费者”的确定性顺序 |
+| 2026-10-01 | 保留工具名改为三段 action 形式 | Planner 已机器校验 `<app>.<domain>.<action>`；四段 `assistant.runtime.pure.*` 会被拒绝，故改用 `assistant.runtime.pure_*` / `assistant.runtime.host_*` |
 
 ## 重新评估触发条件
 
