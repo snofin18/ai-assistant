@@ -1,6 +1,9 @@
 //! `hygiene.rs` 的私有单元测试（TASK-085 外置）：仓库卫生规则。
 
 use super::*;
+use crate::repowalk::{
+    parse_cargo_dependency_names, parse_cargo_package_name, parse_registered_cargo_dependencies,
+};
 
 /// 构造一条普通行注释，便于规则级单测。
 fn line_comment(line: usize, text: &str) -> Comment {
@@ -401,4 +404,75 @@ fn test_trailing_blank_line_is_warning() {
 fn test_empty_text_file_is_warning() {
     let findings = check_text_file_bytes("a.md", b"");
     assert_eq!(rules_of(&findings), vec!["hygiene/missing-final-newline"]);
+}
+
+// --- TASK-086：依赖登记规则 ---
+
+#[test]
+fn test_dependency_registry_and_parsers_cover_positive_negative_and_orphan() {
+    let unregistered = check_dependency_registry(
+        &[(
+            "crates/example/Cargo.toml".to_string(),
+            BTreeSet::from(["new-crate".to_string()]),
+        )],
+        &BTreeSet::new(),
+    );
+    assert_eq!(
+        rules_of(&unregistered),
+        vec!["hygiene/unregistered-dependency"]
+    );
+    assert_eq!(
+        unregistered.first().map(|finding| finding.severity),
+        Some(Severity::Error)
+    );
+    let orphan = check_dependency_registry(
+        &[(
+            "crates/example/Cargo.toml".to_string(),
+            BTreeSet::from(["serde".to_string()]),
+        )],
+        &BTreeSet::from(["serde".to_string(), "stale".to_string()]),
+    );
+    assert_eq!(orphan.len(), 1);
+    assert_eq!(
+        orphan.first().map(|finding| finding.severity),
+        Some(Severity::Warning)
+    );
+
+    let source = r#"[package]
+name = "assistant-example"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+assistant-protocol = { path = "../protocol", version = "0.1.0" }
+
+[dev-dependencies]
+thiserror = "2"
+
+[target.'cfg(windows)'.dependencies]
+windows = "=0.62.2"
+"#;
+    assert_eq!(
+        parse_cargo_package_name(source),
+        Some("assistant-example".to_string())
+    );
+    assert_eq!(
+        parse_cargo_dependency_names(source),
+        BTreeSet::from([
+            "assistant-protocol".to_string(),
+            "serde".to_string(),
+            "thiserror".to_string(),
+            "windows".to_string(),
+        ])
+    );
+    let registry = r"
+## Rust（cargo）
+| crate | version | users | purpose | license | alternatives | status | approval | date |
+|---|---|---|---|---|---|---|---|---|
+| `serde` | 1 | core | serialization | MIT | manual | **Approved** | human | 2026-09-23 |
+| `old` | 0 | none | old | MIT | none | **Removed** | human | 2026-09-23 |
+";
+    assert_eq!(
+        parse_registered_cargo_dependencies(registry),
+        Some(BTreeSet::from(["serde".to_string()]))
+    );
 }

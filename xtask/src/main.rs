@@ -98,6 +98,7 @@ mod verify_schemas;
 #[cfg(test)]
 mod guard_testkit;
 
+use std::collections::BTreeSet;
 use std::io::Write;
 use std::path::Path;
 use std::process::ExitCode;
@@ -106,6 +107,7 @@ use cli::{Invocation, USAGE, parse_args};
 use report::{Finding, Report, Severity};
 use repowalk::{
     RepoFileEntry, WalkError, collect_hygiene_text_files, collect_rust_files,
+    parse_cargo_dependency_names, parse_cargo_package_name, parse_registered_cargo_dependencies,
     relative_display_path, resolve_repo_root,
 };
 
@@ -442,6 +444,66 @@ fn collect_text_hygiene_findings(text_files: &[RepoFileEntry]) -> Result<Vec<Fin
     Ok(findings)
 }
 
+fn collect_dependency_hygiene_findings(
+    root: &Path,
+    text_files: &[RepoFileEntry],
+) -> Result<Vec<Finding>, Failure> {
+    let manifests: Vec<(&str, String)> = text_files
+        .iter()
+        .filter(|entry| {
+            entry
+                .abs_path
+                .file_name()
+                .and_then(std::ffi::OsStr::to_str)
+                .is_some_and(|name| name == "Cargo.toml")
+                && !["spikes/", "fixtures/", "tools/"]
+                    .iter()
+                    .any(|prefix| entry.rel_path.starts_with(prefix))
+        })
+        .map(|entry| {
+            std::fs::read_to_string(&entry.abs_path)
+                .map(|source| (entry.rel_path.as_str(), source))
+                .map_err(|error| {
+                    Failure::from_io(&format!("读取 {}", entry.abs_path.display()), &error)
+                })
+        })
+        .collect::<Result<_, _>>()?;
+    if manifests.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let internal_names: BTreeSet<String> = manifests
+        .iter()
+        .filter_map(|(_path, source)| parse_cargo_package_name(source))
+        .collect();
+    let manifest_dependencies: Vec<(String, BTreeSet<String>)> = manifests
+        .iter()
+        .map(|(path, source)| {
+            let mut dependencies = parse_cargo_dependency_names(source);
+            dependencies.retain(|name| !internal_names.contains(name));
+            ((*path).to_string(), dependencies)
+        })
+        .collect();
+
+    let registry_path = root.join("docs").join("DEPENDENCIES.md");
+    let registry_source = std::fs::read_to_string(&registry_path)
+        .map_err(|error| Failure::from_io(&format!("读取 {}", registry_path.display()), &error))?;
+    Ok(
+        parse_registered_cargo_dependencies(&registry_source).map_or_else(
+            || {
+                vec![Finding::new(
+                    "hygiene/dependency-registry-unparsable",
+                    Severity::Error,
+                    "docs/DEPENDENCIES.md",
+                    0,
+                    "缺少 `## Rust（cargo）` 或表格行不足九列".to_string(),
+                )]
+            },
+            |registered| hygiene::check_dependency_registry(&manifest_dependencies, &registered),
+        ),
+    )
+}
+
 /// 执行仓库卫生检查。
 fn run_hygiene(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
     let root = resolve_repo_root(invocation.repo.as_deref())
@@ -463,6 +525,7 @@ fn run_hygiene(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Fa
         findings.extend(hygiene::check_rust_source(&relative, &source));
     }
     findings.extend(collect_text_hygiene_findings(&text_files)?);
+    findings.extend(collect_dependency_hygiene_findings(&root, &text_files)?);
     // 排序保证输出确定性（report.rs 不变量 3 要求调用方排好序再插入）
     findings.sort_by(|left, right| {
         (&left.path, left.line, left.rule).cmp(&(&right.path, right.line, right.rule))

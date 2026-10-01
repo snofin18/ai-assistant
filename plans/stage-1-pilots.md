@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 / A2 / A3 既有卡均 Done**；**TASK-039 = Review：阶段 1a 结论 = NO-GO**；**TASK-102 / 103 / 104 / 210 / 087 / 212 / 211 / 213 / 214 均 Done**；**TASK-213 完成 UI↔Core 真管道与 `SnapshotEventSource`，PL-095 闭环**；**TASK-214 完成生产装配根、确定性 task-package Plan 来源、5 个 Notepad handler、真 UIA T1.1 干跑、真 UI 管道 `step_state_changed` 与 fail-closed 收口，PL-096 闭环**；**TASK-205 完成 `tool-bus` schema 模块拆分，`hygiene` 长文件 warning 4→3**；**PL-097 已闭环**；**TASK-216 Done：A/B 片由 TASK-217 完成数据流与可恢复审批后收口**；**TASK-217 Done：T1.2/T1.3 fake platform 到 `Completed`，无授权暂停与 UI 批准恢复已落地，`DRIFT-216-4` 闭环**；**TASK-085 Done：Rust 源码结构 5 条 hygiene 规则落地，覆盖 8/13**；**TASK-086 InProgress：CRLF / 末行换行已 WIP 落地，覆盖 10/13，依赖登记 deferred**；阶段 1a 仍 NO-GO，不得在阻断项闭环前进入 1b）　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 / A2 / A3 既有卡均 Done**；**TASK-039 = Review：阶段 1a 结论 = NO-GO**；**TASK-102 / 103 / 104 / 210 / 087 / 212 / 211 / 213 / 214 均 Done**；**TASK-213 完成 UI↔Core 真管道与 `SnapshotEventSource`，PL-095 闭环**；**TASK-214 完成生产装配根、确定性 task-package Plan 来源、5 个 Notepad handler、真 UIA T1.1 干跑、真 UI 管道 `step_state_changed` 与 fail-closed 收口，PL-096 闭环**；**TASK-205 完成 `tool-bus` schema 模块拆分，`hygiene` 长文件 warning 4→3**；**PL-097 已闭环**；**TASK-216 Done：A/B 片由 TASK-217 完成数据流与可恢复审批后收口**；**TASK-217 Done：T1.2/T1.3 fake platform 到 `Completed`，无授权暂停与 UI 批准恢复已落地，`DRIFT-216-4` 闭环**；**TASK-085 / TASK-086 Done：Rust 源码结构、末行换行、CRLF 与依赖登记卫生规则落地，覆盖 11/13**；阶段 1a 仍 NO-GO，不得在阻断项闭环前进入 1b）　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -264,7 +264,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-057 | 1c | `tasks/TASK-057-t5-2-form-fill-stop-before-submit-diff-origin.md` | Ready（批次表占位派单前补全） |
 | TASK-058 | 1c | `tasks/TASK-058-t5-3-injection-target-security-ci-audit.md` | Ready（批次表占位派单前补全） |
 | **TASK-085 ✅** | XTASK 池 | `tasks/TASK-085-xtask-hygiene-rust-source-rules.md` | Done（gov §5.4 第 1 / 2 / 3 / 10 / 11 项 = Rust 源码结构规则；实现覆盖 8/13） |
-| TASK-086 | XTASK 池 | `tasks/TASK-086-xtask-hygiene-file-level-and-registry-rules.md` | **完整卡**（2026-09-24 PL-059 归属修正新建：gov §5.4 第 8 / 9 / 13 项 = 文件级 + 依赖登记规则）；**Ready** |
+| **TASK-086 ✅** | XTASK 池 | `tasks/TASK-086-xtask-hygiene-file-level-and-registry-rules.md` | **完整卡**（2026-09-24 PL-059 归属修正新建：gov §5.4 第 8 / 9 / 13 项 = 文件级 + 依赖登记规则）；**Done（hygiene 11/13）** |
 
 
 > **迁移零丢失核对**（ADR-0031 验证方式 3）：两段正文共 **30** 行非空内容（TASK-011 28 行 + TASK-035 2 行），

@@ -24,6 +24,7 @@
 //!
 //! 相关：`docs/governance-ai-agent-execution.md` §5.4
 
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 /// 需要扫描的源码根（相对仓库根）。
@@ -193,6 +194,117 @@ pub fn collect_hygiene_text_files(root: &Path) -> Result<Vec<RepoFileEntry>, Wal
     files.sort_by(|left, right| left.rel_path.cmp(&right.rel_path));
     files.dedup_by(|left, right| left.rel_path == right.rel_path);
     Ok(files)
+}
+
+/// 从 `Cargo.toml` 的 `[package]` 表读取包名。
+#[must_use]
+pub fn parse_cargo_package_name(source: &str) -> Option<String> {
+    let mut in_package = false;
+    for raw_line in source.lines() {
+        let trimmed = raw_line.split('#').next().unwrap_or(raw_line).trim();
+        if let Some(header) = table_header(trimmed) {
+            in_package = header == "package";
+            continue;
+        }
+        if !in_package {
+            continue;
+        }
+        if let Some((key, value)) = trimmed.split_once('=')
+            && key.trim() == "name"
+        {
+            return Some(unquote_toml_value(value.trim()).to_string());
+        }
+    }
+    None
+}
+
+/// 提取 Cargo manifest 中 normal/dev/build/target/workspace 直接依赖名。
+#[must_use]
+pub fn parse_cargo_dependency_names(source: &str) -> BTreeSet<String> {
+    let mut in_dependency_table = false;
+    let mut dependencies = BTreeSet::new();
+    for raw_line in source.lines() {
+        let trimmed = raw_line.split('#').next().unwrap_or(raw_line).trim();
+        if let Some(header) = table_header(trimmed) {
+            in_dependency_table = header.ends_with("dependencies");
+            if let Some((_prefix, name)) = header.rsplit_once("dependencies.") {
+                dependencies.insert(unquote_toml_value(name).to_string());
+            }
+            continue;
+        }
+        if !in_dependency_table {
+            continue;
+        }
+        if let Some((key, _value)) = trimmed.split_once('=') {
+            let name = unquote_toml_value(key.trim());
+            if !name.is_empty() {
+                dependencies.insert(name.to_string());
+            }
+        }
+    }
+    dependencies
+}
+
+/// 从 `docs/DEPENDENCIES.md` 的 Rust 表提取 `Approved` crate 名。
+#[must_use]
+pub fn parse_registered_cargo_dependencies(source: &str) -> Option<BTreeSet<String>> {
+    let mut in_rust_table = false;
+    let mut saw_rust_table = false;
+    let mut dependencies = BTreeSet::new();
+    for line in source.lines() {
+        let trimmed = line.trim();
+        if let Some(heading) = trimmed.strip_prefix("## ") {
+            if in_rust_table {
+                break;
+            }
+            if heading == "Rust（cargo）" {
+                in_rust_table = true;
+                saw_rust_table = true;
+            }
+            continue;
+        }
+        if !in_rust_table || !trimmed.starts_with('|') {
+            continue;
+        }
+        let cells: Vec<&str> = trimmed
+            .trim_matches('|')
+            .split('|')
+            .map(str::trim)
+            .collect();
+        let Some(name_cell) = cells.first().copied() else {
+            continue;
+        };
+        if name_cell == "crate"
+            || name_cell
+                .chars()
+                .all(|character| character == '-' || character == ':')
+        {
+            continue;
+        }
+        let status_cell = cells.get(6)?;
+        let name = name_cell.trim_matches('`').trim();
+        if name != "—" && status_cell.replace('*', "").contains("Approved") {
+            dependencies.insert(name.to_string());
+        }
+    }
+    saw_rust_table.then_some(dependencies)
+}
+
+fn table_header(line: &str) -> Option<&str> {
+    line.strip_prefix('[')?.strip_suffix(']').map(str::trim)
+}
+
+fn unquote_toml_value(value: &str) -> &str {
+    let trimmed = value.trim();
+    if trimmed.len() >= 2
+        && trimmed.starts_with('"')
+        && trimmed.ends_with('"')
+        && let Some(inner) = trimmed.get(1..trimmed.len() - 1)
+    {
+        inner
+    } else {
+        trimmed
+    }
 }
 
 /// 递归遍历 `directory`，把扩展名命中 `extensions` 的文件追加到 `out`。
