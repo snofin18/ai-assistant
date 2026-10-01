@@ -156,6 +156,16 @@ cargo fmt --all --check                                  → clean
 
 **DRIFT-216-3（自伤：把"未执行种类"塞进模型输出，打红了 3 个生产测试）**
 
+**B 片第 3b 步（2026-10-01）：保留运行时工具落地（ADR-0060 Accepted）**
+
+新增 `apps/agent-core/src/runtime_tools.rs`：三个保留名（`assistant.runtime.request_approval` / `prepare_anchors` / `verify_postconditions`）、闭集 `RESERVED_RUNTIME_TOOLS`、`tool_for_step_kind()`（kind → 保留工具）、`planner_schemas()`（三个 Planner 目录用的 `ToolSchema`）。
+
+`render_plan()`：`hitl`/`host_service`/`verify` 不再 fail-closed，而是**映射到保留工具**；`assertion_table` 给这三类加了一条诚实且可求值的后置断言 —— **`state_unchanged`**（它们没有应用副作用，只动运行时状态）。`notepad_registry::build_notepad_registry` 把保留 schema **追加进 Planner 目录**（因此**不进 ToolBus 挂载**，模型够不着 —— ADR-0060 D2）。测试：T1.2 **现在能渲染出完整 Plan**（含 `replace_text` + 三个保留工具），`runtime_tools` 自带两条单测。
+
+**明确未做（下一步）**：三个保留工具的**执行器**还没有 —— 它们不在 ToolBus 里，所以一旦真的执行到它们，调用会失败。本轮只做到"目录 + 映射 + 可渲染"。
+
+**两处自伤并已修**：① `none_readonly` 不是协议 `ToolReversibility` 的合法变体（协议只有 l0~l3），两个只读保留工具改用 `l0_undo_stack`，与 `notepad_registry` 对 `none_readonly` 的既有归一化（DRIFT-214-2）保持一致；② 把目录扩展写进 `production.rs` 把它顶到 **611 行**、hygiene 又变 4W —— 改为写在 `notepad_registry::build_notepad_registry`（它本来就负责产出 Planner 目录），`production.rs` 复原，**hygiene 回到 0E/3W**。
+
 1. **现象**：B 片第 3 步第一版把 `declared_not_executed` 数组写进渲染出的 Plan JSON。`cargo test -p assistant-agent-core --test production_root` 立刻两条红：`Planner { reason: "invalid planner output: planner output must contain only the steps field" }`；真 UIA 干跑也红。
 2. **根因**：`Planner` 对模型输出**只接受 `steps` 一个字段**（这是它有意的 fail-closed 契约）。我把运行时自己的 bookkeeping 塞进了模型输出，等于污染了模型→Planner 的契约。
 3. **处置**：Plan JSON 回到 `{"steps": ...}` 一个字段；"未执行种类"改由 **provider 的独立访问器** `declared_not_executed()` 暴露（装配点可自行记录/打日志），并用测试锁住"plan 只有一个字段"这条不变量。**没有**为了让测试过而放宽 Planner。

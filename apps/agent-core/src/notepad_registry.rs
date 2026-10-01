@@ -167,6 +167,13 @@ where
             reason: format!("missing production tools: {missing}"),
         });
     }
+    // ADR-0060: the reserved runtime tools belong to the **Planner catalog** but
+    // never to the model-visible `ToolBus` mount, so they are appended to the
+    // catalog here instead of being registered as handlers.
+    tool_schemas.extend(
+        crate::runtime_tools::planner_schemas()
+            .map_err(|reason| NotepadRegistryError::Malformed { reason })?,
+    );
     tool_schemas.sort_by(|left, right| left.name.cmp(&right.name));
     Ok(NotepadRegistryBuild {
         registry,
