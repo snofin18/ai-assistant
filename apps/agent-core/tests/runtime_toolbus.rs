@@ -245,3 +245,56 @@ async fn test_prepare_anchors_refuses_an_irreversible_level() {
         "the refusal must happen before any tool call"
     );
 }
+
+/// ADR-0059 D2: an approval step must never approve itself. An irreversible step
+/// is barred outright; a normal request is refused because no approval channel is
+/// wired yet. Neither may proceed silently.
+#[tokio::test]
+async fn test_request_approval_never_self_approves() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let bus = started_bus(Arc::clone(&calls)).await;
+    let snapshot: Arc<Mutex<Option<TaskSnapshot>>> = Arc::new(Mutex::new(None));
+    let invoker = ReservedRuntimeInvoker::new(&bus, snapshot);
+
+    let plan = write_plan();
+    let task_id = plan.task_id.clone();
+    let base = plan.steps.first().expect("one step").clone();
+
+    let mut irreversible = base.clone();
+    irreversible.tool = "assistant.runtime.request_approval".to_owned();
+    irreversible.args = json!({
+        "risk": "high",
+        "show_diff": false,
+        "scope_options": ["once"],
+        "point_of_no_return": true,
+    });
+    let barred = invoker
+        .invoke(&task_id, &irreversible)
+        .await
+        .expect("envelope");
+    assert!(!barred.ok, "an irreversible step must stay barred");
+    assert_eq!(
+        barred.error.as_ref().map(|error| error.code),
+        Some(assistant_protocol::ErrorCode::PolicyDenied)
+    );
+
+    let mut ordinary = base;
+    ordinary.tool = "assistant.runtime.request_approval".to_owned();
+    ordinary.args = json!({
+        "risk": "medium",
+        "show_diff": false,
+        "scope_options": ["once"],
+    });
+    let pending = invoker.invoke(&task_id, &ordinary).await.expect("envelope");
+    assert!(!pending.ok, "an un-approved step must not succeed");
+    assert_eq!(
+        pending.error.as_ref().map(|error| error.code),
+        Some(assistant_protocol::ErrorCode::UserInteraction),
+        "a well-formed request with no channel must report that it needs the human"
+    );
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        0,
+        "approval steps must never reach the model-visible tool bus"
+    );
+}
