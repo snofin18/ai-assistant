@@ -21,14 +21,18 @@
 
 | 编号 | 文件 | 状态 | 决策一句话 |
 |---|---|---|---|
+| **0016** | `0016-repository-lf-line-endings.draft.md` | **Draft** | 仓库文本统一 LF；`.gitattributes` + `rustfmt.toml` 双重声明，不依赖个人 `core.autocrlf` |
+| **0017** | `0017-deferred-implementations-must-fail-explicitly.draft.md` | **Draft** | 未实现项必须显式登记并显式失败；禁止占位成功或隐藏命令 |
 | 0018 | `0018-nightly-automation-delivery-mechanism.md` | Accepted → **Superseded**（by ADR-0029） | 夜间自动化 = Windows 任务计划程序 + `codex exec`（否决 heartbeat）。**已被 ADR-0029 取代**：机制改回 Codex 官方 scheduled tasks；本 ADR 的纪律性内容由章程 §11 v1.4 原样保留 |
 | 0019 | `0019-hard-gate-negative-verification.md` | Accepted | 硬门禁必须配「负向验证」（元门禁） |
+| **0020** | `0020-repository-license-mit-or-apache-2.0.draft.md` | **Draft** | 仓库采用 `MIT OR Apache-2.0` 双许可证；`LICENSE` / `NOTICE` / Cargo / deny 白名单保持一致 |
 | 0021 | `0021-memory-layering-and-app-profiles.md` | Accepted | `MEMORY.md` 只做 L0 索引，细节入 `docs/memory/` |
 | 0022 | `0022-windows-target-identity-and-uia-selector-stability.md` | Accepted | Windows 目标身份与 UIA selector 稳定性契约 |
 | 0023 | `0023-text-eol-normalization-contract.md` | Accepted | 文本进出口 EOL 归一化契约（规范形 = LF）+ 每应用习惯表 |
 | 0024 | `0024-spike-toolchain-dependencies-and-gate-coverage.md` | Accepted | Spike 工具链 / 依赖 / 门禁覆盖（`windows` crate UIA、`spike-deny`、`.ps1` 纯 ASCII） |
 | 0025 | `0025-hygiene-rule-count-unification.md` | Accepted → **Superseded**（by ADR-0030） | 仓库卫生规则总数 = 13（gov §5 表格行数为唯一事实源）— CI 门禁计数口径 = 17 行清单 ↔ 16 个步骤（7 硬 + 9 软）已被 ADR-0030 §决策 1 改为 18 行 ↔ 17 步骤 = 8 硬 + 9 软；supersede 关系 = 扩 #12b 子编号而非推翻（hygiene 13 项 SSOT 仍生效）（gov §5.4 表格行数为唯一事实源） |
 | 0026 | `0026-adr-number-registry-and-0019-collision.md` | Accepted | 建立本登记表 + 修正 0019 号双重占用（待建号 0019 → 0027；章程 W4 修正） |
+| **0027** | `0027-test-only-lint-allowlist.draft.md` | **Draft** | 三项 lint（`unwrap_used` / `expect_used` / `panic`）只允许在 `#[cfg(test)] mod tests` 豁免；产品代码不得按本决定放宽 |
 | 0028 | `0028-file-rewrite-mutex-protocol.md` | Accepted | 文件改写互斥锁协议（`xtask guard`：按文件加锁、等待、超时放弃、放弃必须通报） |
 | 0029 | `0029-nightly-automation-back-to-codex-scheduled-tasks.md` | Accepted | 夜间自动化的投递机制改回 **Codex 官方 scheduled tasks**（取代 ADR-0018 的任务计划程序方案） |
 | 0030 | `0030-machine-verified-memory-counts-and-adr-index.md` | Accepted | 「记忆规模计数」与「本登记表」由手工维护改为机器校验（`xtask memory-counts` / `adr-index`） |
@@ -67,11 +71,10 @@
 **下一个可用编号：0062**（= §1 与 §2 已用最大号 **0061** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
-**0027 不是可用号** —— 它是 §2 的**待建号**，已预留给「`#[allow]` 的唯一合法位置」那条决策
-（ADR-0026 D2，人类已于 2026-09-18 确认 → Accepted）。要引用它请写 `[ADR:待建 0027]`；
-要把它落成 ADR 文件，走章程 §13 的自动化工作单 **W4**（write scope 已含 0027）。
+**0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由
+`0027-test-only-lint-allowlist.draft.md` 落成 **Draft**，仍需人类批准后才转正式状态。
 
-> 编号**不连续是正常的**：0016 / 0017 / 0020 / 0027 都已被预留但还没写成文件（见 §2），所以 §1 里 0019 之后直接是 0021、0026 之后直接是 0028。
+> 编号**不连续是正常的**：本表只列已登记项；0016 / 0017 / 0020 / 0027 已由 W4 落成 Draft。
 
 ## 2. 已决定、但尚未写成 ADR 文件的编号（`[ADR:待建 NNNN]`）
 
@@ -96,10 +99,6 @@ gov §9.3 格式的完整 ADR 文件。引用它们时**必须写 `[ADR:待建 N
 | 0013 | 内部使用但按开源规范建设；`adapters/` 与 `adapters-private/` 第一天就分开 |
 | 0014 | 执行模式 = AI agent 实现 + 人类裁决 |
 | 0015 | 命名「一眼可懂」+ 受控词汇表；注释密度偏高，公共 API 100% 文档注释 |
-| 0016 | 全仓库统一 LF（`.gitattributes` + `rustfmt.toml`） |
-| 0017 | 未实现项必须显式登记 + 显式失败（xtask 未实现子命令退出码 3） |
-| 0020 | TASK-001 先落 MIT 单许可（可逆；M5 待人类在阶段 0 结束前确认） |
-| 0027 | （预留）`#[allow]` 的唯一合法位置 = `#[cfg(test)] mod tests`　**← 原编号 0019，见 §3** |
 
 **本表刻意不写「共 N 个待建号」** —— 那是一个会随追加漂移的派生计数（ADR-0030 的整条动机）。
 一致性由 `cargo run -p xtask -- adr-index` 保证：§2 的每个号都必须能在 `docs/memory/decisions.md`
