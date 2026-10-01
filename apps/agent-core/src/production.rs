@@ -34,11 +34,11 @@ use assistant_model_gateway::{
     CancellationToken, ModelProvider, ModelRouter, NoJitter, SystemMonotonicClock, ThreadSleeper,
 };
 use assistant_platform_api::{UiAutomationProvider, WindowProvider};
-use assistant_policy::{Decision, Effect, EgressDestination, Reversibility, RuleSet};
+use assistant_policy::RuleSet;
 use assistant_protocol::{ErrorCode, ToolSchema};
 use assistant_storage::Clock;
 use assistant_task_engine::{
-    Budget, MemoryCheckpointStore, Plan, PlanId, PlanStep, StepId, TaskEngine, TaskEvent, TaskId,
+    Budget, MemoryCheckpointStore, Plan, PlanId, StepId, TaskEngine, TaskEvent, TaskId,
     TaskSnapshot,
 };
 use assistant_tool_bus::ToolRegistry;
@@ -48,11 +48,11 @@ use crate::HostAssembly;
 use crate::assembly::{HostAssemblyInput, HostComponents};
 use crate::notepad_registry::{NotepadRegistryBuild, build_notepad_registry};
 use crate::notepad_targets::NotepadTargetCatalog;
+use crate::production_policy::CatalogStepPolicy;
 use crate::production_run::ProductionRun;
 use crate::production_support::{EmptyRetriever, NoopCompressor};
 use crate::runtime::{
     EnvelopeObservationCollector, RuntimeExecutionError, RuntimeExecutor, StepExecutionOutcome,
-    StepPolicy,
 };
 use crate::task_package::{TaskPackageError, TaskPackageProvider};
 use crate::ui_events::SnapshotEventSource;
@@ -375,7 +375,10 @@ where
         let mut executor = RuntimeExecutor::new(
             engine,
             policy,
-            crate::reserved_invoker::ReservedRuntimeInvoker::new(self.host.tool_bus()),
+            crate::reserved_invoker::ReservedRuntimeInvoker::new(
+                self.host.tool_bus(),
+                Arc::clone(&self.latest_snapshot),
+            ),
             EnvelopeObservationCollector,
         );
         let mut snapshots = Vec::with_capacity(steps.len());
@@ -498,55 +501,6 @@ where
         if let Ok(mut latest) = self.latest_snapshot.lock() {
             *latest = Some(snapshot.clone());
         }
-    }
-}
-
-struct CatalogStepPolicy {
-    rules: RuleSet,
-    catalog: BTreeMap<String, ToolSchema>,
-    target_app: String,
-}
-
-impl StepPolicy for CatalogStepPolicy {
-    fn decide(&self, step: &PlanStep) -> Result<Decision, RuntimeExecutionError> {
-        let metadata =
-            self.catalog
-                .get(&step.tool)
-                .ok_or_else(|| RuntimeExecutionError::Policy {
-                    reason: format!("tool `{}` is absent from the policy catalog", step.tool),
-                })?;
-        let context = assistant_policy::EvaluationContext {
-            effect: policy_effect(step.effect),
-            risk_level: metadata.risk_level,
-            reversibility: policy_reversibility(step.reversibility),
-            unattended: false,
-            tainted: false,
-            target_app: self.target_app.clone(),
-            egress: EgressDestination::None,
-        };
-        self.rules
-            .evaluate(&context)
-            .map_err(|error| RuntimeExecutionError::Policy {
-                reason: error.to_string(),
-            })
-    }
-}
-
-const fn policy_effect(effect: assistant_task_engine::StepEffect) -> Effect {
-    match effect {
-        assistant_task_engine::StepEffect::Read => Effect::Read,
-        _ => Effect::Write,
-    }
-}
-
-const fn policy_reversibility(
-    reversibility: assistant_task_engine::Reversibility,
-) -> Reversibility {
-    match reversibility {
-        assistant_task_engine::Reversibility::L0UndoStack => Reversibility::L0UndoStack,
-        assistant_task_engine::Reversibility::L1Snapshot => Reversibility::L1Snapshot,
-        assistant_task_engine::Reversibility::L2Compensation => Reversibility::L2Compensating,
-        _ => Reversibility::L3Irreversible,
     }
 }
 

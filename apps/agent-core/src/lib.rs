@@ -30,6 +30,7 @@ pub mod notepad_handlers;
 pub mod notepad_registry;
 pub mod notepad_targets;
 mod production;
+mod production_policy;
 mod production_run;
 pub mod production_support;
 mod reserved_invoker;

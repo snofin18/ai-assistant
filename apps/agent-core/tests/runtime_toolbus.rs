@@ -9,8 +9,8 @@
 
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 
 use assistant_agent_core::{
     EnvelopeObservationCollector, ReservedRuntimeInvoker, RuntimeExecutor, StepExecutionOutcome,
@@ -20,7 +20,8 @@ use assistant_policy::Decision;
 use assistant_protocol::{RiskLevel, ToolEffect, ToolReversibility, serde_json::json};
 use assistant_task_engine::{
     Budget, CheckpointPolicy, MemoryCheckpointStore, Plan, PlanId, PlanStep, Reversibility,
-    StepEffect, StepId, StepStatus, StepTimeouts, TaskEngine, TaskEvent, TaskId, TaskStatus,
+    StepEffect, StepId, StepStatus, StepTimeouts, TaskEngine, TaskEvent, TaskId, TaskSnapshot,
+    TaskStatus,
 };
 use assistant_tool_bus::{
     CallContext, MountSelection, SystemClock, ToolBus, ToolBusConfig, ToolBusError, ToolDefinition,
@@ -171,7 +172,8 @@ async fn test_real_plan_commits_through_real_mcp_tool_bus() {
 async fn test_reserved_runtime_tool_is_handled_locally_as_a_known_failure() {
     let calls = Arc::new(AtomicUsize::new(0));
     let bus = started_bus(Arc::clone(&calls)).await;
-    let invoker = ReservedRuntimeInvoker::new(&bus);
+    let snapshot: Arc<Mutex<Option<TaskSnapshot>>> = Arc::new(Mutex::new(None));
+    let invoker = ReservedRuntimeInvoker::new(&bus, snapshot);
 
     let plan = write_plan();
     let task_id = plan.task_id.clone();
@@ -183,11 +185,21 @@ async fn test_reserved_runtime_tool_is_handled_locally_as_a_known_failure() {
         .await
         .expect("a reserved step yields an envelope, not an unknown outcome");
 
-    assert!(!envelope.ok, "the reserved executor is not implemented yet");
+    assert!(
+        !envelope.ok,
+        "no published snapshot means verify cannot pass"
+    );
     assert_eq!(
         envelope.error.as_ref().map(|error| error.code),
-        Some(assistant_protocol::ErrorCode::CapabilityMissing),
-        "an unimplemented reserved executor must fail with a stable ErrorCode"
+        Some(assistant_protocol::ErrorCode::VerifyFailed),
+        "a verify step with no snapshot must fail with a stable ErrorCode"
+    );
+    assert!(
+        envelope
+            .error
+            .as_ref()
+            .is_some_and(|error| error.message.contains("no task snapshot")),
+        "the refusal must say why, not fail silently"
     );
     assert_eq!(
         calls.load(Ordering::SeqCst),
