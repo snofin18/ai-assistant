@@ -143,6 +143,14 @@ cargo fmt --all --check                                  → clean
 
 **注意**：handler（`notepad.tab.new`）**还没消费**这个 target，所以它仍然 fail-closed —— 本轮只把"能声明"这一步做完。
 
+**B 片第 2 步（2026-10-01）：`notepad.tab.new` 消费 `tab_count`**
+
+`NewTabHandler` 从单元结构改成与其他 handler 同形的 `NewTabHandler<P>{ context }`；新增 `NotepadHandlerContext::new_tab_output()`：解析 `tab_count` → 读 `Tabs: N` → 解析 `add_tab_button` 并 invoke → 再读一次 → **断言恰好 +1**，否则报 `-32_004`（VerifyFailed）并带 before/after；成功后回指纹。配套纯函数 `parse_tab_count()`：`Tabs: <n>` 之外一律 `-32_601`（CapabilityMissing）。旧的无条件 fail-closed 自由函数已删除，其单元用例替换为 `parse_tab_count` 的正/负两条。
+
+**适配包没声明 `tab_count` 时**：`resolve_element` 会以该 target 名报错（fail-closed），**不会**在动作前编造计数，也不会假装成功 —— 这正是"可选 target"想要的语义。
+
+**仍未证明**：本步只做到了"能编译 + 纯函数有单测 + 全量测试与 UIA 干跑不回归"；**`notepad.tab.new` 尚未经端到端跑通**（T1.3 的 Plan 仍渲染不了，见 ADR-0059 执行侧未做）。端到端证据待 B 片第 3 步之后补。
+
 **DRIFT-216-1（A 片的一处取舍：空输入表仍报 `UnboundArguments`）**
 
 1. **现象**：有了输入绑定层之后，"参数里还有 `$input.`"其实有两种含义 —— ① 调用方**根本没给**输入；② 给了输入但**这个键缺失**。
