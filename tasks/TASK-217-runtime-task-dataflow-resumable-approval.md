@@ -165,6 +165,7 @@ cargo deny check                                 → advisories / bans / license
 - **ADR-0061 修订 3**：保留工具名必须是三段式。`assistant.runtime.pure.*` 被 Planner 正确拒绝，改为 `assistant.runtime.pure_*` / `assistant.runtime.host_*`。
 - **实现取舍**：T1.1 的 `count_lines_and_keyword_paragraphs` 未声明文本输入且输出无人消费，继续作为“声明但不执行”，避免伪造分析结果。
 - **策略桥接**：保留运行时工具在 policy 适配器里按低风险内部控制操作建模；普通应用写工具仍走原策略。已提交的 `request_approval` 只为**下一个写步骤**打开一次策略窗口，避免重复确认或无限授权。
+- **CI 环境修正（跨卡）**：GitHub runner 的 Rust 1.99 新增 `clippy::assert_is_empty`，打红了 `crates/lease/tests/lease_contract.rs` 与 `crates/undo/tests/rollback_contract.rs` 的既有断言。本 slice 把 4 处 `.is_empty()` 断言改为显式 `len() == 0`，避免把已知红灯 PR 合入 `main`；本地 Rust 1.98 与 workflow 均通过。
 
 ### 6. 更合理做法
 

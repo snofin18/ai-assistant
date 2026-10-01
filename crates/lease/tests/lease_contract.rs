@@ -257,7 +257,7 @@ fn test_user_preemption_releases_all_matching_active_leases()
 
     let report = manager.preempt_for_user(&target, 200)?;
     assert_eq!(report.preempted(), &[shared, intent]);
-    assert!(report.expired().is_empty());
+    assert_eq!(report.expired().len(), 0);
     assert_eq!(manager.stored_lease_count(), 1);
     assert_eq!(manager.get(unrelated.id()), Some(unrelated));
     Ok(())

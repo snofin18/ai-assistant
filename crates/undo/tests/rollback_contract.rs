@@ -289,7 +289,7 @@ fn test_user_change_blocks_execution_by_default() -> Result<(), Box<dyn std::err
         outcome.incident().map(IncidentReport::kind),
         Some(IncidentKind::ConflictSuspected)
     ));
-    assert!(executor.recorded_actions().is_empty());
+    assert_eq!(executor.recorded_actions().len(), 0);
     Ok(())
 }
 
@@ -327,7 +327,7 @@ fn test_missing_evidence_blocks_even_restore_overall() -> Result<(), Box<dyn std
         outcome.incident().map(IncidentReport::kind),
         Some(IncidentKind::ConflictEvidenceMissing)
     );
-    assert!(executor.recorded_actions().is_empty());
+    assert_eq!(executor.recorded_actions().len(), 0);
     Ok(())
 }
 
@@ -398,7 +398,7 @@ fn test_already_at_anchor_is_idempotent_without_actions() -> Result<(), Box<dyn 
     );
     let outcome = execute_rollback(&request, &executor)?;
     assert!(matches!(outcome, RollbackOutcome::AlreadyAtAnchor { .. }));
-    assert!(executor.recorded_actions().is_empty());
+    assert_eq!(executor.recorded_actions().len(), 0);
     Ok(())
 }
 
