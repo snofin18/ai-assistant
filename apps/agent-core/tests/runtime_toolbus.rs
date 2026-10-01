@@ -207,3 +207,41 @@ async fn test_reserved_runtime_tool_is_handled_locally_as_a_known_failure() {
         "a reserved tool must never reach the model-visible tool bus"
     );
 }
+
+/// ADR-0059 D3: an irreversible step cannot be anchored. `prepare_anchors` must
+/// refuse **before** anything executes - that refusal is the whole point of the
+/// step, so it is asserted rather than assumed.
+#[tokio::test]
+async fn test_prepare_anchors_refuses_an_irreversible_level() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let bus = started_bus(Arc::clone(&calls)).await;
+    let snapshot: Arc<Mutex<Option<TaskSnapshot>>> = Arc::new(Mutex::new(None));
+    let invoker = ReservedRuntimeInvoker::new(&bus, snapshot);
+
+    let plan = write_plan();
+    let task_id = plan.task_id.clone();
+    let mut step = plan.steps.first().expect("one step").clone();
+    step.tool = "assistant.runtime.prepare_anchors".to_owned();
+    step.args = json!({
+        "replace_recipe": "l1_snapshot",
+        "save_recipe": "l1_snapshot",
+        "required_levels": ["l1_snapshot", "l3_irreversible"],
+    });
+
+    let envelope = invoker
+        .invoke(&task_id, &step)
+        .await
+        .expect("a reserved step yields an envelope");
+
+    assert!(!envelope.ok, "an irreversible step must not be anchored");
+    assert_eq!(
+        envelope.error.as_ref().map(|error| error.code),
+        Some(assistant_protocol::ErrorCode::PolicyDenied),
+        "the refusal must be a policy decision, not a generic failure"
+    );
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        0,
+        "the refusal must happen before any tool call"
+    );
+}
