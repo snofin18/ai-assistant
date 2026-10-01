@@ -39,6 +39,14 @@ pub(crate) const SAVE_AS_DIALOG_TARGET: &str = "save_as_dialog";
 pub(crate) const SAVE_AS_FILENAME_TARGET: &str = "save_as_filename";
 /// Save-as final button target id.
 pub(crate) const SAVE_AS_SAVE_BUTTON_TARGET: &str = "save_as_save_button";
+/// Tab-count readout target id.
+///
+/// Unlike the six targets above this one is **optional**: the real Notepad pack
+/// exposes no stable tab-count element, so requiring it would force that pack to
+/// declare a bogus target. An adapter that declares it gets tab-count
+/// observation; one that does not keeps failing closed, and the error names the
+/// missing declaration instead of inventing a number.
+pub(crate) const TAB_COUNT_TARGET: &str = "tab_count";
 
 const REQUIRED_TARGETS: &[&str] = &[
     MAIN_WINDOW_TARGET,
@@ -48,6 +56,12 @@ const REQUIRED_TARGETS: &[&str] = &[
     SAVE_AS_FILENAME_TARGET,
     SAVE_AS_SAVE_BUTTON_TARGET,
 ];
+
+/// Targets an adapter may declare without being required to.
+///
+/// Declaring one opts that adapter into the capability; the loader validates it
+/// exactly like a required target when present.
+const OPTIONAL_TARGETS: &[&str] = &[TAB_COUNT_TARGET];
 
 /// Failure to load the target descriptor package.
 #[derive(Debug, Error)]
@@ -128,6 +142,19 @@ impl NotepadTargetCatalog {
                 return Err(TargetCatalogError::MissingTarget {
                     target: (*required).to_owned(),
                 });
+            }
+        }
+        // Optional targets are validated when an adapter declares them. Their
+        // absence is not an error: it means "this adapter offers no observation
+        // for that capability", and the caller must fail closed rather than
+        // fabricate one.
+        for optional in OPTIONAL_TARGETS {
+            if let Some(descriptor) = descriptors.get(*optional) {
+                descriptor
+                    .validate()
+                    .map_err(|error| TargetCatalogError::Malformed {
+                        reason: format!("optional target `{optional}`: {error}"),
+                    })?;
             }
         }
         for descriptor in descriptors.values() {

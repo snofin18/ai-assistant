@@ -86,6 +86,19 @@
           "locale_dependent": false
         }
       ]
+    },
+    {
+      "id": "tab_count",
+      "scope": "element",
+      "candidates": [
+        {
+          "id": "fixture-tab-count-aid",
+          "kind": "automation_id",
+          "value": {"text": "TabCountText"},
+          "score": 1.0,
+          "locale_dependent": false
+        }
+      ]
     }
   ]
 }
