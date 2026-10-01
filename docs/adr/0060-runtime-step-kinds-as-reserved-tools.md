@@ -1,6 +1,6 @@
 # ADR-0060　`hitl` / `host_service` / `verify` 以「保留运行时工具」落地
 
-状态：**Proposed**（待人类接受；接受前不得据本 ADR 写执行器）
+状态：**Accepted**（2026-10-01 人类确认接受；TASK-216 B 片第 3b 步解锁）
 日期：2026-10-01
 Supersedes：—
 Superseded by：—
