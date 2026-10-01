@@ -17,11 +17,22 @@ fn t1_1_package_path() -> std::path::PathBuf {
         .join("../../adapters/com.microsoft.notepad/tasks/t1.1.open-read-full-text.json")
 }
 
+fn t1_1_inputs() -> serde_json::Map<String, Value> {
+    inputs(&[
+        ("file_size_bytes", json!(10)),
+        ("max_text_bytes", json!(1024)),
+        ("input.keywords", json!(["report"])),
+        ("input.max_keyword_paragraphs", json!(50)),
+    ])
+}
+
 #[test]
 fn test_t1_1_package_renders_identical_plan_twice() {
     let path = t1_1_package_path();
-    let first = TaskPackageProvider::from_package_file(&path).expect("first render");
-    let second = TaskPackageProvider::from_package_file(&path).expect("second render");
+    let first = TaskPackageProvider::from_package_file_with_inputs(&path, &t1_1_inputs())
+        .expect("first render");
+    let second = TaskPackageProvider::from_package_file_with_inputs(&path, &t1_1_inputs())
+        .expect("second render");
 
     assert_eq!(
         first.plan_json(),
@@ -33,16 +44,18 @@ fn test_t1_1_package_renders_identical_plan_twice() {
 
 #[test]
 fn test_t1_1_plan_only_contains_tool_steps() {
-    let provider = TaskPackageProvider::from_package_file(&t1_1_package_path()).expect("render");
+    let provider =
+        TaskPackageProvider::from_package_file_with_inputs(&t1_1_package_path(), &t1_1_inputs())
+            .expect("render");
     let plan: Value = serde_json::from_str(provider.plan_json()).expect("plan is JSON");
     let steps = plan
         .get("steps")
         .and_then(Value::as_array)
         .expect("plan has a steps array");
 
-    // T1.1 declares a platform precondition, a tool step, an L1 file channel,
-    // and a pure analysis step. Only the tool step is executable today.
-    assert_eq!(steps.len(), 1, "只有 kind=tool 的步骤进入 Plan");
+    // T1.1's platform precondition, L1 file channel, and non-consumed pure
+    // analysis step stay out of the Plan; only the read tool executes.
+    assert_eq!(steps.len(), 1, "only the read tool enters the Plan");
     assert_eq!(
         steps
             .first()
@@ -54,7 +67,9 @@ fn test_t1_1_plan_only_contains_tool_steps() {
 
 #[test]
 fn test_rendered_postconditions_are_accepted_by_verify() {
-    let provider = TaskPackageProvider::from_package_file(&t1_1_package_path()).expect("render");
+    let provider =
+        TaskPackageProvider::from_package_file_with_inputs(&t1_1_package_path(), &t1_1_inputs())
+            .expect("render");
     let plan: Value = serde_json::from_str(provider.plan_json()).expect("plan is JSON");
     let Some(steps) = plan.get("steps").and_then(Value::as_array) else {
         panic!("plan must contain steps");
@@ -107,7 +122,10 @@ fn test_replace_text_assertion_uses_the_declared_new_text() {
 fn test_package_without_tool_steps_is_rejected() {
     let package = json!({
         "task_id": "notepad.empty",
-        "steps": [{"id": "analyze", "kind": "pure", "operation": "count_lines"}],
+        "steps": [
+            {"id": "open", "kind": "platform", "operation": "platform_open_file"},
+            {"id": "read_file", "kind": "l1_file", "operation": "read_utf8"}
+        ],
     })
     .to_string();
 
@@ -207,7 +225,9 @@ fn test_t1_2_package_renders_with_reserved_runtime_tools() {
 /// The four kinds owned elsewhere are **recorded**, not silently dropped.
 #[test]
 fn test_t1_1_plan_records_the_declared_not_executed_kinds() {
-    let provider = TaskPackageProvider::from_package_file(&t1_1_package_path()).expect("render");
+    let provider =
+        TaskPackageProvider::from_package_file_with_inputs(&t1_1_package_path(), &t1_1_inputs())
+            .expect("render");
     let kinds: Vec<&str> = provider
         .declared_not_executed()
         .iter()
@@ -289,7 +309,9 @@ fn test_unsupported_reference_is_rejected() {
 
 #[test]
 fn test_stream_emits_plan_json_then_usage_then_stop() {
-    let provider = TaskPackageProvider::from_package_file(&t1_1_package_path()).expect("render");
+    let provider =
+        TaskPackageProvider::from_package_file_with_inputs(&t1_1_package_path(), &t1_1_inputs())
+            .expect("render");
     let request = CompletionRequest::new(
         vec![Message::new(MessageRole::User, "open and read")],
         Vec::new(),

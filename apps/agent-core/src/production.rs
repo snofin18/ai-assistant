@@ -42,6 +42,7 @@ use assistant_task_engine::{
     TaskSnapshot,
 };
 use assistant_tool_bus::ToolRegistry;
+use serde_json::{Map, Value};
 use thiserror::Error;
 
 use crate::HostAssembly;
@@ -49,12 +50,14 @@ use crate::approval_grants::ApprovalGrants;
 use crate::assembly::{HostAssemblyInput, HostComponents};
 use crate::notepad_registry::{NotepadRegistryBuild, build_notepad_registry};
 use crate::notepad_targets::NotepadTargetCatalog;
-use crate::production_policy::CatalogStepPolicy;
+use crate::production_policy::{ApprovalWindows, CatalogStepPolicy};
 use crate::production_run::ProductionRun;
 use crate::production_support::{EmptyRetriever, NoopCompressor};
 use crate::runtime::{
     EnvelopeObservationCollector, RuntimeExecutionError, RuntimeExecutor, StepExecutionOutcome,
 };
+use crate::runtime_binding::{BindingInvoker, RuntimeBindingState};
+use crate::runtime_host_ops::ReservedHostOperations;
 use crate::task_package::{TaskPackageError, TaskPackageProvider};
 use crate::ui_events::SnapshotEventSource;
 use crate::ui_server::UiServerConfig;
@@ -73,6 +76,8 @@ pub struct ProductionConfig {
     pub adapter_root: PathBuf,
     /// The task package that supplies the deterministic 1a Plan.
     pub task_package_path: PathBuf,
+    /// Explicit task inputs keyed by the reference name without the leading `$`.
+    pub task_inputs: Map<String, Value>,
     /// UI listener settings. The caller must provide a token and peer allow-list.
     pub ui_config: UiServerConfig,
 }
@@ -90,8 +95,16 @@ impl ProductionConfig {
             data_root: data_root.into(),
             adapter_root: adapter_root.into(),
             task_package_path: task_package_path.into(),
+            task_inputs: Map::new(),
             ui_config,
         }
+    }
+
+    /// Adds explicit task inputs used while rendering the deterministic Plan.
+    #[must_use]
+    pub fn with_task_inputs(mut self, inputs: Map<String, Value>) -> Self {
+        self.task_inputs = inputs;
+        self
     }
 }
 
@@ -177,6 +190,8 @@ pub struct ProductionHost<P> {
     latest_snapshot: Arc<Mutex<Option<TaskSnapshot>>>,
     clock: Arc<dyn Clock>,
     approvals: Arc<ApprovalGrants>,
+    host_operations: Arc<dyn ReservedHostOperations>,
+    task_inputs: Map<String, Value>,
     ui_config: UiServerConfig,
 }
 
@@ -206,6 +221,7 @@ where
             }
         })?;
     let tool_catalog = registry_build.tool_schemas.clone();
+    let host_operations = Arc::clone(&registry_build.host_operations);
     let policy_catalog = tool_catalog
         .iter()
         .map(|schema| (schema.name.clone(), schema.clone()))
@@ -253,6 +269,8 @@ where
         latest_snapshot: Arc::new(Mutex::new(None)),
         clock,
         approvals: Arc::new(ApprovalGrants::new()),
+        host_operations,
+        task_inputs: config.task_inputs.clone(),
         ui_config: config.ui_config,
     })
 }
@@ -289,7 +307,10 @@ where
         reason: error.to_string(),
     })?;
     validate_registry_not_empty(&registry_build.registry)?;
-    let provider = TaskPackageProvider::from_package_file(&config.task_package_path)?;
+    let provider = TaskPackageProvider::from_package_file_with_inputs(
+        &config.task_package_path,
+        &config.task_inputs,
+    )?;
     Ok((targets, registry_build, provider))
 }
 
@@ -361,7 +382,7 @@ where
         let steps = plan
             .ordered_steps()
             .into_iter()
-            .map(|step| step.id.clone())
+            .map(|step| (step.id.clone(), step.sequence, step.tool.clone()))
             .collect::<Vec<_>>();
         let mut engine = TaskEngine::new(MemoryCheckpointStore::new());
         engine.create_task(plan, now_ms)?;
@@ -372,26 +393,54 @@ where
         )?;
         engine.apply_task_event(&task_id, TaskEvent::ApprovePlan, now_ms.saturating_add(2))?;
 
+        let approval_windows = ApprovalWindows::default();
         let policy = CatalogStepPolicy {
             rules: self.host.policy().clone(),
             catalog: self.policy_catalog.clone(),
             target_app: self.app_id.clone(),
+            approvals: approval_windows.clone(),
         };
+        let binding_state = Arc::new(Mutex::new(RuntimeBindingState::new(
+            self.task_inputs.clone(),
+        )));
+        let reserved = crate::reserved_invoker::ReservedRuntimeInvoker::new(
+            self.host.tool_bus(),
+            Arc::clone(&self.latest_snapshot),
+        )
+        .with_approvals(Arc::clone(&self.approvals), Arc::clone(&self.clock))
+        .with_host_operations(Arc::clone(&self.host_operations));
+        let binding_invoker = BindingInvoker::new(
+            reserved,
+            Arc::new(self.provider.dataflow_plan().clone()),
+            Arc::clone(&binding_state),
+            Arc::clone(&self.latest_snapshot),
+        );
         let mut executor = RuntimeExecutor::new(
             engine,
             policy,
-            crate::reserved_invoker::ReservedRuntimeInvoker::new(
-                self.host.tool_bus(),
-                Arc::clone(&self.latest_snapshot),
-            )
-            .with_approvals(Arc::clone(&self.approvals), Arc::clone(&self.clock)),
+            binding_invoker,
             EnvelopeObservationCollector,
         );
         let mut snapshots = Vec::with_capacity(steps.len());
-        for step_id in steps {
+        for (step_id, sequence, tool) in steps {
             let outcome = executor
                 .advance(&task_id, &step_id, now_ms.saturating_add(3))
                 .await?;
+            let committed = matches!(&outcome, StepExecutionOutcome::Committed(_));
+            let mut state = binding_state.lock().map_err(|_| {
+                ProductionError::Runtime(RuntimeExecutionError::Tool {
+                    reason: "runtime binding state is unavailable".to_owned(),
+                })
+            })?;
+            if committed {
+                state.commit(step_id.as_str());
+            } else {
+                state.discard(step_id.as_str());
+            }
+            drop(state);
+            if committed && tool == crate::runtime_tools::TOOL_REQUEST_APPROVAL {
+                approval_windows.record(sequence)?;
+            }
             self.apply_step_outcome(outcome, &mut snapshots, &step_id, &task_id)?;
         }
         let engine = executor.into_engine();

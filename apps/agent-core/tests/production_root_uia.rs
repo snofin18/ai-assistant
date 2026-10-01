@@ -123,12 +123,22 @@ async fn test_production_t1_1_dry_run_over_real_uia() -> Result<(), Box<dyn std:
         Duration::from_secs(2),
     )
     .with_allowed_peer("C:\\fixture\\peer.exe");
+    let task_inputs = serde_json::json!({
+        "file_size_bytes": 10,
+        "max_text_bytes": 1024,
+        "input.keywords": ["report"],
+        "input.max_keyword_paragraphs": 50,
+    })
+    .as_object()
+    .cloned()
+    .expect("task input object");
     let config = ProductionConfig::new(
         directory.path.join("data"),
         adapter_root,
         workspace_root().join("adapters/com.microsoft.notepad/tasks/t1.1.open-read-full-text.json"),
         ui_config,
-    );
+    )
+    .with_task_inputs(task_inputs);
     let host =
         assemble_production_host(config, WindowsPlatform::new(), Arc::new(SystemClock)).await?;
     let plan = host.plan_task()?;

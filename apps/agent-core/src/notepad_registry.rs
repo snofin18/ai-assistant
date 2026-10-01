@@ -28,6 +28,7 @@ use thiserror::Error;
 
 use crate::notepad_handlers::{NotepadHandlerContext, build_handler_map};
 use crate::notepad_targets::NotepadTargetCatalog;
+use crate::runtime_host_ops::ReservedHostOperations;
 
 /// Tool name for reading the active document.
 pub(crate) const TOOL_READ_TEXT: &str = "notepad.file.read_text";
@@ -84,6 +85,7 @@ pub(crate) enum NotepadRegistryError {
 pub(crate) struct NotepadRegistryBuild {
     pub(crate) registry: ToolRegistry,
     pub(crate) tool_schemas: Vec<ToolSchema>,
+    pub(crate) host_operations: Arc<dyn ReservedHostOperations>,
 }
 
 /// Builds the five declared Notepad tools and their Host handlers.
@@ -127,6 +129,9 @@ where
         app_id: declared.app_id.clone(),
         targets,
     });
+    let host_operations = Arc::new(NotepadReservedHostOperations {
+        context: Arc::clone(&context),
+    });
     let handlers = build_handler_map(&context);
     let mut registry = ToolRegistry::new();
     let mut tool_schemas = Vec::with_capacity(declared.tools.len());
@@ -156,13 +161,7 @@ where
         registry.register(tool_definition(&schema)?, handler)?;
         tool_schemas.push(schema);
     }
-    if names.len() != EXPECTED_TOOL_NAMES.len() {
-        let missing = EXPECTED_TOOL_NAMES
-            .iter()
-            .filter(|name| !names.contains(**name))
-            .copied()
-            .collect::<Vec<_>>()
-            .join(", ");
+    if let Some(missing) = missing_production_tools(&names) {
         return Err(NotepadRegistryError::Malformed {
             reason: format!("missing production tools: {missing}"),
         });
@@ -178,7 +177,39 @@ where
     Ok(NotepadRegistryBuild {
         registry,
         tool_schemas,
+        host_operations,
     })
+}
+
+fn missing_production_tools(names: &BTreeSet<String>) -> Option<String> {
+    let missing = EXPECTED_TOOL_NAMES
+        .iter()
+        .filter(|name| !names.contains(**name))
+        .copied()
+        .collect::<Vec<_>>()
+        .join(", ");
+    (!missing.is_empty()).then_some(missing)
+}
+
+struct NotepadReservedHostOperations<P> {
+    context: Arc<NotepadHandlerContext<P>>,
+}
+
+impl<P> ReservedHostOperations for NotepadReservedHostOperations<P>
+where
+    P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
+{
+    fn inspect_target_path(&self, target_path: &str) -> Result<Value, String> {
+        self.context
+            .inspect_target_path_data(target_path)
+            .map_err(|error| error.to_string())
+    }
+
+    fn set_editor_value(&self, text: &str) -> Result<Value, String> {
+        self.context
+            .set_editor_value_data(text)
+            .map_err(|error| error.to_string())
+    }
 }
 
 fn tool_definition(schema: &ToolSchema) -> Result<ToolDefinition, ToolBusError> {

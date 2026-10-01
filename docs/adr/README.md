@@ -62,7 +62,7 @@
 | **0058** | `0058-production-composition-root-and-plan-source.md` | **Accepted** | 生产装配根由 `apps/agent-core` binary 层独占；阶段 1a 的 Plan 来源 = 确定性「任务包 → Plan」`ModelProvider`（不是 LLM，真实 LLM 归 1c 前 + M3）；Notepad Host handler 在 binary 层实现并注册进 `ToolBus`；**2026-09-30 人类确认接受 → TASK-214 解锁** |
 | **0059** | `0059-runtime-executes-hitl-and-rollback-steps.md` | **Accepted** | 1a 运行时**真的执行** `hitl` / `host_service` / `verify` 三类步骤（`request_approval` → HITL、`prepare_rollback_anchors` → Undo 锚点、任务包 `set` 级断言），`point_of_no_return` 按声明生效；未实现的步骤种类一律 fail-closed，**禁止**继续"静默跳过非 tool 步骤"；**2026-10-01 人类确认接受 → TASK-216 B 片解锁**（DRIFT-105-3） |
 | **0060** | `0060-runtime-step-kinds-as-reserved-tools.md` | **Accepted** | 三类步骤以「**保留运行时工具**」落地：`assistant.runtime.request_approval` / `prepare_anchors` / `verify_postconditions`，**只进 Planner 目录、不进模型可见挂载集**（模型不得直接调审批）；`render_plan()` 按 kind 映射；handler 走 `crates/hitl` / `crates/undo` / receipt 断言；**不改 `PlanStep` 与 `task-engine` 公共形状**；`verify` 的 `set` = "此前所有 tool 步骤已验证提交"，不引入断言 DSL；**2026-10-01 人类确认接受 → B 片第 3b 步解锁** |
-| **0061** | `0061-runtime-task-dataflow-and-resumable-approval.md` | **Proposed** | 运行时任务包数据流：整值 `$name` 上下文、提交后发布 step outputs、闭集 `pure` operation、按 `(kind, operation)` 分派 host_service、仅布尔引用 `when`、审批暂停/恢复；**不改 PlanStep/task-engine 形状、不引入表达式语言**（`DRIFT-216-4`） |
+| **0061** | `0061-runtime-task-dataflow-and-resumable-approval.md` | **Accepted** | 运行时任务包数据流：整值 `$name` 上下文、提交后发布 step outputs、闭集 `pure` operation、按 `(kind, operation)` 分派 host_service、封闭谓词 `when`、审批暂停/恢复；**不改 PlanStep/task-engine 形状、不引入任意表达式语言**（`DRIFT-216-4`；D8 已按现成 T1.1/T1.3 声明修订） |
 
 **下一个可用编号：0062**（= §1 与 §2 已用最大号 **0061** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。

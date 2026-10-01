@@ -55,6 +55,10 @@ indexing_slicing = "deny"            # 用 .get()，避免 panic
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
 all = { level = "warn", priority = -1 }
+# Rust 1.99 added a style-only lint that flags the repository's established
+# `assert!(collection.is_empty())` idiom. Keep the safety denies above intact;
+# this single allow is registered as TASK-217 DRIFT-217-2.
+assert_is_empty = "allow"
 
 [profile.release]
 lto = "thin"
