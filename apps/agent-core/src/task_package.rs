@@ -120,6 +120,32 @@ pub enum TaskPackageError {
         reference: String,
     },
 
+    /// A step kind inside the runtime coverage set that has no executor yet.
+    #[error(
+        "task package `{task_id}` step `{step_id}` uses kind `{kind}`, which ADR-0059 puts in the runtime coverage set but no executor implements yet (CapabilityMissing)"
+    )]
+    UnexecutedStepKind {
+        /// Declared task identifier.
+        task_id: String,
+        /// Declared step identifier.
+        step_id: String,
+        /// The step kind.
+        kind: String,
+    },
+
+    /// A step kind outside every declared set.
+    #[error(
+        "task package `{task_id}` step `{step_id}` uses unknown kind `{kind}`; the closed set is `tool`/`hitl`/`host_service`/`verify` plus the declared-not-executed kinds (ToolInvalidArgs)"
+    )]
+    UnknownStepKind {
+        /// Declared task identifier.
+        task_id: String,
+        /// Declared step identifier.
+        step_id: String,
+        /// The step kind.
+        kind: String,
+    },
+
     /// A tool step has no entry in the 1a assertion table.
     #[error(
         "task package `{task_id}` step `{step_id}` calls `{tool}`, which the 1a assertion table does not cover"
@@ -168,6 +194,7 @@ pub struct TaskPackageProvider {
     task_id: TaskId,
     goal: String,
     plan_json: String,
+    declared_not_executed: Vec<Value>,
 }
 
 impl TaskPackageProvider {
@@ -222,13 +249,14 @@ impl TaskPackageProvider {
             ModelId::new(TASK_PACKAGE_MODEL_ID).map_err(|error| TaskPackageError::Malformed {
                 reason: error.to_string(),
             })?;
-        let plan_json = render_plan(&package, inputs)?;
+        let (plan_json, declared_not_executed) = render_plan(&package, inputs)?;
         Ok(Self {
             model_id,
             declared_task_id,
             task_id,
             goal,
             plan_json,
+            declared_not_executed,
         })
     }
 
@@ -250,6 +278,17 @@ impl TaskPackageProvider {
     #[must_use]
     pub fn plan_json(&self) -> &str {
         &self.plan_json
+    }
+
+    /// Returns the package steps this runtime does **not** execute.
+    ///
+    /// ADR-0059 (D6 as amended) keeps four kinds - `platform`, `l1_file`, `pure`
+    /// and `policy` - owned elsewhere. They are reported here rather than inside
+    /// the plan JSON, because the Planner accepts exactly one field (`steps`) and
+    /// rejects anything else; the assembly point can log them instead.
+    #[must_use]
+    pub fn declared_not_executed(&self) -> &[Value] {
+        &self.declared_not_executed
     }
 
     /// Returns the task identifier declared by the package.
@@ -342,12 +381,36 @@ impl CompletionStream for TaskPackageStream {
 fn render_plan(
     package: &DeclaredPackage,
     inputs: &serde_json::Map<String, Value>,
-) -> Result<String, TaskPackageError> {
+) -> Result<(String, Vec<Value>), TaskPackageError> {
     let mut steps = Vec::new();
+    let mut declared_not_executed = Vec::new();
     let mut sequence: u32 = 1;
     for step in &package.steps {
-        if step.kind != "tool" {
-            continue;
+        // ADR-0059 (D6 as amended 2026-10-01): the runtime coverage set is the
+        // closed set `tool` / `hitl` / `host_service` / `verify` plus the four
+        // kinds explicitly owned elsewhere. Anything outside the closed set
+        // fails closed, and the coverage-set kinds without an executor fail
+        // closed too, so no step is ever skipped silently.
+        match step.kind.as_str() {
+            "tool" => {}
+            "hitl" | "host_service" | "verify" => {
+                return Err(TaskPackageError::UnexecutedStepKind {
+                    task_id: package.task_id.clone(),
+                    step_id: step.id.clone(),
+                    kind: step.kind.clone(),
+                });
+            }
+            "platform" | "l1_file" | "pure" | "policy" => {
+                declared_not_executed.push(json!({ "id": step.id, "kind": step.kind }));
+                continue;
+            }
+            other => {
+                return Err(TaskPackageError::UnknownStepKind {
+                    task_id: package.task_id.clone(),
+                    step_id: step.id.clone(),
+                    kind: other.to_owned(),
+                });
+            }
         }
         let Some(tool) = step.tool.as_deref() else {
             return Err(TaskPackageError::Malformed {
@@ -386,9 +449,15 @@ fn render_plan(
             task_id: package.task_id.clone(),
         });
     }
-    serde_json::to_string(&json!({ "steps": steps })).map_err(|error| TaskPackageError::Malformed {
-        reason: error.to_string(),
-    })
+    // The model output carries exactly one field (`steps`); the Planner rejects
+    // anything else, so the not-executed kinds travel back out of band instead of
+    // being smuggled into the plan.
+    let plan_json = serde_json::to_string(&json!({ "steps": steps })).map_err(|error| {
+        TaskPackageError::Malformed {
+            reason: error.to_string(),
+        }
+    })?;
+    Ok((plan_json, declared_not_executed))
 }
 
 /// Resolves the step arguments against the supplied task inputs.

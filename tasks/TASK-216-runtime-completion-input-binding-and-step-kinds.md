@@ -126,7 +126,8 @@ cargo fmt --all --check                                  → clean
 
 ### 4. DoD 逐条核对
 
-- [x] A 片：任务输入绑定层落地，T1.2 任务包能被渲染成合法 Plan（无 `$input.` 残留）—— **已做**（T1.3 待 B 片 `tab.new` 生效后一并验证）
+- [x] A 片：任务输入绑定层落地（无 `$input.` 残留）—— **已做**（`MissingInput` / `UnsupportedReference` 负向用例齐备）
+- [x] ~~A 片：T1.2 任务包能被渲染成合法 Plan~~ —— **已被 B 片第 3 步推翻，见 §5 `DRIFT-216-3`**：绑定层本身没问题，但 T1.2 现在因 `host_service` 无执行器而**应当** fail-closed。原断言作废，改成 `test_t1_2_package_fails_closed_on_unexecuted_step_kinds`。
 - [x] A 片：未知引用 / 缺失输入 → 构造期 fail-closed，各有负向用例 —— **已做**（`MissingInput` / `UnsupportedReference` 各一）
 - [x] B 片：ADR-0059 落地 —— **已做**（2026-10-01 人类确认接受）
 - [ ] B 片：按 ADR-0059 执行，并给出对应证据 —— **未做**
@@ -152,6 +153,13 @@ cargo fmt --all --check                                  → clean
 **仍未证明**：本步只做到了"能编译 + 纯函数有单测 + 全量测试与 UIA 干跑不回归"；**`notepad.tab.new` 尚未经端到端跑通**（T1.3 的 Plan 仍渲染不了，见 ADR-0059 执行侧未做）。端到端证据待 B 片第 3 步之后补。
 
 **DRIFT-216-2（ADR-0059 D6 照字面实现会打断 T1.1 —— 需要人类裁决覆盖集合）**
+
+**DRIFT-216-3（自伤：把"未执行种类"塞进模型输出，打红了 3 个生产测试）**
+
+1. **现象**：B 片第 3 步第一版把 `declared_not_executed` 数组写进渲染出的 Plan JSON。`cargo test -p assistant-agent-core --test production_root` 立刻两条红：`Planner { reason: "invalid planner output: planner output must contain only the steps field" }`；真 UIA 干跑也红。
+2. **根因**：`Planner` 对模型输出**只接受 `steps` 一个字段**（这是它有意的 fail-closed 契约）。我把运行时自己的 bookkeeping 塞进了模型输出，等于污染了模型→Planner 的契约。
+3. **处置**：Plan JSON 回到 `{"steps": ...}` 一个字段；"未执行种类"改由 **provider 的独立访问器** `declared_not_executed()` 暴露（装配点可自行记录/打日志），并用测试锁住"plan 只有一个字段"这条不变量。**没有**为了让测试过而放宽 Planner。
+4. **教训**：模型输出是**契约**，不是内部日志的载体；要给运行时记账，另开出口。
 
 1. **现象（实测清点）**：三份任务包用到的 `kind` 一共 **8 种**，而运行时今天只执行 `tool`：
 
