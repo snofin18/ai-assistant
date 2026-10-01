@@ -171,9 +171,13 @@ fn t1_2_package_path() -> std::path::PathBuf {
 fn test_t1_2_package_renders_with_reserved_runtime_tools() {
     let body = std::fs::read_to_string(t1_2_package_path()).expect("read t1.2 package");
     let bound = inputs(&[
-        ("old_text", json!("报表")),
-        ("new_text", json!("报告")),
-        ("expected_replacements", json!(1)),
+        ("input.old_text", json!("报表")),
+        ("input.new_text", json!("报告")),
+        ("input.expected_replacements", json!(1)),
+        ("rollback.replace_recipe", json!("l0_undo")),
+        ("rollback.save_recipe", json!("l1_snapshot")),
+        ("rollback.required_anchor_levels", json!(["l0", "l1"])),
+        ("approval_diff", json!("-报表\n+报告")),
     ]);
 
     let provider = TaskPackageProvider::from_package_json_with_inputs(&body, &bound)
@@ -272,15 +276,15 @@ fn test_unsupported_reference_is_rejected() {
     })
     .to_string();
 
+    // A reference the caller cannot supply must fail closed: this layer does not
+    // compute derived values, and it must not leave `$normalized_target_path` in
+    // the plan as a literal either.
     let error = TaskPackageProvider::from_package_json_with_inputs(
         &package,
         &inputs(&[("target_path", json!("C:/tmp/out.txt"))]),
     )
     .expect_err("must fail closed");
-    assert!(matches!(
-        error,
-        TaskPackageError::UnsupportedReference { .. }
-    ));
+    assert!(matches!(error, TaskPackageError::MissingInput { .. }));
 }
 
 #[test]

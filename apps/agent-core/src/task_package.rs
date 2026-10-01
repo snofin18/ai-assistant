@@ -476,14 +476,19 @@ fn resolve_arguments(
         inputs: &serde_json::Map<String, Value>,
     ) -> Result<Value, TaskPackageError> {
         match value {
-            Value::String(text) if text.starts_with("$input.") => {
+            // One rule for every reference form the packages use (`$input.*`,
+            // `$rollback.*`, `$approval_diff`, ...): strip the leading `$` and
+            // resolve it from the injected map. Anything the caller did not
+            // supply fails closed - this layer never computes a derived value and
+            // never leaves a literal behind.
+            Value::String(text) if text.starts_with('$') => {
                 if inputs.is_empty() {
                     return Err(TaskPackageError::UnboundArguments {
                         task_id: task_id.to_owned(),
                         step_id: step_id.to_owned(),
                     });
                 }
-                let name = text.trim_start_matches("$input.");
+                let name = text.trim_start_matches('$');
                 inputs
                     .get(name)
                     .cloned()
@@ -492,13 +497,6 @@ fn resolve_arguments(
                         step_id: step_id.to_owned(),
                         reference: text.clone(),
                     })
-            }
-            Value::String(text) if text.starts_with('$') => {
-                Err(TaskPackageError::UnsupportedReference {
-                    task_id: task_id.to_owned(),
-                    step_id: step_id.to_owned(),
-                    reference: text.clone(),
-                })
             }
             Value::String(_) | Value::Null | Value::Bool(_) | Value::Number(_) => Ok(value.clone()),
             Value::Array(items) => items
