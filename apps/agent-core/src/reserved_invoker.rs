@@ -23,9 +23,11 @@ use std::sync::{Arc, Mutex};
 
 use assistant_protocol::serde_json::{Map, Value, json};
 use assistant_protocol::{ErrorCode, ToolEnvelope};
+use assistant_storage::Clock;
 use assistant_task_engine::{PlanStep, StepStatus, TaskId, TaskSnapshot};
 use assistant_tool_bus::{CallContext, ToolBus};
 
+use crate::approval_grants::ApprovalGrants;
 use crate::runtime::{RuntimeExecutionError, ToolInvoker};
 
 /// Reason reported while a reserved runtime executor is still missing.
@@ -35,20 +37,30 @@ pub const RESERVED_EXECUTOR_MISSING: &str = "reserved runtime tool executor is n
 pub struct ReservedRuntimeInvoker<'bus> {
     bus: &'bus ToolBus,
     latest_snapshot: Arc<Mutex<Option<TaskSnapshot>>>,
+    approvals: Arc<ApprovalGrants>,
+    clock: Arc<dyn Clock>,
 }
 
 impl<'bus> ReservedRuntimeInvoker<'bus> {
     /// Borrows a started tool bus plus the assembly-owned snapshot the runtime
     /// publishes after every committed step.
     #[must_use]
-    pub const fn new(
-        bus: &'bus ToolBus,
-        latest_snapshot: Arc<Mutex<Option<TaskSnapshot>>>,
-    ) -> Self {
+    pub fn new(bus: &'bus ToolBus, latest_snapshot: Arc<Mutex<Option<TaskSnapshot>>>) -> Self {
         Self {
             bus,
             latest_snapshot,
+            approvals: Arc::new(ApprovalGrants::new()),
+            clock: Arc::new(assistant_storage::SystemClock),
         }
+    }
+
+    /// Attaches the assembly-owned approval table and clock, so a recorded human
+    /// decision can be consumed by the approval step.
+    #[must_use]
+    pub fn with_approvals(mut self, approvals: Arc<ApprovalGrants>, clock: Arc<dyn Clock>) -> Self {
+        self.approvals = approvals;
+        self.clock = clock;
+        self
     }
 }
 
@@ -71,7 +83,7 @@ impl ToolInvoker for ReservedRuntimeInvoker<'_> {
                 return self.prepare_anchors(&call, &step_id, sequence, arguments.as_ref());
             }
             if tool == crate::runtime_tools::TOOL_REQUEST_APPROVAL {
-                return Ok(Self::request_approval(&call, &step_id, arguments.as_ref()));
+                return self.request_approval_step(&call, &step_id, sequence, arguments.as_ref());
             }
             if crate::runtime_tools::RESERVED_RUNTIME_TOOLS.contains(&tool.as_str()) {
                 return Ok(ToolEnvelope::error(
@@ -160,6 +172,55 @@ impl ReservedRuntimeInvoker<'_> {
             call.task_id().to_owned(),
             step_id.to_owned(),
             json!({ "fingerprint": fingerprint }),
+        ))
+    }
+
+    /// ADR-0059 D2 / ADR-0060 D4: consult the recorded human decision.
+    ///
+    /// A malformed request is refused unchanged. A well-formed one is refused
+    /// with `PolicyDenied` (past the point of no return) or `UserInteraction`
+    /// (nothing on record) **unless** a bounded grant is present - in which case
+    /// the grant is consumed and the step proceeds **exactly once**.
+    fn request_approval_step(
+        &self,
+        call: &CallContext,
+        step_id: &str,
+        sequence: u32,
+        arguments: Option<&Map<String, Value>>,
+    ) -> Result<ToolEnvelope, RuntimeExecutionError> {
+        let verdict = Self::request_approval(call, step_id, arguments);
+        if matches!(
+            verdict.error.as_ref().map(|error| error.code),
+            Some(ErrorCode::ToolInvalidArgs)
+        ) {
+            return Ok(verdict);
+        }
+        let now_ms = self.clock.now_unix_ms();
+        let granted = self
+            .approvals
+            .consume(call.task_id(), step_id, now_ms)
+            .map_err(|_| RuntimeExecutionError::Tool {
+                reason: "the approval grant table is unavailable".to_owned(),
+            })?
+            .is_some();
+        if !granted {
+            return Ok(verdict);
+        }
+        let Some(fingerprint) = self.current_fingerprint(sequence)? else {
+            return Ok(ToolEnvelope::error(
+                crate::runtime_tools::TOOL_REQUEST_APPROVAL.to_owned(),
+                call.task_id().to_owned(),
+                step_id.to_owned(),
+                ErrorCode::VerifyFailed,
+                "no prior step recorded a post fingerprint; cannot prove state is unchanged"
+                    .to_owned(),
+            ));
+        };
+        Ok(ToolEnvelope::ok(
+            crate::runtime_tools::TOOL_REQUEST_APPROVAL.to_owned(),
+            call.task_id().to_owned(),
+            step_id.to_owned(),
+            json!({ "approved": true, "fingerprint": fingerprint }),
         ))
     }
 

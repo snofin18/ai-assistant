@@ -47,7 +47,7 @@ pub use adapters::{
     AuditSink, CharacterTokenEstimator, RootedAppMapReader, StorageMemoryRetriever,
     StorageSessionClock, StorageToolClock, TokenEstimator,
 };
-pub use approval_grants::{ApprovalGrants, GrantError};
+pub use approval_grants::{ApprovalGrants, GrantError, GrantRequest};
 pub use assembly::{HostAssembly, HostAssemblyInput, HostComponents};
 pub use error::HostAssemblyError;
 pub use production::{ProductionConfig, ProductionError, ProductionHost, assemble_production_host};
