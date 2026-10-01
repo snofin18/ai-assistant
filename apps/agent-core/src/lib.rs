@@ -23,6 +23,7 @@
 #![deny(unsafe_code)]
 
 pub mod adapters;
+mod approval_grants;
 mod assembly;
 mod error;
 pub mod notepad_files;
@@ -46,6 +47,7 @@ pub use adapters::{
     AuditSink, CharacterTokenEstimator, RootedAppMapReader, StorageMemoryRetriever,
     StorageSessionClock, StorageToolClock, TokenEstimator,
 };
+pub use approval_grants::{ApprovalGrants, GrantError};
 pub use assembly::{HostAssembly, HostAssemblyInput, HostComponents};
 pub use error::HostAssemblyError;
 pub use production::{ProductionConfig, ProductionError, ProductionHost, assemble_production_host};
