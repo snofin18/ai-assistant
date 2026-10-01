@@ -388,18 +388,13 @@ fn render_plan(
     for step in &package.steps {
         // ADR-0059 (D6 as amended 2026-10-01): the runtime coverage set is the
         // closed set `tool` / `hitl` / `host_service` / `verify` plus the four
-        // kinds explicitly owned elsewhere. Anything outside the closed set
-        // fails closed, and the coverage-set kinds without an executor fail
-        // closed too, so no step is ever skipped silently.
+        // kinds explicitly owned elsewhere. Anything outside that closed set
+        // fails closed, so no step is ever skipped silently.
         match step.kind.as_str() {
-            "tool" => {}
-            "hitl" | "host_service" | "verify" => {
-                return Err(TaskPackageError::UnexecutedStepKind {
-                    task_id: package.task_id.clone(),
-                    step_id: step.id.clone(),
-                    kind: step.kind.clone(),
-                });
-            }
+            // ADR-0060 D3: `hitl` / `host_service` / `verify` become reserved
+            // runtime tools instead of a new PlanStep shape, so the step executes
+            // without `task-engine` changing. They are never model-visible.
+            "tool" | "hitl" | "host_service" | "verify" => {}
             "platform" | "l1_file" | "pure" | "policy" => {
                 declared_not_executed.push(json!({ "id": step.id, "kind": step.kind }));
                 continue;
@@ -412,13 +407,18 @@ fn render_plan(
                 });
             }
         }
-        let Some(tool) = step.tool.as_deref() else {
-            return Err(TaskPackageError::Malformed {
-                reason: format!(
-                    "task package step `{}` is kind=tool but declares no tool",
-                    step.id
-                ),
-            });
+        // `hitl` / `host_service` / `verify` name no tool in the package; ADR-0060
+        // maps them onto a reserved runtime tool (never model-visible).
+        let tool = match step.tool.as_deref() {
+            Some(tool) => tool,
+            None => crate::runtime_tools::tool_for_step_kind(&step.kind).ok_or_else(|| {
+                TaskPackageError::Malformed {
+                    reason: format!(
+                        "task package step `{}` is kind={} but declares no tool",
+                        step.id, step.kind
+                    ),
+                }
+            })?,
         };
         let arguments = resolve_arguments(&package.task_id, step, inputs)?;
         let Some(postconditions) = assertion_table(tool, &arguments) else {
@@ -574,6 +574,12 @@ fn assertion_table(tool: &str, arguments: &Value) -> Option<Vec<Value>> {
                 "path": target_path,
                 "expect": "any",
             })])
+        }
+        // ADR-0060: the reserved runtime steps have **no application side
+        // effect** - they only move runtime state - so the honest, checkable
+        // postcondition is that the application fingerprint did not change.
+        other if crate::runtime_tools::RESERVED_RUNTIME_TOOLS.contains(&other) => {
+            Some(vec![json!({ "kind": "state_unchanged" })])
         }
         _ => None,
     }

@@ -165,11 +165,10 @@ fn t1_2_package_path() -> std::path::PathBuf {
         .join("../../adapters/com.microsoft.notepad/tasks/t1.2.replace-save-approval-undo.json")
 }
 
-/// ADR-0059 (D6 as amended) puts `host_service` in the runtime coverage set. No
-/// executor implements it yet, so rendering T1.2 must **fail closed** instead of
-/// quietly dropping the step the way it used to.
+/// ADR-0060: `hitl` / `host_service` / `verify` map onto **reserved runtime
+/// tools**, so T1.2 renders a complete plan instead of failing closed.
 #[test]
-fn test_t1_2_package_fails_closed_on_unexecuted_step_kinds() {
+fn test_t1_2_package_renders_with_reserved_runtime_tools() {
     let body = std::fs::read_to_string(t1_2_package_path()).expect("read t1.2 package");
     let bound = inputs(&[
         ("old_text", json!("报表")),
@@ -177,12 +176,28 @@ fn test_t1_2_package_fails_closed_on_unexecuted_step_kinds() {
         ("expected_replacements", json!(1)),
     ]);
 
-    let error = TaskPackageProvider::from_package_json_with_inputs(&body, &bound)
-        .expect_err("must fail closed until coverage-set kinds have executors");
-    assert!(matches!(
-        error,
-        TaskPackageError::UnexecutedStepKind { ref kind, .. } if kind == "host_service"
-    ));
+    let provider = TaskPackageProvider::from_package_json_with_inputs(&body, &bound)
+        .expect("T1.2 must render once the step kinds have reserved tools");
+    let plan: Value = serde_json::from_str(provider.plan_json()).expect("plan is JSON");
+    let tools: Vec<&str> = plan
+        .get("steps")
+        .and_then(Value::as_array)
+        .expect("plan has steps")
+        .iter()
+        .filter_map(|step| step.get("tool").and_then(Value::as_str))
+        .collect();
+
+    assert!(
+        tools.contains(&"notepad.file.replace_text"),
+        "T1.2 的 replace_text 步骤必须进入 Plan"
+    );
+    assert!(tools.contains(&"assistant.runtime.request_approval"));
+    assert!(tools.contains(&"assistant.runtime.prepare_anchors"));
+    assert!(tools.contains(&"assistant.runtime.verify_postconditions"));
+    assert!(
+        !provider.plan_json().contains("$input."),
+        "绑定后不得残留 `$input.` 字面量"
+    );
 }
 
 /// The four kinds owned elsewhere are **recorded**, not silently dropped.
