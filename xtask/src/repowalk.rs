@@ -32,6 +32,11 @@ pub const SCANNED_SOURCE_ROOTS: [&str; 3] = ["crates", "apps", "xtask"];
 /// 递归遍历时跳过的目录名（构建产物与版本库元数据）。
 pub const SKIPPED_DIRECTORY_NAMES: [&str; 4] = ["target", ".git", "node_modules", "dist"];
 
+const HYGIENE_TEXT_EXTENSIONS: [&str; 10] = [
+    "rs", "toml", "md", "yml", "yaml", "json", "ps1", "sh", "ts", "tsx",
+];
+const HYGIENE_EXTENSIONLESS_FILES: [&str; 3] = ["LICENSE", ".gitignore", ".gitattributes"];
+
 /// 遍历失败的原因（带上下文，便于在 CI 日志里直接定位）。
 #[derive(Debug, PartialEq, Eq)]
 pub enum WalkError {
@@ -166,6 +171,28 @@ pub fn collect_repo_files(
     collect_repo_files_recursively(root, root, extensions, &mut out)?;
     out.sort_by(|a, b| a.rel_path.cmp(&b.rel_path));
     Ok(out)
+}
+
+/// 收集 ADR-0025 定义的文本文件集合（扩展名白名单 + 三个无扩展名文件）。
+///
+/// 这是 `hygiene` 的 CRLF / 末行换行规则输入端；返回顺序按相对路径稳定排序，
+/// 满足报告输出的确定性要求。
+///
+/// # 错误
+/// 任一目录读取失败都返回 `WalkError::ReadDirectory`，不静默跳过。
+pub fn collect_hygiene_text_files(root: &Path) -> Result<Vec<RepoFileEntry>, WalkError> {
+    let mut files = collect_repo_files(root, &HYGIENE_TEXT_EXTENSIONS)?;
+    let extensionless = collect_repo_files(root, &[])?;
+    files.extend(extensionless.into_iter().filter(|entry| {
+        entry
+            .abs_path
+            .file_name()
+            .and_then(std::ffi::OsStr::to_str)
+            .is_some_and(|name| HYGIENE_EXTENSIONLESS_FILES.contains(&name))
+    }));
+    files.sort_by(|left, right| left.rel_path.cmp(&right.rel_path));
+    files.dedup_by(|left, right| left.rel_path == right.rel_path);
+    Ok(files)
 }
 
 /// 递归遍历 `directory`，把扩展名命中 `extensions` 的文件追加到 `out`。
