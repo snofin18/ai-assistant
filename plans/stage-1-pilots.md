@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 / A2 / A3 既有卡均 Done**；**TASK-039 = Review：阶段 1a 结论 = NO-GO**；**TASK-102 / 103 / 104 / 210 / 087 / 212 / 211 / 213 / 214 均 Done**；**TASK-213 完成 UI↔Core 真管道与 `SnapshotEventSource`，PL-095 闭环**；**TASK-214 完成生产装配根、确定性 task-package Plan 来源、5 个 Notepad handler、真 UIA T1.1 干跑、真 UI 管道 `step_state_changed` 与 fail-closed 收口，PL-096 闭环**；**TASK-205 完成 `tool-bus` schema 模块拆分，`hygiene` 长文件 warning 4→3**；**TASK-105 的 T1.1 生产对象已就绪，但 T1.2/T1.3 仍被 PL-097 的靶机能力缺口阻塞**；阶段 1a 仍 NO-GO，不得在阻断项闭环前进入 1b）　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 / A2 / A3 既有卡均 Done**；**TASK-039 = Review：阶段 1a 结论 = NO-GO**；**TASK-102 / 103 / 104 / 210 / 087 / 212 / 211 / 213 / 214 均 Done**；**TASK-213 完成 UI↔Core 真管道与 `SnapshotEventSource`，PL-095 闭环**；**TASK-214 完成生产装配根、确定性 task-package Plan 来源、5 个 Notepad handler、真 UIA T1.1 干跑、真 UI 管道 `step_state_changed` 与 fail-closed 收口，PL-096 闭环**；**TASK-205 完成 `tool-bus` schema 模块拆分，`hygiene` 长文件 warning 4→3**；**PL-097 已闭环**；**TASK-216 InProgress：审批链已落地，但 `DRIFT-216-4` 证明 T1.2/T1.3 仍缺前序步骤输出、条件与可恢复审批语义**）；**ADR-0061 Proposed → TASK-217 Blocked**；阶段 1a 仍 NO-GO，不得在阻断项闭环前进入 1b）　上位文件：`PLAN.md`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -132,6 +132,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-214 ✅** | 生产装配根：真实 Host 进程 + Notepad Host handler + 1a Plan 来源 | `apps/agent-core/src/**`、`apps/agent-core/tests/**`、本卡与状态同步文件 | 103、213、**ADR-0058 Accepted** | L | 生产模式可启动；5 个 handler 入 ToolBus；确定性 Plan 来源；靶机 T1.1 干跑（真 UIA + 真 receipt）；fail-closed |
 | **TASK-215 ✅** | `notepad-like` 靶机能力扩展 + `com.example.notepad-like` 适配包（**PL-097 闭环卡**） | `fixtures/apps/notepad-like/**`、`adapters/com.example.notepad-like/**`、`apps/agent-core/tests/production_root_uia.rs`、状态同步文件 | 033、035、214、**PL-097 / DRIFT-105-2** | L | 靶机支持打开/保存/另存为/标签页且有稳定 AutomationId；适配包进仓库且干跑改读它；T1.2/T1.3 所需元素可解析；PL-097 可闭环 |
 | TASK-216 | 运行时补齐：任务输入绑定 + `hitl`/rollback/verify 步骤 + `tab.new` 观测（**DRIFT-105-3 的落地卡**） | `apps/agent-core/src/**`、`apps/agent-core/tests/**`、`docs/adr/0059-*` 与本卡状态同步文件 | 214、215、**DRIFT-105-3**；**B 片前置 = ADR-0059 Accepted** | L | A 片：任务包能被渲染成合法 Plan（无 `$input.` 残留）+ fail-closed 负向用例；B 片：按 ADR-0059 执行或移出 `hitl`/rollback/verify，并让 `tab.new` 读到 `TabCountText` |
+| TASK-217 | 运行时任务数据流：前序步骤输出、白名单 `pure`/host operation、布尔 `when` 与可恢复审批（**DRIFT-216-4 的落地卡**） | `apps/agent-core/src/**`、`apps/agent-core/tests/**`、`docs/adr/0061-*`、`docs/spec/runtime-execution.md` 与本卡状态同步文件 | TASK-216、**DRIFT-216-4**；**前置 = ADR-0061 Accepted** | L | T1.2/T1.3 任务包通过数据流校验并在 fake platform 执行到 `Completed`；无授权可暂停、批准后从同一快照恢复；无表达式语言、无公共形状变更 |
 
 ---
 
@@ -242,6 +243,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-214 ✅** | A5-REMEDIATION | `tasks/TASK-214-production-composition-root-notepad-handlers.md` | Ready（**ADR-0058 转 Accepted 后才可开工**） |
 | **TASK-215 ✅** | A5-REMEDIATION | `tasks/TASK-215-fixture-capability-extension-and-adapter-pack.md` | Done（适配包 + 文件读写 + 标签页 + 跨进程 Save As；PL-097 闭环） |
 | TASK-216 | A5-REMEDIATION | `tasks/TASK-216-runtime-completion-input-binding-and-step-kinds.md` | Ready（A 片可开工；B 片等 ADR-0059） |
+| TASK-217 | A5-REMEDIATION | `tasks/TASK-217-runtime-task-dataflow-resumable-approval.md` | Blocked（等 ADR-0061 Proposed 接受） |
 | TASK-040 | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Ready（批次表占位派单前补全） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
 | TASK-042 | 1b | `tasks/TASK-042-visual-verify-phash-dhash-confidence.md` | Ready（批次表占位派单前补全） |
