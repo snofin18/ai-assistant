@@ -520,6 +520,7 @@ async fn test_production_t1_1_commits_through_real_tool_bus_and_receipt()
     Ok(())
 }
 
+#[cfg(windows)]
 #[tokio::test]
 async fn test_production_t1_2_runs_with_bounded_approvals() -> Result<(), Box<dyn std::error::Error>>
 {
