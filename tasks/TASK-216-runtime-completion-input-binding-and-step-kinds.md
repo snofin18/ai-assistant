@@ -158,6 +158,18 @@ cargo fmt --all --check                                  → clean
 
 **B 片第 3b 步（2026-10-01）：保留运行时工具落地（ADR-0060 Accepted）**
 
+**B 片第 3c 步的契约（动手前先写清，避免再踩一次"渲染能过、执行过不去"）**
+
+第 3b 步给了三个保留工具 **`state_unchanged`** 作为后置断言。**这在执行侧会撞墙**，必须先讲清楚：
+
+1. `EnvelopeObservationCollector` 要求工具信封里带 **`data.fingerprint`**；而 `state_unchanged` 正是拿它比对的。三个保留步骤**没有应用副作用**，但它们的信封里也**没有指纹** —— 所以按现状执行到它们会因"没有指纹"而进 `NeedsHuman`，而不是干净地通过。
+2. **执行器的正确形状**（下一步按这个做）：
+   - 新增 **`ReservedRuntimeInvoker`**（binary 层）：实现 `ToolInvoker`，**按工具名分流** —— 保留名走本地执行、其余转交 `ToolBusInvoker`。`RuntimeExecutor::new` 的第三个参数由它接替。
+   - 它需要三样注入：① `latest_snapshot`（生产根已有 `Arc<Mutex<Option<TaskSnapshot>>>`）用于 `verify`；② 平台 provider + target 目录，用于 **fingerprint**（主窗口）—— 保留步骤虽不改应用，仍应**用指纹证明"确实没改"**，而不是空口声称；③ `crates/hitl` / `crates/undo` 的句柄用于另外两个。
+   - `verify_postconditions`：读 `latest_snapshot`，断言**此前所有写步骤都已提交**；再取一次主窗口指纹放进信封 → `state_unchanged` 可求值。任一不满足 → 返回**带 `ErrorCode` 的错误信封**（不是 `Err`，避免被当成"结果未知"）。
+   - `prepare_anchors` / `request_approval`：同形状；`request_approval` 还要守 `point_of_no_return` 与事件顺序。
+3. **为什么不在本步顺手做**：这是新增一个实现 `ToolInvoker` 的组件 + 三处注入 + 指纹证明，属独立一步；而且第 3b 步刚因为"只测了渲染、没测执行"红过一次 CI，这一条正是那个教训的具体化。
+
 新增 `apps/agent-core/src/runtime_tools.rs`：三个保留名（`assistant.runtime.request_approval` / `prepare_anchors` / `verify_postconditions`）、闭集 `RESERVED_RUNTIME_TOOLS`、`tool_for_step_kind()`（kind → 保留工具）、`planner_schemas()`（三个 Planner 目录用的 `ToolSchema`）。
 
 `render_plan()`：`hitl`/`host_service`/`verify` 不再 fail-closed，而是**映射到保留工具**；`assertion_table` 给这三类加了一条诚实且可求值的后置断言 —— **`state_unchanged`**（它们没有应用副作用，只动运行时状态）。`notepad_registry::build_notepad_registry` 把保留 schema **追加进 Planner 目录**（因此**不进 ToolBus 挂载**，模型够不着 —— ADR-0060 D2）。测试：T1.2 **现在能渲染出完整 Plan**（含 `replace_text` + 三个保留工具），`runtime_tools` 自带两条单测。
