@@ -66,5 +66,13 @@ version = "0.1.0"
 path = "../../crates/ipc"
 version = "0.1.0"
 
+[dependencies.assistant-hitl]
+# ADR-0060 D4: the reserved `request_approval` step is the binary layer's
+# approval entry point, so the binary layer links the HITL crate. Workspace
+# dependency, not a new third-party crate (ADR-0053 D3 blacklists `hitl` for
+# `crates/core`, not for the assembly point).
+path = "../../crates/hitl"
+version = "0.1.0"
+
 [lints]
 workspace = true
