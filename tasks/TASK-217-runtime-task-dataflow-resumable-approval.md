@@ -172,6 +172,7 @@ cargo deny check                                 → advisories / bans / license
 - **pure 指纹**：pure operation 不触碰应用状态，返回 `sha256` 内容指纹与 `pure_result=true`，postcondition 只断言自身输出；不伪造 before/after 平台状态。
 - **T1.3 证据**：`save_as` 的 postcondition 以 handler 返回的 `file_created=true` 为可验证事实；跨进程磁盘内容由 T1.3 测试的磁盘读回断言补证。
 - **CI 环境修正（跨卡）**：GitHub runner 的 Rust 1.99 新增 `clippy::assert_is_empty`，打红了 `crates/lease/tests/lease_contract.rs` 与 `crates/undo/tests/rollback_contract.rs` 的既有断言。本 slice 把 4 处 `.is_empty()` 断言改为显式 `len() == 0`，避免把已知红灯 PR 合入 `main`；本地 Rust 1.98 与 workflow 均通过。
+- **CI 跨平台修正**：`production_root` 的 Windows-only 测试导入改为 `#[cfg(windows)]`，避免 Linux/macOS 的 `clippy -D warnings` 因未使用 `FIXED_NOW_MS` / `Fingerprint` 失败。
 - **DRIFT-217-2（lint allow）**：Rust 1.99 的 `clippy::assert_is_empty` 还命中仓库大量既有断言。逐个改写会造成与 TASK-217 无关的大范围 churn，因此仅在 workspace lint 中允许这一条纯风格 lint；所有安全/静默失败相关 deny 保持不变。
 
 ### 6. 更合理做法

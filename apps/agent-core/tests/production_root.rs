@@ -14,7 +14,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 #[path = "support/production_fixture.rs"]
 mod fixture;
 
-use fixture::{FIXED_NOW_MS, FakePlatform, FixedClock};
+#[cfg(windows)]
+use fixture::FIXED_NOW_MS;
+use fixture::{FakePlatform, FixedClock};
 
 #[cfg(windows)]
 use assistant_agent_core::GrantRequest;
@@ -32,7 +34,9 @@ use assistant_ipc::{
     IpcError, NamedPipeTransport, Transport, WireMessage, client_handshake, generate_session_id,
     server_handshake,
 };
-use assistant_platform_api::{ErrorCode, Fingerprint};
+use assistant_platform_api::ErrorCode;
+#[cfg(windows)]
+use assistant_platform_api::Fingerprint;
 #[cfg(windows)]
 use assistant_task_engine::{MemoryCheckpointStore, StepStatus, TaskEngine, TaskStatus};
 
