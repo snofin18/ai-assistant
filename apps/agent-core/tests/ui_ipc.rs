@@ -11,10 +11,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use assistant_agent_core::{
-    TaskControlHandler, UI_IPC_VERSION, UiAuthorizationScope, UiCommand, UiCommandError,
-    UiCommandHandler, UiCommandOutcome, UiEvent, dispatch_ui_command, parse_ui_command,
-    project_snapshot_events,
+    ApprovalGrants, TaskControlHandler, UI_IPC_VERSION, UiAuthorizationScope, UiCommand,
+    UiCommandError, UiCommandHandler, UiCommandOutcome, UiEvent, dispatch_ui_command,
+    parse_ui_command, project_snapshot_events,
 };
+use assistant_hitl::ApprovalScope;
 use assistant_platform_api::Fingerprint;
 use assistant_protocol::{ErrorCode, serde_json::Value, serde_json::json};
 use assistant_storage::SystemClock;
@@ -226,6 +227,104 @@ fn test_approval_scope_must_have_been_offered() {
         .expect_err("un-offered scope must be rejected");
     assert!(matches!(error, UiCommandError::ScopeNotOffered { .. }));
     assert_eq!(error.error_code(), ErrorCode::UserInteraction);
+}
+
+#[test]
+fn test_ui_approval_releases_the_runtime_step_exactly_once() {
+    let (engine, task_id, step_id) = running_engine();
+    let approvals = Arc::new(ApprovalGrants::new());
+    let mut handler = TaskControlHandler::new(engine, Arc::new(SystemClock))
+        .with_approvals(Arc::clone(&approvals));
+    handler
+        .register_pending_approval(
+            "a_1",
+            task_id.clone(),
+            step_id.clone(),
+            vec![UiAuthorizationScope::Once],
+        )
+        .expect("register approval");
+
+    let outcome = handler
+        .handle(UiCommand::ApproveRequest {
+            request_id: "a_1".to_owned(),
+            scope: UiAuthorizationScope::Once,
+        })
+        .expect("approval applies");
+    assert_eq!(
+        outcome,
+        UiCommandOutcome::ApprovalGranted {
+            request_id: "a_1".to_owned(),
+            scope: UiAuthorizationScope::Once,
+        }
+    );
+    assert!(
+        matches!(
+            approvals.consume(task_id.as_str(), step_id.as_str(), 2_000),
+            Ok(Some(ApprovalScope::Once))
+        ),
+        "the runtime must see the human decision"
+    );
+    assert!(
+        matches!(
+            approvals.consume(task_id.as_str(), step_id.as_str(), 2_001),
+            Ok(None)
+        ),
+        "one UI approval must release exactly one runtime execution"
+    );
+    assert!(matches!(
+        handler
+            .handle(UiCommand::ApproveRequest {
+                request_id: "a_1".to_owned(),
+                scope: UiAuthorizationScope::Once,
+            })
+            .expect_err("the consumed request is no longer pending"),
+        UiCommandError::UnknownApproval { .. }
+    ));
+}
+
+#[test]
+fn test_ui_cannot_upgrade_a_step_approval_to_a_standing_grant() {
+    let (engine, task_id, step_id) = running_engine();
+    let approvals = Arc::new(ApprovalGrants::new());
+    let mut handler = TaskControlHandler::new(engine, Arc::new(SystemClock))
+        .with_approvals(Arc::clone(&approvals));
+    handler
+        .register_pending_approval(
+            "a_1",
+            task_id.clone(),
+            step_id.clone(),
+            vec![UiAuthorizationScope::Once, UiAuthorizationScope::Persistent],
+        )
+        .expect("register approval");
+
+    let error = handler
+        .handle(UiCommand::ApproveRequest {
+            request_id: "a_1".to_owned(),
+            scope: UiAuthorizationScope::Persistent,
+        })
+        .expect_err("a standing grant must be refused");
+    assert!(matches!(error, UiCommandError::Handler { .. }));
+    assert!(
+        matches!(
+            approvals.consume(task_id.as_str(), step_id.as_str(), 2_000),
+            Ok(None)
+        ),
+        "the refused standing grant must not release the step"
+    );
+
+    let outcome = handler
+        .handle(UiCommand::ApproveRequest {
+            request_id: "a_1".to_owned(),
+            scope: UiAuthorizationScope::Once,
+        })
+        .expect("the pending request can still receive a bounded approval");
+    assert_eq!(
+        outcome,
+        UiCommandOutcome::ApprovalGranted {
+            request_id: "a_1".to_owned(),
+            scope: UiAuthorizationScope::Once,
+        }
+    );
 }
 
 #[test]

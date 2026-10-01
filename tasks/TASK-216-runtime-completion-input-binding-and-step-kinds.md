@@ -112,6 +112,12 @@ B 片另需：`notepad.tab.new` 在靶机上读到 `TabCountText` 并断言 +1�
 - **改** `apps/agent-core/src/task_package.rs`：新增 `TaskPackageError::MissingInput` / `UnsupportedReference`；新增 `TaskPackageProvider::from_package_json_with_inputs()`；`normalize_arguments` → `resolve_arguments`（递归解析 `$input.<name>`，空输入表仍走旧的 `UnboundArguments` 语义）。
 - **改** `apps/agent-core/tests/task_package.rs`：新增 3 条（T1.2 绑定后能渲染且无 `$input.` 残留、缺输入 → `MissingInput`、派生引用 → `UnsupportedReference`），测试数 9 → **12**。
 - **改** `docs/adr/0059-*.md`、`docs/adr/README.md`：ADR-0059 转 Accepted（人类 2026-10-01）。
+- **改** `apps/agent-core/src/runtime_tools.rs`、`reserved_invoker.rs`、`notepad_registry.rs`、`notepad_handlers.rs`、`notepad_tab.rs`：三类保留运行时工具映射、执行器与 `tab_count` 观测。
+- **改** `apps/agent-core/src/approval_grants.rs`：有界授权表（TTL / uses / Persistent 拒绝）。
+- **改** `apps/agent-core/src/ui_control.rs`、`production.rs`、`main.rs`：UI 批准写入运行时消费的同一张授权表；`ProductionHost::approvals()` 共享该表。
+- **改** `apps/agent-core/tests/ui_ipc.rs`、`runtime_toolbus.rs`：证明一次 UI 批准只放行一次、`persistent` 不授予、保留工具永不到达模型可见 ToolBus。
+- **改** `docs/adr/0060-*.md`：ADR-0060 转 Accepted（保留运行时工具）。
+- **改** `docs/spec/runtime-execution.md`：补三类保留步骤、一次性审批和 `point_of_no_return` 的执行语义。
 - **改** 本卡、`LEDGER.md`。
 
 ### 3. 验收输出摘要
@@ -120,6 +126,10 @@ B 片另需：`notepad.tab.new` 在靶机上读到 `TabCountText` 并断言 +1�
 cargo test -p assistant-agent-core --test task_package   → 12 passed / 0 failed
 cargo clippy -p assistant-agent-core --all-targets -- -D warnings → 0 warning
 cargo fmt --all --check                                  → clean
+cargo test -p assistant-agent-core --test ui_ipc          → 12 passed / 0 failed
+cargo test --workspace                                    → EXIT 0（110 suites）
+cargo clippy --all-targets -- -D warnings                 → EXIT 0
+xtask hygiene                                             → 0 error / 3 warning（基线）
 ```
 
 关键点：**T1.2 的任务包在给出 `old_text` / `new_text` / `expected_replacements` 之后能被渲染成合法 Plan**（当前 `test_t1_2_package_renders_once_inputs_are_bound` 断言 `notepad.file.replace_text` 进入 Plan 且无 `$input.` 字面量残留）—— 这正是 DRIFT-105-3 的根因 1。
@@ -130,10 +140,10 @@ cargo fmt --all --check                                  → clean
 - [x] ~~A 片：T1.2 任务包能被渲染成合法 Plan~~ —— **已被 B 片第 3 步推翻，见 §5 `DRIFT-216-3`**：绑定层本身没问题，但 T1.2 现在因 `host_service` 无执行器而**应当** fail-closed。原断言作废，改成 `test_t1_2_package_fails_closed_on_unexecuted_step_kinds`。
 - [x] A 片：未知引用 / 缺失输入 → 构造期 fail-closed，各有负向用例 —— **已做**（`MissingInput` / `UnsupportedReference` 各一）
 - [x] B 片：ADR-0059 落地 —— **已做**（2026-10-01 人类确认接受）
-- [ ] B 片：按 ADR-0059 执行，并给出对应证据 —— **未做**
-- [ ] B 片：`notepad.tab.new` 读到 `TabCountText` 并断言 +1 —— **未做**
+- [ ] B 片：按 ADR-0059 执行，并给出对应证据 —— **部分做**：三类保留工具及有界审批闭环已实现；但 T1.2/T1.3 仍被前序输出绑定阻塞，见 §5 `DRIFT-216-4`
+- [x] B 片：`notepad.tab.new` 读到 `TabCountText` 并断言 +1 —— **已做**（`notepad_tab.rs`，失败仍 fail-closed）
 - [x] 未修改 Out of scope 文件；未新增第三方依赖；未改 `crates/**` 公共接口 —— 已核对（本轮只动 `apps/agent-core/src/task_package.rs`、其测试、ADR 与本卡）
-- [ ] 上列 16 条验收命令全绿 —— 本轮跑了 A 片相关的 fmt / clippy / 定向测试；全量门禁待 B 片收口时一次跑齐
+- [x] 上列 16 条验收命令全绿 —— **已完成**（2026-10-01，第 4 步与 `DRIFT-216-4` 落档后按顺序复跑；全部返回退出码 0，`hygiene` 维持 0E/3W）
 - [ ] §11.1 进度同步 —— **Done 时执行**（当前 InProgress）
 
 ### 5. 偏差
@@ -204,18 +214,30 @@ cargo fmt --all --check                                  → clean
 2. **处置**：两者分开报：空输入表 → 沿用旧的 `UnboundArguments`；非空但键缺失 → 新的 `MissingInput`。理由是旧语义（"任务包从未被绑定"）已被既有测试与文档引用（TASK-214 的 `DRIFT-214-1`），改掉它等于悄悄改历史语义；而"给了输入却少一个键"是**另一类**错误，值得有自己的名字。
 3. **代价**：多一个错误变体。可接受 —— 它让排障时不用猜是"没喂输入"还是"喂漏了"。
 
+**DRIFT-216-4（T1.2/T1.3 仍无可执行对象：前序步骤输出没有绑定层）**
+
+1. **现象**：第 4 步完成后，UI 的 approve/deny 已能写入运行时消费的有界授权表；但实际核对 T1.2/T1.3 任务包时发现，它们不只需要 `$input.*`，还大量引用**前序步骤输出**：`$canonical_text_before`、`$canonical_text_expected`、`$approval_diff`、`$normalized_target_path`、`$target_path` 等。当前 `TaskPackageProvider` 只能从调用方注入的 map 中取字符串；没有值就 fail-closed，因此 T1.2/T1.3 **仍渲染不出完整 Plan**，不能声称已能端到端运行。
+2. **性质**：这不是"少写一行接线"，而是"任务包声明的数据流由谁求值"的新契约问题。直接支持任意 `$name` 会滑向表达式语言；只支持字符串替换又无法覆盖 `replacement_count` 等非字符串输出。它与 ADR-0047（否决自由表达式语言）和 ADR-0059 D6（`pure` 由包外注入）都有交集，属于漂移触发器 ③⑧，必须先裁决，不能在本步猜测实现。
+3. **建议**：另立一张小 ADR + 卡，二选一定义清楚：① **运行时输出绑定层**：按任务包 `steps[].outputs` 记录每个已执行步骤的结构化输出，只允许后续 `args` 引用**已记录的名字**；`pure` 计算明确归谁（运行时或包外注入），仍不引入表达式语言；② **任务包显式化**：把需要外部计算的值全部列为 `inputs`，由调用方在 Plan 渲染前注入，任务包不再声明 `pure` 步骤。推荐 ①，因为它才是 T1.2/T1.3 真实闭环需要的最小数据流。
+4. **当前处置**：保留已验证的 A 片绑定层、B 片保留工具与 UI 授权表，不伪造 T1.2/T1.3 运行证据；TASK-105 仍不得开工。阶段 1a 维持 **NO-GO**。
+
 ### 6. 更合理做法
 
 （待填）
 
 ### 7. 遗留问题
 
-（待填）
+- **DRIFT-216-4 未裁决**：T1.2/T1.3 的 `$canonical_text_before` / `$approval_diff` / `$normalized_target_path` 等前序输出尚未有绑定层，当前仍无端到端可执行对象。
+- `docs/spec/tool-schema.md` 与 `crates/tool-bus/README.md` 仍需按 ADR-0060 影响节补一句"Planner 目录可含保留工具、模型挂载集不可含"的说明；当前卡 write scope 不含这两个文件，留待专门小卡处理。
+- `TaskControlHandler` 已有 UI approve 写入授权表的能力，但生产主流程尚未注册/弹出 pending approval；在 DRIFT-216-4 的运行时数据流裁决时应一并定义 resume 入口。
 
 ### 8. 新增长期记忆
 
-（待填）
+- **FACT**：UI 的 `ApproveRequest` 可通过共享 `ApprovalGrants` 放行保留运行时步骤一次；`Persistent` 永远拒绝，且保留工具永不到达模型可见 ToolBus。
+- **PITFALL**：任务包里的 `$name` 同时承载"外部输入"与"前序步骤输出"，只做字符串注入会把两种语义混为一谈；需要明确输出绑定契约后再实现。
 
 ### 9. 给审阅者的关注点
 
-（待填）
+1. 不要把本卡 A 片"T1.2 可在注入全部引用后渲染"误读为"T1.2 已能运行"；`DRIFT-216-4` 仍阻断端到端。
+2. 审批接线已证明"一次批准只消费一次"，但生产 UI 的 pending 弹出与 resume 入口尚未接线。
+3. 保留工具刻意不进模型可见 ToolBus；任何为了"方便"把它们挂进 `MountSelection` 的改动都违反 ADR-0060 D2。

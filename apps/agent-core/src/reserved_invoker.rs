@@ -3,13 +3,11 @@
 //! Responsibilities:
 //! - recognise the reserved runtime tool names and handle them locally instead
 //!   of forwarding them to the model-visible `ToolBus`;
+//! - execute the three reserved runtime steps defined by ADR-0060;
 //! - forward every other tool unchanged, keeping the bus the single path for
 //!   ordinary tools.
 //!
 //! Boundaries:
-//! - does not implement the three executors yet; a reserved step currently
-//!   returns a **known** failure envelope rather than being mistaken for an
-//!   unknown outcome;
 //! - does not decide policy, resolve targets, or advance task state.
 //!
 //! Invariants:
@@ -233,11 +231,10 @@ impl ReservedRuntimeInvoker<'_> {
     /// * `point_of_no_return` - an irreversible step stays permanently barred
     ///   from unattended execution (iron law 6), so it is refused with
     ///   `PolicyDenied`.
-    /// * anything else - the request is well formed, but **no approval channel is
-    ///   wired into this runtime yet**, so it is refused with `UserInteraction`
-    ///   and the request is named in the message. Wiring the real
-    ///   `crates/hitl` decision path is the remaining work; what this step already
-    ///   guarantees is that nothing proceeds un-approved.
+    /// * anything else - the request is well formed, but **no approval decision
+    ///   is recorded for this step**, so it is refused with `UserInteraction`.
+    ///   The runtime consumes a recorded decision before reaching this branch;
+    ///   what this check guarantees is that nothing proceeds un-approved.
     fn request_approval(
         call: &CallContext,
         step_id: &str,
@@ -314,8 +311,8 @@ impl ReservedRuntimeInvoker<'_> {
         refused(
             ErrorCode::UserInteraction,
             format!(
-                "approval required (risk={risk}, scopes={}); no approval channel is wired into \
-                 this runtime yet",
+                "approval required (risk={risk}, scopes={}); no approval decision is recorded \
+                 for this step",
                 scopes.len()
             ),
         )
