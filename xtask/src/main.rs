@@ -437,10 +437,12 @@ fn run_hygiene(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Fa
     report.scanned_files = files.len();
 
     let mut findings: Vec<Finding> = Vec::new();
+    let mut scanned_function_count = 0usize;
     for file in &files {
         let source = std::fs::read_to_string(file)
             .map_err(|error| Failure::from_io(&format!("读取 {}", file.display()), &error))?;
         let relative = relative_display_path(&root, file);
+        scanned_function_count += hygiene::count_functions(&source);
         findings.extend(hygiene::check_rust_source(&relative, &source));
     }
     // 排序保证输出确定性（report.rs 不变量 3 要求调用方排好序再插入）
@@ -461,6 +463,16 @@ fn run_hygiene(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Fa
                 root.display(),
                 repowalk::SCANNED_SOURCE_ROOTS.join(", ")
             ),
+        ));
+    }
+    // TASK-085：即使扫到了文件，0 个函数也意味着结构规则没有可判定对象。
+    if scanned_function_count == 0 {
+        report.push(Finding::new(
+            "hygiene/no-functions-scanned",
+            Severity::Warning,
+            "xtask",
+            0,
+            "扫描集里没有任何函数；结构规则没有可判定对象，PASSED 不代表函数结构合规。",
         ));
     }
 
@@ -604,7 +616,11 @@ mod tests {
             text.contains("replay-skeleton"),
             "清单应包含未实现子命令（TASK-087 实现 check-comments 后，剩余的是 replay-skeleton）"
         );
-        assert!(text.contains("单函数行数"), "清单应包含未实现的卫生规则");
+        assert!(text.contains("重复代码"), "清单应包含仍未实现的卫生规则");
+        assert!(
+            !text.contains("单函数行数"),
+            "TASK-085 已实现的规则不应继续出现在未实现清单里"
+        );
     }
 
     #[test]

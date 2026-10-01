@@ -85,6 +85,279 @@ pub fn scan(source: &str) -> Scan {
     }
 }
 
+/// 一个可执行函数在源码中的稳定形状。
+///
+/// 这是 TASK-085 的五条源码结构规则共用的只读视图。字段全部来自**降噪后的代码**
+/// （注释与字面量已抹平），因此函数体判据不会被字符串或注释中的 `if` / `?` 污染。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FunctionSpan {
+    /// 函数名；不包含泛型参数或参数列表。
+    pub name: String,
+    /// `fn` 所在行，1 基。
+    pub start_line: usize,
+    /// 函数体右花括号所在行，1 基。
+    pub end_line: usize,
+    /// 顶层参数个数；`self` / `&self` 各计一个。
+    pub parameter_count: usize,
+    /// 起始复杂度 1 + 分支计数（`if` / `match` / 循环 / `&&` / `||` / `?`）。
+    pub cyclomatic_complexity: usize,
+    /// 是否为测试函数（`#[test]` / `#[tokio::test]` / `#[rstest]` / `#[test_case]`）。
+    pub is_test: bool,
+    /// 紧邻函数的 `#[ignore]` 或 `.skip` 属性原文；没有则为 `None`。
+    pub ignore_attribute: Option<String>,
+    /// 降噪后的函数体，包含左右花括号。
+    pub body: String,
+}
+
+/// 扫描源码中的可执行函数与紧邻属性。
+///
+/// 扫描器刻意只做**结构性近似**：它不构建 AST，也不尝试解析宏展开。目标是把
+/// `fn` 边界、顶层参数、函数体和紧邻属性切成稳定结构，供纯规则函数判定。
+/// 不含函数体的 trait 声明会被跳过，因为后续五条规则只关心可执行实现。
+#[must_use]
+pub fn scan_functions(source: &str) -> Vec<FunctionSpan> {
+    let scanned = scan(source);
+    let code_lines: Vec<&str> = scanned.code.lines().collect();
+    let source_lines: Vec<&str> = source.lines().collect();
+    let mut functions = Vec::new();
+
+    for (index, code_line) in code_lines.iter().enumerate() {
+        let Some((name, fn_offset)) = function_name(code_line) else {
+            continue;
+        };
+        let Some((body_line, body_column)) = body_start(&code_lines, index, fn_offset) else {
+            continue;
+        };
+        let Some((end_line, end_column)) = body_end(&code_lines, body_line, body_column) else {
+            continue;
+        };
+
+        let signature = code_fragment(&code_lines, index, fn_offset, body_line, body_column);
+        let body = code_fragment(
+            &code_lines,
+            body_line,
+            body_column,
+            end_line,
+            end_column + 1,
+        );
+        let attributes = preceding_attributes(&source_lines, &code_lines, index + 1);
+        let is_test = attributes.as_deref().is_some_and(|text| {
+            text.contains("#[test")
+                || text.contains("#[tokio::test")
+                || text.contains("#[async_std::test")
+                || text.contains("#[rstest")
+                || text.contains("#[test_case")
+        });
+        let ignore_attribute =
+            attributes.filter(|text| text.contains("#[ignore") || text.contains(".skip"));
+
+        functions.push(FunctionSpan {
+            name,
+            start_line: index + 1,
+            end_line: end_line + 1,
+            parameter_count: count_parameters(&signature),
+            cyclomatic_complexity: 1 + count_complexity(&body),
+            is_test,
+            ignore_attribute,
+            body,
+        });
+    }
+
+    functions
+}
+
+/// 返回函数名与 `fn` 关键字在行内的字节偏移。
+fn function_name(line: &str) -> Option<(String, usize)> {
+    let mut cursor = 0;
+    while let Some(found) = line.get(cursor..)?.find("fn") {
+        let offset = cursor + found;
+        let before = line.get(..offset).and_then(|text| text.chars().next_back());
+        let after = line.get(offset + 2..).and_then(|text| text.chars().next());
+        let is_token = before
+            .is_none_or(|character| !(character.is_alphanumeric() || character == '_'))
+            && after.is_none_or(|character| !(character.is_alphanumeric() || character == '_'));
+        if is_token {
+            let remainder = line.get(offset + 2..).unwrap_or_default().trim_start();
+            let name: String = remainder
+                .chars()
+                .take_while(|character| {
+                    !matches!(character, '(' | '<' | ':' | ' ' | ';' | '{' | ',' | ')')
+                })
+                .collect();
+            if !name.is_empty() {
+                return Some((name, offset));
+            }
+        }
+        cursor = offset + 2;
+    }
+    None
+}
+
+/// 从 `fn` 所在行开始寻找函数体左花括号。
+fn body_start(code_lines: &[&str], start_line: usize, fn_offset: usize) -> Option<(usize, usize)> {
+    for (line_index, line) in code_lines.iter().enumerate().skip(start_line) {
+        let start = if line_index == start_line {
+            fn_offset + 2
+        } else {
+            0
+        };
+        if let Some(offset) = line.get(start..)?.find('{') {
+            return Some((line_index, start + offset));
+        }
+    }
+    None
+}
+
+/// 从函数体左花括号开始做大括号配对，返回右花括号位置。
+fn body_end(code_lines: &[&str], start_line: usize, start_column: usize) -> Option<(usize, usize)> {
+    let mut depth = 0usize;
+    for (line_index, line) in code_lines.iter().enumerate().skip(start_line) {
+        let start = if line_index == start_line {
+            start_column
+        } else {
+            0
+        };
+        let segment = line.get(start..)?;
+        for (offset, character) in segment.char_indices() {
+            match character {
+                '{' => depth += 1,
+                '}' => {
+                    depth = depth.saturating_sub(1);
+                    if depth == 0 {
+                        return Some((line_index, start + offset));
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    None
+}
+
+/// 收集从 `start` 到 `end` 的降噪代码片段，换行保留。
+fn code_fragment(
+    code_lines: &[&str],
+    start_line: usize,
+    start_column: usize,
+    end_line: usize,
+    end_column: usize,
+) -> String {
+    let mut fragment = String::new();
+    for (line_index, line) in code_lines.iter().enumerate() {
+        if line_index < start_line || line_index > end_line {
+            continue;
+        }
+        let start = if line_index == start_line {
+            start_column
+        } else {
+            0
+        };
+        let end = if line_index == end_line {
+            end_column.min(line.len())
+        } else {
+            line.len()
+        };
+        if let Some(piece) = line.get(start..end) {
+            fragment.push_str(piece);
+        }
+        if line_index < end_line {
+            fragment.push('\n');
+        }
+    }
+    fragment
+}
+
+/// 收集紧邻函数的属性块；字符串内容可能已被降噪，但属性关键字仍在。
+fn preceding_attributes(
+    source_lines: &[&str],
+    code_lines: &[&str],
+    function_line: usize,
+) -> Option<String> {
+    let mut index = function_line.checked_sub(1)?;
+    let mut lines = Vec::new();
+    let mut steps = 0usize;
+    while index > 0 && steps < 12 {
+        index -= 1;
+        steps += 1;
+        let code = code_lines.get(index).map_or("", |line| line.trim());
+        if code.is_empty() {
+            continue;
+        }
+        if code.starts_with('#') || code.ends_with(']') {
+            if let Some(line) = source_lines.get(index) {
+                lines.push((*line).to_string());
+            }
+            continue;
+        }
+        break;
+    }
+    lines.reverse();
+    if lines.is_empty() {
+        None
+    } else {
+        Some(lines.join("\n"))
+    }
+}
+
+/// 数顶层参数；支持跨行签名、泛型与 `self`。
+fn count_parameters(signature: &str) -> usize {
+    let Some(open_offset) = signature.find('(') else {
+        return 0;
+    };
+    let mut depth = 0usize;
+    let mut commas = 0usize;
+    let mut has_parameter = false;
+    let mut last_non_whitespace = None;
+    for character in signature.get(open_offset + 1..).unwrap_or_default().chars() {
+        match character {
+            '(' | '[' | '{' => {
+                depth += 1;
+                has_parameter = true;
+                last_non_whitespace = Some(character);
+            }
+            ')' if depth == 0 => break,
+            ')' | ']' | '}' => {
+                depth = depth.saturating_sub(1);
+                has_parameter = true;
+                last_non_whitespace = Some(character);
+            }
+            ',' if depth == 0 => {
+                commas += 1;
+                has_parameter = true;
+                last_non_whitespace = Some(character);
+            }
+            character if !character.is_whitespace() => {
+                has_parameter = true;
+                last_non_whitespace = Some(character);
+            }
+            _ => {}
+        }
+    }
+    if !has_parameter {
+        return 0;
+    }
+    if last_non_whitespace == Some(',') {
+        commas
+    } else {
+        commas + 1
+    }
+}
+
+/// 估算函数体分支数；复杂度的基数由 `scan_functions` 加 1。
+fn count_complexity(body: &str) -> usize {
+    let mut complexity = 0usize;
+    for token in body.split(|character: char| !(character.is_alphanumeric() || character == '_')) {
+        if matches!(token, "if" | "match" | "while" | "for" | "loop") {
+            complexity += 1;
+        }
+    }
+    complexity += body.match_indices("=>").count();
+    complexity += body.match_indices("&&").count();
+    complexity += body.match_indices("||").count();
+    complexity += body.matches('?').count();
+    complexity
+}
+
 // ---------------------------------------------------------------------------
 // 实现：单遍字符状态机
 // ---------------------------------------------------------------------------
@@ -391,191 +664,6 @@ impl Scanner {
 }
 
 #[cfg(test)]
+#[path = "rustscan_tests.rs"]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-mod tests {
-    use super::*;
-
-    /// 取出第 `index` 条注释（越界时给出可读的失败信息，便于定位）。
-    fn nth(scan: &Scan, index: usize) -> &Comment {
-        scan.comments.get(index).unwrap_or_else(|| {
-            panic!(
-                "期望至少 {} 条注释，实际 {} 条：{:?}",
-                index + 1,
-                scan.comments.len(),
-                scan.comments
-            )
-        })
-    }
-
-    // --- 不变量 1/2：行号与长度保真 ---
-
-    #[test]
-    fn test_scan_blank_replacement_preserves_char_count() {
-        let source = "let s = \"abcd\";\n// 12345\n";
-        let result = scan(source);
-        assert_eq!(
-            result.code.chars().count(),
-            source.chars().count(),
-            "不变量 2：长度必须保真"
-        );
-    }
-
-    #[test]
-    fn test_scan_newline_positions_are_preserved() {
-        let source = "a\n// c\nb\n";
-        let result = scan(source);
-        let code_lines: Vec<&str> = result.code.lines().collect();
-        assert_eq!(
-            code_lines.len(),
-            source.lines().count(),
-            "不变量 1：行数必须一致"
-        );
-        assert_eq!(
-            code_lines.get(1).copied(),
-            Some("    "),
-            "注释整行应被抹成等量空格（`// c` = 4 字符）"
-        );
-        assert_eq!(result.line_count, 3);
-    }
-
-    #[test]
-    fn test_scan_empty_source_yields_empty_result() {
-        let result = scan("");
-        assert_eq!(result.line_count, 0);
-        assert!(result.comments.is_empty());
-        assert!(result.code.is_empty());
-    }
-
-    // --- 行注释种类 ---
-
-    #[test]
-    fn test_line_comment_kinds_are_distinguished() {
-        let source = "// 普通\n/// 文档\n//! 模块\n//// 四个斜杠\n";
-        let result = scan(source);
-        assert_eq!(result.comments.len(), 4);
-        assert_eq!(nth(&result, 0).kind, CommentKind::Line);
-        assert_eq!(nth(&result, 1).kind, CommentKind::LineDoc);
-        assert_eq!(nth(&result, 2).kind, CommentKind::ModuleDoc);
-        assert_eq!(
-            nth(&result, 3).kind,
-            CommentKind::Line,
-            "`////` 是普通注释，正文以 // 开头"
-        );
-        assert_eq!(nth(&result, 3).text, "// 四个斜杠");
-    }
-
-    #[test]
-    fn test_line_comment_reports_one_based_line_number() {
-        let source = "fn main() {}\n\n// 第三行\n";
-        let result = scan(source);
-        assert_eq!(nth(&result, 0).line, 3);
-    }
-
-    // --- 字符串中的假注释 ---
-
-    #[test]
-    fn test_double_slash_inside_string_is_not_a_comment() {
-        let source = "let url = \"http://example.com\";\n";
-        let result = scan(source);
-        assert!(result.comments.is_empty(), "字符串里的 // 不能被当成注释");
-        assert!(result.code.contains("let url ="), "字符串外的代码应保留");
-        assert!(!result.code.contains("http"), "字符串内容应被抹掉");
-    }
-
-    #[test]
-    fn test_escaped_quote_does_not_end_string() {
-        let source = "let s = \"a\\\"// b\";\n// 真注释\n";
-        let result = scan(source);
-        assert_eq!(result.comments.len(), 1, "只应识别出末尾那一条真注释");
-        assert_eq!(nth(&result, 0).text, " 真注释");
-    }
-
-    #[test]
-    fn test_raw_string_with_hashes_swallows_slashes() {
-        let source = "let s = r#\"// 不是注释 /* 也不是 */\"#;\n// 真注释\n";
-        let result = scan(source);
-        assert_eq!(result.comments.len(), 1);
-        assert_eq!(nth(&result, 0).line, 2);
-    }
-
-    // --- 块注释 ---
-
-    #[test]
-    fn test_block_comment_is_captured_with_text() {
-        let source = "/* 第一行\n第二行 */\nlet x = 1;\n";
-        let result = scan(source);
-        assert_eq!(result.comments.len(), 1);
-        assert_eq!(nth(&result, 0).kind, CommentKind::Block);
-        assert!(nth(&result, 0).text.contains("第二行"));
-        assert!(!nth(&result, 0).text.contains("*/"), "结尾标记不应计入正文");
-    }
-
-    #[test]
-    fn test_nested_block_comments_are_balanced() {
-        let source = "/* 外 /* 内 */ 仍在外 */\nlet x = 1;\n";
-        let result = scan(source);
-        assert_eq!(result.comments.len(), 1, "嵌套块注释应算一条");
-        assert!(result.code.contains("let x = 1;"), "嵌套结束后应回到代码区");
-    }
-
-    #[test]
-    fn test_doc_block_comment_kinds() {
-        let result = scan("/** 文档 */\n/*! 模块 */\n");
-        assert_eq!(nth(&result, 0).kind, CommentKind::LineDoc);
-        assert_eq!(nth(&result, 1).kind, CommentKind::ModuleDoc);
-    }
-
-    #[test]
-    fn test_unterminated_block_comment_does_not_panic() {
-        let result = scan("/* 没有结尾");
-        assert_eq!(
-            result.comments.len(),
-            1,
-            "扫到文件尾即停止，不报错（见 scan 文档）"
-        );
-    }
-
-    // --- 字符字面量 vs 生命周期 ---
-
-    #[test]
-    fn test_char_literal_is_blanked() {
-        let result = scan("let c = 'x';\n");
-        assert!(!result.code.contains("'x'"));
-        assert!(result.code.contains("let c ="));
-    }
-
-    #[test]
-    fn test_lifetime_is_kept_as_code() {
-        let source = "fn f<'a>(x: &'a str) -> &'a str { x }\n";
-        let result = scan(source);
-        assert!(result.code.contains("'a"), "生命周期属于代码，不能被抹掉");
-        assert!(result.comments.is_empty());
-    }
-
-    #[test]
-    fn test_escaped_quote_char_literal_is_recognized() {
-        let source = "let c = '\\'';\nlet d = 'y';\n";
-        let result = scan(source);
-        assert!(
-            !result.code.contains("'y'"),
-            "转义引号之后的字面量仍应被正确识别"
-        );
-    }
-
-    #[test]
-    fn test_byte_string_and_byte_char_prefixes() {
-        let result = scan("let a = b\"//x\";\nlet b = b'y';\n");
-        assert!(result.comments.is_empty(), "字节字面量中的 // 不是注释");
-    }
-
-    // --- 便捷封装 ---
-
-    #[test]
-    fn test_scan_separates_comment_from_adjacent_code() {
-        let source = "// c\nlet s = \"x\";\n";
-        let result = scan(source);
-        assert_eq!(result.comments.len(), 1);
-        assert_eq!(nth(&result, 0).text, " c");
-        assert!(result.code.contains("let s ="), "代码部分应原样保留");
-    }
-}
+mod tests;

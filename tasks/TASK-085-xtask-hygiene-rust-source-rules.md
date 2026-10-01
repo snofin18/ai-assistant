@@ -81,18 +81,93 @@ cargo run -p xtask -- --list-deferred
 
 ### 1. 约束回执
 
+【任务】TASK-085 `xtask hygiene` 剩余规则 A 组：Rust 源码结构
+【目标】实现函数行数、参数个数、圈复杂度、空 stub、跳过测试五条规则，并把登记表从 3/13 推到 8/13
+【write scope】仅：`xtask/**`
+【铁律】规则判定保持纯函数；扫到 0 个函数必须显式告警；不得改阈值/门禁语义；不得伪造运行结果
+【禁止】不改 `crates/**` / `apps/**` / task package；不加依赖；不顺手重构既有 3 条规则
+【验收】卡面 6 条命令 + workspace 回归 + 全仓实跑计数
+【依赖】TASK-015 已 Done（已核对 `LEDGER.md`）
+【疑问】现有 81 条结构存量跨多个 crate；按 ADR-0025 D1 默认全部先 Warning，不阻塞本卡验收
+
 ### 2. 实际改动文件
+
+- **改** `xtask/src/rustscan.rs`：新增 `FunctionSpan`、纯函数 `scan_functions()`，扫描函数边界、顶层参数、圈复杂度、紧邻测试/ignore 属性。
+- **增** `xtask/src/rustscan_tests.rs`：原扫描器测试外置，并补函数边界、跨行参数、复杂度、属性、trait 声明跳过、空源码用例。
+- **改** `xtask/src/hygiene.rs`：新增 5 条规则及阈值常量；`check_rust_source()` 接入函数结构规则。
+- **增** `xtask/src/hygiene_tests.rs`：原规则测试外置，并补 5 条新规则各自的正向/阈值负向用例。
+- **改** `xtask/src/main.rs`：hygiene 运行统计函数数；总数为 0 时增加 `hygiene/no-functions-scanned` Warning。
+- **改** `xtask/src/deferred.rs`：移除 TASK-085 的 5 条规则登记；实现计数 3 → 8，未实现 10 → 5。
+- **改** `xtask/README.md`：同步 8/13 覆盖范围与剩余 5 条归属。
+- **改** 本卡记录与状态同步文件（完成后同批提交）。
 
 ### 3. 验收输出摘要
 
+```text
+cargo fmt --all --check                                  -> clean
+cargo clippy --all-targets -- -D warnings                -> EXIT 0
+cargo test --workspace                                   -> EXIT 0
+cargo test -p xtask hygiene                              -> 39 passed / 0 failed（384 filtered）
+cargo run -p xtask -- hygiene                            -> scanned=333，0 error / 85 warning，PASSED
+cargo run -p xtask -- --list-deferred                    -> 已实现 8 项，未实现 5 项
+cargo run -p xtask -- verify-schemas                     -> 0 error(s), PASSED
+cargo run -p xtask -- codegen --check                    -> 0 drift(s), 0 error(s), PASSED
+cargo run -p xtask -- docscan                            -> 0 error(s), 370 warning(s), PASSED
+cargo run -p xtask -- card-check                         -> 0 error(s), 27 warning(s), PASSED
+cargo run -p xtask -- refscan                            -> 0 error(s), 0 warning(s), PASSED
+cargo run -p xtask -- memory-counts                      -> 0 error(s), 0 warning(s), PASSED
+cargo run -p xtask -- adr-index                          -> 0 error(s), 0 warning(s), PASSED
+cargo run -p xtask -- check-ledger                       -> 0 error(s), 0 warning(s), PASSED
+cargo run -p xtask -- check-migrations                   -> 0 error(s), 0 warning(s), PASSED
+cargo run -p xtask -- check-comments                     -> 333 scanned, 0 error(s), 68 warning(s), PASSED
+cargo deny check                                         -> advisories / bans / licenses / sources all ok
+```
+
+**5 条新规则的全仓存量（2026-10-02，`hygiene` 实跑）：**
+
+| 规则 | 级别 | 存量 |
+|---|---|---:|
+| `hygiene/function-too-long` | Warning | 12 |
+| `hygiene/too-many-parameters` | Warning | 4 |
+| `hygiene/cyclomatic-complexity` | Warning | 51 |
+| `hygiene/bare-stub` | Warning | 11 |
+| `hygiene/skipped-test-without-reason` | Warning | 3 |
+
+合计 81 条新规则发现项，0 Error。按 ADR-0025 D1，存量跨越既有业务 crate，不能在本卡 write scope 内安全清零，故全部先以 Warning 上线。
+
 ### 4. DoD 逐条核对
+
+- [x] 5 条规则均有正向基线 + 负向用例：边界、错误输入与放行样本均在 `rustscan_tests.rs` / `hygiene_tests.rs`。
+- [x] 5 条规则全仓实跑计数已记录；级别按 ADR-0025 D1 判为 Warning。
+- [x] 扫描器是纯函数：`scan_functions()` 只接受 `&str`，测试不碰文件系统。
+- [x] `deferred.rs`：5 条移出，`IMPLEMENTED_HYGIENE_RULE_COUNT = 8`，不变量测试绿。
+- [x] 扫到 0 个函数时，`run_hygiene` 显式增加 `hygiene/no-functions-scanned` Warning。
+- [x] `cargo fmt --all --check` 0 diff。
+- [x] `cargo clippy --all-targets -- -D warnings` exit 0。
+- [x] `cargo test --workspace` 全绿。
+- [x] `xtask hygiene / memory-counts / adr-index / docscan / card-check / check-ledger` 全部 PASSED。
+- [x] LEDGER 追加行；本卡未新增需落 `docs/memory` 的 FACT/PITFALL/REJECTED。
 
 ### 5. 偏差
 
+none。5 条规则先 Warning 是按 ADR-0025 D1 对 81 条既有存量的实施口径，不改变阈值或规则 id。
+
 ### 6. 更合理做法
+
+用同一个 `scan_functions()` 只读视图承载 5 条规则，避免每个规则各写一遍函数边界解析；测试通过既有 `#[path]` 模式外置，保持 `hygiene.rs` 在 600 行建议线内。
 
 ### 7. 遗留问题
 
+- `xtask/src/rustscan.rs` 拆分测试后仍有 666 行，触发 `hygiene/file-too-long` Warning；父文件是扫描器唯一职责，本轮不引入新模块，留待后续结构治理。
+- 5 条新规则目前均为 Warning；待存量清理与 ADR 裁决后再决定是否升 Error。
+- TASK-086 仍负责 CRLF、末行换行与依赖登记三项。
+
 ### 8. 新增长期记忆
 
+无。规则计数与级别理由已记录在本卡；未在 write scope 内追加 `docs/memory`。
+
 ### 9. 给审阅者的关注点
+
+1. `scan_functions()` 是结构性近似而非完整 Rust parser，重点审查宏、跨行签名、嵌套函数与属性关联的误报边界。
+2. 5 条规则当前均为 Warning，PASSED 不代表仓库已有函数结构存量已清零。
+3. `deferred.rs` 的 8/13 与事实一致；剩余 5 项必须继续由 `--list-deferred` 显式暴露。
