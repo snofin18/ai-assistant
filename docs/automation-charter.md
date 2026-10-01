@@ -499,7 +499,7 @@ cron（standalone）与 heartbeat **两种形态**都验过（GATE-0.2）；触�
 
 ### W1　`rustscan` 函数扫描器（为函数级卫生规则铺路）
 
-- [ ] 未完成
+- [x] 已完成（2026-10-02 状态回填；实现在 TASK-085 以 `scan_functions` / `FunctionSpan` 落地）
 - **目标**：在 `rustscan.rs` 增加 `find_functions(code: &str) -> Vec<FunctionSpan>`，
   基于已有的降噪视图 `Scan::code` 定位每个函数的 **名字、起止行、参数列表、函数体行数**。
   trait/extern 里无函数体的声明（以 `;` 结束）要能识别并标记为"无函数体"。
@@ -519,7 +519,7 @@ cron（standalone）与 heartbeat **两种形态**都验过（GATE-0.2）；触�
 
 ### W2　hygiene 函数级规则三条（gov §5.4 的第 2/3/4 项）
 
-- [ ] 未完成　**依赖 W1**
+- [x] 已完成（2026-10-02 状态回填；`function-too-long` / `too-many-params` / `high-cyclomatic-complexity` 由 TASK-085 落地）　**依赖 W1**
 - **目标**：实现 `hygiene/function-too-long`（>80 行 Warning）、`hygiene/too-many-params`
   （>6 个 Warning）、`hygiene/high-cyclomatic-complexity`（>15 Warning）。
   阈值**必须复用** `clippy.toml` 里已定的数字（15 / 6 / 80），不得另立一套。
@@ -562,7 +562,7 @@ cron（standalone）与 heartbeat **两种形态**都验过（GATE-0.2）；触�
 > 且原「禁止」项写的是「新建 0021 及以后的编号」，恰好封死了 ADR-0026 D2 需要的改号动作。
 > 另：编号**禁止写范围形式**（`0016~0020` 这类写法本身就是 PL-029 的成因之一），一律逐个列出。
 
-- [ ] 未完成
+- [x] 已完成（2026-10-02，round 5；四个 Draft 文件与登记表回填见同轮提交）
 - **目标**：把 `docs/memory/decisions.md` 里的 `[ADR:待建 0016]` / `[ADR:待建 0017]` /
   `[ADR:待建 0020]` / `[ADR:待建 0027]` 四条决策，按 gov §9.3 模板落成
   `docs/adr/0016-*.draft.md`、`docs/adr/0017-*.draft.md`、`docs/adr/0020-*.draft.md`、
