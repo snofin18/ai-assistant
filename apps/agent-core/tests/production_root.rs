@@ -7,12 +7,13 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+#[cfg(windows)]
+use assistant_agent_core::GrantRequest;
 use assistant_agent_core::UiServerConfig;
-use assistant_agent_core::{
-    GrantRequest, ProductionConfig, ProductionError, assemble_production_host,
-};
+use assistant_agent_core::{ProductionConfig, ProductionError, assemble_production_host};
 #[cfg(windows)]
 use assistant_agent_core::{TaskControlHandler, UiEvent, UiEventSource, serve_session_with_events};
+#[cfg(windows)]
 use assistant_hitl::ApprovalScope;
 #[cfg(windows)]
 use assistant_ipc::{
@@ -27,6 +28,7 @@ use assistant_platform_api::{
     WindowState,
 };
 use assistant_storage::Clock;
+#[cfg(windows)]
 use assistant_task_engine::{StepStatus, TaskStatus};
 
 const FIXED_NOW_MS: i64 = 1_700_000_000_000;
