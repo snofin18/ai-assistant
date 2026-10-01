@@ -13,7 +13,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use assistant_agent_core::{
-    EnvelopeObservationCollector, RuntimeExecutor, StepExecutionOutcome, StepPolicy, ToolBusInvoker,
+    EnvelopeObservationCollector, ReservedRuntimeInvoker, RuntimeExecutor, StepExecutionOutcome,
+    StepPolicy, ToolBusInvoker, ToolInvoker,
 };
 use assistant_policy::Decision;
 use assistant_protocol::{RiskLevel, ToolEffect, ToolReversibility, serde_json::json};
@@ -162,4 +163,35 @@ async fn test_real_plan_commits_through_real_mcp_tool_bus() {
     let step = snapshot.steps.first().expect("one step snapshot");
     assert_eq!(step.status, StepStatus::Committed);
     assert_eq!(step.post_fingerprint.as_deref(), Some(FINGERPRINT));
+}
+
+/// ADR-0060: a reserved runtime tool is handled by the binary layer, **never**
+/// by the bus, and reports a *known* failure instead of an unknown outcome.
+#[tokio::test]
+async fn test_reserved_runtime_tool_is_handled_locally_as_a_known_failure() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let bus = started_bus(Arc::clone(&calls)).await;
+    let invoker = ReservedRuntimeInvoker::new(&bus);
+
+    let plan = write_plan();
+    let task_id = plan.task_id.clone();
+    let mut step = plan.steps.first().expect("one step").clone();
+    step.tool = "assistant.runtime.verify_postconditions".to_owned();
+
+    let envelope = invoker
+        .invoke(&task_id, &step)
+        .await
+        .expect("a reserved step yields an envelope, not an unknown outcome");
+
+    assert!(!envelope.ok, "the reserved executor is not implemented yet");
+    assert_eq!(
+        envelope.error.as_ref().map(|error| error.code),
+        Some(assistant_protocol::ErrorCode::CapabilityMissing),
+        "an unimplemented reserved executor must fail with a stable ErrorCode"
+    );
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        0,
+        "a reserved tool must never reach the model-visible tool bus"
+    );
 }

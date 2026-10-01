@@ -52,7 +52,7 @@ use crate::production_run::ProductionRun;
 use crate::production_support::{EmptyRetriever, NoopCompressor};
 use crate::runtime::{
     EnvelopeObservationCollector, RuntimeExecutionError, RuntimeExecutor, StepExecutionOutcome,
-    StepPolicy, ToolBusInvoker,
+    StepPolicy,
 };
 use crate::task_package::{TaskPackageError, TaskPackageProvider};
 use crate::ui_events::SnapshotEventSource;
@@ -375,7 +375,7 @@ where
         let mut executor = RuntimeExecutor::new(
             engine,
             policy,
-            ToolBusInvoker::new(self.host.tool_bus()),
+            crate::reserved_invoker::ReservedRuntimeInvoker::new(self.host.tool_bus()),
             EnvelopeObservationCollector,
         );
         let mut snapshots = Vec::with_capacity(steps.len());
