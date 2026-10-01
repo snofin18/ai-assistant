@@ -24,5 +24,12 @@
     "DialogMessageText",
     "DialogCancelButton",
     "DialogContinueButton"
+  ],
+  "save_as": [
+    "SaveAsDialogWindow",
+    "SaveAsFileNameBox",
+    "SaveAsConfirmButton",
+    "SaveAsCancelButton",
+    "SaveAsStatusText"
   ]
 }
