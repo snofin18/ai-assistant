@@ -70,6 +70,9 @@ impl ToolInvoker for ReservedRuntimeInvoker<'_> {
             if tool == crate::runtime_tools::TOOL_PREPARE_ANCHORS {
                 return self.prepare_anchors(&call, &step_id, sequence, arguments.as_ref());
             }
+            if tool == crate::runtime_tools::TOOL_REQUEST_APPROVAL {
+                return Ok(Self::request_approval(&call, &step_id, arguments.as_ref()));
+            }
             if crate::runtime_tools::RESERVED_RUNTIME_TOOLS.contains(&tool.as_str()) {
                 return Ok(ToolEnvelope::error(
                     tool,
@@ -158,6 +161,103 @@ impl ReservedRuntimeInvoker<'_> {
             step_id.to_owned(),
             json!({ "fingerprint": fingerprint }),
         ))
+    }
+
+    /// ADR-0059 D2: validate the approval request and **refuse**, never
+    /// self-approve.
+    ///
+    /// This executor deliberately does not produce a successful envelope: a step
+    /// that asks for approval must not continue on its own say-so. Two cases:
+    ///
+    /// * `point_of_no_return` - an irreversible step stays permanently barred
+    ///   from unattended execution (iron law 6), so it is refused with
+    ///   `PolicyDenied`.
+    /// * anything else - the request is well formed, but **no approval channel is
+    ///   wired into this runtime yet**, so it is refused with `UserInteraction`
+    ///   and the request is named in the message. Wiring the real
+    ///   `crates/hitl` decision path is the remaining work; what this step already
+    ///   guarantees is that nothing proceeds un-approved.
+    fn request_approval(
+        call: &CallContext,
+        step_id: &str,
+        arguments: Option<&Map<String, Value>>,
+    ) -> ToolEnvelope {
+        let refused = |code: ErrorCode, message: String| {
+            ToolEnvelope::error(
+                crate::runtime_tools::TOOL_REQUEST_APPROVAL.to_owned(),
+                call.task_id().to_owned(),
+                step_id.to_owned(),
+                code,
+                message,
+            )
+        };
+        let Some(arguments) = arguments else {
+            return refused(
+                ErrorCode::ToolInvalidArgs,
+                "request_approval requires arguments".to_owned(),
+            );
+        };
+        let Some(risk) = arguments.get("risk").and_then(Value::as_str) else {
+            return refused(
+                ErrorCode::ToolInvalidArgs,
+                "risk must be a string".to_owned(),
+            );
+        };
+        if !matches!(risk, "low" | "medium" | "high" | "critical") {
+            return refused(
+                ErrorCode::ToolInvalidArgs,
+                format!("unknown approval risk `{risk}`"),
+            );
+        }
+        let Some(scopes) = arguments.get("scope_options").and_then(Value::as_array) else {
+            return refused(
+                ErrorCode::ToolInvalidArgs,
+                "scope_options must be an array".to_owned(),
+            );
+        };
+        if scopes.is_empty() {
+            return refused(
+                ErrorCode::ToolInvalidArgs,
+                "scope_options must not be empty".to_owned(),
+            );
+        }
+        if let Some(reason) = approval_scope_refusal(scopes) {
+            return refused(ErrorCode::ToolInvalidArgs, reason);
+        }
+        if arguments
+            .get("show_diff")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+            && arguments
+                .get("diff")
+                .and_then(Value::as_str)
+                .is_none_or(|diff| diff.trim().is_empty())
+        {
+            return refused(
+                ErrorCode::ToolInvalidArgs,
+                "show_diff requires a non-empty diff".to_owned(),
+            );
+        }
+        if arguments
+            .get("point_of_no_return")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        {
+            return refused(
+                ErrorCode::PolicyDenied,
+                "this step is past its point of no return; it is permanently barred from \
+                 unattended execution and requires human confirmation"
+                    .to_owned(),
+            );
+        }
+        refused(
+            ErrorCode::UserInteraction,
+            format!(
+                "approval required (risk={risk}, scopes={}); no approval channel is wired into \
+                 this runtime yet",
+                scopes.len()
+            ),
+        )
     }
 
     /// ADR-0059 D3 / ADR-0060 D4: decide and **validate** the anchors a write step
@@ -277,6 +377,18 @@ impl ReservedRuntimeInvoker<'_> {
                 reason: "latest task snapshot mutex is poisoned".to_owned(),
             })
     }
+}
+
+/// Returns why the declared approval scopes are unusable, if they are.
+fn approval_scope_refusal(scopes: &[Value]) -> Option<String> {
+    for scope in scopes {
+        match scope.as_str() {
+            Some("once" | "task" | "session") => {}
+            Some(other) => return Some(format!("unknown approval scope `{other}`")),
+            None => return Some("scope_options entries must be strings".to_owned()),
+        }
+    }
+    None
 }
 
 #[cfg(test)]
