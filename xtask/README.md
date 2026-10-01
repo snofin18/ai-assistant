@@ -4,7 +4,7 @@
 
 把「靠自觉」的规范变成**机器可执行的检查**，并提供一把开发期的文件互斥锁。当前提供：
 
-- `hygiene`：仓库卫生检查（gov §5.4 的 **13** 项中已实现 3 项，口径见 ADR-0025；工具会在输出里主动声明覆盖范围）
+- `hygiene`：仓库卫生检查（gov §5.4 的 **13** 项中已实现 8 项，口径见 ADR-0025；工具会在输出里主动声明覆盖范围）
 - `memory-counts`：`MEMORY.md`「各文件当前规模」表 ↔ `docs/memory/` 实测计数是否一致（ADR-0030 D1/D2，**8** 条规则）
 - `adr-index`：`docs/adr/README.md` 编号登记表 ↔ `docs/adr/NNNN-*.md` ↔ `docs/memory/decisions.md` 是否一致（ADR-0030 D3，**11** 条规则）
 - `guard`：文件改写互斥锁（ADR-0028），操作 = `acquire` / `release` / `status` / `reap`
@@ -182,8 +182,8 @@
 
 ## 已知限制 / 技术债
 
-- 8 项 gov §5.4 规则未实现（函数行数、参数个数、圈复杂度、重复代码、顶层目录白名单、
-  依赖登记比对、空实现 stub、被跳过的测试）→ **TASK-015**
+- 5 项 gov §5.4 规则未实现（重复代码、顶层目录白名单、依赖登记比对、CRLF、末行换行）→
+  **TASK-086 / 未拆卡项**
 - `check-comments` / `check-ledger` / `card-check` **无任务卡认领** → `docs/PARKING_LOT.md` PL-002
 - 「文档注释里用反引号引用的标签字样」是否豁免，尚未裁决 → PL-004
 - 裸引用检查（`ADR-NNNN` 未写成 `[ADR:待建 NNNN]`）**本轮未实现** → PL-032（ADR-0030 D4：

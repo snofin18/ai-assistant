@@ -7,7 +7,7 @@
 //! 铁律 1「无静默失败」在工具链上的具体形态是：CI 里一条 `cargo run -p xtask -- check-comments`
 //! 如果因为"还没写"而返回 0，人类会以为这项检查一直在保护仓库 —— 这比没有这项检查更危险，
 //! 因为它制造了虚假的安全感。所以未实现项必须：① 登记在册 ② 运行时报错并指出归属卡号
-//! ③ 在正常运行的输出里声明"13 项规则只实现了 3 项"（口径见 ADR-0025）。
+//! ③ 在正常运行的输出里声明实现进度（口径见 ADR-0025）。
 //!
 //! ## 边界（不做什么）
 //! - 不做任何 IO：所有函数返回 `String`，打印由 `main.rs` 负责。
@@ -28,8 +28,8 @@
 /// 是更彻底的做法，已记入 `docs/PARKING_LOT.md` PL-022。
 pub const TOTAL_HYGIENE_RULE_COUNT: usize = 13;
 
-/// 本卡（TASK-001）已实现的卫生规则项数：文件行数、注释标签、注释掉的代码块。
-pub const IMPLEMENTED_HYGIENE_RULE_COUNT: usize = 3;
+/// 已实现的卫生规则项数：TASK-001 的 3 条 + TASK-085 的函数结构 5 条。
+pub const IMPLEMENTED_HYGIENE_RULE_COUNT: usize = 8;
 
 /// 一个尚未实现的子命令。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,7 +72,7 @@ pub const DEFERRED_COMMANDS: &[DeferredCommand] = &[DeferredCommand {
 pub const UNASSIGNED_HYGIENE_CARD: &str =
     "未拆卡（见 docs/PARKING_LOT.md PL-060：需 ADR / 阈值设计前置）";
 
-/// 未实现的卫生规则清单（gov §5.4 共 13 项；TASK-001 实现 3 项，其余 10 项的归属见 PL-059）。
+/// 未实现的卫生规则清单（gov §5.4 共 13 项；TASK-001 实现 3 项、TASK-085 实现 5 项，其余 5 项的归属见 PL-059）。
 ///
 /// **2026-09-24 归属修正（PL-059）**：这 10 项原来一律写 `TASK-015`，而 TASK-015 已 Done
 /// 且**没有**实现它们 —— 登记表指向一张已完成的卡，等于「有人会做」的信号消失
@@ -83,21 +83,6 @@ pub const UNASSIGNED_HYGIENE_CARD: &str =
 ///
 /// 分组轴是**实现机制**（同一扫描器的规则放一张卡），不是「谁提的」。
 pub const DEFERRED_HYGIENE_RULES: &[DeferredRule] = &[
-    DeferredRule {
-        rule: "单函数行数 > 80 警告",
-        reason: "需要函数边界扫描（rustscan 的降噪视图已就绪，扫描器待写）",
-        owning_card: "TASK-085",
-    },
-    DeferredRule {
-        rule: "函数参数个数 > 6 警告",
-        reason: "同上，需要函数签名解析",
-        owning_card: "TASK-085",
-    },
-    DeferredRule {
-        rule: "圈复杂度 > 15 警告",
-        reason: "需要分支计数，依赖函数体扫描",
-        owning_card: "TASK-085",
-    },
     DeferredRule {
         rule: "重复代码（跨文件相似度）警告",
         reason: "需要跨文件指纹与相似度阈值设计，属独立议题（PL-060：先裁决阈值口径）",
@@ -112,16 +97,6 @@ pub const DEFERRED_HYGIENE_RULES: &[DeferredRule] = &[
         rule: "新增依赖必须已登记 docs/DEPENDENCIES.md",
         reason: "登记表已建（TASK-001），解析与比对逻辑待写",
         owning_card: "TASK-086",
-    },
-    DeferredRule {
-        rule: "空实现 stub 必须带 STUB 卡号标记",
-        reason: "「空实现」的判定需要函数体分析；卡号部分已由 hygiene/missing-card-reference 覆盖",
-        owning_card: "TASK-085",
-    },
-    DeferredRule {
-        rule: "被跳过的测试（#[ignore] / .skip）必须带原因与卡号",
-        reason: "需要属性解析与测试函数关联",
-        owning_card: "TASK-085",
     },
     // 以下两条由 ADR-0025 D1 新增（关闭 PL-011 / PL-020）。
     DeferredRule {
@@ -198,7 +173,7 @@ pub fn describe_deferred_rules() -> String {
 #[must_use]
 pub fn hygiene_progress_note() -> String {
     format!(
-        "-- deferred-rules: gov §5.4 共 {} 项，已实现 {} 项，未实现 {} 项（归属 TASK-085 / TASK-086，未拆卡的见 PL-060；`--list-deferred` 查看清单）",
+        "-- deferred-rules: gov §5.4 共 {} 项，已实现 {} 项，未实现 {} 项（归属 TASK-086 / 未拆卡项，见 PL-060；`--list-deferred` 查看清单）",
         TOTAL_HYGIENE_RULE_COUNT,
         IMPLEMENTED_HYGIENE_RULE_COUNT,
         DEFERRED_HYGIENE_RULES.len()
@@ -309,7 +284,7 @@ mod tests {
         // PL-059 的机器判据（ADR-0019 N1 同型）：10 项未实现规则只许归
         // TASK-085 / TASK-086 / 未拆卡指针 —— 不许再出现「指向一张已 Done 的卡」
         // 那种形态（TASK-015 就是这样过期的）。
-        let allowed = ["TASK-085", "TASK-086", UNASSIGNED_HYGIENE_CARD];
+        let allowed = ["TASK-086", UNASSIGNED_HYGIENE_CARD];
         for entry in DEFERRED_HYGIENE_RULES {
             assert!(
                 allowed.contains(&entry.owning_card),
@@ -341,12 +316,12 @@ mod tests {
     fn test_progress_note_states_partial_coverage() {
         let note = hygiene_progress_note();
         assert!(
-            note.contains("已实现 3 项"),
+            note.contains("已实现 8 项"),
             "必须声明只实现了一部分，实际：{note}"
         );
         assert!(
-            note.contains("未实现 10 项"),
-            "ADR-0025：gov §5.4 为 13 项、已实现 3 项 → 未实现必须是 10 项，实际：{note}"
+            note.contains("未实现 5 项"),
+            "ADR-0025：gov §5.4 为 13 项、已实现 8 项 → 未实现必须是 5 项，实际：{note}"
         );
     }
 

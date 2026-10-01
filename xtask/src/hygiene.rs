@@ -22,7 +22,7 @@
 //! 相关：`docs/governance-ai-agent-execution.md` §5.4、`docs/spec/naming.md` §8
 
 use crate::report::{Finding, Severity};
-use crate::rustscan::{Comment, CommentKind, scan};
+use crate::rustscan::{Comment, CommentKind, FunctionSpan, scan, scan_functions};
 
 /// 单文件行数**警告**阈值（gov §5.4：> 600 行警告）。
 pub const FILE_LINES_WARN: usize = 600;
@@ -32,6 +32,15 @@ pub const FILE_LINES_ERROR: usize = 900;
 
 /// 连续多少行 `//` 注释且形似代码时，判定为「被注释掉的代码块」（gov §5.4：> 5 行连续）。
 pub const COMMENTED_CODE_RUN_ERROR: usize = 5;
+
+/// 单函数行数**警告**阈值（gov §5.4：> 80 行警告）。
+pub const FUNCTION_LINES_WARN: usize = 80;
+
+/// 函数顶层参数个数**警告**阈值（gov §5.4：> 6 个警告）。
+pub const PARAMETER_COUNT_WARN: usize = 6;
+
+/// 圈复杂度**警告**阈值（gov §5.4：> 15 警告）。
+pub const CYCLOMATIC_COMPLEXITY_WARN: usize = 15;
 
 /// `naming.md` §8 明令禁止的注释标签。
 ///
@@ -65,6 +74,7 @@ const CODE_LINE_ENDINGS: [char; 5] = [';', '{', '}', ')', ','];
 #[must_use]
 pub fn check_rust_source(relative_path: &str, source: &str) -> Vec<Finding> {
     let scanned = scan(source);
+    let functions = scan_functions(source);
     let mut findings = Vec::new();
 
     // 规则 1（文件级）：行数上限
@@ -75,8 +85,205 @@ pub fn check_rust_source(relative_path: &str, source: &str) -> Vec<Finding> {
     findings.extend(check_comment_tags(relative_path, &scanned.comments));
     // 规则 3：被注释掉的代码块
     findings.extend(check_commented_out_code(relative_path, &scanned.comments));
+    // 规则 4~8（TASK-085）：函数与测试属性结构
+    findings.extend(check_function_rules(
+        relative_path,
+        source,
+        &scanned.comments,
+        &functions,
+    ));
 
     findings
+}
+
+/// 返回源码中可执行函数的个数，供 `run_hygiene` 做「扫到 0 个函数」的显式告警。
+#[must_use]
+pub fn count_functions(source: &str) -> usize {
+    scan_functions(source).len()
+}
+
+/// 应用 TASK-085 的五条函数结构规则。
+#[must_use]
+pub fn check_function_rules(
+    relative_path: &str,
+    source: &str,
+    comments: &[Comment],
+    functions: &[FunctionSpan],
+) -> Vec<Finding> {
+    let mut findings = Vec::new();
+    findings.extend(check_function_length(relative_path, functions));
+    findings.extend(check_parameter_count(relative_path, functions));
+    findings.extend(check_cyclomatic_complexity(relative_path, functions));
+    findings.extend(check_bare_stubs(relative_path, comments, functions));
+    findings.extend(check_skipped_tests(relative_path, source, functions));
+    findings
+}
+
+/// 规则「单函数行数」：函数跨越行数 > 80 时警告。
+#[must_use]
+pub fn check_function_length(relative_path: &str, functions: &[FunctionSpan]) -> Vec<Finding> {
+    functions
+        .iter()
+        .filter_map(|function| {
+            let line_count = function.end_line.saturating_sub(function.start_line) + 1;
+            if line_count <= FUNCTION_LINES_WARN {
+                return None;
+            }
+            Some(Finding::new(
+                "hygiene/function-too-long",
+                Severity::Warning,
+                relative_path,
+                function.start_line,
+                format!(
+                    "函数 {} 跨 {} 行，超过建议上限 {}；考虑拆小或抽 helper（gov §5.4）",
+                    function.name, line_count, FUNCTION_LINES_WARN
+                ),
+            ))
+        })
+        .collect()
+}
+
+/// 规则「函数参数个数」：顶层参数 > 6 时警告。
+#[must_use]
+pub fn check_parameter_count(relative_path: &str, functions: &[FunctionSpan]) -> Vec<Finding> {
+    functions
+        .iter()
+        .filter_map(|function| {
+            if function.parameter_count <= PARAMETER_COUNT_WARN {
+                return None;
+            }
+            Some(Finding::new(
+                "hygiene/too-many-parameters",
+                Severity::Warning,
+                relative_path,
+                function.start_line,
+                format!(
+                    "函数 {} 有 {} 个参数，超过建议上限 {}；考虑结构体参数（gov §5.4）",
+                    function.name, function.parameter_count, PARAMETER_COUNT_WARN
+                ),
+            ))
+        })
+        .collect()
+}
+
+/// 规则「圈复杂度」：分支估计 > 15 时警告。
+#[must_use]
+pub fn check_cyclomatic_complexity(
+    relative_path: &str,
+    functions: &[FunctionSpan],
+) -> Vec<Finding> {
+    functions
+        .iter()
+        .filter_map(|function| {
+            if function.cyclomatic_complexity <= CYCLOMATIC_COMPLEXITY_WARN {
+                return None;
+            }
+            Some(Finding::new(
+                "hygiene/cyclomatic-complexity",
+                Severity::Warning,
+                relative_path,
+                function.start_line,
+                format!(
+                    "函数 {} 估算圈复杂度 {}，超过建议上限 {}；考虑拆分分支（gov §5.4）",
+                    function.name, function.cyclomatic_complexity, CYCLOMATIC_COMPLEXITY_WARN
+                ),
+            ))
+        })
+        .collect()
+}
+
+/// 规则「空实现 stub」：空体或直接 `Ok(())` 必须带 `STUB` + 卡号（TASK-085）。
+#[must_use]
+pub fn check_bare_stubs(
+    relative_path: &str,
+    comments: &[Comment],
+    functions: &[FunctionSpan],
+) -> Vec<Finding> {
+    functions
+        .iter()
+        .filter(|function| is_bare_stub(&function.body))
+        .filter(|function| !has_stub_marker(comments, function))
+        .map(|function| {
+            Finding::new(
+                "hygiene/bare-stub",
+                Severity::Warning,
+                relative_path,
+                function.start_line,
+                format!(
+                    "函数 {} 是空实现或直接返回 Ok(())，但没有 `STUB` + 卡号标记（gov §5.4 / naming §8）",
+                    function.name
+                ),
+            )
+        })
+        .collect()
+}
+
+/// 规则「跳过测试」：`#[ignore]` / `.skip` 必须同时有非空原因与卡号（TASK-085）。
+#[must_use]
+pub fn check_skipped_tests(
+    relative_path: &str,
+    _source: &str,
+    functions: &[FunctionSpan],
+) -> Vec<Finding> {
+    functions
+        .iter()
+        .filter(|function| function.is_test)
+        .filter_map(|function| {
+            let attribute = function.ignore_attribute.as_deref()?;
+            let has_reason = has_nonempty_quoted_text(attribute);
+            if has_reason && has_card_reference(attribute) {
+                return None;
+            }
+            Some(Finding::new(
+                "hygiene/skipped-test-without-reason",
+                Severity::Warning,
+                relative_path,
+                function.start_line,
+                format!(
+                    "测试函数 {} 被跳过，但缺少非空原因或 TASK-NNN / ADR-NNNN 引用（gov §5.4）",
+                    function.name
+                ),
+            ))
+        })
+        .collect()
+}
+
+/// 函数体是否为空实现或直接返回 `Ok(())`。
+fn is_bare_stub(body: &str) -> bool {
+    let normalized: String = body
+        .chars()
+        .filter(|character| !character.is_whitespace() && !matches!(character, '{' | '}' | ';'))
+        .collect();
+    normalized.is_empty() || normalized == "Ok(())" || normalized == "returnOk(())"
+}
+
+/// 函数前后相邻范围内是否存在 `STUB` + 卡号注释（TASK-085）。
+fn has_stub_marker(comments: &[Comment], function: &FunctionSpan) -> bool {
+    let start = function.start_line.saturating_sub(3);
+    comments.iter().any(|comment| {
+        comment.line >= start
+            && comment.line <= function.end_line
+            && contains_token(&comment.text, "STUB")
+            && has_card_reference(&comment.text)
+    })
+}
+
+/// 属性中是否含至少一个非空双引号字符串。
+fn has_nonempty_quoted_text(attribute: &str) -> bool {
+    let mut in_quotes = false;
+    let mut has_text = false;
+    for character in attribute.chars() {
+        if character == '"' {
+            if in_quotes && has_text {
+                return true;
+            }
+            in_quotes = !in_quotes;
+            has_text = false;
+        } else if in_quotes && !character.is_whitespace() {
+            has_text = true;
+        }
+    }
+    false
 }
 
 /// 规则「单文件行数」：超过 `FILE_LINES_ERROR` 失败，超过 `FILE_LINES_WARN` 警告。
@@ -288,292 +495,11 @@ fn contains_token(text: &str, token: &str) -> bool {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
-mod tests {
-    use super::*;
-
-    /// 构造一条普通行注释，便于规则级单测。
-    fn line_comment(line: usize, text: &str) -> Comment {
-        Comment {
-            line,
-            kind: CommentKind::Line,
-            text: text.to_string(),
-        }
-    }
-
-    /// 构造一条文档注释（`///`），用于验证文档注释被排除在代码块判定之外。
-    fn doc_comment(line: usize, text: &str) -> Comment {
-        Comment {
-            line,
-            kind: CommentKind::LineDoc,
-            text: text.to_string(),
-        }
-    }
-
-    /// 取出发现项的规则标识符序列，便于一次性断言"命中了哪些规则、什么顺序"。
-    fn rules_of(findings: &[Finding]) -> Vec<&'static str> {
-        findings.iter().map(|finding| finding.rule).collect()
-    }
-
-    // --- 规则 1：文件行数 ---
-
-    #[test]
-    fn test_file_length_at_warn_threshold_yields_nothing() {
-        assert!(
-            check_file_length("a.rs", FILE_LINES_WARN).is_none(),
-            "等于阈值不应告警"
-        );
-    }
-
-    #[test]
-    fn test_file_length_over_warn_threshold_is_warning() {
-        let finding = check_file_length("a.rs", FILE_LINES_WARN + 1).expect("应有发现项");
-        assert_eq!(finding.severity, Severity::Warning);
-        assert_eq!(finding.rule, "hygiene/file-too-long");
-    }
-
-    #[test]
-    fn test_file_length_over_error_threshold_is_error() {
-        let finding = check_file_length("a.rs", FILE_LINES_ERROR + 1).expect("应有发现项");
-        assert_eq!(finding.severity, Severity::Error);
-        assert_eq!(
-            finding.line,
-            FILE_LINES_ERROR + 1,
-            "文件级发现项把行数放在 line 字段，便于在 CI 输出里直接看到规模"
-        );
-    }
-
-    // --- 规则 2：注释标签 ---
-
-    #[test]
-    fn test_banned_tag_is_error() {
-        let findings = check_comment_tags("a.rs", &[line_comment(7, " 这里先 FIXME 一下")]);
-        assert_eq!(rules_of(&findings), vec!["hygiene/banned-comment-tag"]);
-        assert_eq!(findings.first().map(|finding| finding.line), Some(7));
-    }
-
-    #[test]
-    fn test_bare_todo_without_card_is_error() {
-        let findings = check_comment_tags("a.rs", &[line_comment(3, " TODO 以后再说")]);
-        assert_eq!(rules_of(&findings), vec!["hygiene/missing-card-reference"]);
-    }
-
-    #[test]
-    fn test_todo_with_task_card_passes() {
-        let findings = check_comment_tags("a.rs", &[line_comment(3, " TODO(TASK-015): 补齐规则")]);
-        assert!(findings.is_empty(), "带卡号的待办是合法的");
-    }
-
-    #[test]
-    fn test_todo_with_adr_reference_passes() {
-        let findings = check_comment_tags("a.rs", &[line_comment(3, " TODO(ADR-0007): 等裁决")]);
-        assert!(findings.is_empty());
-    }
-
-    #[test]
-    fn test_todo_with_placeholder_card_is_rejected() {
-        let findings = check_comment_tags("a.rs", &[line_comment(3, " TODO(TASK-0NN): 占位")]);
-        assert_eq!(
-            rules_of(&findings),
-            vec!["hygiene/missing-card-reference"],
-            "占位卡号不指向真实卡片，不能放行"
-        );
-    }
-
-    #[test]
-    fn test_stub_without_card_is_rejected() {
-        let findings = check_comment_tags("a.rs", &[line_comment(9, " STUB 先返回空")]);
-        assert_eq!(rules_of(&findings), vec!["hygiene/missing-card-reference"]);
-    }
-
-    #[test]
-    fn test_identifier_containing_tag_word_is_not_flagged() {
-        let findings = check_comment_tags(
-            "a.rs",
-            &[line_comment(1, " 常量 TODOLIST 与 MY_HACKY 不是标签")],
-        );
-        assert!(
-            findings.is_empty(),
-            "必须做词边界判断，否则正常标识符会被误伤"
-        );
-    }
-
-    #[test]
-    fn test_tag_inside_string_literal_is_not_flagged() {
-        // 字符串内容会被 rustscan 抹平，因此这行源码不应产生任何发现项
-        let source = "const BANNED: &str = \"FIXME\";\n";
-        assert!(check_rust_source("a.rs", source).is_empty());
-    }
-
-    // --- 规则 3：被注释掉的代码 ---
-
-    #[test]
-    fn test_five_consecutive_code_comments_is_error() {
-        let comments: Vec<Comment> = (1..=5)
-            .map(|i| line_comment(i, &format!(" let x{i} = {i};")))
-            .collect();
-        let findings = check_commented_out_code("a.rs", &comments);
-        assert_eq!(rules_of(&findings), vec!["hygiene/commented-out-code"]);
-        assert_eq!(findings.first().map(|finding| finding.line), Some(1));
-    }
-
-    #[test]
-    fn test_four_consecutive_code_comments_passes() {
-        let comments: Vec<Comment> = (1..=4)
-            .map(|i| line_comment(i, &format!(" let x{i} = {i};")))
-            .collect();
-        assert!(
-            check_commented_out_code("a.rs", &comments).is_empty(),
-            "未达阈值不应失败"
-        );
-    }
-
-    #[test]
-    fn test_prose_comment_block_passes() {
-        let comments = vec![
-            line_comment(1, " 这一段解释为什么策略引擎必须是唯一放行点："),
-            line_comment(2, " 因为分散判断会让权限语义在多处漂移，"),
-            line_comment(3, " 审计时也无法证明某次放行的依据。"),
-            line_comment(4, " 所以 Host 与 UI 都不持有权限逻辑。"),
-            line_comment(5, " 详见架构 v2 第 12 章。"),
-        ];
-        assert!(
-            check_commented_out_code("a.rs", &comments).is_empty(),
-            "散文注释不是代码"
-        );
-    }
-
-    #[test]
-    fn test_doc_comments_are_excluded_from_code_run() {
-        let comments: Vec<Comment> = (1..=6)
-            .map(|i| doc_comment(i, &format!(" let x{i} = {i};")))
-            .collect();
-        assert!(
-            check_commented_out_code("a.rs", &comments).is_empty(),
-            "文档注释不参与判定"
-        );
-    }
-
-    #[test]
-    fn test_blank_comment_line_does_not_break_run() {
-        let comments = vec![
-            line_comment(1, " let a = 1;"),
-            line_comment(2, ""),
-            line_comment(3, " let b = 2;"),
-            line_comment(4, " let c = 3;"),
-            line_comment(5, " let d = 4;"),
-        ];
-        let findings = check_commented_out_code("a.rs", &comments);
-        assert_eq!(
-            rules_of(&findings),
-            vec!["hygiene/commented-out-code"],
-            "空的 // 行是中性的"
-        );
-    }
-
-    #[test]
-    fn test_all_blank_comment_run_passes() {
-        let comments: Vec<Comment> = (1..=6).map(|i| line_comment(i, "")).collect();
-        assert!(
-            check_commented_out_code("a.rs", &comments).is_empty(),
-            "全是空行不算代码块"
-        );
-    }
-
-    #[test]
-    fn test_gap_in_line_numbers_starts_new_run() {
-        let comments = vec![
-            line_comment(1, " let a = 1;"),
-            line_comment(2, " let b = 2;"),
-            line_comment(3, " let c = 3;"),
-            line_comment(10, " let d = 4;"),
-            line_comment(11, " let e = 5;"),
-        ];
-        assert!(
-            check_commented_out_code("a.rs", &comments).is_empty(),
-            "不连续的注释分段计算"
-        );
-    }
-
-    #[test]
-    fn test_two_separate_code_runs_both_reported() {
-        let mut comments: Vec<Comment> = (1..=5)
-            .map(|i| line_comment(i, &format!(" let a{i} = {i};")))
-            .collect();
-        comments.extend((20..=25).map(|i| line_comment(i, &format!(" let b{i} = {i};"))));
-        let findings = check_commented_out_code("a.rs", &comments);
-        assert_eq!(findings.len(), 2, "两段独立代码块应各报一次");
-        assert_eq!(findings.first().map(|finding| finding.line), Some(1));
-        assert_eq!(findings.get(1).map(|finding| finding.line), Some(20));
-    }
-
-    // --- 启发式辅助函数 ---
-
-    #[test]
-    fn test_looks_like_code_positive_cases() {
-        for text in [
-            " let x = 1;",
-            " if flag {",
-            " return Ok(());",
-            "});",
-            "pub fn f() {",
-        ] {
-            assert!(looks_like_code(text), "应判为代码：{text:?}");
-        }
-    }
-
-    #[test]
-    fn test_looks_like_code_negative_cases() {
-        for text in [
-            "",
-            "   ",
-            " 这是一句中文说明",
-            " 详见 gov 第 5.4 节",
-            " 1) 先读文档",
-        ] {
-            assert!(!looks_like_code(text), "不应判为代码：{text:?}");
-        }
-    }
-
-    #[test]
-    fn test_looks_like_code_ignores_double_colon_in_prose() {
-        assert!(
-            !looks_like_code(" 见 clippy::pedantic 这一组"),
-            "散文里的 :: 不该触发"
-        );
-        assert!(!looks_like_code(" 相关：gov §5.4"), "中文引用不该触发");
-    }
-
-    #[test]
-    fn test_has_card_reference_boundaries() {
-        assert!(has_card_reference("x TASK-001 y"));
-        assert!(has_card_reference("ADR-0012"));
-        assert!(!has_card_reference("TASK-12"), "少于 3 位数字不算卡号");
-        assert!(!has_card_reference("ADR-012"), "少于 4 位数字不算 ADR 号");
-        assert!(!has_card_reference("无引用"));
-    }
-
-    // --- 入口函数：确定性 ---
-
-    #[test]
-    fn test_check_rust_source_is_deterministic() {
-        let source = "// TODO 没有卡号\n".repeat(3);
-        let first = check_rust_source("a.rs", &source);
-        let second = check_rust_source("a.rs", &source);
-        assert_eq!(first, second, "不变量 1：纯函数");
-        assert_eq!(first.len(), 3, "三行裸待办应各报一次");
-    }
-
-    #[test]
-    fn test_check_rust_source_on_real_module_header_has_no_findings() {
-        // 反向自证：本文件自己的模块头（全是 //! 文档注释）不应被判成"注释掉的代码"
-        let source = include_str!("hygiene.rs");
-        let findings = check_rust_source("xtask/src/hygiene.rs", source);
-        assert!(
-            findings
-                .iter()
-                .all(|finding| finding.rule != "hygiene/commented-out-code"),
-            "本文件不应触发注释代码规则，实际：{findings:?}"
-        );
-    }
-}
+#[path = "hygiene_tests.rs"]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
+mod tests;
