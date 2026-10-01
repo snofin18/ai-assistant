@@ -32,6 +32,7 @@ pub mod notepad_targets;
 mod production;
 mod production_run;
 pub mod production_support;
+mod reserved_invoker;
 mod runtime;
 mod runtime_tools;
 mod task_package;
@@ -48,6 +49,7 @@ pub use assembly::{HostAssembly, HostAssemblyInput, HostComponents};
 pub use error::HostAssemblyError;
 pub use production::{ProductionConfig, ProductionError, ProductionHost, assemble_production_host};
 pub use production_run::ProductionRun;
+pub use reserved_invoker::ReservedRuntimeInvoker;
 pub use runtime::{
     EnvelopeObservationCollector, ObservationCollector, RuntimeExecutionError, RuntimeExecutor,
     StepExecutionOutcome, StepPolicy, ToolBusInvoker, ToolInvoker,
