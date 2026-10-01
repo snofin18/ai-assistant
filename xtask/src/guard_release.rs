@@ -85,14 +85,14 @@ fn release_one(
     output: &mut dyn Write,
     target: &str,
 ) -> Result<bool, GuardFailure> {
-    match read_lock(store, target)? {
+    let refused = match read_lock(store, target)? {
         LockRead::Absent => {
             // 目的状态已经成立 → 幂等成功，但必须说出来（不变量 3）
             write_line(
                 output,
                 &format!("-- guard-result: NOT_LOCKED target={target}"),
             )?;
-            Ok(false)
+            false
         }
         LockRead::Present(record) => {
             if record.owner != request.owner && !request.force {
@@ -114,7 +114,7 @@ fn release_one(
                     record.owner
                 ),
             )?;
-            Ok(false)
+            false
         }
         LockRead::Corrupt(reason) => {
             if !request.force {
@@ -127,9 +127,10 @@ fn release_one(
                     "-- guard-result: RELEASED target={target} note=锁记录损坏，--force 直接删除"
                 ),
             )?;
-            Ok(false)
+            false
         }
-    }
+    };
+    Ok(refused)
 }
 
 /// `status`：列出所有锁（空目录打印 `NONE`）。
