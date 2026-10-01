@@ -1,6 +1,6 @@
 # TASK-105　Notepad T1.x 真实运行验收与 10 次证据
 
-- 状态：**Ready**
+- 状态：**Blocked（T1.1 ×10 已取证；T1.2/T1.3 无运行对象 → DRIFT-105-3 待裁决）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：103、104
 - 预估：M　难度：M
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。
@@ -110,6 +110,17 @@ cargo run -p xtask -- docscan
 2. **影响**：T1.1 的只读路径可以在靶机上跑（窗口 + `EditorTextBox` + 读文本），但 **T1.2 / T1.3 按卡面无法在靶机上取得证据**。硬跑只能得到"按钮点了没反应"或伪造的成功率。
 3. **建议（三选一，需人类裁决）**：① **扩靶机**：给 `notepad-like` 加文件读写 / 标签页 / 一个真实的跨进程对话框，并补一份 `com.example.notepad-like` 的 selector 与工具声明（改动落在本卡 write scope 与 `adapters/**`，需另立卡）；② **改判据**：把 T1.2 / T1.3 的真实运行改到**真实 Notepad**（与 `TASK-105` Out of scope「操作真实商业 Notepad」冲突，需裁决）；③ **拆卡**：T1.1 先在靶机收口，T1.2 / T1.3 各自落到能提供对应能力的靶机上。**推荐 ①**（保持"不碰商业应用 + 确定性"两条既有约束）。
 4. **已停工作**：本卡仍不产生任何运行证据；阶段 1a 维持 **NO-GO**。
+
+**DRIFT-105-3（T1.2 / T1.3 没有可运行对象；三个根因全在本卡 write scope 之外）**
+
+1. **现象（实测）**：本卡要求 T1.1 / T1.2 / T1.3 各 10 次。实际只有 **T1.1 能跑**（2026-10-01 连跑 10 次，**10/10 PASS，均值 1.02s**，证据见 `docs/audits/stage-1a-runtime-validation-2026-10-01.md` §1）；**T1.2 / T1.3 一次都跑不起来**，且不是"跑失败"，而是**没有可运行对象**。
+2. **根因三处**（证据见该审计报告 §2）：
+   - **2.1 任务包的 `$input.` 绑定没有解析层**：ADR-0058 D2 的确定性 Plan 来源**刻意拒绝**带 `$input.` 占位的参数（`TaskPackageError::UnboundArguments`）。T1.2 的 `replace_text` 与 T1.3 的 `save_as` 都是未绑定参数；T1.1 的 `read_text` 是 `args = null`，所以只有它能渲染 Plan。
+   - **2.2 运行时只执行 `kind = "tool"` 的步骤**：`hitl | request_approval`（含 T1.3 的 `point_of_no_return: true`）、`host_service | prepare_rollback_anchors`、`verify | verify_postconditions` 等**从不执行** → 本卡 DoD 的「审批与 point-of-no-return 行为符合声明」「撤销证据」**没有任何可观测对象**。
+   - **2.3 `notepad.tab.new` 被硬编码 fail-closed**：handler 明确写着"当前无法观测 tab count 就拒绝执行"，而 T1.3 的第一个 tool 步骤正是它（靶机现在已有 `TabCountText`，但 handler 还没读）。
+3. **影响**：本卡六条 DoD 里只有 1 条可判（静默失败 = 0，且仅限 T1.1）；「三组各 10 次」「审批 / point-of-no-return」「成功 + 失败恢复路径」三条**不成立**。硬跑只能得到伪造或静态推算的成功率，违反铁律 1 与卡面禁项。
+4. **建议（需人类裁决）**：① **推荐** —— 先立「运行时补齐」卡（任务输入绑定层 + `hitl`/`rollback`/`verify` 步骤的落地或明确移出 1a + `notepad.tab.new` 读 `TabCountText`），落在 `apps/agent-core`（**不在本卡 write scope**）；② 缩小本卡判据只验 T1.1，把 T1.2/T1.3 与审批/撤销证据移到后续里程碑；③ 把 T1.2/T1.3 改到真实 Notepad（与卡面 Out of scope 冲突）。
+5. **已停工作**：本卡**未**尝试跑 T1.2/T1.3（无从跑起），**未**产出任何伪造证据；T1.1 ×10 的真实证据已落 `docs/audits/`，其余 DoD 保持未勾。**阶段 1a 维持 NO-GO。**
 
 ### 6. 更合理做法
 
