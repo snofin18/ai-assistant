@@ -105,7 +105,14 @@ B 片另需：`notepad.tab.new` 在靶机上读到 `TabCountText` 并断言 +1�
 
 ### 1. 约束回执
 
-（待填）
+【任务】TASK-216 运行时补齐：任务输入绑定 + `hitl`/rollback/verify 步骤 + `tab.new` 观测
+【目标】把 A/B 片已经落地的运行时能力与 TASK-217 的数据流闭环合并收口为 Done
+【write scope】仅：本卡记录区、`LEDGER.md`、`PLAN.md` 当前状态块、`README.md` 三处、`plans/stage-1-pilots.md` 本卡标记与进度句、`docs/PARKING_LOT.md`
+【铁律】证据必须可复核；不得伪造测试或运行结果；公共热点文件先取 guard；不得改契约或放宽门禁
+【禁止】不改 `apps/**` / `crates/**`；不操作真实 GUI；不把 TASK-105 的运行验收冒充为已完成
+【验收】本卡 16 条命令 + TASK-217 已合并的 `production_root` / `ui_ipc` / `runtime_toolbus` 证据
+【依赖】TASK-214、TASK-215 已 Done；`DRIFT-216-4` 已由 TASK-217 闭环
+【疑问】无
 
 ### 2. 实际改动文件
 
@@ -123,16 +130,26 @@ B 片另需：`notepad.tab.new` 在靶机上读到 `TabCountText` 并断言 +1�
 ### 3. 验收输出摘要
 
 ```text
-cargo test -p assistant-agent-core --test task_package   → 12 passed / 0 failed
-cargo clippy -p assistant-agent-core --all-targets -- -D warnings → 0 warning
-cargo fmt --all --check                                  → clean
-cargo test -p assistant-agent-core --test ui_ipc          → 12 passed / 0 failed
-cargo test --workspace                                    → EXIT 0（110 suites）
-cargo clippy --all-targets -- -D warnings                 → EXIT 0
-xtask hygiene                                             → 0 error / 3 warning（基线）
+2026-10-02 closeout gates (all PASS):
+cargo fmt --all --check                                  -> clean
+cargo clippy --all-targets -- -D warnings                -> EXIT 0
+cargo test --workspace                                   -> EXIT 0
+cargo test -p assistant-agent-core                       -> EXIT 0
+cargo run -p xtask -- verify-schemas                     -> 0 error(s), verdict PASSED
+cargo run -p xtask -- codegen --check                    -> 0 drift(s), 0 error(s), verdict PASSED
+cargo run -p xtask -- hygiene                            -> 331 scanned, 0 error(s), 3 warning(s), verdict PASSED
+cargo run -p xtask -- docscan                            -> 0 error(s), 370 warning(s), verdict PASSED
+cargo run -p xtask -- card-check                         -> 0 error(s), 27 warning(s), verdict PASSED
+cargo run -p xtask -- refscan                            -> 0 error(s), 0 warning(s), verdict PASSED
+cargo run -p xtask -- memory-counts                      -> 8 scanned, 0 error(s), 0 warning(s), verdict PASSED
+cargo run -p xtask -- adr-index                          -> 45 scanned, 0 error(s), 0 warning(s), verdict PASSED
+cargo run -p xtask -- check-ledger                       -> 0 error(s), 0 warning(s), verdict PASSED
+cargo run -p xtask -- check-migrations                   -> 0 error(s), 0 warning(s), verdict PASSED
+cargo run -p xtask -- check-comments                     -> 331 scanned, 0 error(s), 68 warning(s), verdict PASSED
+cargo deny check                                         -> advisories / bans / licenses / sources all ok
 ```
 
-关键点：**T1.2 的任务包在给出 `old_text` / `new_text` / `expected_replacements` 之后能被渲染成合法 Plan**（当前 `test_t1_2_package_renders_once_inputs_are_bound` 断言 `notepad.file.replace_text` 进入 Plan 且无 `$input.` 字面量残留）—— 这正是 DRIFT-105-3 的根因 1。
+关键点：**TASK-217 的已合并实现**已在 workspace 回归中证明 T1.2 / T1.3 到 `Completed`、UI approve/resume 与只消费一次授权；本卡只做收口，没有新增或放宽任何断言。
 
 ### 4. DoD 逐条核对
 
@@ -140,11 +157,11 @@ xtask hygiene                                             → 0 error / 3 warnin
 - [x] ~~A 片：T1.2 任务包能被渲染成合法 Plan~~ —— **已被 B 片第 3 步推翻，见 §5 `DRIFT-216-3`**：绑定层本身没问题，但 T1.2 现在因 `host_service` 无执行器而**应当** fail-closed。原断言作废，改成 `test_t1_2_package_fails_closed_on_unexecuted_step_kinds`。
 - [x] A 片：未知引用 / 缺失输入 → 构造期 fail-closed，各有负向用例 —— **已做**（`MissingInput` / `UnsupportedReference` 各一）
 - [x] B 片：ADR-0059 落地 —— **已做**（2026-10-01 人类确认接受）
-- [ ] B 片：按 ADR-0059 执行，并给出对应证据 —— **部分做**：三类保留工具及有界审批闭环已实现；但 T1.2/T1.3 仍被前序输出绑定阻塞，见 §5 `DRIFT-216-4`
+- [x] B 片：按 ADR-0059 执行，并给出对应证据 —— **已由 TASK-217 完成**：`DRIFT-216-4` 的数据流、pure/host operation、审批暂停与 UI 批准恢复均已落地；T1.2/T1.3 在 fake platform 到 `Completed`，见 §5 `DRIFT-216-4` 的闭环行
 - [x] B 片：`notepad.tab.new` 读到 `TabCountText` 并断言 +1 —— **已做**（`notepad_tab.rs`，失败仍 fail-closed）
 - [x] 未修改 Out of scope 文件；未新增第三方依赖；未改 `crates/**` 公共接口 —— 已核对（本轮只动 `apps/agent-core/src/task_package.rs`、其测试、ADR 与本卡）
 - [x] 上列 16 条验收命令全绿 —— **已完成**（2026-10-01，第 4 步与 `DRIFT-216-4` 落档后按顺序复跑；全部返回退出码 0，`hygiene` 维持 0E/3W）
-- [ ] §11.1 进度同步 —— **Done 时执行**（当前 InProgress）
+- [x] §11.1 进度同步 —— **已执行**（2026-10-02 收口：本卡 Done 标记 + LEDGER / PLAN / README / plans 同批更新）
 
 ### 5. 偏差
 
@@ -221,15 +238,21 @@ xtask hygiene                                             → 0 error / 3 warnin
 3. **建议**：另立一张小 ADR + 卡，二选一定义清楚：① **运行时输出绑定层**：按任务包 `steps[].outputs` 记录每个已执行步骤的结构化输出，只允许后续 `args` 引用**已记录的名字**；`pure` 计算明确归谁（运行时或包外注入），仍不引入表达式语言；② **任务包显式化**：把需要外部计算的值全部列为 `inputs`，由调用方在 Plan 渲染前注入，任务包不再声明 `pure` 步骤。推荐 ①，因为它才是 T1.2/T1.3 真实闭环需要的最小数据流。
 4. **当前处置**：保留已验证的 A 片绑定层、B 片保留工具与 UI 授权表，不伪造 T1.2/T1.3 运行证据；TASK-105 仍不得开工。阶段 1a 维持 **NO-GO**。
 
+**DRIFT-216-4 闭环（2026-10-02，由 TASK-217 完成）**
+
+1. **裁决落地**：ADR-0061 采纳方案 ① 的最小形式：仅支持整值 `$name` 引用、已提交步骤 outputs、封闭 `when` 谓词、按 `(kind, operation)` 分派的 `pure` / host operation；不引入表达式语言。
+2. **证据**：TASK-217 slice 1 / slice 2 已合并至 `main`（`d68d7f5`，backfill `e8f72c3`）；`production_root` 9 passed，覆盖 T1.2 / T1.3 fake-platform `Completed`、无授权暂停、UI approve 后从同一快照恢复且已提交步骤 attempts 不增。
+3. **本卡收口**：A 片绑定层、B 片保留工具、`notepad.tab.new` 的 `TabCountText` 观测与可恢复审批形成一条可运行链路，因此 `DRIFT-216-4` 从本卡遗留项中移除；TASK-105 的剩余工作是真实 GUI 靶机 10 次运行取证，不是本卡范围。
+
 ### 6. 更合理做法
 
-（待填）
+运行时数据流由 TASK-217 以 side-channel `RuntimeDataflowPlan` 承载，保留步骤仍不进模型可见 ToolBus；这样既不污染 Planner 的单字段输出契约，也不把 `$name` 扩展成任意表达式语言。
 
 ### 7. 遗留问题
 
-- **DRIFT-216-4 未裁决**：T1.2/T1.3 的 `$canonical_text_before` / `$approval_diff` / `$normalized_target_path` 等前序输出尚未有绑定层，当前仍无端到端可执行对象。
+- **`DRIFT-216-4` 已闭环**：T1.2/T1.3 的前序输出绑定、pure/host operation 与可恢复审批由 TASK-217 落地；保留步骤仍保持在模型可见 ToolBus 之外。
 - `docs/spec/tool-schema.md` 与 `crates/tool-bus/README.md` 仍需按 ADR-0060 影响节补一句"Planner 目录可含保留工具、模型挂载集不可含"的说明；当前卡 write scope 不含这两个文件，留待专门小卡处理。
-- `TaskControlHandler` 已有 UI approve 写入授权表的能力，但生产主流程尚未注册/弹出 pending approval；在 DRIFT-216-4 的运行时数据流裁决时应一并定义 resume 入口。
+- TASK-105 的真实 GUI 取证仍受自动化黑名单约束，应由允许操作靶机窗口的会话或人工触发执行。
 
 ### 8. 新增长期记忆
 
@@ -238,6 +261,6 @@ xtask hygiene                                             → 0 error / 3 warnin
 
 ### 9. 给审阅者的关注点
 
-1. 不要把本卡 A 片"T1.2 可在注入全部引用后渲染"误读为"T1.2 已能运行"；`DRIFT-216-4` 仍阻断端到端。
-2. 审批接线已证明"一次批准只消费一次"，但生产 UI 的 pending 弹出与 resume 入口尚未接线。
+1. 本卡现在关闭，依据是 TASK-217 的实际实现与测试证据，而不是本卡早期记录的静态渲染结果；审阅时应沿 `production_root` / `runtime_toolbus` / `ui_ipc` 用例核验。
+2. 审批接线已证明"一次批准只消费一次"；本期只关闭 fake-platform 闭环，真实 `notepad-like` 十次运行仍归 TASK-105。
 3. 保留工具刻意不进模型可见 ToolBus；任何为了"方便"把它们挂进 `MountSelection` 的改动都违反 ADR-0060 D2。
