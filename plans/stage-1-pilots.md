@@ -131,6 +131,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-213 ✅** | UI↔Core 真实传输：Core 侧监听端 + UI 侧 client + 事件推送 | `apps/agent-core/src/**`、`apps/desktop-ui/src-tauri/**`、`crates/ipc/**`（仅必要小改）、`.github/workflows/**`、README | 0057（ADR Accepted）、104、103、019 | L | 真实管道端到端；六个 fail-closed 点各有断言具体 ErrorCode 的负向用例；事件推送；断连 2s 内检测 |
 | **TASK-214 ✅** | 生产装配根：真实 Host 进程 + Notepad Host handler + 1a Plan 来源 | `apps/agent-core/src/**`、`apps/agent-core/tests/**`、本卡与状态同步文件 | 103、213、**ADR-0058 Accepted** | L | 生产模式可启动；5 个 handler 入 ToolBus；确定性 Plan 来源；靶机 T1.1 干跑（真 UIA + 真 receipt）；fail-closed |
 | **TASK-215 ✅** | `notepad-like` 靶机能力扩展 + `com.example.notepad-like` 适配包（**PL-097 闭环卡**） | `fixtures/apps/notepad-like/**`、`adapters/com.example.notepad-like/**`、`apps/agent-core/tests/production_root_uia.rs`、状态同步文件 | 033、035、214、**PL-097 / DRIFT-105-2** | L | 靶机支持打开/保存/另存为/标签页且有稳定 AutomationId；适配包进仓库且干跑改读它；T1.2/T1.3 所需元素可解析；PL-097 可闭环 |
+| TASK-216 | 运行时补齐：任务输入绑定 + `hitl`/rollback/verify 步骤 + `tab.new` 观测（**DRIFT-105-3 的落地卡**） | `apps/agent-core/src/**`、`apps/agent-core/tests/**`、`docs/adr/0059-*` 与本卡状态同步文件 | 214、215、**DRIFT-105-3**；**B 片前置 = ADR-0059 Accepted** | L | A 片：任务包能被渲染成合法 Plan（无 `$input.` 残留）+ fail-closed 负向用例；B 片：按 ADR-0059 执行或移出 `hitl`/rollback/verify，并让 `tab.new` 读到 `TabCountText` |
 
 ---
 
@@ -240,6 +241,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-213 ✅** | A5-REMEDIATION | `tasks/TASK-213-ui-core-ipc-transport.md` | Ready（**ADR-0057 转 Accepted 后才可开工**） |
 | **TASK-214 ✅** | A5-REMEDIATION | `tasks/TASK-214-production-composition-root-notepad-handlers.md` | Ready（**ADR-0058 转 Accepted 后才可开工**） |
 | **TASK-215 ✅** | A5-REMEDIATION | `tasks/TASK-215-fixture-capability-extension-and-adapter-pack.md` | Done（适配包 + 文件读写 + 标签页 + 跨进程 Save As；PL-097 闭环） |
+| TASK-216 | A5-REMEDIATION | `tasks/TASK-216-runtime-completion-input-binding-and-step-kinds.md` | Ready（A 片可开工；B 片等 ADR-0059） |
 | TASK-040 | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Ready（批次表占位派单前补全） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
 | TASK-042 | 1b | `tasks/TASK-042-visual-verify-phash-dhash-confidence.md` | Ready（批次表占位派单前补全） |
