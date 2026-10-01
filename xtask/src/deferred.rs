@@ -29,8 +29,8 @@
 pub const TOTAL_HYGIENE_RULE_COUNT: usize = 13;
 
 /// 已实现的卫生规则项数：TASK-001 的 3 条 + TASK-085 的函数结构 5 条 +
-/// TASK-086 已落地的文件级换行 2 条。
-pub const IMPLEMENTED_HYGIENE_RULE_COUNT: usize = 10;
+/// TASK-086 的文件级换行与依赖登记 3 条。
+pub const IMPLEMENTED_HYGIENE_RULE_COUNT: usize = 11;
 
 /// 一个尚未实现的子命令。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -73,13 +73,13 @@ pub const DEFERRED_COMMANDS: &[DeferredCommand] = &[DeferredCommand {
 pub const UNASSIGNED_HYGIENE_CARD: &str =
     "未拆卡（见 docs/PARKING_LOT.md PL-060：需 ADR / 阈值设计前置）";
 
-/// 未实现的卫生规则清单（gov §5.4 共 13 项；TASK-001 / TASK-085 / TASK-086 已实现 10 项，
-/// 其余 3 项的归属见 TASK-086 与 PL-060）。
+/// 未实现的卫生规则清单（gov §5.4 共 13 项；TASK-001 / TASK-085 / TASK-086 已实现 11 项，
+/// 其余 2 项的归属见 PL-060）。
 ///
 /// **2026-09-24 归属修正（PL-059）**：这 10 项原来一律写 `TASK-015`，而 TASK-015 已 Done
 /// 且**没有**实现它们 —— 登记表指向一张已完成的卡，等于「有人会做」的信号消失
-/// （与本模块头部反对的「静默失败」同型）。TASK-085 的实现组已经完成；
-/// TASK-086 先落地 CRLF / 末行换行，依赖登记与两个未拆卡项仍在 deferred。
+/// （与本模块头部反对的「静默失败」同型）。TASK-085 / TASK-086 的实现组已经完成；
+/// 剩余两个未拆卡项统一指向 `UNASSIGNED_HYGIENE_CARD`。
 ///
 /// 分组轴是**实现机制**（同一扫描器的规则放一张卡），不是「谁提的」。
 pub const DEFERRED_HYGIENE_RULES: &[DeferredRule] = &[
@@ -92,11 +92,6 @@ pub const DEFERRED_HYGIENE_RULES: &[DeferredRule] = &[
         rule: "新增顶层目录必须在 ADR 白名单中",
         reason: "需要先有 ADR 白名单文件（docs/adr/ 下已有多份 ADR，但白名单本身尚未落地；另见 PL-023 的 scripts/ 归属）→ PL-060",
         owning_card: UNASSIGNED_HYGIENE_CARD,
-    },
-    DeferredRule {
-        rule: "新增依赖必须已登记 docs/DEPENDENCIES.md",
-        reason: "WIP：TASK-086 已先落地 CRLF / 末行换行；依赖登记解析与双向比对留下轮实现",
-        owning_card: "TASK-086",
     },
 ];
 
@@ -162,7 +157,7 @@ pub fn describe_deferred_rules() -> String {
 #[must_use]
 pub fn hygiene_progress_note() -> String {
     format!(
-        "-- deferred-rules: gov §5.4 共 {} 项，已实现 {} 项，未实现 {} 项（TASK-086 WIP / 未拆卡项见 PL-060；`--list-deferred` 查看清单）",
+        "-- deferred-rules: gov §5.4 共 {} 项，已实现 {} 项，未实现 {} 项（剩余未拆卡项见 PL-060；`--list-deferred` 查看清单）",
         TOTAL_HYGIENE_RULE_COUNT,
         IMPLEMENTED_HYGIENE_RULE_COUNT,
         DEFERRED_HYGIENE_RULES.len()
@@ -271,9 +266,9 @@ mod tests {
     #[test]
     fn test_deferred_hygiene_rules_only_point_at_the_two_owning_cards() {
         // PL-059 的机器判据（ADR-0019 N1 同型）：10 项未实现规则只许归
-        // TASK-085 已实现；TASK-086 仍持有依赖登记 WIP，其余只许指向未拆卡指针，不准再出现
+        // TASK-085 / TASK-086 已实现；剩余条目只许指向未拆卡指针，不准再出现
         // 「指向一张已 Done 的卡」那种形态（TASK-015 就是这样过期的）。
-        let allowed = ["TASK-086", UNASSIGNED_HYGIENE_CARD];
+        let allowed = [UNASSIGNED_HYGIENE_CARD];
         for entry in DEFERRED_HYGIENE_RULES {
             assert!(
                 allowed.contains(&entry.owning_card),
@@ -305,12 +300,12 @@ mod tests {
     fn test_progress_note_states_partial_coverage() {
         let note = hygiene_progress_note();
         assert!(
-            note.contains("已实现 10 项"),
+            note.contains("已实现 11 项"),
             "必须声明只实现了一部分，实际：{note}"
         );
         assert!(
-            note.contains("未实现 3 项"),
-            "ADR-0025：gov §5.4 为 13 项、已实现 10 项 → 未实现必须是 3 项，实际：{note}"
+            note.contains("未实现 2 项"),
+            "ADR-0025：gov §5.4 为 13 项、已实现 11 项 → 未实现必须是 2 项，实际：{note}"
         );
     }
 

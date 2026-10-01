@@ -84,7 +84,7 @@ cargo run -p xtask -- --list-deferred
 ### 1. 约束回执
 
 【任务】TASK-086 xtask hygiene 剩余规则 B 组：文件级规则
-【目标】先实现 CRLF、末行换行两条规则；依赖登记因单卡 diff 超预算保留为后续 WIP
+【目标】实现 CRLF、末行换行、依赖登记三条规则，并把 hygiene 登记从 8/13 推到 11/13
 【write scope】仅：`xtask/**`、`docs/memory/pitfalls.md`；状态同步文件按治理允许追加/标记
 【铁律】1 无静默失败；9 不静默扩大范围；10 契约先行；不改测试断言逃避缺陷
 【禁止】改 gov §5.4 其余规则、改 docscan 扫描范围、改 CI 编号、加依赖/放宽 lint
@@ -94,12 +94,12 @@ cargo run -p xtask -- --list-deferred
 
 ### 2. 实际改动文件
 
-- `xtask/src/hygiene.rs`：新增文本字节规则。
-- `xtask/src/hygiene_tests.rs`：新增 CRLF 与末行换行的正向 / 负向测试。
-- `xtask/src/repowalk.rs`：新增 ADR-0025 文本文件收集。
-- `xtask/src/main.rs`：把文本规则接入 `run_hygiene`，读取失败仍带路径 fail-closed。
-- `xtask/src/deferred.rs`、`xtask/src/cli.rs`、`xtask/README.md`：实现数从 8/13 同步为 10/13，依赖登记仍在 deferred。
-- `LEDGER.md`、`PLAN.md`、`README.md`、`plans/stage-1-pilots.md`、`docs/PARKING_LOT.md`、`docs/memory/pitfalls.md`、`MEMORY.md`：WIP 状态、跟进项与记忆规模同步。
+- `xtask/src/hygiene.rs`：新增文本字节规则与依赖登记双向比对。
+- `xtask/src/hygiene_tests.rs`：新增 CRLF、末行换行、依赖登记与解析测试。
+- `xtask/src/repowalk.rs`：新增 ADR-0025 文本文件收集与 Cargo/登记表子集解析。
+- `xtask/src/main.rs`：把文本与依赖规则接入 `run_hygiene`，读取失败仍带路径 fail-closed。
+- `xtask/src/deferred.rs`、`xtask/src/cli.rs`、`xtask/README.md`：实现数从 8/13 同步为 11/13，未实现清单降到 2。
+- `LEDGER.md`、`PLAN.md`、`README.md`、`plans/stage-1-pilots.md`、`docs/PARKING_LOT.md`、`docs/memory/pitfalls.md`、`MEMORY.md`：Done 状态、跟进项与记忆规模同步。
 - 本卡记录区。
 
 ### 3. 验收输出摘要
@@ -108,9 +108,9 @@ cargo run -p xtask -- --list-deferred
 cargo fmt --all --check                                  -> clean
 cargo clippy --all-targets -- -D warnings                -> EXIT 0
 cargo test --workspace                                   -> EXIT 0
-cargo test -p xtask hygiene                              -> 44 passed / 0 failed
-cargo run -p xtask -- hygiene                            -> scanned=333, 0E/95W, PASSED
-cargo run -p xtask -- --list-deferred                    -> implemented 10 / deferred 3
+cargo test -p xtask                                      -> 432 passed / 0 failed（round 4 全量 xtask）
+cargo run -p xtask -- hygiene                            -> scanned=333, 0E/97W, PASSED
+cargo run -p xtask -- --list-deferred                    -> implemented 11 / deferred 2
 cargo run -p xtask -- verify-schemas                     -> PASSED
 cargo run -p xtask -- codegen --check                    -> 0 drift / PASSED
 cargo run -p xtask -- memory-counts                      -> 0E/0W, PASSED
@@ -129,6 +129,7 @@ cargo deny check                                         -> advisories / bans / 
 ```text
 hygiene/crlf-line-endings       0
 hygiene/missing-final-newline   10
+hygiene/unregistered-dependency 0
 ```
 
 ### 4. DoD 逐条核对
@@ -136,17 +137,17 @@ hygiene/missing-final-newline   10
 - [x] 本轮落地的 2 条规则各有正向基线 + 负向用例；CRLF、末行换行共新增 5 个测试。
 - [x] CRLF 规则以 Error 上线且实测 0 error；末行换行以 Warning 上线，升 Error 条件写入 PL-027 跟进项。
 - [x] 卡面“8 处末行换行”已过期：实测 10 处，且 write scope 不覆盖这些文件；按卡面允许的“明确说明为何保留”处理，清单见 PL-027 跟进。
-- [ ] 依赖登记规则未在本轮落地：首次全量实现后单卡 diff 达 765 行，超过 §3.6；该条仍留在 `DEFERRED_HYGIENE_RULES`，归属 TASK-086 续轮。
-- [x] `deferred.rs` 移除 CRLF / 末行换行两项，`IMPLEMENTED_HYGIENE_RULE_COUNT` 8→10；未实现清单从 5 降到 3。
+- [x] 依赖登记规则已落地：扫描产品 Cargo manifest 的直接依赖，按 `package.name` 排除 workspace 内部 crate，与 `docs/DEPENDENCIES.md` 的 Rust Approved 集合双向比对。
+- [x] `deferred.rs` 移除 CRLF / 末行换行 / 依赖登记三项，`IMPLEMENTED_HYGIENE_RULE_COUNT` 8→11；未实现清单从 5 降到 2。
 - [x] `cargo fmt --all --check` 0 diff。
 - [x] `cargo clippy --all-targets -- -D warnings` 退出码 0。
 - [x] `cargo test --workspace` 全绿。
 - [x] `xtask hygiene / memory-counts / adr-index / docscan / card-check / check-ledger / check-migrations / check-comments` 全部 PASSED。
-- [x] `LEDGER.md` 追加 InProgress WIP 行；新增 1 条 PITFALL 并同步 `MEMORY.md` 规模表。
+- [x] `LEDGER.md` 追加 WIP 与 Done 两行；新增 1 条 PITFALL 并同步 `MEMORY.md` 规模表。
 
 ### 5. 偏差
 
-**DRIFT-086-WIP**：三条规则一次实现使单卡 diff 达 765 行，超过 `docs/automation-charter.md` §3.6 的 400 行预算。按“不越预算、可合并 WIP”规则停止范围扩张，本轮只提交 CRLF / 末行换行；依赖登记保持 deferred。卡面“8 处”与实测 10 处的差异另由 PL-027 跟进。
+**DRIFT-086-WIP（已闭合）**：三条规则一次实现使单卡 diff 达 765 行，超过 `docs/automation-charter.md` §3.6 的 400 行预算。已按规则拆为 round 3 WIP + round 4 收口；最终未放宽门禁。卡面“8 处”与实测 10 处的差异由 PL-027 继续跟进。
 
 ### 6. 更合理做法
 
@@ -155,7 +156,7 @@ hygiene/missing-final-newline   10
 ### 7. 遗留问题
 
 - PL-027 跟进：清扫 10 个末行换行存量文件后再把 `hygiene/missing-final-newline` 升为 Error；若决定豁免生成物，必须先有契约裁决，不能靠放宽阈值。
-- 依赖登记规则留给 TASK-086 续轮；本轮不把 10/13 写成 13/13 或 Done。
+- 依赖登记规则已收口；末行换行存量仍需 PL-027 后续处理。
 
 ### 8. 新增长期记忆
 
@@ -163,5 +164,6 @@ hygiene/missing-final-newline   10
 
 ### 9. 给审阅者的关注点
 
-1. 这是 WIP，不是 TASK-086 Done；依赖登记仍只存在于 deferred 清单。
-2. 末行换行规则仍只有 Warning；本轮没有越 write scope 清扫 10 个文件，不能把 PASSED 误读成 13 项规则全绿。
+1. 依赖登记规则只声称支持当前仓库使用的 Cargo TOML 子集；登记表缺 Rust 表或行不足九列会显式 Error。
+2. 产品 manifest 扫描刻意排除 `spikes/` / `fixtures/` / `tools/`；这些目录继续由 `spike-deny` 覆盖许可证与来源。
+3. 末行换行规则仍只有 Warning；10 个存量文件未越 write scope 清扫，不能把 PASSED 误读成 13 项规则全绿。

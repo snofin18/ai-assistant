@@ -8,7 +8,7 @@
 //! ## 边界（不做什么）
 //! - 不做文件 IO：输入是 `(相对路径, 源码文本)`，遍历与读写在 `main.rs`。
 //! - 不做词法分析：注释识别委托给 `rustscan::scan`（否则字符串里的 `//` 会被误判为注释）。
-//! - 当前实现 gov §5.4 的 13 项中的 **10** 项；其余 3 项在 `deferred.rs`
+//! - 当前实现 gov §5.4 的 13 项中的 **11** 项；其余 2 项在 `deferred.rs`
 //!   登记为「未实现 + 归属卡号」（未拆卡，见 `docs/PARKING_LOT.md` PL-060；归属修正见 PL-059）。
 //!   未实现的规则**不会被静默跳过**：
 //!   `xtask hygiene --list-deferred` 会把它们全部打印出来。
@@ -20,6 +20,8 @@
 //! 4. 阈值只在本文件以 `pub const` 定义；调阈值等于改契约，需 ADR。
 //!
 //! 相关：`docs/governance-ai-agent-execution.md` §5.4、`docs/spec/naming.md` §8
+
+use std::collections::BTreeSet;
 
 use crate::report::{Finding, Severity};
 use crate::rustscan::{Comment, CommentKind, FunctionSpan, scan, scan_functions};
@@ -155,6 +157,40 @@ fn first_carriage_return_line(bytes: &[u8]) -> usize {
         }
     }
     line
+}
+
+/// 双向比对直接依赖与 `docs/DEPENDENCIES.md` 的 Approved 集合。
+#[must_use]
+pub fn check_dependency_registry(
+    manifest_dependencies: &[(String, BTreeSet<String>)],
+    registered_dependencies: &BTreeSet<String>,
+) -> Vec<Finding> {
+    let mut findings = Vec::new();
+    let mut used_dependencies = BTreeSet::new();
+    for (relative_path, dependencies) in manifest_dependencies {
+        for dependency in dependencies {
+            used_dependencies.insert(dependency.clone());
+            if !registered_dependencies.contains(dependency) {
+                findings.push(Finding::new(
+                    "hygiene/unregistered-dependency",
+                    Severity::Error,
+                    relative_path,
+                    0,
+                    format!("直接依赖 {dependency} 未在 docs/DEPENDENCIES.md 标为 Approved"),
+                ));
+            }
+        }
+    }
+    for dependency in registered_dependencies.difference(&used_dependencies) {
+        findings.push(Finding::new(
+            "hygiene/unregistered-dependency",
+            Severity::Warning,
+            "docs/DEPENDENCIES.md",
+            0,
+            format!("Approved 依赖 {dependency} 当前未被产品 manifest 直接使用"),
+        ));
+    }
+    findings
 }
 
 /// 返回源码中可执行函数的个数，供 `run_hygiene` 做「扫到 0 个函数」的显式告警。
