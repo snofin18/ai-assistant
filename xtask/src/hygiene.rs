@@ -8,9 +8,9 @@
 //! ## 边界（不做什么）
 //! - 不做文件 IO：输入是 `(相对路径, 源码文本)`，遍历与读写在 `main.rs`。
 //! - 不做词法分析：注释识别委托给 `rustscan::scan`（否则字符串里的 `//` 会被误判为注释）。
-//! - 本卡（TASK-001）只实现 gov §5.4 的 13 项中的 3 项；其余 10 项在 `deferred.rs`
-//!   登记为「未实现 + 归属卡号」，归属 **TASK-085 / TASK-086**（另有 2 项未拆卡，见
-//!   `docs/PARKING_LOT.md` PL-060；归属修正见 PL-059）。未实现的规则**不会被静默跳过**：
+//! - 当前实现 gov §5.4 的 13 项中的 **10** 项；其余 3 项在 `deferred.rs`
+//!   登记为「未实现 + 归属卡号」（未拆卡，见 `docs/PARKING_LOT.md` PL-060；归属修正见 PL-059）。
+//!   未实现的规则**不会被静默跳过**：
 //!   `xtask hygiene --list-deferred` 会把它们全部打印出来。
 //!
 //! ## 不变量
@@ -94,6 +94,67 @@ pub fn check_rust_source(relative_path: &str, source: &str) -> Vec<Finding> {
     ));
 
     findings
+}
+
+/// 对 ADR-0025 定义的文本文件字节应用文件级换行规则。
+///
+/// 两条规则都看原始字节而不是解码后的字符串：CRLF 与“末尾多一个空行”属于文件形状问题，
+/// 不能依赖平台文本解码的容错行为。`missing-final-newline` 先保持 Warning，直到存量文件清扫完
+/// 再由后续任务裁决升 Error。
+///
+/// 返回顺序固定为 CRLF、末尾换行，便于强制快照测试。
+#[must_use]
+pub fn check_text_file_bytes(relative_path: &str, bytes: &[u8]) -> Vec<Finding> {
+    let mut findings = Vec::new();
+    if bytes.contains(&b'\r') {
+        findings.push(Finding::new(
+            "hygiene/crlf-line-endings",
+            Severity::Error,
+            relative_path,
+            first_carriage_return_line(bytes),
+            "文件字节里出现 CR，违反 LF-only 文本约定（gov §5.4 / ADR-0025 D1）".to_string(),
+        ));
+    }
+
+    if bytes.is_empty() {
+        findings.push(Finding::new(
+            "hygiene/missing-final-newline",
+            Severity::Warning,
+            relative_path,
+            0,
+            "空文件没有末尾换行；文本文件必须以单个 LF 结尾（gov §5.4 / ADR-0025 D1）".to_string(),
+        ));
+    } else if !bytes.ends_with(b"\n") {
+        findings.push(Finding::new(
+            "hygiene/missing-final-newline",
+            Severity::Warning,
+            relative_path,
+            0,
+            "文件末尾缺少 LF；文本文件必须以单个 LF 结尾（gov §5.4 / ADR-0025 D1）".to_string(),
+        ));
+    } else if bytes.ends_with(b"\n\n") {
+        findings.push(Finding::new(
+            "hygiene/missing-final-newline",
+            Severity::Warning,
+            relative_path,
+            0,
+            "文件以空行结尾；文本文件必须以单个 LF 结尾（gov §5.4 / ADR-0025 D1）".to_string(),
+        ));
+    }
+    findings
+}
+
+fn first_carriage_return_line(bytes: &[u8]) -> usize {
+    let mut line = 1usize;
+    for byte in bytes {
+        if *byte == b'\r' {
+            return line;
+        }
+        if *byte == b'\n' {
+            line += 1;
+        }
+    }
+    line
 }
 
 /// 返回源码中可执行函数的个数，供 `run_hygiene` 做「扫到 0 个函数」的显式告警。

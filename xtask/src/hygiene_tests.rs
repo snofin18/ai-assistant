@@ -359,3 +359,46 @@ fn test_skipped_test_with_reason_and_card_passes() {
     let findings = check_skipped_tests("a.rs", "", &[function]);
     assert!(findings.is_empty());
 }
+
+// --- TASK-086：文件级换行规则 ---
+
+#[test]
+fn test_crlf_line_endings_are_error() {
+    let findings = check_text_file_bytes("a.md", b"first\r\nsecond\n");
+    assert_eq!(
+        rules_of(&findings),
+        vec!["hygiene/crlf-line-endings"],
+        "CRLF 必须命中 Error 级规则"
+    );
+    assert_eq!(
+        findings.first().map(|finding| finding.severity),
+        Some(Severity::Error)
+    );
+}
+
+#[test]
+fn test_lf_only_file_has_no_crlf_finding() {
+    assert!(check_text_file_bytes("a.md", b"first\nsecond\n").is_empty());
+}
+
+#[test]
+fn test_missing_final_newline_is_warning() {
+    let findings = check_text_file_bytes("a.md", b"first");
+    assert_eq!(rules_of(&findings), vec!["hygiene/missing-final-newline"]);
+    assert_eq!(
+        findings.first().map(|finding| finding.severity),
+        Some(Severity::Warning)
+    );
+}
+
+#[test]
+fn test_trailing_blank_line_is_warning() {
+    let findings = check_text_file_bytes("a.md", b"first\n\n");
+    assert_eq!(rules_of(&findings), vec!["hygiene/missing-final-newline"]);
+}
+
+#[test]
+fn test_empty_text_file_is_warning() {
+    let findings = check_text_file_bytes("a.md", b"");
+    assert_eq!(rules_of(&findings), vec!["hygiene/missing-final-newline"]);
+}

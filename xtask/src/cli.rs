@@ -34,7 +34,7 @@ pub const USAGE: &str = r#"xtask — 仓库护栏与开发任务工具（只读�
   cargo run -p xtask -- <子命令> [选项]
 
 子命令：
-  hygiene            仓库卫生检查（gov §5.4；当前实现 3/13 项，见输出中的 deferred-rules 行）
+  hygiene            仓库卫生检查（gov §5.4；当前实现 10/13 项，见输出中的 deferred-rules 行）
   memory-counts      MEMORY.md 规模表 ↔ docs/memory/ 实测计数是否一致（ADR-0030 D1/D2）
   adr-index          ADR 编号登记表 ↔ docs/adr/*.md ↔ decisions.md 是否一致（ADR-0030 D3）
   refscan           ADR 编号一致性扩展（ADR-0032 + ADR-0026）：范围写法 / 裁引用 / .ps1 非 ASCII

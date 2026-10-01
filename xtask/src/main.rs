@@ -104,7 +104,10 @@ use std::process::ExitCode;
 
 use cli::{Invocation, USAGE, parse_args};
 use report::{Finding, Report, Severity};
-use repowalk::{WalkError, collect_rust_files, relative_display_path, resolve_repo_root};
+use repowalk::{
+    RepoFileEntry, WalkError, collect_hygiene_text_files, collect_rust_files,
+    relative_display_path, resolve_repo_root,
+};
 
 /// 检查通过（可能仍有 Warning）。
 pub const EXIT_OK: u8 = 0;
@@ -427,24 +430,39 @@ fn run_check_comments(invocation: &Invocation, output: &mut dyn Write) -> Result
     })
 }
 
+/// 对文本文件执行 CRLF 与末行换行规则；读取失败必须带路径向上失败。
+fn collect_text_hygiene_findings(text_files: &[RepoFileEntry]) -> Result<Vec<Finding>, Failure> {
+    let mut findings = Vec::new();
+    for file in text_files {
+        let bytes = std::fs::read(&file.abs_path).map_err(|error| {
+            Failure::from_io(&format!("读取 {}", file.abs_path.display()), &error)
+        })?;
+        findings.extend(hygiene::check_text_file_bytes(&file.rel_path, &bytes));
+    }
+    Ok(findings)
+}
+
 /// 执行仓库卫生检查。
 fn run_hygiene(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
     let root = resolve_repo_root(invocation.repo.as_deref())
         .map_err(|error| Failure::from_walk(&error))?;
-    let files = collect_rust_files(&root).map_err(|error| Failure::from_walk(&error))?;
+    let rust_files = collect_rust_files(&root).map_err(|error| Failure::from_walk(&error))?;
+    let text_files =
+        collect_hygiene_text_files(&root).map_err(|error| Failure::from_walk(&error))?;
 
     let mut report = Report::new("hygiene");
-    report.scanned_files = files.len();
+    report.scanned_files = rust_files.len();
 
     let mut findings: Vec<Finding> = Vec::new();
     let mut scanned_function_count = 0usize;
-    for file in &files {
+    for file in &rust_files {
         let source = std::fs::read_to_string(file)
             .map_err(|error| Failure::from_io(&format!("读取 {}", file.display()), &error))?;
         let relative = relative_display_path(&root, file);
         scanned_function_count += hygiene::count_functions(&source);
         findings.extend(hygiene::check_rust_source(&relative, &source));
     }
+    findings.extend(collect_text_hygiene_findings(&text_files)?);
     // 排序保证输出确定性（report.rs 不变量 3 要求调用方排好序再插入）
     findings.sort_by(|left, right| {
         (&left.path, left.line, left.rule).cmp(&(&right.path, right.line, right.rule))
@@ -452,7 +470,7 @@ fn run_hygiene(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Fa
     report.extend(findings);
 
     // 不变量 4：0 个文件时 PASSED 是假信号，必须显式说出来
-    if files.is_empty() {
+    if rust_files.is_empty() {
         report.push(Finding::new(
             "xtask/no-source-files",
             Severity::Warning,
@@ -463,6 +481,15 @@ fn run_hygiene(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Fa
                 root.display(),
                 repowalk::SCANNED_SOURCE_ROOTS.join(", ")
             ),
+        ));
+    }
+    if text_files.is_empty() {
+        report.push(Finding::new(
+            "xtask/no-text-files",
+            Severity::Warning,
+            "xtask",
+            0,
+            "扫描集里没有任何 ADR-0025 文本文件；换行与依赖登记规则没有可判定对象。",
         ));
     }
     // TASK-085：即使扫到了文件，0 个函数也意味着结构规则没有可判定对象。
