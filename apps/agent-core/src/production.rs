@@ -45,6 +45,7 @@ use assistant_tool_bus::ToolRegistry;
 use thiserror::Error;
 
 use crate::HostAssembly;
+use crate::approval_grants::ApprovalGrants;
 use crate::assembly::{HostAssemblyInput, HostComponents};
 use crate::notepad_registry::{NotepadRegistryBuild, build_notepad_registry};
 use crate::notepad_targets::NotepadTargetCatalog;
@@ -174,6 +175,8 @@ pub struct ProductionHost<P> {
     policy_catalog: BTreeMap<String, ToolSchema>,
     app_id: String,
     latest_snapshot: Arc<Mutex<Option<TaskSnapshot>>>,
+    clock: Arc<dyn Clock>,
+    approvals: Arc<ApprovalGrants>,
     ui_config: UiServerConfig,
 }
 
@@ -208,7 +211,7 @@ where
         .map(|schema| (schema.name.clone(), schema.clone()))
         .collect::<BTreeMap<_, _>>();
 
-    let input = HostAssemblyInput::new(&config.data_root, clock, platform)
+    let input = HostAssemblyInput::new(&config.data_root, Arc::clone(&clock), platform)
         .with_session_store(Arc::new(MemorySessionStore::new()) as Arc<dyn SessionStore>)
         .with_memory_retriever(Arc::new(EmptyRetriever) as Arc<dyn MemoryRetriever>)
         .with_app_map_reader(
@@ -248,6 +251,8 @@ where
         policy_catalog,
         app_id: targets.app_id().to_owned(),
         latest_snapshot: Arc::new(Mutex::new(None)),
+        clock,
+        approvals: Arc::new(ApprovalGrants::new()),
         ui_config: config.ui_config,
     })
 }
@@ -378,7 +383,8 @@ where
             crate::reserved_invoker::ReservedRuntimeInvoker::new(
                 self.host.tool_bus(),
                 Arc::clone(&self.latest_snapshot),
-            ),
+            )
+            .with_approvals(Arc::clone(&self.approvals), Arc::clone(&self.clock)),
             EnvelopeObservationCollector,
         );
         let mut snapshots = Vec::with_capacity(steps.len());

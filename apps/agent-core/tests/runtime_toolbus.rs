@@ -13,11 +13,13 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use assistant_agent_core::{
-    EnvelopeObservationCollector, ReservedRuntimeInvoker, RuntimeExecutor, StepExecutionOutcome,
-    StepPolicy, ToolBusInvoker, ToolInvoker,
+    ApprovalGrants, EnvelopeObservationCollector, GrantRequest, ReservedRuntimeInvoker,
+    RuntimeExecutor, StepExecutionOutcome, StepPolicy, ToolBusInvoker, ToolInvoker,
 };
+use assistant_hitl::ApprovalScope;
 use assistant_policy::Decision;
 use assistant_protocol::{RiskLevel, ToolEffect, ToolReversibility, serde_json::json};
+use assistant_storage::{Clock as StorageClock, SystemClock as StorageSystemClock};
 use assistant_task_engine::{
     Budget, CheckpointPolicy, MemoryCheckpointStore, Plan, PlanId, PlanStep, Reversibility,
     StepEffect, StepId, StepStatus, StepTimeouts, TaskEngine, TaskEvent, TaskId, TaskSnapshot,
@@ -297,4 +299,62 @@ async fn test_request_approval_never_self_approves() {
         0,
         "approval steps must never reach the model-visible tool bus"
     );
+}
+
+/// ADR-0059 D2: a recorded human decision moves the step past asking, and covers
+/// **exactly one** use. With nothing on record it still asks.
+#[tokio::test]
+async fn test_a_recorded_approval_lets_the_step_proceed_exactly_once() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let bus = started_bus(Arc::clone(&calls)).await;
+    let snapshot: Arc<Mutex<Option<TaskSnapshot>>> = Arc::new(Mutex::new(None));
+    let approvals = Arc::new(ApprovalGrants::new());
+    let invoker = ReservedRuntimeInvoker::new(&bus, snapshot)
+        .with_approvals(Arc::clone(&approvals), Arc::new(StorageSystemClock));
+
+    let plan = write_plan();
+    let task_id = plan.task_id.clone();
+    let mut step = plan.steps.first().expect("one step").clone();
+    step.tool = "assistant.runtime.request_approval".to_owned();
+    step.args = json!({
+        "risk": "medium",
+        "show_diff": false,
+        "scope_options": ["once"],
+    });
+
+    let before = invoker.invoke(&task_id, &step).await.expect("envelope");
+    assert_eq!(
+        before.error.as_ref().map(|error| error.code),
+        Some(assistant_protocol::ErrorCode::UserInteraction),
+        "with nothing on record the step must still ask the human"
+    );
+
+    let now = StorageSystemClock.now_unix_ms();
+    assert!(
+        approvals
+            .grant(&GrantRequest {
+                task_id: task_id.as_str(),
+                step_id: step.id.as_str(),
+                scope: ApprovalScope::Once,
+                now_ms: now,
+                ttl_ms: 60_000,
+                uses: 1,
+            })
+            .is_ok()
+    );
+
+    let after = invoker.invoke(&task_id, &step).await.expect("envelope");
+    assert_ne!(
+        after.error.as_ref().map(|error| error.code),
+        Some(assistant_protocol::ErrorCode::UserInteraction),
+        "a recorded approval must move the step past asking the human"
+    );
+
+    let exhausted = invoker.invoke(&task_id, &step).await.expect("envelope");
+    assert_eq!(
+        exhausted.error.as_ref().map(|error| error.code),
+        Some(assistant_protocol::ErrorCode::UserInteraction),
+        "the approval covered exactly one use"
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
 }
