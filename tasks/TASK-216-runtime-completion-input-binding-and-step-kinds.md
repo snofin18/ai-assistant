@@ -1,6 +1,6 @@
 # TASK-216　运行时补齐：任务输入绑定 + `hitl`/rollback/verify 步骤 + `tab.new` 观测
 
-- 状态：**Ready（A 片可开工；B 片开工前置 = ADR-0059 Accepted）**
+- 状态：**InProgress（A 片 Done；B 片已解锁，未开工）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：214、215、**DRIFT-105-3**
 - 预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031）。分界线以上为正文（Orchestrator 所有，Implementer 只读）。
@@ -109,19 +109,39 @@ B 片另需：`notepad.tab.new` 在靶机上读到 `TabCountText` 并断言 +1�
 
 ### 2. 实际改动文件
 
-（待填）
+- **改** `apps/agent-core/src/task_package.rs`：新增 `TaskPackageError::MissingInput` / `UnsupportedReference`；新增 `TaskPackageProvider::from_package_json_with_inputs()`；`normalize_arguments` → `resolve_arguments`（递归解析 `$input.<name>`，空输入表仍走旧的 `UnboundArguments` 语义）。
+- **改** `apps/agent-core/tests/task_package.rs`：新增 3 条（T1.2 绑定后能渲染且无 `$input.` 残留、缺输入 → `MissingInput`、派生引用 → `UnsupportedReference`），测试数 9 → **12**。
+- **改** `docs/adr/0059-*.md`、`docs/adr/README.md`：ADR-0059 转 Accepted（人类 2026-10-01）。
+- **改** 本卡、`LEDGER.md`。
 
 ### 3. 验收输出摘要
 
-（待填）
+```text
+cargo test -p assistant-agent-core --test task_package   → 12 passed / 0 failed
+cargo clippy -p assistant-agent-core --all-targets -- -D warnings → 0 warning
+cargo fmt --all --check                                  → clean
+```
+
+关键点：**T1.2 的任务包在给出 `old_text` / `new_text` / `expected_replacements` 之后能被渲染成合法 Plan**（当前 `test_t1_2_package_renders_once_inputs_are_bound` 断言 `notepad.file.replace_text` 进入 Plan 且无 `$input.` 字面量残留）—— 这正是 DRIFT-105-3 的根因 1。
 
 ### 4. DoD 逐条核对
 
-（待填）
+- [x] A 片：任务输入绑定层落地，T1.2 任务包能被渲染成合法 Plan（无 `$input.` 残留）—— **已做**（T1.3 待 B 片 `tab.new` 生效后一并验证）
+- [x] A 片：未知引用 / 缺失输入 → 构造期 fail-closed，各有负向用例 —— **已做**（`MissingInput` / `UnsupportedReference` 各一）
+- [x] B 片：ADR-0059 落地 —— **已做**（2026-10-01 人类确认接受）
+- [ ] B 片：按 ADR-0059 执行，并给出对应证据 —— **未做**
+- [ ] B 片：`notepad.tab.new` 读到 `TabCountText` 并断言 +1 —— **未做**
+- [x] 未修改 Out of scope 文件；未新增第三方依赖；未改 `crates/**` 公共接口 —— 已核对（本轮只动 `apps/agent-core/src/task_package.rs`、其测试、ADR 与本卡）
+- [ ] 上列 16 条验收命令全绿 —— 本轮跑了 A 片相关的 fmt / clippy / 定向测试；全量门禁待 B 片收口时一次跑齐
+- [ ] §11.1 进度同步 —— **Done 时执行**（当前 InProgress）
 
 ### 5. 偏差
 
-（待填）
+**DRIFT-216-1（A 片的一处取舍：空输入表仍报 `UnboundArguments`）**
+
+1. **现象**：有了输入绑定层之后，"参数里还有 `$input.`"其实有两种含义 —— ① 调用方**根本没给**输入；② 给了输入但**这个键缺失**。
+2. **处置**：两者分开报：空输入表 → 沿用旧的 `UnboundArguments`；非空但键缺失 → 新的 `MissingInput`。理由是旧语义（"任务包从未被绑定"）已被既有测试与文档引用（TASK-214 的 `DRIFT-214-1`），改掉它等于悄悄改历史语义；而"给了输入却少一个键"是**另一类**错误，值得有自己的名字。
+3. **代价**：多一个错误变体。可接受 —— 它让排障时不用猜是"没喂输入"还是"喂漏了"。
 
 ### 6. 更合理做法
 
