@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "app_id": "powershell.exe",
+  "tools": [
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "notepad.file.read_text",
+        "description": "Read the active Notepad document through UIA and return canonical LF text.",
+        "input": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "text": {"type": "string"},
+            "truncated": {"type": "boolean"}
+          },
+          "required": ["text", "truncated"],
+          "additionalProperties": false
+        },
+        "effect": "read",
+        "reversibility": "none_readonly",
+        "risk_level": "low",
+        "requires_approval": false,
+        "idempotent": true,
+        "tags": ["notepad", "text", "read"]
+      },
+      "postconditions": [
+        {
+          "kind": "read_only_no_state_change",
+          "description": "The document, title, and tab set are unchanged.",
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "canonical_text_compare",
+          "description": "Returned text is normalized to LF before comparison.",
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "notepad.file.replace_text",
+        "description": "Replace all literal occurrences in the active document and verify the resulting text.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "old_text": {"type": "string", "minLength": 1},
+            "new_text": {"type": "string"},
+            "expected_replacements": {"type": "integer", "minimum": 1}
+          },
+          "required": ["old_text", "new_text", "expected_replacements"],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "replacement_count": {"type": "integer"},
+            "canonical_text": {"type": "string"}
+          },
+          "required": ["replacement_count", "canonical_text"],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l1_snapshot",
+        "risk_level": "medium",
+        "requires_approval": true,
+        "idempotent": false,
+        "tags": ["notepad", "text", "replace"]
+      },
+      "postconditions": [
+        {
+          "kind": "text_equals",
+          "field": "canonical_text",
+          "description": "Canonical text equals the expected post-replacement text.",
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "replacement_count_equals",
+          "field": "replacement_count",
+          "description": "Replacement count equals expected_replacements.",
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "notepad.file.save",
+        "description": "Save the active document and verify that the unsaved marker is gone.",
+        "input": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "saved": {"type": "boolean"},
+            "window_title": {"type": "string"}
+          },
+          "required": ["saved", "window_title"],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l1_snapshot",
+        "risk_level": "high",
+        "requires_approval": true,
+        "idempotent": false,
+        "tags": ["notepad", "file", "save"]
+      },
+      "postconditions": [
+        {
+          "kind": "title_has_no_unsaved_marker",
+          "field": "window_title",
+          "description": "The title no longer contains the unsaved marker.",
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "file_content_or_mtime_verified",
+          "description": "The target file is read back or its change is otherwise evidenced.",
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "notepad.tab.new",
+        "description": "Create a new empty Notepad tab.",
+        "input": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "tab_count": {"type": "integer"}
+          },
+          "required": ["tab_count"],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l1_snapshot",
+        "risk_level": "low",
+        "requires_approval": false,
+        "idempotent": false,
+        "tags": ["notepad", "tab", "new"]
+      },
+      "postconditions": [
+        {
+          "kind": "tab_count_increased_by_one",
+          "field": "tab_count",
+          "description": "The tab count increases by exactly one.",
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "notepad.file.save_as",
+        "description": "Save the active document to a new path without silently overwriting an existing file.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "target_path": {"type": "string", "minLength": 1},
+            "overwrite_existing": {"type": "boolean", "const": false}
+          },
+          "required": ["target_path", "overwrite_existing"],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "target_path": {"type": "string"},
+            "file_created": {"type": "boolean"}
+          },
+          "required": ["target_path", "file_created"],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l3_irreversible",
+        "risk_level": "high",
+        "requires_approval": true,
+        "idempotent": false,
+        "tags": ["notepad", "file", "save_as"]
+      },
+      "postconditions": [
+        {
+          "kind": "file_exists",
+          "field": "target_path",
+          "description": "The target file exists after the operation.",
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "existing_file_not_overwritten",
+          "field": "target_path",
+          "description": "An existing target is rejected unless a separate backup-and-confirm path is used.",
+          "error_code": "PolicyDenied"
+        }
+      ]
+    }
+  ]
+}
