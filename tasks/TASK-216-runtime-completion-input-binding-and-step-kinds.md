@@ -151,6 +151,23 @@ cargo fmt --all --check                                  → clean
 
 **仍未证明**：本步只做到了"能编译 + 纯函数有单测 + 全量测试与 UIA 干跑不回归"；**`notepad.tab.new` 尚未经端到端跑通**（T1.3 的 Plan 仍渲染不了，见 ADR-0059 执行侧未做）。端到端证据待 B 片第 3 步之后补。
 
+**DRIFT-216-2（ADR-0059 D6 照字面实现会打断 T1.1 —— 需要人类裁决覆盖集合）**
+
+1. **现象（实测清点）**：三份任务包用到的 `kind` 一共 **8 种**，而运行时今天只执行 `tool`：
+
+   ```text
+   t1.1  platform ×1, tool ×1, l1_file ×1, pure ×1
+   t1.2  platform ×2, tool ×3, host_service ×1, pure ×3, hitl ×2, verify ×1
+   t1.3  pure ×2, platform ×2, host_service ×2, policy ×1, tool ×3, hitl ×1, l1_file ×1, verify ×1
+   ```
+
+   ADR-0059 只覆盖 `hitl` / `host_service` / `verify`；**`platform` / `l1_file` / `pure` / `policy` 四种未被覆盖**。
+2. **影响**：ADR-0059 **D6 明文规定**"未覆盖的步骤种类 → 显式失败"。照字面实现，**T1.1 会立刻跑不起来** —— 它现在能渲染并跑通，恰恰依赖"非 tool 步骤被跳过"这个被 D6 否掉的行为。也就是说：**ADR-0059 已接受的决定与现有任务包互相矛盾**（漂移触发器 ④⑧）。
+3. **建议（二选一，需人类裁决）**：
+   - **① 扩覆盖面**：把 `platform` / `l1_file` / `pure` / `policy` 一并纳入 ADR-0059 的执行范围。代价大：`pure` 需要表达式求值器，而 ADR-0047 已否决自由字符串断言/表达式语言，等于要重新开一扇门；`policy` 需要与 `crates/policy` 的放行点对齐。
+   - **② 定义"声明但不执行"的闭集**（**推荐**）：运行时覆盖集合 = `{tool, hitl, host_service, verify}`；其余四种必须**显式声明为"由别处负责"**并给出理由 —— `platform` 是**任务前置条件**（包内自己写着 "Open mode is a task precondition until a registered open_file tool exists"）、`l1_file` 是文件通道（归 Adapter/工具化）、`pure` 是包内纯计算（**不由运行时求值**，其结论以 `args` 形式注入）、`policy` 的放行归 `crates/policy` 而不是工具调用。这样 D6 仍然成立（**闭集之外才失败**），T1.1 也不会被打断。
+4. **已停工作**：本轮**未改任何执行侧代码**（动手前先做这个清点，正是为了不把 T1.1 打红）。等人类选 ① 还是 ②，再落 B 片第 3 步。
+
 **DRIFT-216-1（A 片的一处取舍：空输入表仍报 `UnboundArguments`）**
 
 1. **现象**：有了输入绑定层之后，"参数里还有 `$input.`"其实有两种含义 —— ① 调用方**根本没给**输入；② 给了输入但**这个键缺失**。
