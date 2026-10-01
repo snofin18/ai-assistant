@@ -7,9 +7,9 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-10-01（**TASK-217 Done**：T1.2/T1.3 已在 fake platform 到 `Completed`，无授权审批可暂停并由 UI 批准后从同一快照恢复；**`DRIFT-216-4` 已闭环**；下一张为 **TASK-105**。TASK-039 审计结论仍为阶段 1a **NO-GO**）
+更新日期    ：2026-10-02（**TASK-216 Done**：运行时补齐由 TASK-217 落地并完成状态收口；T1.2/T1.3 已在 fake platform 到 `Completed`，无授权审批可暂停并由 UI 批准后从同一快照恢复；**`DRIFT-216-4` 已闭环**；下一张为 **TASK-105**。TASK-039 审计结论仍为阶段 1a **NO-GO**）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
-当前任务卡  ：**A5 批次进行中**：TASK-011~038 全 Done；**TASK-039 = Review（审计完成，阶段 1a NO-GO）**；**TASK-102 ✅**、**TASK-103 ✅**、**TASK-104 ✅**、**TASK-210 ✅**、**TASK-087 ✅**、**TASK-212 ✅**、**TASK-211 ✅**、**TASK-213 ✅**、**TASK-214 ✅**、**TASK-205 ✅**、**TASK-215 ✅（PL-097 闭环）**；**TASK-216 InProgress（`DRIFT-216-4` 已由 TASK-217 闭环）**；**TASK-217 ✅（ADR-0061 Accepted）**；下一张为 **TASK-105**；
+当前任务卡  ：**A5 批次进行中**：TASK-011~038 全 Done；**TASK-039 = Review（审计完成，阶段 1a NO-GO）**；**TASK-102 ✅**、**TASK-103 ✅**、**TASK-104 ✅**、**TASK-210 ✅**、**TASK-087 ✅**、**TASK-212 ✅**、**TASK-211 ✅**、**TASK-213 ✅**、**TASK-214 ✅**、**TASK-205 ✅**、**TASK-215 ✅（PL-097 闭环）**；**TASK-216 ✅（`DRIFT-216-4` 由 TASK-217 闭环）**；**TASK-217 ✅（ADR-0061 Accepted）**；下一张为 **TASK-105**；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done
 阻塞项      ：① TASK-002 仍 Blocked；② **PL-092**（storage 缺 conversation/session 公开记录 API）；③ **PL-094**（`RoleAndParent` helper 候选需契约治理）；④ gov **#9 覆盖率**与 **#11 `cargo doc`** 仍是 SOFT 门禁
 下一步动作  ：**TASK-105**：取 T1.1~T1.3 各 10 次真实运行证据，推进阶段 1a 复验。阶段 1a 仍是 NO-GO。（复验入口见 `docs/audits/stage-1a-reaudit-checklist-2026-09-30.md`）
