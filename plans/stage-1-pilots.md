@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 / A2 / A3 既有卡均 Done**；**TASK-039 = Review：阶段 1a 结论 = NO-GO**；**TASK-102 / 103 / 104 / 210 / 087 / 212 / 211 / 213 / 214 均 Done**；**TASK-213 完成 UI↔Core 真管道与 `SnapshotEventSource`，PL-095 闭环**；**TASK-214 完成生产装配根、确定性 task-package Plan 来源、5 个 Notepad handler、真 UIA T1.1 干跑、真 UI 管道 `step_state_changed` 与 fail-closed 收口，PL-096 闭环**；**TASK-205 完成 `tool-bus` schema 模块拆分，`hygiene` 长文件 warning 4→3**；**PL-097 已闭环**；**TASK-216 Done：A/B 片由 TASK-217 完成数据流与可恢复审批后收口**；**TASK-217 Done：T1.2/T1.3 fake platform 到 `Completed`，无授权暂停与 UI 批准恢复已落地，`DRIFT-216-4` 闭环**；**TASK-085 / TASK-086 Done：Rust 源码结构、末行换行、CRLF 与依赖登记卫生规则落地，覆盖 11/13**；**TASK-105 真实主路径 3×10 已取证；TASK-218 Done：真实 UIA 完整 L1 回滚 + fake-platform L1 fallback/三类负向证据**；阶段 1a 仍 NO-GO，不得在阻断项闭环前进入 1b）　上位文件：`PLAN.md`
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 / A2 / A3 既有卡均 Done**；**TASK-039 ✅：阶段 1a 独立复验硬门禁全绿，结论 = GO**；**TASK-102 / 103 / 104 / 105 / 210 / 087 / 212 / 211 / 213 / 214 均 Done**；**TASK-213 完成 UI↔Core 真管道与 `SnapshotEventSource`，PL-095 闭环**；**TASK-214 完成生产装配根、确定性 task-package Plan 来源、5 个 Notepad handler、真 UIA T1.1 干跑、真 UI 管道 `step_state_changed` 与 fail-closed 收口，PL-096 闭环**；**TASK-205 完成 `tool-bus` schema 模块拆分，`hygiene` 长文件 warning 4→3**；**PL-097 已闭环**；**TASK-216 Done：A/B 片由 TASK-217 完成数据流与可恢复审批后收口**；**TASK-217 Done：T1.2/T1.3 fake platform 到 `Completed`，无授权暂停与 UI 批准恢复已落地，`DRIFT-216-4` 闭环**；**TASK-085 / TASK-086 Done：Rust 源码结构、末行换行、CRLF 与依赖登记卫生规则落地，覆盖 11/13**；**TASK-105 真实主路径 3×10 已取证；TASK-218 Done：真实 UIA 完整 L1 回滚 + fake-platform L1 fallback/三类负向证据**；下一张为 **TASK-223**，前置 ADR-0064 Accepted，阶段 1a 已完成复验并翻转为 GO）
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -111,7 +111,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **036** | T1.1：打开文件 → 读全文 → 报告行数与关键词段落（只读） | `adapters/com.microsoft.notepad/tasks/**`、`eval/tasks/notepad/**` | 035 | S | 10 次连续成功率 ≥ 90%；大文件（1 MB）走 L1 文件通道降级并正确标 `truncated` |
 | **037 ✅** | T1.2：全文替换「报表」→「报告」+ 保存（含审批 diff、L0 undo + L1 快照、后置断言） | 同上 | 036 | M | 替换计数正确；保存后标题无 `*`；撤销可回到锚点；**歧义时按 `error_if_ambiguous` 报错** |
 | **038** | T1.3：新建标签 → 写入 → 另存为到指定路径（跨进程 Shell 对话框） | 同上 | 037 | M | 跨进程对话框解析成功率 ≥ 90%；**已存在文件绝不静默覆盖**（先备份 + 确认） |
-| **039** | 阶段 1a 集成验收：CI 门禁全启用（按 gov §5.1 与 CI workflow 现行清单，ADR-0025 D4） + 9 项 DoD 中 1a 相关项 + 对齐审计 | `.github/workflows/**`、`docs/audits/**` | 033~038 | M | 全部绿灯；审计报告产出；偏差项已裁决 |
+| **039 ✅** | 阶段 1a 集成验收：CI 门禁全启用（按 gov §5.1 与 CI workflow 现行清单，ADR-0025 D4） + 9 项 DoD 中 1a 相关项 + 对齐审计 | `.github/workflows/**`、`docs/audits/**` | 033~038 | M | 全部绿灯；审计报告产出；偏差项已裁决 |
 
 ### 1a 补救批次 A5-REMEDIATION（2026-09-29 审计后新增）
 
@@ -235,7 +235,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-036 ✅** | A5 | `tasks/TASK-036-t1-1-open-read-full-text.md` | Done（PR #88 / merge `0b64f85`；T1.1 声明式任务包 + 10 用例评测集） |
 | **TASK-037 ✅** | A5 | `tasks/TASK-037-t1-2-replace-save-approval-diff-undo.md` | Ready（批次表占位派单前补全） |
 | **TASK-038 ✅** | A5 | `tasks/TASK-038-t1-3-newtab-saveas-cross-process-dialog.md` | Ready（批次表占位派单前补全） |
-| TASK-039 | A5 | `tasks/TASK-039-stage-1a-integration-audit.md` | Ready（批次表占位派单前补全） |
+| **TASK-039 ✅** | A5 | `tasks/TASK-039-stage-1a-integration-audit.md` | Done（阶段 1a 独立复验全绿并翻转 GO；TASK-105 3×10 证据就位） |
 | **TASK-102 ✅** | A5-REMEDIATION | `tasks/TASK-102-runtime-execution-contract.md` | Ready（1a 执行链路契约） |
 | **TASK-103 ✅** | A5-REMEDIATION | `tasks/TASK-103-runtime-executor-host-dispatch-verifyoutcome.md` | Ready（真实执行器） |
 | **TASK-104 ✅** | A5-REMEDIATION | `tasks/TASK-104-ui-core-ipc-approval-wiring.md` | Ready（UI/IPC/审批接线） |

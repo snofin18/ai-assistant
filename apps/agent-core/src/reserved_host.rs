@@ -104,4 +104,62 @@ impl ReservedRuntimeInvoker<'_> {
             &data,
         )
     }
+
+    pub(super) fn read_utf8_prefix(
+        &self,
+        call: &CallContext,
+        step_id: &str,
+        sequence: u32,
+        arguments: Option<&Map<String, Value>>,
+    ) -> Result<ToolEnvelope, RuntimeExecutionError> {
+        let target_path = arguments
+            .and_then(|arguments| arguments.get("target_path"))
+            .and_then(Value::as_str);
+        let Some(max_text_bytes) = arguments
+            .and_then(|arguments| arguments.get("max_text_bytes"))
+            .and_then(Value::as_u64)
+        else {
+            return Ok(argument_error(
+                crate::runtime_tools::TOOL_HOST_READ_UTF8_PREFIX,
+                call,
+                step_id,
+                "max_text_bytes must be a positive integer",
+            ));
+        };
+        if max_text_bytes == 0 {
+            return Ok(argument_error(
+                crate::runtime_tools::TOOL_HOST_READ_UTF8_PREFIX,
+                call,
+                step_id,
+                "max_text_bytes must be a positive integer",
+            ));
+        }
+        let Some(operations) = self.host_operations.as_ref() else {
+            return Ok(capability_error(
+                crate::runtime_tools::TOOL_HOST_READ_UTF8_PREFIX,
+                call,
+                step_id,
+                "host file-channel reads are not assembled",
+            ));
+        };
+        let data = match operations.read_utf8_prefix(target_path, max_text_bytes) {
+            Ok(data) => data,
+            Err(error) => {
+                return Ok(ToolEnvelope::error(
+                    crate::runtime_tools::TOOL_HOST_READ_UTF8_PREFIX.to_owned(),
+                    call.task_id().to_owned(),
+                    step_id.to_owned(),
+                    error.code(),
+                    error.message().to_owned(),
+                ));
+            }
+        };
+        self.ok_with_current_fingerprint(
+            crate::runtime_tools::TOOL_HOST_READ_UTF8_PREFIX,
+            call,
+            step_id,
+            sequence,
+            &data,
+        )
+    }
 }

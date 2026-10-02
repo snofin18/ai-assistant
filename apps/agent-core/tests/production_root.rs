@@ -246,8 +246,9 @@ async fn test_production_t1_1_commits_through_real_tool_bus_and_receipt()
     let run = host.execute_plan(plan, FIXED_NOW_MS).await?;
 
     assert_eq!(run.final_snapshot.status, TaskStatus::Completed);
-    // TASK-219: read_text + the pure `analyze` step both commit, so two snapshots are observed.
-    assert_eq!(run.snapshots.len(), 2);
+    // TASK-219 / ADR-0064: read_text, the skipped file-channel branch, and the pure
+    // `analyze` step all commit a state transition, so three snapshots are observed.
+    assert_eq!(run.snapshots.len(), 3);
     let step = run
         .final_snapshot
         .steps

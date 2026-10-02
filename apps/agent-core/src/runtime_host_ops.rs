@@ -8,7 +8,40 @@
 //! - these operations are not model-visible tools;
 //! - they return serializable data only, never platform handles.
 
+use assistant_protocol::ErrorCode;
 use serde_json::Value;
+
+/// Structured failure returned by a reserved host operation.
+///
+/// The existing rollback-oriented methods keep their string errors because their callers
+/// already map them to fixed codes. File-channel reads need to preserve the distinction
+/// between malformed arguments and a missing target, so this error carries the code at the
+/// boundary where the filesystem outcome is known.
+#[derive(Debug, Clone)]
+pub struct ReservedHostOperationError {
+    code: ErrorCode,
+    message: String,
+}
+
+impl ReservedHostOperationError {
+    /// Creates an explicit host-operation failure.
+    #[must_use]
+    pub const fn new(code: ErrorCode, message: String) -> Self {
+        Self { code, message }
+    }
+
+    /// Returns the stable error code the caller must surface.
+    #[must_use]
+    pub const fn code(&self) -> ErrorCode {
+        self.code
+    }
+
+    /// Returns the readable failure reason.
+    #[must_use]
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+}
 
 /// Binary-layer host operations referenced by reserved runtime tools.
 pub trait ReservedHostOperations: Send + Sync {
@@ -26,6 +59,22 @@ pub trait ReservedHostOperations: Send + Sync {
     ///
     /// Returns a readable reason when the value cannot be written or read back.
     fn set_editor_value(&self, text: &str) -> Result<Value, String>;
+
+    /// Reads a bounded UTF-8 prefix from the target file.
+    ///
+    /// `target_path` may be omitted by the plan step when the assembly already captured
+    /// the task's absolute target path. The implementation must still validate that the
+    /// resolved path is absolute and free of parent-directory traversal.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReservedHostOperationError`] when the path or budget is invalid, the file
+    /// cannot be opened, or the selected bytes are not valid UTF-8 at a legal boundary.
+    fn read_utf8_prefix(
+        &self,
+        target_path: Option<&str>,
+        max_text_bytes: u64,
+    ) -> Result<Value, ReservedHostOperationError>;
 
     /// Captures the physical pre-write snapshot for one task step (ADR-0062 D1/D2).
     ///

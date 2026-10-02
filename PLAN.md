@@ -7,13 +7,13 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-10-02（**TASK-216 Done**：运行时补齐由 TASK-217 落地并完成状态收口；**TASK-085 / TASK-086 Done**：Rust 源码结构 + 文件级换行与依赖登记共 8 条 hygiene 规则落地，覆盖 11/13；T1.2/T1.3 已在 fake platform 到 `Completed`，无授权审批可暂停并由 UI 批准后从同一快照恢复；**`DRIFT-216-4` 已闭环**；下一张为 **TASK-105**。TASK-039 审计结论仍为阶段 1a **NO-GO**）
+更新日期    ：2026-10-03（**TASK-039 Done**：阶段 1a 独立复验硬门禁全绿，TASK-105 的真实 T1.1/T1.2/T1.3 各 10 次运行证据已就位，阶段 1a 状态翻转为 **GO**；**TASK-105 / TASK-218 / TASK-219 Done**；下一张为 **TASK-223**，但必须先落 ADR-0064 并 Accepted）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
-当前任务卡  ：**A5 批次进行中**：TASK-011~038 全 Done；**TASK-039 = Review（审计完成，阶段 1a NO-GO）**；**TASK-102 ✅**、**TASK-103 ✅**、**TASK-104 ✅**、**TASK-210 ✅**、**TASK-087 ✅**、**TASK-212 ✅**、**TASK-211 ✅**、**TASK-213 ✅**、**TASK-214 ✅**、**TASK-205 ✅**、**TASK-215 ✅（PL-097 闭环）**；**TASK-216 ✅（`DRIFT-216-4` 由 TASK-217 闭环）**；**TASK-217 ✅（ADR-0061 Accepted）**；**TASK-085 ✅（hygiene 8/13）**；**TASK-086 ✅（hygiene 11/13）**；下一张为 **TASK-105**；
+当前任务卡  ：**A5 批次进行中**：TASK-011~038 全 Done；**TASK-039 ✅（阶段 1a GO）**；**TASK-102 ✅**、**TASK-103 ✅**、**TASK-104 ✅**、**TASK-105 ✅**、**TASK-210 ✅**、**TASK-087 ✅**、**TASK-212 ✅**、**TASK-211 ✅**、**TASK-213 ✅**、**TASK-214 ✅**、**TASK-205 ✅**、**TASK-215 ✅（PL-097 闭环）**；**TASK-216 ✅（`DRIFT-216-4` 由 TASK-217 闭环）**；**TASK-217 ✅（ADR-0061 Accepted）**；**TASK-218 ✅**、**TASK-219 ✅**、**TASK-221 ✅**、**TASK-222 ✅**；**TASK-085 ✅（hygiene 8/13）**；**TASK-086 ✅（hygiene 11/13）**；下一张为 **TASK-223**（前置 ADR-0064 Accepted）；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done
 阻塞项      ：① TASK-002 仍 Blocked；② **PL-092**（storage 缺 conversation/session 公开记录 API）；③ **PL-094**（`RoleAndParent` helper 候选需契约治理）；④ gov **#9 覆盖率**与 **#11 `cargo doc`** 仍是 SOFT 门禁
-下一步动作  ：**TASK-105**：取 T1.1~T1.3 各 10 次真实运行证据，推进阶段 1a 复验。阶段 1a 仍是 NO-GO。（复验入口见 `docs/audits/stage-1a-reaudit-checklist-2026-09-30.md`）
-                  → 审计证据见 `docs/audits/stage-1a-integration-audit-2026-09-29.md`；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
+下一步动作  ：**TASK-223**：先落 ADR-0064 并 Accepted，再把 T1.1 大文件路径改为 binary 层保留 `host_service` 的 `read_utf8_prefix` 文件通道。阶段 1a 已完成复验，结论为 **GO**。
+                  → 复验证据见 `docs/audits/stage-1a-reaudit-2026-10-02.md`；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 
 ## 阶段索引（点开当前阶段那一个就够）

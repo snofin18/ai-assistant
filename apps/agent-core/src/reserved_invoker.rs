@@ -132,6 +132,9 @@ impl ToolInvoker for ReservedRuntimeInvoker<'_> {
             if tool == crate::runtime_tools::TOOL_HOST_SET_EDITOR_VALUE {
                 return self.set_editor_value(&call, &step_id, sequence, arguments.as_ref());
             }
+            if tool == crate::runtime_tools::TOOL_HOST_READ_UTF8_PREFIX {
+                return self.read_utf8_prefix(&call, &step_id, sequence, arguments.as_ref());
+            }
             if crate::runtime_tools::RESERVED_RUNTIME_TOOLS.contains(&tool.as_str()) {
                 return Ok(ToolEnvelope::error(
                     tool,
