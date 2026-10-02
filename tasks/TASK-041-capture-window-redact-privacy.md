@@ -52,6 +52,17 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 ### 1. 约束回执
 
+```text
+【任务】TASK-041 截图管线
+【目标】窗口截图 + 脱敏 + 滚动清理 + 隐私模式
+【write scope】crates/capture/**、crates/dlp/src/redact*
+【铁律】1 无静默失败；9 不静默扩大范围；ADR-0063 有界资源
+【禁止】新增 crate / 顶层目录、操作真实 GUI、放宽 lint、改公共契约
+【验收】fmt / clippy / workspace tests / xtask 门禁
+【依赖】TASK-017 Done
+【疑问】目标目录当前不存在；新增 crate 属自动化黑名单，本轮无法开工
+```
+
 ### 2. 实际改动文件
 
 ### 3. 验收输出摘要
@@ -60,9 +71,20 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 ### 5. 偏差
 
+**DRIFT-041-1（write scope 指向尚不存在的 crate，自动化无法合法创建）**
+
+- 现象：`Test-Path crates/capture` = False、`Test-Path crates/dlp` = False。
+- 影响：TASK-041 的第一项工作会变成新增两个 crate；自动化章程 §3.2 禁止新增 crate
+  或顶层目录，且根 `Cargo.toml` 不在本卡 write scope。
+- 建议：由 Orchestrator/人类先批准并落一张“capture + dlp 骨架”前置卡，或把 TASK-041
+  的 write scope 扩展到根 `Cargo.toml` 并明确授权新增 crate。
+- 已停工作：未创建 `crates/capture`、未创建 `crates/dlp`、未改根 workspace。
+
 ### 6. 更合理做法
 
 ### 7. 遗留问题
+
+- **PL-102**：TASK-041 的前置 crate 尚不存在；新增 crate 需人类/Orchestrator 授权。
 
 ### 8. 新增长期记忆
 

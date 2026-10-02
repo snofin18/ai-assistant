@@ -42,9 +42,11 @@
 1. **句柄不跨进程**（铁律 8）：句柄类型由 `assistant-platform-api` 定义且**不派生**
    `Serialize` / `Deserialize`；本 crate 也**不新增**任何可序列化的句柄类型。
    机器校验：`tests/handle_discipline.rs`（扫 `src/**/*.rs` 的代码行 + 断言 `Cargo.toml` 不引 `serde`）。
-2. **COM 对象不跨线程**（本卡约束 4）：`IUIAutomation` 与 `IUIAutomationElement` 都不是
+2. **COM 对象不跨线程且有界**（本卡约束 4、TASK-220）：`IUIAutomation` 与 `IUIAutomationElement` 都不是
    `Send` / `Sync`，因此实例住在**线程本地**（`src/com.rs` 的 `APARTMENT`、`src/handles.rs` 的
-   `ELEMENTS`）。在别的线程用元素句柄 → **明确的 `TargetNotFound`**，不是静默失败。
+   `ELEMENTS`）。元素表每线程最多保留 `MAX_THREAD_ELEMENT_HANDLES` 个句柄，超限按 FIFO 淘汰；
+   `clear_thread_elements()` 可在任务边界显式释放。在别的线程用元素句柄 → **明确的
+   `TargetNotFound`**，不是静默失败。
 3. **写操作必有 postcondition**（铁律 4）：`set_value` / `edit_text` / `invoke_action` /
    `select` / `scroll` 全部回读；不一致 → `VerifyFailed`，**绝不**返回 `Ok`。
 4. **未识别的失败不降级**（铁律 1）：未知 HRESULT / Win32 码 → `Fatal`（**不是** `Transient`，
@@ -90,8 +92,8 @@
 - **`TitleRegex` / `NameRegex` 实为子串匹配**：本卡不引入 regex 引擎（加依赖 = 漂移触发器 ①），
   改用 UIA 原生 `PropertyConditionFlags_MatchSubstring`。**只可能漏命中，不会假命中**
   （漏命中 → 链继续往下走 → 最终 `TargetNotFound`，是明确失败）。
-- **元素句柄表按解析次数增长，无上限**：`src/handles.rs` 的线程本地表只在**线程退出**时释放。
-  长驻 Host 线程反复解析会持续累积 COM 引用 —— 淘汰策略归 TASK-025（本卡刻意不做缓存）。
+- **元素句柄表有硬上限**（TASK-220）：`src/handles.rs` 的线程本地表最多保留 4096 个句柄，
+  超限按最旧优先淘汰并立即 Drop COM 引用；任务边界也可调用 `clear_thread_elements()` 显式清空。
 - **`is_occluded` 是近似判定**：取窗口矩形中心点，看该点最上层窗口的根祖先是不是本窗口。
   部分遮挡 / 非矩形窗口 / 透明覆盖层会误判；它**偏保守**（宁可报"被遮挡"）。
 - **`wait_for` 不可取消**：固定 50 ms 轮询 + 显式截止时间，**没有**取消通道

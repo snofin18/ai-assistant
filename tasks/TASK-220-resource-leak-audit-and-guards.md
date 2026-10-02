@@ -104,36 +104,87 @@ cargo run -p xtask -- hygiene
 
 ### 1. 约束回执
 
-（待 Implementer 领取本卡时填写。）
+```text
+【任务】TASK-220 资源泄露审计与防护
+【目标】补齐有界状态的可调用清理入口、容量淘汰测试与进程树回收测试，并留下诚实 WIP 证据
+【write scope】仅 crates/platform/windows/src/{handles,lib}.rs、platform/windows README、
+agent-core 的 notepad_registry / approval_grants / production_root_uia、本卡记录区、
+LEDGER / PARKING_LOT / memory / 轮次产物
+【铁律】1 无静默失败；8 句柄不跨进程；9 不扩大范围；ADR-0063；ADR-0022
+【禁止】改公共 trait / ErrorCode / schema；加依赖或 crate；操作真实 GUI；放宽 lint
+【验收】fmt / clippy -D warnings / workspace test / platform handles /
+production_root / 新增三项专项 / hygiene
+【依赖】TASK-218 Done；TASK-220 的初始容量实现已在 d740498 落地
+【疑问】真实 UIA 三用例仍受自动化禁止 GUI 约束，未运行且不伪装通过
+```
 
 ### 2. 实际改动文件
 
-（无 —— 本卡尚未开工。）
+- `crates/platform/windows/src/handles.rs`、`crates/platform/windows/src/lib.rs`
+- `crates/platform/windows/README.md`
+- `apps/agent-core/src/notepad_registry.rs`、`apps/agent-core/src/approval_grants.rs`
+- `apps/agent-core/tests/production_root_uia.rs`
+- 本卡；`LEDGER.md`、`docs/PARKING_LOT.md`、`docs/memory/{facts,pitfalls}.md`
+
+说明：基础容量实现来自 `d740498 fix(task-220): bound thread-local element table`。
+本轮补上可调用的 `clear_thread_elements()`、anchor/grant 的容量淘汰单测，以及
+`taskkill /T /F` + `wait()` 的进程树回收专项测试。
 
 ### 3. 验收输出摘要
 
-（无 —— 本卡尚未开工。）
+- `cargo fmt --all --check`：PASS。
+- `cargo clippy --all-targets -- -D warnings`：EXIT 0（仅有仓库既有 unknown-lint warning）。
+- `cargo test --workspace`：PASS；agent-core lib 44 passed、production_root 13 passed。
+- `cargo test -p assistant-platform-windows handles`：6 passed。
+- `cargo test -p assistant-agent-core --lib approval_grants`：6 passed。
+- `cargo test -p assistant-agent-core --lib notepad_registry::tests`：7 passed。
+- `cargo test -p assistant-agent-core --test production_root_uia
+  test_fixture_process_tree_termination_reaps_direct_child`：1 passed。
+- `cargo run -p xtask -- hygiene`：0E / 102W，PASSED（warning 数与本轮前 LEDGER 基线一致）。
+
+未运行 `production_root_uia -- --ignored`：该命令会启动 `notepad-like` 并操作真实 GUI，
+与自动化章程 §3.7 冲突。
 
 ### 4. DoD 逐条核对
 
-（待 Implementer 填写。）
+- [x] UIA 元素表有硬上限（4096）与 FIFO 淘汰，超限时释放旧 COM 引用；有单测。
+- [x] `clear_thread_elements()` 可在任务边界显式清空本线程元素表。
+- [x] 生产根 anchor 注册表有 64 任务上限与最旧淘汰；有泛型单测。
+- [x] `ApprovalGrants` 有 1024 条目上限、过期清理与单测。
+- [x] PowerShell 子进程使用 `taskkill /T /F` 终止进程树并 `wait()` reap；
+      新增无害 `cmd/ping` 子进程测试证明直接子进程被回收。
+- [x] `cargo fmt` / clippy / workspace test / hygiene 全绿。
+- [ ] 真实 UIA 三用例复跑：自动化禁止真实 GUI，保持未执行；不能据此标 Done。
+- [x] 未修改 Out of scope 的公共 trait / `ResolvedElement` / `ErrorCode` / schema。
 
 ### 5. 偏差
 
-（无 —— 本卡尚未开工。）
+**DRIFT-220-1（真实 UIA 证据不能在无人值守轮次内取得）**
+
+- 现象：卡片验收要求 `production_root_uia -- --ignored --nocapture` 的真实 GUI 三用例通过。
+- 影响：机器可验证的容量、清理和进程树回收已覆盖，但不能宣称完整真机验收完成。
+- 建议：合并本 WIP 后由人工或受控真机运行三用例，并把 run 输出回填本卡；在此之前
+  TASK-220 保持 InProgress。
+- 已停工作：未启动、点击、输入或截图任何真实 GUI 应用。
 
 ### 6. 更合理做法
 
-（待评估。）
+把“有界 + 回收”拆成机器可验证层和人工真机层：容量淘汰、显式清理、进程树 kill/reap
+都用无 GUI fixture 验证；真实 UIA 只作为最终人工验收，不再阻塞代码侧泄露防护的合并。
 
 ### 7. 遗留问题
 
 - 本轮只覆盖已定位的四类泄露；`xtask` / `audit` / `secrets` 的长期状态仍需后续按同口径复查。
+- 真实 `production_root_uia` 三用例仍需人工执行；测试文件当前为 1 passed / 7 ignored。
 
 ### 8. 新增长期记忆
 
-（待 Implementer 填写。）
+- FACT：元素表上限 4096 + `clear_thread_elements()`；anchor 上限 64；grant 上限 1024。
+- PITFALL：对泛型注册表使用 `#[derive(Default)]` 会给 `T` 加不必要的 `Default` 约束，
+  需要用不约束 `T` 的手写 `Default`。
 
 ### 9. 给审阅者的关注点
 
-（待 Implementer 填写。）
+- 审阅 `clear_thread_elements()` 作为窄公共 API 的必要性与命名。
+- 审阅 `TaskAnchorRegistry<T>` 的泛型是否只服务测试且没有行为变化。
+- 确认真实 UIA 三项仍未勾选，不得把本 WIP 当作完整真机验收。
