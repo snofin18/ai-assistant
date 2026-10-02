@@ -171,3 +171,9 @@ xtask check-ledger / docscan / card-check / adr-index / memory-counts -> 全 PAS
 1. 本次通过的是**完整 L1 恢复**；L0 单路径失败 → L1 fallback 尚未有真实证据，不能据此宣称三条 undo 路径全部通过。
 2. 请重点审查 `notepad_rollback.rs` 的冲突语义：L1 明确走 `RestoreOverall`，编辑器单路径保持 `FailClosed`。
 3. `assistant-undo` 是 workspace 依赖，不是新第三方 crate；`crates/undo` 公共形状未改。
+
+### 10. 合并证据
+
+- PR #169（codex/task-218-rollback-execution）CI 11/11 SUCCESS（run 36980213505；windows 7m47s / ubuntu 3m24s / macos 3m41s）。
+- merge commit：3fbe275；mergeable=CLEAN，base=main。
+- 本卡保持 **InProgress**：完整 L1 恢复已真实通过；L0 不可用 fallback 与三类负向 incident 仍待补。
