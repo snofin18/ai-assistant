@@ -36,6 +36,8 @@ pub struct FakePlatform {
 
 pub struct FakeState {
     pub text: String,
+    /// Text values recorded before each `set_value`, used by `key_action` to emulate `Ctrl+Z`.
+    pub text_history: Vec<String>,
     revision: u64,
     pub read_calls: usize,
     pub set_calls: usize,
@@ -49,6 +51,7 @@ impl FakePlatform {
         Self {
             state: Arc::new(Mutex::new(FakeState {
                 text: text.into(),
+                text_history: Vec::new(),
                 revision: 1,
                 read_calls: 0,
                 set_calls: 0,
@@ -196,6 +199,8 @@ impl UiAutomationProvider for FakePlatform {
         if element.id().value() == SAVE_AS_FILENAME_ID {
             state.target_path = Some(value.to_owned());
         } else {
+            let previous = state.text.clone();
+            state.text_history.push(previous);
             value.clone_into(&mut state.text);
         }
         state.revision = state.revision.saturating_add(1);
@@ -278,11 +283,17 @@ impl UiAutomationProvider for FakePlatform {
 
     fn key_action(
         &self,
-        _chord: &KeyChord,
+        chord: &KeyChord,
         _target: &KeyTarget,
     ) -> impl Future<Output = PlatformResult<()>> + Send {
         let mut state = self.state.lock().expect("fake state");
         state.key_calls += 1;
+        if chord.key() == "Z"
+            && chord.modifiers() == [assistant_platform_api::KeyModifier::Control]
+            && let Some(previous) = state.text_history.pop()
+        {
+            state.text = previous;
+        }
         state.revision = state.revision.saturating_add(1);
         drop(state);
         ready(Ok(()))

@@ -111,6 +111,7 @@ where
         rollback: NotepadRollback::new(Arc::clone(&context)),
         anchors: Mutex::new(BTreeMap::new()),
         task_target_path: document_path_from_inputs(task_inputs),
+        task_requires_l1: required_anchor_levels_include_l1(task_inputs),
     });
     let handlers = build_handler_map(&context);
     let mut registry = ToolRegistry::new();
@@ -219,11 +220,20 @@ fn document_path_from_inputs(task_inputs: &serde_json::Map<String, Value>) -> Op
     None
 }
 
+/// Whether the task package declares an L1 anchor requirement.
+fn required_anchor_levels_include_l1(task_inputs: &serde_json::Map<String, Value>) -> bool {
+    task_inputs
+        .get("rollback.required_anchor_levels")
+        .and_then(Value::as_array)
+        .is_some_and(|levels| levels.iter().any(|level| level.as_str() == Some("L1")))
+}
+
 struct NotepadReservedHostOperations<P> {
     context: Arc<NotepadHandlerContext<P>>,
     rollback: NotepadRollback<P>,
     anchors: Mutex<BTreeMap<String, CapturedRollbackAnchor>>,
     task_target_path: Option<String>,
+    task_requires_l1: bool,
 }
 
 impl<P> ReservedHostOperations for NotepadReservedHostOperations<P>
@@ -250,6 +260,13 @@ where
         target_path: Option<&str>,
     ) -> Result<Value, String> {
         let target_path = target_path.or(self.task_target_path.as_deref());
+        if target_path.is_none() && self.task_requires_l1 {
+            return Err(
+                "rollback anchor: task requires L1 but no target file path was provided; \
+                 pass `input.file_path` or `input.target_path` so the disk snapshot is captured"
+                    .to_owned(),
+            );
+        }
         let captured =
             self.rollback
                 .capture(task_id, step_id, sequence, target_path.map(Path::new))?;

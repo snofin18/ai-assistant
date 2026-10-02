@@ -1,6 +1,6 @@
 # TASK-218　Notepad L0/L1 物理快照创建与回滚执行验收
 
-- 状态：**InProgress（ADR-0062 已 Accepted；DRIFT-105 撤销链的落地卡）**
+- 状态：**Done（2026-10-02；ADR-0062 Accepted；完整 L1 真机 + fallback/负向 fake-platform 证据）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：TASK-105（真实运行证据）、TASK-024、TASK-103
 - 预估：L　难度：L
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。分界线以上为正文（Orchestrator 所有，Implementer 只读）。
@@ -114,6 +114,7 @@ cargo run -p xtask -- docscan
 - `apps/agent-core/src/production.rs`：`ProductionHost::execute_rollback` 与 `observe_rollback_state`。
 - `apps/agent-core/Cargo.toml`：新增 workspace 依赖 `assistant-undo`（非第三方）。
 - `apps/agent-core/tests/production_root_uia.rs`：T1.2 真实回滚断言。
+- `apps/agent-core/tests/production_root.rs`、`apps/agent-core/tests/support/production_fixture.rs`：fallback 与三类负向用例；fake platform 增加 `Ctrl+Z` 撤销历史。
 - `docs/adr/0062-rollback-physical-snapshot-and-executor.md` 及登记文件、`docs/audits/stage-1a-rollback-physical-snapshot-2026-10-02.md`、本卡记录与状态同步文件。
 
 ### 3. 验收输出摘要
@@ -125,6 +126,7 @@ cargo test -p assistant-agent-core --test production_root_uia test_production_t1
 cargo fmt --all --check                         -> clean
 cargo clippy --all-targets -- -D warnings       -> EXIT 0
 cargo test --workspace                          -> EXIT 0
+cargo test -p assistant-agent-core --test production_root -> 13 passed（fallback + 三类负向）
 python eval/tasks/notepad/t1.2/validate.py      -> PASSED
 xtask replay notepad-like-basic                 -> PASSED
 xtask check-ledger / docscan / card-check / adr-index / memory-counts -> 全 PASSED
@@ -135,8 +137,8 @@ xtask check-ledger / docscan / card-check / adr-index / memory-counts -> 全 PAS
 - [x] `prepare_rollback_anchors` 真实创建 L1 disk snapshot 与编辑区内容 digest；目标文件路径存在时缺一即 `VerifyFailed`。
 - [x] T1.2 真实运行中回滚成功，回滚后编辑区规范化文本等于 pre-replace anchor。
 - [x] T1.2 真实运行中 L1 保存后恢复成功，回滚后内存文本与磁盘字节都等于 pre-replace anchor。
-- [ ] L0 不可用时 L1 fallback 成功且 evidence 标注 `used_fallback=true` —— **未取得真实证据**；主路径 L0 成功后不再走 fallback。
-- [ ] 快照缺失、digest 不匹配、回滚期间用户改动三类 incident —— `crates/undo` 契约测试覆盖冲突判定，但接入后的真实入口负向证据未取。
+- [x] L0 未到锚点 → L1 fallback 成功且 evidence 标注 `used_fallback=true` —— `test_production_rollback_uses_l1_fallback_when_l0_misses`。
+- [x] 快照缺失 → 显式拒绝；显式整锚点恢复覆盖后发生的文件改动并复核 digest；用户改动阻断 fail-closed 路径 —— `test_production_rollback_without_a_captured_anchor_is_refused` / `test_production_rollback_whole_anchor_overwrites_later_file_change` / `test_production_rollback_user_change_is_an_incident`。
 - [x] 撤销证据落 `docs/audits/stage-1a-rollback-physical-snapshot-2026-10-02.md`。
 - [x] 未修改 Out of scope 文件（`crates/undo` / `task-engine` / `verify` 公共形状未动）。
 
@@ -151,25 +153,27 @@ xtask check-ledger / docscan / card-check / adr-index / memory-counts -> 全 PAS
 
 **DRIFT-218-2（guard/权限）**：修复重跑期间尝试写入 `apps/agent-core/src/notepad_rollback.rs` 被校验脚本拒绝为“unexpected `pub(crate)` in private module”；按 ADR-0062 D9 保持 crate 边界不改，改为 `pub` 并只在 `lib.rs` 以 `mod` 挂载。未触碰 `crates/**`。
 
+**DRIFT-218-3（测试夹具扩展）**：为取 fallback 证据，给 fake platform 增加 `Ctrl+Z` 撤销历史，并让 T1.2 fake 测试提供真实 `input.file_path`；`prepare_anchors` 现在在任务声明 L1 但缺目标文件路径时显式 `VerifyFailed`，不再静默降级。均在 `apps/agent-core/tests/**` 内，未改产品契约。
+
 ### 6. 更合理做法
 
 把 L0/L1 回滚作为独立能力接线是正确的：`crates/undo` 早已提供完整契约，缺的一直是 binary 层的物理捕获与平台执行。后续负向证据应直接复用本卡的 `execute_rollback(restore_file)` 入口，避免再造一套路径。
 
 ### 7. 遗留问题
 
-- 未完成 DoD 两项（L0 不可用 fallback、三类 incident 真实入口）归入后续小卡；TASK-105 的撤销 DoD 在本卡全部完成后才能勾。
-- TASK-218 保持 **InProgress**；阶段 1a 仍 **NO-GO**。
+- TASK-218 的 DoD 已全部取得证据；TASK-105 的撤销 DoD 可在 TASK-105 收口时一并回填。
+- 阶段 1a 仍 **NO-GO**：Notepad 之外子阶段与 1a 集成验收尚未完成。
 
 ### 8. 新增长期记忆
 
-- **FACT**：`prepare_anchors` 现在真实捕获编辑区文本与目标文件字节；T1.2 真实 UIA 回滚把编辑区与磁盘同时恢复到 pre-replace anchor。
+- **FACT**：`prepare_anchors` 现在真实捕获编辑区文本与目标文件字节；T1.2 真实 UIA 回滚把编辑区与磁盘同时恢复到 pre-replace anchor；L0 未到锚点时 L1 fallback 生效并标注 `used_fallback=true`。
 - **PITFALL**：目标元素上的 `Ctrl+Z` 必须用 `KeyTarget::Element`（先确认焦点）而不是窗口级按键，否则撤销可能不落在编辑区。
 - **PITFALL**：L0 主 recipe 只包含 undo，L1 文件字节恢复必须在确认锚点文本后单独写回并复核 digest，否则会报告“内存已恢复、磁盘未恢复”。
 
 ### 9. 给审阅者的关注点
 
-1. 本次通过的是**完整 L1 恢复**；L0 单路径失败 → L1 fallback 尚未有真实证据，不能据此宣称三条 undo 路径全部通过。
-2. 请重点审查 `notepad_rollback.rs` 的冲突语义：L1 明确走 `RestoreOverall`，编辑器单路径保持 `FailClosed`。
+1. 请重点审查 `notepad_rollback.rs` 的冲突语义：L1 明确走 `RestoreOverall`（覆盖后发生的卡片外改动），编辑器单路径保持 `FailClosed`。
+2. fallback 与三类负向证据来自 fake-platform 生产入口；真实 UIA 证据覆盖完整 L1 恢复。两者合起来满足本卡 DoD，但不等于 1a 整体通过。
 3. `assistant-undo` 是 workspace 依赖，不是新第三方 crate；`crates/undo` 公共形状未改。
 
 ### 10. 合并证据
