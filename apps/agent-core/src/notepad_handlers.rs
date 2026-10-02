@@ -342,7 +342,7 @@ where
         })))
     }
 
-    fn resolve_editor(
+    pub(crate) fn resolve_editor(
         &self,
         tool: &str,
     ) -> Result<(ResolvedWindow, ResolvedElement), ToolBusError> {
@@ -351,7 +351,11 @@ where
         Ok((window, editor))
     }
 
-    fn resolve_window(&self, target: &str, tool: &str) -> Result<ResolvedWindow, ToolBusError> {
+    pub(crate) fn resolve_window(
+        &self,
+        target: &str,
+        tool: &str,
+    ) -> Result<ResolvedWindow, ToolBusError> {
         let descriptor =
             self.targets
                 .descriptor(target)
@@ -390,7 +394,7 @@ where
         result.map_err(|error| support::map_platform_error(tool, &error))
     }
 
-    fn read_element_text(
+    pub(crate) fn read_element_text(
         &self,
         element: &ResolvedElement,
         tool: &str,
@@ -399,7 +403,7 @@ where
         result.map_err(|error| support::map_platform_error(tool, &error))
     }
 
-    fn set_element_value(
+    pub(crate) fn set_element_value(
         &self,
         element: &ResolvedElement,
         value: &str,
@@ -489,7 +493,7 @@ where
         result.map_err(|error| support::map_platform_error(tool, &error))
     }
 
-    fn fingerprint_event(
+    pub(crate) fn fingerprint_event(
         &self,
         window: &ResolvedWindow,
         tool: &str,
@@ -503,7 +507,7 @@ where
         result.map_err(|error| support::map_platform_error(tool, &error))
     }
 
-    fn send_key(
+    pub(crate) fn send_key(
         &self,
         window: &ResolvedWindow,
         key: &str,
@@ -514,6 +518,31 @@ where
         let result = poll_immediate(
             self.platform
                 .key_action(&chord, &KeyTarget::Window(window.clone())),
+            tool,
+            "key_action",
+        )?;
+        result.map_err(|error| support::map_platform_error(tool, &error))
+    }
+
+    /// Sends a key chord to a resolved element, which makes the platform confirm focus first.
+    ///
+    /// Use this instead of [`Self::send_key`] whenever a shortcut must land in a specific
+    /// element (for example `Ctrl+Z` on the editor) rather than anywhere in the window.
+    ///
+    /// # Errors
+    ///
+    /// Returns the platform's error when focus cannot be confirmed or the input cannot be sent.
+    pub(crate) fn send_key_to_element(
+        &self,
+        element: &ResolvedElement,
+        key: &str,
+        modifiers: Vec<KeyModifier>,
+        tool: &str,
+    ) -> Result<(), ToolBusError> {
+        let chord = KeyChord::new(key.to_owned(), modifiers);
+        let result = poll_immediate(
+            self.platform
+                .key_action(&chord, &KeyTarget::Element(element.clone())),
             tool,
             "key_action",
         )?;
@@ -589,7 +618,7 @@ fn poll_immediate<F: Future>(
     }
 }
 
-fn normalize_line_endings(text: &str) -> String {
+pub(crate) fn normalize_line_endings(text: &str) -> String {
     text.replace("\r\n", "\n").replace('\r', "\n")
 }
 

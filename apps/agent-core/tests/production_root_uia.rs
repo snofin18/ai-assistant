@@ -224,6 +224,46 @@ async fn test_production_t1_2_dry_run_over_real_uia() -> Result<(), Box<dyn std:
             .all(|step| step.status == StepStatus::Committed)
     );
     assert_eq!(std::fs::read_to_string(&document_path)?, "报告 报告");
+    let before_rollback = host.observe_rollback_state()?;
+    assert_eq!(
+        before_rollback.get("editor_matches_anchor"),
+        Some(&serde_json::Value::Bool(false))
+    );
+    let rollback = host.execute_rollback(true)?;
+    assert!(
+        rollback.get("used_fallback").is_some(),
+        "rollback must report the fallback decision: {rollback}"
+    );
+    assert_eq!(
+        rollback.get("editor_matches_anchor"),
+        Some(&serde_json::Value::Bool(true))
+    );
+    assert_eq!(
+        rollback.get("file_matches_snapshot"),
+        Some(&serde_json::Value::Bool(true))
+    );
+    let after_rollback = host.observe_rollback_state()?;
+    assert_eq!(
+        after_rollback.get("editor_matches_anchor"),
+        Some(&serde_json::Value::Bool(true))
+    );
+    assert_eq!(
+        after_rollback
+            .get("file")
+            .and_then(|file| file.get("file_matches_snapshot")),
+        Some(&serde_json::Value::Bool(true))
+    );
+    assert_eq!(std::fs::read_to_string(&document_path)?, "报表 报表");
+    let second_rollback = host.execute_rollback(true)?;
+    assert!(
+        matches!(
+            second_rollback
+                .get("status")
+                .and_then(serde_json::Value::as_str),
+            Some("already_at_anchor" | "restored")
+        ),
+        "a repeated rollback must stay at the anchor: {second_rollback}"
+    );
     host.shutdown().await?;
     Ok(())
 }

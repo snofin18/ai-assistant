@@ -29,6 +29,7 @@ mod error;
 pub mod notepad_files;
 pub mod notepad_handlers;
 pub mod notepad_registry;
+mod notepad_rollback;
 pub mod notepad_targets;
 mod production;
 mod production_policy;

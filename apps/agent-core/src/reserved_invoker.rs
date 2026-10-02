@@ -398,47 +398,27 @@ impl ReservedRuntimeInvoker<'_> {
                 "required_levels must be an array".to_owned(),
             ));
         };
-        if levels.is_empty() {
+        if let Err((code, message)) = validate_anchor_levels_and_recipes(levels, arguments) {
+            return Ok(refused(code, message));
+        }
+        let Some(operations) = self.host_operations.as_ref() else {
             return Ok(refused(
-                ErrorCode::ToolInvalidArgs,
-                "required_levels must not be empty".to_owned(),
+                ErrorCode::CapabilityMissing,
+                "rollback anchor capture is not assembled".to_owned(),
             ));
-        }
-        for level in levels {
-            let Some(name) = level.as_str() else {
-                return Ok(refused(
-                    ErrorCode::ToolInvalidArgs,
-                    "required_levels entries must be strings".to_owned(),
-                ));
-            };
-            match normalize_anchor_level(name) {
-                Some("l0_undo_stack" | "l1_snapshot" | "l2_compensation") => {}
-                Some("l3_irreversible") => {
-                    return Ok(refused(
-                        ErrorCode::PolicyDenied,
-                        "an irreversible step cannot be anchored; it requires human confirmation"
-                            .to_owned(),
-                    ));
-                }
-                _ => {
-                    return Ok(refused(
-                        ErrorCode::ToolInvalidArgs,
-                        format!("unknown anchor level `{name}`"),
-                    ));
-                }
+        };
+        let target_path = arguments.get("target_path").and_then(Value::as_str);
+        let anchor_data = match operations.capture_rollback_anchor(
+            call.task_id(),
+            step_id,
+            sequence,
+            target_path,
+        ) {
+            Ok(data) => data,
+            Err(message) => {
+                return Ok(refused(ErrorCode::VerifyFailed, message));
             }
-        }
-        for key in ["replace_recipe", "save_recipe"] {
-            match arguments.get(key).and_then(Value::as_str) {
-                Some(value) if !value.trim().is_empty() => {}
-                _ => {
-                    return Ok(refused(
-                        ErrorCode::ToolInvalidArgs,
-                        format!("{key} must be a non-empty string"),
-                    ));
-                }
-            }
-        }
+        };
         let Some(fingerprint) = self.current_fingerprint(sequence)? else {
             return Ok(refused(
                 ErrorCode::VerifyFailed,
@@ -451,7 +431,11 @@ impl ReservedRuntimeInvoker<'_> {
             call,
             step_id,
             sequence,
-            &json!({ "anchor_levels": levels, "fingerprint": fingerprint }),
+            &json!({
+                "anchor_levels": levels,
+                "fingerprint": fingerprint,
+                "anchor": anchor_data,
+            }),
         )
     }
 
@@ -587,6 +571,60 @@ fn normalize_anchor_level(value: &str) -> Option<&'static str> {
         "L3" | "l3" | "l3_irreversible" => Some("l3_irreversible"),
         _ => None,
     }
+}
+
+/// Validates the declared anchor levels and recipe names for `prepare_anchors`.
+///
+/// # Errors
+///
+/// Returns the `ErrorCode` and message the caller must surface for a malformed declaration.
+fn validate_anchor_levels_and_recipes(
+    levels: &[Value],
+    arguments: &Map<String, Value>,
+) -> Result<(), (ErrorCode, String)> {
+    if levels.is_empty() {
+        return Err((
+            ErrorCode::ToolInvalidArgs,
+            "required_levels must not be empty".to_owned(),
+        ));
+    }
+    for level in levels {
+        let Some(name) = level.as_str() else {
+            return Err((
+                ErrorCode::ToolInvalidArgs,
+                "required_levels entries must be strings".to_owned(),
+            ));
+        };
+        match normalize_anchor_level(name) {
+            Some("l0_undo_stack" | "l1_snapshot" | "l2_compensation") => {}
+            Some("l3_irreversible") => {
+                return Err((
+                    ErrorCode::PolicyDenied,
+                    "an irreversible step cannot be anchored; it requires human confirmation"
+                        .to_owned(),
+                ));
+            }
+            _ => {
+                return Err((
+                    ErrorCode::ToolInvalidArgs,
+                    format!("unknown anchor level `{name}`"),
+                ));
+            }
+        }
+    }
+    for key in ["replace_recipe", "save_recipe"] {
+        if arguments
+            .get(key)
+            .and_then(Value::as_str)
+            .is_none_or(|value| value.trim().is_empty())
+        {
+            return Err((
+                ErrorCode::ToolInvalidArgs,
+                format!("{key} must be a non-empty string"),
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

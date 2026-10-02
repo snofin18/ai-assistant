@@ -15,9 +15,9 @@
 //! 2. unknown schema values fail deserialization;
 //! 3. a handler count mismatch fails before `ToolBus` startup.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use assistant_platform_api::{UiAutomationProvider, WindowProvider};
 use assistant_protocol::ToolSchema;
@@ -27,6 +27,7 @@ use serde_json::Value;
 use thiserror::Error;
 
 use crate::notepad_handlers::{NotepadHandlerContext, build_handler_map};
+use crate::notepad_rollback::{CapturedRollbackAnchor, NotepadRollback};
 use crate::notepad_targets::NotepadTargetCatalog;
 use crate::runtime_host_ops::ReservedHostOperations;
 
@@ -93,36 +94,12 @@ pub(crate) fn build_notepad_registry<P>(
     platform: Arc<P>,
     targets: Arc<NotepadTargetCatalog>,
     tools_path: &Path,
+    task_inputs: &serde_json::Map<String, Value>,
 ) -> Result<NotepadRegistryBuild, NotepadRegistryError>
 where
     P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
 {
-    let body = std::fs::read_to_string(tools_path).map_err(|error| NotepadRegistryError::Read {
-        path: tools_path.display().to_string(),
-        reason: error.to_string(),
-    })?;
-    let declared: DeclaredToolsFile =
-        serde_json::from_str(&body).map_err(|error| NotepadRegistryError::Malformed {
-            reason: error.to_string(),
-        })?;
-    if declared.app_id != targets.app_id() {
-        return Err(NotepadRegistryError::Malformed {
-            reason: format!(
-                "tools app_id `{}` does not match target app_id `{}`",
-                declared.app_id,
-                targets.app_id()
-            ),
-        });
-    }
-    if declared.tools.len() != EXPECTED_TOOL_NAMES.len() {
-        return Err(NotepadRegistryError::Malformed {
-            reason: format!(
-                "expected {} declared tools, found {}",
-                EXPECTED_TOOL_NAMES.len(),
-                declared.tools.len()
-            ),
-        });
-    }
+    let declared = load_and_validate_declarations(tools_path, targets.app_id())?;
 
     let context = Arc::new(NotepadHandlerContext {
         platform,
@@ -131,6 +108,9 @@ where
     });
     let host_operations = Arc::new(NotepadReservedHostOperations {
         context: Arc::clone(&context),
+        rollback: NotepadRollback::new(Arc::clone(&context)),
+        anchors: Mutex::new(BTreeMap::new()),
+        task_target_path: document_path_from_inputs(task_inputs),
     });
     let handlers = build_handler_map(&context);
     let mut registry = ToolRegistry::new();
@@ -181,6 +161,44 @@ where
     })
 }
 
+/// Loads the tool declaration file and validates its app id and tool count.
+///
+/// # Errors
+///
+/// Returns [`NotepadRegistryError::Read`] for an unreadable file and
+/// [`NotepadRegistryError::Malformed`] for invalid JSON, a mismatched app id, or a wrong count.
+fn load_and_validate_declarations(
+    tools_path: &Path,
+    expected_app_id: &str,
+) -> Result<DeclaredToolsFile, NotepadRegistryError> {
+    let body = std::fs::read_to_string(tools_path).map_err(|error| NotepadRegistryError::Read {
+        path: tools_path.display().to_string(),
+        reason: error.to_string(),
+    })?;
+    let declared: DeclaredToolsFile =
+        serde_json::from_str(&body).map_err(|error| NotepadRegistryError::Malformed {
+            reason: error.to_string(),
+        })?;
+    if declared.app_id != expected_app_id {
+        return Err(NotepadRegistryError::Malformed {
+            reason: format!(
+                "tools app_id `{}` does not match target app_id `{}`",
+                declared.app_id, expected_app_id
+            ),
+        });
+    }
+    if declared.tools.len() != EXPECTED_TOOL_NAMES.len() {
+        return Err(NotepadRegistryError::Malformed {
+            reason: format!(
+                "expected {} declared tools, found {}",
+                EXPECTED_TOOL_NAMES.len(),
+                declared.tools.len()
+            ),
+        });
+    }
+    Ok(declared)
+}
+
 fn missing_production_tools(names: &BTreeSet<String>) -> Option<String> {
     let missing = EXPECTED_TOOL_NAMES
         .iter()
@@ -191,8 +209,21 @@ fn missing_production_tools(names: &BTreeSet<String>) -> Option<String> {
     (!missing.is_empty()).then_some(missing)
 }
 
+/// Resolves the document path from the task inputs so the rollback anchor can snapshot the file.
+fn document_path_from_inputs(task_inputs: &serde_json::Map<String, Value>) -> Option<String> {
+    for key in ["input.file_path", "input.target_path"] {
+        if let Some(path) = task_inputs.get(key).and_then(Value::as_str) {
+            return Some(path.to_owned());
+        }
+    }
+    None
+}
+
 struct NotepadReservedHostOperations<P> {
     context: Arc<NotepadHandlerContext<P>>,
+    rollback: NotepadRollback<P>,
+    anchors: Mutex<BTreeMap<String, CapturedRollbackAnchor>>,
+    task_target_path: Option<String>,
 }
 
 impl<P> ReservedHostOperations for NotepadReservedHostOperations<P>
@@ -209,6 +240,66 @@ where
         self.context
             .set_editor_value_data(text)
             .map_err(|error| error.to_string())
+    }
+
+    fn capture_rollback_anchor(
+        &self,
+        task_id: &str,
+        step_id: &str,
+        sequence: u32,
+        target_path: Option<&str>,
+    ) -> Result<Value, String> {
+        let target_path = target_path.or(self.task_target_path.as_deref());
+        let captured =
+            self.rollback
+                .capture(task_id, step_id, sequence, target_path.map(Path::new))?;
+        let digest = assistant_storage::BlobId::of_content(captured.canonical_text().as_bytes());
+        let target_path = captured
+            .target_path()
+            .map(|path| path.to_string_lossy().to_string());
+        self.anchors
+            .lock()
+            .map_err(|_| "rollback anchor registry is poisoned".to_owned())?
+            .insert(task_id.to_owned(), captured);
+        Ok(serde_json::json!({
+            "anchor_captured": true,
+            "editor_digest": format!("sha256:{}", digest.as_str()),
+            "target_path": target_path,
+        }))
+    }
+
+    fn execute_rollback(
+        &self,
+        task_id: &str,
+        step_id: &str,
+        restore_file: bool,
+    ) -> Result<Value, String> {
+        let captured = {
+            let guard = self
+                .anchors
+                .lock()
+                .map_err(|_| "rollback anchor registry is poisoned".to_owned())?;
+            guard
+                .get(task_id)
+                .cloned()
+                .ok_or_else(|| format!("rollback: no captured anchor for task `{task_id}`"))?
+        };
+        self.rollback
+            .execute(task_id, step_id, &captured, restore_file)
+    }
+
+    fn observe_rollback_state(&self, task_id: &str) -> Result<Value, String> {
+        let captured = {
+            let guard = self
+                .anchors
+                .lock()
+                .map_err(|_| "rollback anchor registry is poisoned".to_owned())?;
+            guard
+                .get(task_id)
+                .cloned()
+                .ok_or_else(|| format!("rollback: no captured anchor for task `{task_id}`"))?
+        };
+        self.rollback.observe_state(&captured)
     }
 }
 
