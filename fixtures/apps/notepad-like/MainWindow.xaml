@@ -114,9 +114,13 @@
             AutomationProperties.AutomationId="WordCountText" />
       </StatusBarItem>
       <StatusBarItem>
-        <TextBlock
+        <TextBox
             x:Name="TabCountText"
             Text="Tabs: 1"
+            IsReadOnly="True"
+            IsTabStop="False"
+            BorderThickness="0"
+            Background="Transparent"
             AutomationProperties.AutomationId="TabCountText" />
       </StatusBarItem>
     </StatusBar>

@@ -1,0 +1,305 @@
+{
+    "schema_version":  1,
+    "generated_at":  "2026-10-02T11:04:49.1546846+08:00",
+    "started_at":  "2026-10-02T11:03:58.4276940+08:00",
+    "repeat_runs":  10,
+    "command":  "cargo test -p assistant-agent-core --test production_root_uia \u003ctest\u003e -- --ignored --nocapture",
+    "summary":  [
+                    {
+                        "task":  "t1.1",
+                        "runs":  10,
+                        "passed":  10,
+                        "failed":  0,
+                        "average_duration_ms":  1128,
+                        "minimum_success_rate_met":  true
+                    },
+                    {
+                        "task":  "t1.2",
+                        "runs":  10,
+                        "passed":  10,
+                        "failed":  0,
+                        "average_duration_ms":  1342,
+                        "minimum_success_rate_met":  true
+                    },
+                    {
+                        "task":  "t1.3",
+                        "runs":  10,
+                        "passed":  10,
+                        "failed":  0,
+                        "average_duration_ms":  2595,
+                        "minimum_success_rate_met":  true
+                    }
+                ],
+    "runs":  [
+                 {
+                     "task":  "t1.1",
+                     "run":  1,
+                     "test":  "test_production_t1_1_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1136,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.1-run-1.log"
+                 },
+                 {
+                     "task":  "t1.1",
+                     "run":  2,
+                     "test":  "test_production_t1_1_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1272,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.1-run-2.log"
+                 },
+                 {
+                     "task":  "t1.1",
+                     "run":  3,
+                     "test":  "test_production_t1_1_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1150,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.1-run-3.log"
+                 },
+                 {
+                     "task":  "t1.1",
+                     "run":  4,
+                     "test":  "test_production_t1_1_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1124,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.1-run-4.log"
+                 },
+                 {
+                     "task":  "t1.1",
+                     "run":  5,
+                     "test":  "test_production_t1_1_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1089,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.1-run-5.log"
+                 },
+                 {
+                     "task":  "t1.1",
+                     "run":  6,
+                     "test":  "test_production_t1_1_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1099,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.1-run-6.log"
+                 },
+                 {
+                     "task":  "t1.1",
+                     "run":  7,
+                     "test":  "test_production_t1_1_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1109,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.1-run-7.log"
+                 },
+                 {
+                     "task":  "t1.1",
+                     "run":  8,
+                     "test":  "test_production_t1_1_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1095,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.1-run-8.log"
+                 },
+                 {
+                     "task":  "t1.1",
+                     "run":  9,
+                     "test":  "test_production_t1_1_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1094,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.1-run-9.log"
+                 },
+                 {
+                     "task":  "t1.1",
+                     "run":  10,
+                     "test":  "test_production_t1_1_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1115,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.1-run-10.log"
+                 },
+                 {
+                     "task":  "t1.2",
+                     "run":  1,
+                     "test":  "test_production_t1_2_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1324,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.2-run-1.log"
+                 },
+                 {
+                     "task":  "t1.2",
+                     "run":  2,
+                     "test":  "test_production_t1_2_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1341,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.2-run-2.log"
+                 },
+                 {
+                     "task":  "t1.2",
+                     "run":  3,
+                     "test":  "test_production_t1_2_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1338,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.2-run-3.log"
+                 },
+                 {
+                     "task":  "t1.2",
+                     "run":  4,
+                     "test":  "test_production_t1_2_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1363,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.2-run-4.log"
+                 },
+                 {
+                     "task":  "t1.2",
+                     "run":  5,
+                     "test":  "test_production_t1_2_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1345,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.2-run-5.log"
+                 },
+                 {
+                     "task":  "t1.2",
+                     "run":  6,
+                     "test":  "test_production_t1_2_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1336,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.2-run-6.log"
+                 },
+                 {
+                     "task":  "t1.2",
+                     "run":  7,
+                     "test":  "test_production_t1_2_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1331,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.2-run-7.log"
+                 },
+                 {
+                     "task":  "t1.2",
+                     "run":  8,
+                     "test":  "test_production_t1_2_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1328,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.2-run-8.log"
+                 },
+                 {
+                     "task":  "t1.2",
+                     "run":  9,
+                     "test":  "test_production_t1_2_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1367,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.2-run-9.log"
+                 },
+                 {
+                     "task":  "t1.2",
+                     "run":  10,
+                     "test":  "test_production_t1_2_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  1347,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.2-run-10.log"
+                 },
+                 {
+                     "task":  "t1.3",
+                     "run":  1,
+                     "test":  "test_production_t1_3_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  2618,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.3-run-1.log"
+                 },
+                 {
+                     "task":  "t1.3",
+                     "run":  2,
+                     "test":  "test_production_t1_3_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  2610,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.3-run-2.log"
+                 },
+                 {
+                     "task":  "t1.3",
+                     "run":  3,
+                     "test":  "test_production_t1_3_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  2619,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.3-run-3.log"
+                 },
+                 {
+                     "task":  "t1.3",
+                     "run":  4,
+                     "test":  "test_production_t1_3_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  2569,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.3-run-4.log"
+                 },
+                 {
+                     "task":  "t1.3",
+                     "run":  5,
+                     "test":  "test_production_t1_3_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  2631,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.3-run-5.log"
+                 },
+                 {
+                     "task":  "t1.3",
+                     "run":  6,
+                     "test":  "test_production_t1_3_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  2501,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.3-run-6.log"
+                 },
+                 {
+                     "task":  "t1.3",
+                     "run":  7,
+                     "test":  "test_production_t1_3_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  2473,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.3-run-7.log"
+                 },
+                 {
+                     "task":  "t1.3",
+                     "run":  8,
+                     "test":  "test_production_t1_3_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  2656,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.3-run-8.log"
+                 },
+                 {
+                     "task":  "t1.3",
+                     "run":  9,
+                     "test":  "test_production_t1_3_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  2653,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.3-run-9.log"
+                 },
+                 {
+                     "task":  "t1.3",
+                     "run":  10,
+                     "test":  "test_production_t1_3_dry_run_over_real_uia",
+                     "exit_code":  0,
+                     "passed":  true,
+                     "duration_ms":  2617,
+                     "log":  "D:\\csart\\ai-assistant\\target\\t1-real-uia-logs\\t1.3-run-10.log"
+                 }
+             ]
+}
