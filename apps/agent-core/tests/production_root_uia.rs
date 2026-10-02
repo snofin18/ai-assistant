@@ -33,9 +33,24 @@ struct FixtureProcess {
 
 impl Drop for FixtureProcess {
     fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        terminate_process_tree(&mut self.child);
     }
+}
+
+/// Terminates a fixture process tree and reaps the direct child.
+///
+/// `Child::kill` only signals the direct PowerShell process, so a WPF child or any helper it
+/// spawned could survive and keep holding memory and windows. `taskkill /T /F` covers the whole
+/// tree; `wait()` then reaps the direct child so no zombie entry is left behind.
+fn terminate_process_tree(child: &mut Child) {
+    let pid = child.id().to_string();
+    let _ = Command::new("taskkill")
+        .args(["/PID", &pid, "/T", "/F"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+    let _ = child.kill();
+    let _ = child.wait();
 }
 
 struct TestDirectory {
@@ -118,8 +133,13 @@ fn start_fixture(
         .stdout(Stdio::null())
         .stderr(Stdio::from(stderr))
         .spawn()?;
-    wait_for_state_file(&state_file, &stderr_file)?;
-    Ok(FixtureProcess { child })
+    let fixture = FixtureProcess { child };
+    if let Err(error) = wait_for_state_file(&state_file, &stderr_file) {
+        // The ready probe may time out; the process tree must not be left running on the
+        // failure path either. `fixture` drops here and performs the tree kill + reap.
+        return Err(error.into());
+    }
+    Ok(fixture)
 }
 
 #[tokio::test]

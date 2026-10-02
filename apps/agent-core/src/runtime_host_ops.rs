@@ -61,4 +61,11 @@ pub trait ReservedHostOperations: Send + Sync {
     /// Returns a readable reason when no anchor is captured for the task or the target cannot
     /// be observed.
     fn observe_rollback_state(&self, task_id: &str) -> Result<Value, String>;
+
+    /// Releases any per-task state the host kept for the task (ADR-0062 / leak guards).
+    ///
+    /// # Errors
+    ///
+    /// Returns a readable reason when a registry cannot be locked.
+    fn release_task(&self, task_id: &str) -> Result<(), String>;
 }
