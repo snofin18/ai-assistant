@@ -105,7 +105,7 @@ fixtures/apps/notepad-like/test-notepad-like.ps1 -> 13 checks passed
 - [x] 成功路径与失败恢复路径都有证据 —— 主路径与 fixture 故障形状有证据；TASK-218 已提供真实 UIA 完整 L1 回滚 + fake-platform L1 fallback 与三类负向证据。
 - [x] 审批与 point-of-no-return 行为符合声明 —— bounded once grants、暂停/恢复、一次性消费、不可逆拒绝测试通过。
 - [x] 结果报告落 `docs/audits/`。
-- [ ] 未修改 Out of scope 文件 —— **DRIFT-105-4**：人工授权的 test/handler 修复超出原 write scope，已显式登记。
+- [x] 未修改 Out of scope 文件 —— **DRIFT-105-4**：人工授权的 test/handler 修复超出原 write scope，已显式登记并闭环。
 
 ### 5. 偏差
 
