@@ -79,6 +79,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - Linux / macOS `--target` clippy：EXIT 0。
 - `cargo run -p xtask -- check-comments`：0 error / 69 warning / PASSED。
 - `cargo run -p xtask -- hygiene`：0 error / 102 warning / PASSED（无新增 error）。
+- PR #186 / merge `5139557`；CI run `37062416829` = 11/11 SUCCESS。
 
 ### 4. DoD 逐条核对
 
