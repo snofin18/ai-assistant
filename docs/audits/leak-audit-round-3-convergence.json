@@ -1,0 +1,264 @@
+{
+    "generated_at":  "2026-10-02T21:49:11.8137419+08:00",
+    "started_at":  "2026-10-02T21:48:35.3176761+08:00",
+    "task":  "t1.1",
+    "repeat_runs":  30,
+    "samples":  [
+                    {
+                        "iteration":  0,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  623,
+                        "harness_working_set_bytes":  79974400,
+                        "available_memory_bytes":  49007603712
+                    },
+                    {
+                        "iteration":  1,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  697,
+                        "harness_working_set_bytes":  90857472,
+                        "available_memory_bytes":  48932401152
+                    },
+                    {
+                        "iteration":  2,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  712,
+                        "harness_working_set_bytes":  94167040,
+                        "available_memory_bytes":  48918011904
+                    },
+                    {
+                        "iteration":  3,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  728,
+                        "harness_working_set_bytes":  97435648,
+                        "available_memory_bytes":  48920563712
+                    },
+                    {
+                        "iteration":  4,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  744,
+                        "harness_working_set_bytes":  100745216,
+                        "available_memory_bytes":  48930537472
+                    },
+                    {
+                        "iteration":  5,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  679,
+                        "harness_working_set_bytes":  102178816,
+                        "available_memory_bytes":  48954122240
+                    },
+                    {
+                        "iteration":  6,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  698,
+                        "harness_working_set_bytes":  102227968,
+                        "available_memory_bytes":  48953786368
+                    },
+                    {
+                        "iteration":  7,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  714,
+                        "harness_working_set_bytes":  102301696,
+                        "available_memory_bytes":  48955797504
+                    },
+                    {
+                        "iteration":  8,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  730,
+                        "harness_working_set_bytes":  102363136,
+                        "available_memory_bytes":  48947224576
+                    },
+                    {
+                        "iteration":  9,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  678,
+                        "harness_working_set_bytes":  102395904,
+                        "available_memory_bytes":  48937627648
+                    },
+                    {
+                        "iteration":  10,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  693,
+                        "harness_working_set_bytes":  102375424,
+                        "available_memory_bytes":  48953978880
+                    },
+                    {
+                        "iteration":  11,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  709,
+                        "harness_working_set_bytes":  102383616,
+                        "available_memory_bytes":  48939560960
+                    },
+                    {
+                        "iteration":  12,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  725,
+                        "harness_working_set_bytes":  102432768,
+                        "available_memory_bytes":  48938168320
+                    },
+                    {
+                        "iteration":  13,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  677,
+                        "harness_working_set_bytes":  102309888,
+                        "available_memory_bytes":  48942284800
+                    },
+                    {
+                        "iteration":  14,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  693,
+                        "harness_working_set_bytes":  102350848,
+                        "available_memory_bytes":  48951291904
+                    },
+                    {
+                        "iteration":  15,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  709,
+                        "harness_working_set_bytes":  102400000,
+                        "available_memory_bytes":  48954236928
+                    },
+                    {
+                        "iteration":  16,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  725,
+                        "harness_working_set_bytes":  102424576,
+                        "available_memory_bytes":  48952221696
+                    },
+                    {
+                        "iteration":  17,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  671,
+                        "harness_working_set_bytes":  102645760,
+                        "available_memory_bytes":  48911384576
+                    },
+                    {
+                        "iteration":  18,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  686,
+                        "harness_working_set_bytes":  102625280,
+                        "available_memory_bytes":  48918523904
+                    },
+                    {
+                        "iteration":  19,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  702,
+                        "harness_working_set_bytes":  102625280,
+                        "available_memory_bytes":  48921247744
+                    },
+                    {
+                        "iteration":  20,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  670,
+                        "harness_working_set_bytes":  102625280,
+                        "available_memory_bytes":  48985616384
+                    },
+                    {
+                        "iteration":  21,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  686,
+                        "harness_working_set_bytes":  102625280,
+                        "available_memory_bytes":  48973697024
+                    },
+                    {
+                        "iteration":  22,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  702,
+                        "harness_working_set_bytes":  102653952,
+                        "available_memory_bytes":  48961150976
+                    },
+                    {
+                        "iteration":  23,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  718,
+                        "harness_working_set_bytes":  102719488,
+                        "available_memory_bytes":  48973262848
+                    },
+                    {
+                        "iteration":  24,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  670,
+                        "harness_working_set_bytes":  103895040,
+                        "available_memory_bytes":  48967606272
+                    },
+                    {
+                        "iteration":  25,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  669,
+                        "harness_working_set_bytes":  103333888,
+                        "available_memory_bytes":  48956084224
+                    },
+                    {
+                        "iteration":  26,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  685,
+                        "harness_working_set_bytes":  103333888,
+                        "available_memory_bytes":  48945950720
+                    },
+                    {
+                        "iteration":  27,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  701,
+                        "harness_working_set_bytes":  105537536,
+                        "available_memory_bytes":  48931446784
+                    },
+                    {
+                        "iteration":  28,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  653,
+                        "harness_working_set_bytes":  107446272,
+                        "available_memory_bytes":  48662511616
+                    },
+                    {
+                        "iteration":  29,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  669,
+                        "harness_working_set_bytes":  108167168,
+                        "available_memory_bytes":  48484638720
+                    },
+                    {
+                        "iteration":  30,
+                        "powershell_processes":  1,
+                        "notepad_processes":  0,
+                        "harness_handles":  686,
+                        "harness_working_set_bytes":  108167168,
+                        "available_memory_bytes":  48875098112
+                    }
+                ],
+    "deltas":  {
+                   "powershell_processes_last_minus_first":  0,
+                   "notepad_processes_last_minus_first":  0,
+                   "harness_handles_last_minus_first":  63,
+                   "harness_working_set_last_minus_first":  28192768,
+                   "harness_working_set_last_minus_mid":  5742592
+               },
+    "verdict":  "converged"
+}
