@@ -181,3 +181,9 @@ xtask check-ledger / docscan / card-check / adr-index / memory-counts -> 全 PAS
 - PR #169（codex/task-218-rollback-execution）CI 11/11 SUCCESS（run 36980213505；windows 7m47s / ubuntu 3m24s / macos 3m41s）。
 - merge commit：3fbe275；mergeable=CLEAN，base=main。
 - 本卡保持 **InProgress**：完整 L1 恢复已真实通过；L0 不可用 fallback 与三类负向 incident 仍待补。
+
+### 10. 合并证据
+
+- 切片 1：PR #169（codex/task-218-rollback-execution）CI 11/11 SUCCESS；merge 3fbe275。
+- 切片 2：PR #171（codex/task-218-fallback-negative）CI 11/11 SUCCESS（run 36984686669；windows 7m21s / ubuntu 3m21s / macos 4m36s）；merge a8ba8c。
+- TASK-218 DoD 全部取得证据；TASK-105 撤销 DoD 同批回填。
