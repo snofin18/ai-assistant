@@ -40,7 +40,10 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{SendMessageW, WM_IME_CONTROL};
 
-use super::{KeyEvent, PointerStep, key_events_for_chord, pointer_steps, utf16_units};
+use super::{
+    KeyEvent, PointerStep, key_events_for_chord, pointer_requires_release_recovery, pointer_steps,
+    utf16_units,
+};
 use crate::coordinates::{
     VirtualScreen, coordinate_space_for_logical_point, enumerate_monitors, virtual_screen,
 };
@@ -304,6 +307,23 @@ fn focus_element(element: &ResolvedElement) -> PlatformResult<()> {
 /// - 批次为空 / 过大 → `ToolInvalidArgs` / `CapabilityMissing`
 /// - 插入数 ≠ 请求数 → [`classify_send_input_failure`]
 fn send_inputs(inputs: &[INPUT], context: &str) -> PlatformResult<()> {
+    let (sent, requested) = insert_inputs(inputs, context)?;
+    if sent == requested {
+        return Ok(());
+    }
+    // SAFETY: 只读上一个 Win32 调用的错误码（只在 `SendInput` 未全量插入时才有意义）。
+    let code = unsafe { GetLastError().0 };
+    Err(classify_send_input_failure(code, sent, requested, context))
+}
+
+/// 把一批 `INPUT` 插入输入队列，返回 `(实际插入数, 请求数)`。
+///
+/// 调用方必须立即用返回值判断成功，并在此后立刻读取 `GetLastError`；本函数刻意
+/// 不把“部分插入”折叠成布尔值，否则指针批次的失败恢复无法知道左键是否已经按下。
+///
+/// # Errors
+/// - 批次为空 / 过大 → `ToolInvalidArgs` / `CapabilityMissing`
+fn insert_inputs(inputs: &[INPUT], context: &str) -> PlatformResult<(u32, u32)> {
     let requested = u32::try_from(inputs.len()).map_err(|_| {
         error::invalid_args(format!(
             "{context}: too many events for a single SendInput batch"
@@ -320,12 +340,7 @@ fn send_inputs(inputs: &[INPUT], context: &str) -> PlatformResult<()> {
     // （Win32 契约要求 `cbSize == sizeof(INPUT)`）；`SendInput` **同步**把事件插入输入队列，
     // 不保留该指针，因此本函数返回后 `inputs` 立即失效是安全的。
     let sent = unsafe { SendInput(inputs, input_size) };
-    if sent == requested {
-        return Ok(());
-    }
-    // SAFETY: 只读上一个 Win32 调用的错误码（只在 `SendInput` 未全量插入时才有意义）。
-    let code = unsafe { GetLastError().0 };
-    Err(classify_send_input_failure(code, sent, requested, context))
+    Ok((sent, requested))
 }
 
 /// `SendInput` 返回值不符时的失败分类（**纯函数**，单测不需要真机）。
@@ -443,7 +458,29 @@ fn send_pointer_steps(screen: &VirtualScreen, steps: &[PointerStep]) -> Platform
             PointerStep::LeftUp => mouse_input(0, 0, MOUSEEVENTF_LEFTUP),
         });
     }
-    send_inputs(&inputs, "SendInput(pointer)")
+    let context = "SendInput(pointer)";
+    let (sent, requested) = insert_inputs(&inputs, context)?;
+    if sent == requested {
+        return Ok(());
+    }
+    // SAFETY: 只读上一个 Win32 调用的错误码。
+    let code = unsafe { GetLastError().0 };
+    let primary = classify_send_input_failure(code, sent, requested, context);
+
+    // A partial pointer batch that inserted a LeftDown can leave the user's left
+    // button held down. Try exactly one LeftUp recovery before returning the
+    // original error. The recovery is only attempted when the inserted prefix
+    // proves that a down event may have reached the input queue.
+    if pointer_requires_release_recovery(steps, sent) {
+        let recovery = [mouse_input(0, 0, MOUSEEVENTF_LEFTUP)];
+        if let Err(recovery_failure) = send_inputs(&recovery, "SendInput(pointer recovery)") {
+            return Err(PlatformError::new(
+                ErrorCode::Fatal,
+                format!("{primary}; pointer release recovery also failed: {recovery_failure}"),
+            ));
+        }
+    }
+    Err(primary)
 }
 
 #[cfg(test)]

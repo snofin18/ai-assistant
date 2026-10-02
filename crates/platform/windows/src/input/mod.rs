@@ -28,6 +28,9 @@ use assistant_platform_api::{
     ErrorCode, KeyChord, KeyModifier, PhysicalPoint, PlatformError, PlatformResult, PointerAction,
 };
 
+/// First-use pointer calibration checks.
+pub mod calibration;
+
 // 本文件在**所有平台**编译（ADR-0045 的非宿主门禁要覆盖它），因此**不能**依赖 `crate::error`
 // —— 那个模块只在 Windows 上编译（它要把 `windows` crate 的 HRESULT 翻成 `ErrorCode`）。
 // 下面两个私有构造器与 `crate::error` 的同名函数语义一致，只是去掉了平台依赖。
@@ -277,6 +280,11 @@ pub fn pointer_steps(
                     "pointer action DragTo requires a drop point in physical pixels",
                 ));
             };
+            if target == start {
+                return Err(invalid_args(
+                    "pointer action DragTo requires a drop point different from the start point",
+                ));
+            }
             steps.push(PointerStep::LeftDown);
             steps.push(PointerStep::MoveTo(target));
             steps.push(PointerStep::LeftUp);
@@ -290,6 +298,30 @@ pub fn pointer_steps(
         }
     }
     Ok(steps)
+}
+
+/// Whether a partially inserted pointer batch may leave the left button down.
+///
+/// `inserted_event_count` is the count returned by `SendInput`, not the number of
+/// events the target processed. The check only considers the inserted prefix; if
+/// that prefix contains a `LeftDown` without a matching `LeftUp`, the caller must
+/// try to release the button before returning the original failure.
+#[must_use]
+#[cfg(any(windows, test))]
+pub(crate) fn pointer_requires_release_recovery(
+    steps: &[PointerStep],
+    inserted_event_count: u32,
+) -> bool {
+    let inserted = usize::try_from(inserted_event_count).unwrap_or(usize::MAX);
+    let mut may_have_left_button_down = false;
+    for step in steps.iter().take(inserted) {
+        match step {
+            PointerStep::LeftDown => may_have_left_button_down = true,
+            PointerStep::LeftUp => may_have_left_button_down = false,
+            PointerStep::MoveTo(_) => {}
+        }
+    }
+    may_have_left_button_down
 }
 
 /// 键盘事件序列是否需要「先置前」——目前恒为 `true`（任何键盘输入都要求前台窗口）。
@@ -475,6 +507,36 @@ mod tests {
             Err(failure) => unreachable!("DragTo 必须能编成事件序列: {failure}"),
         };
         assert_eq!(step_shape(&steps), vec!["move", "down", "move", "up"]);
+    }
+
+    #[test]
+    fn test_pointer_steps_drag_rejects_a_zero_distance_drop() {
+        let action = PointerAction::DragTo {
+            drop_at: normalized(10.0, 20.0),
+        };
+        let failure = match pointer_steps(&action, physical(10.0, 20.0), Some(physical(10.0, 20.0)))
+        {
+            Ok(steps) => unreachable!("zero-distance drag must fail, got {} steps", steps.len()),
+            Err(failure) => failure,
+        };
+        assert_eq!(failure.code(), ErrorCode::ToolInvalidArgs);
+    }
+
+    #[test]
+    fn test_pointer_requires_release_recovery_for_partial_drag_batches() {
+        let start = physical(10.0, 20.0);
+        let drop = physical(30.0, 40.0);
+        let action = PointerAction::DragTo {
+            drop_at: normalized(30.0, 40.0),
+        };
+        let steps = match pointer_steps(&action, start, Some(drop)) {
+            Ok(steps) => steps,
+            Err(failure) => unreachable!("valid drag must compile: {failure}"),
+        };
+        assert!(!pointer_requires_release_recovery(&steps, 1));
+        assert!(pointer_requires_release_recovery(&steps, 2));
+        assert!(pointer_requires_release_recovery(&steps, 3));
+        assert!(!pointer_requires_release_recovery(&steps, 4));
     }
 
     #[test]
