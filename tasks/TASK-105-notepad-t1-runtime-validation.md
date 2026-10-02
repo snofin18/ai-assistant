@@ -169,3 +169,9 @@ fixtures/apps/notepad-like/test-notepad-like.ps1 -> 13 checks passed
 1. 主路径 30 次全绿，但 L0/L1 真实回滚未完成，不能据此宣称阶段 1a 完成。
 2. DRIFT-105-4 是人工授权的最小 scope 扩展，改动集中在测试入口和一个 Save As 异步边界；请重点审查该产品修复。
 3. T1.2/T1.3 真实运行使用预置 bounded once grants；UI 暂停/恢复/拒绝语义由独立测试覆盖。
+
+### 10. 合并证据
+
+- PR #167（codex/task-105-real-uia-runs）CI 11/11 SUCCESS（run 36959134224；windows 6m47s / ubuntu 3m11s / macos 3m5s）。
+- merge commit：ab1450；mergeable=CLEAN，base=main。
+- 本卡保持 **InProgress**：真实主路径 3×10 已合并，L0/L1 物理回滚链由 TASK-218 承接，阶段 1a 仍 NO-GO。
