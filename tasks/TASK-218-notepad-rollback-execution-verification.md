@@ -1,6 +1,6 @@
 # TASK-218　Notepad L0/L1 物理快照创建与回滚执行验收
 
-- 状态：**Ready（待人类确认；DRIFT-105 撤销链的落地卡）**
+- 状态：**InProgress（ADR-0062 已 Accepted；DRIFT-105 撤销链的落地卡）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：TASK-105（真实运行证据）、TASK-024、TASK-103
 - 预估：L　难度：L
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。分界线以上为正文（Orchestrator 所有，Implementer 只读）。
@@ -95,7 +95,14 @@ cargo run -p xtask -- docscan
 
 ### 1. 约束回执
 
-（待 Implementer 领取本卡时填写。）
+【任务】TASK-218 Notepad L0/L1 物理快照创建与回滚执行验收
+【目标】把 `prepare_rollback_anchors` 从"只校验方案"推进到真实创建物理快照并执行回滚、回滚后复核内存与磁盘一致
+【write scope】仅：`apps/agent-core/**`、`fixtures/apps/notepad-like/**`、`eval/tasks/notepad/**`、`docs/audits/stage-1a-runtime-validation-*.md`、`docs/adr/0062-*` 与本卡/状态同步文件
+【铁律】1 无静默失败；4 每个写操作必有 postcondition；9 不扩 scope；10 ADR-0062 已 Accepted
+【禁止】改 `crates/undo` / `task-engine` / `verify` 公共形状；改任务包声明；真实商业应用；新依赖；L2 通用化
+【验收】`cargo fmt` / `clippy` / `cargo test --workspace` / 真实 `production_root_uia` / `t1.2 validate.py` / `xtask replay` / `xtask docscan` + 三条 undo 路径与三类负向证据
+【依赖】TASK-105 真实运行证据已合并 `eab1450`；TASK-024 / TASK-103 已核对 LEDGER Done
+【疑问】无（ADR-0062 已给出捕获时机、L0/L1 映射、冲突语义与形状不变约束）
 
 ### 2. 实际改动文件
 
