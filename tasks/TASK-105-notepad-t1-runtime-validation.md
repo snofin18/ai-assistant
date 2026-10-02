@@ -102,7 +102,7 @@ fixtures/apps/notepad-like/test-notepad-like.ps1 -> 13 checks passed
 
 - [x] T1.1 ×10、T1.2 ×10、T1.3 ×10 均有可复现记录 —— 见结果 JSON 与逐轮日志。
 - [x] 静默失败 = 0 —— 30 次退出码全部为 0。
-- [ ] 成功路径与失败恢复路径都有证据 —— 主路径与 fixture 故障形状有证据；真实 L0/L1 回滚链仍未执行。
+- [~] 成功路径与失败恢复路径都有证据 —— 主路径与 fixture 故障形状有证据；L1 完整回滚已在 TASK-218 真实运行通过，但 L0-only fallback 与三类负向 incident 仍缺，未勾。
 - [x] 审批与 point-of-no-return 行为符合声明 —— bounded once grants、暂停/恢复、一次性消费、不可逆拒绝测试通过。
 - [x] 结果报告落 `docs/audits/`。
 - [ ] 未修改 Out of scope 文件 —— **DRIFT-105-4**：人工授权的 test/handler 修复超出原 write scope，已显式登记。

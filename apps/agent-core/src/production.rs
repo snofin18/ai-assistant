@@ -307,6 +307,7 @@ where
         Arc::new(platform.clone()),
         Arc::clone(&targets),
         &tools_path,
+        &config.task_inputs,
     )
     .map_err(|error| ProductionError::InvalidConfiguration {
         field: "adapter_root.tools.tools",
@@ -440,6 +441,34 @@ where
     #[must_use]
     pub fn approvals(&self) -> Arc<ApprovalGrants> {
         Arc::clone(&self.approvals)
+    }
+
+    /// Executes the captured rollback anchor for this task (ADR-0062).
+    ///
+    /// `restore_file = true` also writes the captured target bytes back, which is the L1
+    /// recovery path after a save. `restore_file = false` restores the editor only.
+    ///
+    /// # Errors
+    ///
+    /// Returns a readable reason when no anchor was captured, when `crates/undo` produces an
+    /// incident, or when the post-rollback editor/file observation does not match the anchor.
+    pub fn execute_rollback(&self, restore_file: bool) -> Result<Value, String> {
+        self.host_operations.execute_rollback(
+            self.provider.task_id().as_str(),
+            "rollback_verification",
+            restore_file,
+        )
+    }
+
+    /// Re-reads the captured rollback anchor so a caller can assert the observed state.
+    ///
+    /// # Errors
+    ///
+    /// Returns a readable reason when no anchor was captured for this task or the target cannot
+    /// be observed.
+    pub fn observe_rollback_state(&self) -> Result<Value, String> {
+        self.host_operations
+            .observe_rollback_state(self.provider.task_id().as_str())
     }
 
     /// Shares the runtime-owned pending approval registry with the UI handler.

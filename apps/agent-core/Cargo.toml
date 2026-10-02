@@ -74,5 +74,13 @@ version = "0.1.0"
 path = "../../crates/hitl"
 version = "0.1.0"
 
+[dependencies.assistant-undo]
+# ADR-0062 D4/D5: the binary layer implements the `crates/undo`
+# `RollbackExecutor` port for Notepad. Workspace dependency, not a new
+# third-party crate (ADR-0053 D3 blacklists `undo` for `crates/core`, not for
+# the assembly point).
+path = "../../crates/undo"
+version = "0.1.0"
+
 [lints]
 workspace = true

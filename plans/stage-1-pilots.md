@@ -245,7 +245,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-215 ✅** | A5-REMEDIATION | `tasks/TASK-215-fixture-capability-extension-and-adapter-pack.md` | Done（适配包 + 文件读写 + 标签页 + 跨进程 Save As；PL-097 闭环） |
 | **TASK-216 ✅** | A5-REMEDIATION | `tasks/TASK-216-runtime-completion-input-binding-and-step-kinds.md` | Done（A/B 片由 TASK-217 落地并收口；`DRIFT-216-4` 闭环） |
 | **TASK-217 ✅** | A5-REMEDIATION | `tasks/TASK-217-runtime-task-dataflow-resumable-approval.md` | Done（T1.2/T1.3 fake platform Completed；UI approve/resume；DRIFT-216-4 闭环） |
-| TASK-218 | A5-REMEDIATION | `tasks/TASK-218-notepad-rollback-execution-verification.md` | Ready（L0/L1 物理快照与回滚执行；DRIFT-105 撤销链的落地卡） |
+| TASK-218 | A5-REMEDIATION | `tasks/TASK-218-notepad-rollback-execution-verification.md` | InProgress（L0/L1 物理快照与回滚执行；完整 L1 恢复已真实通过，fallback/负向待补） |
 | TASK-040 | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Ready（批次表占位派单前补全） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
 | TASK-042 | 1b | `tasks/TASK-042-visual-verify-phash-dhash-confidence.md` | Ready（批次表占位派单前补全） |

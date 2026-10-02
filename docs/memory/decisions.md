@@ -169,3 +169,6 @@
 ## 2026-10-01 追加（ADR-0061，Accepted）
 
 - [2026-10-01][DECISION][src:ADR-0061 Accepted，人类确认] **运行时任务包数据流 = binary 层整值上下文 + 提交后发布 step outputs + 闭集 pure operation + `(kind, operation)` 分派 + 封闭谓词条件 + 可恢复审批**：`$name` 只能是整字符串引用，禁止部分插值/算术/函数/任意表达式；只有步骤验证提交后才发布 outputs；`pure` 以白名单结构化 operation 执行；`host_service` 按 operation 区分；`when` 使用可枚举谓词子集（引用、取反、比较、`&&`）；无授权返回 `AwaitingApproval` 并在 UI 决策后从同一快照恢复。**不改 `PlanStep` / `task-engine` 公共形状，不新增依赖**。该 ADR 处理 `DRIFT-216-4`，TASK-217 已解锁。
+## 2026-10-02 追加（ADR-0062，Accepted）
+
+- [2026-10-02][DECISION][src:ADR-0062，人类「继续往下做吧」接受 TASK-218] **回滚物理快照与执行器接线 = binary 层捕获 + `crates/undo` 执行器 + 回滚后双复核**：`assistant.runtime.prepare_anchors` 在任何写步骤前真实捕获编辑区规范化文本与目标文件原始字节并记录 SHA-256（复用 `BlobId::of_content`），按 task_id 存进程内注册表；`RollbackAction::UndoStack` 映射到 Adapter 显式声明的 `Ctrl+Z`，`RestoreContentSnapshot` / `RestoreShadowCopy` 映射到目标文件字节恢复；回滚成功必须同时满足内存文本等于 pre-replace anchor 且磁盘 digest 等于捕获 digest。冲突、快照缺失、digest 不匹配、回滚期间用户改动一律 incident，L0 失败走 L1 时 evidence 标注 `used_fallback=true`。**不改 `crates/undo` / `task-engine` / `verify` 公共形状，不新增依赖**；TASK-218 已解锁。

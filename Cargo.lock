@@ -58,6 +58,7 @@ dependencies = [
  "assistant-storage",
  "assistant-task-engine",
  "assistant-tool-bus",
+ "assistant-undo",
  "assistant-verify",
  "serde",
  "serde_json",

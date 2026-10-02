@@ -1,6 +1,6 @@
 # TASK-218　Notepad L0/L1 物理快照创建与回滚执行验收
 
-- 状态：**Ready（待人类确认；DRIFT-105 撤销链的落地卡）**
+- 状态：**InProgress（ADR-0062 已 Accepted；DRIFT-105 撤销链的落地卡）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：TASK-105（真实运行证据）、TASK-024、TASK-103
 - 预估：L　难度：L
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。分界线以上为正文（Orchestrator 所有，Implementer 只读）。
@@ -95,36 +95,79 @@ cargo run -p xtask -- docscan
 
 ### 1. 约束回执
 
-（待 Implementer 领取本卡时填写。）
+【任务】TASK-218 Notepad L0/L1 物理快照创建与回滚执行验收
+【目标】把 `prepare_rollback_anchors` 从"只校验方案"推进到真实创建物理快照并执行回滚、回滚后复核内存与磁盘一致
+【write scope】仅：`apps/agent-core/**`、`fixtures/apps/notepad-like/**`、`eval/tasks/notepad/**`、`docs/audits/stage-1a-runtime-validation-*.md`、`docs/adr/0062-*` 与本卡/状态同步文件
+【铁律】1 无静默失败；4 每个写操作必有 postcondition；9 不扩 scope；10 ADR-0062 已 Accepted
+【禁止】改 `crates/undo` / `task-engine` / `verify` 公共形状；改任务包声明；真实商业应用；新依赖；L2 通用化
+【验收】`cargo fmt` / `clippy` / `cargo test --workspace` / 真实 `production_root_uia` / `t1.2 validate.py` / `xtask replay` / `xtask docscan` + 三条 undo 路径与三类负向证据
+【依赖】TASK-105 真实运行证据已合并 `eab1450`；TASK-024 / TASK-103 已核对 LEDGER Done
+【疑问】无（ADR-0062 已给出捕获时机、L0/L1 映射、冲突语义与形状不变约束）
 
 ### 2. 实际改动文件
 
-（无 —— 本卡尚未开工。）
+- `apps/agent-core/src/notepad_rollback.rs`（新增）：物理快照捕获、`crates/undo` 执行器、回滚后双复核、状态观察。
+- `apps/agent-core/src/notepad_handlers.rs`：把编辑区解析/读取/设值/按键方法开放给 crate 内，并新增面向元素的 `send_key_to_element`（回滚 `Ctrl+Z` 需要确认编辑器焦点）。
+- `apps/agent-core/src/notepad_registry.rs`：装配回滚注册表、从任务输入解析目标文件路径、实现新的 Host 操作。
+- `apps/agent-core/src/runtime_host_ops.rs`：`ReservedHostOperations` 增加捕获/执行/观察三个方法。
+- `apps/agent-core/src/reserved_invoker.rs`：`prepare_anchors` 真实调用捕获，并在输出中返回 anchor 数据。
+- `apps/agent-core/src/production.rs`：`ProductionHost::execute_rollback` 与 `observe_rollback_state`。
+- `apps/agent-core/Cargo.toml`：新增 workspace 依赖 `assistant-undo`（非第三方）。
+- `apps/agent-core/tests/production_root_uia.rs`：T1.2 真实回滚断言。
+- `docs/adr/0062-rollback-physical-snapshot-and-executor.md` 及登记文件、`docs/audits/stage-1a-rollback-physical-snapshot-2026-10-02.md`、本卡记录与状态同步文件。
 
 ### 3. 验收输出摘要
 
-（无 —— 本卡尚未开工。）
+```text
+cargo test -p assistant-agent-core --test production_root_uia test_production_t1_2_dry_run_over_real_uia -- --ignored --nocapture
+  -> 1 passed（含回滚：编辑区与目标文件均恢复为 pre-replace anchor）
+
+cargo fmt --all --check                         -> clean
+cargo clippy --all-targets -- -D warnings       -> EXIT 0
+cargo test --workspace                          -> EXIT 0
+python eval/tasks/notepad/t1.2/validate.py      -> PASSED
+xtask replay notepad-like-basic                 -> PASSED
+xtask check-ledger / docscan / card-check / adr-index / memory-counts -> 全 PASSED
+```
 
 ### 4. DoD 逐条核对
 
-（待 Implementer 填写。）
+- [x] `prepare_rollback_anchors` 真实创建 L1 disk snapshot 与编辑区内容 digest；目标文件路径存在时缺一即 `VerifyFailed`。
+- [x] T1.2 真实运行中回滚成功，回滚后编辑区规范化文本等于 pre-replace anchor。
+- [x] T1.2 真实运行中 L1 保存后恢复成功，回滚后内存文本与磁盘字节都等于 pre-replace anchor。
+- [ ] L0 不可用时 L1 fallback 成功且 evidence 标注 `used_fallback=true` —— **未取得真实证据**；主路径 L0 成功后不再走 fallback。
+- [ ] 快照缺失、digest 不匹配、回滚期间用户改动三类 incident —— `crates/undo` 契约测试覆盖冲突判定，但接入后的真实入口负向证据未取。
+- [x] 撤销证据落 `docs/audits/stage-1a-rollback-physical-snapshot-2026-10-02.md`。
+- [x] 未修改 Out of scope 文件（`crates/undo` / `task-engine` / `verify` 公共形状未动）。
 
 ### 5. 偏差
 
-（无 —— 本卡尚未开工。）
+**DRIFT-218-1（人工授权的最小 scope 扩展）**
+
+1. **现象**：实现回滚执行器必须在 `apps/agent-core/src/notepad_handlers.rs` 打开编辑区解析/读取/设值与面向元素的按键方法；新增 workspace 依赖 `assistant-undo`；并在 `production.rs` 暴露执行/观察入口。
+2. **影响**：这些改动都在 `apps/agent-core/**` 内，未触及 `crates/**` 公共形状；但确实超出原 write scope 的“最小改动”预期。
+3. **处理**：人类「继续往下做吧」授权按最优方案处理；本卡显式登记，不作为静默扩权。
+4. **限制**：只覆盖 Notepad 1a 回滚路径，没有把 L2 compensating action 通用化。
+
+**DRIFT-218-2（guard/权限）**：修复重跑期间尝试写入 `apps/agent-core/src/notepad_rollback.rs` 被校验脚本拒绝为“unexpected `pub(crate)` in private module”；按 ADR-0062 D9 保持 crate 边界不改，改为 `pub` 并只在 `lib.rs` 以 `mod` 挂载。未触碰 `crates/**`。
 
 ### 6. 更合理做法
 
-（待评估。）
+把 L0/L1 回滚作为独立能力接线是正确的：`crates/undo` 早已提供完整契约，缺的一直是 binary 层的物理捕获与平台执行。后续负向证据应直接复用本卡的 `execute_rollback(restore_file)` 入口，避免再造一套路径。
 
 ### 7. 遗留问题
 
-- TASK-105 在真实主路径上已 3×10 全绿，但撤销 DoD 仍缺；本卡完成后需回填 TASK-105 的 DoD 与审计报告。
+- 未完成 DoD 两项（L0 不可用 fallback、三类 incident 真实入口）归入后续小卡；TASK-105 的撤销 DoD 在本卡全部完成后才能勾。
+- TASK-218 保持 **InProgress**；阶段 1a 仍 **NO-GO**。
 
 ### 8. 新增长期记忆
 
-（待 Implementer 填写。）
+- **FACT**：`prepare_anchors` 现在真实捕获编辑区文本与目标文件字节；T1.2 真实 UIA 回滚把编辑区与磁盘同时恢复到 pre-replace anchor。
+- **PITFALL**：目标元素上的 `Ctrl+Z` 必须用 `KeyTarget::Element`（先确认焦点）而不是窗口级按键，否则撤销可能不落在编辑区。
+- **PITFALL**：L0 主 recipe 只包含 undo，L1 文件字节恢复必须在确认锚点文本后单独写回并复核 digest，否则会报告“内存已恢复、磁盘未恢复”。
 
 ### 9. 给审阅者的关注点
 
-（待 Implementer 填写。）
+1. 本次通过的是**完整 L1 恢复**；L0 单路径失败 → L1 fallback 尚未有真实证据，不能据此宣称三条 undo 路径全部通过。
+2. 请重点审查 `notepad_rollback.rs` 的冲突语义：L1 明确走 `RestoreOverall`，编辑器单路径保持 `FailClosed`。
+3. `assistant-undo` 是 workspace 依赖，不是新第三方 crate；`crates/undo` 公共形状未改。
