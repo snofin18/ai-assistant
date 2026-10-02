@@ -23,7 +23,7 @@
 //! 相关：架构 v2 §3.2 / §6.1、`crates/platform/api/src/handle.rs`、ADR-0022 D1。
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use assistant_platform_api::{LocalHandleId, PlatformResult, ResolvedElement};
 use windows::Win32::Foundation::HWND;
@@ -37,42 +37,83 @@ const FIRST_ELEMENT_HANDLE: u64 = 1;
 /// 「未能确定所属窗口」的保留句柄值（见 `resolved_element` 的文档）。
 const UNKNOWN_WINDOW_HANDLE: u64 = 0;
 
-/// 线程本地的元素表：`ResolvedElement::id()` → COM 元素。
-struct ElementTable {
+/// Hard cap on the number of live element handles per thread.
+///
+/// Long-running Host sessions re-resolve elements on every task and self-heal pass. Without a cap
+/// the thread-local COM table grows forever and holds one `AddRef` per resolved element. The cap
+/// keeps memory bounded; the oldest handle is evicted first and its COM reference is dropped, so
+/// using that stale handle later returns `TargetNotFound` (never a silent wrong element).
+pub const MAX_THREAD_ELEMENT_HANDLES: usize = 4096;
+
+/// 线程本地的元素表：`ResolvedElement::id()` → 元素值。
+///
+/// Generic over the stored value so the eviction/cap logic can be unit-tested with a plain type
+/// instead of manufacturing a fake COM pointer (whose `Drop` would `Release` invalid memory).
+/// Production instantiates it with `IUIAutomationElement`.
+struct ElementTable<T> {
     /// 下一个可用的元素句柄值。
     next_id: u64,
-    /// 已解析元素（`AddRef` 过的 COM 指针）。
-    elements: HashMap<u64, IUIAutomationElement>,
+    /// 已解析元素（生产环境是 `AddRef` 过的 COM 指针）。
+    elements: HashMap<u64, T>,
+    /// 插入顺序，用于超出上限时淘汰最旧句柄。
+    order: VecDeque<u64>,
 }
 
-impl ElementTable {
+impl<T> ElementTable<T> {
     /// 空表。
     fn new() -> Self {
         Self {
             next_id: FIRST_ELEMENT_HANDLE,
             elements: HashMap::new(),
+            order: VecDeque::new(),
         }
     }
 
     /// 登记一个元素并返回它的句柄值。
-    fn insert(&mut self, element: IUIAutomationElement) -> u64 {
+    fn insert(&mut self, element: T) -> u64 {
         let handle = self.next_id;
         // `saturating_add` 而不是 `+`：句柄空间耗尽时停在 u64::MAX 会**覆盖**已有句柄，
         // 但那是 2^64 次解析之后的事；用 saturating 保证不 panic（铁律 1 的另一面）。
         self.next_id = self.next_id.saturating_add(1);
         self.elements.insert(handle, element);
+        self.order.push_back(handle);
+        while self.elements.len() > MAX_THREAD_ELEMENT_HANDLES {
+            if let Some(oldest) = self.order.pop_front() {
+                // Dropping the evicted COM reference is the point: this is what bounds memory.
+                self.elements.remove(&oldest);
+            } else {
+                break;
+            }
+        }
         handle
     }
 
     /// 取一个元素的副本（`AddRef`；`None` = 本线程没登记过这个句柄）。
-    fn get(&self, handle: u64) -> Option<IUIAutomationElement> {
+    fn get(&self, handle: u64) -> Option<T>
+    where
+        T: Clone,
+    {
         self.elements.get(&handle).cloned()
+    }
+
+    /// Number of live element handles currently held by this thread.
+    #[cfg(test)]
+    fn len(&self) -> usize {
+        self.elements.len()
+    }
+
+    /// Drops every registered element on this thread.
+    #[cfg(test)]
+    fn clear(&mut self) {
+        self.elements.clear();
+        self.order.clear();
     }
 }
 
 thread_local! {
     /// 本线程已解析的元素表（线程退出时随 `IUIAutomationElement` 的 `Drop` 一起释放）。
-    static ELEMENTS: RefCell<ElementTable> = RefCell::new(ElementTable::new());
+    static ELEMENTS: RefCell<ElementTable<IUIAutomationElement>> =
+        RefCell::new(ElementTable::new());
 }
 
 /// 把 `HWND` 编成窗口句柄（窗口句柄值 = HWND 值，无表）。
@@ -152,6 +193,24 @@ pub fn with_element<T>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_element_table_evicts_oldest_handle_at_capacity() {
+        // Exercise the real `ElementTable` logic with a plain value type; production
+        // instantiates the same struct with `IUIAutomationElement`.
+        let mut table: ElementTable<u64> = ElementTable::new();
+        let first = table.insert(1);
+        for value in 2..=(MAX_THREAD_ELEMENT_HANDLES + 1) {
+            table.insert(value as u64);
+        }
+        assert_eq!(table.len(), MAX_THREAD_ELEMENT_HANDLES);
+        assert!(
+            table.get(first).is_none(),
+            "the oldest handle must be evicted once the cap is exceeded"
+        );
+        table.clear();
+        assert_eq!(table.len(), 0);
+    }
 
     #[test]
     fn test_window_handle_round_trip_preserves_hwnd_value() {

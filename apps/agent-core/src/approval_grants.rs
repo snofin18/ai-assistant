@@ -47,6 +47,12 @@ struct Grant {
     remaining_uses: u32,
 }
 
+/// Hard cap on the number of live grants.
+///
+/// A long-running Host records one grant per approved step. Without a cap the table grows with
+/// every task even though most entries expire; pruning on insert keeps it bounded.
+pub const MAX_APPROVAL_GRANTS: usize = 1024;
+
 /// One approval to record, kept as a struct so the call site names every field.
 pub struct GrantRequest<'a> {
     /// Task the approval belongs to.
@@ -93,6 +99,7 @@ impl ApprovalGrants {
             return Err(GrantError::PersistentScope);
         }
         let mut grants = self.grants.lock().map_err(|_| GrantError::Unavailable)?;
+        prune_expired_locked(&mut grants, request.now_ms);
         grants.insert(
             (request.task_id.to_owned(), request.step_id.to_owned()),
             Grant {
@@ -101,6 +108,12 @@ impl ApprovalGrants {
                 remaining_uses: request.uses,
             },
         );
+        while grants.len() > MAX_APPROVAL_GRANTS {
+            let Some(oldest) = grants.keys().next().cloned() else {
+                break;
+            };
+            grants.remove(&oldest);
+        }
         drop(grants);
         Ok(())
     }
@@ -154,6 +167,42 @@ impl ApprovalGrants {
         drop(grants);
         Ok(())
     }
+
+    /// Drops every approval recorded for a task.
+    ///
+    /// Call this when a task finishes, fails, or is cancelled so the per-task entries do not
+    /// accumulate in a long-running Host.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GrantError::Unavailable`] when the table cannot be locked.
+    pub fn revoke_task(&self, task_id: &str) -> Result<usize, GrantError> {
+        let mut grants = self.grants.lock().map_err(|_| GrantError::Unavailable)?;
+        let before = grants.len();
+        grants.retain(|(task, _step), _grant| task != task_id);
+        let removed = before.saturating_sub(grants.len());
+        drop(grants);
+        Ok(removed)
+    }
+
+    /// Removes every expired entry and returns how many were dropped.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GrantError::Unavailable`] when the table cannot be locked.
+    pub fn prune_expired(&self, now_ms: i64) -> Result<usize, GrantError> {
+        let mut grants = self.grants.lock().map_err(|_| GrantError::Unavailable)?;
+        let before = grants.len();
+        prune_expired_locked(&mut grants, now_ms);
+        let removed = before.saturating_sub(grants.len());
+        drop(grants);
+        Ok(removed)
+    }
+}
+
+/// Drops every grant whose deadline has passed. The caller holds the lock.
+fn prune_expired_locked(grants: &mut BTreeMap<(String, String), Grant>, now_ms: i64) {
+    grants.retain(|_key, grant| now_ms < grant.expires_at_ms);
 }
 
 #[cfg(test)]
@@ -272,5 +321,38 @@ mod tests {
         );
         assert!(grants.revoke("t1", "s4").is_ok());
         assert!(matches!(grants.consume("t1", "s4", 1), Ok(None)));
+    }
+
+    #[test]
+    fn test_prune_expired_and_revoke_task_bound_the_table() {
+        let grants = ApprovalGrants::new();
+        for (task, step, now, ttl) in [
+            ("t1", "s1", 0, 100),
+            ("t1", "s2", 0, 10_000),
+            ("t2", "s1", 0, 10_000),
+        ] {
+            assert!(
+                grants
+                    .grant(&GrantRequest {
+                        task_id: task,
+                        step_id: step,
+                        scope: ApprovalScope::Once,
+                        now_ms: now,
+                        ttl_ms: ttl,
+                        uses: 1,
+                    })
+                    .is_ok()
+            );
+        }
+        assert_eq!(grants.prune_expired(500), Ok(1));
+        assert_eq!(grants.revoke_task("t1"), Ok(1));
+        assert!(matches!(grants.consume("t1", "s2", 500), Ok(None)));
+        assert!(
+            matches!(
+                grants.consume("t2", "s1", 500),
+                Ok(Some(ApprovalScope::Once))
+            ),
+            "other tasks must be unaffected by the cleanup"
+        );
     }
 }

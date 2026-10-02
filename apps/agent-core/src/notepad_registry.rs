@@ -15,7 +15,7 @@
 //! 2. unknown schema values fail deserialization;
 //! 3. a handler count mismatch fails before `ToolBus` startup.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
@@ -49,6 +49,12 @@ pub(crate) const EXPECTED_TOOL_NAMES: &[&str] = &[
     TOOL_TAB_NEW,
     TOOL_SAVE_AS,
 ];
+
+/// Hard cap on the number of tasks whose rollback anchors are kept.
+///
+/// Each anchor holds the editor text plus the target file bytes. A long-running Host must not
+/// retain every task forever, so the oldest task is evicted once the cap is exceeded.
+pub(crate) const MAX_TASK_ANCHORS: usize = 64;
 
 /// Failure while loading or registering the adapter tool declarations.
 #[derive(Debug, Error)]
@@ -109,7 +115,7 @@ where
     let host_operations = Arc::new(NotepadReservedHostOperations {
         context: Arc::clone(&context),
         rollback: NotepadRollback::new(Arc::clone(&context)),
-        anchors: Mutex::new(BTreeMap::new()),
+        anchors: Mutex::new(TaskAnchorRegistry::default()),
         task_target_path: document_path_from_inputs(task_inputs),
         task_requires_l1: required_anchor_levels_include_l1(task_inputs),
     });
@@ -231,9 +237,48 @@ fn required_anchor_levels_include_l1(task_inputs: &serde_json::Map<String, Value
 struct NotepadReservedHostOperations<P> {
     context: Arc<NotepadHandlerContext<P>>,
     rollback: NotepadRollback<P>,
-    anchors: Mutex<BTreeMap<String, CapturedRollbackAnchor>>,
+    anchors: Mutex<TaskAnchorRegistry>,
     task_target_path: Option<String>,
     task_requires_l1: bool,
+}
+
+/// Per-task rollback anchors plus the insertion order used to evict the oldest task.
+#[derive(Default)]
+struct TaskAnchorRegistry {
+    anchors: BTreeMap<String, CapturedRollbackAnchor>,
+    order: VecDeque<String>,
+}
+
+impl TaskAnchorRegistry {
+    /// Inserts or replaces a task anchor and enforces the hard cap.
+    ///
+    /// The returned anchor is the evicted oldest one, which the caller drops **outside** the lock.
+    fn insert(
+        &mut self,
+        task_id: String,
+        anchor: CapturedRollbackAnchor,
+    ) -> Option<CapturedRollbackAnchor> {
+        if self.anchors.insert(task_id.clone(), anchor).is_none() {
+            self.order.push_back(task_id);
+        }
+        let mut evicted = None;
+        while self.anchors.len() > MAX_TASK_ANCHORS {
+            let Some(oldest) = self.order.pop_front() else {
+                break;
+            };
+            evicted = self.anchors.remove(&oldest).or(evicted);
+        }
+        evicted
+    }
+
+    fn get(&self, task_id: &str) -> Option<&CapturedRollbackAnchor> {
+        self.anchors.get(task_id)
+    }
+
+    fn remove(&mut self, task_id: &str) {
+        self.anchors.remove(task_id);
+        self.order.retain(|entry| entry != task_id);
+    }
 }
 
 impl<P> ReservedHostOperations for NotepadReservedHostOperations<P>
@@ -274,10 +319,14 @@ where
         let target_path = captured
             .target_path()
             .map(|path| path.to_string_lossy().to_string());
-        self.anchors
+        let mut registry = self
+            .anchors
             .lock()
-            .map_err(|_| "rollback anchor registry is poisoned".to_owned())?
-            .insert(task_id.to_owned(), captured);
+            .map_err(|_| "rollback anchor registry is poisoned".to_owned())?;
+        let evicted = registry.insert(task_id.to_owned(), captured);
+        drop(registry);
+        // Dropping the evicted anchor outside the lock releases its file bytes without holding it.
+        drop(evicted);
         Ok(serde_json::json!({
             "anchor_captured": true,
             "editor_digest": format!("sha256:{}", digest.as_str()),
@@ -317,6 +366,16 @@ where
                 .ok_or_else(|| format!("rollback: no captured anchor for task `{task_id}`"))?
         };
         self.rollback.observe_state(&captured)
+    }
+
+    fn release_task(&self, task_id: &str) -> Result<(), String> {
+        let mut registry = self
+            .anchors
+            .lock()
+            .map_err(|_| "rollback anchor registry is poisoned".to_owned())?;
+        registry.remove(task_id);
+        drop(registry);
+        Ok(())
     }
 }
 

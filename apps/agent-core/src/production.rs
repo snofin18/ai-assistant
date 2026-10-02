@@ -471,6 +471,23 @@ where
             .observe_rollback_state(self.provider.task_id().as_str())
     }
 
+    /// Releases the per-task state kept for this task (rollback anchors and approval grants).
+    ///
+    /// Call this when a task finishes, fails, or is cancelled so a long-running Host does not
+    /// retain every task's anchor bytes and grants.
+    ///
+    /// # Errors
+    ///
+    /// Returns a readable reason when a registry cannot be locked.
+    pub fn release_task(&self) -> Result<(), String> {
+        let task_id = self.provider.task_id().as_str();
+        self.host_operations.release_task(task_id)?;
+        self.approvals
+            .revoke_task(task_id)
+            .map(|_removed| ())
+            .map_err(|error| format!("cannot release task approvals: {error}"))
+    }
+
     /// Shares the runtime-owned pending approval registry with the UI handler.
     #[must_use]
     pub fn pending_approvals(&self) -> Arc<PendingApprovals> {
