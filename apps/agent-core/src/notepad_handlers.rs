@@ -306,7 +306,14 @@ where
             TOOL_SAVE_AS,
         )?;
         self.invoke_element(&save_button, "invoke", TOOL_SAVE_AS)?;
-        let after_file = snapshot_file(&target_path, TOOL_SAVE_AS)?;
+        let mut after_file = snapshot_file(&target_path, TOOL_SAVE_AS)?;
+        for _attempt in 0..SAVE_AS_DIALOG_ATTEMPTS {
+            if after_file.exists {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(SAVE_AS_DIALOG_INTERVAL_MS));
+            after_file = snapshot_file(&target_path, TOOL_SAVE_AS)?;
+        }
         if !after_file.exists {
             return Err(ToolBusError::Mcp {
                 code: -32_004,

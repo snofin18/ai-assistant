@@ -1,6 +1,6 @@
 # TASK-105　Notepad T1.x 真实运行验收与 10 次证据
 
-- 状态：**Blocked（T1.1 ×10 已取证；T1.2/T1.3 无运行对象 → DRIFT-105-3 待裁决）**
+- 状态：**InProgress（T1.1/T1.2/T1.3 真实主路径各 10/10；L0/L1 撤销仍缺）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：103、104
 - 预估：M　难度：M
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。
@@ -74,20 +74,38 @@ cargo run -p xtask -- docscan
 
 ### 2. 实际改动文件
 
-（无 —— 本卡未进入实现阶段，仅登记阻塞。见 §5。）
+- `fixtures/apps/notepad-like/notepad-like.ps1`：处理 `Ctrl+S`；Save/AddTab enabled 状态反映 dirty/tab 状态，让真实 UIA 指纹反映状态变化。
+- `fixtures/apps/notepad-like/MainWindow.xaml`：`TabCountText` 改为只读 `TextBox`，暴露稳定 ValuePattern。
+- `apps/agent-core/src/notepad_handlers.rs`：Save As 后按既有超时有界轮询目标文件，修复跨进程对话框异步完成的误报。
+- `apps/agent-core/tests/production_root_uia.rs`：新增真实 T1.2/T1.3 ignored 运行。
+- `eval/tasks/notepad/run-real-uia.ps1`：3 × 10 次真实运行编排与 JSON 证据。
+- `docs/audits/stage-1a-runtime-validation-2026-10-02.md`、`docs/audits/stage-1a-runtime-validation-2026-10-02-runs.json`。
 
 ### 3. 验收输出摘要
 
-（无 —— 无运行对象可跑。见 §5。）
+```text
+T1.1: 10/10 PASS, average 1128 ms
+T1.2: 10/10 PASS, average 1342 ms
+T1.3: 10/10 PASS, average 2595 ms
+silent failures: 0
+
+cargo test --workspace                         -> EXIT 0
+xtask replay notepad-like-basic                -> PASSED
+python eval/tasks/notepad/t1.1/validate.py     -> PASSED
+python eval/tasks/notepad/t1.2/validate.py     -> PASSED
+python eval/tasks/notepad/t1.3/validate.py     -> PASSED
+xtask docscan                                  -> 0 error / 352 warning, PASSED
+fixtures/apps/notepad-like/test-notepad-like.ps1 -> 13 checks passed
+```
 
 ### 4. DoD 逐条核对
 
-- [ ] T1.1 ×10、T1.2 ×10、T1.3 ×10 均有可复现记录 —— **未做**（无生产装配根 / 无 handler / 无 Plan 来源）
-- [ ] 静默失败 = 0 —— **不可度量**（没有一次真实运行）
-- [ ] 成功路径与失败恢复路径都有证据 —— **未做**
-- [ ] 审批与 point-of-no-return 行为符合声明 —— **未做**
-- [ ] 结果报告落 `docs/audits/` —— **未做**
-- [x] 未修改 Out of scope 文件 —— 本次只写本卡记录
+- [x] T1.1 ×10、T1.2 ×10、T1.3 ×10 均有可复现记录 —— 见结果 JSON 与逐轮日志。
+- [x] 静默失败 = 0 —— 30 次退出码全部为 0。
+- [ ] 成功路径与失败恢复路径都有证据 —— 主路径与 fixture 故障形状有证据；真实 L0/L1 回滚链仍未执行。
+- [x] 审批与 point-of-no-return 行为符合声明 —— bounded once grants、暂停/恢复、一次性消费、不可逆拒绝测试通过。
+- [x] 结果报告落 `docs/audits/`。
+- [ ] 未修改 Out of scope 文件 —— **DRIFT-105-4**：人工授权的 test/handler 修复超出原 write scope，已显式登记。
 
 ### 5. 偏差
 
@@ -122,23 +140,32 @@ cargo run -p xtask -- docscan
 4. **建议（需人类裁决）**：① **推荐** —— 先立「运行时补齐」卡（任务输入绑定层 + `hitl`/`rollback`/`verify` 步骤的落地或明确移出 1a + `notepad.tab.new` 读 `TabCountText`），落在 `apps/agent-core`（**不在本卡 write scope**）；② 缩小本卡判据只验 T1.1，把 T1.2/T1.3 与审批/撤销证据移到后续里程碑；③ 把 T1.2/T1.3 改到真实 Notepad（与卡面 Out of scope 冲突）。
 5. **已停工作**：本卡**未**尝试跑 T1.2/T1.3（无从跑起），**未**产出任何伪造证据；T1.1 ×10 的真实证据已落 `docs/audits/`，其余 DoD 保持未勾。**阶段 1a 维持 NO-GO。**
 
+**DRIFT-105-4（人工授权的最小 scope 扩展：真实运行暴露 handler 异步与测试入口缺口）**
+
+1. **现象**：真实 T1.2 首次运行揭示 fixture 的 UIA 指纹不反映编辑状态；真实 T1.3 揭示 Save As 的跨进程按钮 `Invoke` 返回后目标文件可能尚未创建。
+2. **影响**：只修 fixture 无法覆盖 Save As 异步完成边界；若放宽 postcondition 或立即判定成功，会制造静默失败。
+3. **处理**：人工已授权按最优方案处理，因此保留两个最小产品修复（`notepad_handlers.rs` 有界等待、`production_root_uia.rs` 真实入口测试）；fixture 的 Ctrl+S 与 ValuePattern 修复仍在原 write scope 内。
+4. **证据**：30 次真实运行、审批/恢复负向测试、fixture 13 项故障形状测试全绿。
+5. **限制**：此扩展只覆盖真实运行入口和 Save As 异步边界，没有扩大为产品功能开发。
+
 ### 6. 更合理做法
 
 先补"可运行对象"再谈"运行验收"。原 WBS 把 TASK-029（装配）当作已交付，但 TASK-029 的 DoD 只要求"装配点可执行 + 缺组件 fail-closed"，所以它交付的是 self-check 而非生产根；这两者在 WBS 上同名不同物，是本次阻塞的结构性根因。
 
 ### 7. 遗留问题
 
-- **TASK-214 未完成前本卡不可开工**（ADR-0058 已于 2026-09-30 Accepted，TASK-214 已解锁；本行随 TASK-214 完成而失效）。
-- **`DRIFT-105-2` 未裁决前，T1.2 / T1.3 没有可执行对象**：靶机 `notepad-like` 不读写文件、无标签页、无跨进程对话框，selector 也与 `adapters/com.microsoft.notepad` 不匹配。推荐方案 ①（扩靶机 + 补 `com.example.notepad-like` 适配声明），需另立卡。
-- `PLAN.md` 当前状态块里「真实 ModelProvider」的措辞需同步澄清为「1a = 确定性任务包 provider；真实 LLM 归 1c 前」（ADR-0058 已接受，待 TASK-214 收口时一并改）。
-- 靶机 `notepad-like` 的 UIA 通道需在 TASK-214 里被真实驱动一次（当前只有 TASK-033 的自测脚本）。
+- TASK-105 主路径已经 3 × 10 全绿，但 L0 undo / L1 disk snapshot 的真实回滚链仍未执行；需要后续卡片把 `prepare_rollback_anchors` 的物理 snapshot 与 rollback 执行接到运行层。
+- T1.2 / T1.3 真实运行当前使用 bounded `once` grants 作为已记录的人类批准输入；暂停/恢复和拒绝语义由专门测试覆盖。
+- 阶段 1a 仍为 **NO-GO**，不能进入 1b。
 
 ### 8. 新增长期记忆
 
-（无长期记忆新增 —— 阻塞本身记在 §5 与 `docs/PARKING_LOT.md`；若 ADR-0058 被接受，再按 ADR 追加 `decisions.md` 条目。）
+- **FACT**：T1.1/T1.2/T1.3 已在 `notepad-like` 真靶机上各跑 10 次，全部 `10/10`，静默失败 0。
+- **PITFALL**：真实 UIA 指纹只反映结构/状态，不包含文本值；fixture 的编辑状态必须映射到 enabled 等 UIA 可观测属性，否则 `state_changed` 会正确拒绝伪成功。
+- **PITFALL**：跨进程 Save As 的 UIA `Invoke` 不保证文件复制已完成，handler 必须有界轮询目标文件后再判定成功。
 
 ### 9. 给审阅者的关注点
 
-1. 本卡**没有**产出任何运行证据，请勿把本文件当成 T1.x 已验收的证据。
-2. 阻塞根因是 WBS 缺口（无生产装配根），不是执行失败；请优先裁决 ADR-0058 的 Proposal 状态。
-3. 若认为"1a 必须包含真实 LLM"，请直接否决 ADR-0058 D2/D3 —— 那会改变 1a 的范围与依赖。
+1. 主路径 30 次全绿，但 L0/L1 真实回滚未完成，不能据此宣称阶段 1a 完成。
+2. DRIFT-105-4 是人工授权的最小 scope 扩展，改动集中在测试入口和一个 Save As 异步边界；请重点审查该产品修复。
+3. T1.2/T1.3 真实运行使用预置 bounded once grants；UI 暂停/恢复/拒绝语义由独立测试覆盖。

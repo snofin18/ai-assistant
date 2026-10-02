@@ -278,16 +278,19 @@ try {
     }.GetNewClosure()
     & $applyTitle
 
-    $saveButton.Add_Click({
+    $saveDocument = {
         if ($null -eq $docState.Path) {
             $statusText.Text = "save: no document path (Save As is not implemented yet)"
             return
         }
         [System.IO.File]::WriteAllText($docState.Path, $editor.Text)
         $docState.Dirty = $false
+        $saveButton.IsEnabled = $false
         & $applyTitle
         $statusText.Text = "saved: " + (Split-Path -Leaf $docState.Path)
-    }.GetNewClosure())
+    }.GetNewClosure()
+
+    $saveButton.Add_Click($saveDocument)
 
     $addTabButton.Add_Click({
         $docState.Tabs = $docState.Tabs + 1
@@ -296,6 +299,8 @@ try {
         $editor.Text = ""
         $docState.Suppress = $false
         $docState.Dirty = $false
+        $saveButton.IsEnabled = $false
+        $addTabButton.IsEnabled = $docState.Tabs -lt 2
         & $applyTitle
         $statusText.Text = "new tab: " + $docState.Tabs
     }.GetNewClosure())
@@ -349,6 +354,7 @@ try {
         if ($null -ne $savedTarget) {
             $docState.Path = $savedTarget
             $docState.Dirty = $false
+            $saveButton.IsEnabled = $false
             & $applyTitle
             $statusText.Text = "saved as: " + (Split-Path -Leaf $savedTarget)
         }
@@ -384,8 +390,15 @@ try {
     $saveAsButton.Add_Click($launchSaveAs)
     $window.Add_KeyDown({
         param($sender, $eventArgs)
+        $isCtrlS = $eventArgs.Key -eq [System.Windows.Input.Key]::S -and
+            $eventArgs.KeyboardDevice.Modifiers -eq [System.Windows.Input.ModifierKeys]::Control
         $isCtrlShiftS = $eventArgs.Key -eq [System.Windows.Input.Key]::S -and
             $eventArgs.KeyboardDevice.Modifiers -eq ([System.Windows.Input.ModifierKeys]::Control -bor [System.Windows.Input.ModifierKeys]::Shift)
+        if ($isCtrlS) {
+            $eventArgs.Handled = $true
+            & $saveDocument
+            return
+        }
         if ($isCtrlShiftS) {
             $eventArgs.Handled = $true
             & $launchSaveAs
@@ -400,12 +413,15 @@ try {
         $wordCountText.Text = "Words: " + $words.Count
         if (-not $docState.Suppress) {
             $docState.Dirty = $true
+            $saveButton.IsEnabled = $true
             & $applyTitle
         }
     }.GetNewClosure()
     $editor.Add_TextChanged($updateCounts)
     & $updateCounts
     $docState.Suppress = $false
+    $saveButton.IsEnabled = $false
+    $addTabButton.IsEnabled = $true
 
     $window.Add_Closed({
         [System.Windows.Threading.Dispatcher]::CurrentDispatcher.InvokeShutdown()
