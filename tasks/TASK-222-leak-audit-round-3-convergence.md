@@ -105,11 +105,22 @@ agent**：父进程在 30 轮里持续 `spawn` cargo 并累积自身的 .NET/管
 
 ### 7. 遗留问题
 
-- agent 进程内的工作集/句柄长期趋势尚未直接测量；`KeyringSecretStore` 的 OS 句柄释放也未测。
+- **agent 进程内测量已完成（后半段）**：`test_production_resource_convergence_over_real_uia` 连续跑 20 次真实 UIA，
+  采样自身工作集与句柄：
+  - **工作集 6→30 MB 后落平**（warmup 后稳定在 29–30 MB），无增长；
+  - **句柄线性增长 +4/次**（125→326，20 次无拐点）——**真信号**，不是 warmup。
+- **对照实验已定位到 fixture 子进程路径**（`test_production_resource_convergence_control_no_fixture`）：
+  不启动任何 fixture、只重复采样自身时，句柄 **恒为 125（20 次零增长）**。
+  → 泄漏来自「启动/回收 fixture 子进程」这条路径（每次 `Command::spawn` + `taskkill` + `wait` 多留 4 个句柄），
+  不在 `assistant-agent-core` 本身的惰性初始化里。
+  下一次会话需枚举具体句柄类型（进程 / 管道 / 控制台）并修复该路径；候选点在
+  `apps/agent-core/tests/production_root_uia.rs` 的 `start_fixture` / `terminate_process_tree`。
+- `KeyringSecretStore` 的 OS 句柄释放仍未测。
 
 ### 8. 新增长期记忆
 
 - **FACT**：30 次真实 UIA t1.1 后 powershell/notepad 进程数回到基线；harness 工作集 76→103 MB 但后半段趋于平缓，需换测目标进程才能定论。
+- **FACT**：在 agent 测试进程内连续跑 20 次真实 UIA，工作集 warmup 后稳定在 29–30 MB；句柄 +4/次线性增长，且对照实验（不启动 fixture）句柄恒为 125 → 泄漏定位在 fixture 子进程启动/回收路径。
 
 ### 9. 给审阅者的关注点
 
