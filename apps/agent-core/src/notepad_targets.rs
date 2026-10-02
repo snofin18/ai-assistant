@@ -99,6 +99,7 @@ pub(crate) enum TargetCatalogError {
 }
 
 /// Ordered target descriptors loaded from one adapter package.
+#[derive(Debug)]
 pub(crate) struct NotepadTargetCatalog {
     app_id: String,
     descriptors: BTreeMap<String, TargetDescriptor>,
@@ -121,6 +122,18 @@ impl NotepadTargetCatalog {
             });
         }
         let policy = build_resolution_policy(&declared.policy)?;
+        // Window-scope descriptors carry only window candidates; element-scope descriptors carry
+        // the app window anchor plus their element candidates. Passing one chain to both fields
+        // (the old behavior) silently ignored the declared `scope` and let element selectors run
+        // in the window-resolution path.
+        let window_anchor = declared
+            .targets
+            .iter()
+            .find(|target| target.id == MAIN_WINDOW_TARGET)
+            .map(|target| target.candidates.clone())
+            .ok_or_else(|| TargetCatalogError::MissingTarget {
+                target: MAIN_WINDOW_TARGET.to_owned(),
+            })?;
         let mut descriptors = BTreeMap::new();
         for target in declared.targets {
             if descriptors.contains_key(&target.id) {
@@ -128,11 +141,23 @@ impl NotepadTargetCatalog {
                     reason: format!("duplicate target id `{}`", target.id),
                 });
             }
+            let (window_candidates, element_candidates) = match target.scope.as_str() {
+                "window" => (target.candidates, Vec::new()),
+                "element" => (window_anchor.clone(), target.candidates),
+                other => {
+                    return Err(TargetCatalogError::Malformed {
+                        reason: format!(
+                            "target `{}` has unsupported scope `{other}` (expected `window` or `element`)",
+                            target.id
+                        ),
+                    });
+                }
+            };
             let descriptor = TargetDescriptor::new(
                 "2.0".to_owned(),
                 declared.app_id.clone(),
-                target.candidates.clone(),
-                target.candidates,
+                window_candidates,
+                element_candidates,
                 policy.clone(),
             );
             descriptors.insert(target.id, descriptor);
@@ -195,6 +220,7 @@ struct DeclaredTargetsFile {
 #[derive(Debug, Deserialize)]
 struct DeclaredTarget {
     id: String,
+    scope: String,
     candidates: Vec<SelectorCandidate>,
 }
 
@@ -235,4 +261,93 @@ fn build_resolution_policy(
     .map_err(|error| TargetCatalogError::Malformed {
         reason: error.to_string(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
+
+    use std::path::{Path, PathBuf};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::{EDITOR_TARGET, MAIN_WINDOW_TARGET, NotepadTargetCatalog, SAVE_AS_DIALOG_TARGET};
+
+    fn workspace_root() -> PathBuf {
+        let canonical = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("workspace root");
+        let text = canonical.to_string_lossy();
+        PathBuf::from(text.strip_prefix(r"\\?\").unwrap_or(&text))
+    }
+
+    #[test]
+    fn test_scope_routes_window_and_element_candidates() {
+        let path = workspace_root().join("adapters/com.microsoft.notepad/selectors/targets.json");
+        let catalog = NotepadTargetCatalog::load(&path).expect("adapter target catalog");
+        let window = catalog.descriptor(MAIN_WINDOW_TARGET).expect("main window");
+        assert!(
+            !window.window_candidates().is_empty(),
+            "window scope must keep window candidates"
+        );
+        assert!(
+            window.element_candidates().is_empty(),
+            "window scope must not expose selector chains as element candidates"
+        );
+        let editor = catalog.descriptor(EDITOR_TARGET).expect("editor");
+        assert!(
+            !editor.window_candidates().is_empty(),
+            "element scope needs a non-empty window anchor for descriptor validation"
+        );
+        assert!(
+            !editor.element_candidates().is_empty(),
+            "element scope must keep its declared element candidates"
+        );
+        let dialog = catalog
+            .descriptor(SAVE_AS_DIALOG_TARGET)
+            .expect("save as dialog");
+        assert!(
+            dialog.element_candidates().is_empty(),
+            "the save-as dialog is window-scoped"
+        );
+    }
+
+    #[test]
+    fn test_unknown_scope_is_rejected() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "notepad-targets-scope-{}-{unique}.json",
+            std::process::id()
+        ));
+        let body = r#"{
+  "schema_version": 1,
+  "app_id": "com.example.scope",
+  "policy": {
+    "on_ambiguous": "error_and_ask",
+    "on_not_found": "escalate_to_human",
+    "min_score_to_try": 0.1,
+    "max_resolve_ms": 3000
+  },
+  "targets": [
+    {"id": "main_window", "scope": "window", "candidates": [{"id": "w", "kind": "automation_id", "value": {"text": "W"}, "score": 1.0, "locale_dependent": false}]},
+    {"id": "editor", "scope": "element", "candidates": [{"id": "e", "kind": "automation_id", "value": {"text": "E"}, "score": 1.0, "locale_dependent": false}]},
+    {"id": "add_tab_button", "scope": "element", "candidates": [{"id": "a", "kind": "automation_id", "value": {"text": "A"}, "score": 1.0, "locale_dependent": false}]},
+    {"id": "save_as_dialog", "scope": "window", "candidates": [{"id": "d", "kind": "automation_id", "value": {"text": "D"}, "score": 1.0, "locale_dependent": false}]},
+    {"id": "save_as_filename", "scope": "element", "candidates": [{"id": "f", "kind": "automation_id", "value": {"text": "F"}, "score": 1.0, "locale_dependent": false}]},
+    {"id": "save_as_save_button", "scope": "element", "candidates": [{"id": "s", "kind": "automation_id", "value": {"text": "S"}, "score": 1.0, "locale_dependent": false}]},
+    {"id": "broken_scope", "scope": "hover", "candidates": [{"id": "x", "kind": "automation_id", "value": {"text": "X"}, "score": 1.0, "locale_dependent": false}]}
+  ]
+}"#;
+        std::fs::write(&path, body).expect("write temp targets");
+        let result = NotepadTargetCatalog::load(&path);
+        let _ = std::fs::remove_file(&path);
+        let error = result.expect_err("an unknown scope must be rejected");
+        assert!(
+            error.to_string().contains("unsupported scope"),
+            "unexpected scope error: {error}"
+        );
+    }
 }
