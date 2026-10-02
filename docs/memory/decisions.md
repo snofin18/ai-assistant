@@ -172,3 +172,7 @@
 ## 2026-10-02 追加（ADR-0062，Accepted）
 
 - [2026-10-02][DECISION][src:ADR-0062，人类「继续往下做吧」接受 TASK-218] **回滚物理快照与执行器接线 = binary 层捕获 + `crates/undo` 执行器 + 回滚后双复核**：`assistant.runtime.prepare_anchors` 在任何写步骤前真实捕获编辑区规范化文本与目标文件原始字节并记录 SHA-256（复用 `BlobId::of_content`），按 task_id 存进程内注册表；`RollbackAction::UndoStack` 映射到 Adapter 显式声明的 `Ctrl+Z`，`RestoreContentSnapshot` / `RestoreShadowCopy` 映射到目标文件字节恢复；回滚成功必须同时满足内存文本等于 pre-replace anchor 且磁盘 digest 等于捕获 digest。冲突、快照缺失、digest 不匹配、回滚期间用户改动一律 incident，L0 失败走 L1 时 evidence 标注 `used_fallback=true`。**不改 `crates/undo` / `task-engine` / `verify` 公共形状，不新增依赖**；TASK-218 已解锁。
+
+## 2026-10-02 追加（ADR-0063，Accepted）
+
+- [2026-10-02][DECISION][src:ADR-0063，人类要求「记入项目必须遵守的操作规则」] **资源生命周期纪律 = 长期状态有界 + 子进程回收 + 新卡附泄露证据**：任何随任务/请求/时间增长的集合必须有硬上限与淘汰/拒绝策略；淘汰要有单测，且聚合量（成本总计、计数）不得因淘汰历史而失真，被淘汰句柄再用必须显式失败（如 `TargetNotFound`）；子进程必须有 `Drop` 与失败路径的终止逻辑、覆盖整棵进程树（Windows `taskkill /T /F`）并 `wait()` reap；线程本地 COM/句柄/缓存表要有上限或显式清理入口；新增有状态组件或子进程的卡，DoD 必须附上限单测与真实运行的资源收敛证据。参考实现：TASK-220（UIA 元素表、anchor/授权表、PowerShell 进程树）、TASK-221（`CostLedger` 历史有界、`InMemorySecretStore` 条目上限）。**不改公共 trait / 协议 / schema。**
