@@ -115,6 +115,13 @@ agent**：父进程在 30 轮里持续 `spawn` cargo 并累积自身的 .NET/管
   不在 `assistant-agent-core` 本身的惰性初始化里。
   下一次会话需枚举具体句柄类型（进程 / 管道 / 控制台）并修复该路径；候选点在
   `apps/agent-core/tests/production_root_uia.rs` 的 `start_fixture` / `terminate_process_tree`。
+  - **修正（第二轮对照更精确）**：`fixture-only` 对照也**落平**（125→130 后 12 次零增长），
+    `assembly-only` 对照**恒为 125**。所以 +4 不在单独任一侧，而在**「真实执行路径」**
+    （`WindowsPlatform` 的 UIA `resolve_window` / `resolve_element` / `fingerprint` 调用），
+    或「fixture + 执行」的组合路径。下一轮目标：对执行路径的 UIA/COM 句柄做逐类型枚举并修复。
+    对照用例：`test_production_resource_convergence_control_no_fixture`（125 恒定）、
+    `test_production_resource_convergence_assembly_only`（125 恒定）、
+    `test_production_resource_convergence_fixture_only`（125→130 后落平）。
 - `KeyringSecretStore` 的 OS 句柄释放仍未测。
 
 ### 8. 新增长期记忆

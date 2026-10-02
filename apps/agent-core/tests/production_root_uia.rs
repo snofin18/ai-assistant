@@ -206,6 +206,82 @@ async fn test_production_resource_convergence_control_no_fixture()
     Ok(())
 }
 
+/// Teardown control: build and shut down a production host N times with **no fixture and no task
+/// execution**, and sample handles. Isolates whether the assembly/shutdown path itself leaks.
+#[cfg(windows)]
+#[tokio::test]
+#[ignore = "TASK-222: manual leak-audit control"]
+async fn test_production_resource_convergence_assembly_only()
+-> Result<(), Box<dyn std::error::Error>> {
+    const ITERATIONS: usize = 12;
+    let mut samples = vec![sample_process_resources(0).handles];
+    for _ in 0..ITERATIONS {
+        let directory = TestDirectory::new("production-assembly-only")?;
+        let ui_config = UiServerConfig::new(
+            "assistant-agent-core-assembly-only",
+            "ASSISTANT_AGENT_CORE_UI_TOKEN",
+            Duration::from_secs(1),
+        )
+        .with_allowed_peer("C:\\fixture\\peer.exe");
+        let config = ProductionConfig::new(
+            directory.path.join("data"),
+            fixture_adapter_root(),
+            workspace_root()
+                .join("adapters/com.microsoft.notepad/tasks/t1.1.open-read-full-text.json"),
+            ui_config,
+        )
+        .with_task_inputs(
+            serde_json::json!({
+                "file_size_bytes": 11,
+                "max_text_bytes": 1_048_576,
+                "input.keywords": ["alpha"],
+                "input.max_keyword_paragraphs": 50,
+            })
+            .as_object()
+            .cloned()
+            .expect("task input object"),
+        );
+        let host =
+            assemble_production_host(config, WindowsPlatform::new(), Arc::new(SystemClock)).await?;
+        host.shutdown().await?;
+        samples.push(sample_process_resources(0).handles);
+    }
+    println!("assembly-only handles: {samples:?}");
+    let first = samples.first().copied().unwrap_or(0);
+    let last = samples.last().copied().unwrap_or(0);
+    assert!(
+        last.saturating_sub(first)
+            <= u32::try_from(ITERATIONS * 2).expect("iteration budget fits in u32"),
+        "assembly/shutdown path leaks handles: {samples:?}"
+    );
+    Ok(())
+}
+
+/// Fixture-only control: start and terminate the PowerShell fixture N times with no host.
+#[cfg(windows)]
+#[tokio::test]
+#[ignore = "TASK-222: manual leak-audit control"]
+async fn test_production_resource_convergence_fixture_only()
+-> Result<(), Box<dyn std::error::Error>> {
+    const ITERATIONS: usize = 12;
+    let mut samples = vec![sample_process_resources(0).handles];
+    for _ in 0..ITERATIONS {
+        let directory = TestDirectory::new("production-fixture-only")?;
+        let fixture = start_fixture(&directory, None)?;
+        drop(fixture);
+        samples.push(sample_process_resources(0).handles);
+    }
+    println!("fixture-only handles: {samples:?}");
+    let first = samples.first().copied().unwrap_or(0);
+    let last = samples.last().copied().unwrap_or(0);
+    assert!(
+        last.saturating_sub(first)
+            <= u32::try_from(ITERATIONS * 2).expect("iteration budget fits in u32"),
+        "fixture start/terminate path leaks handles: {samples:?}"
+    );
+    Ok(())
+}
+
 fn wait_for_state_file(path: &Path, stderr_path: &Path) -> std::io::Result<()> {
     for _attempt in 0..300 {
         if let Ok(body) = std::fs::read_to_string(path)
