@@ -69,8 +69,9 @@
 | **0061** | `0061-runtime-task-dataflow-and-resumable-approval.md` | **Accepted** | 运行时任务包数据流：整值 `$name` 上下文、提交后发布 step outputs、闭集 `pure` operation、按 `(kind, operation)` 分派 host_service、封闭谓词 `when`、审批暂停/恢复；**不改 PlanStep/task-engine 形状、不引入任意表达式语言**（`DRIFT-216-4`；D8 已按现成 T1.1/T1.3 声明修订） |
 | **0062** | `0062-rollback-physical-snapshot-and-executor.md` | **Accepted** | 物理快照捕获 + `crates/undo` 回滚执行器接线：`prepare_anchors` 真实捕获编辑区文本与目标文件字节并记录 SHA-256；`UndoStack` → Adapter `Ctrl+Z`、`RestoreContentSnapshot`/`RestoreShadowCopy` → 文件字节恢复；回滚后同时复核内存文本与磁盘 digest；冲突/缺失证据一律 incident（TASK-218；不改 `crates/**` 公共形状） |
 | **0063** | `0063-resource-lifecycle-discipline.md` | **Accepted** | 资源生命周期纪律：长期状态必须有硬上限与淘汰/拒绝；子进程必须终止进程树并 reap（含失败路径）；线程本地资源要能释放；新卡必须附泄露证据；不改公共契约（TASK-220/221；2026-10-02 人类要求记入操作规则） |
+| **0064** | `0064-l1-file-channel-as-reserved-host-service.md` | **Accepted** | L1 文件通道以 binary 层保留 `host_service` 表达：`l1_file` 语义不变；新增 `assistant.runtime.host_read_utf8_prefix`，有界读取 UTF-8 前缀、显式 `truncated`、不改公共形状、不新增依赖（TASK-223；2026-10-03 自动化按授权接受） |
 
-**下一个可用编号：0064**（= §1 与 §2 已用最大号 **0063** + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0065**（= §1 与 §2 已用最大号 **0064** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由

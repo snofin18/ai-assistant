@@ -176,3 +176,7 @@
 ## 2026-10-02 追加（ADR-0063，Accepted）
 
 - [2026-10-02][DECISION][src:ADR-0063，人类要求「记入项目必须遵守的操作规则」] **资源生命周期纪律 = 长期状态有界 + 子进程回收 + 新卡附泄露证据**：任何随任务/请求/时间增长的集合必须有硬上限与淘汰/拒绝策略；淘汰要有单测，且聚合量（成本总计、计数）不得因淘汰历史而失真，被淘汰句柄再用必须显式失败（如 `TargetNotFound`）；子进程必须有 `Drop` 与失败路径的终止逻辑、覆盖整棵进程树（Windows `taskkill /T /F`）并 `wait()` reap；线程本地 COM/句柄/缓存表要有上限或显式清理入口；新增有状态组件或子进程的卡，DoD 必须附上限单测与真实运行的资源收敛证据。参考实现：TASK-220（UIA 元素表、anchor/授权表、PowerShell 进程树）、TASK-221（`CostLedger` 历史有界、`InMemorySecretStore` 条目上限）。**不改公共 trait / 协议 / schema。**
+
+## 2026-10-03 追加（ADR-0064，Accepted）
+
+- [2026-10-03][DECISION][src:ADR-0064，自动化按用户授权接受；TASK-223] **L1 文件通道以 binary 层保留 `host_service` 表达**：`l1_file` 仍是任务前置 / 文件通道标记，不属于运行时步骤种类；新增 `assistant.runtime.host_read_utf8_prefix`，只进 Planner 目录、不进模型可见 ToolBus；输入绝对路径与正整数 `max_text_bytes`，按 UTF-8 边界读取有界前缀，硬上限 16 MiB，输出 `text` / `truncated` / `bytes_read` / `bytes_total` / `fingerprint`；相对路径、`..`、非正预算 `ToolInvalidArgs`，缺失文件 `TargetNotFound`；不改 `PlanStep` / `Plan` / `Planner` / `task-engine` 公共形状，不新增依赖。该 ADR 不改变 ADR-0061 D8 的条件求值语义；完整大文件 Plan 执行仍需处理“条件为假的第一步尚无 fingerprint”问题。

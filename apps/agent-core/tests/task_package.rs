@@ -53,10 +53,14 @@ fn test_t1_1_plan_contains_read_step_and_pure_analysis_step() {
         .and_then(Value::as_array)
         .expect("plan has a steps array");
 
-    // T1.1's platform precondition and L1 file channel stay out of the Plan, but the
-    // `analyze` pure step is an executable step and must be present (TASK-219: the silent
-    // skip of `count_lines_and_keyword_paragraphs` was the defect).
-    assert_eq!(steps.len(), 2, "read_text + analyze enter the Plan");
+    // T1.1's platform precondition stays out of the Plan. The file channel is now a
+    // reserved host_service step, so the conditional large-file branch is represented in
+    // the Plan without changing `l1_file`'s non-runtime semantics (ADR-0064).
+    assert_eq!(
+        steps.len(),
+        3,
+        "read_text + file channel + analyze enter the Plan"
+    );
     assert_eq!(
         steps
             .first()
@@ -67,6 +71,13 @@ fn test_t1_1_plan_contains_read_step_and_pure_analysis_step() {
     assert_eq!(
         steps
             .get(1)
+            .and_then(|step| step.get("tool"))
+            .and_then(Value::as_str),
+        Some("assistant.runtime.host_read_utf8_prefix")
+    );
+    assert_eq!(
+        steps
+            .get(2)
             .and_then(|step| step.get("tool"))
             .and_then(Value::as_str),
         Some("assistant.runtime.pure_count_lines_and_keyword_paragraphs")
@@ -252,7 +263,7 @@ fn test_t1_2_package_renders_with_reserved_runtime_tools() {
     );
 }
 
-/// The four kinds owned elsewhere are **recorded**, not silently dropped.
+/// The remaining non-runtime kinds are **recorded**, not silently dropped.
 #[test]
 fn test_t1_1_plan_records_the_declared_not_executed_kinds() {
     let provider =
@@ -263,7 +274,7 @@ fn test_t1_1_plan_records_the_declared_not_executed_kinds() {
         .iter()
         .filter_map(|entry| entry.get("kind").and_then(Value::as_str))
         .collect();
-    assert_eq!(kinds, vec!["platform", "l1_file"]);
+    assert_eq!(kinds, vec!["platform"]);
 
     // The plan itself must stay a single-field object: the Planner rejects
     // anything else, so the not-executed kinds deliberately travel out of band.

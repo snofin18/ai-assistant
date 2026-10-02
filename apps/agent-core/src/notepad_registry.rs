@@ -16,11 +16,13 @@
 //! 3. a handler count mismatch fails before `ToolBus` startup.
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
-use std::path::Path;
+use std::fs::File;
+use std::io::Read;
+use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use assistant_platform_api::{UiAutomationProvider, WindowProvider};
-use assistant_protocol::ToolSchema;
+use assistant_protocol::{ErrorCode, ToolSchema};
 use assistant_tool_bus::{ToolBusError, ToolDefinition, ToolRegistry};
 use serde::Deserialize;
 use serde_json::Value;
@@ -29,7 +31,7 @@ use thiserror::Error;
 use crate::notepad_handlers::{NotepadHandlerContext, build_handler_map};
 use crate::notepad_rollback::{CapturedRollbackAnchor, NotepadRollback};
 use crate::notepad_targets::NotepadTargetCatalog;
-use crate::runtime_host_ops::ReservedHostOperations;
+use crate::runtime_host_ops::{ReservedHostOperationError, ReservedHostOperations};
 
 /// Tool name for reading the active document.
 pub(crate) const TOOL_READ_TEXT: &str = "notepad.file.read_text";
@@ -55,6 +57,15 @@ pub(crate) const EXPECTED_TOOL_NAMES: &[&str] = &[
 /// Each anchor holds the editor text plus the target file bytes. A long-running Host must not
 /// retain every task forever, so the oldest task is evicted once the cap is exceeded.
 pub(crate) const MAX_TASK_ANCHORS: usize = 64;
+
+/// Hard cap for the UTF-8 prefix reader.
+///
+/// A task package controls `max_text_bytes`, so the Host must not let an untrusted
+/// declaration turn one read into an unbounded allocation.
+pub(crate) const MAX_READ_UTF8_PREFIX_BYTES: u64 = 16 * 1024 * 1024;
+
+/// Largest number of bytes needed to trim an incomplete UTF-8 sequence at the buffer end.
+const UTF8_INCOMPLETE_SEQUENCE_BYTES: usize = 3;
 
 /// Failure while loading or registering the adapter tool declarations.
 #[derive(Debug, Error)]
@@ -297,6 +308,15 @@ where
             .map_err(|error| error.to_string())
     }
 
+    fn read_utf8_prefix(
+        &self,
+        target_path: Option<&str>,
+        max_text_bytes: u64,
+    ) -> Result<Value, ReservedHostOperationError> {
+        let target_path = target_path.or(self.task_target_path.as_deref());
+        read_utf8_prefix_data(target_path, max_text_bytes)
+    }
+
     fn capture_rollback_anchor(
         &self,
         task_id: &str,
@@ -379,6 +399,160 @@ where
     }
 }
 
+/// Reads a bounded prefix from one UTF-8 text file.
+///
+/// The helper deliberately keeps the buffer bounded by `max_text_bytes` and then trims at
+/// most three trailing bytes so a multi-byte code point is never split. The returned
+/// `bytes_read` is the number actually included after that trim; `bytes_total` is the file
+/// size observed before the read.
+fn read_utf8_prefix_data(
+    target_path: Option<&str>,
+    max_text_bytes: u64,
+) -> Result<Value, ReservedHostOperationError> {
+    validate_read_budget(max_text_bytes)?;
+    let path = validate_absolute_path(target_path.ok_or_else(|| {
+        invalid_host_arguments(
+            "target_path is required; pass an absolute file path in the task inputs",
+        )
+    })?)?;
+    let (mut file, bytes_total) = open_target_file(&path)?;
+    let read_limit = max_text_bytes.min(bytes_total);
+    let mut buffer = read_bounded_prefix(&mut file, read_limit, &path)?;
+    let (text, bytes_read) = decode_utf8_prefix(&mut buffer, bytes_total, read_limit)?;
+    let bytes_read = u64::try_from(bytes_read).map_err(|_| {
+        ReservedHostOperationError::new(
+            ErrorCode::Fatal,
+            "read prefix length does not fit u64".to_owned(),
+        )
+    })?;
+    Ok(serde_json::json!({
+        "text": text,
+        "truncated": bytes_total > bytes_read,
+        "bytes_read": bytes_read,
+        "bytes_total": bytes_total,
+    }))
+}
+
+/// Validates the caller's prefix budget before any file is opened.
+fn validate_read_budget(max_text_bytes: u64) -> Result<(), ReservedHostOperationError> {
+    if max_text_bytes == 0 {
+        return Err(invalid_host_arguments(
+            "max_text_bytes must be a positive integer",
+        ));
+    }
+    if max_text_bytes > MAX_READ_UTF8_PREFIX_BYTES {
+        return Err(invalid_host_arguments(&format!(
+            "max_text_bytes exceeds the hard cap of {MAX_READ_UTF8_PREFIX_BYTES} bytes"
+        )));
+    }
+    Ok(())
+}
+
+/// Opens one target file and returns its observed size.
+fn open_target_file(path: &Path) -> Result<(File, u64), ReservedHostOperationError> {
+    let file = File::open(path).map_err(|error| match error.kind() {
+        std::io::ErrorKind::NotFound => ReservedHostOperationError::new(
+            ErrorCode::TargetNotFound,
+            format!("target file `{}` does not exist", path.display()),
+        ),
+        std::io::ErrorKind::PermissionDenied => ReservedHostOperationError::new(
+            ErrorCode::PlatformPermission,
+            format!("target file `{}` cannot be read", path.display()),
+        ),
+        _ => ReservedHostOperationError::new(
+            ErrorCode::Fatal,
+            format!("target file `{}` cannot be opened: {error}", path.display()),
+        ),
+    })?;
+    let bytes_total = file
+        .metadata()
+        .map_err(|error| {
+            ReservedHostOperationError::new(
+                ErrorCode::Fatal,
+                format!(
+                    "target file `{}` metadata is unavailable: {error}",
+                    path.display()
+                ),
+            )
+        })?
+        .len();
+    Ok((file, bytes_total))
+}
+
+/// Reads at most `read_limit` bytes into a fresh buffer.
+fn read_bounded_prefix(
+    file: &mut File,
+    read_limit: u64,
+    path: &Path,
+) -> Result<Vec<u8>, ReservedHostOperationError> {
+    let mut buffer = Vec::new();
+    file.take(read_limit)
+        .read_to_end(&mut buffer)
+        .map_err(|error| {
+            ReservedHostOperationError::new(
+                ErrorCode::Fatal,
+                format!("target file `{}` cannot be read: {error}", path.display()),
+            )
+        })?;
+    Ok(buffer)
+}
+
+/// Decodes the buffer, trimming an incomplete trailing UTF-8 sequence exactly once.
+fn decode_utf8_prefix(
+    buffer: &mut Vec<u8>,
+    bytes_total: u64,
+    read_limit: u64,
+) -> Result<(String, usize), ReservedHostOperationError> {
+    match std::str::from_utf8(buffer) {
+        Ok(text) => Ok((text.to_owned(), buffer.len())),
+        Err(error) if error.error_len().is_none() && bytes_total > read_limit => {
+            let valid_up_to = error.valid_up_to();
+            let trimmed = buffer.len().saturating_sub(valid_up_to);
+            debug_assert!(trimmed <= UTF8_INCOMPLETE_SEQUENCE_BYTES);
+            buffer.truncate(valid_up_to);
+            let bytes_read = buffer.len();
+            std::str::from_utf8(buffer)
+                .map(str::to_owned)
+                .map(|text| (text, bytes_read))
+                .map_err(|_| {
+                    ReservedHostOperationError::new(
+                        ErrorCode::Fatal,
+                        "UTF-8 boundary trim produced invalid bytes".to_owned(),
+                    )
+                })
+        }
+        Err(error) => Err(ReservedHostOperationError::new(
+            ErrorCode::ToolInvalidArgs,
+            format!(
+                "target file prefix is not valid UTF-8 at byte {}",
+                error.valid_up_to()
+            ),
+        )),
+    }
+}
+
+/// Validates the absolute path and rejects parent-directory traversal components.
+fn validate_absolute_path(target_path: &str) -> Result<PathBuf, ReservedHostOperationError> {
+    let path = PathBuf::from(target_path);
+    if !path.is_absolute() {
+        return Err(invalid_host_arguments("target_path must be absolute"));
+    }
+    if path
+        .components()
+        .any(|component| matches!(component, Component::ParentDir))
+    {
+        return Err(invalid_host_arguments(
+            "target_path must not contain parent-directory traversal",
+        ));
+    }
+    Ok(path)
+}
+
+/// Creates a `ToolInvalidArgs` host-operation error.
+fn invalid_host_arguments(message: &str) -> ReservedHostOperationError {
+    ReservedHostOperationError::new(ErrorCode::ToolInvalidArgs, message.to_owned())
+}
+
 fn tool_definition(schema: &ToolSchema) -> Result<ToolDefinition, ToolBusError> {
     ToolDefinition::new(
         schema.name.clone(),
@@ -426,4 +600,116 @@ fn parse_tool_schema(mut value: Value) -> Result<ToolSchema, NotepadRegistryErro
     serde_json::from_value(value).map_err(|error| NotepadRegistryError::Malformed {
         reason: error.to_string(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used, clippy::print_stderr, clippy::unwrap_used)]
+
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use assistant_protocol::ErrorCode;
+    use serde_json::Value;
+
+    use super::read_utf8_prefix_data;
+
+    fn field<'value>(value: &'value Value, name: &str) -> &'value Value {
+        value.get(name).expect("tested field is present")
+    }
+
+    struct TempFile {
+        path: PathBuf,
+    }
+
+    impl TempFile {
+        fn new(label: &str, bytes: &[u8]) -> Self {
+            let nanos = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("clock after epoch")
+                .as_nanos();
+            let path = std::env::temp_dir().join(format!(
+                "assistant-notepad-registry-{label}-{}-{nanos}.txt",
+                std::process::id()
+            ));
+            std::fs::write(&path, bytes).expect("write temp file");
+            Self { path }
+        }
+    }
+
+    impl Drop for TempFile {
+        fn drop(&mut self) {
+            if let Err(error) = std::fs::remove_file(&self.path) {
+                eprintln!("failed to remove {}: {error}", self.path.display());
+            }
+        }
+    }
+
+    #[test]
+    fn test_read_utf8_prefix_returns_bounded_text() {
+        let file = TempFile::new("bounded", b"abcdef");
+        let value = read_utf8_prefix_data(Some(&file.path.to_string_lossy()), 3)
+            .expect("bounded read must succeed");
+        assert_eq!(field(&value, "text"), "abc");
+        assert_eq!(field(&value, "truncated"), true);
+        assert_eq!(field(&value, "bytes_read"), 3);
+        assert_eq!(field(&value, "bytes_total"), 6);
+    }
+
+    #[test]
+    fn test_read_utf8_prefix_trims_incomplete_multibyte_suffix() {
+        let file = TempFile::new("utf8-boundary", "ab€".as_bytes());
+        let value = read_utf8_prefix_data(Some(&file.path.to_string_lossy()), 4)
+            .expect("boundary read must succeed");
+        assert_eq!(field(&value, "text"), "ab");
+        assert_eq!(field(&value, "truncated"), true);
+        assert_eq!(field(&value, "bytes_read"), 2);
+        assert_eq!(field(&value, "bytes_total"), 5);
+    }
+
+    #[test]
+    fn test_read_utf8_prefix_handles_one_megabyte_file() {
+        const BUDGET: u64 = 1_048_576;
+        const FILE_BYTES: usize = 1_048_577;
+        let file = TempFile::new("one-megabyte", &vec![b'a'; FILE_BYTES]);
+        let value = read_utf8_prefix_data(Some(&file.path.to_string_lossy()), BUDGET)
+            .expect("one-megabyte prefix read must succeed");
+        assert_eq!(field(&value, "bytes_read"), BUDGET);
+        assert_eq!(
+            field(&value, "bytes_total"),
+            u64::try_from(FILE_BYTES).expect("fixture size fits u64")
+        );
+        assert_eq!(field(&value, "truncated"), true);
+    }
+
+    #[test]
+    fn test_read_utf8_prefix_missing_file_returns_target_not_found() {
+        let missing = std::env::temp_dir().join("assistant-missing-prefix-file.txt");
+        let error = read_utf8_prefix_data(Some(&missing.to_string_lossy()), 8)
+            .expect_err("missing file must fail");
+        assert_eq!(error.code(), ErrorCode::TargetNotFound);
+    }
+
+    #[test]
+    fn test_read_utf8_prefix_rejects_relative_and_parent_paths() {
+        let relative =
+            read_utf8_prefix_data(Some("relative.txt"), 8).expect_err("relative path must fail");
+        assert_eq!(relative.code(), ErrorCode::ToolInvalidArgs);
+
+        let parent = std::env::temp_dir()
+            .join("child")
+            .join("..")
+            .join("file.txt");
+        let traversal = read_utf8_prefix_data(Some(&parent.to_string_lossy()), 8)
+            .expect_err("parent traversal must fail");
+        assert_eq!(traversal.code(), ErrorCode::ToolInvalidArgs);
+    }
+
+    #[test]
+    fn test_read_utf8_prefix_rejects_non_positive_budget() {
+        let file = TempFile::new("zero-budget", b"abc");
+        let error = read_utf8_prefix_data(Some(&file.path.to_string_lossy()), 0)
+            .expect_err("zero budget must fail");
+        assert_eq!(error.code(), ErrorCode::ToolInvalidArgs);
+    }
 }

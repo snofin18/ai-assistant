@@ -1,8 +1,8 @@
 //! Reserved runtime tools for the coverage-set step kinds (ADR-0060).
 //!
 //! Responsibilities:
-//! - own the three reserved tool names that represent `hitl`, `host_service`
-//!   and `verify` steps;
+//! - own the reserved tool names that represent `hitl`, `host_service`,
+//!   `verify` and `pure` steps;
 //! - build their Planner-catalog schemas.
 //!
 //! Boundaries:
@@ -39,6 +39,8 @@ pub const TOOL_PURE_COUNT_LINES_AND_KEYWORD_PARAGRAPHS: &str =
 pub const TOOL_HOST_INSPECT_TARGET_PATH: &str = "assistant.runtime.host_inspect_target_path";
 /// Reserved host operation: set the editor value through the injected platform.
 pub const TOOL_HOST_SET_EDITOR_VALUE: &str = "assistant.runtime.host_set_editor_value";
+/// Reserved host operation: read a bounded UTF-8 prefix from a target file.
+pub const TOOL_HOST_READ_UTF8_PREFIX: &str = "assistant.runtime.host_read_utf8_prefix";
 
 /// The closed set of reserved runtime tool names.
 pub const RESERVED_RUNTIME_TOOLS: &[&str] = &[
@@ -51,6 +53,7 @@ pub const RESERVED_RUNTIME_TOOLS: &[&str] = &[
     TOOL_PURE_COUNT_LINES_AND_KEYWORD_PARAGRAPHS,
     TOOL_HOST_INSPECT_TARGET_PATH,
     TOOL_HOST_SET_EDITOR_VALUE,
+    TOOL_HOST_READ_UTF8_PREFIX,
 ];
 
 /// Maps a declared package step kind + operation onto its reserved tool.
@@ -62,6 +65,7 @@ pub fn tool_for_step(kind: &str, operation: Option<&str>) -> Option<&'static str
             Some("prepare_rollback_anchors") => Some(TOOL_PREPARE_ANCHORS),
             Some("inspect_target_path") => Some(TOOL_HOST_INSPECT_TARGET_PATH),
             Some("set_editor_value") => Some(TOOL_HOST_SET_EDITOR_VALUE),
+            Some("read_utf8_prefix") => Some(TOOL_HOST_READ_UTF8_PREFIX),
             _ => None,
         },
         "verify" => Some(TOOL_VERIFY_POSTCONDITIONS),
@@ -85,7 +89,7 @@ pub fn tool_for_step(kind: &str, operation: Option<&str>) -> Option<&'static str
 /// Returns the serde reason when a schema cannot be assembled; a reserved tool
 /// with a malformed schema must stop assembly rather than disappear.
 pub fn planner_schemas() -> Result<Vec<ToolSchema>, String> {
-    let declarations = reserved_tool_declarations();
+    let declarations = RESERVED_TOOL_DECLARATIONS;
     let mut schemas = Vec::with_capacity(declarations.len());
     for (name, description, risk_level, effect, reversibility, requires_approval) in declarations {
         let value: Value = json!({
@@ -117,7 +121,7 @@ type ToolDeclaration = (
     bool,
 );
 
-const fn reserved_tool_declarations() -> [ToolDeclaration; 9] {
+const RESERVED_TOOL_DECLARATIONS: [ToolDeclaration; 10] = {
     [
         (
             TOOL_REQUEST_APPROVAL,
@@ -195,8 +199,16 @@ const fn reserved_tool_declarations() -> [ToolDeclaration; 9] {
             "l0_undo_stack",
             false,
         ),
+        (
+            TOOL_HOST_READ_UTF8_PREFIX,
+            "Read a bounded UTF-8 prefix from a target file without modifying it.",
+            "low",
+            "read",
+            "l0_undo_stack",
+            false,
+        ),
     ]
-}
+};
 
 #[cfg(test)]
 mod tests {
@@ -215,6 +227,10 @@ mod tests {
         assert_eq!(
             tool_for_step("verify", Some("verify_postconditions")),
             Some("assistant.runtime.verify_postconditions")
+        );
+        assert_eq!(
+            tool_for_step("host_service", Some("read_utf8_prefix")),
+            Some("assistant.runtime.host_read_utf8_prefix")
         );
         assert_eq!(tool_for_step("tool", None), None);
         assert_eq!(tool_for_step("pure", None), None);

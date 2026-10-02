@@ -68,11 +68,11 @@
     },
     {
       "id": "read_file_channel",
-      "kind": "l1_file",
+      "kind": "host_service",
       "operation": "read_utf8_prefix",
       "when": "file_size_bytes > max_text_bytes",
       "args": {
-        "max_text_bytes": "$input.max_text_bytes"
+        "max_text_bytes": "$max_text_bytes"
       },
       "outputs": ["text", "truncated"]
     },
