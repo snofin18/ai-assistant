@@ -43,7 +43,7 @@ fn test_t1_1_package_renders_identical_plan_twice() {
 }
 
 #[test]
-fn test_t1_1_plan_only_contains_tool_steps() {
+fn test_t1_1_plan_contains_read_step_and_pure_analysis_step() {
     let provider =
         TaskPackageProvider::from_package_file_with_inputs(&t1_1_package_path(), &t1_1_inputs())
             .expect("render");
@@ -53,15 +53,23 @@ fn test_t1_1_plan_only_contains_tool_steps() {
         .and_then(Value::as_array)
         .expect("plan has a steps array");
 
-    // T1.1's platform precondition, L1 file channel, and non-consumed pure
-    // analysis step stay out of the Plan; only the read tool executes.
-    assert_eq!(steps.len(), 1, "only the read tool enters the Plan");
+    // T1.1's platform precondition and L1 file channel stay out of the Plan, but the
+    // `analyze` pure step is an executable step and must be present (TASK-219: the silent
+    // skip of `count_lines_and_keyword_paragraphs` was the defect).
+    assert_eq!(steps.len(), 2, "read_text + analyze enter the Plan");
     assert_eq!(
         steps
             .first()
             .and_then(|step| step.get("tool"))
             .and_then(Value::as_str),
         Some("notepad.file.read_text")
+    );
+    assert_eq!(
+        steps
+            .get(1)
+            .and_then(|step| step.get("tool"))
+            .and_then(Value::as_str),
+        Some("assistant.runtime.pure_count_lines_and_keyword_paragraphs")
     );
 }
 
@@ -131,6 +139,28 @@ fn test_package_without_tool_steps_is_rejected() {
 
     let error = TaskPackageProvider::from_package_json(&package).expect_err("must fail closed");
     assert!(matches!(error, TaskPackageError::NoToolSteps { .. }));
+}
+
+#[test]
+fn test_unknown_pure_operation_is_rejected_not_silently_skipped() {
+    // TASK-219: a `pure` step whose operation is not in the closed set must fail at
+    // construction, not disappear from the Plan (the previous silent-skip behavior).
+    let package = json!({
+        "task_id": "notepad.unknown-pure",
+        "steps": [{
+            "id": "analyze",
+            "kind": "pure",
+            "operation": "length_of_text",
+            "args": { "text": "hello" }
+        }]
+    });
+    let result = TaskPackageProvider::from_package_json(
+        &serde_json::to_string(&package).expect("serialize package"),
+    );
+    assert!(
+        matches!(result, Err(TaskPackageError::Malformed { .. })),
+        "an unknown pure operation must be rejected, got {result:?}"
+    );
 }
 
 #[test]
@@ -233,7 +263,7 @@ fn test_t1_1_plan_records_the_declared_not_executed_kinds() {
         .iter()
         .filter_map(|entry| entry.get("kind").and_then(Value::as_str))
         .collect();
-    assert_eq!(kinds, vec!["platform", "l1_file", "pure"]);
+    assert_eq!(kinds, vec!["platform", "l1_file"]);
 
     // The plan itself must stay a single-field object: the Planner rejects
     // anything else, so the not-executed kinds deliberately travel out of band.

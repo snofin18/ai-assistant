@@ -210,12 +210,13 @@ where
         if restore_file {
             Self::restore_captured_file(captured)?;
         }
-        let file_matches_snapshot = self.verify_after_rollback(captured, restore_file)?;
+        let (editor_matches_anchor, file_matches_snapshot) =
+            self.verify_after_rollback(captured, restore_file)?;
         Ok(json!({
             "status": description.status,
             "used_fallback": description.used_fallback,
             "final_fingerprint": description.final_fingerprint,
-            "editor_matches_anchor": true,
+            "editor_matches_anchor": editor_matches_anchor,
             "file_matches_snapshot": file_matches_snapshot,
             "evidence": description.evidence,
         }))
@@ -283,21 +284,15 @@ where
         &self,
         captured: &CapturedRollbackAnchor,
         restore_file: bool,
-    ) -> Result<bool, String> {
+    ) -> Result<(bool, bool), String> {
         let observed_editor = self.read_canonical_text()?;
-        if observed_editor != captured.canonical_text {
-            return Err(format!(
-                "rollback: editor text does not equal the anchor after rollback (expected {} chars, observed {} chars)",
-                captured.canonical_text.chars().count(),
-                observed_editor.chars().count()
-            ));
-        }
+        let editor_matches_anchor = observed_editor == captured.canonical_text;
         let Some((path, expected)) = captured
             .target_path
             .as_deref()
             .zip(captured.file_bytes.as_deref())
         else {
-            return Ok(true);
+            return Ok((editor_matches_anchor, true));
         };
         let observed_bytes = std::fs::read(path).map_err(|error| {
             format!(
@@ -312,7 +307,7 @@ where
                 path.display()
             ));
         }
-        Ok(matches)
+        Ok((editor_matches_anchor, matches))
     }
 
     fn read_canonical_text(&self) -> Result<String, String> {
