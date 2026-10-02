@@ -1,6 +1,6 @@
 //! Per-model cost aggregation for task and UI cost panels.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 
 use crate::error::ModelResult;
 use crate::identity::{CostMicroUsd, ModelId, TokenCount};
@@ -19,10 +19,16 @@ pub struct CostTotal {
     pub cost: CostMicroUsd,
 }
 
-/// Append-only cost aggregator for the current task, day, or month.
+/// Upper bound on retained per-call records.
+///
+/// Aggregate totals are exact and unaffected; only the per-call history is capped so a ledger
+/// held across a long-lived session cannot grow without bound.
+pub const MAX_LEDGER_RECORDS: usize = 10_000;
+
+/// Cost aggregator for the current task, day, or month.
 #[derive(Debug, Clone, Default)]
 pub struct CostLedger {
-    records: Vec<UsageRecord>,
+    records: VecDeque<UsageRecord>,
     totals_by_model: BTreeMap<ModelId, CostTotal>,
 }
 
@@ -56,14 +62,17 @@ impl CostLedger {
             cost: current.cost.checked_add(usage_record.cost)?,
         };
         self.totals_by_model.insert(model_id, next);
-        self.records.push(usage_record);
+        self.records.push_back(usage_record);
+        while self.records.len() > MAX_LEDGER_RECORDS {
+            self.records.pop_front();
+        }
         Ok(())
     }
 
     /// Returns the recorded calls.
     #[must_use]
-    pub fn records(&self) -> &[UsageRecord] {
-        &self.records
+    pub fn records(&self) -> Vec<UsageRecord> {
+        self.records.iter().cloned().collect()
     }
 
     /// Returns one model's aggregate, or `None` when no call has been recorded.

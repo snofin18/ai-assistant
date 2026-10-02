@@ -132,7 +132,7 @@ mod retry;
 mod router;
 
 pub use cancellation::CancellationToken;
-pub use cost::CostLedger;
+pub use cost::{CostLedger, MAX_LEDGER_RECORDS};
 pub use error::{ModelGatewayError, ModelResult};
 pub use execution::CollectedCompletion;
 pub use gateway::{GatewayCompletion, ModelGateway};
