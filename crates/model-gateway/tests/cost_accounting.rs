@@ -9,7 +9,9 @@
 
 mod common;
 
-use assistant_model_gateway::{CostLedger, CostMicroUsd, Pricing, TokenCount, Usage, UsageRecord};
+use assistant_model_gateway::{
+    CostLedger, CostMicroUsd, MAX_LEDGER_RECORDS, Pricing, TokenCount, Usage, UsageRecord,
+};
 
 use common::{model_id, pricing};
 
@@ -66,6 +68,33 @@ fn test_cost_ledger_aggregates_records_by_model() {
     let total = ledger.total().unwrap();
     assert_eq!(total.call_count, 2);
     assert_eq!(total.cost, first_cost.checked_add(second_cost).unwrap());
+}
+
+#[test]
+fn test_cost_ledger_bounds_retained_records_without_losing_totals() {
+    let model = model_id("bounded");
+    let usage = Usage::new(TokenCount::new(1), TokenCount::new(0), TokenCount::new(1));
+    let cost = pricing().compute_cost(&usage).unwrap();
+    let mut ledger = CostLedger::default();
+    let recorded = MAX_LEDGER_RECORDS + 5;
+    for _ in 0..recorded {
+        ledger
+            .record(UsageRecord {
+                model_id: model.clone(),
+                usage,
+                cost,
+                latency: assistant_model_gateway::DurationMs::new(1),
+                cache_hit: false,
+            })
+            .unwrap();
+    }
+    assert_eq!(ledger.records().len(), MAX_LEDGER_RECORDS);
+    let total = ledger.total().unwrap();
+    assert_eq!(
+        total.call_count,
+        u64::try_from(recorded).expect("recorded fits"),
+        "the aggregate must still count every call even when history is capped"
+    );
 }
 
 #[test]

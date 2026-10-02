@@ -19,6 +19,13 @@ use zeroize::Zeroizing;
 use crate::error::{SecretError, SecretResult};
 use crate::{SecretName, SecretStore, SecretValue};
 
+/// Upper bound on entries held by the in-memory store.
+///
+/// This store is for tests/development, but an unbounded map is still a foot-gun: a long-running
+/// dev session that keeps adding uniquely named secrets would grow without bound. Writing a new
+/// name past the cap fails closed instead of silently dropping or growing forever.
+pub const MAX_IN_MEMORY_SECRETS: usize = 1024;
+
 /// 进程内 fake 后端。
 ///
 /// **不得用于生产**：它不做任何平台保护，任何能读到本进程内存的东西都能读到密钥。
@@ -91,10 +98,24 @@ impl SecretStore for InMemorySecretStore {
     }
 
     fn set(&self, name: &SecretName, value: &SecretValue) -> SecretResult<()> {
-        self.lock()?.insert(
-            name.as_str().to_string(),
-            Zeroizing::new(value.expose().to_string()),
-        );
+        // The guard must span both the cap check and the insert so the limit cannot be raced.
+        // `significant_drop_tightening` cannot express that cross-statement requirement.
+        {
+            #[allow(clippy::significant_drop_tightening)]
+            let mut entries = self.lock()?;
+            if !entries.contains_key(name.as_str()) && entries.len() >= MAX_IN_MEMORY_SECRETS {
+                return Err(SecretError::BackendFailure {
+                    detail: format!(
+                        "内存密钥库已达上限 {MAX_IN_MEMORY_SECRETS} 条，拒绝新增 `{}`",
+                        name.as_str()
+                    ),
+                });
+            }
+            entries.insert(
+                name.as_str().to_string(),
+                Zeroizing::new(value.expose().to_string()),
+            );
+        }
         Ok(())
     }
 

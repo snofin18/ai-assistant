@@ -93,7 +93,7 @@ pub use access_audit::{
 pub use audited::AuditedSecretStore;
 pub use error::{SecretError, SecretResult};
 pub use keyring_store::{KeyringSecretStore, MAX_SERVICE_NAME_LEN};
-pub use memory::InMemorySecretStore;
+pub use memory::{InMemorySecretStore, MAX_IN_MEMORY_SECRETS};
 pub use secret_name::{MAX_SECRET_NAME_LEN, SecretName};
 pub use secret_value::{MAX_SECRET_VALUE_LEN, SecretValue};
 pub use store::SecretStore;
