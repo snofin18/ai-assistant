@@ -141,6 +141,7 @@ production_root / 新增三项专项 / hygiene
 - `cargo test -p assistant-agent-core --test production_root_uia
   test_fixture_process_tree_termination_reaps_direct_child`：1 passed。
 - `cargo run -p xtask -- hygiene`：0E / 102W，PASSED（warning 数与本轮前 LEDGER 基线一致）。
+- PR #188：CI run `37076339997` = 11/11 SUCCESS，merge `8fa8a7b`。
 
 未运行 `production_root_uia -- --ignored`：该命令会启动 `notepad-like` 并操作真实 GUI，
 与自动化章程 §3.7 冲突。
