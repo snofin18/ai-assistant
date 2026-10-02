@@ -248,27 +248,31 @@ fn required_anchor_levels_include_l1(task_inputs: &serde_json::Map<String, Value
 struct NotepadReservedHostOperations<P> {
     context: Arc<NotepadHandlerContext<P>>,
     rollback: NotepadRollback<P>,
-    anchors: Mutex<TaskAnchorRegistry>,
+    anchors: Mutex<TaskAnchorRegistry<CapturedRollbackAnchor>>,
     task_target_path: Option<String>,
     task_requires_l1: bool,
 }
 
 /// Per-task rollback anchors plus the insertion order used to evict the oldest task.
-#[derive(Default)]
-struct TaskAnchorRegistry {
-    anchors: BTreeMap<String, CapturedRollbackAnchor>,
+struct TaskAnchorRegistry<T> {
+    anchors: BTreeMap<String, T>,
     order: VecDeque<String>,
 }
 
-impl TaskAnchorRegistry {
+impl<T> Default for TaskAnchorRegistry<T> {
+    fn default() -> Self {
+        Self {
+            anchors: BTreeMap::new(),
+            order: VecDeque::new(),
+        }
+    }
+}
+
+impl<T> TaskAnchorRegistry<T> {
     /// Inserts or replaces a task anchor and enforces the hard cap.
     ///
     /// The returned anchor is the evicted oldest one, which the caller drops **outside** the lock.
-    fn insert(
-        &mut self,
-        task_id: String,
-        anchor: CapturedRollbackAnchor,
-    ) -> Option<CapturedRollbackAnchor> {
+    fn insert(&mut self, task_id: String, anchor: T) -> Option<T> {
         if self.anchors.insert(task_id.clone(), anchor).is_none() {
             self.order.push_back(task_id);
         }
@@ -282,7 +286,7 @@ impl TaskAnchorRegistry {
         evicted
     }
 
-    fn get(&self, task_id: &str) -> Option<&CapturedRollbackAnchor> {
+    fn get(&self, task_id: &str) -> Option<&T> {
         self.anchors.get(task_id)
     }
 
@@ -612,7 +616,7 @@ mod tests {
     use assistant_protocol::ErrorCode;
     use serde_json::Value;
 
-    use super::read_utf8_prefix_data;
+    use super::{MAX_TASK_ANCHORS, TaskAnchorRegistry, read_utf8_prefix_data};
 
     fn field<'value>(value: &'value Value, name: &str) -> &'value Value {
         value.get(name).expect("tested field is present")
@@ -711,5 +715,23 @@ mod tests {
         let error = read_utf8_prefix_data(Some(&file.path.to_string_lossy()), 0)
             .expect_err("zero budget must fail");
         assert_eq!(error.code(), ErrorCode::ToolInvalidArgs);
+    }
+
+    #[test]
+    fn test_task_anchor_registry_evicts_oldest_at_capacity() {
+        let mut registry: TaskAnchorRegistry<u64> = TaskAnchorRegistry::default();
+        let first = registry.insert("task-0000".to_owned(), 1);
+        assert_eq!(first, None);
+        for index in 1..MAX_TASK_ANCHORS {
+            let evicted = registry.insert(format!("task-{index:04}"), index as u64 + 1);
+            assert_eq!(
+                evicted, None,
+                "the cap is not exceeded until the next insert"
+            );
+        }
+        let evicted = registry.insert("task-over-cap".to_owned(), 999);
+        assert_eq!(evicted, Some(1), "the oldest anchor must be evicted");
+        assert!(registry.get("task-0000").is_none());
+        assert_eq!(registry.get("task-over-cap"), Some(&999));
     }
 }

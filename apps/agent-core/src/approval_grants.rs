@@ -209,7 +209,7 @@ fn prune_expired_locked(grants: &mut BTreeMap<(String, String), Grant>, now_ms: 
 mod tests {
     use assistant_hitl::ApprovalScope;
 
-    use super::{ApprovalGrants, GrantError, GrantRequest};
+    use super::{ApprovalGrants, GrantError, GrantRequest, MAX_APPROVAL_GRANTS};
 
     #[test]
     fn test_a_grant_is_used_exactly_as_many_times_as_granted() {
@@ -353,6 +353,37 @@ mod tests {
                 Ok(Some(ApprovalScope::Once))
             ),
             "other tasks must be unaffected by the cleanup"
+        );
+    }
+
+    #[test]
+    fn test_approval_grant_table_evicts_oldest_at_capacity() {
+        let grants = ApprovalGrants::new();
+        for index in 0..=MAX_APPROVAL_GRANTS {
+            let task_id = format!("task-{index:04}");
+            assert!(
+                grants
+                    .grant(&GrantRequest {
+                        task_id: &task_id,
+                        step_id: "step",
+                        scope: ApprovalScope::Once,
+                        now_ms: 0,
+                        ttl_ms: 60_000,
+                        uses: 1,
+                    })
+                    .is_ok()
+            );
+        }
+        assert!(
+            matches!(grants.consume("task-0000", "step", 1), Ok(None)),
+            "the oldest grant must be evicted once the cap is exceeded"
+        );
+        assert!(
+            matches!(
+                grants.consume(&format!("task-{MAX_APPROVAL_GRANTS:04}"), "step", 1),
+                Ok(Some(ApprovalScope::Once))
+            ),
+            "the newest grant must remain usable"
         );
     }
 }

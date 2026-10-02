@@ -58,6 +58,32 @@ fn terminate_process_tree(child: &mut Child) {
     let _ = child.wait();
 }
 
+#[cfg(windows)]
+#[test]
+fn test_fixture_process_tree_termination_reaps_direct_child() {
+    let mut child = Command::new("cmd")
+        .args(["/C", "ping -n 30 127.0.0.1 > NUL"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn a harmless child process");
+    let pid = child.id();
+    terminate_process_tree(&mut child);
+    assert!(
+        child.try_wait().expect("query child status").is_some(),
+        "the direct child must be reaped after tree termination"
+    );
+    let tasklist = Command::new("tasklist")
+        .args(["/FI", &format!("PID eq {pid}")])
+        .output()
+        .expect("query tasklist after termination");
+    let rendered = String::from_utf8_lossy(&tasklist.stdout);
+    assert!(
+        !rendered.contains(&pid.to_string()),
+        "the terminated child pid must not remain in tasklist: {rendered}"
+    );
+}
+
 struct TestDirectory {
     path: PathBuf,
 }

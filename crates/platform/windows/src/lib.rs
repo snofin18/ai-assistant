@@ -85,6 +85,8 @@ pub mod input;
 mod unsupported;
 
 #[cfg(windows)]
+pub use handles::clear_thread_elements;
+#[cfg(windows)]
 pub use window::WindowsPlatform;
 
 #[cfg(not(windows))]

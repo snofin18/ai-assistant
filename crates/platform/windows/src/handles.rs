@@ -2,7 +2,8 @@
 //!
 //! 职责：在「不透明句柄」（`ResolvedWindow` / `ResolvedElement`，由 `assistant-platform-api`
 //! 定义）与真实的 `HWND` / `IUIAutomationElement` 之间搭桥。
-//! 边界：**不做**淘汰 / TTL / 复用（租约与缓存是 TASK-025）、**不做**跨线程搬运。
+//! 边界：**只做**容量驱动的 FIFO 淘汰，**不做** TTL / 复用（租约与缓存是 TASK-025）、
+//! **不做**跨线程搬运。
 //!
 //! ## 两种句柄的存法（刻意不同）
 //! - **窗口**：`HWND` 的值**就是**句柄值，无表、无查找。HWND 是内核对象句柄，
@@ -103,7 +104,6 @@ impl<T> ElementTable<T> {
     }
 
     /// Drops every registered element on this thread.
-    #[cfg(test)]
     fn clear(&mut self) {
         self.elements.clear();
         self.order.clear();
@@ -145,6 +145,15 @@ pub fn hwnd_from_window_handle(id: LocalHandleId) -> PlatformResult<HWND> {
 pub fn register_element(element: IUIAutomationElement) -> LocalHandleId {
     let handle = ELEMENTS.with(|cell| cell.borrow_mut().insert(element));
     LocalHandleId::new(handle)
+}
+
+/// Drops every element handle cached by the calling thread.
+///
+/// Long-running Host threads can call this at a task boundary to release every cached COM
+/// reference immediately instead of waiting for the FIFO cap or thread exit. Other threads are
+/// untouched because each thread owns its own UIA element table.
+pub fn clear_thread_elements() {
+    ELEMENTS.with(|cell| cell.borrow_mut().clear());
 }
 
 /// 组装一个 `ResolvedElement`（`parent` = 最近的祖先窗口句柄，供 TASK-025 自愈时校验层级）。
