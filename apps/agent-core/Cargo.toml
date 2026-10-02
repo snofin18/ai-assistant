@@ -82,5 +82,13 @@ version = "0.1.0"
 path = "../../crates/undo"
 version = "0.1.0"
 
+[target.'cfg(windows)'.dev-dependencies.windows]
+# Leak-audit measurement (ADR-0063): the ignored convergence test samples its
+# own working set and handle count. `windows` is already an approved dependency
+# (`docs/DEPENDENCIES.md`); this only enables the ProcessStatus feature for the
+# test target.
+version = "=0.62.2"
+features = ["Win32_Foundation", "Win32_System_ProcessStatus", "Win32_System_Threading"]
+
 [lints]
 workspace = true

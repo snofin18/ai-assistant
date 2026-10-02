@@ -9,8 +9,13 @@
     clippy::expect_used,
     clippy::panic,
     clippy::too_many_lines,
+    clippy::print_stderr,
+    clippy::print_stdout,
     clippy::unwrap_used
 )]
+// The leak-audit convergence test needs Win32 process-memory queries; every unsafe call is
+// wrapped at the call site with a SAFETY note. Test-only, no product code takes this path.
+#![allow(unsafe_code)]
 
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -93,6 +98,114 @@ fn fixture_adapter_root() -> PathBuf {
     workspace_root().join("adapters/com.example.notepad-like")
 }
 
+/// Leak-audit: run real UIA tasks repeatedly in **this** process and sample its own resources.
+///
+/// Unlike the external harness, this measures the agent test process itself, so the working-set
+/// trend is attributable to the code under test. Run with:
+/// `cargo test -p assistant-agent-core --test production_root_uia test_production_resource_convergence -- --ignored --nocapture`
+#[cfg(windows)]
+#[tokio::test]
+#[ignore = "TASK-222: requires an interactive Windows desktop and starts notepad-like"]
+async fn test_production_resource_convergence_over_real_uia()
+-> Result<(), Box<dyn std::error::Error>> {
+    const ITERATIONS: usize = 6;
+    const MAX_WORKING_SET_GROWTH_BYTES: usize = 32 * 1024 * 1024;
+    let mut samples = vec![sample_process_resources(0)];
+    for iteration in 1..=ITERATIONS {
+        let directory = TestDirectory::new("production-convergence")?;
+        let _fixture = start_fixture(&directory, None)?;
+        let ui_config = UiServerConfig::new(
+            "assistant-agent-core-production-convergence",
+            "ASSISTANT_AGENT_CORE_UI_TOKEN",
+            Duration::from_secs(2),
+        )
+        .with_allowed_peer("C:\\fixture\\peer.exe");
+        let task_inputs = serde_json::json!({
+            "file_size_bytes": 11,
+            "max_text_bytes": 1_048_576,
+            "input.keywords": ["alpha"],
+            "input.max_keyword_paragraphs": 50,
+        })
+        .as_object()
+        .cloned()
+        .expect("task input object");
+        let config = ProductionConfig::new(
+            directory.path.join("data"),
+            fixture_adapter_root(),
+            workspace_root()
+                .join("adapters/com.microsoft.notepad/tasks/t1.1.open-read-full-text.json"),
+            ui_config,
+        )
+        .with_task_inputs(task_inputs);
+        let host =
+            assemble_production_host(config, WindowsPlatform::new(), Arc::new(SystemClock)).await?;
+        let run = host
+            .execute_plan(host.plan_task()?, SystemClock.now_unix_ms())
+            .await?;
+        assert_eq!(run.final_snapshot.status, TaskStatus::Completed);
+        host.shutdown().await?;
+        samples.push(sample_process_resources(iteration));
+        drop(directory);
+    }
+    println!(
+        "resource samples: {}",
+        samples
+            .iter()
+            .map(|sample| format!(
+                "#{} ws={}MB handles={}",
+                sample.iteration,
+                sample.working_set_bytes / (1024 * 1024),
+                sample.handles
+            ))
+            .collect::<Vec<_>>()
+            .join(" | ")
+    );
+    let half = samples.len() / 2;
+    let first_half_last = samples
+        .iter()
+        .take(half)
+        .next_back()
+        .map_or(0, |sample| sample.working_set_bytes);
+    let last = samples.last().map_or(0, |sample| sample.working_set_bytes);
+    let growth = last.saturating_sub(first_half_last);
+    assert!(
+        growth <= MAX_WORKING_SET_GROWTH_BYTES,
+        "in-process working set kept growing across real UIA runs: second half +{growth} bytes \
+         (samples: {:?})",
+        samples
+            .iter()
+            .map(|sample| sample.working_set_bytes)
+            .collect::<Vec<_>>()
+    );
+    Ok(())
+}
+
+/// Control for the convergence test: sample the process **without** spawning any fixture.
+///
+/// If handle growth only appears with a fixture, the leak is in fixture/child-process handling;
+/// if it appears here too, it is in the process's own lazy initialization.
+#[cfg(windows)]
+#[tokio::test]
+#[ignore = "TASK-222: manual leak-audit control"]
+async fn test_production_resource_convergence_control_no_fixture()
+-> Result<(), Box<dyn std::error::Error>> {
+    const ITERATIONS: usize = 20;
+    let mut samples = vec![sample_process_resources(0)];
+    for iteration in 1..=ITERATIONS {
+        tokio::task::yield_now().await;
+        samples.push(sample_process_resources(iteration));
+    }
+    println!(
+        "control samples: {}",
+        samples
+            .iter()
+            .map(|sample| format!("#{} handles={}", sample.iteration, sample.handles))
+            .collect::<Vec<_>>()
+            .join(" | ")
+    );
+    Ok(())
+}
+
 fn wait_for_state_file(path: &Path, stderr_path: &Path) -> std::io::Result<()> {
     for _attempt in 0..300 {
         if let Ok(body) = std::fs::read_to_string(path)
@@ -140,6 +253,44 @@ fn start_fixture(
         return Err(error.into());
     }
     Ok(fixture)
+}
+
+/// One in-process resource sample for the leak-audit convergence test (ADR-0063).
+#[cfg(windows)]
+struct ProcessResourceSample {
+    iteration: usize,
+    working_set_bytes: usize,
+    handles: u32,
+}
+
+/// Samples the calling process's working set and handle count.
+#[cfg(windows)]
+fn sample_process_resources(iteration: usize) -> ProcessResourceSample {
+    use windows::Win32::System::ProcessStatus::{GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
+    use windows::Win32::System::Threading::{GetCurrentProcess, GetProcessHandleCount};
+
+    // SAFETY: `GetCurrentProcess` returns a pseudo-handle for the calling process; no ownership
+    // is transferred and the handle must not be closed by the caller.
+    let process = unsafe { GetCurrentProcess() };
+    let mut counters = PROCESS_MEMORY_COUNTERS::default();
+    let size = u32::try_from(std::mem::size_of::<PROCESS_MEMORY_COUNTERS>())
+        .expect("counter struct fits in u32");
+    // SAFETY: `counters` is a stack value of the size passed in; the API only writes within it.
+    let counters_ptr: *mut PROCESS_MEMORY_COUNTERS = &raw mut counters;
+    let memory_ok = unsafe { GetProcessMemoryInfo(process, counters_ptr, size) }.is_ok();
+    let mut handles = 0_u32;
+    // SAFETY: `handles` is a valid `u32` out-parameter for the pseudo-handle of this process.
+    let handles_ptr: *mut u32 = &raw mut handles;
+    let handles_ok = unsafe { GetProcessHandleCount(process, handles_ptr) }.is_ok();
+    ProcessResourceSample {
+        iteration,
+        working_set_bytes: if memory_ok {
+            counters.WorkingSetSize
+        } else {
+            0
+        },
+        handles: if handles_ok { handles } else { 0 },
+    }
 }
 
 #[tokio::test]
