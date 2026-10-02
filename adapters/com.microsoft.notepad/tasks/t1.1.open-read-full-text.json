@@ -81,10 +81,17 @@
       "kind": "pure",
       "operation": "count_lines_and_keyword_paragraphs",
       "args": {
+        "text": "$text",
         "canonical_form": "LF",
         "keywords": "$input.keywords",
         "max_keyword_paragraphs": "$input.max_keyword_paragraphs"
-      }
+      },
+      "outputs": [
+        "line_count_total",
+        "line_count_analyzed",
+        "keyword_paragraphs",
+        "paragraphs_truncated"
+      ]
     }
   ],
   "preconditions": [

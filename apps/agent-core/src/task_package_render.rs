@@ -64,12 +64,6 @@ fn render_step(
     declared_not_executed: &mut Vec<Value>,
 ) -> Result<Option<Value>, TaskPackageError> {
     let condition = parse_step_condition(package, step)?;
-    if step.kind == "pure"
-        && step.operation.as_deref() == Some("count_lines_and_keyword_paragraphs")
-    {
-        declared_not_executed.push(json!({ "id": step.id, "kind": step.kind }));
-        return Ok(None);
-    }
     if !matches!(
         step.kind.as_str(),
         "tool" | "hitl" | "host_service" | "verify" | "pure"

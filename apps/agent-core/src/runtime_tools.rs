@@ -32,6 +32,9 @@ pub const TOOL_PURE_COMPUTE_LITERAL_REPLACEMENT: &str =
 pub const TOOL_PURE_BUILD_TEXT_DIFF: &str = "assistant.runtime.pure_build_text_diff";
 /// Reserved pure operation: validate and normalize T1.3 inputs.
 pub const TOOL_PURE_VALIDATE_T1_3_INPUTS: &str = "assistant.runtime.pure_validate_t1_3_inputs";
+/// Reserved pure operation: count lines and keyword paragraphs in canonical text.
+pub const TOOL_PURE_COUNT_LINES_AND_KEYWORD_PARAGRAPHS: &str =
+    "assistant.runtime.pure_count_lines_and_keyword_paragraphs";
 /// Reserved host operation: inspect a target path without modifying it.
 pub const TOOL_HOST_INSPECT_TARGET_PATH: &str = "assistant.runtime.host_inspect_target_path";
 /// Reserved host operation: set the editor value through the injected platform.
@@ -45,6 +48,7 @@ pub const RESERVED_RUNTIME_TOOLS: &[&str] = &[
     TOOL_PURE_COMPUTE_LITERAL_REPLACEMENT,
     TOOL_PURE_BUILD_TEXT_DIFF,
     TOOL_PURE_VALIDATE_T1_3_INPUTS,
+    TOOL_PURE_COUNT_LINES_AND_KEYWORD_PARAGRAPHS,
     TOOL_HOST_INSPECT_TARGET_PATH,
     TOOL_HOST_SET_EDITOR_VALUE,
 ];
@@ -65,6 +69,9 @@ pub fn tool_for_step(kind: &str, operation: Option<&str>) -> Option<&'static str
             Some("compute_literal_replacement") => Some(TOOL_PURE_COMPUTE_LITERAL_REPLACEMENT),
             Some("build_text_diff") => Some(TOOL_PURE_BUILD_TEXT_DIFF),
             Some("validate_t1_3_inputs") => Some(TOOL_PURE_VALIDATE_T1_3_INPUTS),
+            Some("count_lines_and_keyword_paragraphs") => {
+                Some(TOOL_PURE_COUNT_LINES_AND_KEYWORD_PARAGRAPHS)
+            }
             _ => None,
         },
         _ => None,
@@ -110,7 +117,7 @@ type ToolDeclaration = (
     bool,
 );
 
-const fn reserved_tool_declarations() -> [ToolDeclaration; 8] {
+const fn reserved_tool_declarations() -> [ToolDeclaration; 9] {
     [
         (
             TOOL_REQUEST_APPROVAL,
@@ -159,6 +166,14 @@ const fn reserved_tool_declarations() -> [ToolDeclaration; 8] {
         (
             TOOL_PURE_VALIDATE_T1_3_INPUTS,
             "Validate and normalize T1.3 input values.",
+            "low",
+            "read",
+            "l0_undo_stack",
+            false,
+        ),
+        (
+            TOOL_PURE_COUNT_LINES_AND_KEYWORD_PARAGRAPHS,
+            "Count lines and keyword paragraphs in canonical text.",
             "low",
             "read",
             "l0_undo_stack",

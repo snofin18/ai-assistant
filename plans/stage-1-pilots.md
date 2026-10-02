@@ -134,7 +134,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-216 | 运行时补齐：任务输入绑定 + `hitl`/rollback/verify 步骤 + `tab.new` 观测（**DRIFT-105-3 的落地卡**） | `apps/agent-core/src/**`、`apps/agent-core/tests/**`、`docs/adr/0059-*` 与本卡状态同步文件 | 214、215、**DRIFT-105-3**；**B 片前置 = ADR-0059 Accepted** | L | A 片：任务包能被渲染成合法 Plan（无 `$input.` 残留）+ fail-closed 负向用例；B 片：按 ADR-0059 执行或移出 `hitl`/rollback/verify，并让 `tab.new` 读到 `TabCountText` |
 | **TASK-217 ✅** | 运行时任务数据流：前序步骤输出、白名单 `pure`/host operation、布尔 `when` 与可恢复审批（**DRIFT-216-4 的落地卡**） | `apps/agent-core/src/**`、`apps/agent-core/tests/**`、`docs/adr/0061-*`、`docs/spec/runtime-execution.md` 与本卡状态同步文件 | TASK-216、**DRIFT-216-4**；**前置 = ADR-0061 Accepted** | L | T1.2/T1.3 任务包通过数据流校验并在 fake platform 执行到 `Completed`；无授权可暂停、批准后从同一快照恢复；无表达式语言、无公共形状变更 |
 | **TASK-218 ✅** | Notepad L0/L1 物理快照创建与回滚执行验收（**TASK-105 撤销链的落地卡**） | `apps/agent-core/src/**`、`apps/agent-core/tests/**`、`fixtures/apps/notepad-like/**`、`eval/tasks/notepad/**`、`docs/audits/**`、`docs/adr/0062-*` 与本卡状态同步文件 | TASK-105、TASK-024、TASK-103；**前置 = ADR-0062 Accepted** | L | 真实创建 L0 fallback digest 与 L1 disk snapshot；T1.2 三条 undo 路径真实取证；缺失/不匹配/用户改动三类 incident；阶段 1a 仍 NO-GO |
-| TASK-219 | 运行时 pure 步骤与回滚观察字段的真实性修复（**第三轮审计剩余缺陷**） | `apps/agent-core/src/**`、`apps/agent-core/tests/**`、`adapters/com.microsoft.notepad/tasks/t1.1*` | TASK-218、TASK-105 | M | count_lines_and_keyword_paragraphs 真实执行；静默 skip 改 fail-closed；`editor_matches_anchor` 反映真实比较；阶段 1a 仍 NO-GO |
+| **TASK-219 ✅** | 运行时 pure 步骤与回滚观察字段的真实性修复（**第三轮审计剩余缺陷**） | `apps/agent-core/src/**`、`apps/agent-core/tests/**`、`adapters/com.microsoft.notepad/tasks/t1.1*` | TASK-218、TASK-105 | M | count_lines_and_keyword_paragraphs 真实执行；静默 skip 改 fail-closed；`editor_matches_anchor` 反映真实比较；阶段 1a 仍 NO-GO |
 | TASK-221 | 第二轮泄露审计：cost / secrets / audit / tool-bus / model-gateway / UI | `crates/model-gateway/**`、`crates/secrets/**`、`crates/audit/**`、`crates/tool-bus/**`、`apps/desktop-ui/src/**` | TASK-220 | M | 复查无界增长与未释放句柄；`CostLedger.records` 与 `InMemorySecretStore` 加上限；阶段 1a 仍 NO-GO |
 | TASK-222 | 第三轮泄露审计：真机长跑收敛测量（**ADR-0063 首个执行实例**） | `eval/tasks/notepad/**`、`docs/audits/leak-audit-round-3-*.json` | TASK-220、TASK-221、ADR-0063 | M | 30 次真实 UIA 采样进程数/句柄/工作集；进程数收敛；agent 进程内测量留待下一轮；阶段 1a 仍 NO-GO |
 
@@ -249,7 +249,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-216 ✅** | A5-REMEDIATION | `tasks/TASK-216-runtime-completion-input-binding-and-step-kinds.md` | Done（A/B 片由 TASK-217 落地并收口；`DRIFT-216-4` 闭环） |
 | **TASK-217 ✅** | A5-REMEDIATION | `tasks/TASK-217-runtime-task-dataflow-resumable-approval.md` | Done（T1.2/T1.3 fake platform Completed；UI approve/resume；DRIFT-216-4 闭环） |
 | **TASK-218 ✅** | A5-REMEDIATION | `tasks/TASK-218-notepad-rollback-execution-verification.md` | Done（真实 UIA 完整 L1 恢复 + fake-platform fallback/负向；阶段 1a 仍 NO-GO） |
-| TASK-219 | A5-REMEDIATION | `tasks/TASK-219-runtime-pure-step-and-rollback-observability-fix.md` | Ready（pure 步骤真实性 + 回滚观察字段；第三轮审计） |
+| **TASK-219 ✅** | A5-REMEDIATION | `tasks/TASK-219-runtime-pure-step-and-rollback-observability-fix.md` | Done（count_lines_and_keyword_paragraphs 真实执行；未知 pure operation fail-closed；editor_matches_anchor 真实比较） |
 | **TASK-221 ✅** | A5-REMEDIATION | `tasks/TASK-221-leak-audit-round-2.md` | Done（第二轮泄露审计：cost/secrets 加上限，audit/tool-bus/UI 复查无问题） |
 | **TASK-222 ✅** | A5-REMEDIATION | `tasks/TASK-222-leak-audit-round-3-convergence.md` | Done（第三轮真机收敛首测：进程数收敛；agent 进程内测量留待下一轮） |
 | TASK-040 | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Ready（批次表占位派单前补全） |

@@ -406,7 +406,8 @@ async fn test_production_t1_1_dry_run_over_real_uia() -> Result<(), Box<dyn std:
     let plan = host.plan_task()?;
     let run = host.execute_plan(plan, SystemClock.now_unix_ms()).await?;
     assert_eq!(run.final_snapshot.status, TaskStatus::Completed);
-    assert_eq!(run.snapshots.len(), 1);
+    // TASK-219: read_text + the pure `analyze` step both commit over real UIA.
+    assert_eq!(run.snapshots.len(), 2);
     host.shutdown().await?;
     Ok(())
 }

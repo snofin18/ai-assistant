@@ -246,7 +246,8 @@ async fn test_production_t1_1_commits_through_real_tool_bus_and_receipt()
     let run = host.execute_plan(plan, FIXED_NOW_MS).await?;
 
     assert_eq!(run.final_snapshot.status, TaskStatus::Completed);
-    assert_eq!(run.snapshots.len(), 1);
+    // TASK-219: read_text + the pure `analyze` step both commit, so two snapshots are observed.
+    assert_eq!(run.snapshots.len(), 2);
     let step = run
         .final_snapshot
         .steps

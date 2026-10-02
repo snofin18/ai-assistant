@@ -118,6 +118,14 @@ impl ToolInvoker for ReservedRuntimeInvoker<'_> {
             if tool == crate::runtime_tools::TOOL_PURE_VALIDATE_T1_3_INPUTS {
                 return Self::validate_t1_3_inputs(&call, &step_id, sequence, arguments.as_ref());
             }
+            if tool == crate::runtime_tools::TOOL_PURE_COUNT_LINES_AND_KEYWORD_PARAGRAPHS {
+                return Self::count_lines_and_keyword_paragraphs(
+                    &call,
+                    &step_id,
+                    sequence,
+                    arguments.as_ref(),
+                );
+            }
             if tool == crate::runtime_tools::TOOL_HOST_INSPECT_TARGET_PATH {
                 return self.inspect_target_path(&call, &step_id, sequence, arguments.as_ref());
             }
