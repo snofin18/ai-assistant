@@ -1,6 +1,6 @@
 # TASK-227　状态行与停车位收口（TASK-040 / TASK-225 / PL-103 / PL-106）
 
-- 状态：**InProgress（2026-10-03：收口卡，仅文档与账面，零代码改动）**
+- 状态：**Done（2026-10-03；账面收口：TASK-040 / TASK-225 状态行按实更正为 Done、`PL-103` 给出可直接粘贴的 spec 改法（待 Orchestrator 落笔）、`PL-106` 开卡 TASK-228（Ready 待派单）；零代码改动 —— 门禁与 PR #200 为证）**
 - 阶段：1　子阶段：1a 补救 / 治理　批次：治理池　依赖：TASK-040、TASK-225、TASK-226
 - 预估：S　难度：S
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。分界线以上为正文（Orchestrator 所有，Implementer 只读）。
@@ -129,6 +129,10 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - 无功能偏差。两处口径说明：① `TASK-040` 正文 DoD 里那条 lease 复选框按设计仍为空（正文只读），
   Done 判定基于执行记录区 + TASK-225 的证据；若审阅认为必须勾选正文，需 Orchestrator 改正文。
   ② 本卡是**账面卡**（无代码/断言改动），`cargo test --workspace` 只作回归确认，不作为功能验收。
+- **自报偏差（首轮遗漏，已在第二轮修正）**：首轮只更正了 `TASK-040` / `TASK-225` 的状态行，
+  漏改**本卡自己**（状态行仍 `InProgress`，而 LEDGER 已两次记 Done）—— 与本卡要修的缺陷同类。
+  第二轮单独提交「TASK-227 状态行自修正」并追加 LEDGER 行（不改写原行），使三张卡的状态行
+  与 LEDGER、记录区一致。
 
 ### 6. 更合理做法
 
@@ -148,6 +152,9 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 ### 8. 新增长期记忆
 
 无新增 FACT / PITFALL（本轮为账面收口；两轮自动化的技术事实已分别记录在 TASK-225 / TASK-226）。
+**一处自报（不单独开记忆条目）**：本卡首轮把 TASK-040 / TASK-225 的状态行改对了，却漏改本卡自己 ——
+与「卡状态行滞后」是同一类问题（`MEMORY.md` 侧已有一般性记录）；修正方式见 §5 与 LEDGER 的
+「TASK-227 状态行自修正」行：收口类提交前把「被改状态行的卡 + 本卡」放进同一张核对清单逐张比对。
 
 ### 9. 给审阅者的关注点
 
