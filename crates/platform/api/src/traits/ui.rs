@@ -17,12 +17,14 @@
 //! 4. 所有方法返回 `PlatformResult`（铁律 1：不得静默失败）。
 //! 5. **元素解析必须有 scope**（ADR-0043）：`resolve_element` / `wait_for` 的搜索起点是传入的
 //!    `&ResolvedWindow`，**禁止**从桌面根搜元素（代价与栈溢出风险见 ADR-0043）。
+//! 6. **pointer 起始点必须有坐标空间**（ADR-0067）：`pointer_action` 的 `CoordinateSpace`
+//!    显式声明起始逻辑点使用哪台显示器的缩放；`DragTo` 的释放点携带自己的坐标空间。
 
 use std::future::Future;
 
 use crate::error::PlatformResult;
 use crate::fingerprint::Fingerprint;
-use crate::geometry::NormalizedPoint;
+use crate::geometry::{CoordinateSpace, NormalizedPoint};
 use crate::handle::{ResolvedElement, ResolvedWindow};
 use crate::target::SelectorCandidate;
 
@@ -293,7 +295,7 @@ impl ScrollTarget {
 }
 
 /// 指针动作（**最后手段**：优先用 `set_value` / `invoke_action`）。
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum PointerAction {
     /// 移动。
@@ -306,6 +308,8 @@ pub enum PointerAction {
     DragTo {
         /// 释放点。
         drop_at: NormalizedPoint,
+        /// 释放点使用的坐标空间。
+        drop_coordinate_space: CoordinateSpace,
     },
 }
 
@@ -481,10 +485,13 @@ pub trait UiAutomationProvider: Send + Sync {
     /// 指针动作（**最后手段**；入参必须是已归一化的点，§6.9）。
     ///
     /// # Errors
+    /// 坐标空间设备名不存在 / 物理点不在任何显示器 / 换算越界 → `TargetNotFound`；
+    /// 坐标空间单位不是物理像素或 DPI 不一致 → `ToolInvalidArgs`；
     /// 坐标未校准 → `PlatformPermission`（§6.9 规则 4：校准失败即禁用坐标通道）；
     /// 窗口最小化 → `TargetUnresponsive`。
     fn pointer_action(
         &self,
+        coordinate_space: &CoordinateSpace,
         point: NormalizedPoint,
         action: &PointerAction,
     ) -> impl Future<Output = PlatformResult<()>> + Send;

@@ -8,6 +8,7 @@
 > **TASK-228 ✅（2026-10-03）**：真机 `#[ignore]` 四个用例改为覆盖写结构化记录（`pass|skip|fail` + 非空原因 + 测量值），`tools/acceptance-report` 严格解析并区分全 pass / 含 skip-fail / 非法记录；真机一轮 **4 pass / 0 skip / 0 fail**，`PL-106` 闭环。
 > **TASK-224 ✅（2026-10-04）**：ADR-0066 Accepted —— `xtask write` 复用 ADR-0028 协作锁，Windows 上做 `share_mode(0)` 占用探测与有界退避；实际写句柄只共享读取，持锁读取实测不阻塞；目标占用超时退出码 5、无残留锁/进程，`PL-107` 闭环。
 > **TASK-230 ✅（2026-10-04）**：storage 新增 `0005` 迁移与 `conversations` / `conversation_messages` 持久化 API；真实关闭 / 重开 SQLite 后逐字段一致，缺失会话、非法父子关系与 revision 跳号显式失败，`PL-092` 闭环。
+> **TASK-231 ✅（2026-10-04）**：ADR-0067 删除混合 DPI 收敛启发式，`pointer_action` 起点与 `DragTo` 释放点各自显式携带 `CoordinateSpace`；混合 DPI 归属 6 passed、跨屏拖拽双 scale 1 passed，未知设备 / DPI 不一致 / 越界均显式失败，`PL-074` 闭环。
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -275,6 +276,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-229 ✅** | 治理池 | `tasks/TASK-229-pl103-spec-fix-and-status-rule.md` | Done（PL-103 落笔 + 状态行硬规则 + 残留目录清理） |
 | **TASK-224 ✅** | 治理池 | `tasks/TASK-224-single-write-channel-lock-queue.md` | Done（ADR-0066 命令行 write 通道 + Windows 独占占用探测 + 有界退避；PL-107 闭环） |
 | **TASK-040 ✅** | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Done（真机四用例取证；跨层 lease 由 TASK-225 闭环，`PL-101` 关闭） |
+| **TASK-231 ✅** | 1b bridge | `tasks/TASK-231-pointer-coordinate-space-dpi.md` | Done（ADR-0067 pointer 显式坐标空间；`PL-074` 闭环） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
 | TASK-042 | 1b | `tasks/TASK-042-visual-verify-phash-dhash-confidence.md` | Ready（批次表占位派单前补全） |
 | TASK-043 | 1b | `tasks/TASK-043-paint-adapter-tools-canvas-coords.md` | Ready（批次表占位派单前补全） |

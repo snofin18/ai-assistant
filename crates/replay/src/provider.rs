@@ -4,10 +4,10 @@ use std::future::{Future, ready};
 use std::sync::Arc;
 
 use assistant_platform_api::{
-    CaptureOptions, ErrorCode, FocusPolicy, ImageRef, KeyChord, KeyTarget, PlatformError,
-    PlatformResult, PointerAction, ResolvedElement, ResolvedWindow, ScrollTarget, Selection,
-    SelectorChain, SelectorKind, SelectorValue, TextEditOp, Timeout, TreeOptions, TreeSnapshot,
-    UiAutomationProvider, WindowFilter, WindowInfo, WindowProvider, WindowState,
+    CaptureOptions, CoordinateSpace, ErrorCode, FocusPolicy, ImageRef, KeyChord, KeyTarget,
+    PlatformError, PlatformResult, PointerAction, ResolvedElement, ResolvedWindow, ScrollTarget,
+    Selection, SelectorChain, SelectorKind, SelectorValue, TextEditOp, Timeout, TreeOptions,
+    TreeSnapshot, UiAutomationProvider, WindowFilter, WindowInfo, WindowProvider, WindowState,
 };
 
 use crate::model::{RecordedNode, Recording};
@@ -194,10 +194,11 @@ impl UiAutomationProvider for ReplayUiAutomationProvider {
 
     fn pointer_action(
         &self,
+        coordinate_space: &CoordinateSpace,
         point: assistant_platform_api::NormalizedPoint,
         action: &PointerAction,
     ) -> impl Future<Output = PlatformResult<()>> + Send {
-        let _ = (point, action);
+        let _ = (coordinate_space, point, action);
         ready(Err(platform_error(
             ErrorCode::CapabilityMissing,
             "pointer_action is not replayed in v0",
