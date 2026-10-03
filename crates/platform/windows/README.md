@@ -108,9 +108,10 @@
   且**要求目标窗口在前台**（不一致 → 先 `SetForegroundWindow` + **回读**，仍不一致 →
   `TargetUnresponsive`，**绝不盲发**）。调用方**必须**先试 L1（`set_value` / `edit_text` /
   `invoke_action`）~ L3（无障碍接口）。
-- **`pointer_action` 只能保证坐标正确，不能保证「点到的就是预期窗口」**：它的签名不带目标窗口
-  （trait 形状冻结，TASK-016），而点击落在**屏幕坐标**上。混合 DPI 多屏下逻辑点无法唯一归属
-  显示器时会**明确报 `CapabilityMissing`**（不猜）。带目标的签名见 `docs/PARKING_LOT.md` PL-074。
+- **`pointer_action` 只能保证坐标正确，不能保证「点到的就是预期窗口」**：它仍不带目标窗口，
+  点击落在**屏幕坐标**上。混合 DPI 多屏归属已按 **ADR-0067** 显式化：调用方为起点传
+  `CoordinateSpace`，`DragTo` 释放点携带自己的 `drop_coordinate_space`；平台校验设备名、
+  物理像素单位、scale 与有效 DPI 一致，并要求换算后的物理点落在已枚举显示器内。
 - **IME 处理只做两件事**：① 文本写入走 `KEYEVENTF_UNICODE`（**绕过** IME 组字与键盘布局，
   所以「IME 开着也能正确写入」）；② `is_ime_open` 只**报告** IME 开关状态。
   本层**不**关 IME、**不做**候选窗 / 编码转换（完整 IME 交互不在本卡范围）。

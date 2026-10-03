@@ -6,11 +6,11 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use assistant_platform_api::{
-    CaptureOptions, ErrorCode, Fingerprint, FingerprintScope, FocusPolicy, ImageRef, KeyChord,
-    KeyTarget, NormalizedPoint, PlatformError, PlatformResult, PointerAction, ResolvedElement,
-    ResolvedWindow, ScrollTarget, Selection, SelectorChain, SelectorValue, TargetDescriptor,
-    TextEditOp, Timeout, TreeOptions, TreeSnapshot, UiAutomationProvider, WindowFilter, WindowInfo,
-    WindowProvider, WindowState,
+    CaptureOptions, CoordinateSpace, ErrorCode, Fingerprint, FingerprintScope, FocusPolicy,
+    ImageRef, KeyChord, KeyTarget, NormalizedPoint, PlatformError, PlatformResult, PointerAction,
+    ResolvedElement, ResolvedWindow, ScrollTarget, Selection, SelectorChain, SelectorValue,
+    TargetDescriptor, TextEditOp, Timeout, TreeOptions, TreeSnapshot, UiAutomationProvider,
+    WindowFilter, WindowInfo, WindowProvider, WindowState,
 };
 use assistant_storage::Clock;
 
@@ -311,6 +311,7 @@ impl UiAutomationProvider for FakePlatform {
 
     fn pointer_action(
         &self,
+        _coordinate_space: &CoordinateSpace,
         _point: NormalizedPoint,
         _action: &PointerAction,
     ) -> impl Future<Output = PlatformResult<()>> + Send {

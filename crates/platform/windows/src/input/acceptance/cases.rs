@@ -25,7 +25,7 @@ use super::*;
 
 /// 真机验收 1：`pointer_action(Move)` 必须把光标放到**请求的物理像素**（误差 ≤ 2 px）。
 ///
-/// 这一条覆盖整条坐标链路：逻辑点 → `coordinate_space_for_logical_point`（显示器归属）
+/// 这一条覆盖整条坐标链路：逻辑点 + 显式 `CoordinateSpace`（ADR-0067）
 /// → `to_physical`（DPI 换算）→ `VirtualScreen::normalize`（0..=65535）→ `SendInput`
 /// → 系统把光标放到该物理像素。
 #[test]
@@ -58,6 +58,7 @@ fn test_pointer_move_lands_on_the_requested_physical_point() {
         let platform = WindowsPlatform::new();
         ok(block_on(UiAutomationProvider::pointer_action(
             &platform,
+            &space,
             logical,
             &PointerAction::Move,
         )));
@@ -350,6 +351,7 @@ fn collect_calibration_samples(
             let expected = ok(logical.to_physical(&space));
             ok(block_on(UiAutomationProvider::pointer_action(
                 &platform,
+                &space,
                 logical,
                 &PointerAction::Move,
             )));
@@ -418,13 +420,15 @@ fn run_pointer_click_case() -> CaseOutcome {
             &reason,
         );
     };
-    let scale = ok(coordinate_space_for_monitor(display)).scale();
+    let space = ok(coordinate_space_for_monitor(display));
+    let scale = space.scale();
     let logical = ok(NormalizedPoint::new(
         f64::from(center_x) / scale,
         f64::from(center_y) / scale,
     ));
     ok(block_on(UiAutomationProvider::pointer_action(
         &platform,
+        &space,
         logical,
         &PointerAction::Click,
     )));

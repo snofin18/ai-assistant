@@ -29,10 +29,10 @@
 use std::future::Future;
 
 use assistant_platform_api::{
-    CapabilityMatrix, CaptureOptions, ElementQuery, ElementState, ErrorCode, Fingerprint,
-    FingerprintScope, FocusPolicy, ImageRef, KeyChord, KeyTarget, NormalizedPoint, PlatformError,
-    PlatformResult, PointerAction, ResolvedElement, ResolvedWindow, ScrollTarget, Selection,
-    SelectorChain, SessionState, TextEditOp, Timeout, TreeOptions, TreeSnapshot,
+    CapabilityMatrix, CaptureOptions, CoordinateSpace, ElementQuery, ElementState, ErrorCode,
+    Fingerprint, FingerprintScope, FocusPolicy, ImageRef, KeyChord, KeyTarget, NormalizedPoint,
+    PlatformError, PlatformResult, PointerAction, ResolvedElement, ResolvedWindow, ScrollTarget,
+    Selection, SelectorChain, SessionState, TextEditOp, Timeout, TreeOptions, TreeSnapshot,
     UiAutomationProvider, WindowFilter, WindowInfo, WindowProvider, WindowState,
 };
 
@@ -212,6 +212,7 @@ impl UiAutomationProvider for WindowsPlatform {
 
     fn pointer_action(
         &self,
+        _coordinate_space: &CoordinateSpace,
         _point: NormalizedPoint,
         _action: &PointerAction,
     ) -> impl Future<Output = PlatformResult<()>> + Send {

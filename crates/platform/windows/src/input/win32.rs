@@ -18,15 +18,15 @@
 //! （emoji）由 `super::utf16_units` 拆成**代理对**两个码元依次发送。
 //!
 //! ## 已知限制
-//! `pointer_action` 的签名不带目标窗口（trait 形状冻结，TASK-016），所以它只能保证
-//! **坐标正确**，不能保证「点到的就是预期窗口」—— 那需要带目标的签名，见
-//! `docs/PARKING_LOT.md` PL-074。
+//! `pointer_action` 的签名不带目标窗口，所以它只能保证**坐标正确**，不能保证「点到的就是
+//! 预期窗口」。ADR-0067 已把坐标空间显式化：调用方必须为起点与 `DragTo` 释放点分别提供
+//! `CoordinateSpace`；仍不把绝对屏幕坐标绑定到某个窗口。
 //!
 //! 相关：架构 v2 §13.2 / §6.9、`docs/memory/win32-input-research.md` §1 / §6 / §9、铁律 1 / 4 / 5。
 
 use assistant_platform_api::{
-    ErrorCode, KeyChord, KeyTarget, NormalizedPoint, PlatformError, PlatformResult, PointerAction,
-    ResolvedElement,
+    CoordinateSpace, ErrorCode, KeyChord, KeyTarget, NormalizedPoint, PlatformError,
+    PlatformResult, PointerAction, ResolvedElement,
 };
 use windows::Win32::Foundation::{GetLastError, HWND, LPARAM, WPARAM};
 use windows::Win32::UI::Input::Ime::{
@@ -41,12 +41,10 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 use windows::Win32::UI::WindowsAndMessaging::{SendMessageW, WM_IME_CONTROL};
 
 use super::{
-    KeyEvent, PointerStep, key_events_for_chord, pointer_requires_release_recovery, pointer_steps,
-    utf16_units,
+    KeyEvent, PointerStep, key_events_for_chord, physical_points_for_pointer_action,
+    pointer_requires_release_recovery, pointer_steps, utf16_units,
 };
-use crate::coordinates::{
-    VirtualScreen, coordinate_space_for_logical_point, enumerate_monitors, virtual_screen,
-};
+use crate::coordinates::{VirtualScreen, enumerate_monitors, virtual_screen};
 use crate::error;
 use crate::handles::{hwnd_from_window_handle, with_element};
 use crate::win32::{bring_to_front, foreground_hwnd};
@@ -68,26 +66,24 @@ const IMC_GETOPENSTATUS: usize = 0x0005;
 /// **调用方应先试 L1（`set_value` / `invoke_action`）~ L3（无障碍接口）** —— 本函数是铁律 5 的
 /// **L4（最后手段）**：它抢用户的鼠标，且点击落在**屏幕坐标**上。
 ///
-/// 流程：枚举显示器 → 按**逻辑点**反推它属于哪台显示器 → `to_physical` 换算 → 归一化到虚拟
-/// 屏幕的 `0..=65535` → `SendInput`。
+/// 流程：枚举显示器 → 按显式 `CoordinateSpace` 换算起点（DragTo 释放点用它自己的空间）
+/// → 归一化到虚拟屏幕的 `0..=65535` → `SendInput`。
 ///
 /// # Errors
-/// - 点不在任何显示器上 / 换算越界 → `TargetNotFound`（**不**夹边界 —— 夹边界是静默点偏）
-/// - 混合 DPI 下逻辑点无法唯一归属 → `CapabilityMissing`（`docs/PARKING_LOT.md` PL-074）
+/// - 显式空间 origin 不存在 / 点不在任何显示器上 → `TargetNotFound`（**不**夹边界）
+/// - 显式空间单位或 scale 与真实 DPI 不一致 / 坐标空间无效 → `ToolInvalidArgs`
 /// - 枚举不到显示器 → `CapabilityMissing`
 /// - `SendInput` 被 UIPI 拒绝 → `PlatformPermission`；返回值与请求数不符 → 见
 ///   [`classify_send_input_failure`]
-pub fn pointer_action(point: &NormalizedPoint, action: &PointerAction) -> PlatformResult<()> {
+pub fn pointer_action(
+    coordinate_space: &CoordinateSpace,
+    point: &NormalizedPoint,
+    action: &PointerAction,
+) -> PlatformResult<()> {
     // 换算（§6.9 规则 3）：`to_physical` 是**唯一**的换算入口，本函数不重写公式。
     let displays = enumerate_monitors()?;
-    let space = coordinate_space_for_logical_point(&displays, point)?;
-    let start = point.to_physical(&space)?;
-    let drop = match action {
-        PointerAction::DragTo { drop_at } => Some(drop_at.to_physical(&space)?),
-        // `PointerAction` 是 `#[non_exhaustive]`：新动作若没在这里给出释放点，`pointer_steps`
-        // 会明确报 `CapabilityMissing`，不会退化成一次单击。
-        _ => None,
-    };
+    let (start, drop) =
+        physical_points_for_pointer_action(&displays, coordinate_space, point, action)?;
     let steps = pointer_steps(action, start, drop)?;
     // 虚拟屏幕 = 全部显示器的最小包围盒（`MOUSEEVENTF_ABSOLUTE` 的归一化基准）。
     let screen = virtual_screen()?;

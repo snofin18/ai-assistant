@@ -25,8 +25,11 @@
 //! `docs/spec/naming.md` §5（非本地化键名）、铁律 5 / 1 / 4。
 
 use assistant_platform_api::{
-    ErrorCode, KeyChord, KeyModifier, PhysicalPoint, PlatformError, PlatformResult, PointerAction,
+    CoordinateSpace, ErrorCode, KeyChord, KeyModifier, NormalizedPoint, PhysicalPoint,
+    PlatformError, PlatformResult, PointerAction,
 };
+
+use crate::coordinates::{MonitorRecord, physical_point_for_coordinate_space};
 
 /// First-use pointer calibration checks.
 pub mod calibration;
@@ -250,6 +253,37 @@ pub fn utf16_units(text: &str) -> Vec<u16> {
     text.encode_utf16().collect()
 }
 
+/// 把一次 pointer 动作的起点与可选释放点分别换算成物理像素（纯函数，三平台可单测）。
+///
+/// ADR-0067 的关键不变量在这里落地：起点使用 `coordinate_space`，`DragTo` 的释放点使用
+/// 它自己的 `drop_coordinate_space`。跨显示器拖拽因此不会被起点显示器的 scale 污染。
+///
+/// # Errors
+/// 任一坐标空间无效 / 对应显示器缺失 / 物理点越界 → 见
+/// [`physical_point_for_coordinate_space`]；未知 pointer 变体不在这里猜测释放点。
+pub fn physical_points_for_pointer_action(
+    monitors: &[MonitorRecord],
+    coordinate_space: &CoordinateSpace,
+    point: &NormalizedPoint,
+    action: &PointerAction,
+) -> PlatformResult<(PhysicalPoint, Option<PhysicalPoint>)> {
+    let start = physical_point_for_coordinate_space(monitors, coordinate_space, point)?;
+    let drop = match action {
+        PointerAction::DragTo {
+            drop_at,
+            drop_coordinate_space,
+        } => Some(physical_point_for_coordinate_space(
+            monitors,
+            drop_coordinate_space,
+            drop_at,
+        )?),
+        // `PointerAction` 是 `#[non_exhaustive]`：新动作若没在这里给出释放点，
+        // `pointer_steps` 会明确报 `CapabilityMissing`，不会退化成一次单击。
+        _ => None,
+    };
+    Ok((start, drop))
+}
+
 /// 指针动作 → 事件序列（**纯函数**，三平台可单测）。
 ///
 /// `start` / `drop` 都必须是**已经换算好**的物理点（换算在 `crate::coordinates`）。
@@ -356,6 +390,10 @@ fn capability_missing(message: impl Into<String>) -> PlatformError {
 }
 
 #[cfg(test)]
+#[path = "pointer_coordinate_tests.rs"]
+mod pointer_coordinate_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use assistant_platform_api::{CoordinateSpace, CoordinateSpaceKind, NormalizedPoint};
@@ -388,12 +426,21 @@ mod tests {
         }
     }
 
-    /// 测试夹具：物理点（经恒等空间换算 —— 换算只有 `to_physical` 一个入口）。
-    fn physical(x: f64, y: f64) -> PhysicalPoint {
-        let space = match CoordinateSpace::new(CoordinateSpaceKind::PhysicalPixels, 1.0, "t") {
+    /// 测试夹具：显式坐标空间。
+    fn constant_space(scale: f64, origin_display: &str) -> CoordinateSpace {
+        match CoordinateSpace::new(
+            CoordinateSpaceKind::PhysicalPixels,
+            scale,
+            origin_display.to_string(),
+        ) {
             Ok(space) => space,
             Err(failure) => unreachable!("测试夹具必须合法: {failure}"),
-        };
+        }
+    }
+
+    /// 测试夹具：物理点（经恒等空间换算 —— 换算只有 `to_physical` 一个入口）。
+    fn physical(x: f64, y: f64) -> PhysicalPoint {
+        let space = constant_space(1.0, "t");
         match normalized(x, y).to_physical(&space) {
             Ok(physical) => physical,
             Err(failure) => unreachable!("测试夹具必须合法: {failure}"),
@@ -489,6 +536,7 @@ mod tests {
         // 负向用例：缺 `drop` 点时**不得**把终点当起点（那会静默变成一次单击）。
         let action = PointerAction::DragTo {
             drop_at: normalized(30.0, 40.0),
+            drop_coordinate_space: constant_space(1.0, "t"),
         };
         let failure = match pointer_steps(&action, physical(10.0, 20.0), None) {
             Ok(steps) => unreachable!("缺 drop 点必须报错，实际得到 {} 步", steps.len()),
@@ -501,6 +549,7 @@ mod tests {
     fn test_pointer_steps_drag_uses_the_given_drop_point() {
         let action = PointerAction::DragTo {
             drop_at: normalized(30.0, 40.0),
+            drop_coordinate_space: constant_space(1.0, "t"),
         };
         let steps = match pointer_steps(&action, physical(10.0, 20.0), Some(physical(30.0, 40.0))) {
             Ok(steps) => steps,
@@ -513,6 +562,7 @@ mod tests {
     fn test_pointer_steps_drag_rejects_a_zero_distance_drop() {
         let action = PointerAction::DragTo {
             drop_at: normalized(10.0, 20.0),
+            drop_coordinate_space: constant_space(1.0, "t"),
         };
         let failure = match pointer_steps(&action, physical(10.0, 20.0), Some(physical(10.0, 20.0)))
         {
@@ -528,6 +578,7 @@ mod tests {
         let drop = physical(30.0, 40.0);
         let action = PointerAction::DragTo {
             drop_at: normalized(30.0, 40.0),
+            drop_coordinate_space: constant_space(1.0, "t"),
         };
         let steps = match pointer_steps(&action, start, Some(drop)) {
             Ok(steps) => steps,

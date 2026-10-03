@@ -90,6 +90,9 @@ mod windows_behaviour {
         UiAutomationProvider,
     };
     use assistant_platform_windows::WindowsPlatform;
+    use assistant_platform_windows::coordinates::{
+        coordinate_space_for_monitor, enumerate_monitors,
+    };
 
     /// 极简 executor：本 crate 不依赖 async runtime，测试只需要把"同步返回的 future"跑完。
     fn block_on<T>(future: impl std::future::Future<Output = T>) -> T {
@@ -124,8 +127,20 @@ mod windows_behaviour {
         // 并在归一化处**明确**报 `TargetNotFound`。若占位实现还在，这里会得到
         // `CapabilityMissing` —— 那正是本用例要拦住的回归。
         let platform = WindowsPlatform::new();
+        let displays = match enumerate_monitors() {
+            Ok(displays) => displays,
+            Err(failure) => unreachable!("Windows 测试机必须能枚举显示器: {failure}"),
+        };
+        let Some(display) = displays.first() else {
+            unreachable!("Windows 测试机必须至少有一台显示器");
+        };
+        let coordinate_space = match coordinate_space_for_monitor(display) {
+            Ok(space) => space,
+            Err(failure) => unreachable!("显示器必须能构造坐标空间: {failure}"),
+        };
         let outcome = block_on(UiAutomationProvider::pointer_action(
             &platform,
+            &coordinate_space,
             point(10_000_000.0, 10_000_000.0),
             &PointerAction::Move,
         ));

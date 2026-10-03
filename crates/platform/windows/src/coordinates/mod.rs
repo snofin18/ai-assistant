@@ -305,76 +305,79 @@ impl VirtualScreen {
     }
 }
 
-/// 按**逻辑点**推导它应该用哪台显示器的缩放（纯函数，三平台可单测）。
+/// 在**显式坐标空间**下把逻辑点换算成物理点（纯函数，三平台可单测）。
 ///
-/// 为什么需要这个：`UiAutomationProvider::pointer_action(pt, act)` 的签名**没有目标窗口**
-/// （TASK-016 定死的 trait 形状），而 `pt` 是**全局逻辑坐标** —— 不同显示器可以有不同缩放。
-/// 因此这里只能反推，且**反推不唯一时明确报错**（绝不猜 —— 铁律 1）。
-///
-/// 策略：
-/// 1. 全部显示器 DPI 相同（含单显示器）→ 直接用它（无歧义）。
-/// 2. 混合 DPI：先用**主显示器**的缩放试算 → 拿物理点命中显示器 → 用命中的缩放**重算一次**；
-///    两次命中同一台 → 采用；否则 → 报错。
-/// 3. 点不在任何显示器上 → `TargetNotFound`。
+/// ADR-0067 删除旧的“按逻辑点猜显示器”收敛启发式：调用方必须说明起始点使用的
+/// `CoordinateSpace`。本函数只做三类**可验证**校验：
+/// 1. `origin_display` 必须对应一台已枚举显示器；
+/// 2. 单位必须是 `PhysicalPixels`，且 scale 必须与该显示器有效 DPI 一致；
+/// 3. 换算后的物理点必须落在某台已枚举显示器内（不要求就是 `origin_display` 那台：
+///    混合 DPI 下显式空间可能把逻辑点映射到另一台显示器；错误的是没有声明，不是结果跨屏）。
 ///
 /// # Errors
-/// 显示器列表为空 / 混合 DPI 无法收敛 / 点不在显示器上 → 分别是
-/// `CapabilityMissing` / `CapabilityMissing` / `TargetNotFound`（每一种都带诊断信息）。
-pub fn coordinate_space_for_logical_point(
+/// - 显示器列表为空 → `CapabilityMissing`
+/// - `origin_display` 不存在 / 物理点不在任何显示器 → `TargetNotFound`
+/// - 单位不是物理像素 / scale 与 DPI 不一致 → `ToolInvalidArgs`
+/// - 换算越界（超出 `i32`）→ `TargetNotFound`
+pub fn physical_point_for_coordinate_space(
     monitors: &[MonitorRecord],
+    coordinate_space: &CoordinateSpace,
     point: &NormalizedPoint,
-) -> PlatformResult<CoordinateSpace> {
-    let Some(first) = monitors.first() else {
-        return Err(capability_missing(
-            "coordinate space: no display was enumerated, cannot convert a logical point",
-        ));
-    };
-    let uniform = monitors
-        .iter()
-        .all(|monitor| monitor.effective_dpi() == first.effective_dpi());
-    if uniform {
-        return coordinate_space_for_monitor(first);
-    }
-    let primary = monitors
-        .iter()
-        .find(|monitor| monitor.is_primary())
-        .unwrap_or(first);
-    let primary_space = coordinate_space_for_monitor(primary)?;
-    let guess = point.to_physical(&primary_space)?;
-    let Some(hit) = monitor_at_physical(monitors, guess.x_px(), guess.y_px()) else {
+) -> PlatformResult<PhysicalPoint> {
+    let monitor = monitor_for_coordinate_space(monitors, coordinate_space)?;
+    let physical = point.to_physical(coordinate_space)?;
+    if monitor_index_containing_physical(monitors, physical.x_px(), physical.y_px()).is_err() {
         return Err(target_not_found(format!(
-            "coordinate space: logical point ({}, {}) maps outside every display",
+            "coordinate space: logical point ({}, {}) maps to physical ({}, {}), outside every \
+             display; space origin={}",
             point.x_logical(),
-            point.y_logical()
-        )));
-    };
-    let refined_space = coordinate_space_for_monitor(hit)?;
-    let refined = point.to_physical(&refined_space)?;
-    let Some(settled) = monitor_at_physical(monitors, refined.x_px(), refined.y_px()) else {
-        return Err(target_not_found(format!(
-            "coordinate space: logical point ({}, {}) does not settle on any display",
-            point.x_logical(),
-            point.y_logical()
-        )));
-    };
-    if settled.device_name() != hit.device_name() {
-        return Err(capability_missing(format!(
-            "coordinate space: displays have different DPI and logical point ({}, {}) cannot be \
-             attributed to one of them unambiguously (needs a target-carrying signature; \
-             see docs/PARKING_LOT.md PL-074)",
-            point.x_logical(),
-            point.y_logical()
+            point.y_logical(),
+            physical.x_px(),
+            physical.y_px(),
+            monitor.device_name()
         )));
     }
-    Ok(refined_space)
+    Ok(physical)
 }
 
-/// 按物理点取命中的显示器（纯函数；命中多台取第一台）。
-#[must_use]
-pub fn monitor_at_physical(monitors: &[MonitorRecord], x: i32, y: i32) -> Option<&MonitorRecord> {
-    monitors
+/// 找到显式坐标空间声明的显示器，并校验单位与 scale。
+fn monitor_for_coordinate_space<'a>(
+    monitors: &'a [MonitorRecord],
+    coordinate_space: &CoordinateSpace,
+) -> PlatformResult<&'a MonitorRecord> {
+    if monitors.is_empty() {
+        return Err(capability_missing(
+            "coordinate space: no display was enumerated, cannot validate an explicit space",
+        ));
+    }
+    if coordinate_space.kind() != CoordinateSpaceKind::PhysicalPixels {
+        return Err(invalid_args(format!(
+            "coordinate space: pointer conversion requires physical pixels, got {:?}",
+            coordinate_space.kind()
+        )));
+    }
+    let monitor = monitors
         .iter()
-        .find(|monitor| monitor.contains_physical(x, y))
+        .find(|monitor| {
+            monitor
+                .device_name()
+                .eq_ignore_ascii_case(coordinate_space.origin_display())
+        })
+        .ok_or_else(|| {
+            target_not_found(format!(
+                "coordinate space: origin display `{}` is not present in the enumerated display set",
+                coordinate_space.origin_display()
+            ))
+        })?;
+    let expected_scale = scale_from_dpi(monitor.effective_dpi())?;
+    if (coordinate_space.scale() - expected_scale).abs() > f64::EPSILON {
+        return Err(invalid_args(format!(
+            "coordinate space: display `{}` has scale {expected_scale}, not {}",
+            monitor.device_name(),
+            coordinate_space.scale()
+        )));
+    }
+    Ok(monitor)
 }
 
 /// 单轴归一化：`offset * 65535 / (extent - 1)`，越界 / 非整数结果 → `ToolInvalidArgs`。
@@ -420,6 +423,10 @@ pub use win32::{
     coordinate_space_for_window, dpi_for_window, enumerate_monitors, monitor_for_physical_point,
     monitor_for_window, virtual_screen,
 };
+
+#[cfg(test)]
+#[path = "pointer_tests.rs"]
+mod pointer_tests;
 
 #[cfg(test)]
 mod tests {
@@ -504,66 +511,5 @@ mod tests {
             Err(failure) => failure,
         };
         assert_eq!(failure.code(), ErrorCode::TargetNotFound);
-    }
-
-    #[test]
-    fn test_uniform_dpi_uses_the_single_scale() {
-        // 单显示器（或全部同 DPI）：无歧义，直接用它的缩放。
-        let displays = vec![display(r"\\.\DISPLAY1", (0, 0, 2560, 1440), 144).with_primary(true)];
-        let space = match coordinate_space_for_logical_point(&displays, &point(100.0, 50.0)) {
-            Ok(space) => space,
-            Err(failure) => unreachable!("单显示器必须能换算: {failure}"),
-        };
-        assert_eq!(space.origin_display(), r"\\.\DISPLAY1");
-        assert_eq!(space.scale().to_bits(), 1.5_f64.to_bits());
-        assert_eq!(
-            point(100.0, 50.0)
-                .to_physical(&space)
-                .map(|physical| (physical.x_px(), physical.y_px())),
-            Ok((150, 75))
-        );
-    }
-
-    /// 混合 DPI 夹具：副屏（192 DPI）在**左边**、主屏（96 DPI）在右边。
-    /// 这个几何是刻意的 —— 它让「先按主屏缩放试算」的迭代**可能**落到另一台显示器上。
-    fn mixed_dpi_displays() -> Vec<MonitorRecord> {
-        vec![
-            display(r"\\.\DISPLAY2", (0, 0, 1280, 720), 192),
-            display(r"\\.\DISPLAY1", (1280, 0, 3200, 1080), 96).with_primary(true),
-        ]
-    }
-
-    #[test]
-    fn test_mixed_dpi_point_settles_on_its_own_display() {
-        // 逻辑点 (500, 100)：主屏缩放试算命中副屏 → 用副屏缩放（×2）重算仍落在副屏 → 收敛。
-        let displays = mixed_dpi_displays();
-        let space = match coordinate_space_for_logical_point(&displays, &point(500.0, 100.0)) {
-            Ok(space) => space,
-            Err(failure) => unreachable!("副屏上的点必须收敛: {failure}"),
-        };
-        assert_eq!(space.origin_display(), r"\\.\DISPLAY2");
-        assert_eq!(space.scale().to_bits(), 2.0_f64.to_bits());
-    }
-
-    #[test]
-    fn test_mixed_dpi_ambiguous_point_reports_capability_missing() {
-        // 负向用例（ADR-0019 N1）：逻辑点 (700, 100) 按主屏缩放命中副屏，但按副屏缩放（×2）
-        // 重算落到**主屏** → 无法唯一归属 → **不猜**，明确报错（trait 的 `pointer_action`
-        // 不带目标窗口，见 docs/PARKING_LOT.md PL-074）。
-        let displays = mixed_dpi_displays();
-        let failure = match coordinate_space_for_logical_point(&displays, &point(700.0, 100.0)) {
-            Ok(space) => unreachable!("歧义点必须报错，实际得到 {}", space.origin_display()),
-            Err(failure) => failure,
-        };
-        assert_eq!(failure.code(), ErrorCode::CapabilityMissing);
-    }
-
-    #[test]
-    fn test_no_display_reports_capability_missing() {
-        let failure = match coordinate_space_for_logical_point(&[], &point(0.0, 0.0)) {
-            Ok(space) => unreachable!("空显示器列表必须报错，实际得到 {}", space.origin_display()),
-            Err(failure) => failure,
-        };
-        assert_eq!(failure.code(), ErrorCode::CapabilityMissing);
     }
 }

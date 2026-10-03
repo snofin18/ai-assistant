@@ -188,3 +188,7 @@
 ## 2026-10-04 追加（ADR-0066，Accepted）
 
 - [2026-10-04][DECISION][src:ADR-0066，按用户 2026-10-03 预授权代为裁决；TASK-224 / PL-107 闭环] **命令行唯一写通道 = `xtask write` 扩展 ADR-0028 协作锁，不取代 guard，也不冒充强制互斥**：`write` 先复用同一把 `guard` 锁（owner/task/intent/timeout/stale-after/force 语义不变），Windows 上再用 `share_mode(0)` 探测目标占用，占用时做有界退避重试，默认 5 秒超时并沿用退出码 5；实际写入只共享 `FILE_SHARE_READ`，读路径不进入通道且不等待；**不做**需要常驻进程的真 FIFO（只做互斥 + 退避，无顺序保证）；**明确不把 `apply_patch` 强制纳入**（无法从 xtask 拦截，非命令行写仍须先取 guard）；独占探测对以 `FILE_SHARE_WRITE` 打开的持有者存在盲区，非 Windows fail-closed；stdin 硬上限 16 MiB，不启动子进程，超时后不得残留 guard 锁。
+
+## 2026-10-04 追加（ADR-0067，Accepted）
+
+- [2026-10-04][DECISION][src:ADR-0067，按用户 2026-10-03 预授权代为裁决；TASK-231 / PL-074 闭环] **pointer 动作显式坐标空间**：`UiAutomationProvider::pointer_action` 增加起始点 `CoordinateSpace` 参数；`PointerAction::DragTo` 的释放点增加自己的 `drop_coordinate_space`，起点与终点分别按各自显示器 scale 换算；删除混合 DPI 收敛启发式，改为校验 `origin_display` 对应显示器存在、单位必须是 `PhysicalPixels`、scale 与有效 DPI 一致、物理点落在已枚举显示器内，失败一律显式返回 `ToolInvalidArgs` / `TargetNotFound`。该 ADR 修订 TASK-016 冻结的 pointer 形状，不改其它 trait 方法；与 ADR-0043 的“元素解析必须显式带窗口 scope”同属 API 边界终止平台猜上下文，并继续由 ADR-0045 的非宿主 clippy 覆盖纯逻辑。**不改 `docs/spec/**`；不新增依赖、crate 或抽象层**。

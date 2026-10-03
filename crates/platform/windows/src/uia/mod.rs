@@ -37,9 +37,10 @@ use std::future::{Future, poll_fn};
 use std::task::Poll;
 
 use assistant_platform_api::{
-    ElementQuery, ElementState, Fingerprint, FingerprintScope, KeyChord, KeyTarget,
-    NormalizedPoint, PlatformResult, PointerAction, ResolvedElement, ResolvedWindow, ScrollTarget,
-    Selection, SelectorChain, TextEditOp, Timeout, TreeOptions, TreeSnapshot, UiAutomationProvider,
+    CoordinateSpace, ElementQuery, ElementState, Fingerprint, FingerprintScope, KeyChord,
+    KeyTarget, NormalizedPoint, PlatformResult, PointerAction, ResolvedElement, ResolvedWindow,
+    ScrollTarget, Selection, SelectorChain, TextEditOp, Timeout, TreeOptions, TreeSnapshot,
+    UiAutomationProvider,
 };
 use windows::Win32::Foundation::HWND;
 use windows::Win32::System::Com::SAFEARRAY;
@@ -149,12 +150,18 @@ impl UiAutomationProvider for WindowsPlatform {
 
     fn pointer_action(
         &self,
+        coordinate_space: &CoordinateSpace,
         point: NormalizedPoint,
         action: &PointerAction,
     ) -> impl Future<Output = PlatformResult<()>> + Send {
-        // TASK-018：真实实现 —— `crate::coordinates`（DPI / 多屏换算）+ `crate::input`（SendInput）。
-        // 用全限定路径是刻意的：本卡的 write scope 只允许改这两个方法体（不加 `use`）。
-        poll_fn(move |_context| Poll::Ready(crate::input::pointer_action(&point, action)))
+        // ADR-0067：起点坐标空间和 DragTo 释放点坐标空间都由调用方显式给出。
+        poll_fn(move |_context| {
+            Poll::Ready(crate::input::pointer_action(
+                coordinate_space,
+                &point,
+                action,
+            ))
+        })
     }
 
     fn key_action(
