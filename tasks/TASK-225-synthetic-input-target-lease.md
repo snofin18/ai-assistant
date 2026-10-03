@@ -1,6 +1,6 @@
 # TASK-225　合成输入目标租约独占
 
-- 状态：**InProgress（2026-10-03：承接 TASK-040 唯一遗留 DoD / PL-101）**
+- 状态：**Done（2026-10-03；合成输入在 Host 装配层取目标 exclusive lease：key 路径真实接线、pointer-shaped 共享 gate，冲突稳定 `Transient`、释放后重试、失败回基线，专项 5 passed；`PL-101` 已关闭、`PL-107` 已登记）**
 - 阶段：1　子阶段：**1b**　批次：A5-REMEDIATION / 1b 桥接　依赖：018、025、040（真机校准部分已完成）
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线以上是正文（Orchestrator 所有，Implementer 只读）；以下是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
