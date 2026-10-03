@@ -31,9 +31,8 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use assistant_platform_api::{
-    ErrorCode, FocusPolicy, KeyChord, KeyModifier, KeyTarget, NormalizedPoint, OnAmbiguous,
-    OnNotFound, PlatformError, PlatformResult, PointerAction, ResolutionPolicy, ResolvedElement,
-    ResolvedWindow, SelectorCandidate, SelectorChain, SelectorKind, SelectorValue,
+    ErrorCode, OnAmbiguous, OnNotFound, PlatformError, PlatformResult, ResolutionPolicy,
+    ResolvedElement, ResolvedWindow, SelectorCandidate, SelectorChain, SelectorKind, SelectorValue,
     TargetDescriptor, UiAutomationProvider, WindowFilter, WindowProvider,
 };
 use windows::Win32::Foundation::{HWND, LPARAM, POINT, RECT, WPARAM};
@@ -42,18 +41,15 @@ use windows::Win32::UI::HiDpi::{
     GetAwarenessFromDpiAwarenessContext, GetThreadDpiAwarenessContext,
     SetProcessDpiAwarenessContext,
 };
-use windows::Win32::UI::WindowsAndMessaging::{
-    GetCursorPos, GetForegroundWindow, PostMessageW, WM_CLOSE,
-};
+use windows::Win32::UI::WindowsAndMessaging::{GetCursorPos, PostMessageW, WM_CLOSE};
 
-use super::calibration::{
-    CalibrationSample, MAXIMUM_CALIBRATION_SAMPLES, MINIMUM_CALIBRATION_SAMPLES,
-    calibrate_pointer_samples,
-};
-use super::{is_ime_open, send_unicode_text};
 use crate::WindowsPlatform;
 use crate::coordinates::{MonitorRecord, coordinate_space_for_monitor, enumerate_monitors};
 use crate::handles::with_element;
+
+#[path = "acceptance_record.rs"]
+mod acceptance_record;
+mod cases;
 
 /// 坐标精度判据（架构 v2 §6.9 / 批次表 A2：≤ 2 px）。
 const MAXIMUM_PIXEL_ERROR: i32 = 2;
@@ -310,336 +306,6 @@ fn close_notepad_windows_created_by_this_test(
     }
 }
 
-/// 真机验收 1：`pointer_action(Move)` 必须把光标放到**请求的物理像素**（误差 ≤ 2 px）。
-///
-/// 这一条覆盖整条坐标链路：逻辑点 → `coordinate_space_for_logical_point`（显示器归属）
-/// → `to_physical`（DPI 换算）→ `VirtualScreen::normalize`（0..=65535）→ `SendInput`
-/// → 系统把光标放到该物理像素。
-#[test]
-#[ignore = "真机验收：需要真实桌面，默认不跑（见本文件头）"]
-fn test_pointer_move_lands_on_the_requested_physical_point() {
-    if let Err(failure) = declare_per_monitor_v2() {
-        note(format_args!(
-            "SKIP test_pointer_move_lands_on_the_requested_physical_point: \
-             无法声明 Per-Monitor V2（{failure}）—— 坐标会被系统虚拟化，精度断言不成立"
-        ));
-        return;
-    }
-    let displays = ok(enumerate_monitors());
-    let display = primary_display(&displays);
-    let space = ok(coordinate_space_for_monitor(display));
-    let scale = space.scale();
-    // 取显示器内 1/3 处的点：避开边缘吸附与任务栏区域。
-    let width = i64::from(display.right()) - i64::from(display.left());
-    let height = i64::from(display.bottom()) - i64::from(display.top());
-    let target_x = i32::try_from(i64::from(display.left()) + (width / 3))
-        .unwrap_or_else(|_| unreachable!("显示器宽度必须落在 i32 内"));
-    let target_y = i32::try_from(i64::from(display.top()) + (height / 3))
-        .unwrap_or_else(|_| unreachable!("显示器高度必须落在 i32 内"));
-    // 合成输入的入口是**逻辑**坐标：物理点 → 逻辑点（除以该显示器的缩放）。
-    let logical = ok(NormalizedPoint::new(
-        f64::from(target_x) / scale,
-        f64::from(target_y) / scale,
-    ));
-    let platform = WindowsPlatform::new();
-    ok(block_on(UiAutomationProvider::pointer_action(
-        &platform,
-        logical,
-        &PointerAction::Move,
-    )));
-    let (cursor_x, cursor_y) = ok(cursor_position());
-    let error_x = (cursor_x - target_x).abs();
-    let error_y = (cursor_y - target_y).abs();
-    note(format_args!(
-        "pointer_move: display={} scale={scale} target=({target_x}, {target_y}) \
-         cursor=({cursor_x}, {cursor_y}) error=({error_x}, {error_y}) px",
-        display.device_name()
-    ));
-    assert!(
-        error_x <= MAXIMUM_PIXEL_ERROR && error_y <= MAXIMUM_PIXEL_ERROR,
-        "坐标精度超差：目标 ({target_x}, {target_y})，实际 ({cursor_x}, {cursor_y})，\
-         判据 ≤ {MAXIMUM_PIXEL_ERROR} px"
-    );
-}
-
-/// 真机验收 2：**真实记事本**里
-/// ① `send_unicode_text` 写入中文（证明 `KEYEVENTF_UNICODE` 绕过 IME / 键盘布局）；
-/// ② `key_action(Ctrl+S)` 保存（证明 VK 路径 + 前台校验 + 焦点链路）；
-/// ③ 从**磁盘**读回内容 —— 后置条件由文件内容证明，不是"看起来成功"。
-#[test]
-#[ignore = "真机验收：需要真实记事本，默认不跑（见本文件头）"]
-fn test_unicode_text_and_ctrl_s_round_trip_through_real_notepad() {
-    let path = temp_file_path();
-    if let Err(failure) = std::fs::write(&path, "start\n") {
-        note(format_args!(
-            "SKIP: 写临时文件失败 {}: {failure}",
-            path.display()
-        ));
-        return;
-    }
-
-    let platform = WindowsPlatform::new();
-    // 启动**前**的快照：清理时只动「快照里没有」的窗口 —— 这样即使用户自己也开着记事本，
-    // 也不会碰到他的窗口（见 `close_notepad_windows_created_by_this_test` 的三条判据）。
-    let preexisting = notepad_windows(platform);
-
-    let Some(mut child) = launch_notepad(&path) else {
-        remove_quietly(&path);
-        return;
-    };
-
-    let Some(window) = wait_for_notepad_window(platform, &path, Duration::from_secs(15)) else {
-        note(format_args!(
-            "SKIP: 15 s 内没有等到记事本窗口（标题里应含 {}）",
-            path.display()
-        ));
-        let cleaned = close_notepad_windows_created_by_this_test(
-            platform,
-            &path,
-            preexisting.as_deref(),
-            CLEANUP_TIMEOUT,
-        );
-        let _killed = child.kill();
-        remove_quietly(&path);
-        if !cleaned {
-            note(format_args!("SKIP 之后仍有记事本窗口残留（见上面的 WARN）"));
-        }
-        return;
-    };
-
-    // 目标必须**真的**在前台：`bring_to_front` 内部已经回读过 `GetForegroundWindow`。
-    ok(block_on(WindowProvider::bring_to_front(
-        &platform,
-        &window,
-        FocusPolicy::AllowSteal,
-    )));
-
-    let raw = usize::try_from(window.id().value())
-        .unwrap_or_else(|_| unreachable!("窗口句柄必须能放进 usize"));
-    let hwnd = HWND(raw as *mut core::ffi::c_void);
-
-    // `is_ime_open` 的契约（见 `input/win32.rs` 文档）：能查到就返回状态；目标没有 Win32 IME
-    // 上下文（UWP / WinUI 走 TSF）就报 `CapabilityMissing`，**绝不猜一个 false**（铁律 1）。
-    // 因此这里对两种结果都接受并打印实际走了哪条分支，只把**契约外**的错误当作真缺陷。
-    match is_ime_open(hwnd) {
-        Ok(ime_open) => note(format_args!("notepad: is_ime_open = {ime_open}")),
-        Err(failure) if failure.code() == ErrorCode::CapabilityMissing => note(format_args!(
-            "notepad: is_ime_open 不适用（CapabilityMissing: {}）—— WinUI 目标走 TSF，符合契约",
-            failure.message()
-        )),
-        Err(failure) => unreachable!("is_ime_open 返回了契约外的错误: {failure}"),
-    }
-
-    let marker = "中文abc";
-    ok(send_unicode_text(hwnd, marker));
-
-    let save_chord = KeyChord::new("s".to_string(), vec![KeyModifier::Control]);
-    ok(block_on(UiAutomationProvider::key_action(
-        &platform,
-        &save_chord,
-        &KeyTarget::Window(window),
-    )));
-
-    let saved = wait_for_file_to_contain(&path, marker, Duration::from_secs(10));
-    // 清理顺序 = **先关窗口、再杀存根**：`Child::kill()` 只杀得掉启动器存根，
-    // 显示窗口的是另一个进程（见 `close_notepad_windows_created_by_this_test`）。
-    let cleaned = close_notepad_windows_created_by_this_test(
-        platform,
-        &path,
-        preexisting.as_deref(),
-        CLEANUP_TIMEOUT,
-    );
-    let _killed = child.kill();
-    let content = match std::fs::read(&path) {
-        Ok(bytes) => String::from_utf8_lossy(&bytes).to_string(),
-        Err(failure) => unreachable!("读回临时文件失败: {failure}"),
-    };
-    remove_quietly(&path);
-    note(format_args!("notepad: disk content = {content:?}"));
-    note(format_args!("notepad: 窗口清理完成（无残留） = {cleaned}"));
-    assert!(
-        saved && content.contains(marker),
-        "磁盘内容里没有 `{marker}`（Ctrl+S 或 Unicode 写入没有生效）: {content:?}"
-    );
-}
-
-/// 真机验收 3（TASK-040）：首次校准必须覆盖**真实显示器组合**。
-///
-/// 判据来自 `input::calibration`：每台显示器取 3 个内点（1/4、1/2、3/4 宽 × 1/3 高），
-/// 用 `pointer_action(Move)` 真的移动光标，再用 `GetCursorPos` 读回，形成 expected /
-/// observed 样本对；全部样本交给 `calibrate_pointer_samples`（容差 = 2 px）。
-///
-/// 样本上限 `MAXIMUM_CALIBRATION_SAMPLES`（64）→ 每台 3 个点意味着最多覆盖 21 台显示器；
-/// 超出部分**不静默丢弃**，会打印被跳过的台数。
-///
-/// **只移动、不点击**：`pointer_action` 没有前台校验（只有键盘通道有），盲点会落到坐标
-/// 下方的任意窗口上。点击只允许在「已确认目标窗口在前台」的用例里做 —— 见
-/// `test_pointer_click_focuses_a_known_notepad_element`。
-#[test]
-#[ignore = "真机验收：需要真实桌面（会移动光标），默认不跑（见本文件头）"]
-fn test_pointer_calibration_covers_the_real_display_set() {
-    if let Err(failure) = declare_per_monitor_v2() {
-        note(format_args!(
-            "SKIP test_pointer_calibration_covers_the_real_display_set: \
-             无法声明 Per-Monitor V2（{failure}）—— 物理像素前提不成立"
-        ));
-        return;
-    }
-    let displays = ok(enumerate_monitors());
-    let platform = WindowsPlatform::new();
-    let capacity = MAXIMUM_CALIBRATION_SAMPLES / SAMPLES_PER_DISPLAY;
-    let mut samples = Vec::new();
-    for (ordinal, display) in displays.iter().take(capacity).enumerate() {
-        let space = ok(coordinate_space_for_monitor(display));
-        let scale = space.scale();
-        let left = i64::from(display.left());
-        let top = i64::from(display.top());
-        let width = i64::from(display.right()) - left;
-        let height = i64::from(display.bottom()) - top;
-        let offset_y = height * CALIBRATION_VERTICAL_STEP.0 / CALIBRATION_VERTICAL_STEP.1;
-        for (numerator, denominator) in CALIBRATION_POINT_STEPS {
-            let offset_x = width * numerator / denominator;
-            let physical_x = left + offset_x;
-            let physical_y = top + offset_y;
-            let (physical_x, physical_y) = (
-                i32::try_from(physical_x).unwrap_or(i32::MAX),
-                i32::try_from(physical_y).unwrap_or(i32::MAX),
-            );
-            // 合成输入的入口是**逻辑**坐标：物理点 → 逻辑点（除以该台显示器的缩放）。
-            let logical = ok(NormalizedPoint::new(
-                f64::from(physical_x) / scale,
-                f64::from(physical_y) / scale,
-            ));
-            // expected 由同一条换算链路产生（而不是手写公式），observed 是系统回读。
-            let expected = ok(logical.to_physical(&space));
-            ok(block_on(UiAutomationProvider::pointer_action(
-                &platform,
-                logical,
-                &PointerAction::Move,
-            )));
-            let (cursor_x, cursor_y) = ok(cursor_position());
-            let observed = ok(ok(NormalizedPoint::new(
-                f64::from(cursor_x) / scale,
-                f64::from(cursor_y) / scale,
-            ))
-            .to_physical(&space));
-            samples.push(CalibrationSample::new(
-                u16::try_from(ordinal).unwrap_or(u16::MAX),
-                expected,
-                observed,
-            ));
-        }
-    }
-    if displays.len() > capacity {
-        note(format_args!(
-            "pointer_calibration: 显示器 {} 台超出样本上限，本轮只覆盖前 {capacity} 台",
-            displays.len()
-        ));
-    }
-    let tolerance = u32::try_from(MAXIMUM_PIXEL_ERROR).unwrap_or(u32::MAX);
-    let report = ok(calibrate_pointer_samples(&samples, tolerance));
-    note(format_args!(
-        "pointer_calibration: samples={} displays={} max_error={} px total_error={} px tolerance={} px",
-        report.sample_count(),
-        report.display_count(),
-        report.maximum_error_pixels(),
-        report.total_error_pixels(),
-        report.tolerance_pixels()
-    ));
-    assert!(
-        report.sample_count() >= MINIMUM_CALIBRATION_SAMPLES,
-        "真实显示器组合至少要采到 {MINIMUM_CALIBRATION_SAMPLES} 个样本"
-    );
-    assert!(report.display_count() >= 1, "至少要覆盖 1 台真实显示器");
-}
-
-/// 真机验收 4（TASK-040）：点击**已知元素**必须真的命中。
-///
-/// 链路：唯一临时文件名打开**真实记事本** → 按标题（唯一文件名）解析窗口 → 按适配包的主
-/// 选择器（class `RichEditD2DPT` + role `Document`）解析编辑器元素 → 读它的屏幕矩形 →
-/// 把光标移到矩形中心并**单击** → 轮询回读该元素的 `HasKeyboardFocus`，必须为 true。
-///
-/// 安全前置：点击前必须确认「本次启动的记事本窗口就是前台」（`GetForegroundWindow`）；
-/// 不是 → **打印原因并跳过**，绝不盲点（`pointer_action` 没有前台校验）。
-#[test]
-#[ignore = "真机验收：需要真实桌面 + 真实记事本，默认不跑（见本文件头）"]
-fn test_pointer_click_focuses_a_known_notepad_element() {
-    if let Err(failure) = declare_per_monitor_v2() {
-        note(format_args!(
-            "SKIP test_pointer_click_focuses_a_known_notepad_element: \
-             无法声明 Per-Monitor V2（{failure}）"
-        ));
-        return;
-    }
-    let path = temp_file_path();
-    if let Err(failure) = std::fs::write(&path, "calibration\n") {
-        note(format_args!(
-            "SKIP: 写临时文件失败 {}: {failure}",
-            path.display()
-        ));
-        return;
-    }
-    let platform = WindowsPlatform::new();
-    let preexisting = notepad_windows(platform);
-    let Some(mut child) = launch_notepad(&path) else {
-        remove_quietly(&path);
-        return;
-    };
-    let Some(window) = resolve_notepad_window(platform, &path) else {
-        let _ = cleanup_notepad_probe(platform, &path, preexisting.as_deref(), &mut child);
-        return;
-    };
-    let Some(editor) = resolve_notepad_editor(platform, &window) else {
-        let _ = cleanup_notepad_probe(platform, &path, preexisting.as_deref(), &mut child);
-        return;
-    };
-    let Some((center_x, center_y)) = editor_center(&editor) else {
-        let _ = cleanup_notepad_probe(platform, &path, preexisting.as_deref(), &mut child);
-        return;
-    };
-    // 安全前置：`pointer_action` 无前台校验 —— 不是我们的窗口在前台就**不点**。
-    // SAFETY: 只读查询当前前台窗口，不转移所有权。
-    let foreground = unsafe { GetForegroundWindow() };
-    if foreground.0 as u64 != window.id().value() {
-        note(format_args!(
-            "SKIP: 本次记事本窗口不在前台（foreground={:?}，target={}）—— 绝不盲点",
-            foreground.0,
-            window.id().value()
-        ));
-        let _ = cleanup_notepad_probe(platform, &path, preexisting.as_deref(), &mut child);
-        return;
-    }
-    let displays = ok(enumerate_monitors());
-    let Some(display) = display_containing(&displays, center_x, center_y) else {
-        note(format_args!(
-            "SKIP: 元素中心 ({center_x}, {center_y}) 不在任何已枚举显示器内"
-        ));
-        let _ = cleanup_notepad_probe(platform, &path, preexisting.as_deref(), &mut child);
-        return;
-    };
-    let scale = ok(coordinate_space_for_monitor(display)).scale();
-    let logical = ok(NormalizedPoint::new(
-        f64::from(center_x) / scale,
-        f64::from(center_y) / scale,
-    ));
-    ok(block_on(UiAutomationProvider::pointer_action(
-        &platform,
-        logical,
-        &PointerAction::Click,
-    )));
-    let focused = wait_for_keyboard_focus(&editor, FOCUS_TIMEOUT);
-    let (cursor_x, cursor_y) = ok(cursor_position());
-    note(format_args!(
-        "pointer_click: element=editor center=({center_x}, {center_y}) \
-         cursor=({cursor_x}, {cursor_y}) focused={focused}"
-    ));
-    let cleaned = cleanup_notepad_probe(platform, &path, preexisting.as_deref(), &mut child);
-    assert!(
-        focused,
-        "点击元素矩形中心后该元素必须取得键盘焦点（命中判据）；本轮窗口无残留 = {cleaned}"
-    );
-}
-
 /// 轮询解析「本次启动的那个」记事本窗口（标题含唯一文件名）。
 fn resolve_notepad_window(platform: WindowsPlatform, path: &Path) -> Option<ResolvedWindow> {
     let expected_name = path
@@ -745,12 +411,41 @@ fn cleanup_notepad_probe(
 ) -> bool {
     let cleaned =
         close_notepad_windows_created_by_this_test(platform, path, preexisting, CLEANUP_TIMEOUT);
-    let _ = child.wait();
+    let launcher_reaped = reap_launcher_stub(child);
     remove_quietly(path);
     note(format_args!(
-        "notepad_probe: 窗口清理完成（无残留） = {cleaned}"
+        "notepad_probe: 窗口清理完成（无残留） = {cleaned}; launcher_reaped = {launcher_reaped}"
     ));
     cleaned
+}
+
+fn reap_launcher_stub(child: &mut std::process::Child) -> bool {
+    match child.try_wait() {
+        Ok(Some(_)) => return true,
+        Ok(None) => {}
+        Err(failure) => {
+            note(format_args!(
+                "WARN: try_wait 查询 notepad.exe 启动器失败（{failure}），继续尝试终止"
+            ));
+        }
+    }
+    if let Err(failure) = child.kill() {
+        note(format_args!(
+            "WARN: 终止 notepad.exe 启动器失败（{failure}），继续 wait reap"
+        ));
+    }
+    match child.wait() {
+        Ok(status) => {
+            note(format_args!("notepad: 启动器已 reap（status={status}）"));
+            true
+        }
+        Err(failure) => {
+            note(format_args!(
+                "WARN: reap notepad.exe 启动器失败（{failure}）"
+            ));
+            false
+        }
+    }
 }
 
 /// 轮询确认元素已取得键盘焦点。

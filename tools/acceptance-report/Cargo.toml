@@ -1,0 +1,14 @@
+[workspace]
+
+[package]
+name = "assistant-acceptance-report"
+description = "Strict reader/summarizer for TASK-228 real-machine acceptance records."
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+# 复用 protocol crate 已登记并 re-export 的 serde_json；不新增第三方依赖。
+assistant-protocol = { path = "../../crates/protocol", version = "0.1.0" }
