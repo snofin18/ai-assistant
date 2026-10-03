@@ -6,6 +6,7 @@
 > **TASK-227 ✅（2026-10-03）**：状态行与停车位收口 —— TASK-040 / TASK-225 的状态行按实更正为 Done；`PL-103` 给出可直接粘贴的 spec 改法（已由 TASK-229 落笔）；`PL-106` 开卡 TASK-228（Ready，待派单）
 > **TASK-229 ✅（2026-10-03）**：`PL-103` 落笔 —— `docs/spec/runtime-execution.md` §3 改为以 `RESERVED_RUNTIME_TOOLS` 为唯一事实源（不再手写个数与名单）；`docs/memory/pitfalls.md` 落「收口类提交必须逐张比对状态行与 LEDGER」四步硬规则；轮次 A 的残留目录已清理（先清只读位再删）
 > **TASK-228 ✅（2026-10-03）**：真机 `#[ignore]` 四个用例改为覆盖写结构化记录（`pass|skip|fail` + 非空原因 + 测量值），`tools/acceptance-report` 严格解析并区分全 pass / 含 skip-fail / 非法记录；真机一轮 **4 pass / 0 skip / 0 fail**，`PL-106` 闭环。
+> **TASK-224 ✅（2026-10-04）**：ADR-0066 Accepted —— `xtask write` 复用 ADR-0028 协作锁，Windows 上做 `share_mode(0)` 占用探测与有界退避；实际写句柄只共享读取，持锁读取实测不阻塞；目标占用超时退出码 5、无残留锁/进程，`PL-107` 闭环。
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -271,6 +272,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-227 ✅** | 治理池 | `tasks/TASK-227-status-and-parking-closeout.md` | Done（TASK-040/225 状态行更正 + PL-103 改法 + TASK-228 开卡） |
 | **TASK-228 ✅** | 治理池 | `tasks/TASK-228-structured-real-machine-acceptance-record.md` | Done（真机结构化记录 + 严格汇总入口；`PL-106` 闭环） |
 | **TASK-229 ✅** | 治理池 | `tasks/TASK-229-pl103-spec-fix-and-status-rule.md` | Done（PL-103 落笔 + 状态行硬规则 + 残留目录清理） |
+| **TASK-224 ✅** | 治理池 | `tasks/TASK-224-single-write-channel-lock-queue.md` | Done（ADR-0066 命令行 write 通道 + Windows 独占占用探测 + 有界退避；PL-107 闭环） |
 | **TASK-040 ✅** | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Done（真机四用例取证；跨层 lease 由 TASK-225 闭环，`PL-101` 关闭） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
 | TASK-042 | 1b | `tasks/TASK-042-visual-verify-phash-dhash-confidence.md` | Ready（批次表占位派单前补全） |

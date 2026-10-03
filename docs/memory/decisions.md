@@ -184,3 +184,7 @@
 ## 2026-10-03 追加（ADR-0065，Accepted）
 
 - [2026-10-03][DECISION][src:ADR-0065，人类在 TASK-223 派单中确认方案；DRIFT-223-1 / PL-100 闭环] **前置保留步骤产出初始指纹**：新增 binary 层保留 `host_service` 工具 `assistant.runtime.host_capture_initial_fingerprint`，作为任务包第一个可执行步骤**恒执行**（不得带 `when`），用**注入平台**的 `fingerprint(window, WholeWindow)` 观测一次目标窗口指纹并发布，为后续「首步条件为假」的跳过提供真实前序指纹。指纹只来自注入实现：测试注入 fake/replay provider、生产注入 `WindowsPlatform`，同一段代码同一条路径；**严禁** `cfg!(debug_assertions)` / feature / profile 分叉运行时行为，**严禁**伪造或填占位值（观测失败即 `VerifyFailed` / 未装配即 `CapabilityMissing`）。该步骤只读，成功信封的 `fingerprint` 与 `previous_fingerprint` 是同一次观测值，postcondition 沿用 `state_unchanged`；`runtime_binding.rs` 的 fail-closed 判据一字不改；不改 `PlanStep` / `Plan` / `Planner` / `task-engine` 公共形状，不新增 crate 与依赖。T1.2 / T1.3 的首个可执行步骤无 `when`，故不需要该前置步骤。
+
+## 2026-10-04 追加（ADR-0066，Accepted）
+
+- [2026-10-04][DECISION][src:ADR-0066，按用户 2026-10-03 预授权代为裁决；TASK-224 / PL-107 闭环] **命令行唯一写通道 = `xtask write` 扩展 ADR-0028 协作锁，不取代 guard，也不冒充强制互斥**：`write` 先复用同一把 `guard` 锁（owner/task/intent/timeout/stale-after/force 语义不变），Windows 上再用 `share_mode(0)` 探测目标占用，占用时做有界退避重试，默认 5 秒超时并沿用退出码 5；实际写入只共享 `FILE_SHARE_READ`，读路径不进入通道且不等待；**不做**需要常驻进程的真 FIFO（只做互斥 + 退避，无顺序保证）；**明确不把 `apply_patch` 强制纳入**（无法从 xtask 拦截，非命令行写仍须先取 guard）；独占探测对以 `FILE_SHARE_WRITE` 打开的持有者存在盲区，非 Windows fail-closed；stdin 硬上限 16 MiB，不启动子进程，超时后不得残留 guard 锁。

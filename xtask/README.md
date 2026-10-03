@@ -8,6 +8,7 @@
 - `memory-counts`：`MEMORY.md`「各文件当前规模」表 ↔ `docs/memory/` 实测计数是否一致（ADR-0030 D1/D2，**8** 条规则）
 - `adr-index`：`docs/adr/README.md` 编号登记表 ↔ `docs/adr/NNNN-*.md` ↔ `docs/memory/decisions.md` 是否一致（ADR-0030 D3，**11** 条规则）
 - `guard`：文件改写互斥锁（ADR-0028），操作 = `acquire` / `release` / `status` / `reap`
+- `write`：命令行唯一写通道（ADR-0066）：stdin → 目标，复用 guard 锁 + Windows 独占占用探测 + 退避重试
 - `--list-deferred`：打印**未实现**的子命令与规则，含归属任务卡号
 - `check-comments`：`docs/spec/naming.md` §10 的 8 条注释与命名规则（公共 API 文档、
   模块头、`SAFETY`、`PITFALL` 标签、受控词汇与缩写）
@@ -16,9 +17,9 @@
 
 ## 边界（不做什么）
 
-- **只读仓库内容**：不创建、修改、删除任何**受版本控制**的文件，不访问网络。
-  唯一例外是 `guard` 在 `target/locks/` 下管理的临时锁文件与放弃日志（ADR-0028 D8）——
-  它们不入库、生命周期由 `guard` 自己负责。
+- **只读仓库内容，除两个显式例外**：`guard` 在 `target/locks/` 下管理的临时锁文件与放弃日志
+  （ADR-0028 D8），以及 `write` 命令明确指定的仓库内相对目标（ADR-0066）。
+  除 `write` 目标外，本工具不创建、修改、删除任何**受版本控制**的文件，也不访问网络。
 - **不参与产品运行时**：不被任何 `crates/*` 或 `apps/*` 依赖。
 - **零第三方依赖**：只用 `std`。护栏工具自身必须无供应链风险，且编译要快到
   「每次提交都能跑」（当前全量编译 < 1 s）。
@@ -64,6 +65,8 @@
 | `guard_runner.rs` | guard 分派 + `acquire`（等待 / 放弃 / 接管 / 回滚） | 经 `LockStore` |
 | `guard_release.rs` | guard 的 `release` / `status` / `reap` | 经 `LockStore` |
 | `guard_testkit.rs` | 内存锁存储替身（仅 `cfg(test)`） | 否 |
+| `write_channel.rs` | `xtask write` 的唯一通道、占用探测与有界重试（ADR-0066） | **是**（显式目标 + `target/locks/`） |
+| `write_channel_tests.rs` | `write_channel` 的成功 / 超时 / fail-closed 与 Windows 句柄专项测试 | 仅 Windows 专项 |
 | `adr_index_tests.rs` / `guard_tests.rs` / `guard_runner_tests.rs` | 对应模块的私有单测，用 `#[path]` 外置（gov §5.4 的 600 行硬上限） | 否 |
 | `main.rs` | 分派、读文件内容、呈现、退出码 | 是（只读） |
 
@@ -184,6 +187,22 @@
 ① `AGENTS.md` 把它写成义务；② review agent 的 PR 检查项；
 ③ 事后由 `memory-counts` / `adr-index` 发现「条目数变少」这类覆盖症状。
 
+## write — 命令行唯一写通道（ADR-0066）
+
+`xtask write <仓库相对路径>` 从 stdin 读入内容，并按以下顺序执行：
+
+1. 先读入有界内容（硬上限 **16 MiB**），避免 stdin 阻塞时白占 guard 锁；
+2. 复用 ADR-0028 的 `guard acquire`，锁参数仍是 `--owner` / `--task` / `--intent` /
+   `--timeout` / `--stale-after` / `--force`；
+3. Windows 上用 `share_mode(0)` 探测目标是否被不被共享的持有者占用，占用则退避重试；
+4. 写入时只共享 `FILE_SHARE_READ`，所以读取者可读，其它写者被拒绝；
+5. 成功、失败、超时都释放 guard 锁；超时退出码 **5**，并写 `WRITE_ABANDONED` 日志。
+
+**边界**：这不是真 FIFO，也不取代 `guard`；它只是“协作锁 + 目标占用探测 + 有界重试”。
+`apply_patch` 等非命令行写入不在强制范围内，仍必须遵守 ADR-0028 的 guard 协议。
+非 Windows 平台没有 `share_mode(0)` 等价原语，因此 `write` **fail-closed**；
+`guard` 本身仍可跨平台使用。
+
 ## 已知限制 / 技术债
 
 - 2 项 gov §5.4 规则未实现（重复代码、顶层目录白名单）→ **未拆卡项，PL-060**
@@ -193,6 +212,9 @@
   现存 2 处违规都在「只增不改」的 ADR 正文里，先实现就是一条永久红灯；正确顺序是先定豁免机制）
 - `guard` 的锁文件在 `target/` 下，`cargo clean` 会全部删掉（fail-open）。已明确接受：
   guard 是**降低概率**的第二道防线，write scope + review 仍是主防线。
+- `write` 的独占探测存在 `FILE_SHARE_WRITE` 盲区；且非 Windows 只能 fail-closed。
+  这些都是 ADR-0066 明写的限制，不是可静默绕过的实现细节。
+- `apply_patch` 无法从 `xtask` 拦截；ADR-0066 明确把它排除在“强制唯一通道”之外。
 - `rustscan` 不是完整的 Rust 解析器：它只需要区分 代码 / 注释 / 字符串 / 字符字面量 /
   生命周期。宏内部的复杂 token 序列可能被误判（当前规则不依赖宏内部结构，故可接受）。
 
@@ -211,6 +233,9 @@ cargo run -p xtask -- guard acquire MEMORY.md --owner codex-1a2b3c4d --task TASK
 cargo run -p xtask -- guard status
 cargo run -p xtask -- guard release MEMORY.md --owner codex-1a2b3c4d
 cargo run -p xtask -- guard reap --stale-after 900    # 清理陈旧锁（会打印被清理者的记录）
+
+# write：内容从 stdin 传入；Windows 上会先探测目标占用
+Get-Content .\new-LEDGER-line.txt | cargo run -p xtask -- write LEDGER.md --owner codex-1a2b3c4d --task TASK-030 --intent "追加台账行" --timeout 5
 
 cargo run -p xtask -- --help
 ```

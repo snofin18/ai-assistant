@@ -58,7 +58,10 @@ pub fn run(
 }
 
 /// `acquire`：按序获取全部目标；任一失败 → 回滚已获取的 → 放弃并通报。
-fn run_acquire(
+///
+/// `pub` 只为 `write_channel` 复用完整锁语义（模块本身私有，实际可见范围仍是 crate）；
+/// 四个 guard 操作的分派仍在本文件，行为与 ADR-0028 一字不改。
+pub fn run_acquire(
     request: &GuardRequest,
     store: &dyn LockStore,
     output: &mut dyn Write,

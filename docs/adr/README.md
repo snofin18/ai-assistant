@@ -71,8 +71,9 @@
 | **0063** | `0063-resource-lifecycle-discipline.md` | **Accepted** | 资源生命周期纪律：长期状态必须有硬上限与淘汰/拒绝；子进程必须终止进程树并 reap（含失败路径）；线程本地资源要能释放；新卡必须附泄露证据；不改公共契约（TASK-220/221；2026-10-02 人类要求记入操作规则） |
 | **0064** | `0064-l1-file-channel-as-reserved-host-service.md` | **Accepted** | L1 文件通道以 binary 层保留 `host_service` 表达：`l1_file` 语义不变；新增 `assistant.runtime.host_read_utf8_prefix`，有界读取 UTF-8 前缀、显式 `truncated`、不改公共形状、不新增依赖（TASK-223；2026-10-03 自动化按授权接受） |
 | **0065** | `0065-initial-fingerprint-reserved-host-step.md` | **Accepted** | 前置保留步骤产出初始指纹：新增 `assistant.runtime.host_capture_initial_fingerprint`，恒执行、指纹只来自**注入平台**（fake 与 `WindowsPlatform` 同一条代码路径）、严禁构建配置分叉与伪造、不改 `runtime_binding` 的 fail-closed 判据（TASK-223；`DRIFT-223-1` / `PL-100` 闭环；2026-10-03 人类派单确认） |
+| **0066** | `0066-cli-single-write-channel-and-file-occupancy-probe.md` | **Accepted** | 命令行唯一写通道 = `xtask write` 复用 ADR-0028 协作锁 + Windows `share_mode(0)` 占用探测 + 有界退避重试；不做真 FIFO，`apply_patch` 不强制纳入，探测盲区与非 Windows fail-closed 明写（TASK-224；2026-10-04 按用户 2026-10-03 预授权代为裁决；`PL-107` 闭环） |
 
-**下一个可用编号：0066**（= §1 与 §2 已用最大号 **0065** + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0067**（= §1 与 §2 已用最大号 **0066** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由

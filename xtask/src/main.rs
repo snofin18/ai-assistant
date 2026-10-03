@@ -93,6 +93,7 @@ mod repowalk;
 mod rustscan;
 mod serde_json_lite;
 mod verify_schemas;
+mod write_channel;
 
 // guard 的测试替身：只在测试构建里存在，产品构建不会编进来
 #[cfg(test)]
@@ -283,6 +284,9 @@ fn execute(arguments: &[String], output: &mut dyn Write) -> Result<u8, Failure> 
     if command == "guard" {
         return run_guard(&invocation, output);
     }
+    if command == "write" {
+        return run_write(&invocation, output);
+    }
     if command == "verify-schemas" {
         return run_verify_schemas(&invocation, output);
     }
@@ -333,6 +337,24 @@ fn run_guard(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Fail
     .map_err(Failure::Guard)?;
     let store = guard_store::FileLockStore::new(root);
     guard_runner::run(&request, &store, output).map_err(Failure::Guard)
+}
+
+/// 执行 `write`：把 stdin 内容经 guard 锁与独占占用探测写入一个仓库内相对路径。
+///
+/// 默认超时比 guard 更短（ADR-0066 D7）：写入通道存在的目的就是让 PowerShell
+/// 会话尽快拿回控制权，而不是再次变成“看不见的无限等待”。
+fn run_write(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
+    let root = resolve_repo_root(invocation.repo.as_deref())
+        .map_err(|error| Failure::from_walk(&error))?;
+    let store = guard_store::FileLockStore::new(root.clone());
+    write_channel::run_from_invocation(
+        invocation,
+        &root,
+        &store,
+        &write_channel::FileSystemTargetAccess,
+        output,
+    )
+    .map_err(Failure::Guard)
 }
 
 /// 执行架构护栏检查（分层 + 零三方依赖）。
