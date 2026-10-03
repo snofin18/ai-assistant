@@ -1,6 +1,6 @@
 # TASK-230　storage 补齐 conversations / message-tree 持久化记录 API
 
-- 状态：**Done（2026-10-04，PR merge hash 待回填；`PL-092` 闭环）**
+- 状态：**Done（2026-10-04，PR #210 / merge `8408e66`；`PL-092` 闭环）**
 - 阶段：1　子阶段：1a 补救 / 治理　批次：治理池　依赖：TASK-012、TASK-028、TASK-206
 - 关联：`docs/storage-design.md` §3.4 / §4 / §7、`crates/core/src/store.rs`、`crates/core/src/message.rs`、`docs/PARKING_LOT.md` 的 `PL-092`
 - 预估：M　难度：M
@@ -129,6 +129,7 @@ cargo run -p xtask -- codegen --check
 - `cargo test -p assistant-storage` → EXIT 0；新增会话测试 5 passed / 0 failed。
 - `cargo run -p xtask -- check-migrations` → `scanned_migration_files=5 registry_entries=5`，0 error / 0 warning，PASSED。
 - `hygiene` → 0 error / 101 warning，PASSED；`memory-counts` / `adr-index` / `refscan` / `docscan` / `check-comments` / `verify-schemas` / `codegen --check` → 全 PASSED。
+- GitHub PR #210：push run `37152234313` 与 pull_request run `37152269279` 均 `conclusion=success`；合并前 `base=main`、`mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`。
 
 **跨重启与负向证据**
 
