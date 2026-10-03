@@ -7,6 +7,7 @@
 > **TASK-229 ✅（2026-10-03）**：`PL-103` 落笔 —— `docs/spec/runtime-execution.md` §3 改为以 `RESERVED_RUNTIME_TOOLS` 为唯一事实源（不再手写个数与名单）；`docs/memory/pitfalls.md` 落「收口类提交必须逐张比对状态行与 LEDGER」四步硬规则；轮次 A 的残留目录已清理（先清只读位再删）
 > **TASK-228 ✅（2026-10-03）**：真机 `#[ignore]` 四个用例改为覆盖写结构化记录（`pass|skip|fail` + 非空原因 + 测量值），`tools/acceptance-report` 严格解析并区分全 pass / 含 skip-fail / 非法记录；真机一轮 **4 pass / 0 skip / 0 fail**，`PL-106` 闭环。
 > **TASK-224 ✅（2026-10-04）**：ADR-0066 Accepted —— `xtask write` 复用 ADR-0028 协作锁，Windows 上做 `share_mode(0)` 占用探测与有界退避；实际写句柄只共享读取，持锁读取实测不阻塞；目标占用超时退出码 5、无残留锁/进程，`PL-107` 闭环。
+> **TASK-230 ✅（2026-10-04）**：storage 新增 `0005` 迁移与 `conversations` / `conversation_messages` 持久化 API；真实关闭 / 重开 SQLite 后逐字段一致，缺失会话、非法父子关系与 revision 跳号显式失败，`PL-092` 闭环。
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -313,6 +314,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-205 ✅** | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-205-schema-module-split.md` | `crates/tool-bus/src/schema.rs`（892 行，TASK-204 收尾时只剩 8 行余量）按**职责**拆分为模块目录（注册期 schema 检查 / 运行期实例校验），让每个文件回到 gov §5.4 的 600 行建议线以下、**行为零变化**；人类 2026-09-25 裁决「**合适的时候立卡，拆文件吧**」；**Ready（2026-09-25）** |
 | **TASK-206 ✅** | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-206-storage-memory-fts5-search.md` | `crates/storage` 的 `memory_fts`（FTS5）迁移 + 检索 API + 存储侧测试 —— 原 TASK-028 的 **DRIFT-028-1** 前置卡（**ADR-0053 D6**）；**Done（2026-09-27，PR #68 / merge `6da9007`）** |
 | **TASK-209 ✅** | 治理池 200~299 | `tasks/TASK-209-audit-round-2-governance-remediation.md` | 第二轮审计治理整改：文档漂移、卡片状态、ADR 断表、UI/xtask CI 空转与缺失硬门禁；产品最后一公里另立卡 |
+| **TASK-230 ✅** | 治理池 200~299（ADR-0037 D1） | `tasks/TASK-230-storage-conversation-message-tree.md` | `PL-092` 落地物：storage 的 `conversations` + message-tree 迁移与持久化记录 API；**Done（2026-10-04）** |
 
 ## 任务卡号段分配（ADR-0037, 2026-09-20 起生效）
 

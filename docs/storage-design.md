@@ -136,6 +136,7 @@ GC  ：引用计数为 0 且超过 TTL → 删除；后台低优先级任务，�
 | 0002 | `crates/audit` | `crates/audit/migrations/0002_audit_logs.sql` | `audit_logs` + `idx_audit_ts` + 两个 append-only 触发器 |
 | 0003 | `crates/audit` | `crates/audit/migrations/0003_audit_logs_semantics.sql` | 重建 `audit_logs`：删 `hash`、加 `sequence`（+ 重建 `idx_audit_ts` 与两个触发器）—— ADR-0040 |
 | 0004 | `crates/storage` | `crates/storage/migrations/0004_memory_fts.sql` | `memory_records` + `memory_fts`（FTS5）+ 三个同步触发器 |
+| 0005 | `crates/storage` | `crates/storage/migrations/0005_conversations_message_tree.sql` | `conversations` + `conversation_messages` + 状态 / 归档索引 + 父子顺序触发器 |
 
 > **为什么 0002 在 `crates/audit` 而不是 `crates/storage`**：TASK-013 曾把它放在
 > `crates/storage/migrations/`（当时迁移链没有外部入口）→ 违反「DDL 与拥有者同处」。
@@ -146,14 +147,19 @@ GC  ：引用计数为 0 且超过 TTL → 删除；后台低优先级任务，�
 > → `DROP` → `RENAME` → 重建索引与触发器）是唯一确定性的走法。`0002` **一字不改**（checksum 记账）。
 
 > **0004 为什么又回到 `crates/storage`**：全局号段按“迁移发生顺序”分配，不按拥有者分块。
-> 因此单个 crate 的 `MIGRATIONS` 是全局序列的**片段**，可以出现空洞：storage = 0001 + 0004，
+> 因此单个 crate 的 `MIGRATIONS` 是全局序列的**片段**，可以出现空洞：storage = 0001 + 0004 + 0005，
 > audit = 0002 + 0003；装配点必须注册全部 crate 的 `MIGRATIONS`，只有合并后的 `MigrationSet`
 > 必须连续。不要在单 crate 片段上调用 `validate()` 来推断全局链完整。
+
+> **0005 为什么仍归 `crates/storage`**：会话行与消息树是本 crate 的 W1 持久化形状，
+> Core 只经公开记录 API 读写，不在 Core 内打开 SQLite。`conversation_messages` 用
+> `(conversation_id, id)` 主键、`(conversation_id, sequence)` 唯一约束和顺序触发器共同保证
+> “父节点同会话且 sequence 更小”，避免持久化出无法恢复的无环树。
 
 > **已机器化（2026-09-24，TASK-015 落地 PL-047）**：`cargo run -p xtask -- check-migrations`
 > 扫描 `crates/*/migrations/*.sql`，校验三条判据 —— ① 4 位号段**全局唯一**；② 与本表**逐行一致**
 > （双向：漏登记 / 多登记 / 路径不符）；③ 每个含迁移的 crate 都公开 `pub const MIGRATIONS`。
-> 三条都是 **Error**（客观事实，没有豁免可豁），且上线时本仓库是绿的（0001~0004）。
+> 三条都是 **Error**（客观事实，没有豁免可豁），且上线时本仓库是绿的（0001~0005）。
 >
 > **为什么之前必须手工回填**（PL-047 的原话）：装配时 `register()` / `validate()` 只拦得住
 > 「**已经装配进集合**」的重号与缺号 —— 拦不住「写了迁移文件却忘了在本表占号」。

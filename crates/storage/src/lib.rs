@@ -5,7 +5,7 @@
 //! ## 职责
 //!
 //! - L1：主库连接 + PRAGMA 基线 + **只前进不回滚**的迁移框架 + **本 crate 自己**那几张表
-//!   （W1 任务/步骤/检查点、W6 用量、`memory_fts` 的源表与检索索引）
+//!   （W1 任务/步骤/检查点、会话与消息树、W6 用量、`memory_fts` 的源表与检索索引）
 //! - L2：内容寻址 blob 池（zstd level 3 + sha256 寻址 + 去重 + 引用计数 + GC + 一致性扫描）
 //! - 记忆检索：任务历史 / 偏好 / 笔记的 fail-closed 查询与索引一致性自检
 //! - **迁移注册表**（[`MigrationSet`]）：给「一组迁移」提供唯一性 / 连续性的硬校验
@@ -13,7 +13,7 @@
 //! ## 边界（不做什么）
 //!
 //! - 不含业务规则：状态机、重试、预算、撤销锚点管理、审计 hash chain 都**不**在这里
-//! - **不拥有全库表清单**（ADR-0038）：本 crate 只声明 [`MIGRATIONS`]（自己的 0001 + 0004）；
+//! - **不拥有全库表清单**（ADR-0038）：本 crate 只声明 [`MIGRATIONS`]（自己的 0001 + 0004 + 0005）；
 //!   `audit_logs` 由 `crates/audit` 自己的迁移 `0002` 建，读写与 hash chain 也归它。
 //!   不实现影子副本的写入策略、不做向量检索
 //! - 不调用任何平台 API（`arch` 护栏会拦）；不打开只读连接池（归 TASK-028 之后的 Core 装配）
@@ -75,6 +75,8 @@
 
 mod blob_id;
 mod content;
+mod conversation_messages;
+mod conversations;
 mod error;
 mod memory;
 mod migrations;
@@ -86,6 +88,15 @@ mod time_source;
 pub use blob_id::{BlobId, BlobKind, BlobOwner};
 pub use content::{
     BlobStore, COMPRESSION_LEVEL, GarbageCollection, IntegrityIssue, IntegrityIssueKind,
+};
+pub use conversation_messages::{
+    ConversationMessageRecord, MAX_MESSAGE_CONTENT_BYTES, MAX_MESSAGES_PER_CONVERSATION,
+    insert_conversation_message, load_conversation_messages,
+};
+pub use conversations::{
+    CONVERSATION_STATUS_ACTIVE, CONVERSATION_STATUS_ENDED, ConversationRecord,
+    MAX_CONVERSATION_GOAL_BYTES, insert_conversation, insert_conversation_snapshot,
+    load_conversation, load_conversation_snapshot, replace_conversation_snapshot,
 };
 pub use error::{StorageError, StorageResult};
 pub use memory::{

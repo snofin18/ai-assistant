@@ -41,8 +41,14 @@ fn object_kind(connection: &rusqlite::Connection, name: &str) -> Option<String> 
 
 fn memory_migrations() -> MigrationSet {
     let mut set = MigrationSet::new();
-    set.register_all(MIGRATIONS)
-        .expect("注册 storage 0001 + 0004");
+    for version in [1, 4] {
+        let migration = MIGRATIONS
+            .iter()
+            .find(|migration| migration.version() == version)
+            .copied()
+            .expect("storage 必须声明该版本");
+        set.register(migration).expect("注册 storage 迁移");
+    }
     set.register(Migration::new(
         2,
         "0002_audit_logs",
@@ -55,7 +61,7 @@ fn memory_migrations() -> MigrationSet {
         include_str!("../../audit/migrations/0003_audit_logs_semantics.sql"),
     ))
     .expect("注册 audit 0003");
-    set.validate().expect("测试用全局迁移集必须从 1 连续");
+    set.validate().expect("FTS 测试用的历史集合必须从 1 连续");
     set
 }
 
