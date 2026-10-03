@@ -126,6 +126,7 @@ cargo run -p xtask -- codegen --check
   - 修复后同命令 → **8 passed / 0 failed / 1 filtered out / finished in 20.85s**。
 - xtask 门禁：`hygiene` PASSED（0E / 102W；`production_root.rs` 的 `file-too-long` 已消失）、`memory-counts` PASSED、`adr-index` PASSED、`refscan` PASSED（632 files 0E/0W）、`docscan` PASSED（0E / 342W）、`card-check` PASSED（0E / 27W）、`check-ledger` PASSED、`check-comments` PASSED（0E / 69W）、`verify-schemas` PASSED、`codegen --check` PASSED。
 - 行数实测：`production_root.rs` 433、`production_root_t1_2.rs` 390、`production_root_t1_3.rs` 101、`support/production_fixture.rs` 378；均在 600 行软上限以下。
+- **合并与 CI 证据（回填）**：PR [#197](https://github.com/snofin18/ai-assistant/pull/197) 的 PR 事件 CI run `37107879818` = **11/11 SUCCESS**（check windows-latest 8m6s / ubuntu-latest 3m18s / macos-latest 4m21s、cargo deny ×2、doc consistency、desktop-ui checks、desktop-ui tauri (windows)、commitlint、gate negative verification #6、xtask deferred inventory）；合并前 `baseRefName=main`、`mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`，合并提交 **`29b68bc`**（2026-10-03T08:03:05Z，`state=MERGED`）。
 
 ### 4. DoD 逐条核对
 
