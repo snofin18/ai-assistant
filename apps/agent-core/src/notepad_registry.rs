@@ -34,6 +34,7 @@ use crate::notepad_rollback::{CapturedRollbackAnchor, NotepadRollback};
 use crate::notepad_targets::{MAIN_WINDOW_TARGET, NotepadTargetCatalog};
 use crate::runtime_host_ops::{ReservedHostOperationError, ReservedHostOperations};
 use crate::runtime_tools::TOOL_HOST_CAPTURE_INITIAL_FINGERPRINT;
+use crate::target_lease::TargetLeaseGate;
 
 /// Tool name for reading the active document.
 pub(crate) const TOOL_READ_TEXT: &str = "notepad.file.read_text";
@@ -114,6 +115,7 @@ pub(crate) fn build_notepad_registry<P>(
     targets: Arc<NotepadTargetCatalog>,
     tools_path: &Path,
     task_inputs: &serde_json::Map<String, Value>,
+    input_leases: TargetLeaseGate,
 ) -> Result<NotepadRegistryBuild, NotepadRegistryError>
 where
     P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
@@ -124,6 +126,7 @@ where
         platform,
         app_id: declared.app_id.clone(),
         targets,
+        input_leases,
     });
     let host_operations = Arc::new(NotepadReservedHostOperations {
         context: Arc::clone(&context),

@@ -82,6 +82,13 @@ version = "0.1.0"
 path = "../../crates/undo"
 version = "0.1.0"
 
+[dependencies.assistant-lease]
+# TASK-225: synthetic input at the Host boundary must hold a target lease
+# before dispatching key/pointer actions. Workspace dependency, not a new
+# third-party crate; `crates/core` remains forbidden by ADR-0053 D3.
+path = "../../crates/lease"
+version = "0.1.0"
+
 [target.'cfg(windows)'.dev-dependencies.windows]
 # Leak-audit measurement (ADR-0063): the ignored convergence test samples its
 # own working set and handle count. `windows` is already an approved dependency

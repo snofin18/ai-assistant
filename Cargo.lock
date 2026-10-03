@@ -50,6 +50,7 @@ dependencies = [
  "assistant-core",
  "assistant-hitl",
  "assistant-ipc",
+ "assistant-lease",
  "assistant-model-gateway",
  "assistant-platform-api",
  "assistant-platform-windows",

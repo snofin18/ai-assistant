@@ -29,8 +29,8 @@ use std::task::{Context, Poll, Waker};
 use std::time::{Duration, Instant};
 
 use assistant_platform_api::{
-    Fingerprint, FingerprintScope, KeyChord, KeyModifier, KeyTarget, ResolvedElement,
-    ResolvedWindow, UiAutomationProvider, WindowFilter, WindowProvider,
+    Fingerprint, FingerprintScope, KeyModifier, ResolvedElement, ResolvedWindow,
+    UiAutomationProvider, WindowFilter, WindowProvider,
 };
 use assistant_protocol::serde_json;
 use assistant_tool_bus::{CallContext, SourceDescriptor, ToolBusError, ToolHandler, ToolOutput};
@@ -44,6 +44,7 @@ use crate::notepad_targets::{
     EDITOR_TARGET, MAIN_WINDOW_TARGET, NotepadTargetCatalog, SAVE_AS_DIALOG_TARGET,
     SAVE_AS_FILENAME_TARGET, SAVE_AS_SAVE_BUTTON_TARGET,
 };
+use crate::target_lease::TargetLeaseGate;
 
 #[path = "notepad_handlers_support.rs"]
 mod support;
@@ -135,10 +136,10 @@ where
 {
     fn call(
         &self,
-        _call: &CallContext,
+        call: &CallContext,
         _arguments: &Map<String, Value>,
     ) -> Result<ToolOutput, ToolBusError> {
-        self.context.save_output()
+        self.context.save_output(call.task_id())
     }
 }
 
@@ -152,10 +153,10 @@ where
 {
     fn call(
         &self,
-        _call: &CallContext,
+        call: &CallContext,
         arguments: &Map<String, Value>,
     ) -> Result<ToolOutput, ToolBusError> {
-        self.context.save_as_output(arguments)
+        self.context.save_as_output(arguments, call.task_id())
     }
 }
 
@@ -163,6 +164,7 @@ pub(crate) struct NotepadHandlerContext<P> {
     pub(crate) platform: Arc<P>,
     pub(crate) app_id: String,
     pub(crate) targets: Arc<NotepadTargetCatalog>,
+    pub(crate) input_leases: TargetLeaseGate,
 }
 
 impl<P> NotepadHandlerContext<P>
@@ -250,11 +252,11 @@ where
         ))
     }
 
-    fn save_output(&self) -> Result<ToolOutput, ToolBusError> {
+    fn save_output(&self, task_id: &str) -> Result<ToolOutput, ToolBusError> {
         let window = self.resolve_window(MAIN_WINDOW_TARGET, TOOL_SAVE)?;
         let before = self.fingerprint_event(&window, TOOL_SAVE)?;
         let started = Instant::now();
-        self.send_key(&window, "S", vec![KeyModifier::Control], TOOL_SAVE)?;
+        self.send_key(task_id, &window, "S", vec![KeyModifier::Control], TOOL_SAVE)?;
         let after = self.fingerprint_event(&window, TOOL_SAVE)?;
         let window_title = self.window_title(&window, TOOL_SAVE)?;
         Ok(ToolOutput::json(json!({
@@ -266,7 +268,11 @@ where
         })))
     }
 
-    fn save_as_output(&self, arguments: &Map<String, Value>) -> Result<ToolOutput, ToolBusError> {
+    fn save_as_output(
+        &self,
+        arguments: &Map<String, Value>,
+        task_id: &str,
+    ) -> Result<ToolOutput, ToolBusError> {
         let target_path = PathBuf::from(required_text(arguments, "target_path")?.to_owned());
         if !target_path.is_absolute() {
             return Err(support::invalid_arguments(
@@ -291,6 +297,7 @@ where
         let before_fingerprint = self.fingerprint_event(&main_window, TOOL_SAVE_AS)?;
         let started = Instant::now();
         self.send_key(
+            task_id,
             &main_window,
             "S",
             vec![KeyModifier::Control, KeyModifier::Shift],
@@ -507,48 +514,6 @@ where
         result.map_err(|error| support::map_platform_error(tool, &error))
     }
 
-    pub(crate) fn send_key(
-        &self,
-        window: &ResolvedWindow,
-        key: &str,
-        modifiers: Vec<KeyModifier>,
-        tool: &str,
-    ) -> Result<(), ToolBusError> {
-        let chord = KeyChord::new(key.to_owned(), modifiers);
-        let result = poll_immediate(
-            self.platform
-                .key_action(&chord, &KeyTarget::Window(window.clone())),
-            tool,
-            "key_action",
-        )?;
-        result.map_err(|error| support::map_platform_error(tool, &error))
-    }
-
-    /// Sends a key chord to a resolved element, which makes the platform confirm focus first.
-    ///
-    /// Use this instead of [`Self::send_key`] whenever a shortcut must land in a specific
-    /// element (for example `Ctrl+Z` on the editor) rather than anywhere in the window.
-    ///
-    /// # Errors
-    ///
-    /// Returns the platform's error when focus cannot be confirmed or the input cannot be sent.
-    pub(crate) fn send_key_to_element(
-        &self,
-        element: &ResolvedElement,
-        key: &str,
-        modifiers: Vec<KeyModifier>,
-        tool: &str,
-    ) -> Result<(), ToolBusError> {
-        let chord = KeyChord::new(key.to_owned(), modifiers);
-        let result = poll_immediate(
-            self.platform
-                .key_action(&chord, &KeyTarget::Element(element.clone())),
-            tool,
-            "key_action",
-        )?;
-        result.map_err(|error| support::map_platform_error(tool, &error))
-    }
-
     fn window_title(&self, window: &ResolvedWindow, tool: &str) -> Result<String, ToolBusError> {
         let result = poll_immediate(
             self.platform.list_windows(&WindowFilter::any()),
@@ -628,6 +593,9 @@ fn elapsed_ms(started: Instant) -> u64 {
 
 #[path = "notepad_tab.rs"]
 mod notepad_tab;
+
+#[path = "notepad_input.rs"]
+mod notepad_input;
 
 #[cfg(test)]
 #[path = "notepad_handlers_tests.rs"]
