@@ -2,6 +2,7 @@
 
 > 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 / A2 / A3 既有卡均 Done**；**TASK-039 ✅：阶段 1a 独立复验硬门禁全绿，结论 = GO**；**TASK-102 / 103 / 104 / 105 / 210 / 087 / 212 / 211 / 213 / 214 均 Done**；**TASK-213 完成 UI↔Core 真管道与 `SnapshotEventSource`，PL-095 闭环**；**TASK-214 完成生产装配根、确定性 task-package Plan 来源、5 个 Notepad handler、真 UIA T1.1 干跑、真 UI 管道 `step_state_changed` 与 fail-closed 收口，PL-096 闭环**；**TASK-205 完成 `tool-bus` schema 模块拆分，`hygiene` 长文件 warning 4→3**；**PL-097 已闭环**；**TASK-216 Done：A/B 片由 TASK-217 完成数据流与可恢复审批后收口**；**TASK-217 Done：T1.2/T1.3 fake platform 到 `Completed`，无授权暂停与 UI 批准恢复已落地，`DRIFT-216-4` 闭环**；**TASK-085 / TASK-086 Done：Rust 源码结构、末行换行、CRLF 与依赖登记卫生规则落地，覆盖 11/13**；**TASK-105 真实主路径 3×10 已取证；TASK-218 Done：真实 UIA 完整 L1 回滚 + fake-platform L1 fallback/三类负向证据**；**TASK-223 Done：ADR-0064 的 `host_read_utf8_prefix` 文件通道 + ADR-0065 的前置初始指纹步骤，T1.1 大文件 Plan 在 fake 平台与真机 UIA 各取证跑通（`read_text` 被条件跳过、文件通道接管、4 步全提交），`DRIFT-223-1` / `PL-100` 闭环**；**TASK-220 Done：元素表 4096 / anchor 64 / grant 1024 上限与淘汰、进程树 `taskkill /T /F` + `wait()` reap，真机 ignored 全套 8 passed，`DRIFT-220-1` 闭环**；阶段 1a 已完成复验并翻转为 GO，下一张待 Orchestrator 派单（TASK-040 的真机点击校准仍需人工授权））
 > **TASK-225 ✅（2026-10-03）**：Host 装配层已用共享 `TargetLeaseRegistry` 接上合成输入 exclusive lease；key / pointer-shaped 输入冲突稳定 `Transient`，成功/失败都释放，只读路径不变；`PL-101` 闭环。TASK-040 正文 DoD 复选框仍因正文只读未勾选。
+> **TASK-226 ✅（2026-10-03）**：PL-104 / PL-105 闭环；ignored 真机用例以异步互斥串行化 fixture 启动，`production_root.rs` 拆分后 3 个文件均 <600 行且断言零放宽。
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -141,6 +142,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-222 | 第三轮泄露审计：真机长跑收敛测量（**ADR-0063 首个执行实例**） | `eval/tasks/notepad/**`、`docs/audits/leak-audit-round-3-*.json` | TASK-220、TASK-221、ADR-0063 | M | 30 次真实 UIA 采样进程数/句柄/工作集；进程数收敛；agent 进程内测量留待下一轮；阶段 1a 仍 NO-GO |
 | **TASK-223 ✅** | L1 文件通道 `read_utf8_prefix` 作为 binary 层保留 `host_service`（**前置 ADR-0064**） | `apps/agent-core/src/**`、`apps/agent-core/tests/**`、`adapters/com.microsoft.notepad/tasks/t1.1*`、`docs/adr/0064-*` | TASK-219、**ADR-0064 Accepted** | M | 1MB 文件走文件通道降级；UTF-8 前缀不截断；`truncated` 显式；不改 `l1_file` 语义；阶段 1a 仍 NO-GO |
 | **TASK-225 ✅** | Host 合成输入目标租约独占（**跨层补 PL-101；1b 桥接**） | `apps/agent-core/src/**`、`apps/agent-core/tests/**`、`apps/agent-core/Cargo.toml` | TASK-018、TASK-025、TASK-040 真机校准 | M | `key_action` / pointer-shaped input 发送前取得窗口 exclusive lease；两任务冲突稳定 `Transient`；成功/失败都释放；只读路径不变 |
+| **TASK-226 ✅** | 测试卫生清理：ignored 真机用例串行化 + `production_root.rs` 拆分 | `apps/agent-core/tests/**`、`tasks/TASK-226-*`、状态同步文件 | TASK-223 | M | PL-104 并行红灯消失；PL-105 每个测试文件 <600 行；断言不删不放宽；阶段 1a 仍 GO |
 
 ---
 
@@ -259,6 +261,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-222 ✅** | A5-REMEDIATION | `tasks/TASK-222-leak-audit-round-3-convergence.md` | Done（第三轮真机收敛首测：进程数收敛；agent 进程内测量留待下一轮） |
 | **TASK-223 ✅** | A5-REMEDIATION | `tasks/TASK-223-l1-file-channel-read-utf8-prefix.md` | Done（ADR-0064 文件通道 + ADR-0065 前置初始指纹；T1.1 大文件 fake 与真机双证据；`DRIFT-223-1` / `PL-100` 闭环） |
 | **TASK-225 ✅** | 1b bridge | `tasks/TASK-225-synthetic-input-target-lease.md` | Done（共享 `TargetLeaseRegistry` + input gate；两任务冲突 / 释放 / pointer-shaped 专项 5 passed；PL-101 闭环） |
+| **TASK-226 ✅** | A5-REMEDIATION | `tasks/TASK-226-test-hygiene-cleanup.md` | Done（PL-104 / PL-105 测试卫生清理） |
 | TASK-040 | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Ready（批次表占位派单前补全） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
 | TASK-042 | 1b | `tasks/TASK-042-visual-verify-phash-dhash-confidence.md` | Ready（批次表占位派单前补全） |
