@@ -133,6 +133,7 @@ cargo run -p xtask -- codegen --check
 ### 3. 验收输出摘要
 
 - `cargo fmt --all --check` → EXIT 0。
+- 合并证据：PR #212 / merge **`2df4248`**；CI run **`37161119627`** 为 **11/11 SUCCESS**。
 - `cargo clippy --all-targets -- -D warnings` → EXIT 0（仅既有 `unknown lint: clippy::assert_is_empty` warning）。
 - `cargo test --workspace` → 全绿；`xtask` 438 passed / 0 failed，platform-windows 93 passed / 4 ignored，platform-api 45 passed，agent-core 全套 passed / 8 ignored。
 - `cargo test -p assistant-platform-api` → 45 passed / 0 failed。
