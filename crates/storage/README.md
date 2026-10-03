@@ -6,7 +6,10 @@
 
 - **L1 主库**：连接 + PRAGMA 基线 + **只前进不回滚**的迁移框架 + **本 crate 自己**那几张表
   （`tasks` / `task_steps` / `checkpoints` / `blobs` / `blob_refs` / `usage_records` /
-  `memory_records` + `memory_fts`；**`audit_logs` 不在本 crate** —— 它由 `crates/audit` 自己的迁移 `0002` 建，见下）
+  `memory_records` + `memory_fts` / `conversations` + `conversation_messages`；
+  **`audit_logs` 不在本 crate** —— 它由 `crates/audit` 自己的迁移 `0002` 建，见下）
+- **会话持久化**：`conversations` 与会话消息树记录 API 保存 Core `SessionSnapshot` 语义；
+  插入 / 替换 / 读取都走公开记录函数，不暴露 SQL，也不在 Core 内打开 SQLite
 - **记忆检索**：任务历史 / 偏好 / 笔记写入 `memory_records`，由 0004 的触发器同步 `memory_fts`；
   检索结果带类型、主键与 `source_reference`，并提供源表 ↔ 索引一致性自检
 - **迁移注册表**（`Migration` / `MigrationSet`）：给「一组迁移」提供唯一性 / 连续性的硬校验；**不拥有全库表清单**（ADR-0038）
@@ -16,7 +19,7 @@
 ## 边界（不做什么）
 
 - 不含业务规则：状态机、重试、预算、撤销锚点管理、审计 hash chain 都**不**在这里
-- **不拥有全库表清单**（ADR-0038）：本 crate 的 `MIGRATIONS` 同时声明自己的 `0001` 与 `0004`；
+- **不拥有全库表清单**（ADR-0038）：本 crate 的 `MIGRATIONS` 同时声明自己的 `0001`、`0004` 与 `0005`；
   `audit_logs` 的 DDL 与 `MIGRATIONS` 都归 `crates/audit`，语义与读写也归它（本 crate 不碰 hash chain）；
   不实现影子副本（W5）的写入策略，不做 `core` Memory / App Map 加载，也不做向量 / 语义检索
 - 不调用任何平台 API（`arch` 护栏会拦）；不提供多写者 / 只读连接池
@@ -43,6 +46,10 @@
    （仓库根 `.gitignore` 已覆盖；测试只用 `%TEMP%`）
 10. `memory_records` 是记忆内容的唯一事实源，`memory_fts` 是 contentless 候选索引；行缺失 /
     孤儿与 FTS5 内部一致性由 `verify_memory_index()` 显式报告；正常运行由触发器负责同步
+11. 会话快照写入是原子的：`insert_conversation_snapshot` 只创建 revision 0；
+    `replace_conversation_snapshot` 要求 revision 恰好 +1，任何消息校验失败都不会留下半个树
+12. `conversation_messages` 的父节点必须在同一会话且 sequence 严格更小；单棵消息树有
+    `MAX_MESSAGES_PER_CONVERSATION` 硬上限，超出即拒绝
 
 ## 典型用法
 
@@ -52,7 +59,7 @@ use assistant_storage::{
     insert_memory_record, search_memory,
 };
 
-// `database` 由唯一装配点构造：合并各 owner 的 MIGRATIONS（storage 0001 + 0004、
+// `database` 由唯一装配点构造：合并各 owner 的 MIGRATIONS（storage 0001 + 0004 + 0005、
 // audit 0002 + 0003、其它 crate 的迁移）后调用 `Database::open`。
 fn example(database: &Database) -> Result<(), assistant_storage::StorageError> {
 let blobs = database.blob_store();
@@ -95,6 +102,10 @@ Ok(())
 - **没有加密**：blob 与主库都是明文；密钥/加密归后续卡
 - **没有在线备份 / VACUUM 策略**：`wal_autocheckpoint=1000` 之外不做维护
 - **单写连接**：本 crate 只给一个写连接；读连接池归后续的 Core 装配
+- **`SessionStore` adapter 尚未接线**：storage 已提供 conversation / message-tree 记录 API，
+  但 binary 装配层仍需把 `SessionSnapshot` 投影到这些记录；在此之前生产根仍显式注入
+  `MemorySessionStore`，不得把它当成跨重启持久化
+- **会话列表 / 归档维护 API 未实现**：`archived` 字段已持久化，但查询、归档切换与保留策略归后续卡
 - **FTS 查询只接受字面量词项**：用户输入中的 FTS5 运算符不会被直接执行；空查询、超长查询、
   纯标点词项与超出上限的 limit 一律 fail-closed
 - **不做向量 / 语义检索**：阶段 1 只使用 SQLite FTS5；本地嵌入归阶段 4 之后评估
@@ -109,4 +120,5 @@ Ok(())
 - `cross-platform-ai-assistant-architecture-v2.md` §15
 - `docs/spec/error-codes.md`（错误分类）
 - `tasks/TASK-012-storage-layer-sqlite-wal-blob.md` / `tasks/TASK-202-storage-migration-registry.md` /
-  `tasks/TASK-206-storage-memory-fts5-search.md`（本 crate 的迁移与检索卡）
+  `tasks/TASK-206-storage-memory-fts5-search.md` / `tasks/TASK-230-storage-conversation-message-tree.md`
+  （本 crate 的迁移、检索与会话持久化卡）

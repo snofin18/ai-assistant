@@ -33,8 +33,8 @@ fn test_migration_creates_table_index_and_append_only_triggers() {
 
     let expected_version = migrations().expected_version();
     assert_eq!(
-        expected_version, 4,
-        "装配后期望版本 = 4（storage 0001 + 0004 + audit 0002 + audit 0003）"
+        expected_version, 5,
+        "装配后期望版本 = 5（storage 0001 + 0004 + 0005 + audit 0002 + audit 0003）"
     );
     assert_eq!(
         database.schema_version().expect("schema 版本"),

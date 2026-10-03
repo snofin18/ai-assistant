@@ -26,7 +26,7 @@ use crate::migrations::{Migration, MigrationSet};
 ///
 /// 这**不是**全库清单：应用侧必须把各 crate 的所有片段合并成一个 [`MigrationSet`]，
 /// 再交给 [`crate::Database::open`]（ADR-0038 D2 / D3）。这里的版本号是**全局**序列的一部分，
-/// 单看本常量可能不连续（当前 = 0001 + 0004，中间 0002 / 0003 归 audit）；只有装配点合并后的
+/// 单看本常量可能不连续（当前 = 0001 + 0004 + 0005，中间 0002 / 0003 归 audit）；只有装配点合并后的
 /// [`MigrationSet`] 需要连续。
 pub const MIGRATIONS: &[Migration] = &[
     Migration::new(1, "0001_init", include_str!("../migrations/0001_init.sql")),
@@ -34,6 +34,11 @@ pub const MIGRATIONS: &[Migration] = &[
         4,
         "0004_memory_fts",
         include_str!("../migrations/0004_memory_fts.sql"),
+    ),
+    Migration::new(
+        5,
+        "0005_conversations_message_tree",
+        include_str!("../migrations/0005_conversations_message_tree.sql"),
     ),
 ];
 
