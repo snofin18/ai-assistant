@@ -1,8 +1,9 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 / A2 / A3 既有卡均 Done**；**TASK-039 ✅：阶段 1a 独立复验硬门禁全绿，结论 = GO**；**TASK-102 / 103 / 104 / 105 / 210 / 087 / 212 / 211 / 213 / 214 均 Done**；**TASK-213 完成 UI↔Core 真管道与 `SnapshotEventSource`，PL-095 闭环**；**TASK-214 完成生产装配根、确定性 task-package Plan 来源、5 个 Notepad handler、真 UIA T1.1 干跑、真 UI 管道 `step_state_changed` 与 fail-closed 收口，PL-096 闭环**；**TASK-205 完成 `tool-bus` schema 模块拆分，`hygiene` 长文件 warning 4→3**；**PL-097 已闭环**；**TASK-216 Done：A/B 片由 TASK-217 完成数据流与可恢复审批后收口**；**TASK-217 Done：T1.2/T1.3 fake platform 到 `Completed`，无授权暂停与 UI 批准恢复已落地，`DRIFT-216-4` 闭环**；**TASK-085 / TASK-086 Done：Rust 源码结构、末行换行、CRLF 与依赖登记卫生规则落地，覆盖 11/13**；**TASK-105 真实主路径 3×10 已取证；TASK-218 Done：真实 UIA 完整 L1 回滚 + fake-platform L1 fallback/三类负向证据**；**TASK-223 Done：ADR-0064 的 `host_read_utf8_prefix` 文件通道 + ADR-0065 的前置初始指纹步骤，T1.1 大文件 Plan 在 fake 平台与真机 UIA 各取证跑通（`read_text` 被条件跳过、文件通道接管、4 步全提交），`DRIFT-223-1` / `PL-100` 闭环**；**TASK-220 Done：元素表 4096 / anchor 64 / grant 1024 上限与淘汰、进程树 `taskkill /T /F` + `wait()` reap，真机 ignored 全套 8 passed，`DRIFT-220-1` 闭环**；阶段 1a 已完成复验并翻转为 GO，下一张待 Orchestrator 派单（TASK-040 的真机点击校准仍需人工授权））
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 / A2 / A3 既有卡均 Done**；**TASK-039 ✅：阶段 1a 独立复验硬门禁全绿，结论 = GO**；**TASK-102 / 103 / 104 / 105 / 210 / 087 / 212 / 211 / 213 / 214 均 Done**；**TASK-213 完成 UI↔Core 真管道与 `SnapshotEventSource`，PL-095 闭环**；**TASK-214 完成生产装配根、确定性 task-package Plan 来源、5 个 Notepad handler、真 UIA T1.1 干跑、真 UI 管道 `step_state_changed` 与 fail-closed 收口，PL-096 闭环**；**TASK-205 完成 `tool-bus` schema 模块拆分，`hygiene` 长文件 warning 4→3**；**PL-097 已闭环**；**TASK-216 Done：A/B 片由 TASK-217 完成数据流与可恢复审批后收口**；**TASK-217 Done：T1.2/T1.3 fake platform 到 `Completed`，无授权暂停与 UI 批准恢复已落地，`DRIFT-216-4` 闭环**；**TASK-085 / TASK-086 Done：Rust 源码结构、末行换行、CRLF 与依赖登记卫生规则落地，覆盖 11/13**；**TASK-105 真实主路径 3×10 已取证；TASK-218 Done：真实 UIA 完整 L1 回滚 + fake-platform L1 fallback/三类负向证据**；**TASK-223 Done：ADR-0064 的 `host_read_utf8_prefix` 文件通道 + ADR-0065 的前置初始指纹步骤，T1.1 大文件 Plan 在 fake 平台与真机 UIA 各取证跑通（`read_text` 被条件跳过、文件通道接管、4 步全提交），`DRIFT-223-1` / `PL-100` 闭环**；**TASK-220 Done：元素表 4096 / anchor 64 / grant 1024 上限与淘汰、进程树 `taskkill /T /F` + `wait()` reap，真机 ignored 全套 8 passed，`DRIFT-220-1` 闭环**；阶段 1a 已完成复验并翻转为 GO；TASK-040 的真机点击校准已由 4 个 ignored 真机用例取证（TASK-040 / TASK-225 已按实收口））
 > **TASK-225 ✅（2026-10-03）**：Host 装配层已用共享 `TargetLeaseRegistry` 接上合成输入 exclusive lease；key / pointer-shaped 输入冲突稳定 `Transient`，成功/失败都释放，只读路径不变；`PL-101` 闭环。TASK-040 正文 DoD 复选框仍因正文只读未勾选。
 > **TASK-226 ✅（2026-10-03）**：PL-104 / PL-105 闭环；ignored 真机用例以异步互斥串行化 fixture 启动，`production_root.rs` 拆分后 3 个文件均 <600 行且断言零放宽。
+> **TASK-227 ✅（2026-10-03）**：状态行与停车位收口 —— TASK-040 / TASK-225 的状态行按实更正为 Done；`PL-103` 给出可直接粘贴的 spec 改法（待 Orchestrator 执行）；`PL-106` 开卡 TASK-228（Ready，待派单）
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -143,6 +144,8 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-223 ✅** | L1 文件通道 `read_utf8_prefix` 作为 binary 层保留 `host_service`（**前置 ADR-0064**） | `apps/agent-core/src/**`、`apps/agent-core/tests/**`、`adapters/com.microsoft.notepad/tasks/t1.1*`、`docs/adr/0064-*` | TASK-219、**ADR-0064 Accepted** | M | 1MB 文件走文件通道降级；UTF-8 前缀不截断；`truncated` 显式；不改 `l1_file` 语义；阶段 1a 仍 NO-GO |
 | **TASK-225 ✅** | Host 合成输入目标租约独占（**跨层补 PL-101；1b 桥接**） | `apps/agent-core/src/**`、`apps/agent-core/tests/**`、`apps/agent-core/Cargo.toml` | TASK-018、TASK-025、TASK-040 真机校准 | M | `key_action` / pointer-shaped input 发送前取得窗口 exclusive lease；两任务冲突稳定 `Transient`；成功/失败都释放；只读路径不变 |
 | **TASK-226 ✅** | 测试卫生清理：ignored 真机用例串行化 + `production_root.rs` 拆分 | `apps/agent-core/tests/**`、`tasks/TASK-226-*`、状态同步文件 | TASK-223 | M | PL-104 并行红灯消失；PL-105 每个测试文件 <600 行；断言不删不放宽；阶段 1a 仍 GO |
+| **TASK-227 ✅** | 状态行与停车位收口（TASK-040/225 状态行 + PL-103 改法 + PL-106 开卡） | 状态同步文件 | TASK-040、TASK-225、TASK-226 | S | 两张卡状态行与证据一致；PL-103 有可粘贴改法；TASK-228 已登记；零代码改动 |
+| TASK-228 | 真机验收结果结构化输出（PASS / SKIP / FAIL 可机器区分；源 = `PL-106`） | `crates/platform/windows/src/input/**`、`xtask/src/**` 或 `tools/**`（二选一） | TASK-040、TASK-220 | M | skip 不得等同 pass；汇总入口拒绝未知/缺失记录；记录有界且不进版本库 |
 
 ---
 
@@ -150,7 +153,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 
 | 卡号 | 标题 | write scope | 依赖 | 预估 | 验收要点 |
 |---|---|---|---|---|---|
-| **040** | 合成输入完善：拖拽（按下-移动-释放的原子性与租约独占）+ 校准流程（首次显示器组合点击已知元素验证命中） | `crates/platform/windows/src/input/**` | 018 | M | 拖拽期间禁止其他写租约；校准失败则**禁用坐标通道**并上报 |
+| **040 ✅** | 合成输入完善：拖拽（按下-移动-释放的原子性与租约独占）+ 校准流程（首次显示器组合点击已知元素验证命中） | `crates/platform/windows/src/input/**` | 018 | M | 拖拽期间禁止其他写租约；校准失败则**禁用坐标通道**并上报 |
 | **041** | 截图管线：窗口截图 + 脱敏（密码框/正则命中区域遮挡）+ 滚动清理 + 隐私模式（不保存截图） | `crates/capture/**`、`crates/dlp/src/redact*` | 017 | M | 只截目标窗口而非全屏；脱敏规则可配；存储上限与 TTL 生效 |
 | **042** | 视觉验证：容差断言 + 感知哈希(pHash/dHash) + `visual_assert` 断言类型 + `confidence_min` | `crates/verify/src/visual/**` | 023,041 | M | 能稳定区分"画对/画错/没画上"，误判率 < 5%；**低置信结果必须标注且不得单独作为成功依据** |
 | **043** | Paint Adapter：工具选择/颜色/图层（UIA）+ 画布坐标动作 + 像素快照回滚 + 缩放与滚动的坐标换算 | `adapters/com.microsoft.paint/**` | 040,042 | L | 画布坐标 ≠ 屏幕坐标的换算正确；工具状态"设置后回读"验证；图层前置条件生效 |
@@ -262,7 +265,9 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-223 ✅** | A5-REMEDIATION | `tasks/TASK-223-l1-file-channel-read-utf8-prefix.md` | Done（ADR-0064 文件通道 + ADR-0065 前置初始指纹；T1.1 大文件 fake 与真机双证据；`DRIFT-223-1` / `PL-100` 闭环） |
 | **TASK-225 ✅** | 1b bridge | `tasks/TASK-225-synthetic-input-target-lease.md` | Done（共享 `TargetLeaseRegistry` + input gate；两任务冲突 / 释放 / pointer-shaped 专项 5 passed；PL-101 闭环） |
 | **TASK-226 ✅** | A5-REMEDIATION | `tasks/TASK-226-test-hygiene-cleanup.md` | Done（PL-104 / PL-105 测试卫生清理） |
-| TASK-040 | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Ready（批次表占位派单前补全） |
+| **TASK-227 ✅** | 治理池 | `tasks/TASK-227-status-and-parking-closeout.md` | Done（TASK-040/225 状态行更正 + PL-103 改法 + TASK-228 开卡） |
+| TASK-228 | 治理池 | `tasks/TASK-228-structured-real-machine-acceptance-record.md` | Ready（待派单；源 = `PL-106`） |
+| **TASK-040 ✅** | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Done（真机四用例取证；跨层 lease 由 TASK-225 闭环，`PL-101` 关闭） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
 | TASK-042 | 1b | `tasks/TASK-042-visual-verify-phash-dhash-confidence.md` | Ready（批次表占位派单前补全） |
 | TASK-043 | 1b | `tasks/TASK-043-paint-adapter-tools-canvas-coords.md` | Ready（批次表占位派单前补全） |
