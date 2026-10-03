@@ -146,6 +146,9 @@ cargo run -p xtask -- docscan / card-check / check-comments
 
 cargo run -p xtask -- verify-schemas / codegen --check
   verify-schemas 0 error(s) PASSED；codegen 0 drift(s), 0 error(s) PASSED
+
+PR #196 CI run 37106343253
+  11/11 SUCCESS; merge commit 0fe4bdb; mergeStateStatus=CLEAN; baseRefName=main
 ```
 
 `TargetLeaseGate::run` 的冲突分支在 provider 闭包前返回，测试断言第二个 task 的 operation 未执行；成功与失败分支后的新增 acquisition 均成功，直接证明 lease 表回到基线。
