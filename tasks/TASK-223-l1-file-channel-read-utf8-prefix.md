@@ -178,6 +178,16 @@ cargo run -p xtask -- docscan
   → 注入 `P: UiAutomationProvider`；仓库内 `grep -n "debug_assertions" apps/agent-core/src` 无运行时行为分叉（仅 1 处
   `debug_assert!` 在 UTF-8 回退长度校验上，不改变返回值）。
 
+**合并与 CI 证据（回填）**
+
+- PR **#190**（`codex/task-223-initial-fingerprint` → `main`）：CI run `37089459934` = **11/11 SUCCESS**
+  （`check` windows-latest 6m16s / ubuntu-latest 2m50s / macos-latest 4m31s、`cargo deny` ×2、
+  doc consistency、desktop-ui checks、desktop-ui tauri (windows)、commitlint、
+  gate negative verification #6、xtask deferred inventory）；合并前 `mergeable=MERGEABLE`、
+  `mergeStateStatus=CLEAN`、`baseRefName=main`。
+- 实现提交 `af08e43`，合并提交 **`685d4a9`**（2026-10-03T02:29:08Z，`state=MERGED`）。
+- 回填走独立分支 `codex/task-223-merge-backfill`：`LEDGER.md` 只追加一行「merge hash 回填」，不改写原 WIP/Done 行。
+
 ### 4. DoD 逐条核对
 
 - [x] ADR-0064 落档并 Accepted（第 1 轮）；**ADR-0065 落档并 Accepted（本轮，人类派单确认方案）**。
