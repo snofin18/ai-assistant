@@ -41,6 +41,8 @@ pub const USAGE: &str = r#"xtask — 仓库护栏与开发任务工具（只读�
   docscan           文档结构扫描（破表 / setext 风险 / 编码形状），不免
   card-check         任务卡格式完整性（ADR-0031 D6，**当前实现部分**）：9 节骨架齐全（Ready 豁免） + 状态=Done/Review + 记录区空 → Warning；**未实现**：状态行唯一 / 分界线唯一（计划归 TASK-060）
   guard <操作>       文件改写互斥锁（ADR-0028）；操作 = acquire | release | status | reap
+  write <目标>       命令行唯一写通道（ADR-0066）：stdin → 目标；先取 guard 锁，Windows
+                     上再做独占占用探测与退避重试；读取路径不进通道
   verify-schemas     5 份 JSON schema 校验（存在 + JSON 合法 + version + 13 类 ErrorCode）
   codegen            从 protocol/*.json 生成 Rust 类型；--check 仅检测 drift 不写
   replay             用录制的树快照做离线回放回归（骨架 = dry-run 解析 + 校验；
@@ -51,13 +53,13 @@ pub const USAGE: &str = r#"xtask — 仓库护栏与开发任务工具（只读�
                      docs/storage-design.md §3.4 逐行一致 + 含迁移的 crate 公开 MIGRATIONS）
   check-comments     命名与注释规范检查（naming §10 的 8 条规则；输出含 rule-coverage 行）
 
-guard 的选项（其它子命令不接受）：
-  --owner <标识>     持有者；acquire/release **必填**，且必须会话级唯一
+guard / write 的选项（其它子命令不接受）：
+  --owner <标识>     持有者；acquire/release/write **必填**，且必须会话级唯一
                      （例如 `codex-1a2b3c4d` 或 `TASK-030`）。不给默认值：没有 owner
                      就无法区分"自己已持锁"与"别人持锁"
   --task <卡号>      关联任务卡号（写进锁记录，供别人诊断）
   --intent <一句话>  这次改写想干什么（别人超时放弃时唯一的线索，强烈建议填）
-  --timeout <秒>     等待超时，默认 30；超时即**放弃并通报**（退出码 5）
+  --timeout <秒>     等待超时，guard 默认 30、write 默认 5；超时即**放弃并通报**（退出码 5）
   --stale-after <秒> 陈旧阈值，默认 900；到期即可接管（接管会打印被接管者的完整锁记录）
   --force            人工强制接管 / 强制释放
 
@@ -75,7 +77,7 @@ guard 的选项（其它子命令不接受）：
 ///
 /// 表外的子命令出现第二个位置参数仍然是用法错误 —— 这条行为有测试盯着
 /// （`test_parse_args_second_command_is_usage_error`），**不得**为了图省事把这张表放开成"全部"。
-const COMMANDS_ACCEPTING_OPERANDS: [&str; 2] = ["guard", "replay"];
+const COMMANDS_ACCEPTING_OPERANDS: [&str; 3] = ["guard", "replay", "write"];
 
 /// 需要跟一个值的选项（不含前导 `--` 的名字会作为 `Invocation::options` 的键）。
 const VALUE_OPTIONS: [&str; 5] = [
@@ -362,7 +364,7 @@ mod tests {
 
     #[test]
     fn test_usage_text_documents_new_subcommands() {
-        for command in ["guard", "memory-counts", "adr-index"] {
+        for command in ["guard", "write", "memory-counts", "adr-index"] {
             assert!(USAGE.contains(command), "用法说明遗漏子命令 {command}");
         }
         for operation in ["acquire", "release", "status", "reap"] {
@@ -382,6 +384,25 @@ mod tests {
             invocation.operands,
             vec!["acquire", "MEMORY.md", "LEDGER.md"],
             "不变量 3：guard 之后的位置参数是操作数"
+        );
+    }
+
+    #[test]
+    fn test_parse_args_write_collects_a_single_operand_and_guard_options() {
+        let invocation = parse_args(&args(&[
+            "write",
+            "MEMORY.md",
+            "--owner",
+            "codex-1a2b3c4d",
+            "--timeout",
+            "5",
+        ]))
+        .expect("write 应允许一个目标操作数");
+        assert_eq!(invocation.command.as_deref(), Some("write"));
+        assert_eq!(invocation.operands, vec!["MEMORY.md"]);
+        assert_eq!(
+            invocation.options.get("owner").map(String::as_str),
+            Some("codex-1a2b3c4d")
         );
     }
 
