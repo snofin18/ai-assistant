@@ -14,6 +14,7 @@ use std::sync::Arc;
 #[cfg(windows)]
 use std::time::Duration;
 
+#[cfg(windows)]
 #[path = "support/production_fixture.rs"]
 mod fixture;
 
