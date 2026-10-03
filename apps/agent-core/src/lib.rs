@@ -41,6 +41,7 @@ mod runtime_binding;
 mod runtime_dataflow;
 mod runtime_host_ops;
 mod runtime_tools;
+mod target_lease;
 mod task_package;
 mod ui_control;
 mod ui_events;

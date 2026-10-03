@@ -7,12 +7,12 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-10-03（**TASK-223 Done**：ADR-0064 文件通道 + ADR-0065 前置初始指纹步骤落地，T1.1 大文件 Plan 在 fake 平台与真机 UIA 各取证跑通，`DRIFT-223-1` / `PL-100` 闭环；**TASK-220 Done**：资源泄露四类防护（元素表 / anchor / grant 上限与淘汰 + 进程树终止与 reap）经真机 ignored 全套 8 passed，`DRIFT-220-1` 闭环；阶段 1a 结论仍为 **GO**）
+更新日期    ：2026-10-03（**TASK-225 Done**：Host 装配层接上合成输入目标租约独占，两个任务冲突稳定 `Transient`、释放后重试、失败回基线与 pointer-shaped 专项 5 passed，`PL-101` 闭环；**TASK-223 Done**：ADR-0064 文件通道 + ADR-0065 前置初始指纹步骤落地，T1.1 大文件 Plan 在 fake 平台与真机 UIA 各取证跑通，`DRIFT-223-1` / `PL-100` 闭环；**TASK-220 Done**：资源泄露四类防护（元素表 / anchor / grant 上限与淘汰 + 进程树终止与 reap）经真机 ignored 全套 8 passed，`DRIFT-220-1` 闭环；阶段 1a 结论仍为 **GO**）
 当前阶段    ：**阶段 1（三试点闭环）** —— stage-0 已于 2026-09-20 closeout（`docs/audits/stage-0-closeout-2026-09-20.md`）
-当前任务卡  ：**A5 批次进行中**：TASK-011~038 全 Done；**TASK-039 ✅（阶段 1a GO）**；**TASK-102 ✅**、**TASK-103 ✅**、**TASK-104 ✅**、**TASK-105 ✅**、**TASK-210 ✅**、**TASK-087 ✅**、**TASK-212 ✅**、**TASK-211 ✅**、**TASK-213 ✅**、**TASK-214 ✅**、**TASK-205 ✅**、**TASK-215 ✅（PL-097 闭环）**；**TASK-216 ✅（`DRIFT-216-4` 由 TASK-217 闭环）**；**TASK-217 ✅（ADR-0061 Accepted）**；**TASK-218 ✅**、**TASK-219 ✅**、**TASK-221 ✅**、**TASK-222 ✅**；**TASK-085 ✅（hygiene 8/13）**；**TASK-086 ✅（hygiene 11/13）**；**TASK-223 ✅（ADR-0064 文件通道 + ADR-0065 前置初始指纹；`DRIFT-223-1` / `PL-100` 闭环）**；**TASK-220 ✅（元素表 4096 / anchor 64 / grant 1024 上限与淘汰 + 进程树 kill/reap；真机 ignored 8 passed）**；下一张待 Orchestrator 派单；
+当前任务卡  ：**A5 批次进行中**：TASK-011~038 全 Done；**TASK-039 ✅（阶段 1a GO）**；**TASK-102 ✅**、**TASK-103 ✅**、**TASK-104 ✅**、**TASK-105 ✅**、**TASK-210 ✅**、**TASK-087 ✅**、**TASK-212 ✅**、**TASK-211 ✅**、**TASK-213 ✅**、**TASK-214 ✅**、**TASK-205 ✅**、**TASK-215 ✅（PL-097 闭环）**；**TASK-216 ✅（`DRIFT-216-4` 由 TASK-217 闭环）**；**TASK-217 ✅（ADR-0061 Accepted）**；**TASK-218 ✅**、**TASK-219 ✅**、**TASK-221 ✅**、**TASK-222 ✅**；**TASK-085 ✅（hygiene 8/13）**；**TASK-086 ✅（hygiene 11/13）**；**TASK-223 ✅（ADR-0064 文件通道 + ADR-0065 前置初始指纹；`DRIFT-223-1` / `PL-100` 闭环）**；**TASK-220 ✅（元素表 4096 / anchor 64 / grant 1024 上限与淘汰 + 进程树 kill/reap；真机 ignored 8 passed）**；**TASK-225 ✅（合成输入目标租约独占；`PL-101` 闭环）**；下一张待 Orchestrator 派单；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done
 阻塞项      ：① TASK-002 仍 Blocked；② **PL-092**（storage 缺 conversation/session 公开记录 API）；③ **PL-094**（`RoleAndParent` helper 候选需契约治理）；④ gov **#9 覆盖率**与 **#11 `cargo doc`** 仍是 SOFT 门禁
-下一步动作  ：1a 补救批次已收口，下一张由 Orchestrator 派单；**TASK-040**（首次点击校准真机验收）的真机三用例已于 2026-10-03 复跑通过（8 passed / 0 failed）；**TASK-040**（首次点击校准）仍需人工授权真实鼠标操作才能收口。阶段 1a 已完成复验，结论仍为 **GO**。
+下一步动作  ：1a 补救批次已收口，下一张由 Orchestrator 派单；**TASK-040** 真机校准已通过（4 passed / 0 failed），跨层目标 lease 已由 **TASK-225** 闭环（`PL-101` 关闭）；TASK-040 正文 DoD 复选框仍因正文只读未勾选，等待 Orchestrator 收口。阶段 1a 已完成复验，结论仍为 **GO**。
                   → 复验证据见 `docs/audits/stage-1a-reaudit-2026-10-02.md`；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 

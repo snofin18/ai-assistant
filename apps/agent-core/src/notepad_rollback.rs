@@ -179,6 +179,7 @@ where
     ) -> Result<Value, String> {
         let executor = NotepadRollbackExecutor {
             context: Arc::clone(&self.context),
+            task_id: task_id.to_owned(),
             canonical_text: captured.canonical_text.clone(),
             target_path: captured.target_path.clone(),
             file_bytes: captured.file_bytes.clone(),
@@ -377,6 +378,7 @@ fn fingerprint_for(text: &str) -> Result<Fingerprint, assistant_platform_api::Pl
 
 struct NotepadRollbackExecutor<P> {
     context: Arc<NotepadHandlerContext<P>>,
+    task_id: String,
     canonical_text: String,
     target_path: Option<PathBuf>,
     file_bytes: Option<Vec<u8>>,
@@ -414,7 +416,13 @@ where
         })?;
         for _ in 0..times.get() {
             self.context
-                .send_key_to_element(&editor, "Z", vec![KeyModifier::Control], tool)
+                .send_key_to_element(
+                    &self.task_id,
+                    &editor,
+                    "Z",
+                    vec![KeyModifier::Control],
+                    tool,
+                )
                 .map_err(|error| {
                     ExecutorFailure::new(
                         assistant_protocol::ErrorCode::VerifyFailed,

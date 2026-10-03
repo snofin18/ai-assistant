@@ -150,8 +150,7 @@ cargo test -p assistant-platform-windows --lib -- --ignored --nocapture --test-t
 - [x] 真实“首次显示器组合点击已知元素”命中证据（2026-10-03）：两个 ignored 真机用例真实执行并
       通过 —— 多显示器组合校准 `max_error = 0 px`；点击编辑器元素中心后 `HasKeyboardFocus = true`
       （见 §3 收口轮证据）。
-- [ ] 跨层目标租约独占：归 `crates/lease` / Host 装配，不在本卡 write scope —— 仍未执行，
-      保持 `PL-101`；**本卡因此不标 Done**（见 §5 / §7）。
+- [x] 跨层目标租约独占：已由 **TASK-225** 在 Host 装配层闭环（共享 `TargetLeaseRegistry`，输入前 exclusive lease，冲突 `Transient`，成功/失败都释放）；本卡正文 DoD 复选框因正文只读仍保持未勾选，见 §5 / §7 与 TASK-225 §3 原文证据。
 
 ### 5. 偏差
 
@@ -180,9 +179,10 @@ cargo test -p assistant-platform-windows --lib -- --ignored --nocapture --test-t
 - 未处理（留给后续）：SKIP 仍然以 `ok` 结束（Rust test 框架没有「跳过」状态）；如需机器区分
   PASS / SKIP，得改成「输出结构化 JSON 供 CI 解析」，那超出本卡 scope → 登记 **PL-106**。
 
-**DRIFT-040-1 现状（部分闭环）**：真机校准与命中证据已补齐（本卡 §3）；剩余部分只剩
-「跨层目标租约独占」，它要动 `crates/lease` / Host 装配 —— 不属于本卡 write scope，
-继续留在 `PL-101`。
+**DRIFT-040-1 现状（闭环）**：真机校准与命中证据已补齐（本卡 §3）；跨层目标租约独占已由
+TASK-225 在 Host 装配层实现并验证（共享 registry、冲突 `Transient`、失败/成功都释放），
+因此 `PL-101` 已在 `docs/PARKING_LOT.md` 标记关闭。本卡正文中的 DoD 复选框仍是正文只读，
+由后续 Orchestrator/状态同步处理。
 
 ### 6. 更合理做法
 
@@ -192,7 +192,7 @@ cargo test -p assistant-platform-windows --lib -- --ignored --nocapture --test-t
 
 ### 7. 遗留问题
 
-- **PL-101**：跨层目标 lease 集成仍待后续卡（真实首次校准样本已由本轮补齐，见 §3）。
+- **PL-101**：已关闭 —— TASK-225 已完成跨层 target lease 集成；本卡不再有 lease 工程遗留。
 - **PL-106**（新提）：真机用例的 SKIP 与 PASS 在测试报告里无法区分；建议后续卡把验收结果
   输出成结构化记录供 CI 解析，避免「假跳过还报 ok」再次发生（本轮的 DPI 修复只消掉了这一条
   具体诱因，没有消掉这个报告形态）。
@@ -216,7 +216,7 @@ cargo test -p assistant-platform-windows --lib -- --ignored --nocapture --test-t
 
 - 审阅 `pointer_requires_release_recovery` 的“已插入前缀”判据是否足够保守。
 - 审阅校准的 per-axis max 判定和 64 样本上限是否符合后续 Paint 坐标需求。
-- 本 WIP **仍不应标 Done**：跨层目标 lease 未接入（`PL-101`，超出本卡 scope）；真实校准与
-  点击命中证据已补齐，请核对 §3 的原始输出。
+- 跨层目标 lease 已由 TASK-225 闭环（`PL-101` 关闭）；本卡正文 DoD 复选框仍因正文只读
+  未勾选，需 Orchestrator 在收口时处理。
 - 请重点看 **DRIFT-040-2**：真机夹具此前有「跳过还报 ok」的形态，本轮修掉了 DPI 这一条诱因；
   若你认为还需要把 SKIP/PASS 结构化（`PL-106`），请指示是否另开卡。

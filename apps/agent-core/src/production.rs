@@ -56,6 +56,7 @@ use crate::production_support::{EmptyRetriever, NoopCompressor};
 use crate::runtime::{EnvelopeObservationCollector, RuntimeExecutionError, RuntimeExecutor};
 use crate::runtime_binding::{BindingInvoker, RuntimeBindingState};
 use crate::runtime_host_ops::ReservedHostOperations;
+use crate::target_lease::TargetLeaseRegistry;
 use crate::task_package::{TaskPackageError, TaskPackageProvider};
 use crate::ui_control::PendingApprovals;
 use crate::ui_events::SnapshotEventSource;
@@ -84,6 +85,8 @@ pub struct ProductionConfig {
     pub task_inputs: Map<String, Value>,
     /// UI listener settings. The caller must provide a token and peer allow-list.
     pub ui_config: UiServerConfig,
+    /// Process-local target-lease registry shared by task hosts created from this config.
+    lease_registry: TargetLeaseRegistry,
 }
 
 impl ProductionConfig {
@@ -101,6 +104,7 @@ impl ProductionConfig {
             task_package_path: task_package_path.into(),
             task_inputs: Map::new(),
             ui_config,
+            lease_registry: TargetLeaseRegistry::new(),
         }
     }
 
@@ -108,6 +112,14 @@ impl ProductionConfig {
     #[must_use]
     pub fn with_task_inputs(mut self, inputs: Map<String, Value>) -> Self {
         self.task_inputs = inputs;
+        self
+    }
+
+    /// Replaces the process-local lease registry used by this and cloned task hosts.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn with_lease_registry(mut self, lease_registry: TargetLeaseRegistry) -> Self {
+        self.lease_registry = lease_registry;
         self
     }
 }
@@ -216,7 +228,8 @@ where
     P: WindowProvider + UiAutomationProvider + Clone + Send + Sync + 'static,
 {
     validate_config(&config)?;
-    let (targets, registry_build, provider) = load_production_assets(&config, &platform)?;
+    let (targets, registry_build, provider) =
+        load_production_assets(&config, &platform, Arc::clone(&clock))?;
     let provider_arc: Arc<dyn ModelProvider> = Arc::new(provider.clone());
     let model_id = provider.model_id().clone();
     let router =
@@ -284,6 +297,7 @@ where
 fn load_production_assets<P>(
     config: &ProductionConfig,
     platform: &P,
+    clock: Arc<dyn Clock>,
 ) -> Result<
     (
         Arc<NotepadTargetCatalog>,
@@ -303,11 +317,13 @@ where
             reason: error.to_string(),
         }
     })?);
+    let input_leases = config.lease_registry.gate(clock);
     let registry_build = build_notepad_registry(
         Arc::new(platform.clone()),
         Arc::clone(&targets),
         &tools_path,
         &config.task_inputs,
+        input_leases,
     )
     .map_err(|error| ProductionError::InvalidConfiguration {
         field: "adapter_root.tools.tools",
