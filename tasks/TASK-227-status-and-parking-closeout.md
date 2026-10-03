@@ -109,6 +109,13 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - `git diff --stat` 只包含 §2 列出的文档路径；`crates/**` 与 `apps/**` **零改动**。
 - 两张卡的状态行 diff 各为 1 行（`-1/+1`），分界线以上其它行未动。
 
+**合并与 CI 证据（回填）**
+
+- PR **#200**（`codex/task-227-status-closeout` → `main`）：CI run `37125516533` = **11/11 SUCCESS**；
+  合并前 `mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`、`baseRefName=main`。
+- 收口提交 `98f0e7e`，合并提交 **`4aa21bc`**（`state=MERGED`）。
+- 回填走独立分支 `codex/task-227-merge-backfill`：`LEDGER.md` 只追加一行，不改写原行。
+
 ### 4. DoD 逐条核对
 
 - [x] `TASK-040` 状态行按实更正为 Done 并写明 lease 项由 TASK-225 闭环、正文复选框按只读保持空。
