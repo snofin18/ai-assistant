@@ -167,8 +167,10 @@ production_root / 新增三项专项 / hygiene
   → **8 passed / 0 failed**（`test result: ok`，用时 20.27s）：四个 T1 干跑（T1.1 / T1.1 大文件 /
   T1.2 / T1.3）+ `resource_convergence_over_real_uia`（6 轮指向真实 UIA）+ 三个对照
   （`control_no_fixture` 20 轮 / `assembly_only` 12 轮 / `fixture_only` 12 轮）。
-  收敛实测：in-process 句柄 `#0=130 → #1..6=251/255/259/263/267/271`，工作集稳定在 30 MB；
-  对照 `no_fixture` 全程 125、`fixture_only` 稳定在 130（首轮 125→130 后不再增长）。
+  收敛实测：6 轮真实 UIA 迭代里 in-process 句柄 `130 → 251 → 255 → 259 → 263 → 267 → 271`（约 +4/轮，
+  来自该轮解析并保留在线程本地元素表里的元素），工作集稳定 30 MB；对照 `no_fixture` 21 次采样恒 125、
+  `fixture_only` 13 次采样恒 130（首轮 125→130 后不再变）→ 增长只出现在真实 UIA 迭代路径上，
+  有界性由元素表 4096 上限 + FIFO 淘汰兜底（6 次远未触顶，不是已观测到的收敛平台）。
 - `cargo fmt --all --check` EXIT 0；`cargo clippy --all-targets -- -D warnings` EXIT 0；
   `cargo test --workspace` EXIT 0；`cargo test -p assistant-platform-windows handles` **6 passed**；
   `production_root` **14 passed**；`approval_grants` **6 passed**；`notepad_registry::tests` **7 passed**。
@@ -176,6 +178,18 @@ production_root / 新增三项专项 / hygiene
   `check-ledger` / `check-comments` 全 **PASSED**。
 - 靶机范围：全部使用仓库自带 `fixtures/apps/notepad-like`（靶机），未启动、点击、输入或截图任何
   商业应用或用户桌面元素；`sendinput` 相关真机校准（TASK-040）**未触碰**。
+
+**合并与 CI 证据（回填）**
+
+- PR **#192**（`codex/task-220-real-uia-closeout` → `main`）：CI run `37091760518` = **11/11 SUCCESS**
+  （`check` windows-latest 5m47s / ubuntu-latest 3m26s / macos-latest 4m13s、`cargo deny` ×2、
+  doc consistency、desktop-ui checks、desktop-ui tauri (windows)、commitlint、gate negative
+  verification #6、xtask deferred inventory）；合并前 `mergeable=MERGEABLE`、
+  `mergeStateStatus=CLEAN`、`baseRefName=main`。
+- 收口提交 `373fb7a`，合并提交 **`bfaccae`**（2026-10-03T03:07:12Z，`state=MERGED`）。
+  本卡实现里程碑仍是 PR #188 / `8fa8a7b`（容量·清理·进程树回收）。
+- 回填走独立分支 `codex/task-220-merge-backfill`：`LEDGER.md` 只追加一行「merge hash 回填」，
+  不改写原 WIP / Done 行。
 
 ### 4. DoD 逐条核对
 
@@ -206,6 +220,11 @@ production_root / 新增三项专项 / hygiene
 而并行跑多个 ignored 真机用例会因多个同 AutomationId 靶机窗口同时在场触发
 `TargetAmbiguous`（已登记 **PL-104**）；本轮按串行执行，未放宽任何断言。
 
+**过程偏差（自报，2026-10-03）**：本轮「收敛口径精确化」这一小改（`LEDGER.md` / `README.md` / 本卡）
+**未先 `guard acquire` 就写入**，违反 ADR-0028 的操作次序。当时 `xtask guard status` 为 NONE、无其他会话
+在写（本次是单线程委派），因此未造成 lost update；但次序本身仍属违规，故自报。该批之后的
+`docs/memory/facts.md` / `MEMORY.md` 写入已恢复 acquire → write → release。
+
 ### 6. 更合理做法
 
 把“有界 + 回收”拆成机器可验证层和人工真机层：容量淘汰、显式清理、进程树 kill/reap
@@ -223,8 +242,9 @@ production_root / 新增三项专项 / hygiene
 
 - FACT：元素表上限 4096 + `clear_thread_elements()`；anchor 上限 64；grant 上限 1024。
 - FACT（收口轮）：真机 ignored 全套（`--test-threads=1`）在 main `97ef5d7` 上 **8 passed**；
-  in-process 句柄在 6 轮真实 UIA 后停在 271（对照：无靶机全程 125、仅靶机稳定 130），
-  工作集稳定 30 MB —— 即"任务级增长被上限约束、对照不随轮次增长"的实测形态。
+  in-process 句柄在 6 轮真实 UIA 里 `130 → 251 → 255 → 259 → 263 → 267 → 271`（约 +4/轮，来自该轮解析并
+  保留在线程本地元素表里的元素），工作集稳定 30 MB；对照 `no_fixture` 21 次采样恒 125、`fixture_only` 13 次采样恒 130
+  —— 增长只出现在真实 UIA 迭代路径上，有界性由元素表 4096 上限 + FIFO 淘汰兜底（6 轮远未触顶，是**有界**而不是已观测到收敛平台）。
 - PITFALL：对泛型注册表使用 `#[derive(Default)]` 会给 `T` 加不必要的 `Default` 约束，
   需要用不约束 `T` 的手写 `Default`。
 
@@ -232,9 +252,9 @@ production_root / 新增三项专项 / hygiene
 
 - 审阅 `clear_thread_elements()` 作为窄公共 API 的必要性与命名。
 - 审阅 `TaskAnchorRegistry<T>` 的泛型是否只服务测试且没有行为变化。
-- 收口轮：真实 UIA 三用例已复跑通过（8 passed / 0 failed，`97ef5d7`），DoD 全勾；请核对
-  §3 的收敛数字（句柄 130→271 后停住）是否被读成"无界增长"。**它不是**：增长来自靶机窗口与
-  UIA 元素表在 6 轮里被真实使用，`no_fixture` 对照全程 125 且 `fixture_only` 稳定 130，
-  说明增长与任务轮次无关、且受元素表 4096 上限约束。
+- 收口轮：真实 UIA 三用例已复跑通过（8 passed / 0 failed，`97ef5d7`），DoD 全勾；请核对 §3 的收敛数字。
+  **它既不是无界增长，也不是"已收敛平台"**：6 轮里句柄 130→251→…→271（约 +4/轮，来自该轮解析并留在
+  线程本地元素表的元素），6 次不足以证明平台；能证明的是**有界** —— 元素表 4096 上限 + FIFO 淘汰，
+  且对照 `no_fixture`（恒 125）/ `fixture_only`（恒 130）不随轮次增长。本节曾写作"停住"，已更正。
 - 唯一保留的口径差异：卡面验收命令未写 `--test-threads=1`（并行会撞 PL-104 的 `TargetAmbiguous`），
   每轮真实 UIA 校准（TASK-040）仍未执行，那是另一张卡的事。
