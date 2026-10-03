@@ -1,6 +1,6 @@
 # TASK-228　真机验收结果结构化输出（PASS / SKIP / FAIL 可机器区分）
 
-- 状态：**Done（2026-10-03；PR 待创建，merge hash 后补）**
+- 状态：**Done（2026-10-03，PR #206 / merge `ec3ea3b`）**
 - 阶段：1　子阶段：1a 补救 / 治理　批次：治理池　依赖：TASK-040（已收口）、TASK-220（真机用例基线）
 - 预估：M　难度：M
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。分界线以上为正文（Orchestrator 所有，Implementer 只读）。
