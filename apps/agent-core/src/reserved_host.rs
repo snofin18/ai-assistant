@@ -162,4 +162,46 @@ impl ReservedRuntimeInvoker<'_> {
             &data,
         )
     }
+
+    /// Publishes the initial target fingerprint a conditional first step needs (ADR-0065).
+    ///
+    /// The handler only forwards the injected host operations' observation: a missing assembly is
+    /// `CapabilityMissing` and a failed observation is `VerifyFailed`, both with the readable
+    /// reason. Neither path may invent a fingerprint (ADR-0065 D4).
+    pub(super) fn capture_initial_fingerprint(
+        &self,
+        call: &CallContext,
+        step_id: &str,
+        sequence: u32,
+    ) -> Result<ToolEnvelope, RuntimeExecutionError> {
+        let Some(operations) = self.host_operations.as_ref() else {
+            return Ok(capability_error(
+                crate::runtime_tools::TOOL_HOST_CAPTURE_INITIAL_FINGERPRINT,
+                call,
+                step_id,
+                "host initial-fingerprint capture is not assembled",
+            ));
+        };
+        let data = match operations.capture_initial_fingerprint() {
+            Ok(data) => data,
+            Err(message) => {
+                return Ok(ToolEnvelope::error(
+                    crate::runtime_tools::TOOL_HOST_CAPTURE_INITIAL_FINGERPRINT.to_owned(),
+                    call.task_id().to_owned(),
+                    step_id.to_owned(),
+                    ErrorCode::VerifyFailed,
+                    message,
+                ));
+            }
+        };
+        // The observation already carries `fingerprint` and `previous_fingerprint`, so
+        // `ok_with_current_fingerprint` publishes it instead of requiring a prior committed step.
+        self.ok_with_current_fingerprint(
+            crate::runtime_tools::TOOL_HOST_CAPTURE_INITIAL_FINGERPRINT,
+            call,
+            step_id,
+            sequence,
+            &data,
+        )
+    }
 }

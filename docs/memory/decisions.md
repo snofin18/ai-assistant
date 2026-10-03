@@ -180,3 +180,7 @@
 ## 2026-10-03 追加（ADR-0064，Accepted）
 
 - [2026-10-03][DECISION][src:ADR-0064，自动化按用户授权接受；TASK-223] **L1 文件通道以 binary 层保留 `host_service` 表达**：`l1_file` 仍是任务前置 / 文件通道标记，不属于运行时步骤种类；新增 `assistant.runtime.host_read_utf8_prefix`，只进 Planner 目录、不进模型可见 ToolBus；输入绝对路径与正整数 `max_text_bytes`，按 UTF-8 边界读取有界前缀，硬上限 16 MiB，输出 `text` / `truncated` / `bytes_read` / `bytes_total` / `fingerprint`；相对路径、`..`、非正预算 `ToolInvalidArgs`，缺失文件 `TargetNotFound`；不改 `PlanStep` / `Plan` / `Planner` / `task-engine` 公共形状，不新增依赖。该 ADR 不改变 ADR-0061 D8 的条件求值语义；完整大文件 Plan 执行仍需处理“条件为假的第一步尚无 fingerprint”问题。
+
+## 2026-10-03 追加（ADR-0065，Accepted）
+
+- [2026-10-03][DECISION][src:ADR-0065，人类在 TASK-223 派单中确认方案；DRIFT-223-1 / PL-100 闭环] **前置保留步骤产出初始指纹**：新增 binary 层保留 `host_service` 工具 `assistant.runtime.host_capture_initial_fingerprint`，作为任务包第一个可执行步骤**恒执行**（不得带 `when`），用**注入平台**的 `fingerprint(window, WholeWindow)` 观测一次目标窗口指纹并发布，为后续「首步条件为假」的跳过提供真实前序指纹。指纹只来自注入实现：测试注入 fake/replay provider、生产注入 `WindowsPlatform`，同一段代码同一条路径；**严禁** `cfg!(debug_assertions)` / feature / profile 分叉运行时行为，**严禁**伪造或填占位值（观测失败即 `VerifyFailed` / 未装配即 `CapabilityMissing`）。该步骤只读，成功信封的 `fingerprint` 与 `previous_fingerprint` 是同一次观测值，postcondition 沿用 `state_unchanged`；`runtime_binding.rs` 的 fail-closed 判据一字不改；不改 `PlanStep` / `Plan` / `Planner` / `task-engine` 公共形状，不新增 crate 与依赖。T1.2 / T1.3 的首个可执行步骤无 `when`，故不需要该前置步骤。

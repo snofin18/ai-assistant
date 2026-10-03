@@ -26,6 +26,16 @@ fn t1_1_inputs() -> serde_json::Map<String, Value> {
     ])
 }
 
+/// Inputs that push T1.1 onto the large-file branch: `file_size_bytes > max_text_bytes`.
+fn t1_1_large_file_inputs() -> serde_json::Map<String, Value> {
+    inputs(&[
+        ("file_size_bytes", json!(2_097_152)),
+        ("max_text_bytes", json!(1024)),
+        ("input.keywords", json!(["report"])),
+        ("input.max_keyword_paragraphs", json!(50)),
+    ])
+}
+
 #[test]
 fn test_t1_1_package_renders_identical_plan_twice() {
     let path = t1_1_package_path();
@@ -54,33 +64,84 @@ fn test_t1_1_plan_contains_read_step_and_pure_analysis_step() {
         .expect("plan has a steps array");
 
     // T1.1's platform precondition stays out of the Plan. The file channel is now a
-    // reserved host_service step, so the conditional large-file branch is represented in
-    // the Plan without changing `l1_file`'s non-runtime semantics (ADR-0064).
+    // reserved host_service step, so the conditional large-file branch is represented in the
+    // Plan without changing `l1_file`'s non-runtime semantics (ADR-0064). ADR-0065 adds the
+    // unconditional fingerprint preamble that lets a false first condition be skipped at all.
     assert_eq!(
         steps.len(),
-        3,
-        "read_text + file channel + analyze enter the Plan"
+        4,
+        "initial fingerprint + read_text + file channel + analyze enter the Plan"
     );
+    let tools: Vec<&str> = steps
+        .iter()
+        .filter_map(|step| step.get("tool").and_then(Value::as_str))
+        .collect();
     assert_eq!(
-        steps
-            .first()
-            .and_then(|step| step.get("tool"))
-            .and_then(Value::as_str),
-        Some("notepad.file.read_text")
+        tools,
+        vec![
+            "assistant.runtime.host_capture_initial_fingerprint",
+            "notepad.file.read_text",
+            "assistant.runtime.host_read_utf8_prefix",
+            "assistant.runtime.pure_count_lines_and_keyword_paragraphs",
+        ]
     );
+}
+
+/// ADR-0065 D1: the preamble must stay unconditional. If it ever gained a `when`, the
+/// large-file branch would lose the only fingerprint published before it.
+#[test]
+fn test_t1_1_initial_fingerprint_step_is_unconditional() {
+    let provider =
+        TaskPackageProvider::from_package_file_with_inputs(&t1_1_package_path(), &t1_1_inputs())
+            .expect("render");
+    let dataflow = provider.dataflow_plan();
+
+    let preamble = dataflow
+        .get("capture_initial_fingerprint")
+        .expect("the preamble must be rendered as an executable step");
     assert_eq!(
-        steps
-            .get(1)
-            .and_then(|step| step.get("tool"))
-            .and_then(Value::as_str),
-        Some("assistant.runtime.host_read_utf8_prefix")
+        preamble.tool, "assistant.runtime.host_capture_initial_fingerprint",
+        "the preamble must map onto the reserved host_service tool"
     );
+    assert!(
+        preamble.condition.is_none(),
+        "ADR-0065 D1: the preamble must not declare a condition"
+    );
+    assert!(
+        dataflow
+            .get("read_text")
+            .expect("read_text is rendered")
+            .condition
+            .is_some(),
+        "the small-file branch keeps its declared condition"
+    );
+    assert!(
+        dataflow
+            .get("read_file_channel")
+            .expect("read_file_channel is rendered")
+            .condition
+            .is_some(),
+        "the large-file branch keeps its declared condition"
+    );
+}
+
+/// The branch choice happens at runtime through `when`, so the large-file input set renders
+/// exactly the same executable steps as the small-file one (ADR-0061 D8).
+#[test]
+fn test_t1_1_large_file_inputs_render_the_same_steps() {
+    let small =
+        TaskPackageProvider::from_package_file_with_inputs(&t1_1_package_path(), &t1_1_inputs())
+            .expect("small-file render");
+    let large = TaskPackageProvider::from_package_file_with_inputs(
+        &t1_1_package_path(),
+        &t1_1_large_file_inputs(),
+    )
+    .expect("large-file render");
+
     assert_eq!(
-        steps
-            .get(2)
-            .and_then(|step| step.get("tool"))
-            .and_then(Value::as_str),
-        Some("assistant.runtime.pure_count_lines_and_keyword_paragraphs")
+        small.plan_json(),
+        large.plan_json(),
+        "输入只改变运行时条件求值，不得改变确定性 Plan"
     );
 }
 

@@ -126,6 +126,9 @@ impl ToolInvoker for ReservedRuntimeInvoker<'_> {
                     arguments.as_ref(),
                 );
             }
+            if tool == crate::runtime_tools::TOOL_HOST_CAPTURE_INITIAL_FINGERPRINT {
+                return self.capture_initial_fingerprint(&call, &step_id, sequence);
+            }
             if tool == crate::runtime_tools::TOOL_HOST_INSPECT_TARGET_PATH {
                 return self.inspect_target_path(&call, &step_id, sequence, arguments.as_ref());
             }

@@ -60,6 +60,15 @@
       ]
     },
     {
+      "id": "capture_initial_fingerprint",
+      "kind": "host_service",
+      "operation": "capture_initial_fingerprint",
+      "notes": [
+        "ADR-0065: always runs, without a condition, so it publishes the first real fingerprint.",
+        "The value comes from the injected platform; a conditional step that evaluates false can then be skipped against it."
+      ]
+    },
+    {
       "id": "read_text",
       "kind": "tool",
       "tool": "notepad.file.read_text",

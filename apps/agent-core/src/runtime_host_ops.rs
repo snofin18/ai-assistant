@@ -1,7 +1,7 @@
 //! Host-side operations used by reserved runtime steps (ADR-0061 D7).
 //!
 //! Responsibilities:
-//! - expose the two host operations the 1a task packages need;
+//! - expose the read-only and rollback host operations the 1a task packages need;
 //! - keep platform access behind the already assembled Notepad handler context.
 //!
 //! Boundaries:
@@ -75,6 +75,24 @@ pub trait ReservedHostOperations: Send + Sync {
         target_path: Option<&str>,
         max_text_bytes: u64,
     ) -> Result<Value, ReservedHostOperationError>;
+
+    /// Observes the target's initial fingerprint through the injected platform (ADR-0065).
+    ///
+    /// A task package declares this as its first executable step and without a condition, so a
+    /// later step whose `when` is false can be skipped against a fingerprint that a committed
+    /// step really published. The returned payload must carry the observed value under both
+    /// `fingerprint` and `previous_fingerprint`: the observation changes nothing, so the two are
+    /// the same reading and the step's `state_unchanged` postcondition stays honest.
+    ///
+    /// The value must come from the injected `UiAutomationProvider` - never from a constant, a
+    /// content digest, or a build-configuration branch (ADR-0065 D2/D3/D4).
+    ///
+    /// # Errors
+    ///
+    /// Returns a readable reason when the target window cannot be resolved or the platform
+    /// cannot report a fingerprint; the caller turns that into an explicit `ErrorCode` instead
+    /// of publishing a placeholder.
+    fn capture_initial_fingerprint(&self) -> Result<Value, String>;
 
     /// Captures the physical pre-write snapshot for one task step (ADR-0062 D1/D2).
     ///
