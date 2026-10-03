@@ -126,6 +126,18 @@ cargo test -p assistant-platform-windows --lib -- --ignored --nocapture --test-t
 - `cargo fmt --all --check` / `cargo clippy --all-targets -- -D warnings` / `cargo test --workspace`
   全部 EXIT 0；`-p assistant-platform-windows` lib 88 passed / 4 ignored。
 
+**合并与 CI 证据（回填）**
+
+- PR **#194**（`codex/task-040-real-machine-acceptance` → `main`）：CI run `37102249646` = **11/11 SUCCESS**
+  （`check` windows / ubuntu / macos、`cargo deny` ×2、doc consistency、desktop-ui checks、
+  desktop-ui tauri (windows)、commitlint、gate negative verification #6、xtask deferred inventory）；
+  合并前 `mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`、`baseRefName=main`。
+- 收口提交 `4f15cc1`，合并提交 **`c86ea63`**（`state=MERGED`）。
+- 口径声明：CI **不跑** `#[ignore]` 真机用例 —— 本卡 §3 的真机结论只来自本机原始输出，
+  不把它伪装成 CI 门禁（这也是 `PL-106` 想结构化解决的事）。
+- 回填走独立分支 `codex/task-040-merge-backfill-2`（原 `codex/task-040-merge-backfill` 是
+  PR #186 那轮的旧回填分支）：`LEDGER.md` 只追加一行，不改写已有行。
+
 ### 4. DoD 逐条核对
 
 - [x] 新增纯校准判定：3..64 个样本，按显示器 ordinal 去重，任一轴误差超限即 `VerifyFailed`。
