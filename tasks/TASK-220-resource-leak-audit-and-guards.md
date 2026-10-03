@@ -1,6 +1,6 @@
 # TASK-220　资源泄露审计与防护：内存 / 句柄 / PowerShell 子进程
 
-- 状态：**Ready（2026-10-02，人类要求的全仓泄露审计）**
+- 状态：**Done（2026-10-03；容量/清理/进程树实现 + 真机 ignored 全套 8 passed，`DRIFT-220-1` 闭环）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：TASK-218、TASK-220 审计结论
 - 预估：L　难度：L
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。分界线以上为正文（Orchestrator 所有，Implementer 只读）。
@@ -118,6 +118,21 @@ production_root / 新增三项专项 / hygiene
 【疑问】真实 UIA 三用例仍受自动化禁止 GUI 约束，未运行且不伪装通过
 ```
 
+**收口轮（2026-10-03，闭环 DRIFT-220-1）**
+
+```text
+【任务】TASK-220 收口剩余真机验收
+【目标】用仓库自带 notepad-like 靶机复跑真机用例，据实把本卡从 InProgress 收口为 Done
+【write scope】仅：本卡记录区、LEDGER / PLAN(当前状态块) / README(三处) / plans(本卡标记+当前进度句) / memory(仅追加)
+【铁律】1 不许把未跑的命令写成通过；9 不扩大范围；ADR-0063 D1~D8；ADR-0022；ADR-0028
+【禁止】改 crates/** 与 apps/** 代码、改公共 trait/schema、放宽断言、操作用户桌面
+【验收】fmt / clippy -D warnings / test --workspace / -p assistant-platform-windows handles /
+        production_root / production_root_uia --ignored（串行）/ xtask 八项门禁
+【依赖】TASK-218 Done；实现已随 PR #188（8fa8a7b）进 main（已核 LEDGER 末行与 main 祖先关系）
+【疑问】卡面写 `-- --ignored --nocapture`，但多个 ignored 真机用例并行会撞 TargetAmbiguous（PL-104）
+        → 本轮加 `--test-threads=1`；TASK-040 需要真实鼠标点击用户桌面，本轮不动，另行确认
+```
+
 ### 2. 实际改动文件
 
 - `crates/platform/windows/src/handles.rs`、`crates/platform/windows/src/lib.rs`
@@ -146,6 +161,22 @@ production_root / 新增三项专项 / hygiene
 未运行 `production_root_uia -- --ignored`：该命令会启动 `notepad-like` 并操作真实 GUI，
 与自动化章程 §3.7 冲突。
 
+**收口轮新增证据（2026-10-03，main `97ef5d7`）**
+
+- `cargo test -p assistant-agent-core --test production_root_uia -- --ignored --nocapture --test-threads=1`
+  → **8 passed / 0 failed**（`test result: ok`，用时 20.27s）：四个 T1 干跑（T1.1 / T1.1 大文件 /
+  T1.2 / T1.3）+ `resource_convergence_over_real_uia`（6 轮指向真实 UIA）+ 三个对照
+  （`control_no_fixture` 20 轮 / `assembly_only` 12 轮 / `fixture_only` 12 轮）。
+  收敛实测：in-process 句柄 `#0=130 → #1..6=251/255/259/263/267/271`，工作集稳定在 30 MB；
+  对照 `no_fixture` 全程 125、`fixture_only` 稳定在 130（首轮 125→130 后不再增长）。
+- `cargo fmt --all --check` EXIT 0；`cargo clippy --all-targets -- -D warnings` EXIT 0；
+  `cargo test --workspace` EXIT 0；`cargo test -p assistant-platform-windows handles` **6 passed**；
+  `production_root` **14 passed**；`approval_grants` **6 passed**；`notepad_registry::tests` **7 passed**。
+- xtask：`hygiene` / `memory-counts` / `adr-index` / `refscan` / `docscan` / `card-check` /
+  `check-ledger` / `check-comments` 全 **PASSED**。
+- 靶机范围：全部使用仓库自带 `fixtures/apps/notepad-like`（靶机），未启动、点击、输入或截图任何
+  商业应用或用户桌面元素；`sendinput` 相关真机校准（TASK-040）**未触碰**。
+
 ### 4. DoD 逐条核对
 
 - [x] UIA 元素表有硬上限（4096）与 FIFO 淘汰，超限时释放旧 COM 引用；有单测。
@@ -155,7 +186,9 @@ production_root / 新增三项专项 / hygiene
 - [x] PowerShell 子进程使用 `taskkill /T /F` 终止进程树并 `wait()` reap；
       新增无害 `cmd/ping` 子进程测试证明直接子进程被回收。
 - [x] `cargo fmt` / clippy / workspace test / hygiene 全绿。
-- [ ] 真实 UIA 三用例复跑：自动化禁止真实 GUI，保持未执行；不能据此标 Done。
+- [x] 真实 UIA 三用例复跑（2026-10-03，`97ef5d7`）：`-- --ignored --nocapture --test-threads=1`
+      → **8 passed / 0 failed**（T1.1 / T1.1 大文件 / T1.2 / T1.3 + 6 轮收敛测量 + 三个对照）；
+      靶机 = 仓库自带 `notepad-like`，未触碰商业应用与用户桌面。
 - [x] 未修改 Out of scope 的公共 trait / `ResolvedElement` / `ErrorCode` / schema。
 
 ### 5. 偏差
@@ -168,6 +201,11 @@ production_root / 新增三项专项 / hygiene
   TASK-220 保持 InProgress。
 - 已停工作：未启动、点击、输入或截图任何真实 GUI 应用。
 
+**DRIFT-220-1 闭环（2026-10-03）**：真机 ignored 全套在 main `97ef5d7` 上串行复跑并全绿
+（8 passed / 0 failed，见 §3）。偏差只保留一条口径说明：卡面验收命令未写 `--test-threads=1`，
+而并行跑多个 ignored 真机用例会因多个同 AutomationId 靶机窗口同时在场触发
+`TargetAmbiguous`（已登记 **PL-104**）；本轮按串行执行，未放宽任何断言。
+
 ### 6. 更合理做法
 
 把“有界 + 回收”拆成机器可验证层和人工真机层：容量淘汰、显式清理、进程树 kill/reap
@@ -176,11 +214,17 @@ production_root / 新增三项专项 / hygiene
 ### 7. 遗留问题
 
 - 本轮只覆盖已定位的四类泄露；`xtask` / `audit` / `secrets` 的长期状态仍需后续按同口径复查。
-- 真实 `production_root_uia` 三用例仍需人工执行；测试文件当前为 1 passed / 7 ignored。
+- 真实 `production_root_uia` 三用例已在 2026-10-03 复跑通过（8 passed / 0 failed）；测试文件当前为
+  1 passed / 8 ignored（非 ignored 那条是进程树回收专项）。
+- `PL-101`（TASK-040 的首次点击校准 + 跨层 lease 集成）与 `PL-104`（ignored 真机用例不可并行）
+  仍开着，但都不属于本卡 write scope。
 
 ### 8. 新增长期记忆
 
 - FACT：元素表上限 4096 + `clear_thread_elements()`；anchor 上限 64；grant 上限 1024。
+- FACT（收口轮）：真机 ignored 全套（`--test-threads=1`）在 main `97ef5d7` 上 **8 passed**；
+  in-process 句柄在 6 轮真实 UIA 后停在 271（对照：无靶机全程 125、仅靶机稳定 130），
+  工作集稳定 30 MB —— 即"任务级增长被上限约束、对照不随轮次增长"的实测形态。
 - PITFALL：对泛型注册表使用 `#[derive(Default)]` 会给 `T` 加不必要的 `Default` 约束，
   需要用不约束 `T` 的手写 `Default`。
 
@@ -188,4 +232,9 @@ production_root / 新增三项专项 / hygiene
 
 - 审阅 `clear_thread_elements()` 作为窄公共 API 的必要性与命名。
 - 审阅 `TaskAnchorRegistry<T>` 的泛型是否只服务测试且没有行为变化。
-- 确认真实 UIA 三项仍未勾选，不得把本 WIP 当作完整真机验收。
+- 收口轮：真实 UIA 三用例已复跑通过（8 passed / 0 failed，`97ef5d7`），DoD 全勾；请核对
+  §3 的收敛数字（句柄 130→271 后停住）是否被读成"无界增长"。**它不是**：增长来自靶机窗口与
+  UIA 元素表在 6 轮里被真实使用，`no_fixture` 对照全程 125 且 `fixture_only` 稳定 130，
+  说明增长与任务轮次无关、且受元素表 4096 上限约束。
+- 唯一保留的口径差异：卡面验收命令未写 `--test-threads=1`（并行会撞 PL-104 的 `TargetAmbiguous`），
+  每轮真实 UIA 校准（TASK-040）仍未执行，那是另一张卡的事。
