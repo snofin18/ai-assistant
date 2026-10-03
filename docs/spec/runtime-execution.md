@@ -51,9 +51,10 @@
 | `Undo` | Anchor、rollback recipe、冲突与 incident | 不决定是否放行、不执行平台动作 |
 | `Audit` | append-only 事件持久化 | 不改回状态、不替 RuntimeExecutor 决策 |
 
-`hitl` / `host_service` / `verify` 三类步骤不进入模型可见的 ToolBus 挂载集。
-运行时把它们映射到三个 `assistant.runtime.*` 保留工具，并在 binary 层本地执行
-（ADR-0059、ADR-0060）。模型看不到、也调用不到这三个名字。
+`hitl` / `host_service` / `verify` / `pure` 四类步骤不进入模型可见的 ToolBus 挂载集。
+可执行步骤映射到**保留运行时工具**并在 binary 层本地执行；保留工具的**闭集与完整名单以
+`apps/agent-core/src/runtime_tools.rs` 的 `RESERVED_RUNTIME_TOOLS` 为唯一事实源**（本 spec 不手写
+个数与名单，避免与代码漂移）。模型看不到、也调用不到这些名字（ADR-0059 / ADR-0060 / ADR-0064 / ADR-0065）。
 
 ## 4. 运行前置条件
 
