@@ -12,7 +12,7 @@
 //!   handlers this module only names.
 //!
 //! Invariants:
-//! 1. the three names are a closed set and are contract, not convention;
+//! 1. the reserved names are a closed set and are contract, not convention;
 //! 2. a package step kind maps onto exactly one reserved tool, or none;
 //! 3. the schemas are built from explicit JSON, never from inferred defaults.
 
@@ -35,6 +35,12 @@ pub const TOOL_PURE_VALIDATE_T1_3_INPUTS: &str = "assistant.runtime.pure_validat
 /// Reserved pure operation: count lines and keyword paragraphs in canonical text.
 pub const TOOL_PURE_COUNT_LINES_AND_KEYWORD_PARAGRAPHS: &str =
     "assistant.runtime.pure_count_lines_and_keyword_paragraphs";
+/// Reserved host operation: observe the initial target fingerprint (ADR-0065).
+///
+/// A task package puts this step first and **without** a `when`, so a later step whose
+/// condition is false can be skipped against a fingerprint a committed step really published.
+pub const TOOL_HOST_CAPTURE_INITIAL_FINGERPRINT: &str =
+    "assistant.runtime.host_capture_initial_fingerprint";
 /// Reserved host operation: inspect a target path without modifying it.
 pub const TOOL_HOST_INSPECT_TARGET_PATH: &str = "assistant.runtime.host_inspect_target_path";
 /// Reserved host operation: set the editor value through the injected platform.
@@ -51,6 +57,7 @@ pub const RESERVED_RUNTIME_TOOLS: &[&str] = &[
     TOOL_PURE_BUILD_TEXT_DIFF,
     TOOL_PURE_VALIDATE_T1_3_INPUTS,
     TOOL_PURE_COUNT_LINES_AND_KEYWORD_PARAGRAPHS,
+    TOOL_HOST_CAPTURE_INITIAL_FINGERPRINT,
     TOOL_HOST_INSPECT_TARGET_PATH,
     TOOL_HOST_SET_EDITOR_VALUE,
     TOOL_HOST_READ_UTF8_PREFIX,
@@ -63,6 +70,7 @@ pub fn tool_for_step(kind: &str, operation: Option<&str>) -> Option<&'static str
         "hitl" => Some(TOOL_REQUEST_APPROVAL),
         "host_service" => match operation {
             Some("prepare_rollback_anchors") => Some(TOOL_PREPARE_ANCHORS),
+            Some("capture_initial_fingerprint") => Some(TOOL_HOST_CAPTURE_INITIAL_FINGERPRINT),
             Some("inspect_target_path") => Some(TOOL_HOST_INSPECT_TARGET_PATH),
             Some("set_editor_value") => Some(TOOL_HOST_SET_EDITOR_VALUE),
             Some("read_utf8_prefix") => Some(TOOL_HOST_READ_UTF8_PREFIX),
@@ -121,7 +129,7 @@ type ToolDeclaration = (
     bool,
 );
 
-const RESERVED_TOOL_DECLARATIONS: [ToolDeclaration; 10] = {
+const RESERVED_TOOL_DECLARATIONS: [ToolDeclaration; 11] = {
     [
         (
             TOOL_REQUEST_APPROVAL,
@@ -184,6 +192,14 @@ const RESERVED_TOOL_DECLARATIONS: [ToolDeclaration; 10] = {
             false,
         ),
         (
+            TOOL_HOST_CAPTURE_INITIAL_FINGERPRINT,
+            "Observe the initial target fingerprint through the injected platform (runtime-owned; not callable by the model).",
+            "low",
+            "read",
+            "l0_undo_stack",
+            false,
+        ),
+        (
             TOOL_HOST_INSPECT_TARGET_PATH,
             "Inspect whether a target path already exists without modifying it.",
             "low",
@@ -231,6 +247,10 @@ mod tests {
         assert_eq!(
             tool_for_step("host_service", Some("read_utf8_prefix")),
             Some("assistant.runtime.host_read_utf8_prefix")
+        );
+        assert_eq!(
+            tool_for_step("host_service", Some("capture_initial_fingerprint")),
+            Some("assistant.runtime.host_capture_initial_fingerprint")
         );
         assert_eq!(tool_for_step("tool", None), None);
         assert_eq!(tool_for_step("pure", None), None);

@@ -102,12 +102,23 @@ fn production_config(data_root: &Path) -> ProductionConfig {
 #[cfg(windows)]
 fn read_step_event(
     transport: &mut NamedPipeTransport,
+    expected_step_id: &str,
 ) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
     loop {
         match transport.recv(Duration::from_secs(2))? {
             WireMessage::UiEvent(event)
                 if event.event.get("kind").and_then(serde_json::Value::as_str)
-                    == Some("step_state_changed") =>
+                    == Some("step_state_changed")
+                    && event
+                        .event
+                        .get("step_id")
+                        .and_then(serde_json::Value::as_str)
+                        == Some(expected_step_id)
+                    && event
+                        .event
+                        .get("status")
+                        .and_then(serde_json::Value::as_str)
+                        == Some("committed") =>
             {
                 return Ok(event.event);
             }
@@ -127,6 +138,7 @@ fn read_step_event(
 fn assert_step_event(
     step_event: &serde_json::Value,
     task_id: &str,
+    expected_step_id: &str,
     expected_fingerprint: &Fingerprint,
 ) {
     assert_eq!(step_event.as_object().map(serde_json::Map::len), Some(6));
@@ -140,7 +152,7 @@ fn assert_step_event(
         step_event
             .get("step_id")
             .and_then(serde_json::Value::as_str),
-        Some("read_text")
+        Some(expected_step_id)
     );
     assert_eq!(
         step_event.get("status").and_then(serde_json::Value::as_str),
@@ -220,8 +232,19 @@ async fn test_production_step_event_over_real_ui_pipe() -> Result<(), Box<dyn st
         Vec::new(),
         Duration::from_secs(5),
     )?;
-    let step_event = read_step_event(&mut transport)?;
-    assert_step_event(&step_event, host.task_id().as_str(), &expected_fingerprint);
+    // ADR-0065: the unconditional preamble is now the first step the timeline carries, and
+    // `read_text` follows it. Both must reach the UI over the real pipe as committed events
+    // carrying the injected platform's fingerprint.
+    let task_id = host.task_id().as_str().to_owned();
+    let preamble_event = read_step_event(&mut transport, "capture_initial_fingerprint")?;
+    assert_step_event(
+        &preamble_event,
+        &task_id,
+        "capture_initial_fingerprint",
+        &expected_fingerprint,
+    );
+    let read_event = read_step_event(&mut transport, "read_text")?;
+    assert_step_event(&read_event, &task_id, "read_text", &expected_fingerprint);
 
     drop(transport);
     join_ui_server(server);
@@ -246,20 +269,21 @@ async fn test_production_t1_1_commits_through_real_tool_bus_and_receipt()
     let run = host.execute_plan(plan, FIXED_NOW_MS).await?;
 
     assert_eq!(run.final_snapshot.status, TaskStatus::Completed);
-    // TASK-219 / ADR-0064: read_text, the skipped file-channel branch, and the pure
-    // `analyze` step all commit a state transition, so three snapshots are observed.
-    assert_eq!(run.snapshots.len(), 3);
-    let step = run
-        .final_snapshot
-        .steps
-        .first()
-        .expect("one committed step");
+    // TASK-219 / ADR-0064 / ADR-0065: the unconditional fingerprint preamble, read_text, the
+    // skipped file-channel branch, and the pure `analyze` step all commit a state transition,
+    // so four snapshots are observed.
+    assert_eq!(run.snapshots.len(), 4);
+    let steps = &run.final_snapshot.steps;
+    let step = steps.first().expect("one committed step");
     let expected_fingerprint = platform.fingerprint();
     assert_eq!(step.status, StepStatus::Committed);
     assert_eq!(
         step.post_fingerprint.as_deref(),
         Some(expected_fingerprint.as_str())
     );
+    // ADR-0065 D2: that first fingerprint is the injected fake platform's own reading, produced
+    // by the same code path production runs through `WindowsPlatform`.
+    assert_eq!(step.id.to_string(), "capture_initial_fingerprint");
     assert_eq!(platform.state.lock().expect("fake state").read_calls, 1);
 
     let mut events = host.snapshot_event_source();
@@ -276,6 +300,73 @@ async fn test_production_t1_1_commits_through_real_tool_bus_and_receipt()
     );
     let serialized = serde_json::to_string(&projected)?;
     assert!(serialized.contains("step_state_changed"));
+    host.shutdown().await?;
+    Ok(())
+}
+
+/// ADR-0065 / DRIFT-223-1: on the large-file branch the conditional first step evaluates false,
+/// and the Plan still runs to `Completed` through the reserved file channel because the
+/// unconditional preamble already published a real platform fingerprint.
+#[cfg(windows)]
+#[tokio::test]
+async fn test_production_t1_1_large_file_skips_read_text_and_uses_the_file_channel()
+-> Result<(), Box<dyn std::error::Error>> {
+    let directory = TestDirectory::new("production-t1-1-large")?;
+    let document_path = directory.path.join("t1-1-large.txt");
+    // 5200 bytes: comfortably over the 1024-byte budget, so the prefix read must truncate.
+    std::fs::write(&document_path, "report line\n".repeat(400))?;
+    let task_inputs = serde_json::json!({
+        "input.file_path": document_path.to_string_lossy(),
+        "file_size_bytes": 5200,
+        "max_text_bytes": 1024,
+        "input.keywords": ["report"],
+        "input.max_keyword_paragraphs": 50,
+    })
+    .as_object()
+    .cloned()
+    .expect("task input object");
+    // The same T1.1 package, adapter root, and UI config as the small-file run; only the task
+    // inputs differ, which is exactly what selects the branch at runtime.
+    let config = production_config(&directory.path).with_task_inputs(task_inputs);
+    // The editor holds text that must never be analyzed: if the UIA branch ran, `analyze` would
+    // see this string instead of the file prefix.
+    let platform = FakePlatform::new("editor text that must never be read\n");
+    let host = assemble_production_host(config, platform.clone(), Arc::new(FixedClock)).await?;
+
+    let plan = host.plan_task()?;
+    let run = host.execute_plan(plan, FIXED_NOW_MS).await?;
+
+    assert_eq!(run.final_snapshot.status, TaskStatus::Completed);
+    let steps = &run.final_snapshot.steps;
+    let ids: Vec<String> = steps.iter().map(|step| step.id.to_string()).collect();
+    assert_eq!(
+        ids,
+        vec![
+            "capture_initial_fingerprint".to_owned(),
+            "read_text".to_owned(),
+            "read_file_channel".to_owned(),
+            "analyze".to_owned(),
+        ]
+    );
+    assert!(
+        steps
+            .iter()
+            .all(|step| step.status == StepStatus::Committed),
+        "条件为假的步骤按 ADR-0061 D8 仍提交，任何一步都不得停在失败态"
+    );
+    assert_eq!(run.snapshots.len(), 4);
+    // `read_text` never touched UIA, so the small-file branch really was skipped instead of run;
+    // `analyze` could only have committed on text the file channel published.
+    assert_eq!(platform.state.lock().expect("fake state").read_calls, 0);
+    // ADR-0065 D2: the preamble's fingerprint is the injected platform's own reading.
+    assert_eq!(
+        steps
+            .first()
+            .expect("preamble step")
+            .post_fingerprint
+            .as_deref(),
+        Some(platform.fingerprint().as_str())
+    );
     host.shutdown().await?;
     Ok(())
 }

@@ -210,6 +210,53 @@ async fn test_reserved_runtime_tool_is_handled_locally_as_a_known_failure() {
     );
 }
 
+/// ADR-0065 D4: with no host operations assembled, the initial-fingerprint step must refuse with
+/// a stable `ErrorCode`. Publishing a placeholder fingerprint would let every later
+/// `state_unchanged` assertion pass on a value nobody observed.
+#[tokio::test]
+async fn test_capture_initial_fingerprint_without_host_operations_fails_closed() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let bus = started_bus(Arc::clone(&calls)).await;
+    let snapshot: Arc<Mutex<Option<TaskSnapshot>>> = Arc::new(Mutex::new(None));
+    let invoker = ReservedRuntimeInvoker::new(&bus, snapshot);
+
+    let plan = write_plan();
+    let task_id = plan.task_id.clone();
+    let mut step = plan.steps.first().expect("one step").clone();
+    step.tool = "assistant.runtime.host_capture_initial_fingerprint".to_owned();
+
+    let envelope = invoker
+        .invoke(&task_id, &step)
+        .await
+        .expect("a reserved step yields an envelope, not an unknown outcome");
+
+    assert!(
+        !envelope.ok,
+        "an unassembled host operation must not report success"
+    );
+    assert_eq!(
+        envelope.error.as_ref().map(|error| error.code),
+        Some(assistant_protocol::ErrorCode::CapabilityMissing),
+        "the refusal must carry a stable ErrorCode"
+    );
+    assert!(
+        envelope
+            .error
+            .as_ref()
+            .is_some_and(|error| error.message.contains("not assembled")),
+        "the refusal must say why, not fail silently"
+    );
+    assert!(
+        envelope.data.is_none(),
+        "a refused step must not carry a fingerprint payload"
+    );
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        0,
+        "a reserved tool must never reach the model-visible tool bus"
+    );
+}
+
 /// ADR-0059 D3: an irreversible step cannot be anchored. `prepare_anchors` must
 /// refuse **before** anything executes - that refusal is the whole point of the
 /// step, so it is asserted rather than assumed.

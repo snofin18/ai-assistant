@@ -432,8 +432,114 @@ async fn test_production_t1_1_dry_run_over_real_uia() -> Result<(), Box<dyn std:
     let plan = host.plan_task()?;
     let run = host.execute_plan(plan, SystemClock.now_unix_ms()).await?;
     assert_eq!(run.final_snapshot.status, TaskStatus::Completed);
-    // TASK-219: read_text + the pure `analyze` step both commit over real UIA.
-    assert_eq!(run.snapshots.len(), 2);
+    // TASK-219 / ADR-0064 / ADR-0065: the unconditional fingerprint preamble, read_text, the
+    // condition-skipped file channel, and the pure `analyze` step all commit over real UIA.
+    assert_eq!(run.snapshots.len(), 4);
+    let steps = &run.final_snapshot.steps;
+    assert!(
+        steps
+            .iter()
+            .all(|step| step.status == StepStatus::Committed),
+        "every T1.1 step must commit over real UIA"
+    );
+    let preamble = steps.first().expect("the preamble step");
+    assert_eq!(preamble.id.to_string(), "capture_initial_fingerprint");
+    // ADR-0065 D2/D3/D4: this value came out of the injected `WindowsPlatform`. It must parse as
+    // a platform fingerprint, and it must not be the fake fixture's revision constant - the same
+    // code path yields the fake's value in `production_root`, so a constant here would mean the
+    // reading was fabricated or branched on build configuration.
+    let initial = preamble
+        .post_fingerprint
+        .clone()
+        .expect("the preamble must publish a fingerprint");
+    assert!(
+        assistant_platform_api::Fingerprint::parse(initial.clone()).is_ok(),
+        "the initial fingerprint must parse as a platform fingerprint, got `{initial}`"
+    );
+    assert_ne!(
+        initial, "sha256:0000000000000000000000000000000000000000000000000000000000000001",
+        "the initial fingerprint must be the real platform reading, not the fake fixture constant"
+    );
+    host.shutdown().await?;
+    Ok(())
+}
+
+/// ADR-0065 / DRIFT-223-1 closure over real UIA: with a large-file input the conditional
+/// `read_text` step evaluates false, and the Plan still completes through the reserved file
+/// channel because the unconditional preamble published a real `WindowsPlatform` fingerprint.
+#[tokio::test]
+#[ignore = "TASK-223: requires an interactive Windows desktop and starts notepad-like"]
+async fn test_production_t1_1_large_file_over_real_uia() -> Result<(), Box<dyn std::error::Error>> {
+    if !cfg!(windows) {
+        return Err("real UIA large-file run is Windows-only".into());
+    }
+    let directory = TestDirectory::new("production-t1-1-large-uia")?;
+    let adapter_root = fixture_adapter_root();
+    let document_path = directory.path.join("t1-1-large.txt");
+    // 5200 bytes on disk against a 1024-byte budget, so the prefix read must truncate.
+    std::fs::write(&document_path, "report line\n".repeat(400))?;
+    let _fixture = start_fixture(&directory, Some(&document_path))?;
+
+    let ui_config = UiServerConfig::new(
+        "assistant-agent-core-production-uia-large",
+        "ASSISTANT_AGENT_CORE_UI_TOKEN",
+        Duration::from_secs(2),
+    )
+    .with_allowed_peer("C:\\fixture\\peer.exe");
+    let task_inputs = serde_json::json!({
+        "input.file_path": document_path.to_string_lossy(),
+        "file_size_bytes": 5200,
+        "max_text_bytes": 1024,
+        "input.keywords": ["report"],
+        "input.max_keyword_paragraphs": 50,
+    })
+    .as_object()
+    .cloned()
+    .expect("task input object");
+    let config = ProductionConfig::new(
+        directory.path.join("data"),
+        adapter_root,
+        workspace_root().join("adapters/com.microsoft.notepad/tasks/t1.1.open-read-full-text.json"),
+        ui_config,
+    )
+    .with_task_inputs(task_inputs);
+    let host =
+        assemble_production_host(config, WindowsPlatform::new(), Arc::new(SystemClock)).await?;
+    let plan = host.plan_task()?;
+    let run = host.execute_plan(plan, SystemClock.now_unix_ms()).await?;
+
+    assert_eq!(run.final_snapshot.status, TaskStatus::Completed);
+    assert_eq!(run.snapshots.len(), 4);
+    let steps = &run.final_snapshot.steps;
+    let ids: Vec<String> = steps.iter().map(|step| step.id.to_string()).collect();
+    assert_eq!(
+        ids,
+        vec![
+            "capture_initial_fingerprint".to_owned(),
+            "read_text".to_owned(),
+            "read_file_channel".to_owned(),
+            "analyze".to_owned(),
+        ]
+    );
+    assert!(
+        steps
+            .iter()
+            .all(|step| step.status == StepStatus::Committed),
+        "the skipped UIA branch still commits and the file channel must really run"
+    );
+    // The preamble's fingerprint came from the real window, not from the file bytes: a content
+    // digest of the document would also parse, so the run additionally proves the branch order
+    // by completing at all - `analyze` needs text only the file channel can publish here.
+    let initial = steps
+        .first()
+        .expect("preamble step")
+        .post_fingerprint
+        .clone()
+        .expect("the preamble must publish a fingerprint");
+    assert!(
+        assistant_platform_api::Fingerprint::parse(initial.clone()).is_ok(),
+        "the initial fingerprint must parse as a platform fingerprint, got `{initial}`"
+    );
     host.shutdown().await?;
     Ok(())
 }

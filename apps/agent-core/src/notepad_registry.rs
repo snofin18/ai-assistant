@@ -20,6 +20,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use assistant_platform_api::{UiAutomationProvider, WindowProvider};
 use assistant_protocol::{ErrorCode, ToolSchema};
@@ -30,8 +31,9 @@ use thiserror::Error;
 
 use crate::notepad_handlers::{NotepadHandlerContext, build_handler_map};
 use crate::notepad_rollback::{CapturedRollbackAnchor, NotepadRollback};
-use crate::notepad_targets::NotepadTargetCatalog;
+use crate::notepad_targets::{MAIN_WINDOW_TARGET, NotepadTargetCatalog};
 use crate::runtime_host_ops::{ReservedHostOperationError, ReservedHostOperations};
+use crate::runtime_tools::TOOL_HOST_CAPTURE_INITIAL_FINGERPRINT;
 
 /// Tool name for reading the active document.
 pub(crate) const TOOL_READ_TEXT: &str = "notepad.file.read_text";
@@ -319,6 +321,31 @@ where
     ) -> Result<Value, ReservedHostOperationError> {
         let target_path = target_path.or(self.task_target_path.as_deref());
         read_utf8_prefix_data(target_path, max_text_bytes)
+    }
+
+    fn capture_initial_fingerprint(&self) -> Result<Value, String> {
+        // ADR-0065 D2/D3: the reading comes from the **injected** platform, so the test fake and
+        // `WindowsPlatform` travel this same code path. Nothing here may branch on build
+        // configuration, and D4 forbids substituting a constant or a content digest.
+        let tool = TOOL_HOST_CAPTURE_INITIAL_FINGERPRINT;
+        let started = Instant::now();
+        let window = self
+            .context
+            .resolve_window(MAIN_WINDOW_TARGET, tool)
+            .map_err(|error| error.to_string())?;
+        let fingerprint = self
+            .context
+            .fingerprint_event(&window, tool)
+            .map_err(|error| error.to_string())?;
+        let elapsed_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        Ok(serde_json::json!({
+            "initial_fingerprint": fingerprint.as_str(),
+            // ADR-0065 D5: observing changes nothing, so the pre- and post-step readings are the
+            // same value and the step's `state_unchanged` postcondition asserts a fact.
+            "fingerprint": fingerprint.as_str(),
+            "previous_fingerprint": fingerprint.as_str(),
+            "elapsed_ms": elapsed_ms,
+        }))
     }
 
     fn capture_rollback_anchor(
