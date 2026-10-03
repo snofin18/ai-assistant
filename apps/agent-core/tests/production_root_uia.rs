@@ -109,6 +109,18 @@ impl Drop for TestDirectory {
     }
 }
 
+/// Serializes tests that start the repository's shared `notepad-like` fixture.
+///
+/// The fixture exposes the same window `AutomationId` across instances. Running two
+/// fixture-starting tests concurrently makes `resolve_window` fail closed with
+/// `TargetAmbiguous`, so this guard serializes only the fixture-owning tests
+/// instead of requiring `--test-threads=1` for the whole test binary.
+static REAL_FIXTURE_SERIAL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+async fn acquire_real_fixture_serial() -> tokio::sync::MutexGuard<'static, ()> {
+    REAL_FIXTURE_SERIAL.lock().await
+}
+
 fn workspace_root() -> PathBuf {
     let canonical = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
@@ -136,6 +148,7 @@ async fn test_production_resource_convergence_over_real_uia()
 -> Result<(), Box<dyn std::error::Error>> {
     const ITERATIONS: usize = 6;
     const MAX_WORKING_SET_GROWTH_BYTES: usize = 32 * 1024 * 1024;
+    let _serial = acquire_real_fixture_serial().await;
     let mut samples = vec![sample_process_resources(0)];
     for iteration in 1..=ITERATIONS {
         let directory = TestDirectory::new("production-convergence")?;
@@ -290,6 +303,7 @@ async fn test_production_resource_convergence_assembly_only()
 async fn test_production_resource_convergence_fixture_only()
 -> Result<(), Box<dyn std::error::Error>> {
     const ITERATIONS: usize = 12;
+    let _serial = acquire_real_fixture_serial().await;
     let mut samples = vec![sample_process_resources(0).handles];
     for _ in 0..ITERATIONS {
         let directory = TestDirectory::new("production-fixture-only")?;
@@ -398,6 +412,7 @@ fn sample_process_resources(iteration: usize) -> ProcessResourceSample {
 #[tokio::test]
 #[ignore = "TASK-105: requires an interactive Windows desktop and starts notepad-like"]
 async fn test_production_t1_1_dry_run_over_real_uia() -> Result<(), Box<dyn std::error::Error>> {
+    let _serial = acquire_real_fixture_serial().await;
     if !cfg!(windows) {
         return Err("real UIA dry run is Windows-only".into());
     }
@@ -470,6 +485,7 @@ async fn test_production_t1_1_dry_run_over_real_uia() -> Result<(), Box<dyn std:
 #[tokio::test]
 #[ignore = "TASK-223: requires an interactive Windows desktop and starts notepad-like"]
 async fn test_production_t1_1_large_file_over_real_uia() -> Result<(), Box<dyn std::error::Error>> {
+    let _serial = acquire_real_fixture_serial().await;
     if !cfg!(windows) {
         return Err("real UIA large-file run is Windows-only".into());
     }
@@ -547,6 +563,7 @@ async fn test_production_t1_1_large_file_over_real_uia() -> Result<(), Box<dyn s
 #[tokio::test]
 #[ignore = "TASK-105: requires an interactive Windows desktop and starts notepad-like"]
 async fn test_production_t1_2_dry_run_over_real_uia() -> Result<(), Box<dyn std::error::Error>> {
+    let _serial = acquire_real_fixture_serial().await;
     if !cfg!(windows) {
         return Err("real UIA dry run is Windows-only".into());
     }
@@ -651,6 +668,7 @@ async fn test_production_t1_2_dry_run_over_real_uia() -> Result<(), Box<dyn std:
 #[tokio::test]
 #[ignore = "TASK-105: requires an interactive Windows desktop and starts notepad-like"]
 async fn test_production_t1_3_dry_run_over_real_uia() -> Result<(), Box<dyn std::error::Error>> {
+    let _serial = acquire_real_fixture_serial().await;
     if !cfg!(windows) {
         return Err("real UIA dry run is Windows-only".into());
     }

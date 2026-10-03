@@ -1,7 +1,9 @@
 //! Shared fake platform and test-directory helpers for production-root tests.
 
 use std::future::{Future, ready};
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use assistant_platform_api::{
     CaptureOptions, ErrorCode, Fingerprint, FingerprintScope, FocusPolicy, ImageRef, KeyChord,
@@ -22,6 +24,43 @@ const SAVE_AS_FILENAME_ID: u64 = 6;
 const SAVE_AS_SAVE_BUTTON_ID: u64 = 7;
 
 pub struct FixedClock;
+
+/// Temporary directory used by production-root tests.
+///
+/// Each test binary includes this support module directly, so the type stays local
+/// to that test crate while still being shared by all test files through `#[path]`.
+pub struct TestDirectory {
+    pub path: PathBuf,
+}
+
+impl TestDirectory {
+    pub fn new(label: &str) -> std::io::Result<Self> {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(std::io::Error::other)?
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "assistant-agent-core-{label}-{}-{nanos}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&path)?;
+        Ok(Self { path })
+    }
+}
+
+impl Drop for TestDirectory {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.path);
+    }
+}
+
+/// Resolves the repository root from the integration test manifest directory.
+pub fn workspace_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .expect("workspace root")
+}
 
 impl Clock for FixedClock {
     fn now_unix_ms(&self) -> i64 {
@@ -336,13 +375,4 @@ fn save_as_window() -> ResolvedWindow {
 
 fn platform_error(code: ErrorCode, message: impl Into<String>) -> PlatformError {
     PlatformError::new(code, message)
-}
-
-#[cfg(windows)]
-pub fn unique_ui_pipe_name() -> String {
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("clock")
-        .as_nanos();
-    format!("assistant-agent-core-ui-{}-{nanos}", std::process::id())
 }
