@@ -1,6 +1,6 @@
 # TASK-234　补齐 gov §5.4 最后两条 hygiene 规则（13/13）
 
-- 状态：**InProgress（2026-10-04；ADR-0068 / 0069 Accepted，两条规则与负向自证已落地，等待全门禁 / PR / CI）**
+- 状态：**Done（2026-10-04；ADR-0068 / 0069 Accepted，hygiene 13/13 + 0E，PR #218 / merge `e417a2a`，CI 11/11 SUCCESS）**
 - 阶段：1　子阶段：治理　批次：治理池　依赖：PL-060、ADR-0025、ADR-0068、ADR-0069
 - 预估：M　难度：M
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。分界线以上为正文（Orchestrator 所有，Implementer 只读）。
@@ -150,7 +150,7 @@ cargo run -p xtask -- codegen --check
 - [x] 两条规则实现，`hygiene` 13/13 且 0 Error，`--list-deferred` 未实现 hygiene 项为 0。
 - [x] 两条规则均有正负样本，重命名复制与未登记目录负向样本命中。
 - [x] 白名单文件落地，当前顶层目录 0 Error，`scripts/` 留给 PL-023。
-- [ ] 本行合并 / CI / merge-hash 回填：待 PR 通过后追加。
+- [x] 合并 / CI / merge-hash 回填：PR #218，CI run `37172655217`，11/11 SUCCESS，merge `e417a2a`。
 
 ```text
 $ cargo test -p xtask
