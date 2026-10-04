@@ -1,6 +1,6 @@
 # TASK-224　唯一写入通道 + 文件占用探测 + FIFO 排队（提案，暂不实现）
 
-- 状态：**Ready（提案已记录；前置 = ADR-0065 Accepted；本轮不实现）**
+- 状态：**Done（2026-10-04；ADR-0066 Accepted + `xtask write` 唯一写通道 / `share_mode(0)` 独占探测 / 有界退避与退出码 5 放弃 / 读路径不阻塞，PR #208 merge `919f2fa`；卡面正文里过期的「前置 ADR-0065」由本卡记录区与 PL-107 更正）**
 - 阶段：1　子阶段：1a/治理　批次：治理池　依赖：ADR-0028、ADR-0063、**ADR-0065 Accepted**
 - 预估：L　难度：L
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。分界线以上为正文（Orchestrator 所有，Implementer 只读）。
