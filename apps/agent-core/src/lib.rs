@@ -41,6 +41,7 @@ mod runtime_binding;
 mod runtime_dataflow;
 mod runtime_host_ops;
 mod runtime_tools;
+mod storage_session_store;
 mod target_lease;
 mod task_package;
 mod ui_control;
@@ -67,6 +68,7 @@ pub use runtime_dataflow::{
     ConditionExpr, ConditionOperand, ConditionOperator, DataflowError, RuntimeDataflowPlan,
     RuntimeStepBinding, collect_references, parse_condition, resolve_references,
 };
+pub use storage_session_store::StorageSessionStore;
 pub use task_package::{TASK_PACKAGE_MODEL_ID, TaskPackageError, TaskPackageProvider};
 pub use ui_control::{PendingApproval, PendingApprovals, TaskControlHandler};
 pub use ui_events::SnapshotEventSource;

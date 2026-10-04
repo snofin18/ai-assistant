@@ -27,9 +27,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use assistant_audit::Durability;
-use assistant_core::{
-    AppMapFileReader, HistoryCompressor, MemoryRetriever, MemorySessionStore, SessionStore,
-};
+use assistant_core::{AppMapFileReader, HistoryCompressor, MemoryRetriever};
 use assistant_model_gateway::{
     CancellationToken, ModelProvider, ModelRouter, NoJitter, SystemMonotonicClock, ThreadSleeper,
 };
@@ -246,7 +244,7 @@ where
         .collect::<BTreeMap<_, _>>();
 
     let input = HostAssemblyInput::new(&config.data_root, Arc::clone(&clock), platform)
-        .with_session_store(Arc::new(MemorySessionStore::new()) as Arc<dyn SessionStore>)
+        .with_storage_session_store()
         .with_memory_retriever(Arc::new(EmptyRetriever) as Arc<dyn MemoryRetriever>)
         .with_app_map_reader(
             Arc::new(crate::RootedAppMapReader::new(&config.adapter_root))

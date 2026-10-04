@@ -10,6 +10,7 @@
 > **TASK-230 ✅（2026-10-04）**：storage 新增 `0005` 迁移与 `conversations` / `conversation_messages` 持久化 API；真实关闭 / 重开 SQLite 后逐字段一致，缺失会话、非法父子关系与 revision 跳号显式失败，`PL-092` 闭环。
 > **TASK-231 ✅（2026-10-04）**：ADR-0067 删除混合 DPI 收敛启发式，`pointer_action` 起点与 `DragTo` 释放点各自显式携带 `CoordinateSpace`；混合 DPI 归属 6 passed、跨屏拖拽双 scale 1 passed，未知设备 / DPI 不一致 / 越界均显式失败，`PL-074` 闭环。
 > **TASK-232 ✅（2026-10-04）**：四轮自动化（TASK-228 / 224 / 230 / 231）审计收口 —— 修正 TASK-224 滞后状态行、补强「状态行比对」硬规则（`正文只读 ≠ 状态行只读`；PR 贴比对为必做）、把 storage 轮的「生产 `SessionStore` 适配器仍缺」转成 `PL-108`
+> **TASK-233 ✅（2026-10-04）**：生产装配接入 storage 会话持久化 —— 新增 `StorageSessionStore` 适配器（`SessionStore` 三方法经装配层 `DatabaseHandle` 调 TASK-230 记录原语）与 `with_storage_session_store()` 开关，生产 `production.rs` / `main.rs` 两处不再注入 `MemorySessionStore`；适配器级跨重开逐字段一致、负向四类显式失败、装配级关库重开读回均取证，`PL-108` 闭环
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -155,6 +156,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-229 ✅** | `PL-103` spec 落笔 + 状态行滞后硬规则 + 残留目录清理（人类逐条授权） | `docs/spec/runtime-execution.md` §3、`docs/memory/pitfalls.md`、`docs/PARKING_LOT.md` | TASK-217、TASK-219、TASK-223、TASK-227 | S | spec 指向唯一事实源；pitfalls 落可执行四步；残留目录删除有前后证据；代码零改动 |
 | **TASK-224 ✅** | 唯一写入通道 + 文件占用探测（`xtask write`，ADR-0066） | `xtask/src/**`、`docs/adr/0066-*` | ADR-0028、ADR-0063、**ADR-0066 Accepted** | L | 独占探测 `share_mode(0)`；有界退避与退出码 5 放弃；读路径不阻塞实测；`apply_patch` 不强制纳入 |
 | **TASK-232 ✅** | 四轮自动化审计收口（TASK-224 状态行 + 规则补强 + PL-108） | 状态同步文件 | TASK-224、TASK-228、TASK-230、TASK-231 | S | 状态行与 LEDGER 一致；规则补强落 pitfalls；`PL-108` 登记；零代码改动 |
+| **TASK-233 ✅** | 生产装配接入 storage 会话持久化（`SessionStore` 适配器；闭环 PL-108） | `apps/agent-core/src/**`、`apps/agent-core/tests/**` | TASK-028、TASK-230、`PL-108` | M | 适配器三方法经 storage 记录原语；生产两处不再注入内存 store；跨重开 + 负向四类 + 装配级证据；trait 与 core/storage 公共形状不变 |
 
 ---
 
@@ -279,6 +281,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-229 ✅** | 治理池 | `tasks/TASK-229-pl103-spec-fix-and-status-rule.md` | Done（PL-103 落笔 + 状态行硬规则 + 残留目录清理） |
 | **TASK-224 ✅** | 治理池 | `tasks/TASK-224-single-write-channel-lock-queue.md` | Done（ADR-0066 命令行 write 通道 + Windows 独占占用探测 + 有界退避；PL-107 闭环） |
 | **TASK-232 ✅** | 治理池 | `tasks/TASK-232-four-round-automation-audit-closeout.md` | Done（四轮审计收口：TASK-224 状态行 + 规则补强 + `PL-108`） |
+| **TASK-233 ✅** | 治理池 | `tasks/TASK-233-storage-session-store-adapter.md` | Done（生产装配接入 storage 会话持久化：`StorageSessionStore` 适配器 + `with_storage_session_store()`；`PL-108` 闭环） |
 | **TASK-040 ✅** | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Done（真机四用例取证；跨层 lease 由 TASK-225 闭环，`PL-101` 关闭） |
 | **TASK-231 ✅** | 1b bridge | `tasks/TASK-231-pointer-coordinate-space-dpi.md` | Done（ADR-0067 pointer 显式坐标空间；`PL-074` 闭环） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |

@@ -2,13 +2,13 @@
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(windows)]
 use assistant_agent_core::{
     CharacterTokenEstimator, RootedAppMapReader, StorageMemoryRetriever, StorageSessionClock,
-    StorageToolClock,
+    StorageSessionStore, StorageToolClock,
 };
 use assistant_agent_core::{HostAssembly, HostAssemblyError, HostAssemblyInput};
 #[cfg(windows)]
@@ -241,6 +241,61 @@ async fn test_host_assembly_constructs_all_components() -> Result<(), Box<dyn st
             .is_err()
     );
     host.shutdown().await?;
+    Ok(())
+}
+
+/// Opens (or reopens) the main database of one data root as an assembly-shaped handle.
+#[cfg(windows)]
+fn open_database_handle(
+    directory: &TestDirectory,
+) -> Result<Arc<Mutex<Database>>, Box<dyn std::error::Error>> {
+    let mut migrations = MigrationSet::new();
+    migrations
+        .register_all(STORAGE_MIGRATIONS)
+        .expect("storage migrations register");
+    migrations
+        .register_all(assistant_audit::MIGRATIONS)
+        .expect("audit migrations register");
+    let paths = StoragePaths::new(directory.path());
+    let database = Database::open(&paths, Arc::new(FixedClock), &migrations)?;
+    Ok(Arc::new(Mutex::new(database)))
+}
+
+/// PL-108: production assembly persists sessions through `assistant-storage`, so a
+/// session really survives closing and reopening the same data root. No session
+/// store is injected here — the storage-backed flag must provide it.
+#[cfg(windows)]
+#[tokio::test]
+async fn test_storage_backed_session_store_survives_reopen()
+-> Result<(), Box<dyn std::error::Error>> {
+    let directory = TestDirectory::new("storage-session-store")?;
+    let provider: Arc<dyn ModelProvider> = Arc::new(NoopProvider::new()?);
+    let session_id = assistant_core::SessionId::new("session-storage-alpha")?;
+    {
+        let input = base_input(&directory, Arc::clone(&provider))?
+            .with_storage_session_store()
+            .with_memory_retriever(Arc::new(EmptyRetriever))
+            .with_app_map_reader(Arc::new(EmptyReader))
+            .with_tool_registry(test_registry()?)
+            .with_durability(assistant_audit::Durability::Immediate);
+        let host = HostAssembly::new(input).assemble().await?;
+        {
+            let mut sessions = host.sessions().lock().expect("session lock");
+            sessions.create_session(session_id.clone(), "survive the restart")?;
+        }
+        host.shutdown().await?;
+    }
+
+    let store = StorageSessionStore::new(open_database_handle(&directory)?);
+    let snapshot = store
+        .load_session(&session_id)?
+        .expect("session must survive a reopen of the same data root");
+    assert_eq!(snapshot.goal(), "survive the restart");
+    assert_eq!(snapshot.revision(), 0);
+    assert!(
+        snapshot.messages().is_empty(),
+        "a freshly created session has no messages"
+    );
     Ok(())
 }
 
