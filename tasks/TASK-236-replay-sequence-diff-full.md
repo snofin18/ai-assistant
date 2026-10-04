@@ -14,6 +14,7 @@
 - `crates/replay/**`：保留 Recording v1 离线 provider，补充序列回放契约或 README 说明（不改变既有公共形状）。
 - `xtask/src/replay.rs`、`xtask/src/replay_sequence.rs`、`xtask/src/replay_tests.rs`：序列解析、树 diff、suite 编排与负向测试。
 - `xtask/src/main.rs`、`xtask/src/cli.rs`、`xtask/src/deferred.rs`：`--suite`、`--list-deferred` 清空与帮助文本同步。
+- `.github/workflows/ci.yml`：仅更新 deferred inventory 的 exit-3 self-test，使其验证仍有意义的单测而不是已不存在的 `replay-skeleton` 命令。
 - `fixtures/recordings/**`：core suite 的真实格式 UIA 树快照序列、负向 fixture 与 README 说明。
 - `xtask/Cargo.toml`、`Cargo.lock`：仅在实现需要复用既有 workspace crate 时允许改动；不得引入第三方依赖。
 - `plans/stage-1-pilots.md`、`PLAN.md`、`README.md`、`LEDGER.md`、`docs/memory/*`、`MEMORY.md`：本卡完成后的状态同步与长期记忆。
@@ -22,7 +23,7 @@
 ## Out of scope（做了算漂移）
 
 - 启动、点击、输入、截图任何真实 GUI 应用；真实平台录制器、鼠标键盘 hook。
-- 修改 `crates/platform/api` 公共接口、`TreeSnapshot` 形状、spec、Accepted ADR 或 CI workflow。
+- 修改 `crates/platform/api` 公共接口、`TreeSnapshot` 形状、spec、Accepted ADR，或除 deferred inventory self-test 定向更新外的 CI workflow。
 - 新增第三方依赖、新 crate、新顶层目录或跨 crate 公共 trait。
 - 把 replay 接入 `core` / `apps/agent-core` 的生产执行链。
 - 支持未录制的写动作、截图/视觉回放、压缩、跨进程传输或外部 MCP。
@@ -136,6 +137,8 @@ cargo run -p xtask -- codegen --check
 ### 5. 偏差
 
 无行为/契约偏差。规模提示：本卡完整实现 + 正负 fixture + 测试超过自动化章程的 400 行单卡 diff 预算，但这是用户本轮明确要求的“完整版 replay”最小闭环；未发现需要另立 ADR 或等待人类裁决的契约冲突。
+
+首轮 CI 的 `xtask deferred inventory` 失败：workflow 仍调用已清空的 `replay-skeleton` 并断言 exit 3。已把该 self-test 定向改为 `tests::test_not_implemented_failure_keeps_distinct_code -- --exact`，继续锁住 `Failure::NotImplemented -> exit 3`，不依赖已删除命令，也不放宽断言。
 
 ### 6. 更合理做法
 
