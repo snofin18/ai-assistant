@@ -18,7 +18,6 @@ use assistant_audit::Durability;
 use assistant_core::{
     AppMapFileReader, AppMapReadError, CompressionError, ContextFragment, ContextSummary,
     HistoryCompressor, MemoryRetrievalError, MemoryRetrievalHit, MemoryRetriever,
-    MemorySessionStore, SessionStore,
 };
 use assistant_model_gateway::{
     CompletionEvent, CompletionRequest, CompletionStream, DurationMs, FinishReason, Message,
@@ -351,7 +350,7 @@ async fn run_self_check() -> Result<(), HostAssemblyError> {
             }
         })?;
     let input = HostAssemblyInput::new(&data_root, Arc::new(SystemClock), WindowsPlatform::new())
-        .with_session_store(Arc::new(MemorySessionStore::new()) as Arc<dyn SessionStore>)
+        .with_storage_session_store()
         .with_memory_retriever(Arc::new(EmptyRetriever))
         .with_app_map_reader(Arc::new(EmptyReader))
         .with_planner_provider(Arc::clone(&provider))

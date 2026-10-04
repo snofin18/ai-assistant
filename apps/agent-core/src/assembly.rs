@@ -24,6 +24,7 @@ use assistant_tool_bus::{MountReport, MountSelection, ToolBus, ToolBusConfig, To
 
 use crate::HostAssemblyError;
 use crate::adapters::{AuditSink, DatabaseHandle, StorageSessionClock, StorageToolClock};
+use crate::storage_session_store::StorageSessionStore;
 
 /// Inputs required to assemble one Host.
 ///
@@ -33,6 +34,7 @@ pub struct HostAssemblyInput<P> {
     data_root: PathBuf,
     clock: Arc<dyn Clock>,
     session_store: Option<Arc<dyn SessionStore>>,
+    storage_backed_session_store: bool,
     memory_retriever: Option<Arc<dyn MemoryRetriever>>,
     app_map_reader: Option<Arc<dyn AppMapFileReader>>,
     planner_provider: Option<Arc<dyn ModelProvider>>,
@@ -61,6 +63,7 @@ where
             data_root: data_root.into(),
             clock,
             session_store: None,
+            storage_backed_session_store: false,
             memory_retriever: None,
             app_map_reader: None,
             planner_provider: None,
@@ -83,6 +86,18 @@ where
     #[must_use]
     pub fn with_session_store(mut self, store: Arc<dyn SessionStore>) -> Self {
         self.session_store = Some(store);
+        self
+    }
+
+    /// Persists sessions through `assistant-storage` over the assembly-owned database.
+    ///
+    /// Production assembly uses this instead of `MemorySessionStore`, so a session
+    /// really survives a process restart (`PL-108`). An explicitly injected store
+    /// via [`Self::with_session_store`] wins; this flag only covers the case where
+    /// no store was injected.
+    #[must_use]
+    pub const fn with_storage_session_store(mut self) -> Self {
+        self.storage_backed_session_store = true;
         self
     }
 
@@ -330,7 +345,11 @@ where
             });
         }
 
-        let session_store = require(input.session_store, "session_store")?;
+        let session_store = select_session_store(
+            input.session_store,
+            input.storage_backed_session_store,
+            &database,
+        )?;
         let session_clock = Arc::new(StorageSessionClock::new(Arc::clone(&input.clock)));
         let sessions = SessionManager::new(session_store, session_clock);
 
@@ -414,6 +433,27 @@ where
         });
     }
     Ok(())
+}
+
+/// Selects the session store used by the assembled Host.
+///
+/// Precedence is explicit: an injected store wins, otherwise the storage-backed
+/// store is constructed when requested. With neither source the Host refuses to
+/// assemble instead of silently falling back to an in-memory store.
+fn select_session_store(
+    injected: Option<Arc<dyn SessionStore>>,
+    storage_backed: bool,
+    database: &DatabaseHandle,
+) -> Result<Arc<dyn SessionStore>, HostAssemblyError> {
+    if let Some(store) = injected {
+        return Ok(store);
+    }
+    if storage_backed {
+        return Ok(Arc::new(StorageSessionStore::new(Arc::clone(database))));
+    }
+    Err(HostAssemblyError::MissingComponent {
+        component: "session_store",
+    })
 }
 
 fn open_database<P>(input: &HostAssemblyInput<P>) -> Result<DatabaseHandle, HostAssemblyError>
