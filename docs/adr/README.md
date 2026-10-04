@@ -76,8 +76,9 @@
 | **0068** | `0068-cross-file-duplicate-code-hygiene.md` | **Accepted** | 跨文件重复代码 = 规范化 token shingle + 包含度阈值；本版 Warning，忽略测试 / 生成 / fixture，扫描有硬上限（TASK-234；2026-10-04 按用户 2026-10-04 预授权代为裁决；`PL-060` 闭环） |
 | **0069** | `0069-top-level-directory-adr-whitelist.md` | **Accepted** | 顶层目录白名单 = `docs/adr/top-level-directories.md`；未登记目录 Error，`scripts/` 仍待 PL-023 单独裁决（TASK-234；2026-10-04 按用户 2026-10-04 预授权代为裁决；`PL-060` 闭环） |
 | **0070** | `0070-role-and-parent-resolution-semantics.md` | **Accepted** | `RoleAndParent` 的父候选只作为作用域：顶层解析过滤被 `parent_id` 引用的候选，父单独命中时不得返回父元素（TASK-235；2026-10-04 按用户 2026-10-04 预授权代为裁决；`PL-094` 闭环） |
+| **0071** | `0071-capture-and-dlp-crate-boundaries.md` | **Accepted** | 截图管线与出域脱敏的 crate 边界：新增 `crates/capture`（平台无关的窗口截图管线，唯一截图原语 = `platform/api` 的 `WindowProvider::capture`）与 `crates/dlp`（出域策略 + 脱敏 + 截图遮挡），零第三方依赖起步、铁律 7 不破、依赖方向单向（TASK-238；2026-10-04 按用户 2026-10-04「按你的推荐方案做」裁决；`PL-102` 闭环） |
 
-**下一个可用编号：0071**（= §1 与 §2 已用最大号 **0070** + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0072**（= §1 与 §2 已用最大号 **0071** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由

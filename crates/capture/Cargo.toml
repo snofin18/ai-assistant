@@ -1,0 +1,15 @@
+[package]
+name = "assistant-capture"
+description = "Platform-agnostic window screenshot pipeline: capture orchestration, redaction, scroll cleanup, and privacy-mode retention (ADR-0071)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Boundary skeleton (ADR-0071 / TASK-238): no third-party dependency is declared
+# here. The pipeline's only platform primitive is the `WindowProvider::capture`
+# trait from `crates/platform/api`, and the crate itself is filled by TASK-041.
+
+[lints]
+workspace = true

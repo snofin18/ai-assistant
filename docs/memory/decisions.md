@@ -204,3 +204,7 @@
 ## 2026-10-04 追加（ADR-0070，Accepted）
 
 - [2026-10-04][DECISION][src:ADR-0070，按用户 2026-10-04 预授权代为裁决；TASK-235 / PL-094 闭环] **`RoleAndParent` 的父候选只作为作用域**：同一链内被任一 `SelectorValue::RoleAndParent { parent_id, .. }` 引用的候选只用于解析子树作用域，绝不进入顶层目标尝试、也绝不作为解析结果返回；只有作用域候选而没有目标候选的链在碰 COM 前 `ToolInvalidArgs`；父候选无命中 / 子角色无命中 → `TargetNotFound`，父 / 子歧义 → `TargetAmbiguous`，不支持或平台失败按既有 `CapabilityMissing` / 原错误透传。`min_score_to_try`、`locale_dependent` 降权、稳定排序与 `OnAmbiguous::ErrorAndAsk` 均不改变；不新增 `SelectorKind` / `SelectorValue` 字段、依赖或抽象层，`parent_id` 引用关系是唯一事实源。
+
+## 2026-10-04 追加（ADR-0071，Accepted）
+
+- [2026-10-04][DECISION][src:ADR-0071，按用户 2026-10-04「按你的推荐方案做」裁决；TASK-238 / PL-102 闭环] **截图管线与出域脱敏的 crate 边界**：新增两个零第三方依赖的边界 crate —— `crates/capture`（平台无关的窗口截图管线：编排「解析目标窗口 → `WindowProvider::capture` → 脱敏 → 滚动清理 → 隐私保留」）与 `crates/dlp`（三档出域策略 `local_only` / `redacted` / `full` + 逐应用 / 逐内容类型覆盖 + 脱敏规则 + 截图遮挡）。依赖方向单向：`capture` 可依赖 `crates/platform/api`（仅 trait 与纯类型）与 `dlp`；`dlp` 不依赖 `capture` 或任何平台 crate；两者都**禁止**直接调用平台 API（铁律 7），实际截图发生在 `crates/platform/*` 实现侧、管线只消费其 `ImageRef`。架构 v2 §3 crate 布局追加 `capture/`。本 ADR 只冻结边界、不实现行为；未来图像编解码 / 感知哈希等依赖由各自实现卡登记。**不改公共 trait / schema / ErrorCode，不新增第三方依赖、不 `#[allow]`、不 `unsafe`。**
