@@ -299,6 +299,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-238 ✅** | 治理池 | `tasks/TASK-238-capture-dlp-crate-skeletons.md` | Done（ADR-0071 `capture` / `dlp` 边界骨架；`PL-102` 闭环；解锁 1b TASK-041 / 042 与 1c TASK-050） |
 | **TASK-239 ✅** | 治理池 | `tasks/TASK-239-parking-lot-review-2026-10-05.md` | Done（停车位存量复核：新增 2026-10-05 审计报告；PARKING_LOT 只追加；13 条补记闭环/取代、35 条复核保留） |
 | **TASK-240 ✅** | 治理池 | `tasks/TASK-240-card-status-sweep.md` | Done（全量状态行清扫：18 张滞后卡按 LEDGER/main/测试证据更正；零产品代码改动） |
+| **TASK-241 ✅** | 治理池 | `tasks/TASK-241-derived-value-sweep.md` | Done（ADR-0072 冻结派生值只指向唯一事实源；PL-035 闭环，PL-022 保留机器派生余项，PL-065 / PL-066 复核确认） |
 | **TASK-040 ✅** | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Done（真机四用例取证；跨层 lease 由 TASK-225 闭环，`PL-101` 关闭） |
 | **TASK-231 ✅** | 1b bridge | `tasks/TASK-231-pointer-coordinate-space-dpi.md` | Done（ADR-0067 pointer 显式坐标空间；`PL-074` 闭环） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
