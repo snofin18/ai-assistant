@@ -121,6 +121,7 @@ cargo run -p xtask -- codegen --check
 - `cargo run -p xtask -- --list-deferred`：未实现子命令 0 项，replay 不再出现。
 - `hygiene`：scanned=359，0E/105W，PASSED；新增 warning 仅来自 `xtask/src/replay*.rs` 长文件/复杂度建议。
 - `memory-counts`：0E/0W；`adr-index` 58 files 0E/0W；`refscan` 677 files 0E/0W；`docscan` 0E/342W；`card-check` 0E/33W；`check-ledger` 0E/0W；`check-comments` 0E/69W；`verify-schemas` 5 OK；`codegen --check` 0 drift；`check-migrations` 0E/0W；`cargo deny check` advisories/bans/licenses/sources OK。
+- PR #223；CI run `37187310042`（实现 head）与 `37187938112`（Done 翻转 head）均 11/11 SUCCESS；merge `d7f61c8`。
 
 ### 4. DoD 逐条核对
 
