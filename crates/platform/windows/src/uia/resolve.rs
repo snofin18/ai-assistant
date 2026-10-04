@@ -19,6 +19,8 @@
 //! 2. `wait_for` 超时 → `TargetUnresponsive`（元素可能存在但状态一直没到，与"找不到"不同）。
 //! 3. 轮询**有界**：固定间隔 + 显式截止时间；不做无界自旋。
 //! 4. 空链 / 无条件的 query 在**碰 COM 之前**就报 `ToolInvalidArgs`。
+//! 5. **父候选只作为作用域**（ADR-0070）：被 `RoleAndParent.parent_id` 引用的候选不进入
+//!    顶层目标尝试；父元素单独命中时绝不作为结果返回。
 //!
 //! 相关：架构 v2 §6.2 / §6.3 / §6.4、ADR-0022 D4/D5/E6、`docs/memory/apps/notepad.md` §3。
 
@@ -26,7 +28,7 @@ use std::time::{Duration, Instant};
 
 use assistant_platform_api::{
     ElementQuery, ElementState, OnAmbiguous, PlatformResult, ResolvedElement, ResolvedWindow,
-    SelectorChain, Timeout,
+    SelectorCandidate, SelectorChain, SelectorValue, Timeout,
 };
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::Accessibility::{
@@ -59,30 +61,52 @@ fn scope_root(scope: &ResolvedWindow) -> PlatformResult<IUIAutomationElement> {
     uia::element_for_window(hwnd)
 }
 
-/// 在 `scope` 窗口内按候选链解析出**唯一**元素（ADR-0043）。
+/// 顶层候选的选择结果（保留候选与匹配元素，便于纯逻辑测试）。
+struct CandidateSelection<'a, Element> {
+    candidate: &'a SelectorCandidate,
+    matches: Vec<Element>,
+}
+
+/// 该候选是否被链内任一 `RoleAndParent` 的 `parent_id` 引用。
 ///
-/// # Errors
-/// - 链为空 → `ToolInvalidArgs`（**先于**任何 COM 调用）
-/// - `scope` 窗口句柄失效 / 窗口已关闭 → `TargetNotFound`
-/// - 全部候选都**不支持** → `CapabilityMissing`，message 列出每种候选的原因
-/// - 支持但没命中 → `TargetNotFound`，message 列出「试过什么」
-/// - 多命中 → `TargetAmbiguous`（不猜）
-pub fn resolve_element(
-    scope: &ResolvedWindow,
-    chain: &SelectorChain,
-) -> PlatformResult<ResolvedElement> {
-    if chain.candidates().is_empty() {
-        return Err(error::invalid_args(
-            "resolve_element: selector chain is empty (an empty chain can never resolve)",
-        ));
-    }
-    let scope_element = scope_root(scope)?;
-    let ranked = selector::rank_candidates(chain, 0.0);
+/// 引用关系是唯一事实源：不新增 helper 标记，也不允许同一候选同时承担“作用域”与“目标”
+/// 两种顶层语义（ADR-0070 D1 / 选项表第 4 项）。
+fn is_parent_scope_candidate(chain: &SelectorChain, candidate_id: &str) -> bool {
+    chain.candidates().iter().any(|candidate| {
+        matches!(
+            candidate.value(),
+            SelectorValue::RoleAndParent { parent_id, .. } if parent_id == candidate_id
+        )
+    })
+}
+
+/// 从已排序候选中移除父作用域候选，只留下可作为目标返回的候选。
+fn top_level_candidates<'a>(
+    chain: &'a SelectorChain,
+    ranked: Vec<selector::RankedCandidate<'a>>,
+) -> Vec<selector::RankedCandidate<'a>> {
+    ranked
+        .into_iter()
+        .filter(|entry| !is_parent_scope_candidate(chain, entry.candidate().id()))
+        .collect()
+}
+
+/// 在已过滤的顶层候选中执行搜索并选择唯一命中。
+///
+/// `Element` 与搜索结果由调用方注入：生产路径使用真实 `IUIAutomationElement`，单元测试
+/// 使用轻量值验证“父候选不返回、子候选缺失显式失败”的控制流。
+fn select_candidate<'a, Element, Find>(
+    candidates: &[selector::RankedCandidate<'a>],
+    mut find: Find,
+) -> PlatformResult<CandidateSelection<'a, Element>>
+where
+    Find: FnMut(&SelectorCandidate) -> PlatformResult<SearchOutcome<Element>>,
+{
     let mut tried: Vec<String> = Vec::new();
     let mut saw_supported_candidate = false;
-    for entry in &ranked {
+    for entry in candidates {
         let candidate = entry.candidate();
-        match find_all(chain, candidate, &scope_element, 0)? {
+        match find(candidate)? {
             SearchOutcome::Unsupported(reason) => {
                 tried.push(format!("{} -> unsupported: {reason}", describe(candidate)));
             }
@@ -95,12 +119,10 @@ pub fn resolve_element(
                 let scores = vec![entry.effective_score(); elements.len()];
                 match selector::decide_selection(&scores, OnAmbiguous::ErrorAndAsk) {
                     selector::SelectionOutcome::Unique => {
-                        let Some(element) = elements.first() else {
-                            return Err(error::target_not_found(
-                                "resolve_element produced no element after a non-empty match set",
-                            ));
-                        };
-                        return build_resolved(element);
+                        return Ok(CandidateSelection {
+                            candidate,
+                            matches: elements,
+                        });
                     }
                     selector::SelectionOutcome::Ambiguous { matches } => {
                         tried.push(format!(
@@ -130,6 +152,44 @@ pub fn resolve_element(
     Err(error::target_not_found(format!(
         "resolve_element: no element matched; tried: {joined}"
     )))
+}
+
+/// 在 `scope` 窗口内按候选链解析出**唯一**元素（ADR-0043）。
+///
+/// # Errors
+/// - 链为空 → `ToolInvalidArgs`（**先于**任何 COM 调用）
+/// - 链内只剩父作用域候选、没有目标候选 → `ToolInvalidArgs`（**先于**任何 COM 调用）
+/// - `scope` 窗口句柄失效 / 窗口已关闭 → `TargetNotFound`
+/// - 全部候选都**不支持** → `CapabilityMissing`，message 列出每种候选的原因
+/// - 支持但没命中 → `TargetNotFound`，message 列出「试过什么」
+/// - 多命中 → `TargetAmbiguous`（不猜）
+pub fn resolve_element(
+    scope: &ResolvedWindow,
+    chain: &SelectorChain,
+) -> PlatformResult<ResolvedElement> {
+    if chain.candidates().is_empty() {
+        return Err(error::invalid_args(
+            "resolve_element: selector chain is empty (an empty chain can never resolve)",
+        ));
+    }
+    let ranked = selector::rank_candidates(chain, 0.0);
+    let targets = top_level_candidates(chain, ranked);
+    if targets.is_empty() {
+        return Err(error::invalid_args(
+            "resolve_element: selector chain contains only parent-scope candidates and no target candidate",
+        ));
+    }
+    let scope_element = scope_root(scope)?;
+    let selected = select_candidate(&targets, |candidate| {
+        find_all(chain, candidate, &scope_element, 0)
+    })?;
+    let Some(element) = selected.matches.into_iter().next() else {
+        return Err(error::target_not_found(format!(
+            "resolve_element: candidate `{}` produced no element after a non-empty match set",
+            selected.candidate.id()
+        )));
+    };
+    build_resolved(&element)
 }
 
 /// 在 `scope` 窗口内等待元素进入期望状态（ADR-0043）。
@@ -328,6 +388,7 @@ fn owning_window(element: &IUIAutomationElement) -> Option<HWND> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assistant_platform_api::{ErrorCode, SelectorKind};
 
     /// 测试用 scope。
     ///
@@ -338,6 +399,30 @@ mod tests {
         ResolvedWindow::new(
             assistant_platform_api::LocalHandleId::new(424_243),
             "test-scope".to_string(),
+        )
+    }
+
+    fn candidate(
+        id: &str,
+        kind: SelectorKind,
+        value: SelectorValue,
+        score: f64,
+    ) -> SelectorCandidate {
+        match SelectorCandidate::new(id, kind, value, score, false) {
+            Ok(candidate) => candidate,
+            Err(error) => unreachable!("test fixture must be valid: {error}"),
+        }
+    }
+
+    fn role_and_parent_candidate(id: &str, parent_id: &str, score: f64) -> SelectorCandidate {
+        candidate(
+            id,
+            SelectorKind::RoleAndParent,
+            SelectorValue::RoleAndParent {
+                role: "Edit".to_string(),
+                parent_id: parent_id.to_string(),
+            },
+            score,
         )
     }
 
@@ -359,6 +444,82 @@ mod tests {
             code,
             Err(assistant_platform_api::ErrorCode::ToolInvalidArgs)
         );
+    }
+
+    #[test]
+    fn test_role_and_parent_child_is_the_only_top_level_target() {
+        // ADR-0070 正向：父候选被 parent_id 引用，因此只作为作用域；即使父候选分数更高，
+        // 顶层选择也只能落到 RoleAndParent 子候选。
+        let chain = SelectorChain::new(vec![
+            candidate(
+                "parent",
+                SelectorKind::AutomationId,
+                SelectorValue::Text("ParentAutomationId".to_string()),
+                0.95,
+            ),
+            role_and_parent_candidate("child", "parent", 0.10),
+        ]);
+        let ranked = selector::rank_candidates(&chain, 0.0);
+        let targets = top_level_candidates(&chain, ranked);
+        let mut searched: Vec<String> = Vec::new();
+        let selection = select_candidate(&targets, |candidate| {
+            searched.push(candidate.id().to_string());
+            Ok(SearchOutcome::Matches(vec!["child-element"]))
+        });
+        let selection = match selection {
+            Ok(selection) => selection,
+            Err(error) => unreachable!("positive fixture must resolve: {error}"),
+        };
+        assert_eq!(selection.candidate.id(), "child");
+        assert_eq!(selection.matches, vec!["child-element"]);
+        assert_eq!(
+            searched,
+            vec!["child".to_string()],
+            "父候选不得进入顶层尝试"
+        );
+    }
+
+    #[test]
+    fn test_role_and_parent_parent_hit_without_child_match_returns_not_found() {
+        // ADR-0070 负向：父候选独自命中、子候选不存在时必须显式 TargetNotFound；
+        // 不得把父元素返回，也不得把父候选加入顶层尝试。
+        let chain = SelectorChain::new(vec![
+            candidate(
+                "parent",
+                SelectorKind::AutomationId,
+                SelectorValue::Text("ParentAutomationId".to_string()),
+                0.95,
+            ),
+            role_and_parent_candidate("child", "parent", 0.10),
+        ]);
+        let ranked = selector::rank_candidates(&chain, 0.0);
+        let targets = top_level_candidates(&chain, ranked);
+        let mut searched: Vec<String> = Vec::new();
+        let outcome = select_candidate(&targets, |candidate| {
+            searched.push(candidate.id().to_string());
+            Ok(SearchOutcome::Matches(Vec::<&str>::new()))
+        });
+        match outcome {
+            Err(error) => assert_eq!(error.code(), ErrorCode::TargetNotFound),
+            Ok(_) => unreachable!("child absent must not resolve via parent"),
+        }
+        assert_eq!(
+            searched,
+            vec!["child".to_string()],
+            "父候选不得作为失败回退目标"
+        );
+    }
+
+    #[test]
+    fn test_chain_with_only_parent_scope_candidates_is_rejected_before_com() {
+        // ADR-0070 D3：环形 parent_id 链没有任何可返回目标；必须在碰 COM 之前拒绝。
+        // 测试 scope 的句柄是奇数、不可能成为合法 HWND，因此若先碰 COM 会得到平台错误。
+        let chain = SelectorChain::new(vec![
+            role_and_parent_candidate("first", "second", 0.8),
+            role_and_parent_candidate("second", "first", 0.7),
+        ]);
+        let code = resolve_element(&test_scope(), &chain).map_err(|error| error.code());
+        assert_eq!(code, Err(ErrorCode::ToolInvalidArgs));
     }
 
     #[test]

@@ -200,3 +200,7 @@
 ## 2026-10-04 追加（ADR-0069，Accepted）
 
 - [2026-10-04][DECISION][src:ADR-0069，按用户 2026-10-04 预授权代为裁决；TASK-234 / PL-060 闭环] **顶层目录必须登记在 ADR 白名单**：唯一白名单 = `docs/adr/top-level-directories.md`，固定标题 `## 允许的顶层目录` 的表格第一列为目录名；扫描仓库根一级目录并跳过 `.git` / `target` / `node_modules` / `dist`，未登记目录为 Error，白名单缺失 / 不可解析为 Error，陈旧条目为 Warning；维护者 = Orchestrator，新增目录必须先有 Accepted ADR / ADR-0069 修订。当前不登记 `scripts/`，PL-023 仍需单独裁决。**不新增依赖、不自动扩表。**
+
+## 2026-10-04 追加（ADR-0070，Accepted）
+
+- [2026-10-04][DECISION][src:ADR-0070，按用户 2026-10-04 预授权代为裁决；TASK-235 / PL-094 闭环] **`RoleAndParent` 的父候选只作为作用域**：同一链内被任一 `SelectorValue::RoleAndParent { parent_id, .. }` 引用的候选只用于解析子树作用域，绝不进入顶层目标尝试、也绝不作为解析结果返回；只有作用域候选而没有目标候选的链在碰 COM 前 `ToolInvalidArgs`；父候选无命中 / 子角色无命中 → `TargetNotFound`，父 / 子歧义 → `TargetAmbiguous`，不支持或平台失败按既有 `CapabilityMissing` / 原错误透传。`min_score_to_try`、`locale_dependent` 降权、稳定排序与 `OnAmbiguous::ErrorAndAsk` 均不改变；不新增 `SelectorKind` / `SelectorValue` 字段、依赖或抽象层，`parent_id` 引用关系是唯一事实源。
