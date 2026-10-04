@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 / A2 / A3 既有卡均 Done**；**TASK-039 ✅：阶段 1a 独立复验硬门禁全绿，结论 = GO**；**TASK-102 / 103 / 104 / 105 / 210 / 087 / 212 / 211 / 213 / 214 均 Done**；**TASK-213 完成 UI↔Core 真管道与 `SnapshotEventSource`，PL-095 闭环**；**TASK-214 完成生产装配根、确定性 task-package Plan 来源、5 个 Notepad handler、真 UIA T1.1 干跑、真 UI 管道 `step_state_changed` 与 fail-closed 收口，PL-096 闭环**；**TASK-205 完成 `tool-bus` schema 模块拆分，`hygiene` 长文件 warning 4→3**；**PL-097 已闭环**；**TASK-216 Done：A/B 片由 TASK-217 完成数据流与可恢复审批后收口**；**TASK-217 Done：T1.2/T1.3 fake platform 到 `Completed`，无授权暂停与 UI 批准恢复已落地，`DRIFT-216-4` 闭环**；**TASK-085 / TASK-086 Done：Rust 源码结构、末行换行、CRLF 与依赖登记卫生规则落地，覆盖 11/13**；**TASK-105 真实主路径 3×10 已取证；TASK-218 Done：真实 UIA 完整 L1 回滚 + fake-platform L1 fallback/三类负向证据**；**TASK-223 Done：ADR-0064 的 `host_read_utf8_prefix` 文件通道 + ADR-0065 的前置初始指纹步骤，T1.1 大文件 Plan 在 fake 平台与真机 UIA 各取证跑通（`read_text` 被条件跳过、文件通道接管、4 步全提交），`DRIFT-223-1` / `PL-100` 闭环**；**TASK-220 Done：元素表 4096 / anchor 64 / grant 1024 上限与淘汰、进程树 `taskkill /T /F` + `wait()` reap，真机 ignored 全套 8 passed，`DRIFT-220-1` 闭环**；阶段 1a 已完成复验并翻转为 GO；TASK-040 的真机点击校准已由 4 个 ignored 真机用例取证（TASK-040 / TASK-225 已按实收口））
+> 周期 10~12 周　状态：**进行中**（stage-0 已 2026-09-20 closeout；1a 批次 **A1 / A2 / A3 既有卡均 Done**；**TASK-039 ✅：阶段 1a 独立复验硬门禁全绿，结论 = GO**；**TASK-102 / 103 / 104 / 105 / 210 / 087 / 212 / 211 / 213 / 214 均 Done**；**TASK-213 完成 UI↔Core 真管道与 `SnapshotEventSource`，PL-095 闭环**；**TASK-214 完成生产装配根、确定性 task-package Plan 来源、5 个 Notepad handler、真 UIA T1.1 干跑、真 UI 管道 `step_state_changed` 与 fail-closed 收口，PL-096 闭环**；**TASK-205 完成 `tool-bus` schema 模块拆分，`hygiene` 长文件 warning 4→3**；**PL-097 已闭环**；**TASK-216 Done：A/B 片由 TASK-217 完成数据流与可恢复审批后收口**；**TASK-217 Done：T1.2/T1.3 fake platform 到 `Completed`，无授权暂停与 UI 批准恢复已落地，`DRIFT-216-4` 闭环**；**TASK-085 / TASK-086 Done：Rust 源码结构、末行换行、CRLF 与依赖登记卫生规则落地，覆盖 11/13**；**TASK-105 真实主路径 3×10 已取证；TASK-218 Done：真实 UIA 完整 L1 回滚 + fake-platform L1 fallback/三类负向证据**；**TASK-223 Done：ADR-0064 的 `host_read_utf8_prefix` 文件通道 + ADR-0065 的前置初始指纹步骤，T1.1 大文件 Plan 在 fake 平台与真机 UIA 各取证跑通（`read_text` 被条件跳过、文件通道接管、4 步全提交），`DRIFT-223-1` / `PL-100` 闭环**；**TASK-220 Done：元素表 4096 / anchor 64 / grant 1024 上限与淘汰、进程树 `taskkill /T /F` + `wait()` reap，真机 ignored 全套 8 passed，`DRIFT-220-1` 闭环**；**TASK-234 InProgress：gov §5.4 hygiene 13/13，ADR-0068 / 0069 落地并闭环 PL-060（本地门禁全绿，待 PR / CI）**；阶段 1a 已完成复验并翻转为 GO；TASK-040 的真机点击校准已由 4 个 ignored 真机用例取证（TASK-040 / TASK-225 已按实收口））
 > **TASK-225 ✅（2026-10-03）**：Host 装配层已用共享 `TargetLeaseRegistry` 接上合成输入 exclusive lease；key / pointer-shaped 输入冲突稳定 `Transient`，成功/失败都释放，只读路径不变；`PL-101` 闭环。TASK-040 正文 DoD 复选框仍因正文只读未勾选。
 > **TASK-226 ✅（2026-10-03）**：PL-104 / PL-105 闭环；ignored 真机用例以异步互斥串行化 fixture 启动，`production_root.rs` 拆分后 3 个文件均 <600 行且断言零放宽。
 > **TASK-227 ✅（2026-10-03）**：状态行与停车位收口 —— TASK-040 / TASK-225 的状态行按实更正为 Done；`PL-103` 给出可直接粘贴的 spec 改法（已由 TASK-229 落笔）；`PL-106` 开卡 TASK-228（Ready，待派单）
@@ -11,6 +11,7 @@
 > **TASK-231 ✅（2026-10-04）**：ADR-0067 删除混合 DPI 收敛启发式，`pointer_action` 起点与 `DragTo` 释放点各自显式携带 `CoordinateSpace`；混合 DPI 归属 6 passed、跨屏拖拽双 scale 1 passed，未知设备 / DPI 不一致 / 越界均显式失败，`PL-074` 闭环。
 > **TASK-232 ✅（2026-10-04）**：四轮自动化（TASK-228 / 224 / 230 / 231）审计收口 —— 修正 TASK-224 滞后状态行、补强「状态行比对」硬规则（`正文只读 ≠ 状态行只读`；PR 贴比对为必做）、把 storage 轮的「生产 `SessionStore` 适配器仍缺」转成 `PL-108`
 > **TASK-233 ✅（2026-10-04）**：生产装配接入 storage 会话持久化 —— 新增 `StorageSessionStore` 适配器（`SessionStore` 三方法经装配层 `DatabaseHandle` 调 TASK-230 记录原语）与 `with_storage_session_store()` 开关，生产 `production.rs` / `main.rs` 两处不再注入 `MemorySessionStore`；适配器级跨重开逐字段一致、负向四类显式失败、装配级关库重开读回均取证，`PL-108` 闭环
+> **TASK-234（2026-10-04，InProgress）**：ADR-0068 / 0069 Accepted 后补齐 gov §5.4 最后两条 hygiene 规则 —— 重复代码（token shingle + 包含度 ≥ 80% Warning）与顶层目录 ADR 白名单（未登记 Error）；`hygiene` 13/13、0E/95W，`--list-deferred` hygiene 未实现项为 0，`PL-060` 闭环
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -157,6 +158,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-224 ✅** | 唯一写入通道 + 文件占用探测（`xtask write`，ADR-0066） | `xtask/src/**`、`docs/adr/0066-*` | ADR-0028、ADR-0063、**ADR-0066 Accepted** | L | 独占探测 `share_mode(0)`；有界退避与退出码 5 放弃；读路径不阻塞实测；`apply_patch` 不强制纳入 |
 | **TASK-232 ✅** | 四轮自动化审计收口（TASK-224 状态行 + 规则补强 + PL-108） | 状态同步文件 | TASK-224、TASK-228、TASK-230、TASK-231 | S | 状态行与 LEDGER 一致；规则补强落 pitfalls；`PL-108` 登记；零代码改动 |
 | **TASK-233 ✅** | 生产装配接入 storage 会话持久化（`SessionStore` 适配器；闭环 PL-108） | `apps/agent-core/src/**`、`apps/agent-core/tests/**` | TASK-028、TASK-230、`PL-108` | M | 适配器三方法经 storage 记录原语；生产两处不再注入内存 store；跨重开 + 负向四类 + 装配级证据；trait 与 core/storage 公共形状不变 |
+| **TASK-234** | 补齐 gov §5.4 最后两条 hygiene 规则（闭环 PL-060） | `xtask/src/**`、`docs/adr/**`（0068/0069/白名单） | PL-060、ADR-0025 | M | ADR 先行；两条规则正负样本；hygiene 13/13 且 0E；`--list-deferred` hygiene 未实现项为 0 |
 
 ---
 
@@ -282,6 +284,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-224 ✅** | 治理池 | `tasks/TASK-224-single-write-channel-lock-queue.md` | Done（ADR-0066 命令行 write 通道 + Windows 独占占用探测 + 有界退避；PL-107 闭环） |
 | **TASK-232 ✅** | 治理池 | `tasks/TASK-232-four-round-automation-audit-closeout.md` | Done（四轮审计收口：TASK-224 状态行 + 规则补强 + `PL-108`） |
 | **TASK-233 ✅** | 治理池 | `tasks/TASK-233-storage-session-store-adapter.md` | Done（生产装配接入 storage 会话持久化：`StorageSessionStore` 适配器 + `with_storage_session_store()`；`PL-108` 闭环） |
+| **TASK-234** | 治理池 | `tasks/TASK-234-hygiene-final-rules.md` | InProgress（ADR-0068 / 0069 + hygiene 13/13；`PL-060` 闭环；本地门禁全绿，待 PR / CI） |
 | **TASK-040 ✅** | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Done（真机四用例取证；跨层 lease 由 TASK-225 闭环，`PL-101` 关闭） |
 | **TASK-231 ✅** | 1b bridge | `tasks/TASK-231-pointer-coordinate-space-dpi.md` | Done（ADR-0067 pointer 显式坐标空间；`PL-074` 闭环） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |

@@ -192,3 +192,11 @@
 ## 2026-10-04 追加（ADR-0067，Accepted）
 
 - [2026-10-04][DECISION][src:ADR-0067，按用户 2026-10-03 预授权代为裁决；TASK-231 / PL-074 闭环] **pointer 动作显式坐标空间**：`UiAutomationProvider::pointer_action` 增加起始点 `CoordinateSpace` 参数；`PointerAction::DragTo` 的释放点增加自己的 `drop_coordinate_space`，起点与终点分别按各自显示器 scale 换算；删除混合 DPI 收敛启发式，改为校验 `origin_display` 对应显示器存在、单位必须是 `PhysicalPixels`、scale 与有效 DPI 一致、物理点落在已枚举显示器内，失败一律显式返回 `ToolInvalidArgs` / `TargetNotFound`。该 ADR 修订 TASK-016 冻结的 pointer 形状，不改其它 trait 方法；与 ADR-0043 的“元素解析必须显式带窗口 scope”同属 API 边界终止平台猜上下文，并继续由 ADR-0045 的非宿主 clippy 覆盖纯逻辑。**不改 `docs/spec/**`；不新增依赖、crate 或抽象层**。
+
+## 2026-10-04 追加（ADR-0068，Accepted）
+
+- [2026-10-04][DECISION][src:ADR-0068，按用户 2026-10-04 预授权代为裁决；TASK-234 / PL-060 闭环] **跨文件重复代码 hygiene 规则**：合格 Rust 源文件生成规范化 token shingle（40 token；忽略空白与注释，字面量 / 数字 / 非关键字标识符归一化）；同一无序文件对共享 distinct shingle ≥ 4 且包含度 ≥ 0.80 时产生一条 `hygiene/duplicate-code` Warning。忽略 `fixtures/**`、`spikes/**`、`tools/**`、测试 / `_tests.rs`、生成代码；公共 shingle（出现于 >8 文件）跳过；限制 1,000 文件、单文件 1 MiB、全局 1,000,000 shingle，超限显式 Warning；目标扫描时间 ≤ 2 秒但不作为失败判据。**本版不升级 Error、不新增依赖。**
+
+## 2026-10-04 追加（ADR-0069，Accepted）
+
+- [2026-10-04][DECISION][src:ADR-0069，按用户 2026-10-04 预授权代为裁决；TASK-234 / PL-060 闭环] **顶层目录必须登记在 ADR 白名单**：唯一白名单 = `docs/adr/top-level-directories.md`，固定标题 `## 允许的顶层目录` 的表格第一列为目录名；扫描仓库根一级目录并跳过 `.git` / `target` / `node_modules` / `dist`，未登记目录为 Error，白名单缺失 / 不可解析为 Error，陈旧条目为 Warning；维护者 = Orchestrator，新增目录必须先有 Accepted ADR / ADR-0069 修订。当前不登记 `scripts/`，PL-023 仍需单独裁决。**不新增依赖、不自动扩表。**
