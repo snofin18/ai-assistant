@@ -1,0 +1,68 @@
+{
+  "schema_version": 2,
+  "recording_id": "rec-notepad-like-sequence-001",
+  "captured_at": "2026-10-04T15:30:00Z",
+  "application": "notepad-like",
+  "suite": "core",
+  "source": "derived from the existing notepad-like UIA fixture and SPIKE-A probe shape; no live GUI capture",
+  "baseline": {
+    "window": {"local_handle_id": 1, "display_label": "notepad-like:main", "title": "notepad-like"},
+    "nodes": [
+      {"local_handle_id": 100, "parent_handle_id": null, "role": "Window", "automation_id": "MainWindow", "class_name": "Window", "name": "notepad-like", "bounds": [0, 0, 900, 600], "is_offscreen": false, "is_enabled": true, "patterns": []},
+      {"local_handle_id": 101, "parent_handle_id": 100, "role": "Pane", "automation_id": "RootGrid", "class_name": "Grid", "name": "RootGrid", "bounds": [0, 0, 900, 600], "is_offscreen": false, "is_enabled": true, "patterns": []},
+      {"local_handle_id": 102, "parent_handle_id": 101, "role": "Pane", "automation_id": "EditorHost", "class_name": "StackPanel", "name": "EditorHost", "bounds": [8, 48, 884, 420], "is_offscreen": false, "is_enabled": true, "patterns": []},
+      {"local_handle_id": 103, "parent_handle_id": 102, "role": "Edit", "automation_id": "EditorTextBox", "class_name": "TextBox", "name": "notepad-like fixture", "bounds": [8, 48, 884, 420], "is_offscreen": false, "is_enabled": true, "patterns": ["TextPattern", "ValuePattern"]},
+      {"local_handle_id": 104, "parent_handle_id": 101, "role": "Text", "automation_id": "StatusText", "class_name": "TextBlock", "name": "Ready", "bounds": [8, 580, 80, 20], "is_offscreen": false, "is_enabled": true, "patterns": ["TextPattern"]}
+    ],
+    "read_text": [
+      {"element_handle_id": 103, "text": "notepad-like fixture"},
+      {"element_handle_id": 104, "text": "Ready"}
+    ]
+  },
+  "steps": [
+    {
+      "step_id": "replace-text",
+      "expected_changes": [
+        {"kind": "property_changed", "node_handle_id": 103, "field": "name", "before": "notepad-like fixture", "after": "notepad-like fixture updated"},
+        {"kind": "text_changed", "node_handle_id": 103, "field": "read_text", "before": "notepad-like fixture", "after": "notepad-like fixture updated"},
+        {"kind": "property_changed", "node_handle_id": 104, "field": "name", "before": "Ready", "after": "Modified"},
+        {"kind": "text_changed", "node_handle_id": 104, "field": "read_text", "before": "Ready", "after": "Modified"}
+      ],
+      "after": {
+        "window": {"local_handle_id": 1, "display_label": "notepad-like:main", "title": "notepad-like"},
+        "nodes": [
+          {"local_handle_id": 100, "parent_handle_id": null, "role": "Window", "automation_id": "MainWindow", "class_name": "Window", "name": "notepad-like", "bounds": [0, 0, 900, 600], "is_offscreen": false, "is_enabled": true, "patterns": []},
+          {"local_handle_id": 101, "parent_handle_id": 100, "role": "Pane", "automation_id": "RootGrid", "class_name": "Grid", "name": "RootGrid", "bounds": [0, 0, 900, 600], "is_offscreen": false, "is_enabled": true, "patterns": []},
+          {"local_handle_id": 102, "parent_handle_id": 101, "role": "Pane", "automation_id": "EditorHost", "class_name": "StackPanel", "name": "EditorHost", "bounds": [8, 48, 884, 420], "is_offscreen": false, "is_enabled": true, "patterns": []},
+          {"local_handle_id": 103, "parent_handle_id": 102, "role": "Edit", "automation_id": "EditorTextBox", "class_name": "TextBox", "name": "notepad-like fixture updated", "bounds": [8, 48, 884, 420], "is_offscreen": false, "is_enabled": true, "patterns": ["TextPattern", "ValuePattern"]},
+          {"local_handle_id": 104, "parent_handle_id": 101, "role": "Text", "automation_id": "StatusText", "class_name": "TextBlock", "name": "Modified", "bounds": [8, 580, 80, 20], "is_offscreen": false, "is_enabled": true, "patterns": ["TextPattern"]}
+        ],
+        "read_text": [
+          {"element_handle_id": 103, "text": "notepad-like fixture updated"},
+          {"element_handle_id": 104, "text": "Modified"}
+        ]
+      }
+    },
+    {
+      "step_id": "open-save-as",
+      "expected_changes": [
+        {"kind": "node_added", "node_handle_id": 105}
+      ],
+      "after": {
+        "window": {"local_handle_id": 1, "display_label": "notepad-like:main", "title": "notepad-like"},
+        "nodes": [
+          {"local_handle_id": 100, "parent_handle_id": null, "role": "Window", "automation_id": "MainWindow", "class_name": "Window", "name": "notepad-like", "bounds": [0, 0, 900, 600], "is_offscreen": false, "is_enabled": true, "patterns": []},
+          {"local_handle_id": 101, "parent_handle_id": 100, "role": "Pane", "automation_id": "RootGrid", "class_name": "Grid", "name": "RootGrid", "bounds": [0, 0, 900, 600], "is_offscreen": false, "is_enabled": true, "patterns": []},
+          {"local_handle_id": 102, "parent_handle_id": 101, "role": "Pane", "automation_id": "EditorHost", "class_name": "StackPanel", "name": "EditorHost", "bounds": [8, 48, 884, 420], "is_offscreen": false, "is_enabled": true, "patterns": []},
+          {"local_handle_id": 103, "parent_handle_id": 102, "role": "Edit", "automation_id": "EditorTextBox", "class_name": "TextBox", "name": "notepad-like fixture updated", "bounds": [8, 48, 884, 420], "is_offscreen": false, "is_enabled": true, "patterns": ["TextPattern", "ValuePattern"]},
+          {"local_handle_id": 104, "parent_handle_id": 101, "role": "Text", "automation_id": "StatusText", "class_name": "TextBlock", "name": "Modified", "bounds": [8, 580, 80, 20], "is_offscreen": false, "is_enabled": true, "patterns": ["TextPattern"]},
+          {"local_handle_id": 105, "parent_handle_id": 100, "role": "Pane", "automation_id": "SaveAsDialogWindow", "class_name": "Window", "name": "Save As", "bounds": [100, 100, 700, 500], "is_offscreen": false, "is_enabled": true, "patterns": []}
+        ],
+        "read_text": [
+          {"element_handle_id": 103, "text": "notepad-like fixture updated"},
+          {"element_handle_id": 104, "text": "Modified"}
+        ]
+      }
+    }
+  ]
+}

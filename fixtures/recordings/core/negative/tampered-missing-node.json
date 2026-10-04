@@ -1,0 +1,29 @@
+{
+  "schema_version": 2,
+  "recording_id": "rec-negative-missing-node",
+  "captured_at": "2026-10-04T15:30:00Z",
+  "application": "notepad-like",
+  "suite": "negative",
+  "baseline": {
+    "window": {"local_handle_id": 10, "display_label": "negative:main", "title": "negative"},
+    "nodes": [
+      {"local_handle_id": 1, "parent_handle_id": null, "role": "Window", "automation_id": "MainWindow", "class_name": "Window", "name": "negative", "bounds": [0, 0, 100, 100], "is_offscreen": false, "is_enabled": true, "patterns": []},
+      {"local_handle_id": 2, "parent_handle_id": 1, "role": "Text", "automation_id": "StatusText", "class_name": "TextBlock", "name": "Ready", "bounds": [0, 0, 100, 20], "is_offscreen": false, "is_enabled": true, "patterns": []}
+    ],
+    "read_text": [{"element_handle_id": 2, "text": "Ready"}]
+  },
+  "steps": [
+    {
+      "step_id": "add-node",
+      "expected_changes": [{"kind": "node_added", "node_handle_id": 3}],
+      "after": {
+        "window": {"local_handle_id": 10, "display_label": "negative:main", "title": "negative"},
+        "nodes": [
+          {"local_handle_id": 1, "parent_handle_id": null, "role": "Window", "automation_id": "MainWindow", "class_name": "Window", "name": "negative", "bounds": [0, 0, 100, 100], "is_offscreen": false, "is_enabled": true, "patterns": []},
+          {"local_handle_id": 2, "parent_handle_id": 1, "role": "Text", "automation_id": "StatusText", "class_name": "TextBlock", "name": "Ready", "bounds": [0, 0, 100, 20], "is_offscreen": false, "is_enabled": true, "patterns": []}
+        ],
+        "read_text": [{"element_handle_id": 2, "text": "Ready"}]
+      }
+    }
+  ]
+}

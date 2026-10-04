@@ -90,6 +90,7 @@ mod migration_registry;
 mod refscan;
 mod render;
 mod replay;
+mod replay_sequence;
 mod report;
 mod repowalk;
 mod rustscan;
@@ -388,14 +389,24 @@ fn run_codegen(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Fa
     }
 }
 
-/// 执行树快照回放（replay skeleton = dry-run）。
+/// 执行树快照回放：`replay <fixture>` 保留旧路径，`replay --suite core` 跑序列与树 diff。
 fn run_replay(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
+    if let Some(suite) = invocation.options.get("suite") {
+        if !invocation.operands.is_empty() {
+            return Err(Failure::Usage(
+                "replay 不能同时指定 fixture 路径与 `--suite`".to_string(),
+            ));
+        }
+        let root = resolve_repo_root(invocation.repo.as_deref())
+            .map_err(|error| Failure::from_walk(&error))?;
+        return replay::run_suite(&root, suite, output).map_err(Failure::Io);
+    }
     let snapshot = invocation
         .operands
         .first()
         .ok_or_else(|| Failure::Usage("replay 需要快照路径".to_string()))?;
     let path = std::path::Path::new(snapshot);
-    replay::run(path, output).map_err(Failure::Io)
+    replay::run_path(path, output).map_err(Failure::Io)
 }
 
 /// 执行命名与注释规范检查（`docs/spec/naming.md` §10 的 8 条规则）。
@@ -589,10 +600,14 @@ mod tests {
     }
 
     #[test]
-    fn test_execute_deferred_command_fails_with_distinct_code() {
-        // TASK-011 实现了 codegen / verify-schemas，TASK-087 实现了 check-comments，
-        // 因此改用仍未实现的 `replay-skeleton` 来证明"未实现 ≠ 成功"。
-        let failure = expect_failure(&["replay-skeleton"]);
+    fn test_not_implemented_failure_keeps_distinct_code() {
+        let entry = deferred::DeferredCommand {
+            command: "future-command",
+            ci_gate: "gov §5.1 #future",
+            owning_card: "TASK-999",
+            reason: "future",
+        };
+        let failure = Failure::NotImplemented(deferred::not_implemented_message(&entry));
         assert_eq!(
             failure.exit_code(),
             EXIT_NOT_IMPLEMENTED,
@@ -600,22 +615,18 @@ mod tests {
         );
         let s = failure.to_string();
         assert!(
-            s.contains("TASK-034") || s.contains("未分配"),
+            s.contains("TASK-999"),
             "deferred failure must reference owning card or PL: {s}"
         );
     }
 
     #[test]
-    fn test_execute_every_deferred_command_fails_with_code_three() {
-        for entry in deferred::DEFERRED_COMMANDS {
-            let failure = expect_failure(&[entry.command]);
-            assert_eq!(
-                failure.exit_code(),
-                EXIT_NOT_IMPLEMENTED,
-                "子命令 {} 未实现却返回了别的退出码",
-                entry.command
-            );
-        }
+    fn test_deferred_commands_are_empty_after_replay_completion() {
+        assert!(
+            deferred::DEFERRED_COMMANDS.is_empty(),
+            "TASK-236 完成后 replay 未实现项必须从登记表移除"
+        );
+        assert!(deferred::find_command("replay-skeleton").is_none());
     }
 
     #[test]
@@ -636,8 +647,12 @@ mod tests {
         assert_eq!(code, EXIT_OK);
         let text = String::from_utf8(output).expect("应为 UTF-8");
         assert!(
-            text.contains("replay-skeleton"),
-            "清单应包含未实现子命令（TASK-087 实现 check-comments 后，剩余的是 replay-skeleton）"
+            text.contains("未实现的子命令：0 项"),
+            "TASK-236 后 replay 未实现项必须清零：{text}"
+        );
+        assert!(
+            !text.contains("replay-skeleton"),
+            "replay 完整版不能再出现在未实现清单里：{text}"
         );
         assert!(
             text.contains("未实现 0 项"),
