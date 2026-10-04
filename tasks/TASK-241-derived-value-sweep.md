@@ -1,6 +1,6 @@
 # TASK-241　派生值指针化清扫（PL-022 / PL-035 / PL-065 / PL-066 同族）
 
-- 状态：**Done（2026-10-05；PR #233 首轮 CI run `37237100194` 11/11 SUCCESS；merge hash 待回填）**
+- 状态：**Done（2026-10-05；PR #233 / final CI run `37237905495` 11/11 SUCCESS / merge `5c89df8`）**
 - 阶段：1　子阶段：治理　批次：治理池　依赖：TASK-239、TASK-240（均 Done）
 - 预估：M　难度：M
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。分界线以上为正文（Orchestrator 所有，Implementer 只读）。
@@ -85,7 +85,7 @@ cargo run -p xtask -- check-migrations
 - [ ] 目标文档只删除当前派生值并改指针，不改数字语义以外的决策。
 - [ ] 目标清扫证据为空；`refscan` 不出现 `BARE-PENDING`。
 - [ ] `LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md` 与本卡同批同步。
-- [ ] PR CI 11/11 SUCCESS + `MERGEABLE` + `CLEAN` + base=main；合并后回填 merge hash。
+- [x] PR CI 11/11 SUCCESS + `MERGEABLE` + `CLEAN` + base=main；合并后回填 merge hash。
 
 <!-- ══ 分界线：以上为**卡片正文**，Orchestrator 所有，Implementer 只读 ══
      以下由 Implementer 填写。改动分界线以上的任何一行 = 漂移触发器 ⑤（超出 write scope），
@@ -142,7 +142,7 @@ cargo run -p xtask -- check-migrations
 - `cargo run -p xtask -- codegen --check` → PASSED，0 drift。
 - `cargo run -p xtask -- check-migrations` → PASSED，5 files / 5 entries。
 - 定向证据：`rg -n --no-heading "~[0-9]+ ?行|下一张 = TASK-" AGENTS.md MEMORY.md plans/stage-1-pilots.md docs/subagent-orchestration.md docs/governance-ai-agent-execution.md cross-platform-ai-assistant-architecture-v2.md` → EXIT 1，输出为空。
-- PR #233：<https://github.com/snofin18/ai-assistant/pull/233>；首轮 pull_request CI run `37237100194` = 11/11 SUCCESS；确认 `baseRefName=main`、`mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`。merge hash 由回填 PR 追加。
+- PR #233：<https://github.com/snofin18/ai-assistant/pull/233>；首轮 pull_request CI run `37237100194` = 11/11 SUCCESS；最终 pull_request CI run `37237905495` = 11/11 SUCCESS；合并前确认 `baseRefName=main`、`mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`；merge hash = `5c89df8`。
 
 ### 4. DoD 逐条核对
 
@@ -150,7 +150,7 @@ cargo run -p xtask -- check-migrations
 - [x] 目标文档只删除当前派生值并改指针，不改数字语义以外的决策。
 - [x] 目标清扫证据为空；`refscan` 不出现 `BARE-PENDING`。
 - [x] `LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md` 与本卡同批同步。
-- [ ] PR CI 11/11 SUCCESS + `MERGEABLE` + `CLEAN` + base=main；合并后回填 merge hash。首轮 CI 已满足，最终提交 CI 与 merge hash 待补。
+- [x] PR CI 11/11 SUCCESS + `MERGEABLE` + `CLEAN` + base=main；合并后回填 merge hash。
 
 ### 5. 偏差
 
@@ -163,7 +163,7 @@ cargo run -p xtask -- check-migrations
 ### 7. 遗留问题
 
 - `PL-022` 仍保留机器派生余项：`TOTAL_HYGIENE_RULE_COUNT` 是否应从 gov §5.4 表格派生、gov/CI 数量是否交叉校验，仍需后续 Accepted ADR 或独立卡裁决。
-- PR #233 首轮 CI 已 11/11 SUCCESS；Done 状态同步后的最终 CI 与 merge hash 回填待完成。
+- PR #233 首轮与最终 CI 均 11/11 SUCCESS；merge hash `5c89df8` 已由独立回填 PR 记录。
 
 ### 8. 新增长期记忆
 
