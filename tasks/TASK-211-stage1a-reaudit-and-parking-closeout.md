@@ -1,6 +1,6 @@
 # TASK-211　阶段 1a 复验准备与停车位收口
 
-- 状态：**Ready**
+- 状态：**Done（2026-09-30；LEDGER Done + `stage-1a-reaudit-checklist-2026-09-30.md` 在 main）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：102~105、087、210
 - 预估：S　难度：S
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。

@@ -1,6 +1,6 @@
 # TASK-213　UI↔Core 真实传输：Core 侧监听端 + UI 侧 client + 事件推送
 
-- 状态：**Ready**（**开工前置**：ADR-0057 必须已由人类转 Accepted）
+- 状态：**Done（2026-09-30；LEDGER Done + PR #110 / merge `64d49f3`；UI/Core IPC）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：0057、104、103、019
 - 预估：L　难度：L
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。

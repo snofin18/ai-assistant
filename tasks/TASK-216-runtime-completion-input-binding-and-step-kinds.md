@@ -1,6 +1,6 @@
 # TASK-216　运行时补齐：任务输入绑定 + `hitl`/rollback/verify 步骤 + `tab.new` 观测
 
-- 状态：**InProgress（A 片 Done；B 片已解锁，未开工）**
+- 状态：**Done（2026-10-02；LEDGER Done + PR #157 / merge `91e41ff`；DRIFT-216-4 由 TASK-217 闭环）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：214、215、**DRIFT-105-3**
 - 预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031）。分界线以上为正文（Orchestrator 所有，Implementer 只读）。

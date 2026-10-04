@@ -1,6 +1,6 @@
 # TASK-205　`crates/tool-bus/src/schema.rs` 按职责拆分（注册期检查 / 运行期实例校验）
 
-- 状态：**Ready**
+- 状态：**Done（2026-10-01；LEDGER Done + PR #121 / merge `dc1d118`；schema split）**
 - 阶段：跨阶段（**治理池 200~299**）　子阶段：—　批次：—（**不在** stage-1 批次表内）　依赖：020 / 204（✅ 均 Done）　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md` §「跨阶段治理卡」；号段依据 **ADR-0037 D1**（200~299 = 治理池）。

@@ -1,6 +1,6 @@
 # TASK-086　`xtask hygiene` 剩余规则 B 组：文件级规则（CRLF / 末行换行 / 依赖登记，gov §5.4 的第 9 / 13 / 8 项）
 
-- 状态：**Ready**
+- 状态：**Done（2026-10-02；LEDGER Done + merge `6f6d3da`；文件级 + 依赖登记 hygiene）**
 - 阶段：1　子阶段：**1a**　批次：**护栏（XTASK 池 072~099）**　依赖：015　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。

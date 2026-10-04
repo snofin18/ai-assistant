@@ -1,6 +1,6 @@
 # TASK-212　修掉 `check-comments` 首次真跑发现的 9 处真实违规
 
-- 状态：**Ready**
+- 状态：**Done（2026-09-30；LEDGER Done + PR #104 / merge `5844326`；check-comments 0 error）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：087
 - 预估：S　难度：S
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。

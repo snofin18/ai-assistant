@@ -1,6 +1,6 @@
 # TASK-210　UI 与提交质量门禁：Prettier / ESLint / Vitest / commitlint
 
-- 状态：**Ready**
+- 状态：**Done（2026-09-29；LEDGER Done + PR #102 / merge `ea626a6`；UI/commit gates）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：039
 - 预估：L　难度：M
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。
