@@ -12,6 +12,7 @@
 > **TASK-232 ✅（2026-10-04）**：四轮自动化（TASK-228 / 224 / 230 / 231）审计收口 —— 修正 TASK-224 滞后状态行、补强「状态行比对」硬规则（`正文只读 ≠ 状态行只读`；PR 贴比对为必做）、把 storage 轮的「生产 `SessionStore` 适配器仍缺」转成 `PL-108`
 > **TASK-233 ✅（2026-10-04）**：生产装配接入 storage 会话持久化 —— 新增 `StorageSessionStore` 适配器（`SessionStore` 三方法经装配层 `DatabaseHandle` 调 TASK-230 记录原语）与 `with_storage_session_store()` 开关，生产 `production.rs` / `main.rs` 两处不再注入 `MemorySessionStore`；适配器级跨重开逐字段一致、负向四类显式失败、装配级关库重开读回均取证，`PL-108` 闭环
 > **TASK-234 ✅（2026-10-04）**：ADR-0068 / 0069 Accepted 后补齐 gov §5.4 最后两条 hygiene 规则 —— 重复代码（token shingle + 包含度 ≥ 80% Warning）与顶层目录 ADR 白名单（未登记 Error）；`hygiene` 13/13、0E/95W，`--list-deferred` hygiene 未实现项为 0，`PL-060` 闭环
+> **TASK-235 ✅（2026-10-04）**：ADR-0070 将 `RoleAndParent` 的父候选限定为链内子树作用域；顶层解析过滤被 `parent_id` 引用的候选，父命中 / 子缺失显式 `TargetNotFound`，只有 scope 候选的链在碰 COM 前 `ToolInvalidArgs`，`PL-094` 闭环。
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -285,6 +286,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-232 ✅** | 治理池 | `tasks/TASK-232-four-round-automation-audit-closeout.md` | Done（四轮审计收口：TASK-224 状态行 + 规则补强 + `PL-108`） |
 | **TASK-233 ✅** | 治理池 | `tasks/TASK-233-storage-session-store-adapter.md` | Done（生产装配接入 storage 会话持久化：`StorageSessionStore` 适配器 + `with_storage_session_store()`；`PL-108` 闭环） |
 | **TASK-234 ✅** | 治理池 | `tasks/TASK-234-hygiene-final-rules.md` | Done（ADR-0068 / 0069 + hygiene 13/13；`PL-060` 闭环；PR #218 / `e417a2a`） |
+| **TASK-235 ✅** | 治理池 | `tasks/TASK-235-role-and-parent-resolution-semantics.md` | Done（ADR-0070；`RoleAndParent` 父候选仅作用域，`PL-094` 闭环） |
 | **TASK-040 ✅** | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Done（真机四用例取证；跨层 lease 由 TASK-225 闭环，`PL-101` 关闭） |
 | **TASK-231 ✅** | 1b bridge | `tasks/TASK-231-pointer-coordinate-space-dpi.md` | Done（ADR-0067 pointer 显式坐标空间；`PL-074` 闭环） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |

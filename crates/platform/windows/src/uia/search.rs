@@ -38,20 +38,26 @@ use crate::{com, uia};
 const MAX_PARENT_DEPTH: u32 = 8;
 
 /// 一次候选搜索的结果。
-pub(super) enum SearchOutcome {
+///
+/// `Element` 由生产路径实例化为 `IUIAutomationElement`，测试可实例化为轻量替身，
+/// 使「候选选择控制流」可以在不依赖 COM / 真机的情况下被验证。
+pub(super) enum SearchOutcome<Element> {
     /// 该候选种类本通道不支持（原因进 reasons，绝不静默当作"没命中"）。
     Unsupported(&'static str),
     /// 支持，命中 0..n 个元素（由调用方裁决歧义）。
-    Matches(Vec<IUIAutomationElement>),
+    Matches(Vec<Element>),
 }
 
-/// 搜索一个候选；`scope` 是搜索起点（**必须是已解析窗口的 UIA 根元素**，ADR-0043 D2）。
+/// 搜索一个候选。
+///
+/// 顶层调用的 `scope` 必须是已解析窗口的 UIA 根元素（ADR-0043 D2）；`RoleAndParent`
+/// 递归调用则把已解析的父元素作为有界子树起点（ADR-0070 D2/D4）。
 pub(super) fn find_all(
     chain: &SelectorChain,
     candidate: &SelectorCandidate,
     scope: &IUIAutomationElement,
     depth: u32,
-) -> PlatformResult<SearchOutcome> {
+) -> PlatformResult<SearchOutcome<IUIAutomationElement>> {
     if depth > MAX_PARENT_DEPTH {
         return Err(error::invalid_args(format!(
             "RoleAndParent nesting exceeded {MAX_PARENT_DEPTH} levels; refusing to recurse further"
@@ -117,7 +123,7 @@ fn property_search(
     property: UIA_PROPERTY_ID,
     value: &str,
     substring: bool,
-) -> PlatformResult<SearchOutcome> {
+) -> PlatformResult<SearchOutcome<IUIAutomationElement>> {
     if value.is_empty() {
         // 空取值会匹配一切 —— 那是配置错误，不是"命中所有元素"。
         return Ok(SearchOutcome::Unsupported(
@@ -152,7 +158,7 @@ fn class_and_role_search(
     scope: &IUIAutomationElement,
     class: &str,
     role: &str,
-) -> PlatformResult<SearchOutcome> {
+) -> PlatformResult<SearchOutcome<IUIAutomationElement>> {
     let Some(control_type) = uia::control_type_from_role(role) else {
         return Ok(SearchOutcome::Unsupported(
             "ClassAndRole 的 role 不是已知的非本地化角色名",
@@ -177,7 +183,7 @@ fn role_under_parent(
     role: &str,
     parent_id: &str,
     depth: u32,
-) -> PlatformResult<SearchOutcome> {
+) -> PlatformResult<SearchOutcome<IUIAutomationElement>> {
     let Some(parent_candidate) = chain
         .candidates()
         .iter()
@@ -230,8 +236,8 @@ fn property_condition<T: Into<VARIANT>>(
 
 /// 取某条件下的全部匹配（`FindAll` + `Length` + `GetElement`）。
 ///
-/// 作用域用 `TreeScope_Descendants`：调用方要么传了父元素（子树有界），
-/// 要么明确接受"从桌面根搜索"的代价（见模块头）。
+/// 作用域用 `TreeScope_Descendants`：顶层调用从窗口根开始，`RoleAndParent` 调用从
+/// 已解析父元素开始，两条路径都在有界子树内（ADR-0043 D2 / ADR-0070 D2）。
 fn collect_matches(
     scope: &IUIAutomationElement,
     condition: &IUIAutomationCondition,
