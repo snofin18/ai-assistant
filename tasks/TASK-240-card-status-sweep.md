@@ -1,6 +1,6 @@
 # TASK-240　任务卡状态行 ↔ PLAN / LEDGER 一致性清扫（2026-10-05）
 
-- 状态：**InProgress**
+- 状态：**Done（2026-10-05；PR #231 / CI run `37227334839` 11/11 SUCCESS；18 张滞后卡只改状态行）**
 - 阶段：1　子阶段：治理　批次：治理池　依赖：TASK-239（Done）
 - 预估：M　难度：M
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。分界线以上为正文（Orchestrator 所有，Implementer 只读）。
@@ -122,6 +122,9 @@ cargo run -p xtask -- check-migrations
 - `cargo run -p xtask -- verify-schemas` → PASSED，5/5 OK。
 - `cargo run -p xtask -- codegen --check` → PASSED，0 drift。
 - `cargo run -p xtask -- check-migrations` → PASSED，5 files / 5 entries。
+- `cargo test -p xtask` → PASSED，459 passed / 0 failed。
+- `cargo test -p assistant-lease -p assistant-model-gateway -p assistant-core -p assistant-tool-bus -p assistant-ipc -p assistant-agent-core` → EXIT 0。
+- PR #231 首轮 pull_request CI run `37227334839` → **11/11 SUCCESS**；`baseRefName=main`、`mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`。
 - 根因证据：`git ls-tree -r --name-only HEAD` 已核对 18 张卡的对应 crate / 文档产物均在当前 main；`LEDGER.md` 每张最后状态事件均为 `Done`。
 
 ### 4. DoD 逐条核对
@@ -130,7 +133,8 @@ cargo run -p xtask -- check-migrations
 - [x] 所有可确定的滞后状态行只改状态行；无代码 / 正文改动。
 - [x] 无法判定或反向不一致项保持原状并留说明。
 - [x] `LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md` 与本卡同批同步。
-- [ ] PR CI 11/11 SUCCESS + `MERGEABLE` + `CLEAN` + base=main；合并后回填 merge hash。
+- [x] PR CI 11/11 SUCCESS + `MERGEABLE` + `CLEAN` + base=main。
+- [ ] 合并后回填 merge hash。
 
 ### 5. 偏差
 
@@ -145,6 +149,7 @@ cargo run -p xtask -- check-migrations
 
 - `PLAN.md` / `README.md` 的历史进度文字仍含 `TASK-105 ✅` 与阶段 1a GO 的旧口径；本轮仅新增 TASK-240 当前状态说明，不改历史文字，留给后续文档派生值清扫。
 - `TASK-002` 的卡面为 `Done`，但执行记录自述仍 InProgress、LEDGER 最后状态也为 InProgress；本轮按“只修滞后 Done”边界不反向改动，需后续单独裁决。
+- PR #231 的 merge hash 与最终合并事实由独立回填 PR 追加。
 
 ### 8. 新增长期记忆
 
