@@ -9,6 +9,7 @@
 > **TASK-224 ✅（2026-10-04）**：ADR-0066 Accepted —— `xtask write` 复用 ADR-0028 协作锁，Windows 上做 `share_mode(0)` 占用探测与有界退避；实际写句柄只共享读取，持锁读取实测不阻塞；目标占用超时退出码 5、无残留锁/进程，`PL-107` 闭环。
 > **TASK-230 ✅（2026-10-04）**：storage 新增 `0005` 迁移与 `conversations` / `conversation_messages` 持久化 API；真实关闭 / 重开 SQLite 后逐字段一致，缺失会话、非法父子关系与 revision 跳号显式失败，`PL-092` 闭环。
 > **TASK-231 ✅（2026-10-04）**：ADR-0067 删除混合 DPI 收敛启发式，`pointer_action` 起点与 `DragTo` 释放点各自显式携带 `CoordinateSpace`；混合 DPI 归属 6 passed、跨屏拖拽双 scale 1 passed，未知设备 / DPI 不一致 / 越界均显式失败，`PL-074` 闭环。
+> **TASK-232 ✅（2026-10-04）**：四轮自动化（TASK-228 / 224 / 230 / 231）审计收口 —— 修正 TASK-224 滞后状态行、补强「状态行比对」硬规则（`正文只读 ≠ 状态行只读`；PR 贴比对为必做）、把 storage 轮的「生产 `SessionStore` 适配器仍缺」转成 `PL-108`
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -150,8 +151,10 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-225 ✅** | Host 合成输入目标租约独占（**跨层补 PL-101；1b 桥接**） | `apps/agent-core/src/**`、`apps/agent-core/tests/**`、`apps/agent-core/Cargo.toml` | TASK-018、TASK-025、TASK-040 真机校准 | M | `key_action` / pointer-shaped input 发送前取得窗口 exclusive lease；两任务冲突稳定 `Transient`；成功/失败都释放；只读路径不变 |
 | **TASK-226 ✅** | 测试卫生清理：ignored 真机用例串行化 + `production_root.rs` 拆分 | `apps/agent-core/tests/**`、`tasks/TASK-226-*`、状态同步文件 | TASK-223 | M | PL-104 并行红灯消失；PL-105 每个测试文件 <600 行；断言不删不放宽；阶段 1a 仍 GO |
 | **TASK-227 ✅** | 状态行与停车位收口（TASK-040/225 状态行 + PL-103 改法 + PL-106 开卡） | 状态同步文件 | TASK-040、TASK-225、TASK-226 | S | 两张卡状态行与证据一致；PL-103 有可粘贴改法；TASK-228 已登记；零代码改动 |
-| TASK-228 | 真机验收结果结构化输出（PASS / SKIP / FAIL 可机器区分；源 = `PL-106`） | `crates/platform/windows/src/input/**`、`xtask/src/**` 或 `tools/**`（二选一） | TASK-040、TASK-220 | M | skip 不得等同 pass；汇总入口拒绝未知/缺失记录；记录有界且不进版本库 |
+| **TASK-228 ✅** | 真机验收结果结构化输出（PASS / SKIP / FAIL 可机器区分；源 = `PL-106`） | `crates/platform/windows/src/input/**`、`xtask/src/**` 或 `tools/**`（二选一） | TASK-040、TASK-220 | M | skip 不得等同 pass；汇总入口拒绝未知/缺失记录；记录有界且不进版本库 |
 | **TASK-229 ✅** | `PL-103` spec 落笔 + 状态行滞后硬规则 + 残留目录清理（人类逐条授权） | `docs/spec/runtime-execution.md` §3、`docs/memory/pitfalls.md`、`docs/PARKING_LOT.md` | TASK-217、TASK-219、TASK-223、TASK-227 | S | spec 指向唯一事实源；pitfalls 落可执行四步；残留目录删除有前后证据；代码零改动 |
+| **TASK-224 ✅** | 唯一写入通道 + 文件占用探测（`xtask write`，ADR-0066） | `xtask/src/**`、`docs/adr/0066-*` | ADR-0028、ADR-0063、**ADR-0066 Accepted** | L | 独占探测 `share_mode(0)`；有界退避与退出码 5 放弃；读路径不阻塞实测；`apply_patch` 不强制纳入 |
+| **TASK-232 ✅** | 四轮自动化审计收口（TASK-224 状态行 + 规则补强 + PL-108） | 状态同步文件 | TASK-224、TASK-228、TASK-230、TASK-231 | S | 状态行与 LEDGER 一致；规则补强落 pitfalls；`PL-108` 登记；零代码改动 |
 
 ---
 
@@ -275,6 +278,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-228 ✅** | 治理池 | `tasks/TASK-228-structured-real-machine-acceptance-record.md` | Done（真机结构化记录 + 严格汇总入口；`PL-106` 闭环） |
 | **TASK-229 ✅** | 治理池 | `tasks/TASK-229-pl103-spec-fix-and-status-rule.md` | Done（PL-103 落笔 + 状态行硬规则 + 残留目录清理） |
 | **TASK-224 ✅** | 治理池 | `tasks/TASK-224-single-write-channel-lock-queue.md` | Done（ADR-0066 命令行 write 通道 + Windows 独占占用探测 + 有界退避；PL-107 闭环） |
+| **TASK-232 ✅** | 治理池 | `tasks/TASK-232-four-round-automation-audit-closeout.md` | Done（四轮审计收口：TASK-224 状态行 + 规则补强 + `PL-108`） |
 | **TASK-040 ✅** | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Done（真机四用例取证；跨层 lease 由 TASK-225 闭环，`PL-101` 关闭） |
 | **TASK-231 ✅** | 1b bridge | `tasks/TASK-231-pointer-coordinate-space-dpi.md` | Done（ADR-0067 pointer 显式坐标空间；`PL-074` 闭环） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
