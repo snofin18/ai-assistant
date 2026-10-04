@@ -15,6 +15,7 @@
 > **TASK-235 ✅（2026-10-04）**：ADR-0070 将 `RoleAndParent` 的父候选限定为链内子树作用域；顶层解析过滤被 `parent_id` 引用的候选，父命中 / 子缺失显式 `TargetNotFound`，只有 scope 候选的链在碰 COM 前 `ToolInvalidArgs`，`PL-094` 闭环。
 > **TASK-236 ✅（2026-10-04）**：replay 完整版完成 —— Recording v2 真实 UIA 树快照序列、expected-vs-actual 树级 diff、core suite 与两类负向 fixture 收口；`--list-deferred` 的 replay 遗留清零。
 > **TASK-237 ✅（2026-10-04）**：三连发自动化（TASK-234 / 235 / 236）事后独立审计收口 —— `PL-062` 闭环（replay 完整版交付后 `AGENTS.md` §6 与本机实测一致，无需改文件）、孤儿自动化目录删除（1 文件 870 B）、`TASK-235` 状态行归一；三轮产物本机重跑全绿，零产品代码改动。
+> **TASK-238 ✅（2026-10-04）**：ADR-0071 冻结截图管线 / 出域脱敏的 crate 边界 —— 新增 `crates/capture`（平台无关窗口截图管线，唯一原语 = `platform/api` 的 `WindowProvider::capture`）与 `crates/dlp`（出域策略 + 脱敏 + 截图遮挡）两个零第三方依赖骨架；架构 v2 §3 布局追加 `capture/`，根 `Cargo.toml` 未改（`crates/*` glob 自动纳入）；`PL-102` 闭环，1b 的 TASK-041 / 042 与 1c 的 TASK-050 前置解锁。
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -163,6 +164,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-233 ✅** | 生产装配接入 storage 会话持久化（`SessionStore` 适配器；闭环 PL-108） | `apps/agent-core/src/**`、`apps/agent-core/tests/**` | TASK-028、TASK-230、`PL-108` | M | 适配器三方法经 storage 记录原语；生产两处不再注入内存 store；跨重开 + 负向四类 + 装配级证据；trait 与 core/storage 公共形状不变 |
 | **TASK-234 ✅** | 补齐 gov §5.4 最后两条 hygiene 规则（闭环 PL-060） | `xtask/src/**`、`docs/adr/**`（0068/0069/白名单） | PL-060、ADR-0025 | M | ADR 先行；两条规则正负样本；hygiene 13/13 且 0E；`--list-deferred` hygiene 未实现项为 0 |
 | **TASK-237 ✅** | 三连发自动化审计收口（PL-062 闭环 + 孤儿目录清理 + TASK-235 状态行归一） | 状态同步文件 + `docs/PARKING_LOT.md`（追加） | TASK-234、TASK-235、TASK-236 | S | `PL-062` 闭环；孤儿目录删除有前后证据；状态行与 LEDGER 一致；零产品代码改动 |
+| **TASK-238 ✅** | `capture` / `dlp` 边界 crate 骨架（闭环 PL-102，解锁 1b / 1c） | `crates/capture/**`、`crates/dlp/**`、`docs/adr/0071-*`、架构 v2 §3 | PL-102 | S | ADR-0071 Accepted；两个零依赖骨架编译 + 门禁全绿；架构 §3 加 `capture/`；原 PL-102 行未改 |
 
 ---
 
@@ -292,6 +294,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-235 ✅** | 治理池 | `tasks/TASK-235-role-and-parent-resolution-semantics.md` | Done（ADR-0070；`RoleAndParent` 父候选仅作用域，`PL-094` 闭环） |
 | **TASK-236 ✅** | 治理池 | `tasks/TASK-236-replay-sequence-diff-full.md` | Done（replay 完整版：真实 UIA 树快照序列 + 树级 diff + `--suite core`；`--list-deferred` 清零） |
 | **TASK-237 ✅** | 治理池 | `tasks/TASK-237-automation-round-audit-closeout.md` | Done（三连发自动化审计收口：`PL-062` 闭环 + 孤儿目录清理 + `TASK-235` 状态行归一） |
+| **TASK-238 ✅** | 治理池 | `tasks/TASK-238-capture-dlp-crate-skeletons.md` | Done（ADR-0071 `capture` / `dlp` 边界骨架；`PL-102` 闭环；解锁 1b TASK-041 / 042 与 1c TASK-050） |
 | **TASK-040 ✅** | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Done（真机四用例取证；跨层 lease 由 TASK-225 闭环，`PL-101` 关闭） |
 | **TASK-231 ✅** | 1b bridge | `tasks/TASK-231-pointer-coordinate-space-dpi.md` | Done（ADR-0067 pointer 显式坐标空间；`PL-074` 闭环） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |

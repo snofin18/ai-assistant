@@ -2838,6 +2838,7 @@ assistant/
 │   ├── memory/                  # App Map、历史检索、偏好
 │   ├── audit/                   # 追加不可改审计、hash chain
 │   ├── secrets/                 # OS keychain 封装
+│   ├── capture/                 # 平台无关的窗口截图管线（ADR-0071）
 │   ├── dlp/                     # 出域策略、脱敏、截图遮挡
 │   ├── ipc/                     # JSON-RPC 传输与鉴权
 │   ├── protocol/                # 共享类型（由 protocol/ schema 生成）

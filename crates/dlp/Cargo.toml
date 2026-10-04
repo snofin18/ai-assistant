@@ -1,0 +1,14 @@
+[package]
+name = "assistant-dlp"
+description = "Data-loss-prevention policies: three-tier egress, redaction rules, and screenshot occlusion (ADR-0071)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Boundary skeleton (ADR-0071 / TASK-238): no third-party dependency is declared
+# here. The egress tiers and redaction rules are filled by TASK-050 / TASK-041.
+
+[lints]
+workspace = true
