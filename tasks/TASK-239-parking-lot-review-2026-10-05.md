@@ -116,7 +116,7 @@ cargo run -p xtask -- check-migrations
 - `cargo run -p xtask -- codegen --check` → PASSED，0 drift。
 - `cargo run -p xtask -- check-migrations` → PASSED，5 files / 5 entries。
 - `cargo test --workspace` → EXIT 0；`cargo clippy --all-targets -- -D warnings` → EXIT 0；`cargo llvm-cov --fail-under-lines 75` → TOTAL 75.03%。
-- PR #229 首轮 CI run `37218660609` → 11/11 SUCCESS；状态翻转后最终 CI run 待回填。
+- PR #229 首轮 CI run `37218660609` → 11/11 SUCCESS；状态翻转后最终 PR CI run `37219322700` → 11/11 SUCCESS；PR merge `e37ce4f`。
 
 ### 4. DoD 逐条核对
 
@@ -124,7 +124,7 @@ cargo run -p xtask -- check-migrations
 - [x] `docs/PARKING_LOT.md` 仅追加复核行，原行未改。
 - [x] 机器验证项已在本机重跑；无法机器验证项明确标“需人工”。
 - [x] `LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md` 与本卡同批同步。
-- [ ] PR CI 11/11 SUCCESS + `MERGEABLE` + `CLEAN` + base=main；首轮 CI 已 11/11，最终状态翻转提交待 CI。
+- [x] PR CI 11/11 SUCCESS + `MERGEABLE` + `CLEAN` + base=main；PR #229 已合并（`e37ce4f`）。
 
 ### 5. 偏差
 
