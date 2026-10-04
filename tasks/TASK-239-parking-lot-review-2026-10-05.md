@@ -1,6 +1,6 @@
 # TASK-239　停车位存量复核收口（2026-10-05）
 
-- 状态：**InProgress（2026-10-05）**
+- 状态：**Done（2026-10-05）**
 - 阶段：1　子阶段：治理　批次：治理池　依赖：TASK-237、TASK-238（均已 Done）
 - 预估：M　难度：M
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。分界线以上为正文（Orchestrator 所有，Implementer 只读）。
@@ -110,15 +110,21 @@ cargo run -p xtask -- check-migrations
 - `cargo run -p xtask -- adr-index` → PASSED，scanned=59，0E/0W。
 - `cargo run -p xtask -- refscan` → PASSED，scanned=689，0E/0W。
 - `cargo run -p xtask -- docscan` → PASSED，scanned=307，0E/342W；首次报出的报告表格破列已修复。
-- CI / merge 证据待 PR 阶段回填。
+- `cargo run -p xtask -- card-check` → PASSED，scanned=133，0E/34W。
+- `cargo run -p xtask -- check-ledger` → PASSED；`plan_date=2026-10-05`、`ledger_last_date=2026-10-05`。
+- `cargo run -p xtask -- verify-schemas` → PASSED，5/5。
+- `cargo run -p xtask -- codegen --check` → PASSED，0 drift。
+- `cargo run -p xtask -- check-migrations` → PASSED，5 files / 5 entries。
+- `cargo test --workspace` → EXIT 0；`cargo clippy --all-targets -- -D warnings` → EXIT 0；`cargo llvm-cov --fail-under-lines 75` → TOTAL 75.03%。
+- PR #229 首轮 CI run `37218660609` → 11/11 SUCCESS；状态翻转后最终 CI run 待回填。
 
 ### 4. DoD 逐条核对
 
 - [x] 当前开放条目逐条复核，报告中结论、证据命令与结果齐全。
 - [x] `docs/PARKING_LOT.md` 仅追加复核行，原行未改。
 - [x] 机器验证项已在本机重跑；无法机器验证项明确标“需人工”。
-- [ ] `LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md` 与本卡同批同步。
-- [ ] PR CI 11/11 SUCCESS + `MERGEABLE` + `CLEAN` + base=main；合并后回填 merge hash。
+- [x] `LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md` 与本卡同批同步。
+- [ ] PR CI 11/11 SUCCESS + `MERGEABLE` + `CLEAN` + base=main；首轮 CI 已 11/11，最终状态翻转提交待 CI。
 
 ### 5. 偏差
 
