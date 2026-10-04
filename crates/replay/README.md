@@ -21,5 +21,8 @@
 3. Recorded text references must point to an existing node.
 4. Element resolution follows selector-chain order and fails closed on ambiguity.
 5. Replay never pretends an unrecorded write action succeeded.
+6. `xtask replay --suite core` may consume version 2 sequence fixtures for
+   deterministic tree diffing; the provider API in this crate remains the
+   version 1 single-snapshot offline provider.
 
 相关：架构 v2 §17.4、`docs/spec/testing.md`、`tasks/TASK-034-record-replay-framework-xtask-replay.md`。

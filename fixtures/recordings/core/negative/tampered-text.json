@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "recording_id": "rec-negative-tampered-text",
+  "captured_at": "2026-10-04T15:30:00Z",
+  "application": "notepad-like",
+  "suite": "negative",
+  "baseline": {
+    "window": {"local_handle_id": 10, "display_label": "negative:main", "title": "negative"},
+    "nodes": [
+      {"local_handle_id": 1, "parent_handle_id": null, "role": "Window", "automation_id": "MainWindow", "class_name": "Window", "name": "negative", "bounds": [0, 0, 100, 100], "is_offscreen": false, "is_enabled": true, "patterns": []},
+      {"local_handle_id": 3, "parent_handle_id": 1, "role": "Edit", "automation_id": "EditorTextBox", "class_name": "TextBox", "name": "Editor", "bounds": [0, 0, 100, 20], "is_offscreen": false, "is_enabled": true, "patterns": ["ValuePattern"]}
+    ],
+    "read_text": [{"element_handle_id": 3, "text": "before"}]
+  },
+  "steps": [
+    {
+      "step_id": "replace-text",
+      "expected_changes": [
+        {"kind": "text_changed", "node_handle_id": 3, "field": "read_text", "before": "before", "after": "after"}
+      ],
+      "after": {
+        "window": {"local_handle_id": 10, "display_label": "negative:main", "title": "negative"},
+        "nodes": [
+          {"local_handle_id": 1, "parent_handle_id": null, "role": "Window", "automation_id": "MainWindow", "class_name": "Window", "name": "negative", "bounds": [0, 0, 100, 100], "is_offscreen": false, "is_enabled": true, "patterns": []},
+          {"local_handle_id": 3, "parent_handle_id": 1, "role": "Edit", "automation_id": "EditorTextBox", "class_name": "TextBox", "name": "Editor", "bounds": [0, 0, 100, 20], "is_offscreen": false, "is_enabled": true, "patterns": ["ValuePattern"]}
+        ],
+        "read_text": [{"element_handle_id": 3, "text": "tampered"}]
+      }
+    }
+  ]
+}

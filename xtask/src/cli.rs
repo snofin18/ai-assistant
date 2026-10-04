@@ -46,7 +46,7 @@ pub const USAGE: &str = r#"xtask — 仓库护栏与开发任务工具（只读�
   verify-schemas     5 份 JSON schema 校验（存在 + JSON 合法 + version + 13 类 ErrorCode）
   codegen            从 protocol/*.json 生成 Rust 类型；--check 仅检测 drift 不写
   replay             用录制的树快照做离线回放回归（骨架 = dry-run 解析 + 校验；
-                     真实 fixture + diff 归 TASK-034 完整版）
+                     `--suite core` 跑 v2 树快照序列 + 树级 diff）
   check-ledger       台账与状态同步的新鲜度检查（ADR-0039 D3：PLAN.md 更新日期 ≥
                      LEDGER.md 末行日期 + README.md 有 `> 状态：` 行且含当前阶段名）
   check-migrations   迁移登记表一致性（PL-047：号段全局唯一 + 与
@@ -61,6 +61,7 @@ guard / write 的选项（其它子命令不接受）：
   --intent <一句话>  这次改写想干什么（别人超时放弃时唯一的线索，强烈建议填）
   --timeout <秒>     等待超时，guard 默认 30、write 默认 5；超时即**放弃并通报**（退出码 5）
   --stale-after <秒> 陈旧阈值，默认 900；到期即可接管（接管会打印被接管者的完整锁记录）
+  --suite <名称>     replay 的 fixture suite（当前仅 core；与 fixture 路径二选一）
   --force            人工强制接管 / 强制释放
 
 通用选项：
@@ -80,12 +81,13 @@ guard / write 的选项（其它子命令不接受）：
 const COMMANDS_ACCEPTING_OPERANDS: [&str; 3] = ["guard", "replay", "write"];
 
 /// 需要跟一个值的选项（不含前导 `--` 的名字会作为 `Invocation::options` 的键）。
-const VALUE_OPTIONS: [&str; 5] = [
+const VALUE_OPTIONS: [&str; 6] = [
     "--owner",
     "--task",
     "--intent",
     "--timeout",
     "--stale-after",
+    "--suite",
 ];
 
 /// 布尔开关（不含前导 `--` 的名字会进 `Invocation::flags`）。
@@ -335,7 +337,7 @@ mod tests {
     }
 
     #[test]
-    fn test_usage_text_marks_unimplemented_commands_with_owning_card() {
+    fn test_usage_text_documents_replay_suite() {
         for command in [
             "verify-schemas",
             "codegen",
@@ -346,9 +348,21 @@ mod tests {
             assert!(USAGE.contains(command), "用法说明遗漏子命令 {command}");
         }
         assert!(
-            USAGE.contains("未实现"),
-            "用法说明必须标明哪些子命令还没实现"
+            USAGE.contains("--suite core"),
+            "用法说明必须给出 replay 完整版的 suite 入口"
         );
+    }
+
+    #[test]
+    fn test_parse_args_replay_suite_value() {
+        let invocation =
+            parse_args(&args(&["replay", "--suite", "core"])).expect("replay suite 应解析成功");
+        assert_eq!(invocation.command.as_deref(), Some("replay"));
+        assert_eq!(
+            invocation.options.get("suite").map(String::as_str),
+            Some("core")
+        );
+        assert!(invocation.operands.is_empty());
     }
 
     // --- 新增（ADR-0028 / ADR-0030）：guard 操作数与选项、新子命令、退出码 5 ---

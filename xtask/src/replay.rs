@@ -1,12 +1,15 @@
-//! # 树快照回放（replay skeleton）
+//! # 树快照回放（Recording v1 / v2）
 //!
-//! `xtask replay` 子命令（gov §5.1 门禁 #12 子编号 = replay；TASK-034 扩展为 Recording v1）。
+//! `xtask replay` 子命令（gov §5.1 门禁 #12 子编号 = replay；TASK-034 扩展为 Recording v1，
+//! TASK-236 补上 Recording v2 序列与树级 diff）。
 //!
-//! 职责：加载录制的 UI 树快照（JSON），做**离线回放** = 校验 + 摘要，不实际驱动应用。
+//! 职责：加载录制的 UI 树快照或 UIA 树快照序列，做**离线回放** = 校验 + diff + 摘要，
+//! 不实际驱动应用。
 //!
 //! ## 边界（不做什么）
-//! - 不**真**驱动应用：replay 是 dry-run，仅校验快照可解析、记录数 / 关键字段齐全。
-//! - 不做 diff：快照 diff（vs. 当前实树快照）是另一个子命令（= future）。
+//! - 不**真**驱动应用：replay 只消费仓库 fixture，不启动、点击、输入或截图。
+//! - v1 单快照仍按旧格式校验；v2 序列才做节点 / 属性 / 文本 diff。
+//! - 不修改 `assistant-platform-api` 的公共形状，也不把 replay 接进生产装配。
 //!
 //! ## 快照格式（Recording v1；兼容 TASK-015 的 legacy `version` 形状）
 //! ```json
@@ -39,6 +42,7 @@
 //!
 //! 相关：`docs/governance-ai-agent-execution.md` §5.4、ADR-0019 元门禁（硬门禁必须配负向验证）
 
+use crate::replay_sequence;
 use crate::report::{Finding, Severity};
 
 /// Replay 规则名常量。
@@ -337,17 +341,39 @@ fn validate_read_text_references(
     }
 }
 
-/// 执行 replay 子命令：加载 + 校验 + 摘要（dry-run）。
-pub fn run(snapshot_path: &std::path::Path, output: &mut dyn std::io::Write) -> Result<u8, String> {
+/// 按声明版本分派 v1 旧格式或 v2 序列格式。
+pub fn run_path(path: &std::path::Path, output: &mut dyn std::io::Write) -> Result<u8, String> {
+    let content = std::fs::read_to_string(path).map_err(|e| format!("读快照失败：{e}"))?;
+    match replay_sequence::declared_sequence_version(&content) {
+        Ok(version) if version == replay_sequence::SEQUENCE_VERSION => {
+            replay_sequence::run_sequence(path, output)
+        }
+        Ok(_) | Err(_) => Ok(run_legacy_content(path, &content, output)),
+    }
+}
+
+/// 执行一个命名 suite：`core` 只读取 `*.sequence.json`，未知 suite / 空 suite 显式失败。
+pub fn run_suite(
+    repo_root: &std::path::Path,
+    suite: &str,
+    output: &mut dyn std::io::Write,
+) -> Result<u8, String> {
+    replay_sequence::run_suite(repo_root, suite, output)
+}
+
+fn run_legacy_content(
+    snapshot_path: &std::path::Path,
+    content: &str,
+    output: &mut dyn std::io::Write,
+) -> u8 {
     use crate::{EXIT_FINDINGS, EXIT_OK};
-    let content = std::fs::read_to_string(snapshot_path).map_err(|e| format!("读快照失败：{e}"))?;
-    let snap = match parse_snapshot(&content) {
+    let snap = match parse_snapshot(content) {
         Ok(s) => s,
         Err(e) => {
             let _ = writeln!(output, "== replay ==");
             let _ = writeln!(output, "parse error: {e}");
             let _ = writeln!(output, "-- verdict: FAILED");
-            return Ok(EXIT_FINDINGS);
+            return EXIT_FINDINGS;
         }
     };
     let findings = validate_snapshot(&snap);
@@ -405,11 +431,7 @@ pub fn run(snapshot_path: &std::path::Path, output: &mut dyn std::io::Write) -> 
         "-- summary: {errors} error(s), {warnings} warning(s)"
     );
     let _ = writeln!(output, "-- verdict: {verdict}");
-    if errors > 0 {
-        Ok(EXIT_FINDINGS)
-    } else {
-        Ok(EXIT_OK)
-    }
+    if errors > 0 { EXIT_FINDINGS } else { EXIT_OK }
 }
 
 #[cfg(test)]
@@ -588,3 +610,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "replay_sequence_tests.rs"]
+mod sequence_tests;

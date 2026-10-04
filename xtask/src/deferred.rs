@@ -58,12 +58,7 @@ pub struct DeferredRule {
 /// 未实现的子命令清单。
 ///
 /// 顺序即 `--list-deferred` 的输出顺序，保持稳定以便 diff。
-pub const DEFERRED_COMMANDS: &[DeferredCommand] = &[DeferredCommand {
-    command: "replay-skeleton",
-    ci_gate: "gov §5.1 #13",
-    owning_card: "TASK-034",
-    reason: "skeleton 已实现（TASK-015-pt3，dry-run 解析+校验）；真实 fixture + diff 留待 TASK-034 完整版",
-}];
+pub const DEFERRED_COMMANDS: &[DeferredCommand] = &[];
 
 /// 未实现的卫生规则清单；TASK-234 后为空。
 ///
@@ -95,6 +90,9 @@ pub fn not_implemented_message(entry: &DeferredCommand) -> String {
 /// 生成未实现子命令清单的可读文本（`--list-deferred` 用）。
 #[must_use]
 pub fn describe_deferred_commands() -> String {
+    if DEFERRED_COMMANDS.is_empty() {
+        return "未实现的子命令：0 项。\n".to_string();
+    }
     let rows: Vec<String> = DEFERRED_COMMANDS
         .iter()
         .map(|entry| {
@@ -203,13 +201,10 @@ mod tests {
     }
 
     #[test]
-    fn test_find_command_returns_registered_entry() {
-        // TASK-011 之后 codegen / verify-schemas 已实现并从表里移除，改用仍待实现的 replay-skeleton。
-        let entry = find_command("replay-skeleton").expect("replay-skeleton 应在未实现表里");
-        assert_eq!(entry.command, "replay-skeleton");
+    fn test_find_command_returns_none_after_replay_completion() {
         assert!(
-            !entry.owning_card.trim().is_empty(),
-            "登记项必须写明归属卡号"
+            find_command("replay-skeleton").is_none(),
+            "TASK-236 完成后 replay 不再属于未实现子命令"
         );
     }
 
@@ -223,25 +218,17 @@ mod tests {
     }
 
     #[test]
-    fn test_not_implemented_message_names_the_owning_card() {
-        let entry = find_command("replay-skeleton").expect("replay-skeleton 应已登记");
-        let message = not_implemented_message(entry);
-        // 断言绑定**登记表里的实际归属**，不硬编码卡号：硬编码会在「归属修正」
-        // （PL-059 那种）时变成一条假红灯。这里同时把修正后的归属**锁死**。
-        assert!(
-            message.contains(entry.owning_card),
-            "报错必须指出归属卡号（{}），实际：{message}",
-            entry.owning_card
-        );
-        assert_eq!(
-            entry.owning_card, "TASK-034",
-            "replay 的完整版归 TASK-034（record-replay 框架），不是已 Done 的 TASK-015（PL-059）"
-        );
+    fn test_not_implemented_message_remains_available_for_future_entries() {
+        let entry = DeferredCommand {
+            command: "future-command",
+            ci_gate: "gov §5.1 #future",
+            owning_card: "TASK-999",
+            reason: "future",
+        };
+        let message = not_implemented_message(&entry);
+        assert!(message.contains(entry.owning_card));
+        assert!(message.contains(entry.command));
         assert!(message.contains("尚未实现"));
-        assert!(
-            message.contains("replay-skeleton"),
-            "报错必须回显命令名，便于在长日志里定位"
-        );
     }
 
     #[test]
@@ -285,13 +272,10 @@ mod tests {
     #[test]
     fn test_describe_functions_list_every_entry() {
         let commands = describe_deferred_commands();
-        for entry in DEFERRED_COMMANDS {
-            assert!(
-                commands.contains(entry.command),
-                "清单遗漏命令 {}",
-                entry.command
-            );
-        }
+        assert!(
+            commands.contains("未实现的子命令：0 项"),
+            "清单必须显式说明 replay 完整版后为 0 项：{commands}"
+        );
         let rules = describe_deferred_rules();
         for entry in DEFERRED_HYGIENE_RULES {
             assert!(rules.contains(entry.rule), "清单遗漏规则 {}", entry.rule);

@@ -490,16 +490,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: print deferred inventory
         run: cargo run -p xtask -- --list-deferred
-      # TASK-011 实现了 codegen / verify-schemas，TASK-087 实现了 check-comments，
-      # 因此改用仍未实现的 `replay-skeleton` 证明"未实现 ≠ 成功"。
-      - name: "verify unimplemented subcommand fails loudly (use replay-skeleton)"
-        run: |
-          set +e
-          cargo run -q -p xtask -- replay-skeleton
-          code=$?
-          set -e
-          if [ "$code" -ne 3 ]; then
-            echo "未实现的子命令必须以退出码 3 失败（铁律 1：无静默失败），实际 $code"
-            exit 1
-          fi
-          echo "OK: 未实现子命令显式失败（exit 3）"
+      # TASK-236 清空了 deferred inventory；改用具体单测继续锁住
+      # `Failure::NotImplemented -> exit 3` 的机器判据，而不是依赖一个已不存在的命令。
+      - name: "verify unimplemented failure path stays loud (exit 3)"
+        run: cargo test -q -p xtask tests::test_not_implemented_failure_keeps_distinct_code -- --exact
