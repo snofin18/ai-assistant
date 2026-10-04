@@ -1,6 +1,6 @@
 # TASK-235　`RoleAndParent` 父候选与解析链语义（PL-094）
 
-- 状态：**Done**
+- 状态：**Done（2026-10-04；ADR-0070 Accepted，PR #220 / merge `8d9241d`，CI 11/11 SUCCESS）**
 - 阶段：1　子阶段：治理池　批次：1b bridge　依赖：017、031、ADR-0043、ADR-0044
 - 关联：`docs/PARKING_LOT.md` PL-094、`[ADR:待建 0017]`、ADR-0043、ADR-0044、`crates/platform/windows/src/uia/{resolve,search}.rs`
 
