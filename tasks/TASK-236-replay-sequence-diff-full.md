@@ -1,6 +1,6 @@
 # TASK-236　replay 完整版：真实 UIA 树快照序列 + 树级 diff + `--suite core`
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：1　子阶段：1a　批次：治理池　依赖：TASK-034（Done）
 - 关联：`tasks/TASK-034-record-replay-framework-xtask-replay.md`、`fixtures/recordings/README.md`、`xtask/src/replay.rs`
 - 预估：M　难度：M
@@ -130,7 +130,7 @@ cargo run -p xtask -- codegen --check
 - [x] 缺失 suite、未知 suite、非法版本与结构错误显式失败。
 - [x] `--list-deferred` 不再报 replay 未实现项。
 - [x] 既有 `replay <fixture>` v1 路径仍通过。
-- [ ] CI 11/11 SUCCESS + MERGEABLE/CLEAN + base=main 后合并；当前状态保持 InProgress，待 CI 后改 Done。
+- [x] CI 11/11 SUCCESS + MERGEABLE/CLEAN + base=main 后合并；CI run `37187310042` 已 11/11 SUCCESS。
 - [x] 状态行比对规则已执行，比对文本写入 PR 描述。
 - [x] 新增长期记忆已进入 `docs/memory/facts.md` 并同步 `MEMORY.md` 规模表。
 
