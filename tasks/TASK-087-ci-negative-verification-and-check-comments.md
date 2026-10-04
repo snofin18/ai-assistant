@@ -1,6 +1,6 @@
 # TASK-087　CI 硬门禁负向验证与 `check-comments` 落地
 
-- 状态：**Ready**
+- 状态：**Done（2026-09-30；LEDGER Done + PR #104 / merge `5844326`；gate negative + check-comments）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：015、039
 - 预估：L　难度：L
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。

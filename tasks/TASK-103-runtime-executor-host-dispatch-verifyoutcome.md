@@ -1,6 +1,6 @@
 # TASK-103　真实任务执行器：Host 分发、上下文装配与 VerifyOutcome 接线
 
-- 状态：**Ready**
+- 状态：**Done（2026-09-29；LEDGER Done + PR #98 / merge `16c9709`；runtime executor）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：102
 - 预估：L　难度：L
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。

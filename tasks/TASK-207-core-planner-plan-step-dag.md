@@ -1,6 +1,6 @@
 # TASK-207　`core`：Planner（模型输出 → 可校验的 Plan / Step DAG）
 
-- 状态：**Ready**
+- 状态：**Done（2026-09-27；LEDGER Done + PR #66 / merge `78acfed`；core Planner）**
 - 阶段：1　子阶段：**1a**　批次：**A2**（原 TASK-028 的拆卡）　依赖：022 / 026 / 028　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`；契约见 `docs/spec/core-orchestration.md` 与 `docs/adr/0053-core-orchestration-layer-interface.md`。

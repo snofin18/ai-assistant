@@ -1,6 +1,6 @@
 # TASK-100　Win32 Input Helper Module 单测（SendInput 替换 SendKeys 的前置）
 
-- 状态：**Ready**
+- 状态：**Done（2026-09-23；LEDGER Done + `Win32-Input.psm1` + probe-11~13 在 main）**
 - 阶段：0（spike 派生）　子任务：用户 chat 2026-09-22 三步需求第 1+2 步（研究→单测新代码）　依赖：—　预估：M（~60-90 min）　阻塞主线：否
 - 本文件 = **卡片正文 + 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-0-spikes.md`。

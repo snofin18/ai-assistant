@@ -1,6 +1,6 @@
 # TASK-104　UI ↔ Core typed IPC 与审批接线
 
-- 状态：**Ready**
+- 状态：**Done（2026-09-29；LEDGER Done + PR #100 / merge `e397f9a`；UI/IPC approval wiring）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：102、103
 - 预估：L　难度：L
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。
