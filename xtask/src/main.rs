@@ -74,6 +74,7 @@ mod comments;
 mod deferred;
 mod doccheck;
 mod docscan;
+mod duplicate_code;
 mod exemptions;
 mod guard;
 mod guard_model;
@@ -81,6 +82,7 @@ mod guard_release;
 mod guard_runner;
 mod guard_store;
 mod hygiene;
+mod hygiene_io;
 mod ledger_check;
 mod memory_counts;
 mod memory_table;
@@ -92,6 +94,7 @@ mod report;
 mod repowalk;
 mod rustscan;
 mod serde_json_lite;
+mod top_level_dirs;
 mod verify_schemas;
 mod write_channel;
 
@@ -99,7 +102,6 @@ mod write_channel;
 #[cfg(test)]
 mod guard_testkit;
 
-use std::collections::BTreeSet;
 use std::io::Write;
 use std::path::Path;
 use std::process::ExitCode;
@@ -107,9 +109,8 @@ use std::process::ExitCode;
 use cli::{Invocation, USAGE, parse_args};
 use report::{Finding, Report, Severity};
 use repowalk::{
-    RepoFileEntry, WalkError, collect_hygiene_text_files, collect_rust_files,
-    parse_cargo_dependency_names, parse_cargo_package_name, parse_registered_cargo_dependencies,
-    relative_display_path, resolve_repo_root,
+    WalkError, collect_hygiene_text_files, collect_rust_files, relative_display_path,
+    resolve_repo_root,
 };
 
 /// 检查通过（可能仍有 Warning）。
@@ -454,78 +455,6 @@ fn run_check_comments(invocation: &Invocation, output: &mut dyn Write) -> Result
     })
 }
 
-/// 对文本文件执行 CRLF 与末行换行规则；读取失败必须带路径向上失败。
-fn collect_text_hygiene_findings(text_files: &[RepoFileEntry]) -> Result<Vec<Finding>, Failure> {
-    let mut findings = Vec::new();
-    for file in text_files {
-        let bytes = std::fs::read(&file.abs_path).map_err(|error| {
-            Failure::from_io(&format!("读取 {}", file.abs_path.display()), &error)
-        })?;
-        findings.extend(hygiene::check_text_file_bytes(&file.rel_path, &bytes));
-    }
-    Ok(findings)
-}
-
-fn collect_dependency_hygiene_findings(
-    root: &Path,
-    text_files: &[RepoFileEntry],
-) -> Result<Vec<Finding>, Failure> {
-    let manifests: Vec<(&str, String)> = text_files
-        .iter()
-        .filter(|entry| {
-            entry
-                .abs_path
-                .file_name()
-                .and_then(std::ffi::OsStr::to_str)
-                .is_some_and(|name| name == "Cargo.toml")
-                && !["spikes/", "fixtures/", "tools/"]
-                    .iter()
-                    .any(|prefix| entry.rel_path.starts_with(prefix))
-        })
-        .map(|entry| {
-            std::fs::read_to_string(&entry.abs_path)
-                .map(|source| (entry.rel_path.as_str(), source))
-                .map_err(|error| {
-                    Failure::from_io(&format!("读取 {}", entry.abs_path.display()), &error)
-                })
-        })
-        .collect::<Result<_, _>>()?;
-    if manifests.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let internal_names: BTreeSet<String> = manifests
-        .iter()
-        .filter_map(|(_path, source)| parse_cargo_package_name(source))
-        .collect();
-    let manifest_dependencies: Vec<(String, BTreeSet<String>)> = manifests
-        .iter()
-        .map(|(path, source)| {
-            let mut dependencies = parse_cargo_dependency_names(source);
-            dependencies.retain(|name| !internal_names.contains(name));
-            ((*path).to_string(), dependencies)
-        })
-        .collect();
-
-    let registry_path = root.join("docs").join("DEPENDENCIES.md");
-    let registry_source = std::fs::read_to_string(&registry_path)
-        .map_err(|error| Failure::from_io(&format!("读取 {}", registry_path.display()), &error))?;
-    Ok(
-        parse_registered_cargo_dependencies(&registry_source).map_or_else(
-            || {
-                vec![Finding::new(
-                    "hygiene/dependency-registry-unparsable",
-                    Severity::Error,
-                    "docs/DEPENDENCIES.md",
-                    0,
-                    "缺少 `## Rust（cargo）` 或表格行不足九列".to_string(),
-                )]
-            },
-            |registered| hygiene::check_dependency_registry(&manifest_dependencies, &registered),
-        ),
-    )
-}
-
 /// 执行仓库卫生检查。
 fn run_hygiene(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
     let root = resolve_repo_root(invocation.repo.as_deref())
@@ -537,56 +466,38 @@ fn run_hygiene(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Fa
     let mut report = Report::new("hygiene");
     report.scanned_files = rust_files.len();
 
-    let mut findings: Vec<Finding> = Vec::new();
-    let mut scanned_function_count = 0usize;
-    for file in &rust_files {
-        let source = std::fs::read_to_string(file)
-            .map_err(|error| Failure::from_io(&format!("读取 {}", file.display()), &error))?;
-        let relative = relative_display_path(&root, file);
-        scanned_function_count += hygiene::count_functions(&source);
-        findings.extend(hygiene::check_rust_source(&relative, &source));
-    }
-    findings.extend(collect_text_hygiene_findings(&text_files)?);
-    findings.extend(collect_dependency_hygiene_findings(&root, &text_files)?);
+    let rust_data = hygiene_io::collect_rust_hygiene_data(&root, &rust_files)?;
+    let mut findings = rust_data.findings;
+    let duplicate_sources: Vec<duplicate_code::DuplicateSource<'_>> = rust_data
+        .sources
+        .iter()
+        .map(|(relative_path, source)| duplicate_code::DuplicateSource {
+            relative_path,
+            source,
+        })
+        .collect();
+    findings.extend(duplicate_code::check_duplicate_code(&duplicate_sources));
+    findings.extend(hygiene_io::collect_text_hygiene_findings(&text_files)?);
+    findings.extend(hygiene_io::collect_dependency_hygiene_findings(
+        &root,
+        &text_files,
+    )?);
+    findings.extend(hygiene_io::collect_top_level_directory_hygiene_findings(
+        &root,
+    )?);
     // 排序保证输出确定性（report.rs 不变量 3 要求调用方排好序再插入）
     findings.sort_by(|left, right| {
         (&left.path, left.line, left.rule).cmp(&(&right.path, right.line, right.rule))
     });
     report.extend(findings);
 
-    // 不变量 4：0 个文件时 PASSED 是假信号，必须显式说出来
-    if rust_files.is_empty() {
-        report.push(Finding::new(
-            "xtask/no-source-files",
-            Severity::Warning,
-            "xtask",
-            0,
-            format!(
-                "在 {} 下没有找到任何 .rs 文件（扫描根：{}）。PASSED 只代表没有代码可查，不代表代码合规。",
-                root.display(),
-                repowalk::SCANNED_SOURCE_ROOTS.join(", ")
-            ),
-        ));
-    }
-    if text_files.is_empty() {
-        report.push(Finding::new(
-            "xtask/no-text-files",
-            Severity::Warning,
-            "xtask",
-            0,
-            "扫描集里没有任何 ADR-0025 文本文件；换行与依赖登记规则没有可判定对象。",
-        ));
-    }
-    // TASK-085：即使扫到了文件，0 个函数也意味着结构规则没有可判定对象。
-    if scanned_function_count == 0 {
-        report.push(Finding::new(
-            "hygiene/no-functions-scanned",
-            Severity::Warning,
-            "xtask",
-            0,
-            "扫描集里没有任何函数；结构规则没有可判定对象，PASSED 不代表函数结构合规。",
-        ));
-    }
+    hygiene_io::append_zero_scan_warnings(
+        &mut report,
+        &root,
+        rust_files.len(),
+        text_files.len(),
+        rust_data.function_count,
+    );
 
     // 机器可读的一行摘要放在最前，便于 CI/脚本 grep；随后是给人看的完整报告
     let summary = report
@@ -728,7 +639,10 @@ mod tests {
             text.contains("replay-skeleton"),
             "清单应包含未实现子命令（TASK-087 实现 check-comments 后，剩余的是 replay-skeleton）"
         );
-        assert!(text.contains("重复代码"), "清单应包含仍未实现的卫生规则");
+        assert!(
+            text.contains("未实现 0 项"),
+            "TASK-234 后卫生规则必须全部实现：{text}"
+        );
         assert!(
             !text.contains("单函数行数"),
             "TASK-085 已实现的规则不应继续出现在未实现清单里"
@@ -774,8 +688,8 @@ mod tests {
     }
 
     #[test]
-    fn test_execute_hygiene_with_repo_override_scans_that_directory() {
-        // 指向 xtask/src 之外的目录：应当扫到 0 个文件并显式告警（不变量 4）
+    fn test_execute_hygiene_with_repo_override_without_whitelist_is_error() {
+        // 指向 xtask/src 之外的目录：既要报告 0 个源码文件，也要因缺少 ADR-0069 白名单失败。
         let root = resolve_repo_root(None).expect("默认仓库根应可用");
         let docs = root.join("docs");
         let mut output: Vec<u8> = Vec::new();
@@ -785,10 +699,14 @@ mod tests {
         )
         .expect("不应因 IO 失败");
         let text = String::from_utf8(output).expect("应为 UTF-8");
-        assert_eq!(code, EXIT_OK, "docs 下没有 .rs，不该有 Error 级发现项");
+        assert_eq!(code, EXIT_FINDINGS, "缺少顶层目录白名单必须 fail-closed");
         assert!(
             text.contains("xtask/no-source-files"),
             "0 个文件必须显式告警：{text}"
+        );
+        assert!(
+            text.contains("hygiene/top-level-whitelist-unparsable"),
+            "缺少白名单必须显式失败：{text}"
         );
         assert!(text.contains("scanned_files=0"));
     }

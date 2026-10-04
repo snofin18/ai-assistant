@@ -73,8 +73,10 @@
 | **0065** | `0065-initial-fingerprint-reserved-host-step.md` | **Accepted** | 前置保留步骤产出初始指纹：新增 `assistant.runtime.host_capture_initial_fingerprint`，恒执行、指纹只来自**注入平台**（fake 与 `WindowsPlatform` 同一条代码路径）、严禁构建配置分叉与伪造、不改 `runtime_binding` 的 fail-closed 判据（TASK-223；`DRIFT-223-1` / `PL-100` 闭环；2026-10-03 人类派单确认） |
 | **0066** | `0066-cli-single-write-channel-and-file-occupancy-probe.md` | **Accepted** | 命令行唯一写通道 = `xtask write` 复用 ADR-0028 协作锁 + Windows `share_mode(0)` 占用探测 + 有界退避重试；不做真 FIFO，`apply_patch` 不强制纳入，探测盲区与非 Windows fail-closed 明写（TASK-224；2026-10-04 按用户 2026-10-03 预授权代为裁决；`PL-107` 闭环） |
 | **0067** | `0067-pointer-action-explicit-coordinate-space.md` | **Accepted** | pointer 动作显式携带起始点 `CoordinateSpace`；`DragTo` 释放点携带自己的 `CoordinateSpace`；删除混合 DPI 收敛启发式，改为设备名 / DPI / 物理点落屏的显式校验（TASK-231；2026-10-04 按用户 2026-10-03 预授权代为裁决；`PL-074` 闭环） |
+| **0068** | `0068-cross-file-duplicate-code-hygiene.md` | **Accepted** | 跨文件重复代码 = 规范化 token shingle + 包含度阈值；本版 Warning，忽略测试 / 生成 / fixture，扫描有硬上限（TASK-234；2026-10-04 按用户 2026-10-04 预授权代为裁决；`PL-060` 闭环） |
+| **0069** | `0069-top-level-directory-adr-whitelist.md` | **Accepted** | 顶层目录白名单 = `docs/adr/top-level-directories.md`；未登记目录 Error，`scripts/` 仍待 PL-023 单独裁决（TASK-234；2026-10-04 按用户 2026-10-04 预授权代为裁决；`PL-060` 闭环） |
 
-**下一个可用编号：0068**（= §1 与 §2 已用最大号 **0067** + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0070**（= §1 与 §2 已用最大号 **0069** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由

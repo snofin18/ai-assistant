@@ -6,12 +6,11 @@
 //! 被注释掉的代码是"舍不得删"的典型症状。
 //!
 //! ## 边界（不做什么）
-//! - 不做文件 IO：输入是 `(相对路径, 源码文本)`，遍历与读写在 `main.rs`。
+//! - 不做文件 IO：输入是 `(相对路径, 源码文本)`，遍历与读写在 `main.rs`；
+//!   跨文件规则见 `duplicate_code.rs`，目录规则见 `top_level_dirs.rs`。
 //! - 不做词法分析：注释识别委托给 `rustscan::scan`（否则字符串里的 `//` 会被误判为注释）。
-//! - 当前实现 gov §5.4 的 13 项中的 **11** 项；其余 2 项在 `deferred.rs`
-//!   登记为「未实现 + 归属卡号」（未拆卡，见 `docs/PARKING_LOT.md` PL-060；归属修正见 PL-059）。
-//!   未实现的规则**不会被静默跳过**：
-//!   `xtask hygiene --list-deferred` 会把它们全部打印出来。
+//! - 当前覆盖 gov §5.4 的 **13/13** 项；跨文件重复代码由 `duplicate_code` 判定，
+//!   顶层目录白名单由 `top_level_dirs` 判定，本模块负责单文件 Rust 规则。
 //!
 //! ## 不变量
 //! 1. 判定是**纯函数**：同样的 `(path, source)` 必得同样的 `Vec<Finding>`。
@@ -20,7 +19,6 @@
 //! 4. 阈值只在本文件以 `pub const` 定义；调阈值等于改契约，需 ADR。
 //!
 //! 相关：`docs/governance-ai-agent-execution.md` §5.4、`docs/spec/naming.md` §8
-
 use std::collections::BTreeSet;
 
 use crate::report::{Finding, Severity};

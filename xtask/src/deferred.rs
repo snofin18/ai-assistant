@@ -28,9 +28,8 @@
 /// 是更彻底的做法，已记入 `docs/PARKING_LOT.md` PL-022。
 pub const TOTAL_HYGIENE_RULE_COUNT: usize = 13;
 
-/// 已实现的卫生规则项数：TASK-001 的 3 条 + TASK-085 的函数结构 5 条 +
-/// TASK-086 的文件级换行与依赖登记 3 条。
-pub const IMPLEMENTED_HYGIENE_RULE_COUNT: usize = 11;
+/// 已实现的卫生规则项数：TASK-001 / TASK-085 / TASK-086 / TASK-234 已覆盖全部 13 条。
+pub const IMPLEMENTED_HYGIENE_RULE_COUNT: usize = 13;
 
 /// 一个尚未实现的子命令。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,34 +65,11 @@ pub const DEFERRED_COMMANDS: &[DeferredCommand] = &[DeferredCommand {
     reason: "skeleton 已实现（TASK-015-pt3，dry-run 解析+校验）；真实 fixture + diff 留待 TASK-034 完整版",
 }];
 
-/// 未拆卡的卫生规则归属说明（PL-060：需要 ADR / 阈值设计前置，尚无任务卡）。
+/// 未实现的卫生规则清单；TASK-234 后为空。
 ///
-/// 这不是"留空"：它明确指出了**下一步去哪**（`docs/PARKING_LOT.md` PL-060），
-/// 因此仍满足不变量 3 的意图（有人类可执行的下一步）。
-pub const UNASSIGNED_HYGIENE_CARD: &str =
-    "未拆卡（见 docs/PARKING_LOT.md PL-060：需 ADR / 阈值设计前置）";
-
-/// 未实现的卫生规则清单（gov §5.4 共 13 项；TASK-001 / TASK-085 / TASK-086 已实现 11 项，
-/// 其余 2 项的归属见 PL-060）。
-///
-/// **2026-09-24 归属修正（PL-059）**：这 10 项原来一律写 `TASK-015`，而 TASK-015 已 Done
-/// 且**没有**实现它们 —— 登记表指向一张已完成的卡，等于「有人会做」的信号消失
-/// （与本模块头部反对的「静默失败」同型）。TASK-085 / TASK-086 的实现组已经完成；
-/// 剩余两个未拆卡项统一指向 `UNASSIGNED_HYGIENE_CARD`。
-///
-/// 分组轴是**实现机制**（同一扫描器的规则放一张卡），不是「谁提的」。
-pub const DEFERRED_HYGIENE_RULES: &[DeferredRule] = &[
-    DeferredRule {
-        rule: "重复代码（跨文件相似度）警告",
-        reason: "需要跨文件指纹与相似度阈值设计，属独立议题（PL-060：先裁决阈值口径）",
-        owning_card: UNASSIGNED_HYGIENE_CARD,
-    },
-    DeferredRule {
-        rule: "新增顶层目录必须在 ADR 白名单中",
-        reason: "需要先有 ADR 白名单文件（docs/adr/ 下已有多份 ADR，但白名单本身尚未落地；另见 PL-023 的 scripts/ 归属）→ PL-060",
-        owning_card: UNASSIGNED_HYGIENE_CARD,
-    },
-];
+/// 保留数组与类型是让不变量 1 继续机器校验「已实现数 + 未实现数 == 13」；
+/// 未来新增规则时先登记未实现项，再实现并清空。
+pub const DEFERRED_HYGIENE_RULES: &[DeferredRule] = &[];
 
 /// 按名字查找未实现的子命令；找不到说明它是未知命令（由 `main.rs` 区分处理）。
 #[must_use]
@@ -134,6 +110,11 @@ pub fn describe_deferred_commands() -> String {
 /// 生成未实现卫生规则清单的可读文本（`--list-deferred` 用）。
 #[must_use]
 pub fn describe_deferred_rules() -> String {
+    if DEFERRED_HYGIENE_RULES.is_empty() {
+        return format!(
+            "gov §5.4 的 {TOTAL_HYGIENE_RULE_COUNT} 项卫生规则已全部实现：未实现 0 项。\n"
+        );
+    }
     let rows: Vec<String> = DEFERRED_HYGIENE_RULES
         .iter()
         .map(|entry| {
@@ -157,7 +138,7 @@ pub fn describe_deferred_rules() -> String {
 #[must_use]
 pub fn hygiene_progress_note() -> String {
     format!(
-        "-- deferred-rules: gov §5.4 共 {} 项，已实现 {} 项，未实现 {} 项（剩余未拆卡项见 PL-060；`--list-deferred` 查看清单）",
+        "-- deferred-rules: gov §5.4 共 {} 项，已实现 {} 项，未实现 {} 项（`--list-deferred` 查看清单）",
         TOTAL_HYGIENE_RULE_COUNT,
         IMPLEMENTED_HYGIENE_RULE_COUNT,
         DEFERRED_HYGIENE_RULES.len()
@@ -264,19 +245,11 @@ mod tests {
     }
 
     #[test]
-    fn test_deferred_hygiene_rules_only_point_at_the_two_owning_cards() {
-        // PL-059 的机器判据（ADR-0019 N1 同型）：10 项未实现规则只许归
-        // TASK-085 / TASK-086 已实现；剩余条目只许指向未拆卡指针，不准再出现
-        // 「指向一张已 Done 的卡」那种形态（TASK-015 就是这样过期的）。
-        let allowed = [UNASSIGNED_HYGIENE_CARD];
-        for entry in DEFERRED_HYGIENE_RULES {
-            assert!(
-                allowed.contains(&entry.owning_card),
-                "规则 `{}` 的归属 `{}` 不在允许集合里 —— 改归属时必须同时更新本测试（PL-059）",
-                entry.rule,
-                entry.owning_card
-            );
-        }
+    fn test_deferred_hygiene_rules_are_empty_after_pl060() {
+        assert!(
+            DEFERRED_HYGIENE_RULES.is_empty(),
+            "TASK-234 后 gov §5.4 的 13 条规则必须全部有实现；未实现表不得回流"
+        );
     }
 
     #[test]
@@ -300,12 +273,12 @@ mod tests {
     fn test_progress_note_states_partial_coverage() {
         let note = hygiene_progress_note();
         assert!(
-            note.contains("已实现 11 项"),
-            "必须声明只实现了一部分，实际：{note}"
+            note.contains("已实现 13 项"),
+            "必须声明 13/13 已实现，实际：{note}"
         );
         assert!(
-            note.contains("未实现 2 项"),
-            "ADR-0025：gov §5.4 为 13 项、已实现 11 项 → 未实现必须是 2 项，实际：{note}"
+            note.contains("未实现 0 项"),
+            "ADR-0068 / ADR-0069 落地后未实现项必须为 0，实际：{note}"
         );
     }
 

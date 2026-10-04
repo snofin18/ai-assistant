@@ -8,7 +8,6 @@
 //! - 不读文件内容（`main.rs` 负责，因为读失败要带上具体路径报错）。
 //! - 不判定规则。
 //! - 不写任何文件（xtask 是只读工具，不变量见 `main.rs`）。
-//!
 //! ## 不变量
 //! 1. **确定性**：同一仓库状态两次遍历得到**逐元素相同**的文件列表。
 //!    `std::fs::read_dir` 的顺序由文件系统决定，因此必须排序（否则 CI 输出会随机变化）。
@@ -21,7 +20,6 @@
 //! `exclude`，它们是一次性验证代码、不参与产品构建，因此也不受产品卫生规则约束。
 //! 否则 Spike 里为快速验证而写的粗糙代码会长期把 CI 染红，进而训练人忽略红灯 ——
 //! 那比不检查更糟。
-//!
 //! 相关：`docs/governance-ai-agent-execution.md` §5.4
 
 use std::collections::BTreeSet;
@@ -104,6 +102,30 @@ pub fn collect_rust_files(root: &Path) -> Result<Vec<PathBuf>, WalkError> {
     files.sort();
     files.dedup();
     Ok(files)
+}
+
+/// 收集仓库根的一级目录名（排序去重，跳过构建产物与版本库元数据）。
+///
+/// 该列表供 ADR-0069 的顶层目录白名单规则使用。目录名必须能转成 UTF-8：
+/// 否则返回 `WalkError::ReadDirectory`，而不是用 lossy 名称继续比较。
+pub fn collect_top_level_directory_names(root: &Path) -> Result<Vec<String>, WalkError> {
+    let mut directories = Vec::new();
+    for entry in read_sorted_entries(root)? {
+        if !entry.is_dir() || is_skipped_directory(&entry) {
+            continue;
+        }
+        let name = entry
+            .file_name()
+            .and_then(std::ffi::OsStr::to_str)
+            .map(str::to_string)
+            .ok_or_else(|| {
+                WalkError::ReadDirectory(format!("顶层目录名不是 UTF-8：{}", entry.display()))
+            })?;
+        directories.push(name);
+    }
+    directories.sort();
+    directories.dedup();
+    Ok(directories)
 }
 
 /// 收集目录下（**不递归**）的 `.rs` 文件。
@@ -571,3 +593,8 @@ mod tests {
         assert_eq!(relative_display_path(root, outside), "C:/elsewhere/a.rs");
     }
 }
+
+#[cfg(test)]
+#[path = "repowalk_top_level_tests.rs"]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod top_level_tests;

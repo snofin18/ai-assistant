@@ -4,7 +4,7 @@
 
 把「靠自觉」的规范变成**机器可执行的检查**，并提供一把开发期的文件互斥锁。当前提供：
 
-- `hygiene`：仓库卫生检查（gov §5.4 的 **13** 项中已实现 11 项，口径见 ADR-0025；工具会在输出里主动声明覆盖范围）
+- `hygiene`：仓库卫生检查（gov §5.4 的 **13/13** 项已实现，口径见 ADR-0025；工具仍会在输出里主动声明覆盖范围）
 - `memory-counts`：`MEMORY.md`「各文件当前规模」表 ↔ `docs/memory/` 实测计数是否一致（ADR-0030 D1/D2，**8** 条规则）
 - `adr-index`：`docs/adr/README.md` 编号登记表 ↔ `docs/adr/NNNN-*.md` ↔ `docs/memory/decisions.md` 是否一致（ADR-0030 D3，**11** 条规则）
 - `guard`：文件改写互斥锁（ADR-0028），操作 = `acquire` / `release` / `status` / `reap`
@@ -51,6 +51,8 @@
 | `repowalk.rs` | 定位仓库根、遍历源文件、路径归一化 | **是** |
 | `rustscan.rs` | 把源码拆成「注释列表」与「降噪代码」两个视图 | 否 |
 | `hygiene.rs` | gov §5.4 卫生规则判定 | 否 |
+| `duplicate_code.rs` | 跨文件重复代码 token shingle 判定（ADR-0068） | 否 |
+| `top_level_dirs.rs` | 顶层目录 ADR 白名单解析与判定（ADR-0069） | 否 |
 | `comments.rs` | naming §10 注释与命名规则判定 | 否 |
 | `deferred.rs` | 未实现项登记表 | 否 |
 | `report.rs` | `Finding` / `Report` 模型与渲染 | 否 |
@@ -102,6 +104,11 @@
 | `hygiene/crlf-line-endings` | Error（白名单文本文件的字节含 `\r`） | gov §5.4 / ADR-0025 D1 |
 | `hygiene/missing-final-newline` | Warning（文件无末尾 LF，或以多余空行结尾） | gov §5.4 / ADR-0025 D1 |
 | `hygiene/unregistered-dependency` | Error（直接依赖未登记）；Warning（Approved 依赖当前未直接使用） | gov §5.4 |
+| `hygiene/duplicate-code` | Warning（跨文件 token shingle 包含度 ≥ 80% 且共享 ≥ 4） | gov §5.4 / ADR-0068 |
+| `hygiene/duplicate-scan-truncated` | Warning（重复代码扫描达到文件 / shingle 预算） | ADR-0068 D9 |
+| `hygiene/unregistered-top-level-directory` | Error（顶层目录不在 ADR 白名单） | gov §5.4 / ADR-0069 |
+| `hygiene/stale-top-level-directory` | Warning（白名单目录已不存在） | ADR-0069 D5 |
+| `hygiene/top-level-whitelist-unparsable` | Error（白名单缺失或表格不可解析） | ADR-0069 D6 |
 | `xtask/no-source-files` | Warning | 本工具自证「扫到 0 个文件」不是通过 |
 | `xtask/no-text-files` | Warning | 本工具自证文本规则没有可判定对象 |
 
