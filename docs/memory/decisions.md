@@ -208,3 +208,7 @@
 ## 2026-10-04 追加（ADR-0071，Accepted）
 
 - [2026-10-04][DECISION][src:ADR-0071，按用户 2026-10-04「按你的推荐方案做」裁决；TASK-238 / PL-102 闭环] **截图管线与出域脱敏的 crate 边界**：新增两个零第三方依赖的边界 crate —— `crates/capture`（平台无关的窗口截图管线：编排「解析目标窗口 → `WindowProvider::capture` → 脱敏 → 滚动清理 → 隐私保留」）与 `crates/dlp`（三档出域策略 `local_only` / `redacted` / `full` + 逐应用 / 逐内容类型覆盖 + 脱敏规则 + 截图遮挡）。依赖方向单向：`capture` 可依赖 `crates/platform/api`（仅 trait 与纯类型）与 `dlp`；`dlp` 不依赖 `capture` 或任何平台 crate；两者都**禁止**直接调用平台 API（铁律 7），实际截图发生在 `crates/platform/*` 实现侧、管线只消费其 `ImageRef`。架构 v2 §3 crate 布局追加 `capture/`。本 ADR 只冻结边界、不实现行为；未来图像编解码 / 感知哈希等依赖由各自实现卡登记。**不改公共 trait / schema / ErrorCode，不新增第三方依赖、不 `#[allow]`、不 `unsafe`。**
+
+## 2026-10-05 追加（ADR-0072，Accepted）
+
+- [2026-10-05][DECISION][src:ADR-0072，按用户 2026-10-05 预授权代为裁决；TASK-241 / PL-022 / PL-035 / PL-065 / PL-066 同族收口] **动态派生值只指向唯一事实源**：文件行数、任务总数、当前进度、下一张卡、门禁数量、hygiene 规则总数、ADR 下一编号、测试数、覆盖率、提交哈希与 CI 计数等会随仓库演变的当前值不得手抄进文档；文档只写源文件指针或可重跑命令。行数看 `wc -l` / 命令输出，当前阶段与下一张卡看 `PLAN.md` 当前状态块，卡进度看 `LEDGER.md`，memory 规模看 `MEMORY.md` 规模表并由 `xtask memory-counts` 校验，门禁清单看 `gov §5.1` + `.github/workflows/ci.yml`，ADR 编号看 `docs/adr/README.md`。历史观测值可保留但必须带日期/测量来源且不得当作当前状态源。规范常量仍在其唯一契约文件定义，其它文档只引用。**本轮不新增 hygiene 规则、不改 gov §5.4 的 13 项 SSOT；机器证据 = 对改动文件定向 `rg` 检查为空；未来若加规则必须另立 Accepted ADR。**
