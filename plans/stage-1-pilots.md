@@ -20,6 +20,7 @@
 > **TASK-240 ✅（2026-10-05）**：任务卡状态行全量清扫 —— 18 张台账已 Done 但卡面滞后的卡按实更正，只改 `- 状态：` 行；`TASK-105` 因 L0/L1 回滚项未闭环且台账最后状态仍为 InProgress 保持原状。
 > **TASK-241 ✅（2026-10-05）**：派生值指针化清扫 —— ADR-0072 冻结「动态派生值只指向唯一事实源」；`AGENTS.md` / `MEMORY.md` §1 / 本文件当前进度句 / 派单文档的行数副本已指针化，`PL-035` 闭环，`PL-022` 机器派生余项保留。
 > **TASK-242 ✅（2026-10-05）**：三连发审计收口 —— 补正 TASK-076 的滞后状态行（LEDGER L88 早已声称 Done，commit `0f05ef7` 实际未改）；TASK-002 卡面 / PLAN / LEDGER 三方不一致开成 **PL-109**（待裁决）。
+> **TASK-243 ✅（2026-10-05）**：PL-109 裁决收口 —— 人类 2026-10-05 定 **TASK-002 = Done**；`PLAN.md` 阻塞项 / `MEMORY.md` §1 / `LEDGER.md` / `docs/PARKING_LOT.md` 全部对齐，SPIKE-A banner 与 2026-09-30 审计快照加前向标注；历史正文不改。
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -303,6 +304,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-240 ✅** | 治理池 | `tasks/TASK-240-card-status-sweep.md` | Done（全量状态行清扫：18 张滞后卡按 LEDGER/main/测试证据更正；零产品代码改动） |
 | **TASK-241 ✅** | 治理池 | `tasks/TASK-241-derived-value-sweep.md` | Done（ADR-0072 冻结派生值只指向唯一事实源；PL-035 闭环，PL-022 保留机器派生余项，PL-065 / PL-066 复核确认） |
 | **TASK-242 ✅** | 治理池 | `tasks/TASK-242-round-audit-closeout-076-and-002.md` | Done（三连发审计收口：TASK-076 状态行按实改 Done + TASK-002 三方不一致开 PL-109） |
+| **TASK-243 ✅** | 治理池 | `tasks/TASK-243-pl109-adjudication-and-consistency.md` | Done（PL-109 裁决收口：TASK-002 = Done，PLAN 阻塞项 / MEMORY §1 / LEDGER / PARKING_LOT 全部协调一致） |
 | **TASK-040 ✅** | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Done（真机四用例取证；跨层 lease 由 TASK-225 闭环，`PL-101` 关闭） |
 | **TASK-231 ✅** | 1b bridge | `tasks/TASK-231-pointer-coordinate-space-dpi.md` | Done（ADR-0067 pointer 显式坐标空间；`PL-074` 闭环） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |

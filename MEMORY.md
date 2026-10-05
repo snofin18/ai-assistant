@@ -105,7 +105,7 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
                  本快照只保留**不随卡 Done 漂移**的约束：依赖列里只有 `013 ← 012` 真串行，`014 ← 011` / `015 ← 011` 在 011 完成后即解锁；
                  实际顺序 011→012→013→014→015，瓶颈 = 人类审阅带宽（并行度上限与一会话卡数约束以 `AGENTS.md` §3 为准）；
                  `crates/core` 骨架、A1 批次与 arch test 的完成状态均看 `LEDGER.md`；历史治理卡的完成事件不再在本快照手抄清单。
-              ③ TASK-002 续做补完 SPIKE-A PARTIAL 仍 Blocked（`open.md N3` create_thread 上游 #36315/#36250 未关闭）→ 人类手工建会话
+              ③ TASK-002 已于 2026-10-05 裁决为 **Done**（SPIKE-A 已归档 GO，§11~§15 在 main；PL-109 闭环）；`create_thread` 上游 #36315/#36250 的跟踪另见 `docs/memory/open.md` N3
               ④ 自动化 **GATE-0 已通过（2026-09-24）**（`open.md N9` 已关闭：cron + heartbeat 两形态实测全绿、投递形态已正常化）→ **尚未创建正式排期**（人类另行安排）；探针 automation 已删除
               ⑤ 改公共热点文件（LEDGER / `docs/memory/*` / PARKING_LOT / MEMORY.md / `plans/*`）前必须 `xtask guard acquire`（ADR-0028）；
                   超时放弃（退出码 5）后须 LEDGER 追加一行 + 不得 `--force` 硬抢
