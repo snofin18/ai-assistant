@@ -96,6 +96,8 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - `cargo deny check`：advisories / bans / licenses / sources 全 ok。
 - 首轮 pull_request CI run `37343345239`：**11/11 SUCCESS**、0 failed；
   `baseRefName=main`、`mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`。
+- 最终 pull_request CI run `37344725563`：**11/11 SUCCESS**、0 failed；PR #239 已合并，
+  merge hash = `9c30ba2`，feature 分支已删除。
 
 ### 4. DoD 逐条核对
 
@@ -108,6 +110,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - [x] `cargo test --workspace` 全绿。
 - [x] xtask 十项门禁本地 PASSED；首轮 CI 11/11 SUCCESS。
 - [x] LEDGER / ADR / decisions / MEMORY 规模表已同步。
+- [x] CI 11/11、PR 合并与 merge hash 回填完成。
 - [ ] 真机截图与像素级遮挡：明确不在本拆分范围，归后续平台实现。
 
 ### 5. 偏差
