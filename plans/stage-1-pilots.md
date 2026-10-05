@@ -1,6 +1,7 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
 > 周期 10~12 周　状态：**进行中**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> **TASK-041 ✅（2026-10-06）**：拆分 A 落地 ADR-0073 与零依赖纯截图管线 / 脱敏规则模型；像素遮挡仍在平台层，真机截图与滚动像素拼接未冒充完成。
 > **TASK-225 ✅（2026-10-03）**：Host 装配层已用共享 `TargetLeaseRegistry` 接上合成输入 exclusive lease；key / pointer-shaped 输入冲突稳定 `Transient`，成功/失败都释放，只读路径不变；`PL-101` 闭环。TASK-040 正文 DoD 复选框仍因正文只读未勾选。
 > **TASK-226 ✅（2026-10-03）**：PL-104 / PL-105 闭环；ignored 真机用例以异步互斥串行化 fixture 启动，`production_root.rs` 拆分后 3 个文件均 <600 行且断言零放宽。
 > **TASK-227 ✅（2026-10-03）**：状态行与停车位收口 —— TASK-040 / TASK-225 的状态行按实更正为 Done；`PL-103` 给出可直接粘贴的 spec 改法（已由 TASK-229 落笔）；`PL-106` 开卡 TASK-228（Ready，待派单）
@@ -307,7 +308,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-243 ✅** | 治理池 | `tasks/TASK-243-pl109-adjudication-and-consistency.md` | Done（PL-109 裁决收口：TASK-002 = Done，PLAN 阻塞项 / MEMORY §1 / LEDGER / PARKING_LOT 全部协调一致） |
 | **TASK-040 ✅** | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Done（真机四用例取证；跨层 lease 由 TASK-225 闭环，`PL-101` 关闭） |
 | **TASK-231 ✅** | 1b bridge | `tasks/TASK-231-pointer-coordinate-space-dpi.md` | Done（ADR-0067 pointer 显式坐标空间；`PL-074` 闭环） |
-| TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
+| **TASK-041 ✅** | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
 | TASK-042 | 1b | `tasks/TASK-042-visual-verify-phash-dhash-confidence.md` | Ready（批次表占位派单前补全） |
 | TASK-043 | 1b | `tasks/TASK-043-paint-adapter-tools-canvas-coords.md` | Ready（批次表占位派单前补全） |
 | TASK-044 | 1b | `tasks/TASK-044-t3-1-newcanvas-rect-color-screenshot.md` | Ready（批次表占位派单前补全） |

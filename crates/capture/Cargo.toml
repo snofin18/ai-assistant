@@ -11,5 +11,13 @@ publish.workspace = true
 # here. The pipeline's only platform primitive is the `WindowProvider::capture`
 # trait from `crates/platform/api`, and the crate itself is filled by TASK-041.
 
+[dependencies.assistant-dlp]
+path = "../dlp"
+version = "0.1.0"
+
+[dependencies.assistant-platform-api]
+path = "../platform/api"
+version = "0.1.0"
+
 [lints]
 workspace = true
