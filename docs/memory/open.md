@@ -55,3 +55,5 @@
 
 - [2026-09-20][OPEN][N10] **automation 错过触发后是否补跑**（从 N9 line 51 升级为独立条目，原 supersede 注释挂错位置）。操作手册 §8 的 D6：官方只说「需要本地文件时保持电脑开机、应用运行」，没说补跑行为。章程的取舍是「跳过也无害」，两种结果都能接受，但必须**留下实测记录**，否则每次关机都会引发一轮猜测。→ 归 GATE-0 一并实测。
   - [supersedes:2026-09-24] → **仍未实测，本条保持 OPEN**：GATE-0 本轮只测了**抖动量**（cron +46 s / heartbeat 约 +1 s），**没有**测「错过触发是否补跑」（§8 的 D6 后半段）。章程的取舍仍是「跳过也无害」（两种行为都能接受）。→ 等正式排期启用后观察记录。
+
+- [2026-10-06][OPEN][src:TASK-041 拆分 B / `DRIFT-041-2`] **Windows `capture()` 的 blob 持久化 sink 未接入，真机截图验收待人工**：平台层已能截取单窗口并做像素遮挡，但 `WindowProvider` 没有 storage 句柄，返回的 `ImageRef.blob_id` 只是遮挡后 BGRA 的内容地址，尚未写入 `crates/storage` blob 池。→ 需要人类选择 storage sink 形状后才能合并拆分 B；真实 GUI 截图 / 遮挡 / 黑帧行为也必须人工验收，不得由 CI 假装完成。阻塞证据见 `tasks/TASK-041-capture-window-redact-privacy.md` 拆分 B §B4 / §B5。

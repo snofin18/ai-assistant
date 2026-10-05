@@ -25,6 +25,8 @@ windows = { version = "=0.62.2", features = [
     "Win32_UI_Input_Ime",           # ImmGetContext / ImmGetOpenStatus / ImmReleaseContext（IME 开关状态）
     "Win32_UI_HiDpi",               # GetDpiForWindow / GetDpiForMonitor / MDT_EFFECTIVE_DPI（Per-Monitor V2）
     "Win32_Graphics_Gdi",           # EnumDisplayMonitors / GetMonitorInfoW / MonitorFromWindow / MonitorFromPoint
+    # ↓ TASK-041 拆分 B 新增（同一已登记依赖的 feature 开关，不是新依赖 —— 见 ADR-0074）
+    "Win32_Storage_Xps",            # PrintWindow / PRINT_WINDOW_FLAGS（windows 0.62.2 把 user32 的该函数投影在此模块）
 ] }
 
 [dependencies.assistant-platform-api]

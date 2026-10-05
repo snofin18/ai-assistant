@@ -216,3 +216,7 @@
 ## 2026-10-06 追加（ADR-0073，Accepted）
 
 - [2026-10-06][DECISION][src:ADR-0073，按用户 2026-10-06 预授权代为裁决；TASK-041 拆分 A] **截图隐私保持与脱敏决策边界**：`ImageRef` 继续只是平台层 blob 引用 + 宽高，像素级遮挡 / 编解码 / blob 生命周期归 `crates/platform/*`；`crates/capture` 只编排 `WindowProvider::capture`、应用规则并产出遮挡矩形决策，不得读改像素或直接调平台。隐私模式 `NeverPersist` 不构造、不返回、不保留 `ImageRef`，即使 provider 已返回引用，也只能读取宽高后立即丢弃，输出 `retained_image = None`；`PersistBlob` 才允许保留引用。滚动清理只产生有界计划（显式合并方向、重叠像素、步数上限）；零步 / 超上限显式失败。脱敏文本命中只接受调用方已判定区间或显式词表，**不引入正则表达式 / 正则引擎**，ADR-0071 D2 的“正则命中区域”措辞由本 ADR 替换；空规则、负坐标、零宽高、越界、溢出、超规则上限一律显式失败。**不改公共 trait / schema / ErrorCode，不新增 crate / 依赖，不 `#[allow]` / `unsafe`。**
+
+## 2026-10-06 追加（ADR-0074，Accepted）
+
+- [2026-10-06][DECISION][src:ADR-0074，按用户 2026-10-06 预授权代为裁决；TASK-041 拆分 B] **Windows 单窗口截图通道与像素脱敏**：平台层用 GDI `PrintWindow(PW_RENDERFULLCONTENT)` 截取单个已解析窗口；只有 `PrintWindow` 失败且窗口未被遮挡时才允许 `BitBlt` 回退，遮挡场景拒绝 BitBlt 以免截到其它窗口。失败固定映射到既有 `ErrorCode`：句柄失效 `TargetNotFound`、最小化 / 零尺寸 / 遮挡回退不可用 `TargetUnresponsive`、权限拒绝 `PlatformPermission`、超像素上限与未知码 `Fatal`；绝不返回空图。`redact=true` 时以 UIA `IsPassword` 已判定矩形在 BGRA 上填充不透明黑色，矩形上限 64，UIA 任一步失败 fail-closed；调用方任意区间需要扩展公共形状，本轮不做。遮挡后 BGRA 的 SHA-256 小写 hex 作为内容地址放入 `ImageRef.blob_id`；现有 trait 没有 storage 注入点，持久化写入未闭合，登记 `DRIFT-041-2`，本 PR 保持 WIP，不宣称已是持久 blob。**不改公共 trait / schema / ErrorCode，不新增第三方 crate；只新增 `windows` crate 的 `Win32_Storage_Xps` feature。**

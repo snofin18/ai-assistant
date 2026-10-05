@@ -1,7 +1,7 @@
 //! 窗口域：`WindowProvider` 的 5 个方法（架构 v2 §13.2、ADR-0022 D1/D2）。
 //!
-//! 职责：窗口枚举 / 按候选链解析 / 状态查询 / 前台化 / 截图占位。
-//! 边界：**不做**元素定位（`uia/**`）、**不做**截图（TASK-041，本卡显式报错）、
+//! 职责：窗口枚举 / 按候选链解析 / 状态查询 / 前台化 / 单窗口截图。
+//! 边界：**不做**元素定位（`uia/**`）、**不做**全屏截图、**不做**视觉验证（TASK-042）、
 //! **不做**策略判定（`NeverSteal` / `RequireUserConsent` 一律拒绝，放行点是 TASK-021）。
 //!
 //! ## 不变量
@@ -14,6 +14,7 @@
 //! 相关：架构 v2 §13.1.1 / §13.2 / §6.2 / §6.3、ADR-0022 D1/D2/D4、`docs/memory/apps/notepad.md` §2。
 
 mod candidates;
+mod capture;
 
 use std::future::{Future, poll_fn};
 use std::task::Poll;
@@ -314,16 +315,11 @@ fn bring_to_front(window: &ResolvedWindow, policy: FocusPolicy) -> PlatformResul
     )))
 }
 
-/// 截取窗口 —— **本卡不实现**。
+/// 截取一个已解析窗口（真实平台路径在 `capture` 子模块）。
 ///
-/// 截图 / 脱敏 / 视觉验证按批次表归 TASK-041 / 042；本卡**不**引入截图依赖，
-/// 因此这里返回明确的未实现错误（`CapabilityMissing`），而不是 `todo!()` / `unimplemented!()`。
-fn capture(_window: &ResolvedWindow, _options: CaptureOptions) -> PlatformResult<ImageRef> {
-    // STUB(TASK-041): 截图通道落地后替换本函数（脱敏由 CaptureOptions 决定）。
-    Err(error::stub_not_implemented(
-        "TASK-041",
-        "WindowProvider::capture (screen capture / redaction)",
-    ))
+/// 不接收屏幕坐标 / 全屏参数；只接受调用方已经解析出的 `ResolvedWindow`。
+fn capture(window: &ResolvedWindow, options: CaptureOptions) -> PlatformResult<ImageRef> {
+    capture::capture_window(window, options)
 }
 
 /// 编译期断言：本类型必须满足两个 trait 的 `Send + Sync` 约束（否则 async 方法无法编译）。
