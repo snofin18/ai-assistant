@@ -1,6 +1,6 @@
 # TASK-041　截图管线：窗口截图 + 脱敏（密码框/正则命中区域遮挡）+ 滚动清理 + 隐私模式（不保存截图）
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：017　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -94,7 +94,8 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
   `check-comments` scanned=367 0E/69W；`verify-schemas` 5/5；
   `codegen --check` 0 drift；`check-migrations` 5 files / 5 entries。
 - `cargo deny check`：advisories / bans / licenses / sources 全 ok。
-- 最终 `check-ledger` 与 CI 11/11 在 PR 阶段回填。
+- 首轮 pull_request CI run `37343345239`：**11/11 SUCCESS**、0 failed；
+  `baseRefName=main`、`mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`。
 
 ### 4. DoD 逐条核对
 
@@ -105,7 +106,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - [x] `cargo fmt --all --check` 0 diff。
 - [x] `cargo clippy --all-targets -- -D warnings` EXIT 0。
 - [x] `cargo test --workspace` 全绿。
-- [x] xtask 十项门禁本地 PASSED；`check-ledger` 与 CI 在 PR 阶段核。
+- [x] xtask 十项门禁本地 PASSED；首轮 CI 11/11 SUCCESS。
 - [x] LEDGER / ADR / decisions / MEMORY 规模表已同步。
 - [ ] 真机截图与像素级遮挡：明确不在本拆分范围，归后续平台实现。
 
