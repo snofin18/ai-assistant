@@ -212,3 +212,7 @@
 ## 2026-10-05 追加（ADR-0072，Accepted）
 
 - [2026-10-05][DECISION][src:ADR-0072，按用户 2026-10-05 预授权代为裁决；TASK-241 / PL-022 / PL-035 / PL-065 / PL-066 同族收口] **动态派生值只指向唯一事实源**：文件行数、任务总数、当前进度、下一张卡、门禁数量、hygiene 规则总数、ADR 下一编号、测试数、覆盖率、提交哈希与 CI 计数等会随仓库演变的当前值不得手抄进文档；文档只写源文件指针或可重跑命令。行数看 `wc -l` / 命令输出，当前阶段与下一张卡看 `PLAN.md` 当前状态块，卡进度看 `LEDGER.md`，memory 规模看 `MEMORY.md` 规模表并由 `xtask memory-counts` 校验，门禁清单看 `gov §5.1` + `.github/workflows/ci.yml`，ADR 编号看 `docs/adr/README.md`。历史观测值可保留但必须带日期/测量来源且不得当作当前状态源。规范常量仍在其唯一契约文件定义，其它文档只引用。**本轮不新增 hygiene 规则、不改 gov §5.4 的 13 项 SSOT；机器证据 = 对改动文件定向 `rg` 检查为空；未来若加规则必须另立 Accepted ADR。**
+
+## 2026-10-06 追加（ADR-0073，Accepted）
+
+- [2026-10-06][DECISION][src:ADR-0073，按用户 2026-10-06 预授权代为裁决；TASK-041 拆分 A] **截图隐私保持与脱敏决策边界**：`ImageRef` 继续只是平台层 blob 引用 + 宽高，像素级遮挡 / 编解码 / blob 生命周期归 `crates/platform/*`；`crates/capture` 只编排 `WindowProvider::capture`、应用规则并产出遮挡矩形决策，不得读改像素或直接调平台。隐私模式 `NeverPersist` 不构造、不返回、不保留 `ImageRef`，即使 provider 已返回引用，也只能读取宽高后立即丢弃，输出 `retained_image = None`；`PersistBlob` 才允许保留引用。滚动清理只产生有界计划（显式合并方向、重叠像素、步数上限）；零步 / 超上限显式失败。脱敏文本命中只接受调用方已判定区间或显式词表，**不引入正则表达式 / 正则引擎**，ADR-0071 D2 的“正则命中区域”措辞由本 ADR 替换；空规则、负坐标、零宽高、越界、溢出、超规则上限一律显式失败。**不改公共 trait / schema / ErrorCode，不新增 crate / 依赖，不 `#[allow]` / `unsafe`。**

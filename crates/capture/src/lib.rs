@@ -17,5 +17,16 @@
 //! 3. an unsupported or failed capture is an explicit error, never a blank image.
 //!
 //! This is a boundary skeleton created by TASK-238: ADR-0071 freezes the edge
-//! before any implementation (iron rule 10). The pipeline itself is TASK-041,
-//! so the crate intentionally exposes no public item yet.
+//! before any implementation (iron rule 10). TASK-041 split A now implements
+//! the zero-dependency orchestration, redaction decisions, and bounded scroll
+//! plan; real pixels and platform calls remain outside this crate.
+
+mod error;
+mod pipeline;
+mod privacy;
+mod scroll;
+
+pub use error::CaptureError;
+pub use pipeline::{CaptureOutcome, CapturePipeline, RedactionPolicy};
+pub use privacy::PrivacyMode;
+pub use scroll::{MAX_SCROLL_STEPS, ScrollCleanupError, ScrollCleanupPlan, ScrollMergeDirection};

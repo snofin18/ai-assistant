@@ -20,5 +20,12 @@
 //!
 //! This is a boundary skeleton created by TASK-238: ADR-0071 freezes the edge
 //! before any implementation (iron rule 10). The egress policy is TASK-050 and
-//! the redaction rules are TASK-041 / TASK-050, so the crate intentionally
-//! exposes no public item yet.
+//! TASK-041 split A implements the pure redaction rule model in `redact`; egress
+//! tiers and platform-side pixel masking remain outside this slice.
+
+mod redact;
+
+pub use redact::{
+    ImageDimensions, MAX_REDACTION_RULES, OcclusionRectangle, RedactError, RedactionRegion,
+    RedactionRule, resolve_occlusions,
+};

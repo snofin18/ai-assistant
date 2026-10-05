@@ -90,6 +90,10 @@ dependencies = [
 [[package]]
 name = "assistant-capture"
 version = "0.1.0"
+dependencies = [
+ "assistant-dlp",
+ "assistant-platform-api",
+]
 
 [[package]]
 name = "assistant-core"

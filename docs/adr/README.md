@@ -78,8 +78,9 @@
 | **0070** | `0070-role-and-parent-resolution-semantics.md` | **Accepted** | `RoleAndParent` 的父候选只作为作用域：顶层解析过滤被 `parent_id` 引用的候选，父单独命中时不得返回父元素（TASK-235；2026-10-04 按用户 2026-10-04 预授权代为裁决；`PL-094` 闭环） |
 | **0071** | `0071-capture-and-dlp-crate-boundaries.md` | **Accepted** | 截图管线与出域脱敏的 crate 边界：新增 `crates/capture`（平台无关的窗口截图管线，唯一截图原语 = `platform/api` 的 `WindowProvider::capture`）与 `crates/dlp`（出域策略 + 脱敏 + 截图遮挡），零第三方依赖起步、铁律 7 不破、依赖方向单向（TASK-238；2026-10-04 按用户 2026-10-04「按你的推荐方案做」裁决；`PL-102` 闭环） |
 | **0072** | `0072-derived-values-point-to-ssot.md` | **Accepted** | 会随仓库演变的当前派生值不得手抄进文档；只写唯一事实源指针或可重跑命令，历史观测值须带日期与测量来源；本轮不加 hygiene 规则（TASK-241；2026-10-05 按用户预授权代为裁决；`PL-022` / `PL-035` / `PL-065` / `PL-066` 同族收口） |
+| **0073** | `0073-capture-privacy-and-redaction-decisions.md` | **Accepted** | 截图隐私保持与脱敏决策边界：像素遮挡归平台层，`NeverPersist` 不返回或保留 `ImageRef`，滚动清理只产生有界计划，文本命中只接受已判定区间 / 显式词表，不引入正则引擎（TASK-041 拆分 A；2026-10-06 按用户预授权代为裁决） |
 
-**下一个可用编号：0073**（= §1 与 §2 已用最大号 **0072** + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0074**（= §1 与 §2 已用最大号 **0073** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由
