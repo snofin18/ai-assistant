@@ -18,6 +18,8 @@
 > **TASK-238 ✅（2026-10-04）**：ADR-0071 冻结截图管线 / 出域脱敏的 crate 边界 —— 新增 `crates/capture`（平台无关窗口截图管线，唯一原语 = `platform/api` 的 `WindowProvider::capture`）与 `crates/dlp`（出域策略 + 脱敏 + 截图遮挡）两个零第三方依赖骨架；架构 v2 §3 布局追加 `capture/`，根 `Cargo.toml` 未改（`crates/*` glob 自动纳入）；`PL-102` 闭环，1b 的 TASK-041 / 042 与 1c 的 TASK-050 前置解锁。
 > **TASK-239 ✅（2026-10-05）**：停车位存量复核收口 —— 新增 `docs/audits/parking-lot-review-2026-10-05.md`，逐条复核仍开放或存在部分关闭余项的条目；`docs/PARKING_LOT.md` 仅追加 48 行结论，原行未改；本轮补记 13 条已闭环/取代，保留 35 条待治理或人工裁决。
 > **TASK-240 ✅（2026-10-05）**：任务卡状态行全量清扫 —— 18 张台账已 Done 但卡面滞后的卡按实更正，只改 `- 状态：` 行；`TASK-105` 因 L0/L1 回滚项未闭环且台账最后状态仍为 InProgress 保持原状。
+> **TASK-241 ✅（2026-10-05）**：派生值指针化清扫 —— ADR-0072 冻结「动态派生值只指向唯一事实源」；`AGENTS.md` / `MEMORY.md` §1 / 本文件当前进度句 / 派单文档的行数副本已指针化，`PL-035` 闭环，`PL-022` 机器派生余项保留。
+> **TASK-242 ✅（2026-10-05）**：三连发审计收口 —— 补正 TASK-076 的滞后状态行（LEDGER L88 早已声称 Done，commit `0f05ef7` 实际未改）；TASK-002 卡面 / PLAN / LEDGER 三方不一致开成 **PL-109**（待裁决）。
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
@@ -300,6 +302,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-239 ✅** | 治理池 | `tasks/TASK-239-parking-lot-review-2026-10-05.md` | Done（停车位存量复核：新增 2026-10-05 审计报告；PARKING_LOT 只追加；13 条补记闭环/取代、35 条复核保留） |
 | **TASK-240 ✅** | 治理池 | `tasks/TASK-240-card-status-sweep.md` | Done（全量状态行清扫：18 张滞后卡按 LEDGER/main/测试证据更正；零产品代码改动） |
 | **TASK-241 ✅** | 治理池 | `tasks/TASK-241-derived-value-sweep.md` | Done（ADR-0072 冻结派生值只指向唯一事实源；PL-035 闭环，PL-022 保留机器派生余项，PL-065 / PL-066 复核确认） |
+| **TASK-242 ✅** | 治理池 | `tasks/TASK-242-round-audit-closeout-076-and-002.md` | Done（三连发审计收口：TASK-076 状态行按实改 Done + TASK-002 三方不一致开 PL-109） |
 | **TASK-040 ✅** | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Done（真机四用例取证；跨层 lease 由 TASK-225 闭环，`PL-101` 关闭） |
 | **TASK-231 ✅** | 1b bridge | `tasks/TASK-231-pointer-coordinate-space-dpi.md` | Done（ADR-0067 pointer 显式坐标空间；`PL-074` 闭环） |
 | TASK-041 | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
