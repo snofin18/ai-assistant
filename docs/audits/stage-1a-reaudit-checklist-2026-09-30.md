@@ -59,6 +59,7 @@
 | **TASK-002** | Blocked | 上游工具未通 |
 | **gov #9 覆盖率 / #11 `cargo doc`** | SOFT | 两道 step 仍 `continue-on-error`；转硬需单独卡 + 负向验证（ADR-0019） |
 | **`check-comments` 67 warning** | 非阻塞 | 受控词汇 / 缩写启发式告警，spec 明示为 warning；量偏大，值得单独清理或明确容忍口径 |
+> **[supersedes:2026-10-05]** 上表是 **2026-09-30 复验当时**的快照，历史正文不改。其中 `TASK-002` 已由人类 2026-10-05 裁决为 **Done**（`PL-109` 闭环）；`PL-092`（TASK-230）、`PL-094`（TASK-235）、`PL-095`（TASK-213）亦均已闭环。当前状态以 `PLAN.md` / `LEDGER.md` / `docs/PARKING_LOT.md` 为准。
 
 ## 5. 复验时的判定基线（**不得提前宣称**）
 
