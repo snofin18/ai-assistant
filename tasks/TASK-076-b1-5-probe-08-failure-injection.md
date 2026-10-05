@@ -1,6 +1,6 @@
 # TASK-076　B1.5 probe-08 失败注入 PoC（4 种）
 
-- 状态：**InProgress**
+- 状态：**Done（2026-09-22；TASK-084 v2 收尾，LEDGER L88；probe-08 v2 数据已填入 §2-9）**
 - 阶段：0　子任务：TASK-002 B1.5　依赖：TASK-002 B1.1 + B1.2 + B1.4（Done）　预估：M　阻塞主线：否
 - write scope：spikes/spike-a-notepad/probe-08-failure-injection.ps1（新建）/ spikes/spike-a-notepad/README.md（追加）/ docs/spike-reports/SPIKE-A.md（§11 追加）/ D:\csart\eol-probe\RESULT-08.txt（probe 产出）/ 本卡执行记录 / LEDGER.md（追加）
 

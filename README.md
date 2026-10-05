@@ -13,6 +13,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 > **TASK-238 Done**：ADR-0071 冻结截图管线 / 出域脱敏的 crate 边界 —— 新增 `crates/capture`（平台无关窗口截图管线，唯一原语 = `platform/api` 的 `WindowProvider::capture`）与 `crates/dlp`（出域策略 + 脱敏 + 截图遮挡）两个零第三方依赖骨架，架构 §3 布局追加 `capture/`；`PL-102` 闭环，解锁 1b TASK-041 / 042 与 1c TASK-050。
 > **TASK-239 Done**：停车位存量复核收口 —— 新增 `docs/audits/parking-lot-review-2026-10-05.md`，`docs/PARKING_LOT.md` 仅追加 48 行复核结论；补记 13 条已闭环/取代、保留 35 条待治理或人工裁决。
 > **TASK-240 Done**：任务卡状态行全量清扫完成 —— 18 张台账已 Done 但卡面仍 `Ready` / `InProgress` 的卡按实更正；只改状态行，卡正文、执行记录与产品代码零改动。
+> **TASK-242 Done**：三连发审计收口 —— 补正 TASK-076 的滞后状态行（LEDGER L88 早已声称 Done，commit `0f05ef7` 实际没改），并把 TASK-002 的卡面 / PLAN / LEDGER 三方不一致开成 **PL-109**（待人类裁决）。
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/
 > **`crates/platform/windows`**（Win32 / UIA provider：树快照 / selector 链解析 / 读写 / 指纹 / 窗口枚举）已完成，
@@ -83,6 +84,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 **2026-10-04 crate 边界解锁**：**TASK-238 Done** —— ADR-0071 冻结截图管线 / 出域脱敏的 crate 边界：`crates/capture` = 平台无关窗口截图管线（唯一截图原语 = `platform/api` 的 `WindowProvider::capture` trait）、`crates/dlp` = 出域策略 + 脱敏 + 截图遮挡；依赖方向单向、铁律 7 不破、零第三方依赖起步。两个零依赖骨架已落地，架构 v2 §3 布局追加 `capture/`；`PL-102` 闭环，1b 的 TASK-041 / 042 与 1c 的 TASK-050 前置解锁。
 **2026-10-05 停车位复核**：**TASK-239 Done** —— `docs/audits/parking-lot-review-2026-10-05.md` 逐条复核仍开放或存在部分关闭余项的停车位；`docs/PARKING_LOT.md` 只追加 48 行结论，补记 13 条已闭环/取代、保留 35 条待治理或人工裁决。
 **2026-10-05 派生值指针化**：**TASK-241 Done** —— ADR-0072 冻结动态派生值只指向唯一事实源；AGENTS.md / MEMORY.md §1 / plans/stage-1-pilots.md / 派单文档行数副本已指针化，PL-035 闭环；PL-022 机器派生余项保留。
+**2026-10-05 三连发审计收口**：**TASK-242 Done** —— 独立复核 TASK-239 / 240 / 241 发现两处残余：TASK-076 的滞后状态行（LEDGER L88 早在 2026-09-22 就声称改成 Done，但 commit `0f05ef7` 未落盘，卡面至今 InProgress）已按实补正；TASK-002 的卡面 `Done` / `PLAN` 阻塞项 `Blocked` / `LEDGER` 无 Done 事件三方不一致，按规则开成 **PL-109（待裁决）**。
 **2026-10-05 状态行清扫**：**TASK-240 Done** —— 全量比对卡面状态与 `LEDGER.md` 最后状态，18 张确定滞后的卡只改状态行；`TASK-105` 因台账仍为 `InProgress` 且 L0/L1 回滚项未闭环保持原状。
 阶段 1a 补救治理已把运行链路、typed IPC、UI/commit 质量门禁与 `check-comments` 门禁收口；`gate-selftest` 的 fmt / clippy / build canary 已有成功 run 证据（`36598959358`）。
 **2026-10-04 hygiene 13/13 收口**：**TASK-234 Done** —— ADR-0068 冻结跨文件重复代码规则（40-token 规范化 shingle、包含度 ≥ 80%、共享 ≥ 4、忽略测试 / 生成 / fixture、Warning），ADR-0069 建立 `docs/adr/top-level-directories.md` 白名单（未登记目录 Error，`scripts/` 继续留给 PL-023）；两条规则均有正负样本，`--list-deferred` 的 hygiene 未实现项为 0，`PL-060` 闭环。
@@ -205,6 +207,12 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展（2026-10-05：**TASK-241 —— ADR-0072 派生值指针化 + PL-035 闭环，Done；PL-022 机器派生余项保留**；2026-10-04：**TASK-236 —— replay 完整版（Recording v2 树快照序列 + 树级 diff + `--suite core`），Done；`--list-deferred` replay 未实现项清零**；**TASK-232 —— 四轮自动化审计收口（TASK-224 状态行 + 规则补强 + PL-108），Done**；**TASK-224 —— ADR-0066 命令行 `write` 唯一通道 + Windows 独占占用探测 + 有界退避，Done；PL-107 闭环**；2026-10-03：**TASK-228 —— Windows 真机 PASS/SKIP/FAIL 结构化记录 + 严格汇总入口，Done；真机 4 pass / 0 skip / 0 fail，PL-106 闭环**；**TASK-229 —— PL-103 spec 落笔 + 状态行硬规则 + 残留目录清理，Done**；**TASK-227 —— TASK-040 / TASK-225 状态行收口 + PL-103 改法 + PL-106 开卡，Done**；**TASK-220 —— 资源泄露四类防护 + 真机 ignored 全套 8 passed，Done；`DRIFT-220-1` 闭环**；**TASK-223 —— L1 文件通道 `read_utf8_prefix` + ADR-0065 前置初始指纹步骤，Done；T1.1 大文件 Plan fake 与真机双取证，`DRIFT-223-1` / `PL-100` 闭环**；2026-10-02：**TASK-039 —— 阶段 1a 独立复验全绿，Done / GO**；**TASK-105 —— T1.1/T1.2/T1.3 各 10 次真实 UIA 运行证据，Done**；**TASK-218 / TASK-219 —— 真实回滚链与 pure 步骤真实性修复，Done**；**TASK-086 —— CRLF / 末行换行 / 依赖登记三条 hygiene 规则，Done；实现覆盖 11/13**；**TASK-085 —— Rust 源码结构 5 条 hygiene 规则，Done；实现覆盖 8/13**；**TASK-216 —— 运行时补齐状态收口，Done；DRIFT-216-4 闭环**；2026-10-01：**TASK-217 —— 运行时任务数据流、确定性本地操作与可恢复审批，Done；DRIFT-216-4 闭环**；**TASK-215 —— `notepad-like` 靶机能力扩展 + `com.example.notepad-like` 适配包，Done；PL-097 闭环**（文件读写 + 标签页 + 跨进程 Save As 对话框，真 UIA 实测）；**TASK-214 —— 生产装配根 + Notepad Host handler + 1a Plan 来源，Done；PL-096 闭环**；**TASK-205 —— `tool-bus` schema 模块拆分，Done**；**ADR-0058 Accepted**；2026-09-30：**TASK-213 —— UI↔Core 真实传输，Done（PL-095 闭环）**；**TASK-087 —— CI 负向验证 + `check-comments` 硬门禁，Done**；**TASK-212 —— check-comments 9 处真实违规修复，Done**；2026-09-29：**TASK-210 —— UI 与提交质量门禁（Prettier / ESLint / Vitest / commitlint），Done**；**TASK-104 —— UI ↔ Core typed IPC 与审批接线，Done**；**TASK-103 —— 真实任务执行器（Host 分发 + VerifyReceipt 接线），Done**；**TASK-102 —— 运行执行链路契约，Done；ADR-0056 Accepted**；**TASK-038 —— T1.3 任务包与评测集**；**TASK-037 —— T1.2 任务包与评测集**；2026-09-28：**TASK-036 —— T1.1 任务包与评测集**；**TASK-035 —— Notepad Adapter 声明式包 v0**；**TASK-034 —— 录制回放框架 v0**；**TASK-033 —— notepad-like 靶机应用**；**TASK-032 —— 策略 / 能力 / 成本面板**；**TASK-031 —— 元素拾取器 + 目标绑定**；2026-09-27：**TASK-208 —— `core` Memory（App Map + FTS5 检索消费）**；**TASK-206 —— `crates/storage` `memory_fts` FTS5 检索**；**TASK-207 —— `core` Planner（模型输出 → Plan / Step DAG）**；2026-09-26：TASK-028 —— 会话 + 上下文；TASK-027 —— HITL 审批与接管；TASK-026 —— 模型网关；TASK-025 —— 目标租约与并发控制；TASK-024 —— 撤销与补偿闭环；2026-09-25：TASK-023 —— 后置断言引擎；TASK-204 —— 工具 schema 关键字判据硬化；TASK-022 —— 任务引擎；TASK-021 —— 唯一策略放行点；TASK-020 —— 工具通道；TASK-019 —— Host IPC；TASK-018 —— 合成输入 + 坐标；2026-09-24：地基层 + 平台抽象 + Windows UIA + 治理池）
+
+**2026-10-05 —— TASK-242 三连发审计收口（TASK-076 状态行 + TASK-002 落点），Done**
+
+- 独立复核 TASK-239 / 240 / 241：三轮产物均已在 main、门禁全绿；第 2 轮（状态行清扫）漏改了 TASK-076。
+- TASK-076 状态行按实改 `Done`（依据 LEDGER L88 + 卡内「9 节执行记录填写完毕」；`git show 0f05ef7` 证明状态行从未落盘）。
+- TASK-002 三方不一致（卡面 `Done` / `PLAN.md` 阻塞项 `Blocked` / `LEDGER.md` 无 Done 事件）开成 **PL-109**（待裁决），补上第 2 轮漏掉的停车位落点。
 
 **2026-10-05 —— TASK-239 停车位存量复核收口，Done**
 
