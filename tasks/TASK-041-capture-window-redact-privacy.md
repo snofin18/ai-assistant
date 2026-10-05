@@ -90,7 +90,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
   EXIT 0（capture 7 passed / dlp 8 passed / 0 failed）。
 - xtask：`hygiene` scanned=367 0E/105W；`memory-counts` 8 0E/0W；
   `adr-index` scanned=61 0E/0W；`refscan` scanned=704 0E/0W；
-  `docscan` scanned=316 0E/342W；`card-check` scanned=137 0E/34W；
+  `docscan` scanned=317 0E/336W；`card-check` scanned=137 0E/34W；
   `check-comments` scanned=367 0E/69W；`verify-schemas` 5/5；
   `codegen --check` 0 drift；`check-migrations` 5 files / 5 entries。
 - `cargo deny check`：advisories / bans / licenses / sources 全 ok。
