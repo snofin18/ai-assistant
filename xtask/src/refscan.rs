@@ -32,8 +32,8 @@ use crate::repowalk::extension_is;
 
 /// 待建号集合（ADR-0026 D2 维护；机器可拍）。
 const ADR_BARE_PENDING: &[&str] = &[
-    "0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008", "0009", "0010", "0011", "0012",
-    "0013", "0014", "0015", "0016", "0017", "0020", "0027",
+    "0001", "0002", "0003", "0004", "0005", "0006", "0008", "0009", "0010", "0011", "0012", "0013",
+    "0014", "0015",
 ];
 
 #[must_use]
@@ -343,13 +343,13 @@ mod tests {
 
     #[test]
     fn detects_bare_pending_outside_adr() {
-        let f = scan_file("docs/gov.md", "see ADR-0017 here");
+        let f = scan_file("docs/gov.md", "see ADR-0001 here");
         assert_eq!(f.len(), 1);
     }
 
     #[test]
     fn ignores_bare_pending_inside_adr_dir() {
-        let f = scan_file("docs/adr/0021-x.md", "ADR-0017 inside");
+        let f = scan_file("docs/adr/0021-x.md", "ADR-0001 inside");
         assert!(f.is_empty());
     }
 
@@ -367,8 +367,53 @@ mod tests {
 
     #[test]
     fn is_pending_adr_recognises_set() {
-        assert!(is_pending_adr("0017"));
-        assert!(!is_pending_adr("0031"));
+        assert!(is_pending_adr("0001"));
+        assert!(!is_pending_adr("0017"));
+    }
+
+    #[test]
+    fn pending_adr_constant_matches_registry() {
+        let registry =
+            crate::adr_registry::parse_registry(include_str!("../../docs/adr/README.md"));
+        assert!(
+            registry.missing_anchors.is_empty(),
+            "ADR registry is missing anchors: {:?}",
+            registry.missing_anchors
+        );
+        let expected = registry
+            .pending
+            .iter()
+            .map(|number| format!("{number:04}"))
+            .collect::<Vec<_>>();
+        let actual = ADR_BARE_PENDING
+            .iter()
+            .map(|number| (*number).to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn pending_adr_constant_excludes_converted_drafts() {
+        for number in ["0007", "0016", "0017", "0020", "0027"] {
+            assert!(
+                !is_pending_adr(number),
+                "converted or assigned ADR number {number} must not remain pending"
+            );
+        }
+    }
+
+    #[test]
+    fn scan_file_reports_registry_pending_number() {
+        let text = format!("see {}{} here", "ADR-", "0001");
+        let findings = scan_file("docs/gov.md", &text);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].rule, "adr/bare-pending-reference");
+    }
+
+    #[test]
+    fn scan_file_ignores_converted_draft_number() {
+        let text = format!("see {}{} here", "ADR-", "0017");
+        assert!(scan_file("docs/gov.md", &text).is_empty());
     }
 
     #[test]
