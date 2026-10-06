@@ -29,6 +29,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::visual::{VisualObservation, evaluate_visual_assert};
+
 use crate::observation::{FileSnapshot, Observation};
 use crate::postcondition::{AssertValue, CompareOp, FileChangeKind, Postcondition, StateField};
 
@@ -142,6 +144,39 @@ pub fn evaluate_postcondition(
             evaluate_file_changed(observation, path, *expect)
         }
         Postcondition::AppReported { key, value } => evaluate_app_reported(observation, key, value),
+        // 没有图像就**不判成功**（ADR-0077 D4）：这条路径只服务「调用方还没接入视觉输入」的既有入口。
+        Postcondition::VisualAssert { .. } => not_evaluable(
+            "visual_assert needs a VisualObservation; call evaluate_postcondition_with_visual"
+                .to_owned(),
+        ),
+    }
+}
+
+/// Evaluates one postcondition against `observation`, with the optional visual input that
+/// [`Postcondition::VisualAssert`] needs (ADR-0077).
+///
+/// The images deliberately travel **next to** the observation instead of inside it: `Observation`
+/// is serializable, and ADR-0074 keeps raw pixels out of any serialized structure. Passing `None`
+/// is equivalent to [`evaluate_postcondition`] — a `visual_assert` then becomes `NotEvaluable`
+/// rather than a fake success.
+#[must_use]
+pub fn evaluate_postcondition_with_visual(
+    postcondition: &Postcondition,
+    observation: &Observation,
+    visual: Option<&VisualObservation>,
+) -> AssertionOutcome {
+    let Postcondition::VisualAssert { assertion } = postcondition else {
+        return evaluate_postcondition(postcondition, observation);
+    };
+    let Some(visual) = visual else {
+        return not_evaluable(
+            "visual_assert needs a VisualObservation, but none was supplied".to_owned(),
+        );
+    };
+    match evaluate_visual_assert(assertion, visual) {
+        Ok(verdict) => verdict.to_assertion_outcome(),
+        // 求值错误（尺寸不符 / 缓冲非法）一律落 NotEvaluable 并带原因：不 panic、不默认通过。
+        Err(error) => not_evaluable(format!("visual_assert could not be evaluated: {error}")),
     }
 }
 

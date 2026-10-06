@@ -1,6 +1,6 @@
 # assistant-verify
 
-> Stage 1 postcondition assertion engine: 11 assertion kinds, state fingerprints,
+> Stage 1 postcondition assertion engine: 12 assertion kinds, state fingerprints,
 > idempotency classification, and `on_violation` dispatch (architecture v2 sections
 > 7.3, 7.4, and 8.5).
 
@@ -26,11 +26,12 @@
 - **No storage.** No checkpoints, no audit rows.
 - **No policy.** Whether an action is allowed at all is `crates/policy`'s single release
   point (AGENTS.md rule 3).
-- **No `visual_assert` wiring into the existing engine yet.** The pure algorithms and the frozen
-  JSON shape live in `crate::visual`, but `Postcondition` / `Observation` keep their TASK-023
-  shapes, so `parse_postconditions` still rejects the `visual_assert` kind. That integration
-  requires changing the existing public shapes and is deferred (`DRIFT-042-1`); call
-  `crate::visual::parse_visual_assert` / `evaluate_visual_assert` directly until then.
+- **Images never enter the serializable observation.** `visual_assert` *is* wired into the engine
+  (ADR-0077): `parse_postconditions` accepts the kind and `Postcondition::VisualAssert` carries the
+  ADR-0074 shape, but the reference and observed images are passed **next to** the observation
+  (`evaluate_postcondition_with_visual` / `verify_postconditions_with_visual`) instead of living
+  inside `Observation`. Pixels therefore stay out of any serialized structure (ADR-0074), and a
+  `visual_assert` evaluated through the image-less entry points is `NotEvaluable`, never satisfied.
 - **No preconditions.** `target_resolvable` and `capability` are `preconditions`
   (architecture section 5.3), not postconditions, and are rejected with that reason.
 

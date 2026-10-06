@@ -92,7 +92,9 @@ mod postcondition;
 mod verdict;
 pub mod visual;
 
-pub use assertion::{AssertionOutcome, evaluate_postcondition, render_text};
+pub use assertion::{
+    AssertionOutcome, evaluate_postcondition, evaluate_postcondition_with_visual, render_text,
+};
 pub use error::{VerifyError, VerifyResult};
 pub use fingerprint::{
     ControlState, DocumentDigest, FingerprintField, FingerprintIgnore, FingerprintSubject,
@@ -109,6 +111,7 @@ pub use postcondition::{
 pub use verdict::{
     Unevaluable, Verification, VerificationReceipt, VerifyOutcome, Violation,
     verify_postconditions, verify_postconditions_with_receipt,
+    verify_postconditions_with_receipt_and_visual, verify_postconditions_with_visual,
 };
 pub use visual::{
     DHASH_HEIGHT, DHASH_WIDTH, GrayImage, MAX_HAMMING_DISTANCE, MAX_IMAGE_PIXELS,

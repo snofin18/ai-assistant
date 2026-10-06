@@ -241,6 +241,13 @@ pub enum Postcondition {
         /// The expected value.
         value: AssertValue,
     },
+    /// A structured visual assertion over a reference and an observed grayscale image (ADR-0074 /
+    /// ADR-0077). The images themselves **never** travel inside a postcondition or an
+    /// [`crate::Observation`]: they are supplied next to the observation at evaluation time.
+    VisualAssert {
+        /// The parsed, fail-closed `visual_assert` shape.
+        assertion: crate::visual::VisualAssert,
+    },
 }
 
 /// Parses a step's postconditions.
@@ -285,6 +292,13 @@ fn parse_one(index: usize, value: &JsonValue) -> VerifyResult<Postcondition> {
         }
         None => return Err(malformed(index, "`kind` is required")),
     };
+    // `visual_assert` 的解析复用 ADR-0074 的实现（同一套判据），因此必须在拿到原始 JSON 的这一层
+    // 分流，而不是在只看 `Map` 的 `parse_kind` 里复刻一遍。
+    if kind == crate::visual::VISUAL_ASSERT_KIND {
+        return crate::visual::parse_visual_assert(index, value)
+            .map(|assertion| Postcondition::VisualAssert { assertion })
+            .map_err(|error| malformed(index, error.to_string()));
+    }
     parse_kind(index, &kind, object)
 }
 

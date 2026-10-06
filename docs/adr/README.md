@@ -82,8 +82,9 @@
 | **0075** | `0075-machine-derived-governance-counts.md` | **Accepted** | `gov §5.4` 表格行数是 hygiene 规则总数唯一事实源；`gov §5.1` 编号集合必须与 `ci.yml` 的 `# gov-gate` 标记集合一致，解析失败 / 缺失 / 重复 / 额外均为 Error（TASK-244；2026-10-06 按用户预授权代为裁决；避让在飞分支已使用的 0074） |
 | **0074** | `0074-visual-assertion-shape-and-perceptual-hash.md` | **Accepted** | `visual_assert` 只有结构化形状（`field` + `op` + 具名容差/阈值 + `confidence_min`），不引入表达式语言；pHash = 32×32 下采样 + raw 8×8 DCT-II 中位阈值、dHash = 9×8 下采样 + 相邻差分，均 64-bit；`max_hamming_distance` 硬上限 24（随机图对 `P(≤24) = 2.997% < 5%`）；低置信 `NeedsHuman` → `NotEvaluable`，不得单独判成功（TASK-042；2026-10-06 按用户预授权代为裁决） |
 | **0076** | `0076-windows-gdi-capture-channel-and-redaction.md` | **Accepted** | Windows 单窗口截图 = GDI `PrintWindow(PW_RENDERFULLCONTENT)`（`BitBlt` 仅在未遮挡时回退）+ `redact=true` 时按 UIA `IsPassword` 矩形做不透明黑遮挡；平台层算 SHA-256 内容地址并把字节交给**注入的** `ImageBlobSink`（trait 在 `crates/platform/api`，binary 用 `crates/storage` 实现并在装配后 `attach` 句柄），未注入 → 显式 `Fatal`（TASK-041 拆分 B；2026-10-06 按用户裁决「选项 ①」；`DRIFT-041-2` 闭环） |
+| **0077** | `0077-visual-assert-postcondition-wiring.md` | **Accepted** | `visual_assert` 以**加法式**接进后置断言引擎：新增 `Postcondition::VisualAssert` 与 `*_with_visual` 入口（旧签名保留并委托 `None`）；参考图 / 实测图作为**并列参数**传入，**不进**可序列化的 `Observation`（像素永不入 JSON，ADR-0074）；无图 → `NotEvaluable`，低置信 → `NeedsHuman` → `NotEvaluable`（TASK-247；2026-10-06 按用户预授权代为裁决；`PL-110` / `DRIFT-042-1` 闭环） |
 
-**下一个可用编号：0077**（= §1 与 §2 已用最大号 **0076** + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0078**（= §1 与 §2 已用最大号 **0077** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由
