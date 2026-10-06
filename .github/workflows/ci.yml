@@ -68,28 +68,35 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       # --- 硬门禁 #1：格式 ---
+      # gov-gate: 1
       - name: "[HARD #1] cargo fmt --check"
         run: cargo fmt --all --check
 
       # --- 硬门禁 #2 + #3：lint 零警告（#3 的禁用项由 Cargo.toml 的 [workspace.lints] 表达）---
+      # gov-gate: 2
+      # gov-gate: 3
       - name: "[HARD #2/#3] cargo clippy -D warnings"
         run: cargo clippy --all-targets -- -D warnings
 
       # --- 硬门禁 #4：单元测试 ---
+      # gov-gate: 4
       - name: "[HARD #4] cargo test"
         run: cargo test --workspace
 
       # --- 硬门禁 #10：构建（release，验证 LTO/strip 配置可用）---
+      # gov-gate: 10
       - name: "[HARD #10] cargo build --release"
         run: cargo build --release
 
       # --- 硬门禁 #12：仓库卫生 ---
       # 注：TASK-001 卡面写的是"先上线 5 项"，但 hygiene 在本卡已实现且自检通过，
       #     留作软门禁等于白白放弃一道已就绪的防线 → 记为 DRIFT-001-2，见任务卡执行记录。
+      # gov-gate: 12
       - name: "[HARD #12] xtask hygiene"
         run: cargo run -p xtask -- hygiene
 
       # --- 硬门禁 #15：注释与命名规则（TASK-087 转硬；naming §10 的 8 条规则）---
+      # gov-gate: 15
       - name: "[HARD #15] xtask check-comments"
         run: cargo run -p xtask -- check-comments
 
@@ -103,22 +110,26 @@ jobs:
       # 负向验证（ADR-0019 N1，见该文件 arch::scan_flags_* 三条用例）：喂已知坏样本
       # （`windows::` 引用 / `windows = "0.62"` 依赖 / `[dependencies.winapi]` 表头形态）→
       # 断言扫描器必须报；反向用例证明 `assistant-platform-api` 与文档注释里的目录名不被误报。
+      # gov-gate: 5
       - name: "[HARD #5] arch test（分层依赖方向）"
         run: 'cargo test -p assistant-core arch::'
 
       # --- 硬门禁 #6：五份 protocol schema 的结构/版本/13 类一致性 ---
       # 2026-09-24 转硬（原 [SOFT #6 → TASK-011]）。负向验证：N1 见 xtask/src/verify_schemas.rs
       # 的 tests 模块；N2 见本文件 gate-negative job。
+      # gov-gate: 6
       - name: "[HARD #6] xtask verify-schemas"
         run: cargo run -p xtask -- verify-schemas
 
       # --- 硬门禁 #7：生成物与 schema 不得漂移（手改生成文件会被这里拦住）---
       # 2026-09-24 转硬（原 [SOFT #7 → TASK-011]）。负向验证：N1 见 xtask/src/codegen.rs
       # 的 tests 模块；N2 见本文件 gate-negative job。
+      # gov-gate: 7
       - name: "[HARD #7] xtask codegen --check"
         run: cargo run -p xtask -- codegen --check
 
       # 启用卡号：TASK-015（覆盖率门槛需要产品代码量足够才有意义）
+      # gov-gate: 9
       - name: "[SOFT #9 → TASK-015] coverage ≥ 75%"
         continue-on-error: true
         run: |
@@ -126,11 +137,13 @@ jobs:
           cargo llvm-cov --workspace --fail-under-lines 75
 
       # 启用卡号：TASK-015
+      # gov-gate: 11
       - name: "[SOFT #11 → TASK-015] cargo doc --no-deps"
         continue-on-error: true
         run: cargo doc --no-deps --workspace
 
       # --- 硬门禁 #13：回放基准（TASK-034 已交付真实 fixture；不再使用非法 --suite）---
+      # gov-gate: 13
       - name: "[HARD #13] replay core fixture"
         run: cargo run -p xtask -- replay fixtures/recordings/core/notepad-like-basic.json
 
@@ -141,6 +154,7 @@ jobs:
       # 负向验证（ADR-0019 N1，见 xtask/src/ledger_check.rs 的 tests 模块）：4 条负向用例 ——
       # PLAN 日期落后于 LEDGER 末行 / README 缺 `> 状态：` 行 / 状态行阶段名不符 /
       # 解析不到「更新日期 / 末行日期 / 当前阶段」时必须报错而不是静默通过（铁律 1）。
+      # gov-gate: 16
       - name: "[HARD #16] check-ledger"
         run: cargo run -p xtask -- check-ledger
 
@@ -149,6 +163,7 @@ jobs:
   # 负向验证（ADR-0019 N3）见 gate-selftest.yml：证明 deny.toml 解析失败时本 job 真的会红，
   # 而不是「配置读不进来 → 什么都没查 → 显示通过」。
   # ==========================================================================
+  # gov-gate: 8
   deny:
     name: cargo deny
     runs-on: ubuntu-latest
@@ -191,6 +206,7 @@ jobs:
           cargo install cargo-deny --version 0.20.2 --locked
           cargo deny --version
 
+      # gov-gate: 8b
       - name: "[HARD #8b] cargo deny check licenses sources (per spike manifest)"
         run: |
           set -uo pipefail
@@ -235,6 +251,7 @@ jobs:
   # 负向验证（ADR-0019 元门禁，形式 N1）：memory_counts.rs / adr_index.rs 的单测里每条规则都有
   #   「不一致 → 必须产生 Error」的负向用例；登记表见 docs/adr/0019-hard-gate-negative-verification.md。
   # ==========================================================================
+  # gov-gate: 12b
   doc-consistency:
     name: doc consistency (taxonomy + schemas)
     runs-on: ubuntu-latest
@@ -394,6 +411,7 @@ jobs:
   # 提交信息门禁（TASK-210）：只校验 PR 引入的提交，不重写历史。
   # merge / revert 提交由 commitlint 的 `defaultIgnores` 跳过（默认开启），
   # 所以本仓库的 merge-commit 合并流程不需要改。
+  # gov-gate: 14
   commit-lint:
     name: commitlint
     if: github.event_name == 'pull_request'

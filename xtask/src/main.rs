@@ -142,6 +142,8 @@ enum Failure {
     Io(String),
     /// 工具自身缺陷（例如报告摘要格式化失败）。
     Internal(String),
+    /// 治理事实源解析或集合一致性失败；属于阻塞级发现，退出码 1。
+    GovernanceCounts(String),
     /// `guard` 子命令的失败。
     ///
     /// 为什么不当场翻译成 `Usage`/`Io`：`GuardFailure` 自己就是退出码的唯一映射处
@@ -159,6 +161,7 @@ impl std::fmt::Display for Failure {
             Self::Usage(message) => write!(formatter, "用法错误：{message}"),
             Self::Io(message) => write!(formatter, "IO 错误：{message}"),
             Self::Internal(message) => write!(formatter, "内部错误：{message}"),
+            Self::GovernanceCounts(message) => write!(formatter, "治理计数错误：{message}"),
             // GuardFailure 的 Display 自带"guard …"前缀，这里不再叠加标签
             Self::Guard(failure) => write!(formatter, "{failure}"),
         }
@@ -172,6 +175,7 @@ impl Failure {
             Self::Usage(_) => EXIT_USAGE,
             Self::NotImplemented(_) => EXIT_NOT_IMPLEMENTED,
             Self::Io(_) | Self::Internal(_) => EXIT_IO,
+            Self::GovernanceCounts(_) => EXIT_FINDINGS,
             Self::Guard(failure) => failure.exit_code(),
         }
     }
@@ -240,8 +244,11 @@ fn execute(arguments: &[String], output: &mut dyn Write) -> Result<u8, Failure> 
         return Ok(EXIT_OK);
     }
     if invocation.list_deferred {
+        let derived_counts = load_governance_counts(&invocation)?;
         write_line(output, &deferred::describe_deferred_commands())?;
-        write_line(output, &deferred::describe_deferred_rules())?;
+        let rules = deferred::describe_deferred_rules(derived_counts.hygiene_rules)
+            .map_err(Failure::GovernanceCounts)?;
+        write_line(output, &rules)?;
         // --list-deferred 可以单独使用（只问"还缺什么"），也可以与子命令同用
         if invocation.command.is_none() {
             return Ok(EXIT_OK);
@@ -321,6 +328,15 @@ fn run_doc_consistency(
     let root = resolve_repo_root(invocation.repo.as_deref())
         .map_err(|error| Failure::from_walk(&error))?;
     runner(&root, output).map_err(Failure::Io)
+}
+
+/// 从事实源派生治理计数；解析或集合不一致按阻塞级发现处理。
+fn load_governance_counts(
+    invocation: &Invocation,
+) -> Result<deferred::DerivedGovernanceCounts, Failure> {
+    let root = resolve_repo_root(invocation.repo.as_deref())
+        .map_err(|error| Failure::from_walk(&error))?;
+    doccheck::derive_governance_counts(&root).map_err(Failure::GovernanceCounts)
 }
 
 /// 执行 `guard`：组装请求 → 造文件系统锁存储 → 交给 `guard_runner` 分派。
@@ -470,6 +486,8 @@ fn run_check_comments(invocation: &Invocation, output: &mut dyn Write) -> Result
 fn run_hygiene(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
     let root = resolve_repo_root(invocation.repo.as_deref())
         .map_err(|error| Failure::from_walk(&error))?;
+    let derived_counts =
+        doccheck::derive_governance_counts(&root).map_err(Failure::GovernanceCounts)?;
     let rust_files = collect_rust_files(&root).map_err(|error| Failure::from_walk(&error))?;
     let text_files =
         collect_hygiene_text_files(&root).map_err(|error| Failure::from_walk(&error))?;
@@ -515,8 +533,10 @@ fn run_hygiene(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Fa
         .summary_line()
         .map_err(|error| Failure::Internal(format!("生成报告摘要失败：{error}")))?;
     write_line(output, &format!("-- machine-summary: {summary}"))?;
-    // 主动声明覆盖范围，避免 PASSED 被误读成"全部 13 项都过了"
-    write_line(output, &deferred::hygiene_progress_note())?;
+    // 主动声明覆盖范围，避免 PASSED 被误读成"全部规则都过了"
+    let progress_note = deferred::hygiene_progress_note(derived_counts.hygiene_rules)
+        .map_err(Failure::GovernanceCounts)?;
+    write_line(output, &progress_note)?;
     report
         .render(output)
         .map_err(|error| Failure::from_io("渲染报告", &error))?;
@@ -704,15 +724,38 @@ mod tests {
 
     #[test]
     fn test_execute_hygiene_with_repo_override_without_whitelist_is_error() {
-        // 指向 xtask/src 之外的目录：既要报告 0 个源码文件，也要因缺少 ADR-0069 白名单失败。
-        let root = resolve_repo_root(None).expect("默认仓库根应可用");
-        let docs = root.join("docs");
+        // 用最小临时仓库隔离测试：提供派生计数事实源，但不提供 ADR-0069 白名单。
+        let root =
+            std::env::temp_dir().join(format!("xtask-hygiene-no-whitelist-{}", std::process::id()));
+        if root.exists() {
+            std::fs::remove_dir_all(&root).expect("清理旧临时仓库");
+        }
+        std::fs::create_dir_all(root.join("docs")).expect("创建 docs");
+        std::fs::create_dir_all(root.join(".github/workflows")).expect("创建 workflow 目录");
+        std::fs::write(
+            root.join("docs/governance-ai-agent-execution.md"),
+            concat!(
+                "### 5.1 CI\n\n",
+                "| # | 检查 |\n",
+                "|---|---|\n",
+                "| 1 | fmt |\n\n",
+                "### 5.2 下一节\n\n",
+                "### 5.4 卫生\n\n",
+                "| 检查 | 阈值 |\n",
+                "|---|---|\n",
+                "| 规则 | warning |\n",
+            ),
+        )
+        .expect("写治理事实源");
+        std::fs::write(root.join(".github/workflows/ci.yml"), "# gov-gate: 1\n")
+            .expect("写 CI 事实源");
         let mut output: Vec<u8> = Vec::new();
         let code = execute(
-            &args(&["hygiene", "--repo", docs.to_str().expect("路径应为 UTF-8")]),
+            &args(&["hygiene", "--repo", root.to_str().expect("路径应为 UTF-8")]),
             &mut output,
         )
         .expect("不应因 IO 失败");
+        std::fs::remove_dir_all(&root).expect("清理临时仓库");
         let text = String::from_utf8(output).expect("应为 UTF-8");
         assert_eq!(code, EXIT_FINDINGS, "缺少顶层目录白名单必须 fail-closed");
         assert!(

@@ -32,6 +32,7 @@ use crate::adr_index;
 use crate::adr_registry::{
     ADR_DIR, DECISIONS_PATH, REGISTRY_PATH, file_number, summarize_adr_file,
 };
+use crate::deferred::{self, DerivedGovernanceCounts};
 use crate::memory_counts;
 use crate::memory_table::{INDEX_PATH, MEMORY_DIR, MeasuredFile, count_entries, count_lines};
 use crate::report::{Finding, Report, Severity};
@@ -49,6 +50,12 @@ const MEMORY_DIR_EXCLUSIONS: [&str; 1] = ["archive"];
 /// ② clippy 的 `case_sensitive_file_extension_comparison` 要求扩展名比较大小写无关 ——
 /// Windows/macOS 文件系统里 `.MD` 与 `.md` 是同一类文件，漏掉它们会让统计少算。
 const MARKDOWN_EXTENSION: &str = ".md";
+
+/// 治理门禁与 hygiene 规则总数的事实源文件。
+const GOVERNANCE_PATH: &str = "docs/governance-ai-agent-execution.md";
+
+/// CI 门禁标记的事实源文件。
+const CI_WORKFLOW_PATH: &str = ".github/workflows/ci.yml";
 
 /// 文件名是否是 Markdown 文件（大小写无关）。
 fn is_markdown_file(file_name: &str) -> bool {
@@ -106,6 +113,17 @@ pub fn run_adr_index(repo_root: &Path, output: &mut dyn Write) -> Result<u8, Str
     });
     report.extend(findings);
     render(&report, output)
+}
+
+/// 从治理文档与 CI workflow 读取文本并派生机器校验计数。
+///
+/// # Errors
+/// 任一事实源不可读，或 `deferred` 的解析 / 集合校验失败时返回错误。
+pub fn derive_governance_counts(repo_root: &Path) -> Result<DerivedGovernanceCounts, String> {
+    let governance = read_required_file(&repo_root.join(path_from_repo_relative(GOVERNANCE_PATH)))?;
+    let ci_workflow =
+        read_required_file(&repo_root.join(path_from_repo_relative(CI_WORKFLOW_PATH)))?;
+    deferred::derive_governance_counts(&governance, &ci_workflow)
 }
 
 /// 汇总 `docs/adr/NNNN-*.md`；文件名里没有 4 位编号的（如 `README.md`）自动排除。

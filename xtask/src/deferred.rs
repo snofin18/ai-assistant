@@ -14,22 +14,22 @@
 //! - 不判断"该不该实现"：那属于任务卡与 PLAN；本模块只如实登记现状。
 //!
 //! ## 不变量
-//! 1. `IMPLEMENTED_HYGIENE_RULE_COUNT + DEFERRED_HYGIENE_RULES.len() == TOTAL_HYGIENE_RULE_COUNT`
-//!    （有单测锁死；不一致说明有人加了规则却没更新登记）。
+//! 1. 已实现卫生规则数 = `gov §5.4` 表格数据行数 − `DEFERRED_HYGIENE_RULES.len()`；
+//!    负数必须显式失败。
 //! 2. 每个 `DeferredCommand::command` 在 `DEFERRED_COMMANDS` 中唯一。
 //! 3. 每一项都必须有非空的 `owning_card`（可以是"未分配"，但不能留空 ——
 //!    留空意味着没人负责，那才是真正的静默失败）。
 
-/// gov §5.4 表格中的卫生规则总项数（**13 项**，口径由 ADR-0025 统一）。
-///
-/// 这个数字必须与 gov §5.4 的表格行数一致；不一致由下面的不变量 1 单测拦不住
-/// （单测只校验"已实现 + 未实现 == 总数"的自洽性，不校验与文档的一致性）。
-/// 因此改 gov §5.4 的行数时**必须**同步改这里 —— 让工具直接解析文档表格行数
-/// 是更彻底的做法，已记入 `docs/PARKING_LOT.md` PL-022。
-pub const TOTAL_HYGIENE_RULE_COUNT: usize = 13;
-
-/// 已实现的卫生规则项数：TASK-001 / TASK-085 / TASK-086 / TASK-234 已覆盖全部 13 条。
-pub const IMPLEMENTED_HYGIENE_RULE_COUNT: usize = 13;
+/// 从治理文档和 CI 工作流派生出的计数。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DerivedGovernanceCounts {
+    /// `gov §5.4` 表格的数据行数。
+    pub hygiene_rules: usize,
+    /// `gov §5.1` 表格中的门禁编号数量。
+    pub governance_gates: usize,
+    /// `ci.yml` 中 `# gov-gate: <id>` 标记的数量。
+    pub ci_gates: usize,
+}
 
 /// 一个尚未实现的子命令。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,9 +62,247 @@ pub const DEFERRED_COMMANDS: &[DeferredCommand] = &[];
 
 /// 未实现的卫生规则清单；TASK-234 后为空。
 ///
-/// 保留数组与类型是让不变量 1 继续机器校验「已实现数 + 未实现数 == 13」；
-/// 未来新增规则时先登记未实现项，再实现并清空。
+/// 未实现条数参与 `派生总数 − 未实现数` 的计算；未来新增规则时先登记未实现项，
+/// 再实现并清空。
 pub const DEFERRED_HYGIENE_RULES: &[DeferredRule] = &[];
+
+/// 从 `gov §5.4` 与 `ci.yml` 的文本派生计数并校验门禁集合。
+///
+/// # Errors
+/// 表格 / 标记缺失、重复、额外或不可解析时返回带具体原因的错误。全部解析失败路径都必须
+/// 保持显式，禁止把空结果当作 0。
+pub fn derive_governance_counts(
+    governance_markdown: &str,
+    ci_workflow: &str,
+) -> Result<DerivedGovernanceCounts, String> {
+    let hygiene_rule_total = parse_hygiene_rule_count(governance_markdown)?;
+    let governance_gate_ids = parse_governance_gate_ids(governance_markdown)?;
+    let ci_gate_ids = parse_ci_gate_ids(ci_workflow)?;
+    verify_gate_ids_match(&governance_gate_ids, &ci_gate_ids)?;
+    implemented_hygiene_rule_count(hygiene_rule_total)?;
+    Ok(DerivedGovernanceCounts {
+        hygiene_rules: hygiene_rule_total,
+        governance_gates: governance_gate_ids.len(),
+        ci_gates: ci_gate_ids.len(),
+    })
+}
+
+/// 解析 `gov §5.4` 表格的数据行数。
+///
+/// # Errors
+/// 找不到 §5.4 标题、表格头、separator 或数据行时返回错误。
+pub fn parse_hygiene_rule_count(markdown: &str) -> Result<usize, String> {
+    let section = section_after_heading(markdown, "### 5.4", "gov §5.4")?;
+    let rows = markdown_table_rows(section, "检查", "gov §5.4")?;
+    Ok(rows.len())
+}
+
+/// 解析 `gov §5.1` 表格中的门禁编号集合。
+///
+/// # Errors
+/// 找不到 §5.1 表头 / separator、数据行为空或编号非法时返回错误。
+pub fn parse_governance_gate_ids(markdown: &str) -> Result<Vec<String>, String> {
+    let section = section_before_next_heading(markdown, "### 5.1", "### 5.2", "gov §5.1")?;
+    parse_marked_ids_from_table(section, "#", "gov §5.1")
+}
+
+/// 解析 `ci.yml` 中的 `# gov-gate: <id>` 标记。
+///
+/// # Errors
+/// 标记为空、编号非法或重复时返回错误。
+pub fn parse_ci_gate_ids(workflow: &str) -> Result<Vec<String>, String> {
+    let marker = "# gov-gate:";
+    let mut ids = Vec::new();
+    for (line_index, line) in workflow.lines().enumerate() {
+        let Some(marker_index) = line.find(marker) else {
+            continue;
+        };
+        let tail = &line[marker_index + marker.len()..];
+        let id = tail.split_whitespace().next().unwrap_or_default();
+        validate_gate_id(id, "ci.yml", line_index + 1)?;
+        if ids.iter().any(|existing| existing == id) {
+            return Err(format!(
+                "ci.yml 第 {} 行重复声明 `{marker} {id}`",
+                line_index + 1
+            ));
+        }
+        ids.push(id.to_string());
+    }
+    if ids.is_empty() {
+        return Err("ci.yml 找不到任何 `# gov-gate: <id>` 标记".to_string());
+    }
+    ids.sort_unstable();
+    Ok(ids)
+}
+
+/// 校验两个门禁编号集合完全一致。
+///
+/// # Errors
+/// 任一侧缺失或出现额外编号时返回错误。
+pub fn verify_gate_ids_match(governance_ids: &[String], ci_ids: &[String]) -> Result<(), String> {
+    let missing_from_ci: Vec<&str> = governance_ids
+        .iter()
+        .filter(|id| !ci_ids.contains(id))
+        .map(String::as_str)
+        .collect();
+    let extra_in_ci: Vec<&str> = ci_ids
+        .iter()
+        .filter(|id| !governance_ids.contains(id))
+        .map(String::as_str)
+        .collect();
+    if missing_from_ci.is_empty() && extra_in_ci.is_empty() {
+        return Ok(());
+    }
+    Err(format!(
+        "gov §5.1 与 ci.yml 的 # gov-gate 集合不一致：\
+         gov={} 项，ci={} 项；ci 缺失=[{}]；ci 额外=[{}]",
+        governance_ids.len(),
+        ci_ids.len(),
+        missing_from_ci.join(", "),
+        extra_in_ci.join(", ")
+    ))
+}
+
+/// 从派生总数和未实现清单计算已实现规则数。
+///
+/// # Errors
+/// 未实现条数大于派生总数时返回错误，避免负数或饱和减法掩盖事实源矛盾。
+pub fn implemented_hygiene_rule_count(total: usize) -> Result<usize, String> {
+    implemented_hygiene_rule_count_for(total, DEFERRED_HYGIENE_RULES.len())
+}
+
+/// `implemented_hygiene_rule_count` 的可注入版本，便于用纯负向样本覆盖减法下界。
+fn implemented_hygiene_rule_count_for(
+    total: usize,
+    deferred_count: usize,
+) -> Result<usize, String> {
+    total.checked_sub(deferred_count).ok_or_else(|| {
+        format!("gov §5.4 只派生 {total} 条 hygiene 规则，但未实现清单有 {deferred_count} 条")
+    })
+}
+
+/// 从 §5.1 / §5.4 标题后的表格中解析指定首列编号。
+fn parse_marked_ids_from_table(
+    section: &str,
+    header_first_cell: &str,
+    source_name: &str,
+) -> Result<Vec<String>, String> {
+    let mut ids = Vec::new();
+    for (line_number, cells) in markdown_table_rows(section, header_first_cell, source_name)? {
+        let raw_id = cells
+            .first()
+            .ok_or_else(|| format!("{source_name} 第 {line_number} 行缺首列"))?
+            .trim()
+            .trim_matches('*');
+        validate_gate_id(raw_id, source_name, line_number)?;
+        ids.push(raw_id.to_string());
+    }
+    ids.sort_unstable();
+    Ok(ids)
+}
+
+/// 取 Markdown 表格的数据行（含 1-based 行号与单元格）。
+///
+/// # Errors
+/// 表头、separator 或数据行缺失时返回错误，避免把“没解析到表格”当成空表成功。
+fn markdown_table_rows<'text>(
+    section: &'text str,
+    header_first_cell: &str,
+    source_name: &str,
+) -> Result<Vec<(usize, Vec<&'text str>)>, String> {
+    let mut saw_header = false;
+    let mut saw_separator = false;
+    let mut rows = Vec::new();
+    for (line_index, line) in section.lines().enumerate() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with('|') {
+            if saw_separator && !rows.is_empty() {
+                break;
+            }
+            continue;
+        }
+        let cells = split_table_row(trimmed)?;
+        if !saw_header {
+            saw_header = cells.first().is_some_and(|cell| *cell == header_first_cell);
+            continue;
+        }
+        if !saw_separator {
+            if !is_table_separator(&cells) {
+                return Err(format!("{source_name} 的表头后缺少 Markdown separator"));
+            }
+            saw_separator = true;
+            continue;
+        }
+        rows.push((line_index + 1, cells));
+    }
+    if !saw_header {
+        return Err(format!(
+            "{source_name} 找不到表头 `| {header_first_cell} |`"
+        ));
+    }
+    if !saw_separator {
+        return Err(format!("{source_name} 找不到表格 separator"));
+    }
+    if rows.is_empty() {
+        return Err(format!("{source_name} 表格没有数据行"));
+    }
+    Ok(rows)
+}
+
+/// 取指定 Markdown 标题到下一个以 `###` 开头的标题之间的内容。
+fn section_before_next_heading<'text>(
+    markdown: &'text str,
+    heading: &str,
+    next_heading: &str,
+    source_name: &str,
+) -> Result<&'text str, String> {
+    let section = section_after_heading(markdown, heading, source_name)?;
+    Ok(section.split(next_heading).next().unwrap_or(section))
+}
+
+/// 取指定 Markdown 标题后的内容。
+fn section_after_heading<'text>(
+    markdown: &'text str,
+    heading: &str,
+    source_name: &str,
+) -> Result<&'text str, String> {
+    markdown
+        .split_once(heading)
+        .map(|(_, section)| section)
+        .ok_or_else(|| format!("{source_name} 找不到标题 `{heading}`"))
+}
+
+/// 按 Markdown 表格规则拆分一行并去掉首尾空单元格。
+fn split_table_row(line: &str) -> Result<Vec<&str>, String> {
+    let trimmed = line.trim().trim_matches('|');
+    let cells: Vec<&str> = trimmed.split('|').map(str::trim).collect();
+    if cells.is_empty() {
+        return Err("Markdown 表格行为空".to_string());
+    }
+    Ok(cells)
+}
+
+/// 判断一行是否是 Markdown 表格 separator。
+fn is_table_separator(cells: &[&str]) -> bool {
+    !cells.is_empty()
+        && cells.iter().all(|cell| {
+            !cell.is_empty() && cell.chars().all(|character| matches!(character, '-' | ':'))
+        })
+}
+
+/// 校验门禁编号只含 ASCII 字母数字。
+fn validate_gate_id(id: &str, source_name: &str, line_number: usize) -> Result<(), String> {
+    if id.is_empty()
+        || !id
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric())
+    {
+        return Err(format!(
+            "{source_name} 第 {line_number} 行的门禁编号 `{id}` 非法"
+        ));
+    }
+    Ok(())
+}
 
 /// 按名字查找未实现的子命令；找不到说明它是未知命令（由 `main.rs` 区分处理）。
 #[must_use]
@@ -106,12 +344,12 @@ pub fn describe_deferred_commands() -> String {
 }
 
 /// 生成未实现卫生规则清单的可读文本（`--list-deferred` 用）。
-#[must_use]
-pub fn describe_deferred_rules() -> String {
+pub fn describe_deferred_rules(total_hygiene_rule_count: usize) -> Result<String, String> {
+    let implemented = implemented_hygiene_rule_count(total_hygiene_rule_count)?;
     if DEFERRED_HYGIENE_RULES.is_empty() {
-        return format!(
-            "gov §5.4 的 {TOTAL_HYGIENE_RULE_COUNT} 项卫生规则已全部实现：未实现 0 项。\n"
-        );
+        return Ok(format!(
+            "gov §5.4 的 {total_hygiene_rule_count} 项卫生规则已全部实现：未实现 0 项。\n"
+        ));
     }
     let rows: Vec<String> = DEFERRED_HYGIENE_RULES
         .iter()
@@ -122,25 +360,25 @@ pub fn describe_deferred_rules() -> String {
             )
         })
         .collect();
-    format!(
-        "gov §5.4 的 {TOTAL_HYGIENE_RULE_COUNT} 项卫生规则中，未实现 {} 项：\n{}\n",
+    Ok(format!(
+        "gov §5.4 的 {total_hygiene_rule_count} 项卫生规则中，已实现 {implemented} 项，未实现 {} 项：\n{}\n",
         DEFERRED_HYGIENE_RULES.len(),
         rows.join("\n")
-    )
+    ))
 }
 
 /// 生成一行「进度声明」，在每次 `hygiene` 运行时打印。
 ///
 /// 为什么每次都要打印：如果不声明，`verdict: PASSED` 会被误读成"13 项卫生规则全过"。
 /// 让工具主动承认自己只检查了一部分，是防止虚假安全感的最低成本手段。
-#[must_use]
-pub fn hygiene_progress_note() -> String {
-    format!(
+pub fn hygiene_progress_note(total_hygiene_rule_count: usize) -> Result<String, String> {
+    let implemented = implemented_hygiene_rule_count(total_hygiene_rule_count)?;
+    Ok(format!(
         "-- deferred-rules: gov §5.4 共 {} 项，已实现 {} 项，未实现 {} 项（`--list-deferred` 查看清单）",
-        TOTAL_HYGIENE_RULE_COUNT,
-        IMPLEMENTED_HYGIENE_RULE_COUNT,
+        total_hygiene_rule_count,
+        implemented,
         DEFERRED_HYGIENE_RULES.len()
-    )
+    ))
 }
 
 #[cfg(test)]
@@ -148,14 +386,70 @@ pub fn hygiene_progress_note() -> String {
 mod tests {
     use super::*;
 
+    const GOVERNANCE_FIXTURE: &str = r"### 5.1 CI 门禁
+
+| # | 检查 |
+|---|---|
+| 1 | fmt |
+| **2b** | derived |
+
+### 5.2 下一节
+
+### 5.4 仓库卫生检查
+
+| 检查 | 阈值 |
+|---|---|
+| 单文件行数 | warning |
+| 圈复杂度 | warning |
+";
+
+    const CI_FIXTURE: &str = r"# skeleton
+# gov-gate: 1
+run: cargo fmt --all --check
+# gov-gate: 2b
+run: cargo run -p xtask -- hygiene
+";
+
     #[test]
-    fn test_hygiene_rule_counts_are_consistent() {
-        // 不变量 1：已实现 + 未实现 == 总数
-        assert_eq!(
-            IMPLEMENTED_HYGIENE_RULE_COUNT + DEFERRED_HYGIENE_RULES.len(),
-            TOTAL_HYGIENE_RULE_COUNT,
-            "规则登记表与 gov §5.4 的项数不一致"
-        );
+    fn test_derived_counts_follow_the_governance_tables() {
+        let counts =
+            derive_governance_counts(GOVERNANCE_FIXTURE, CI_FIXTURE).expect("匹配的正负样本应通过");
+        assert_eq!(counts.hygiene_rules, 2);
+        assert_eq!(counts.governance_gates, 2);
+        assert_eq!(counts.ci_gates, 2);
+        assert_eq!(implemented_hygiene_rule_count(counts.hygiene_rules), Ok(2));
+    }
+
+    #[test]
+    fn test_derived_counts_reject_missing_ci_gate_marker() {
+        let ci = CI_FIXTURE.replace("# gov-gate: 2b\n", "");
+        let error =
+            derive_governance_counts(GOVERNANCE_FIXTURE, &ci).expect_err("缺失 CI 标记必须失败");
+        assert!(error.contains("集合不一致"), "实际错误：{error}");
+        assert!(error.contains("2b"), "实际错误：{error}");
+    }
+
+    #[test]
+    fn test_derived_counts_reject_duplicate_ci_gate_marker() {
+        let ci = format!("{CI_FIXTURE}# gov-gate: 1\n");
+        let error =
+            derive_governance_counts(GOVERNANCE_FIXTURE, &ci).expect_err("重复标记必须失败");
+        assert!(error.contains("重复声明"), "实际错误：{error}");
+    }
+
+    #[test]
+    fn test_derived_counts_reject_unparsable_governance_table() {
+        let broken = GOVERNANCE_FIXTURE.replace("|---|---|\n| 1 | fmt |", "| 1 | fmt |");
+        let error =
+            derive_governance_counts(&broken, CI_FIXTURE).expect_err("缺 separator 必须失败");
+        assert!(error.contains("separator"), "实际错误：{error}");
+    }
+
+    #[test]
+    fn test_derived_implemented_count_rejects_negative_difference() {
+        let error =
+            implemented_hygiene_rule_count_for(0, 1).expect_err("未实现数大于派生总数必须失败");
+        assert!(error.contains("未实现清单有 1 条"), "实际错误：{error}");
     }
 
     #[test]
@@ -258,7 +552,7 @@ mod tests {
 
     #[test]
     fn test_progress_note_states_partial_coverage() {
-        let note = hygiene_progress_note();
+        let note = hygiene_progress_note(13).expect("13 条派生总数应可计算");
         assert!(
             note.contains("已实现 13 项"),
             "必须声明 13/13 已实现，实际：{note}"
@@ -276,9 +570,13 @@ mod tests {
             commands.contains("未实现的子命令：0 项"),
             "清单必须显式说明 replay 完整版后为 0 项：{commands}"
         );
-        let rules = describe_deferred_rules();
+        let rules = describe_deferred_rules(2).expect("2 条派生总数应可计算");
         for entry in DEFERRED_HYGIENE_RULES {
             assert!(rules.contains(entry.rule), "清单遗漏规则 {}", entry.rule);
         }
+        assert!(
+            rules.contains("2 项卫生规则已全部实现"),
+            "派生总数必须进入输出：{rules}"
+        );
     }
 }
