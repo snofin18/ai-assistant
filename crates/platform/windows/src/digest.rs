@@ -105,9 +105,20 @@ const INITIAL_STATE: [u32; 8] = [
 /// （见本模块不变量 1），因此调用方无需再处理格式失败。
 #[must_use]
 pub fn sha256_fingerprint(input: &str) -> String {
-    let digest = sha256(input.as_bytes());
     let mut encoded = String::with_capacity(71);
     encoded.push_str("sha256:");
+    encoded.push_str(&sha256_hex_bytes(input.as_bytes()));
+    encoded
+}
+
+/// 计算任意字节序列的 SHA-256，返回 64 位小写 hex（无前缀）。
+///
+/// 截图内容地址与 `Fingerprint` 共用同一条 SHA-256 实现，但两者契约不同：
+/// `Fingerprint` 需要 `sha256:` 前缀，storage 口径的 `blob_id` 只看裸 hex。
+#[must_use]
+pub fn sha256_hex_bytes(input: &[u8]) -> String {
+    let digest = sha256(input);
+    let mut encoded = String::with_capacity(64);
     for byte in digest {
         push_lower_hex(&mut encoded, byte);
     }
@@ -306,6 +317,18 @@ mod tests {
         assert_eq!(
             parsed.map(|fingerprint| fingerprint.as_str().to_string()),
             Ok(value)
+        );
+    }
+
+    #[test]
+    fn test_sha256_hex_bytes_is_the_unprefixed_storage_form() {
+        assert_eq!(
+            sha256_hex_bytes(b""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+        assert_eq!(
+            sha256_fingerprint("").strip_prefix("sha256:"),
+            Some(sha256_hex_bytes(b"").as_str())
         );
     }
 

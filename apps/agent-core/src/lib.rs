@@ -25,6 +25,7 @@
 pub mod adapters;
 mod approval_grants;
 mod assembly;
+mod blob_sink;
 mod error;
 pub mod notepad_files;
 pub mod notepad_handlers;
@@ -55,6 +56,7 @@ pub use adapters::{
 };
 pub use approval_grants::{ApprovalGrants, GrantError, GrantRequest};
 pub use assembly::{HostAssembly, HostAssemblyInput, HostComponents};
+pub use blob_sink::StorageBlobSink;
 pub use error::HostAssemblyError;
 pub use production::{ProductionConfig, ProductionError, ProductionHost, assemble_production_host};
 pub use production_run::{PendingRuntimeApproval, ProductionRun};

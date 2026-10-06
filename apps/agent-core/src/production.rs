@@ -44,6 +44,7 @@ use serde_json::{Map, Value};
 use thiserror::Error;
 
 use crate::HostAssembly;
+use crate::adapters::DatabaseHandle;
 use crate::approval_grants::ApprovalGrants;
 use crate::assembly::{HostAssemblyInput, HostComponents};
 use crate::notepad_registry::{NotepadRegistryBuild, build_notepad_registry};
@@ -349,6 +350,15 @@ impl<P> ProductionHost<P>
 where
     P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
 {
+    /// Returns the assembly-owned database handle.
+    ///
+    /// The capture blob sink (`ADR-0076`) is attached with it right after assembly: the platform is
+    /// constructed by the caller, while the database only exists once the Host has been assembled.
+    #[must_use]
+    pub fn database_handle(&self) -> DatabaseHandle {
+        self.host.database_handle()
+    }
+
     /// Builds one validated Plan from the deterministic task package.
     ///
     /// # Errors

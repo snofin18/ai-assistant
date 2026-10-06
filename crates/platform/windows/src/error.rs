@@ -122,16 +122,6 @@ pub fn capability_missing(context: impl Into<String>) -> PlatformError {
     PlatformError::new(ErrorCode::CapabilityMissing, context)
 }
 
-/// 「还没实现，且已排了卡」的标准错误（源码里**占位实现标记**的配套运行时形态；
-/// 标记格式见 `docs/spec/naming.md` §8）。
-#[must_use]
-pub fn stub_not_implemented(card: &str, context: &str) -> PlatformError {
-    PlatformError::new(
-        ErrorCode::CapabilityMissing,
-        format!("{context} is not implemented yet (scheduled as {card})"),
-    )
-}
-
 /// 输入不合法（如未知 action 名）。
 #[must_use]
 pub fn invalid_args(context: impl Into<String>) -> PlatformError {
