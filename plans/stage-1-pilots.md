@@ -7,6 +7,7 @@
 > **TASK-041 ✅（2026-10-06）**：**拆分 A + 拆分 B** 落地 —— ADR-0073 冻结「像素遮挡归平台层 / `NeverPersist` 不保留 `ImageRef` / 滚动清理有界」，`crates/capture` + `crates/dlp/src/redact` 零依赖纯逻辑（15 专项测试）；ADR-0076 落地 Windows GDI `PrintWindow` 单窗口截图 + UIA `IsPassword` 像素遮挡 + `ImageBlobSink` 注入（binary `StorageBlobSink` 落盘并核对内容地址），`DRIFT-041-2` / `PL-112` 闭环。
 > **TASK-247 ✅（2026-10-06）**：`visual_assert` 接进后置断言引擎（ADR-0077）—— 新增 `Postcondition::VisualAssert` 与 `evaluate_postcondition_with_visual` / `verify_postconditions_with_visual` / `verify_postconditions_with_receipt_and_visual`（既有签名不变，委托 `None`）；图像作为并列参数传入，不进可序列化的 `Observation`；无图 / 低置信一律 `NotEvaluable`；5 个契约用例。`PL-110` / `DRIFT-042-1` 闭环。
 > **TASK-248 ✅（2026-10-06）**：`PL-023` 作废（人类裁决）+ 顶层目录白名单的指向冲突消解 —— ADR-0078 裁定**不设立 `scripts/`**（脚本归 `tools/`）、`docs/nightly/logs/` 亦不设立；附表变更规则第 3 条与 ADR 登记表 0069 行的「由 PL-023 决定」已改指 ADR-0078；不动白名单表，不改 ADR-0069 正文。
+> **TASK-249 ✅（2026-10-06）**：`visual_assert` 图像来源与运行时接线 —— ADR-0079 新增 `ObservationCollector::observe_visual` 默认入口；生产 `StorageVisualObservationCollector` 只读信封里的 blob 元数据，经装配 `storage` 读取 BGRA、按固定 Rec.709 整数口径转灰度，再走 `verify_postconditions_with_receipt_and_visual`；运行时专项 8/8、来源专项 7/7。
 > **TASK-225 ✅（2026-10-03）**：Host 装配层已用共享 `TargetLeaseRegistry` 接上合成输入 exclusive lease；key / pointer-shaped 输入冲突稳定 `Transient`，成功/失败都释放，只读路径不变；`PL-101` 闭环。TASK-040 正文 DoD 复选框仍因正文只读未勾选。
 > **TASK-226 ✅（2026-10-03）**：PL-104 / PL-105 闭环；ignored 真机用例以异步互斥串行化 fixture 启动，`production_root.rs` 拆分后 3 个文件均 <600 行且断言零放宽。
 > **TASK-227 ✅（2026-10-03）**：状态行与停车位收口 —— TASK-040 / TASK-225 的状态行按实更正为 Done；`PL-103` 给出可直接粘贴的 spec 改法（已由 TASK-229 落笔）；`PL-106` 开卡 TASK-228（Ready，待派单）
@@ -317,6 +318,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-231 ✅** | 1b bridge | `tasks/TASK-231-pointer-coordinate-space-dpi.md` | Done（ADR-0067 pointer 显式坐标空间；`PL-074` 闭环） |
 | **TASK-041 ✅** | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Done（拆分 A + B：ADR-0073 / ADR-0076 + `crates/capture` 纯管线 + Windows GDI 截图 / 像素遮挡 + `ImageBlobSink` 注入） |
 | **TASK-042 ✅** | 1b | `tasks/TASK-042-visual-verify-phash-dhash-confidence.md` | Done（ADR-0074 视觉验证纯逻辑；`crates/verify/src/visual/**` 零依赖 + 21 专项测试；`DRIFT-042-1` / `PL-110`） |
+| **TASK-249 ✅** | 1b bridge | `tasks/TASK-249-visual-observation-source-runtime-wiring.md` | Done（ADR-0079 宿主 blob→BGRA→GrayImage→VisualObservation；运行时 `observe_visual` + 生产 collector；专项 15 passed） |
 | TASK-043 | 1b | `tasks/TASK-043-paint-adapter-tools-canvas-coords.md` | Ready（批次表占位派单前补全） |
 | TASK-044 | 1b | `tasks/TASK-044-t3-1-newcanvas-rect-color-screenshot.md` | Ready（批次表占位派单前补全） |
 | TASK-045 | 1b | `tasks/TASK-045-t3-2-png-open-read-region-saveas.md` | Ready（批次表占位派单前补全） |

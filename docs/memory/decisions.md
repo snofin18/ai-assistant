@@ -236,3 +236,7 @@
 ## 2026-10-06 追加（ADR-0078，Accepted）
 
 - [2026-10-06][DECISION][src:ADR-0078，按用户 2026-10-06 裁决「PL-023 作废」；TASK-248] **不设立 `scripts/` 顶层目录**：脚本类内容一律归已获授权的 `tools/`（TASK-228，定位「独立开发辅助工具、不进产品运行路径」）；`scripts/` **不进入** `docs/adr/top-level-directories.md` 白名单，根目录出现它仍被 `hygiene/unregistered-top-level-directory`（Error）拒绝。`docs/nightly/logs/` 同样不设立 —— 自动化轮次留痕走 **ADR-0054**（先开 docs-only PR 落地，再自删自动化）；章程 §11 里 3 处把该目录当日志落点的引用仍归 **PL-057** 校准。**指向取代**：ADR-0069 的 D8「未来若需要 `scripts/` 须由新 ADR 明确边界后再加入、本 ADR 不预先授权」**继续有效**，本 ADR 只取代其「由 PL-023 的后续 ADR 决定」这一指向，并据此改写附表变更规则第 3 条；若将来真需要该目录，**另开新 ADR，不复用 PL-023**。**不改** ADR-0069 / ADR-0071 正文（ADR 只增不改），不改 `xtask` 判据，不新增依赖 / crate。
+
+## 2026-10-06 追加（ADR-0079，Accepted）
+
+- [2026-10-06][DECISION][src:ADR-0079，按用户 2026-10-06「继续 TASK-247」授权；TASK-249] **`visual_assert` 图像来源由宿主层接通**：`ObservationCollector` 新增带默认实现的 `observe_visual`，既有 collector 保持 `None` 与 TASK-247 行为；`RuntimeExecutor` 在普通 `Observation` 后收集可选 `VisualObservation`，并调用 `verify_postconditions_with_receipt_and_visual`。生产 `StorageVisualObservationCollector` 只从成功 `ToolEnvelope.data.visual_observation` 读取 `reference` / `observed` 两个描述符与 `confidence`；描述符只含 `blob_id` / `width` / `height`，不内联像素或哈希。参考图与实测图必须成对出现，`blob_id` 由 `BlobId::parse` 校验，字节数必须满足 `width * height * 4`；宿主经装配拥有的 storage 读取 BGRA，按固定整数 Rec.709 luma `(77R + 150G + 29B + 128) >> 8` 转灰度，忽略 alpha，再经 `GrayImage::new` 与 `VisualObservation::new` 校验。任一 blob 缺失 / 损坏、尺寸不符、半组对象、非法置信度均显式失败，绝不补零或默认图。**不改** `platform/api` / `protocol/**` / tool schema / IPC / `Observation` / `VerificationReceipt`，不新增依赖或 crate。

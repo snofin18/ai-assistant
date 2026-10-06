@@ -26,8 +26,8 @@ use assistant_task_engine::{
 };
 use assistant_tool_bus::{CallContext, ToolBus};
 use assistant_verify::{
-    AssertValue, Observation, VerifyOutcome, parse_postconditions,
-    verify_postconditions_with_receipt,
+    AssertValue, Observation, VerifyOutcome, VisualObservation, parse_postconditions,
+    verify_postconditions_with_receipt_and_visual,
 };
 use thiserror::Error;
 
@@ -74,6 +74,27 @@ pub trait ObservationCollector {
         step: &PlanStep,
         envelope: &ToolEnvelope,
     ) -> Result<Observation, RuntimeExecutionError>;
+
+    /// Collects the optional visual evidence a `visual_assert` needs.
+    ///
+    /// The default keeps every existing collector source-compatible and produces
+    /// the same fail-closed `NotEvaluable` behavior ADR-0077 defined for a
+    /// `visual_assert` with no image. Implementations that can resolve stored
+    /// screenshots override this method without changing the ordinary
+    /// observation path.
+    ///
+    /// # Errors
+    ///
+    /// Returns a runtime error when the envelope advertises visual evidence but
+    /// its blob metadata or stored pixels cannot be validated. `Ok(None)` means
+    /// no visual evidence was advertised, not a damaged image.
+    fn observe_visual(
+        &self,
+        _step: &PlanStep,
+        _envelope: &ToolEnvelope,
+    ) -> Result<Option<VisualObservation>, RuntimeExecutionError> {
+        Ok(None)
+    }
 }
 
 /// Structured runtime execution failures.
@@ -379,8 +400,22 @@ where
                 );
             }
         };
+        let visual = match self.observer.observe_visual(step, envelope) {
+            Ok(visual) => visual,
+            Err(error) => {
+                return self.enter_needs_human(
+                    task_id,
+                    now_ms,
+                    format!("visual observation unavailable: {error}"),
+                );
+            }
+        };
 
-        match verify_postconditions_with_receipt(&postconditions, &observation) {
+        match verify_postconditions_with_receipt_and_visual(
+            &postconditions,
+            &observation,
+            visual.as_ref(),
+        ) {
             Ok(receipt) => {
                 let post_fingerprint = Some(observation.fingerprint.as_str().to_owned());
                 let snapshot = self.engine.commit_step(

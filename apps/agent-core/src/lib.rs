@@ -49,6 +49,7 @@ mod ui_control;
 mod ui_events;
 mod ui_ipc;
 mod ui_server;
+mod visual_source;
 
 pub use adapters::{
     AuditSink, CharacterTokenEstimator, RootedAppMapReader, StorageMemoryRetriever,
@@ -83,3 +84,4 @@ pub use ui_server::{
     NoEvents, UiEventSource, UiServerConfig, looks_like_image_path, process_ui_request,
     push_events, serve as serve_ui, serve_session, serve_session_with_events, serve_with_events,
 };
+pub use visual_source::{StorageVisualObservationCollector, VISUAL_OBSERVATION_FIELD};

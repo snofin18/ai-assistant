@@ -52,7 +52,7 @@ use crate::notepad_targets::NotepadTargetCatalog;
 use crate::production_policy::{ApprovalWindows, CatalogStepPolicy};
 use crate::production_run::ProductionRun;
 use crate::production_support::{EmptyRetriever, NoopCompressor};
-use crate::runtime::{EnvelopeObservationCollector, RuntimeExecutionError, RuntimeExecutor};
+use crate::runtime::{RuntimeExecutionError, RuntimeExecutor};
 use crate::runtime_binding::{BindingInvoker, RuntimeBindingState};
 use crate::runtime_host_ops::ReservedHostOperations;
 use crate::target_lease::TargetLeaseRegistry;
@@ -60,6 +60,7 @@ use crate::task_package::{TaskPackageError, TaskPackageProvider};
 use crate::ui_control::PendingApprovals;
 use crate::ui_events::SnapshotEventSource;
 use crate::ui_server::UiServerConfig;
+use crate::visual_source::StorageVisualObservationCollector;
 
 #[path = "production_resume.rs"]
 mod resume;
@@ -446,7 +447,7 @@ where
             engine,
             policy,
             binding_invoker,
-            EnvelopeObservationCollector,
+            StorageVisualObservationCollector::new(self.database_handle()),
         );
         self.drive_steps(
             executor,
