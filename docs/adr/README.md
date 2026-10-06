@@ -74,7 +74,7 @@
 | **0066** | `0066-cli-single-write-channel-and-file-occupancy-probe.md` | **Accepted** | 命令行唯一写通道 = `xtask write` 复用 ADR-0028 协作锁 + Windows `share_mode(0)` 占用探测 + 有界退避重试；不做真 FIFO，`apply_patch` 不强制纳入，探测盲区与非 Windows fail-closed 明写（TASK-224；2026-10-04 按用户 2026-10-03 预授权代为裁决；`PL-107` 闭环） |
 | **0067** | `0067-pointer-action-explicit-coordinate-space.md` | **Accepted** | pointer 动作显式携带起始点 `CoordinateSpace`；`DragTo` 释放点携带自己的 `CoordinateSpace`；删除混合 DPI 收敛启发式，改为设备名 / DPI / 物理点落屏的显式校验（TASK-231；2026-10-04 按用户 2026-10-03 预授权代为裁决；`PL-074` 闭环） |
 | **0068** | `0068-cross-file-duplicate-code-hygiene.md` | **Accepted** | 跨文件重复代码 = 规范化 token shingle + 包含度阈值；本版 Warning，忽略测试 / 生成 / fixture，扫描有硬上限（TASK-234；2026-10-04 按用户 2026-10-04 预授权代为裁决；`PL-060` 闭环） |
-| **0069** | `0069-top-level-directory-adr-whitelist.md` | **Accepted** | 顶层目录白名单 = `docs/adr/top-level-directories.md`；未登记目录 Error，`scripts/` 仍待 PL-023 单独裁决（TASK-234；2026-10-04 按用户 2026-10-04 预授权代为裁决；`PL-060` 闭环） |
+| **0069** | `0069-top-level-directory-adr-whitelist.md` | **Accepted** | 顶层目录白名单 = `docs/adr/top-level-directories.md`；未登记目录 Error（TASK-234；2026-10-04 按用户 2026-10-04 预授权代为裁决；`PL-060` 闭环）。**`scripts/` 的处置后续由 ADR-0078 裁定为「不设立」**；本行早期的待裁决指向已失效，读契约以 ADR-0078 为准 |
 | **0070** | `0070-role-and-parent-resolution-semantics.md` | **Accepted** | `RoleAndParent` 的父候选只作为作用域：顶层解析过滤被 `parent_id` 引用的候选，父单独命中时不得返回父元素（TASK-235；2026-10-04 按用户 2026-10-04 预授权代为裁决；`PL-094` 闭环） |
 | **0071** | `0071-capture-and-dlp-crate-boundaries.md` | **Accepted** | 截图管线与出域脱敏的 crate 边界：新增 `crates/capture`（平台无关的窗口截图管线，唯一截图原语 = `platform/api` 的 `WindowProvider::capture`）与 `crates/dlp`（出域策略 + 脱敏 + 截图遮挡），零第三方依赖起步、铁律 7 不破、依赖方向单向（TASK-238；2026-10-04 按用户 2026-10-04「按你的推荐方案做」裁决；`PL-102` 闭环） |
 | **0072** | `0072-derived-values-point-to-ssot.md` | **Accepted** | 会随仓库演变的当前派生值不得手抄进文档；只写唯一事实源指针或可重跑命令，历史观测值须带日期与测量来源；本轮不加 hygiene 规则（TASK-241；2026-10-05 按用户预授权代为裁决；`PL-022` / `PL-035` / `PL-065` / `PL-066` 同族收口） |
@@ -83,8 +83,9 @@
 | **0074** | `0074-visual-assertion-shape-and-perceptual-hash.md` | **Accepted** | `visual_assert` 只有结构化形状（`field` + `op` + 具名容差/阈值 + `confidence_min`），不引入表达式语言；pHash = 32×32 下采样 + raw 8×8 DCT-II 中位阈值、dHash = 9×8 下采样 + 相邻差分，均 64-bit；`max_hamming_distance` 硬上限 24（随机图对 `P(≤24) = 2.997% < 5%`）；低置信 `NeedsHuman` → `NotEvaluable`，不得单独判成功（TASK-042；2026-10-06 按用户预授权代为裁决） |
 | **0076** | `0076-windows-gdi-capture-channel-and-redaction.md` | **Accepted** | Windows 单窗口截图 = GDI `PrintWindow(PW_RENDERFULLCONTENT)`（`BitBlt` 仅在未遮挡时回退）+ `redact=true` 时按 UIA `IsPassword` 矩形做不透明黑遮挡；平台层算 SHA-256 内容地址并把字节交给**注入的** `ImageBlobSink`（trait 在 `crates/platform/api`，binary 用 `crates/storage` 实现并在装配后 `attach` 句柄），未注入 → 显式 `Fatal`（TASK-041 拆分 B；2026-10-06 按用户裁决「选项 ①」；`DRIFT-041-2` 闭环） |
 | **0077** | `0077-visual-assert-postcondition-wiring.md` | **Accepted** | `visual_assert` 以**加法式**接进后置断言引擎：新增 `Postcondition::VisualAssert` 与 `*_with_visual` 入口（旧签名保留并委托 `None`）；参考图 / 实测图作为**并列参数**传入，**不进**可序列化的 `Observation`（像素永不入 JSON，ADR-0074）；无图 → `NotEvaluable`，低置信 → `NeedsHuman` → `NotEvaluable`（TASK-247；2026-10-06 按用户预授权代为裁决；`PL-110` / `DRIFT-042-1` 闭环） |
+| **0078** | `0078-no-scripts-top-level-directory.md` | **Accepted** | **不设立 `scripts/` 顶层目录**：脚本类内容一律归已获授权的 `tools/`（TASK-228）；`docs/nightly/logs/` 亦不设立（自动化留痕走 ADR-0054 的先落 PR 再自删）；ADR-0069 的「不预授权」结论继续有效，本 ADR 只取代其「由 PL-023 决定」的指向；`PL-023` 作废（TASK-248；2026-10-06 按用户 2026-10-06 裁决） |
 
-**下一个可用编号：0078**（= §1 与 §2 已用最大号 **0077** + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0079**（= §1 与 §2 已用最大号 **0078** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由

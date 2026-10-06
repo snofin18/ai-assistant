@@ -27,5 +27,5 @@
 
 1. 新目录必须由 Accepted ADR 解释职责、边界和与既有目录的关系。
 2. 同批在本表新增一行，并在「授权 ADR」列引用该 ADR。
-3. `scripts/` 尚未获授权；是否把它与 `tools/` 合并或单列，由 PL-023 的后续 ADR 决定。
+3. `scripts/` 经 **ADR-0078** 裁定**不设立**：脚本类内容一律归已获授权的 `tools/`（TASK-228）；PL-023 已作废。将来若确需该目录，另开新 ADR 说明它与 `tools/` / `xtask/` 的边界后，再按本规则第 1/2 条登记。
 4. 删除目录时由 Orchestrator 清理本表；未清理的陈列表项由 `hygiene/stale-top-level-directory` 以 Warning 报出。
