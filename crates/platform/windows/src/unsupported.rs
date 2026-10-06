@@ -30,10 +30,10 @@ use std::future::Future;
 
 use assistant_platform_api::{
     CapabilityMatrix, CaptureOptions, CoordinateSpace, ElementQuery, ElementState, ErrorCode,
-    Fingerprint, FingerprintScope, FocusPolicy, ImageRef, KeyChord, KeyTarget, NormalizedPoint,
-    PlatformError, PlatformResult, PointerAction, ResolvedElement, ResolvedWindow, ScrollTarget,
-    Selection, SelectorChain, SessionState, TextEditOp, Timeout, TreeOptions, TreeSnapshot,
-    UiAutomationProvider, WindowFilter, WindowInfo, WindowProvider, WindowState,
+    Fingerprint, FingerprintScope, FocusPolicy, ImageBlobSink, ImageRef, KeyChord, KeyTarget,
+    NormalizedPoint, PlatformError, PlatformResult, PointerAction, ResolvedElement, ResolvedWindow,
+    ScrollTarget, Selection, SelectorChain, SessionState, TextEditOp, Timeout, TreeOptions,
+    TreeSnapshot, UiAutomationProvider, WindowFilter, WindowInfo, WindowProvider, WindowState,
 };
 
 /// 非 Windows 平台上的 `WindowsPlatform`。
@@ -48,6 +48,13 @@ impl WindowsPlatform {
     #[must_use]
     pub const fn new() -> Self {
         Self
+    }
+
+    /// 非 Windows 后端没有真实截图通道；注入点只为保持与 Windows 后端一致的 API 形状
+    /// （`capture` 仍返回 `CapabilityMissing`）。ADR-0076。
+    #[must_use]
+    pub const fn with_blob_sink(self, _sink: &'static dyn ImageBlobSink) -> Self {
+        self
     }
 }
 
