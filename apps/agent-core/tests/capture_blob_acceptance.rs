@@ -14,6 +14,9 @@
     clippy::print_stdout,
     clippy::unwrap_used
 )]
+// 整条链路只在 Windows 真机上存在（GDI 截图 + 桌面窗口）；非 Windows 目标下本测试 crate 为空，
+// 否则 TestDirectory / open_handle 等仅被 `#[cfg(windows)]` 用例使用的辅助项会触发 dead_code（-D warnings）。
+#![cfg(windows)]
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
