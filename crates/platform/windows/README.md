@@ -8,7 +8,8 @@
 ## 职责
 
 1. **窗口域**（`src/window/**`）：`EnumWindows` 枚举可见顶层窗口 → 按 `TargetDescriptor` 的候选链
-   解析**唯一**窗口 → 查询窗口状态（最小化 / 前台 / 遮挡）→ 受策略约束的前台化。
+   解析**唯一**窗口 → 查询窗口状态（最小化 / 前台 / 遮挡）→ 受策略约束的前台化 →
+   GDI `PrintWindow` 单窗口截图 + UIA 密码框像素遮挡（ADR-0074）。
 2. **元素域**（`src/uia/**`）：control view 树快照（`TreeOptions` 裁剪 + 指纹）、候选链解析、
    `wait_for` 轮询、`read_text`（`ValuePattern` → `TextPattern` 兜底）、
    **五类写操作**（`set_value` / `edit_text` / `invoke_action` / `select` / `scroll`，每个都回读）、
@@ -27,7 +28,9 @@
 ## 边界（不做什么）
 
 - **不做**拖拽租约与坐标校准（多次采样 / 误差矩阵）→ **TASK-040**（本层只做**单次**归一化）。
-- **不做**截图 / 脱敏 / 视觉兜底 → **TASK-041 / 042**；`capture` 本卡显式报错（`// STUB(TASK-041):`）。
+- **不做**视觉验证 / OCR / 感知哈希兜底 → **TASK-042**；平台层只负责单窗口截图与像素遮挡。
+- **不做**持久 blob 装配：`capture` 生成遮挡后 BGRA 的内容地址，但 storage sink 尚未接入
+  `WindowProvider`；持久化缺口登记为 `DRIFT-041-2`。
 - **不做**权限判定：合成输入**不**自己判能不能发 —— 放行点是策略引擎（TASK-021）+ HITL（TASK-027）。
 - **不自行关 IME**：文本路径本来就不经过 IME（`KEYEVENTF_UNICODE`），而关 IME 会改用户环境。
 - **不做**策略判定（放行点是 `crates/policy`，TASK-021）、**不做**租约与淘汰（TASK-025）、
@@ -102,8 +105,15 @@
   第一个参数都是 `&ResolvedWindow`，搜索起点是该窗口的 UIA 根元素（`ElementFromHandle`），
   **不再**从桌面根搜。`wait_for` 仍是「先 `Children` 再 `Descendants`」，但作用域改到 scope 子树内。
   原桌面根搜索实测中位数 1.53 s（见下「性能」）；**PL-068** / **DRIFT-017-7** 已关闭。
-- **`capture` 仍未实现**：返回 `CapabilityMissing`，源码标 `// STUB(TASK-041):`
-  （**不是** `todo!()` / `unimplemented!()`）。
+- **`capture` 已实现单窗口 GDI 路径（ADR-0074）**：主通道 `PrintWindow(PW_RENDERFULLCONTENT)`；
+  `PrintWindow` 失败且窗口未遮挡时才用 `BitBlt` 回退，遮挡场景拒绝回退以防截到别的窗口。
+  最小化 / 零尺寸 / 句柄失效 / 权限拒绝都显式返回既有错误码；不返回空图。
+- **`capture` 的内容地址尚未接 storage sink**：返回的 `ImageRef.blob_id` 是遮挡后 BGRA
+  的 SHA-256 内容地址，但平台层没有 storage 句柄，不能在不改公共 trait 的前提下写库；
+  `DRIFT-041-2` 未裁决前不得把它宣称为已持久化 blob。
+- **硬件合成窗口可能得到黑图**：部分 DirectComposition / 高保护窗口对 `PrintWindow` 只返回黑帧；
+  GDI 无法在所有应用上可靠判定“黑帧”是真实内容还是渲染拒绝。真机验收必须覆盖目标应用；
+  后续可评估 Windows.Graphics.Capture。
 - **合成输入是 L4（最后手段，TASK-018 已落地）**：`pointer_action` / `key_action` 会抢用户的鼠标键盘，
   且**要求目标窗口在前台**（不一致 → 先 `SetForegroundWindow` + **回读**，仍不一致 →
   `TargetUnresponsive`，**绝不盲发**）。调用方**必须**先试 L1（`set_value` / `edit_text` /

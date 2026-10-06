@@ -32,5 +32,6 @@ pub use ui::{
     UiAutomationProvider,
 };
 pub use window::{
-    CaptureOptions, FocusPolicy, ImageRef, WindowFilter, WindowInfo, WindowProvider, WindowState,
+    CaptureOptions, FocusPolicy, ImageBlobSink, ImageRef, WindowFilter, WindowInfo, WindowProvider,
+    WindowState,
 };

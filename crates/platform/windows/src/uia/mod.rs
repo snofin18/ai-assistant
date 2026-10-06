@@ -1,18 +1,14 @@
 //! 元素域：`UiAutomationProvider` 的 13 个方法（架构 v2 §13.1.1 / §13.2、ADR-0022）。
 //!
-//! 职责：树快照 / 候选链解析 / 等待 / 读文本 / 五类写操作（带回读后置条件）/ 指纹；
-//! 以及两个**合成输入**方法与一个**截图**方法的显式未实现出口（见下）。
-//! 边界：**不做**合成输入（TASK-018）、**不做**截图（TASK-041）、**不做**策略判定（TASK-021）、
+//! 职责：树快照 / 候选链解析 / 等待 / 读文本 / 五类写操作（带回读后置条件）/ 指纹。
+//! 边界：**不做**合成输入（TASK-018）、**不做**平台截图（`window::capture`，ADR-0074）、
+//! **不做**策略判定（TASK-021）、
 //! **不做**后置断言引擎（TASK-023，本层只做"这一次写操作是否生效"的回读）。
 //!
-//! ## 为什么 `pointer_action` / `key_action` / `capture` 在这里"报错"而不是"实现"
+//! ## 为什么 `pointer_action` / `key_action` 在这里只做接线
 //! 批次表把 `src/input/**`（`SendInput` / `keybd_event` / `SendKeys`）与 `src/coordinates/**`
-//! （DPI / 多屏归一化）分给 **TASK-018**，把截图分给 **TASK-041 / 042**。
-//! 但 `UiAutomationProvider` / `WindowProvider` 的 trait 形状**已经**含这三个方法（TASK-016 定死）。
-//! 因此本卡按 Q2 / Q3 裁决：**实现到"明确报错"** 的程度，源码标**占位实现标记**
-//! （格式见 `docs/spec/naming.md` §8），
-//! 返回 `CapabilityMissing` —— 不是 `todo!()` / `unimplemented!()`（那会让非 Windows 平台与
-//! 未实现路径以 panic 形式失败，违反铁律 1）。
+//! （DPI / 多屏归一化）分给 **TASK-018**；真实实现已经落在那些模块，本文件只保留 trait 接线。
+//! `WindowProvider::capture` 的平台实现落在 `window::capture`（ADR-0074）。
 //!
 //! ## 不变量
 //! 1. **写操作必回读**（铁律 4）：`set_value` / `edit_text` / `invoke_action` / `select` / `scroll`

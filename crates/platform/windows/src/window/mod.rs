@@ -1,7 +1,7 @@
 //! 窗口域：`WindowProvider` 的 5 个方法（架构 v2 §13.2、ADR-0022 D1/D2）。
 //!
-//! 职责：窗口枚举 / 按候选链解析 / 状态查询 / 前台化 / 截图占位。
-//! 边界：**不做**元素定位（`uia/**`）、**不做**截图（TASK-041，本卡显式报错）、
+//! 职责：窗口枚举 / 按候选链解析 / 状态查询 / 前台化 / 单窗口截图。
+//! 边界：**不做**元素定位（`uia/**`）、**不做**全屏截图、**不做**视觉验证（TASK-042）、
 //! **不做**策略判定（`NeverSteal` / `RequireUserConsent` 一律拒绝，放行点是 TASK-021）。
 //!
 //! ## 不变量
@@ -14,12 +14,13 @@
 //! 相关：架构 v2 §13.1.1 / §13.2 / §6.2 / §6.3、ADR-0022 D1/D2/D4、`docs/memory/apps/notepad.md` §2。
 
 mod candidates;
+mod capture;
 
 use std::future::{Future, poll_fn};
 use std::task::Poll;
 
 use assistant_platform_api::{
-    CaptureOptions, ErrorCode, FocusPolicy, ImageRef, PlatformError, PlatformResult,
+    CaptureOptions, ErrorCode, FocusPolicy, ImageBlobSink, ImageRef, PlatformError, PlatformResult,
     ResolvedWindow, SelectorCandidate, SelectorChain, TargetDescriptor, WindowFilter, WindowInfo,
     WindowProvider, WindowState,
 };
@@ -33,18 +34,38 @@ use win32::WindowRecord;
 
 /// Windows 平台实现的**唯一入口类型**（架构 v2 §13.1.1 的「平台服务」）。
 ///
-/// 为什么是零字段的单元结构体：`IUIAutomation` / `IUIAutomationElement` **不是** `Send` / `Sync`
+/// 为什么不持 COM 状态：`IUIAutomation` / `IUIAutomationElement` **不是** `Send` / `Sync`
 /// （`windows` 0.62.2 实测），而本类型必须实现 `Send + Sync` 的 trait。因此 COM 对象全部住在
-/// **线程本地**（`crate::com` / `crate::handles`），本类型只作为 trait 的载体。
+/// **线程本地**（`crate::com` / `crate::handles`），本类型只作为 trait 的载体 + 一个可选注入点。
+///
+/// 唯一持有的状态是**截图 blob 写入端**（ADR-0076）：平台层产生 BGRA 与内容地址后，把落盘
+/// 委托给它，从而既不依赖 `crates/storage`、也不私开写库连接（铁律 7）。未注入时 `capture`
+/// 显式失败，而不是返回一个谎称已持久化的 `ImageRef`。
 /// 它同时实现 `WindowProvider` 与 `UiAutomationProvider`。
 #[derive(Debug, Clone, Copy, Default)]
-pub struct WindowsPlatform;
+pub struct WindowsPlatform {
+    /// 进程级写入端（`&'static`，见 [`Self::with_blob_sink`]）。用静态引用而非 `Arc`，
+    /// 是为了让本类型继续 `Copy` —— 它被大量按值传递的测试辅助函数依赖。
+    blob_sink: Option<&'static dyn ImageBlobSink>,
+}
 
 impl WindowsPlatform {
-    /// 构造平台实现（零状态，无副作用，可在任意线程调用）。
+    /// 构造平台实现（无 COM 状态、无副作用，可在任意线程调用）。
+    ///
+    /// 未注入 blob 写入端时 `capture` 会显式失败（见 [`Self::with_blob_sink`]）。
     #[must_use]
     pub const fn new() -> Self {
-        Self
+        Self { blob_sink: None }
+    }
+
+    /// 注入截图 blob 写入端（ADR-0076）。
+    ///
+    /// binary 装配层在启动时构造**进程级单例**写入端并把它的 `&'static` 引用注入进来
+    /// （单例在进程生命周期内有界，符合 ADR-0063）；平台层只调用 trait，不知道 storage 的存在。
+    #[must_use]
+    pub const fn with_blob_sink(mut self, sink: &'static dyn ImageBlobSink) -> Self {
+        self.blob_sink = Some(sink);
+        self
     }
 }
 
@@ -87,7 +108,8 @@ impl WindowProvider for WindowsPlatform {
         window: &ResolvedWindow,
         options: &CaptureOptions,
     ) -> impl Future<Output = PlatformResult<ImageRef>> + Send {
-        poll_fn(move |_context| Poll::Ready(capture(window, *options)))
+        let blob_sink = self.blob_sink;
+        poll_fn(move |_context| Poll::Ready(capture(window, *options, blob_sink)))
     }
 }
 
@@ -314,16 +336,15 @@ fn bring_to_front(window: &ResolvedWindow, policy: FocusPolicy) -> PlatformResul
     )))
 }
 
-/// 截取窗口 —— **本卡不实现**。
+/// 截取一个已解析窗口（真实平台路径在 `capture` 子模块）。
 ///
-/// 截图 / 脱敏 / 视觉验证按批次表归 TASK-041 / 042；本卡**不**引入截图依赖，
-/// 因此这里返回明确的未实现错误（`CapabilityMissing`），而不是 `todo!()` / `unimplemented!()`。
-fn capture(_window: &ResolvedWindow, _options: CaptureOptions) -> PlatformResult<ImageRef> {
-    // STUB(TASK-041): 截图通道落地后替换本函数（脱敏由 CaptureOptions 决定）。
-    Err(error::stub_not_implemented(
-        "TASK-041",
-        "WindowProvider::capture (screen capture / redaction)",
-    ))
+/// 不接收屏幕坐标 / 全屏参数；只接受调用方已经解析出的 `ResolvedWindow`。
+fn capture(
+    window: &ResolvedWindow,
+    options: CaptureOptions,
+    blob_sink: Option<&dyn ImageBlobSink>,
+) -> PlatformResult<ImageRef> {
+    capture::capture_window(window, options, blob_sink)
 }
 
 /// 编译期断言：本类型必须满足两个 trait 的 `Send + Sync` 约束（否则 async 方法无法编译）。

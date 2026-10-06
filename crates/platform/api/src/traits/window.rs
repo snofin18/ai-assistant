@@ -274,3 +274,30 @@ pub trait WindowProvider: Send + Sync {
         options: &CaptureOptions,
     ) -> impl Future<Output = PlatformResult<ImageRef>> + Send;
 }
+
+/// 截图 blob 的写入端（内容寻址，ADR-0076）。
+///
+/// 平台层负责产生窗口 BGRA 像素与内容地址（SHA-256 小写 hex）；把字节写进内容寻址 blob 池
+/// 由**注入的**实现完成 —— binary 装配层用 `crates/storage` 的 `BlobStore` 实现它。这样
+/// 平台层**不依赖 storage、也不私开写库连接**（铁律 7），而 `ImageRef` 的语义仍是
+/// 「已持久化 blob 引用」（架构 v2 §15.3）。
+///
+/// 与 `WindowProvider` 不同，本 trait 是 **`dyn`-compatible**：平台实现持 `Arc<dyn ImageBlobSink>`。
+///
+/// # Errors
+/// 未装配（sink 缺失）、存储失败或元数据不一致 → 显式 `PlatformError`；**不得静默丢弃截图**。
+pub trait ImageBlobSink: Send + Sync + std::fmt::Debug {
+    /// 把一帧 BGRA 像素写进内容寻址 blob 池。
+    ///
+    /// `content_address` 是调用方算好的小写 hex SHA-256；实现**不得**改写地址，也**不得**吞掉失败。
+    ///
+    /// # Errors
+    /// IO / 元数据不一致 / 尚未装配 → 显式错误。
+    fn store_bgra(
+        &self,
+        width: u32,
+        height: u32,
+        content_address: &str,
+        bgra: &[u8],
+    ) -> PlatformResult<()>;
+}

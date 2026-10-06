@@ -33,7 +33,7 @@
 | `thiserror` | **`2`**（caret；`Cargo.lock` 实测 2.0.21） | `crates/tool-bus`（TASK-020） / `crates/task-engine`（TASK-022） / `crates/verify`（TASK-023） / `crates/hitl`（TASK-027） / `apps/agent-core`（TASK-029） | `ToolBusError` / `TaskEngineError` / `VerifyError` / `HitlError` / `HostAssemblyError` 用 `derive(Error)` 的 `Display` 文本（铁律 1 要求每个失败都带可读原因） | MIT OR Apache-2.0 | 替代 = 手写 `Display` + `std::error::Error`：带结构化字段的变体，手写既冗长又容易漏分支；std 没有字段插值式错误派生的等价物。**已登记在案**：`crates/core` 等的错误类型由各自任务卡按同一规则登记 | **Approved** | 人类（chat 2026-09-25 授权自决，TASK-020 Q5） | 2026-09-25 |
 | `tauri` | **`2`**（caret） | `apps/desktop-ui/src-tauri`（TASK-029） | Tauri 2 桌面壳与 webview 生命周期；架构 v2 §4 已定 Tauri 2，capabilities 最小权限 | MIT OR Apache-2.0 | 替代 = Electron：资源占用与随包运行时更大，且与 Rust Core 的边界更弱；替代 = 自建 webview 壳：需要平台 FFI 与打包维护，超出阶段 1 | **Approved** | 人类（chat 2026-09-27「按你说的继续」） | 2026-09-27 |
 | `tauri-build` | **`2`**（caret） | `apps/desktop-ui/src-tauri`（TASK-029） | 生成 Tauri context / capability schema / 打包元数据；与 `tauri` 同版本线 | MIT OR Apache-2.0 | 替代 = 手写 build 脚本：会复制 Tauri 的 schema 与平台资源生成逻辑，无法可靠维护 | **Approved** | 人类（chat 2026-09-27「按你说的继续」） | 2026-09-27 |
-| `windows` | **`=0.62.2`**（精确钉定；0.x 版本间**有**破坏性变更，升级 = 漂移触发器） | `spikes/spike-a-notepad`（阶段 0）＋ `crates/platform/windows`（阶段 1，TASK-017 起为**产品代码**）＋ `crates/ipc`（TASK-019 的 NamedPipe / 对端进程查询） | Win32/WinRT 官方投影。Spike A 验证 UIA COM；产品侧提供 UIA、合成输入与 NamedPipe / `GetNamedPipeClientProcessId` / `QueryFullProcessImageNameW` / `BCryptGenRandom` | MIT OR Apache-2.0（`cargo deny check licenses` 2026-09-18 本机实测 `licenses ok`，exit 0） | 替代方案 = 第三方封装 crate `uiautomation`，**已否决**（ADR-0024 D1）；NamedPipe 与进程身份没有 std 等价物，第三次复用同一官方投影比手写 FFI 更可审计 | **Approved**（产品侧；TASK-017 Q1 升级，TASK-019 沿用） | 人类（指示 #6）；人类（chat 2026-09-24，TASK-017 Q1 批准） | 2026-09-18 / 2026-09-24 |
+| `windows` | **`=0.62.2`**（精确钉定；0.x 版本间**有**破坏性变更，升级 = 漂移触发器） | `spikes/spike-a-notepad`（阶段 0）＋ `crates/platform/windows`（阶段 1，TASK-017 起为**产品代码**）＋ `crates/ipc`（TASK-019 的 NamedPipe / 对端进程查询） | Win32/WinRT 官方投影。Spike A 验证 UIA COM；产品侧提供 UIA、合成输入、单窗口 GDI 截图（TASK-041 / ADR-0074）与 NamedPipe / `GetNamedPipeClientProcessId` / `QueryFullProcessImageNameW` / `BCryptGenRandom` | MIT OR Apache-2.0（`cargo deny check licenses` 2026-09-18 本机实测 `licenses ok`，exit 0） | 替代方案 = 第三方封装 crate `uiautomation`，**已否决**（ADR-0024 D1）；NamedPipe 与进程身份没有 std 等价物，第三次复用同一官方投影比手写 FFI 更可审计 | **Approved**（产品侧；TASK-017 Q1 升级，TASK-019 沿用） | 人类（指示 #6）；人类（chat 2026-09-24，TASK-017 Q1 批准） | 2026-09-18 / 2026-09-24 |
 | `uiautomation` | — | — | （曾考虑用于 spike 的 UIA 访问） | 未核实 | **Rejected**：见 ADR-0024 D1 的对比表与裁决理由（决定性一条 = spike 必须走生产路径去撞墙） | **Rejected** | 人类（指示 #6） | 2026-09-18 |
 
 > **TASK-023 零新增第三方 crate**：`crates/verify` 只是 `serde` / `sha2` / `thiserror` 三行的
@@ -59,6 +59,11 @@
 > —— 它与 MSAA、provider 侧接口同住一个模块。另外 `VARIANT` 被 `Win32_System_Ole` 双重 gate，
 > 只开 `Win32_System_Com` 会报 `no VARIANT in Win32::System::Variant`。
 > Spike A 实际启用的 7 项及其逐条理由见 `spikes/spike-a-notepad/Cargo.toml` 的行内注释。
+>
+> **TASK-041 拆分 B 的 feature 增量（ADR-0074）**：`windows` crate 的 `PrintWindow` 在 0.62.2
+> 投影到 `Win32::Storage::Xps`，因此 `crates/platform/windows/Cargo.toml` 新增同一已登记依赖的
+> `Win32_Storage_Xps` feature；这不是新第三方 crate。GDI 截图所需的 `BitBlt` / DIB 仍由已有的
+> `Win32_Graphics_Gdi` 提供。
 
 ## Node / 前端（pnpm）
 
