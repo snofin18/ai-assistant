@@ -16,7 +16,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 > **TASK-240 Done**：任务卡状态行全量清扫完成 —— 18 张台账已 Done 但卡面仍 `Ready` / `InProgress` 的卡按实更正；只改状态行，卡正文、执行记录与产品代码零改动。
 > **TASK-242 Done**：三连发审计收口 —— 补正 TASK-076 的滞后状态行（LEDGER L88 早已声称 Done，commit `0f05ef7` 实际没改），并把 TASK-002 的卡面 / PLAN / LEDGER 三方不一致开成 **PL-109**（待人类裁决）。
 > **TASK-245 Done**：2026-10-06 四连发审计收口 —— `LEDGER.md` 里 TASK-041 的 merge-hash 行原**重复 5 次**且插错位置，已去重为 **1 条**（404 → 400 行、完全重复行组归零）；`PL-111` 落点 = `DRIFT-041-2`（storage sink 待裁决）+ ADR-0074 号冲突 + `DRIFT-042-1` / `PL-110`。
-> **TASK-042 Done**：视觉验证纯逻辑 —— ADR-0074 冻结 `visual_assert` 扁平结构化形状（`field` + `op` + 具名容差 + `confidence_min`）与 pHash / dHash 64-bit 口径（`max_hamming_distance` 上限 24，随机图对 `P(≤24)=2.997%<5%`）；`crates/verify/src/visual/**` 零依赖落地 21 个专项测试；接入既有 `Postcondition` / `Observation` 另立卡（`DRIFT-042-1` / `PL-110`）。
+> **TASK-042 Done**：视觉验证纯逻辑 —— ADR-0074 冻结 `visual_assert` 扁平结构化形状（`field` + `op` + 具名容差 + `confidence_min`）与 pHash / dHash 64-bit 口径（`max_hamming_distance` 上限 24，随机图对 `P(≤24)=2.997%<5%`）；`crates/verify/src/visual/**` 零依赖落地 21 个专项测试。
+> **TASK-247 Done**：`visual_assert` 接进后置断言引擎（ADR-0077）—— `parse_postconditions` 认该 kind、`Postcondition::VisualAssert` 承载形状；参考图 / 实测图经 `evaluate_postcondition_with_visual` / `verify_postconditions_with_visual` 的**并列参数**传入（像素不进可序列化的 `Observation`）；无图 / 低置信 → `NotEvaluable`，既有入口签名不变。`PL-110` / `DRIFT-042-1` 闭环。
 > **TASK-243 Done**：**PL-109 裁决收口 —— 人类 2026-10-05 定 `TASK-002 = Done`**；`PLAN.md` 阻塞项删去「TASK-002 仍 Blocked」、`MEMORY.md` §1 改写、`LEDGER.md` 记录裁决、`docs/PARKING_LOT.md` 标 PL-109 闭环；SPIKE-A banner 与 2026-09-30 审计快照加前向标注。
 > 产品代码自阶段 1 起才落地（`crates/protocol` / `crates/storage` / `crates/audit` / `crates/core` 骨架 / `crates/secrets` /
 > `xtask` 护栏 / **`crates/platform/api`**（平台抽象层：4 个纯类型 + 3 个 trait 形状 + 能力矩阵）/

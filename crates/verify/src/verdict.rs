@@ -39,9 +39,10 @@
 use assistant_protocol::ErrorCode;
 use serde::{Deserialize, Serialize};
 
-use crate::assertion::{AssertionOutcome, evaluate_postcondition};
+use crate::assertion::{AssertionOutcome, evaluate_postcondition_with_visual};
 use crate::observation::Observation;
 use crate::postcondition::Postcondition;
+use crate::visual::VisualObservation;
 
 /// One postcondition's evaluation result, kept for the audit trail.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -166,10 +167,26 @@ impl VerificationReceipt {
 }
 
 /// Evaluates every postcondition of a step against one observation.
+///
+/// Equivalent to [`verify_postconditions_with_visual`] with no visual input: a `visual_assert`
+/// then becomes `NotEvaluable` instead of a fake success (ADR-0077 D4).
 #[must_use]
 pub fn verify_postconditions(
     postconditions: &[Postcondition],
     observation: &Observation,
+) -> VerifyOutcome {
+    verify_postconditions_with_visual(postconditions, observation, None)
+}
+
+/// Evaluates every postcondition of a step, with the optional visual input `visual_assert` needs.
+///
+/// The reference and observed images travel **next to** the observation, never inside it
+/// (ADR-0077): `Observation` stays serializable and pixel-free.
+#[must_use]
+pub fn verify_postconditions_with_visual(
+    postconditions: &[Postcondition],
+    observation: &Observation,
+    visual: Option<&VisualObservation>,
 ) -> VerifyOutcome {
     if postconditions.is_empty() {
         return VerifyOutcome::Inconclusive {
@@ -184,7 +201,7 @@ pub fn verify_postconditions(
     let mut unevaluable = Vec::new();
 
     for (index, postcondition) in postconditions.iter().enumerate() {
-        let outcome = evaluate_postcondition(postcondition, observation);
+        let outcome = evaluate_postcondition_with_visual(postcondition, observation, visual);
         match &outcome {
             AssertionOutcome::Falsified { expected, actual } => violations.push(Violation {
                 index,
@@ -231,7 +248,23 @@ pub fn verify_postconditions_with_receipt(
     postconditions: &[Postcondition],
     observation: &Observation,
 ) -> Result<VerificationReceipt, VerifyOutcome> {
-    let outcome = verify_postconditions(postconditions, observation);
+    verify_postconditions_with_receipt_and_visual(postconditions, observation, None)
+}
+
+/// Evaluates postconditions (with optional visual input) and returns a receipt only on success.
+///
+/// The receipt shape and its "only when every postcondition is `Satisfied`" condition are
+/// unchanged by ADR-0077.
+///
+/// # Errors
+///
+/// Returns the original [`VerifyOutcome`] when the verdict is `Violated` or `Inconclusive`.
+pub fn verify_postconditions_with_receipt_and_visual(
+    postconditions: &[Postcondition],
+    observation: &Observation,
+    visual: Option<&VisualObservation>,
+) -> Result<VerificationReceipt, VerifyOutcome> {
+    let outcome = verify_postconditions_with_visual(postconditions, observation, visual);
     if outcome.is_verified() {
         Ok(VerificationReceipt { outcome })
     } else {

@@ -17,11 +17,13 @@
 //! - **No platform access.** No UIA, no Win32, no filesystem, no network, no clock, no randomness.
 //! - **No new dependencies.** pHash / dHash / box downsampling are implemented here with `std`;
 //!   no `image` / `img_hash` crate is used (ADR-0074 D12).
-//! - **No wiring into the existing postcondition engine yet.** `Postcondition` / `Observation` /
-//!   `VerificationReceipt` keep their TASK-023 shapes; `parse_postconditions` still rejects the
-//!   `visual_assert` kind. The integration is deferred to a follow-up card (`DRIFT-042-1`), and
-//!   that is why this module exposes its own [`parse_visual_assert`] / [`evaluate_visual_assert`]
-//!   entry points.
+//! - **No image inside the observation.** `visual_assert` is wired into the engine by ADR-0077:
+//!   [`parse_postconditions`](crate::parse_postconditions) accepts the kind and
+//!   `Postcondition::VisualAssert` carries the shape below. The **images**, however, are passed
+//!   next to the observation (`evaluate_postcondition_with_visual` /
+//!   `verify_postconditions_with_visual`) rather than inside `Observation`, which stays
+//!   serializable and pixel-free. This module keeps its own [`parse_visual_assert`] /
+//!   [`evaluate_visual_assert`] entry points because the engine reuses them.
 //!
 //! Invariants:
 //! 1. A malformed image (empty dimensions, empty buffer, size mismatch, over the pixel cap) is an
