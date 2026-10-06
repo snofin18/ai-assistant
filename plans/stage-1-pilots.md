@@ -1,6 +1,7 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
 > 周期 10~12 周　状态：**进行中**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> **TASK-050 ✅（2026-10-07）**：ADR 0007 三档出域策略落地 —— `crates/dlp` 应用覆盖替换默认、内容类型覆盖只收紧、egress-destination 白名单默认拒绝、`local_only` 无本地模型显式失败、策略变更返回可审计记录；专项 22 passed。
 > **TASK-244 ✅（2026-10-06）**：PL-022 机器派生计数收口 —— gov §5.4 表格行数为 hygiene 总数 SSOT；gov §5.1 与 ci.yml 的 # gov-gate 标记集合一致，缺失 / 重复 / 额外 / 不可解析均 exit 1。
 > **TASK-042 ✅（2026-10-06）**：ADR-0074 冻结 `visual_assert` 扁平结构化形状（`field` + `op` + 具名容差 + `confidence_min`）与 pHash / dHash 64-bit 口径；`crates/verify/src/visual/**` 零依赖落地 21 个专项测试；接入既有 `Postcondition` / `Observation` 另立卡（`DRIFT-042-1` / `PL-110`）。
 > **TASK-245 ✅（2026-10-06）**：2026-10-06 四连发审计收口 —— `LEDGER.md` 里 TASK-041 的 merge-hash 行原重复 5 次且插错位置，去重为 1 条（404 → 400 行、重复行组归零）；`PL-111` 落点 = `DRIFT-041-2`（storage sink 待裁决）+ ADR-0074 号冲突 + `DRIFT-042-1` / `PL-110`。
@@ -201,7 +202,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 |---|---|---|---|---|---|
 | **048** | CDP provider：连接管理 + DOM 读写 + 点击 + 导航 + 截图 + 下载目录控制 + load/networkIdle 判定 | `crates/platform/windows/src/cdp/**`、`crates/platform/api/src/cdp*` | 016 | L | Spike G 指标复现；**依赖登记进 `docs/DEPENDENCIES.md`** |
 | **049** | 专用 profile 管理：自定义 `--user-data-dir` 生命周期 + 独立窗口标识 + **禁止复制用户 profile** 的硬约束 + 首次登录引导 | `crates/browser-profile/**` | 048 | M | 136+ 约束正确处理；代码审查确认无任何 Cookie/凭据复制路径 |
-| **050** | `dlp`：三档出域策略（`local_only`/`redacted`/`full`）+ 逐应用与逐内容类型覆盖 + 脱敏规则 + endpoint 白名单 + **降级不静默** | `crates/dlp/**` | 014,026 | L | 选 `local_only` 而无本地模型时**明确报错**而非改走云端；策略变更写审计 |
+| **050 ✅** | `dlp`：三档出域策略（`local_only`/`redacted`/`full`）+ 逐应用与逐内容类型覆盖 + 脱敏规则 + endpoint 白名单 + **降级不静默** | `crates/dlp/**` | 014,026 | L | 选 `local_only` 而无本地模型时**明确报错**而非改走云端；策略变更写审计 |
 | **051** | 污点追踪 + 权限衰减：`untrusted` 内容引入后标记生效，宽授权降级为 `once`，高风险 deny | `crates/policy/src/taint**`、`crates/core/src/session**` | 021,020 | M | v2 §12.4 四层中第 2/3 层生效；污点只能由 SessionManager 清除（**不变量写进 README**） |
 | **052** | 来源归因：每个动作记录 `instruction_origin`（user_request/plan_derived/app_content/tool_suggestion）+ UI 展示 | `crates/core/src/origin**`、`apps/desktop-ui/src/features/approval/**` | 027,030 | M | `app_content` 来源在卡片上标红且默认拒绝 |
 | **053** | 注入靶页 fixture：可见指令 / 隐藏元素指令 / HTML 注释 / 伪系统提示 + 一个正常提取任务 | `fixtures/web/injection-target/**` | 001 | S | 页面可本地打开（`file://` 或本地 http），无需外网 |
@@ -326,7 +327,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-047 | 1b | `tasks/TASK-047-stage-1b-integration-adapter-reuse.md` | Ready（批次表占位派单前补全） |
 | TASK-048 | 1c | `tasks/TASK-048-cdp-provider-connect-dom-nav-download.md` | Ready（批次表占位派单前补全） |
 | TASK-049 | 1c | `tasks/TASK-049-browser-profile-no-copy-user-profile.md` | Ready（批次表占位派单前补全） |
-| TASK-050 | 1c | `tasks/TASK-050-dlp-three-tier-egress-local-only-redacted-full.md` | Ready（批次表占位派单前补全） |
+| **TASK-050 ✅** | 1c | `tasks/TASK-050-dlp-three-tier-egress-local-only-redacted-full.md` | Done（ADR 0007；`crates/dlp` 22 专项测试） |
 | TASK-051 | 1c | `tasks/TASK-051-taint-tracking-permission-decay.md` | Ready（批次表占位派单前补全） |
 | TASK-052 | 1c | `tasks/TASK-052-instruction-origin-attribution-ui.md` | Ready（批次表占位派单前补全） |
 | TASK-053 | 1c | `tasks/TASK-053-injection-target-fixture-visible-hidden.md` | Ready（批次表占位派单前补全） |

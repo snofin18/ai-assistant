@@ -1,7 +1,8 @@
 //! Data-loss-prevention policies for architecture v2 section 12 (ADR-0071).
 //!
 //! Responsibilities:
-//! - model the three egress tiers `local_only` / `redacted` / `full` (`[ADR:待建 0007]`)
+//! - model the three egress tiers `local_only` / `redacted` / `full`
+//!   (`docs/adr/0007-egress-policy-tiers-and-resolution.md`)
 //!   with per-application and per-content-type overrides;
 //! - hold redaction rules and expose screenshot occlusion for `crates/capture`.
 //!
@@ -23,8 +24,14 @@
 //! TASK-041 split A implements the pure redaction rule model in `redact`; egress
 //! tiers and platform-side pixel masking remain outside this slice.
 
+mod egress;
 mod redact;
 
+pub use egress::{
+    AppId, ContentType, EgressDecision, EgressDestinationId, EgressError, EgressLevel,
+    EgressLevelScope, EgressPolicy, EgressPolicyChange, EgressRequest,
+    MAX_ALLOWED_EGRESS_DESTINATIONS, MAX_APP_OVERRIDES,
+};
 pub use redact::{
     ImageDimensions, MAX_REDACTION_RULES, OcclusionRectangle, RedactError, RedactionRegion,
     RedactionRule, resolve_occlusions,
