@@ -1,6 +1,6 @@
 # TASK-053　注入靶页 fixture：可见指令 / 隐藏元素指令 / HTML 注释 / 伪系统提示 + 一个正常提取任务
 
-- 状态：**Ready**
+- 状态：**Done**
 - 阶段：1　子阶段：**1c**　批次：**1c**　依赖：001　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -83,10 +83,12 @@ cargo test --workspace                                -> EXIT 0
 xtask hygiene / memory-counts / adr-index / refscan /
   docscan / card-check / check-ledger / check-comments /
   verify-schemas / codegen --check / check-migrations  -> 11/11 PASSED
+PR #260 pull_request run 37516594849                    -> 11/11 SUCCESS, pending=0, failed=0
+merge commit                                            -> 79b5566
 ```
 
 `cargo test --workspace` 的专项汇总为 workspace 全绿；`hygiene` 扫描 382 个文件，新增 fixture
-未产生 Error，现有 warning 数与本轮前基线一致。PR、CI 与 merge hash 尚未产生，因此本记录不提前写 Done。
+未产生 Error，现有 warning 数与本轮前基线一致。
 
 ### 4. DoD 逐条核对
 
@@ -95,13 +97,13 @@ xtask hygiene / memory-counts / adr-index / refscan /
 - [x] `cargo clippy --all-targets -- -D warnings` 退出码 0。
 - [x] `cargo test --workspace` 全绿。
 - [x] xtask 十一项门禁全部 PASSED。
-- [x] `LEDGER.md` 已追加本轮 InProgress 事件；无新增跨应用 FACT/PITFALL 需要落库。
+- [x] `LEDGER.md` 已追加实现与 merge-hash 回填事件；无新增跨应用 FACT/PITFALL 需要落库。
 
 ### 5. 偏差
 
 无实现偏差。未操作真实 GUI，未新增依赖 / crate / 顶层目录，未改 schema、IPC、ErrorCode、
 公共 API 或测试断言。真实浏览器安全回归按章程留给 TASK-058。范围记录：实现文件共 367 行；
-含卡记录、LEDGER 与轮次报告的总 diff 478 行，超过 400 行软预算，超出部分全部是证据与状态同步。
+含卡记录、LEDGER 与轮次报告的总 diff 481 行，超过 400 行软预算，超出部分全部是证据与状态同步。
 
 ### 6. 更合理做法
 
