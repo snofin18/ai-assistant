@@ -21,6 +21,7 @@
 
 | 编号 | 文件 | 状态 | 决策一句话 |
 |---|---|---|---|
+| **0007** | `0007-egress-policy-tiers-and-resolution.md` | **Accepted** | 应用覆盖替换默认、内容类型覆盖只收紧；`local_only` 无本地模型显式失败；非本地出域必须命中 egress-destination 白名单；DLP 返回变更记录但不自行写审计 |
 | **0016** | `0016-repository-lf-line-endings.draft.md` | **Draft** | 仓库文本统一 LF；`.gitattributes` + `rustfmt.toml` 双重声明，不依赖个人 `core.autocrlf` |
 | **0017** | `0017-deferred-implementations-must-fail-explicitly.draft.md` | **Draft** | 未实现项必须显式登记并显式失败；禁止占位成功或隐藏命令 |
 | 0018 | `0018-nightly-automation-delivery-mechanism.md` | Accepted → **Superseded**（by ADR-0029） | 夜间自动化 = Windows 任务计划程序 + `codex exec`（否决 heartbeat）。**已被 ADR-0029 取代**：机制改回 Codex 官方 scheduled tasks；本 ADR 的纪律性内容由章程 §11 v1.4 原样保留 |
@@ -108,7 +109,6 @@ gov §9.3 格式的完整 ADR 文件。引用它们时**必须写 `[ADR:待建 N
 | 0004 | element / 句柄不跨进程，Host 边界切在「定位之后」 |
 | 0005 | 可逆性四级模型 L0~L3；撤销快捷键由 Adapter 显式声明 |
 | 0006 | 无人值守暂不支持，但类型 / 契约 / 能力三处预留 |
-| 0007 | 出域策略三档 `local_only` / `redacted` / `full`，默认 `redacted` |
 | 0008 | 股票类软件只读 + 解读 + 图形展示；`TradingGate` 恒拒绝并预留 |
 | 0009 | 平台基线 Windows 11 24H2+；Win10 仅 C 级尽力支持 |
 | 0010 | Office 2019+；Photoshop 最低 2021(v22)，2020 列尽力而为 |

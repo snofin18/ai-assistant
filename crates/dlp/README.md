@@ -1,15 +1,18 @@
 # assistant-dlp
 
 Data-loss-prevention policies (ADR-0071): three-tier egress, redaction rules,
-and screenshot occlusion. This is a **boundary skeleton** created by TASK-238:
-the responsibilities below are frozen, the behavior is implemented by TASK-050
-(egress policy) and consumed by TASK-041 (`redact`).
+and screenshot occlusion. TASK-050 implements the pure egress-policy contract
+frozen by `docs/adr/0007-egress-policy-tiers-and-resolution.md`; TASK-041
+implements the redaction rule model.
 
 ## Responsibilities
 
-- Model the three egress tiers `local_only` / `redacted` / `full` (`[ADR:待建 0007]`),
+- Model the three egress tiers `local_only` / `redacted` / `full`
+  (`docs/adr/0007-egress-policy-tiers-and-resolution.md`),
   with per-application and per-content-type overrides.
-- Hold redaction rules (password fields, regex-matched regions) and expose
+- Resolve the effective level, require egress-destination allow-list membership
+  for non-local egress, and emit bounded change records for host-side audit.
+- Hold redaction rules (password fields, caller-classified regions) and expose
   screenshot occlusion so `crates/capture` can apply them.
 - Fail closed: choosing `local_only` with no local model is an explicit error,
   never a silent failover to a cloud path.
@@ -23,6 +26,8 @@ the responsibilities below are frozen, the behavior is implemented by TASK-050
   redacted / is this egress allowed".
 - **No third-party dependency yet.** Regex engines or other helpers are added by
   their own cards through a registered, ADR-approved dependency.
+- **No provider selection or policy persistence.** The host supplies local-model
+  availability and writes audit records; this crate only returns pure decisions.
 
 ## Invariants
 
@@ -31,3 +36,7 @@ the responsibilities below are frozen, the behavior is implemented by TASK-050
    left visible.
 3. Any long-lived rule table has a hard bound and an eviction or rejection
    policy (ADR-0063).
+4. An application override replaces the global default; a content-type override
+   can only tighten the resulting level and can never widen it.
+5. `local_only` without available local inference fails explicitly and never
+  falls back to a cloud egress destination.
