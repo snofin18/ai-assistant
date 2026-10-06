@@ -2,6 +2,7 @@
 
 > 周期 10~12 周　状态：**进行中**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
 > **TASK-244 ✅（2026-10-06）**：PL-022 机器派生计数收口 —— gov §5.4 表格行数为 hygiene 总数 SSOT；gov §5.1 与 ci.yml 的 # gov-gate 标记集合一致，缺失 / 重复 / 额外 / 不可解析均 exit 1。
+> **TASK-245 ✅（2026-10-06）**：2026-10-06 四连发审计收口 —— `LEDGER.md` 里 TASK-041 的 merge-hash 行原重复 5 次且插错位置，去重为 1 条（404 → 400 行、重复行组归零）；`PL-111` 落点 = `DRIFT-041-2`（storage sink 待裁决）+ ADR-0074 号冲突 + `DRIFT-042-1` / `PL-110`。
 > **TASK-041 ✅（2026-10-06）**：拆分 A 落地 ADR-0073 与零依赖纯截图管线 / 脱敏规则模型；像素遮挡仍在平台层，真机截图与滚动像素拼接未冒充完成。
 > **TASK-225 ✅（2026-10-03）**：Host 装配层已用共享 `TargetLeaseRegistry` 接上合成输入 exclusive lease；key / pointer-shaped 输入冲突稳定 `Transient`，成功/失败都释放，只读路径不变；`PL-101` 闭环。TASK-040 正文 DoD 复选框仍因正文只读未勾选。
 > **TASK-226 ✅（2026-10-03）**：PL-104 / PL-105 闭环；ignored 真机用例以异步互斥串行化 fixture 启动，`production_root.rs` 拆分后 3 个文件均 <600 行且断言零放宽。
@@ -308,6 +309,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-242 ✅** | 治理池 | `tasks/TASK-242-round-audit-closeout-076-and-002.md` | Done（三连发审计收口：TASK-076 状态行按实改 Done + TASK-002 三方不一致开 PL-109） |
 | **TASK-243 ✅** | 治理池 | `tasks/TASK-243-pl109-adjudication-and-consistency.md` | Done（PL-109 裁决收口：TASK-002 = Done，PLAN 阻塞项 / MEMORY §1 / LEDGER / PARKING_LOT 全部协调一致） |
 | **TASK-244 ✅** | 治理池 | `tasks/TASK-244-derived-counts.md` | Done（PL-022 闭环：ADR-0075；gov §5.4 运行时派生 + gov §5.1 ↔ ci.yml 标记集合校验） |
+| **TASK-245 ✅** | 治理池 | `tasks/TASK-245-round4-audit-closeout.md` | Done（四连发审计收口：LEDGER 去重 404→400 + `PL-111` WIP 落点 / ADR-0074 号冲突登记） |
 | **TASK-040 ✅** | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Done（真机四用例取证；跨层 lease 由 TASK-225 闭环，`PL-101` 关闭） |
 | **TASK-231 ✅** | 1b bridge | `tasks/TASK-231-pointer-coordinate-space-dpi.md` | Done（ADR-0067 pointer 显式坐标空间；`PL-074` 闭环） |
 | **TASK-041 ✅** | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
