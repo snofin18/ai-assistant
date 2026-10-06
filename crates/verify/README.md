@@ -13,6 +13,9 @@
 - Build a state fingerprint from a `FingerprintSubject` plus a per-adapter ignore set.
 - Classify whether a previous step was applied, for crash recovery.
 - Map a violated postcondition to the action the Host must take.
+- Provide the zero-dependency visual module (`crate::visual`): grayscale-buffer validation,
+  pHash / dHash, pixel / perceptual-hash tolerances, `confidence_min`, and the structured
+  `visual_assert` contract (ADR-0074).
 
 ## Boundaries
 
@@ -23,8 +26,11 @@
 - **No storage.** No checkpoints, no audit rows.
 - **No policy.** Whether an action is allowed at all is `crates/policy`'s single release
   point (AGENTS.md rule 3).
-- **No `visual_assert`.** Screenshots, perceptual hashing, tolerance, and `confidence_min`
-  belong to TASK-042 (`crates/verify/src/visual/**`).
+- **No `visual_assert` wiring into the existing engine yet.** The pure algorithms and the frozen
+  JSON shape live in `crate::visual`, but `Postcondition` / `Observation` keep their TASK-023
+  shapes, so `parse_postconditions` still rejects the `visual_assert` kind. That integration
+  requires changing the existing public shapes and is deferred (`DRIFT-042-1`); call
+  `crate::visual::parse_visual_assert` / `evaluate_visual_assert` directly until then.
 - **No preconditions.** `target_resolvable` and `capability` are `preconditions`
   (architecture section 5.3), not postconditions, and are rejected with that reason.
 
@@ -46,12 +52,31 @@
    implicit rule nobody can audit (section 7.3).
 7. **Receipts cannot be forged.** `VerificationReceipt` has a private outcome,
    no public constructor, and no deserializer; only `Verified` can mint one.
+8. **Visual input is validated, never repaired.** `GrayImage::new` requires non-zero dimensions,
+   a buffer of exactly `width * height` bytes, and at most 16,777,216 pixels; empty dimensions,
+   empty buffers, size mismatches, and oversized images are explicit errors.
+9. **Visual hashes are pure.** Equal images give bit-identical pHash / dHash; no clock, randomness,
+   codec, or platform branch participates.
+10. **A low-confidence visual result is never a success.** `confidence < confidence_min`, or a
+    reference / observed dimension mismatch, yields `VisualVerdict::NeedsHuman`, which maps to
+    `AssertionOutcome::NotEvaluable` (`Inconclusive` / `VerifyFailed`) and cannot mint a receipt.
 
 ## The 11 assertion kinds
 
 `state_assert`, `text_contains`, `text_not_contains`, `state_changed`, `state_unchanged`,
 `element_exists`, `element_gone`, `value_equals`, `value_in_range`, `file_changed`,
 `app_reported`.
+
+## Visual assertions (ADR-0074)
+
+`crate::visual` is the zero-dependency visual layer. Its `visual_assert` shape is flat and
+structured (no free-form `assert` string): `field` (`pixels` / `phash` / `dhash`), `op`
+(`mean_abs_diff_within` / `changed_ratio_within` / `hamming_within`), the operator's named
+tolerance parameters, and a mandatory `confidence_min` in `(0, 1]`. Parsing is fail-closed:
+unknown fields, missing parameters, out-of-range values, and field / operator mismatches are
+rejected. pHash is a 32x32 box downsample plus a raw 8x8 DCT-II median threshold; dHash is a
+9x8 box downsample plus horizontal differences; both are 64-bit. `max_hamming_distance` is capped
+at 24, where the random-pair collision probability is 2.997%, below the 5% target.
 
 ## Typical use
 
@@ -107,6 +132,15 @@ assert!(matches!(
   than `assistant_platform_api::FingerprintScope`, because the platform enum only has
   `WholeWindow` and `Element(ResolvedElement)` and `ResolvedElement` is a non-serialisable
   handle (AGENTS.md rule 8). Binding to it would drag a handle into this crate.
+- **Perceptual hashes need visual detail.** A near-uniform reference, or a texture so fine that
+  it averages to uniform gray in the 32x32 / 9x8 downsample (for example a 4px checkerboard),
+  loses most of its low-frequency energy; the pHash bits then come from floating-point noise and
+  can be close to a very different image. For the Paint "nothing was drawn" check, prefer the
+  pixel tolerances (`mean_abs_diff_within` / `changed_ratio_within`) and treat a low-detail
+  reference as low confidence. See ADR-0074's "known limitations".
+- **Visual confidence is caller-supplied.** The crate enforces `confidence >= confidence_min`
+  before a match can be `Satisfied`, but it does not estimate confidence from image statistics;
+  the platform / capture layer owns that estimate.
 
 ## Related documents
 

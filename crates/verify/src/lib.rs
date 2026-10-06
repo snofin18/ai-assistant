@@ -18,8 +18,9 @@
 //! - **No execution**: it does not retry, roll back, or prompt. It only *decides*; execution
 //!   belongs to the Host, `undo`, and `hitl`.
 //! - **No storage**: no checkpoints, no audit rows.
-//! - **No `visual_assert`**: screenshots, perceptual hashing, tolerance, and
-//!   `confidence_min` belong to TASK-042 (`crates/verify/src/visual/**`).
+//! - **No `visual_assert` integration yet**: `crate::visual` implements the zero-dependency
+//!   pHash / dHash and tolerance contract (ADR-0074), but `Postcondition` / `Observation` keep
+//!   their TASK-023 shapes, so `parse_postconditions` still rejects the kind (`DRIFT-042-1`).
 //! - **No preconditions**: `target_resolvable` and `capability` are `preconditions`
 //!   (architecture section 5.3) and are not part of the postcondition engine.
 //!
@@ -89,6 +90,7 @@ mod observation;
 mod on_violation;
 mod postcondition;
 mod verdict;
+pub mod visual;
 
 pub use assertion::{AssertionOutcome, evaluate_postcondition, render_text};
 pub use error::{VerifyError, VerifyResult};
@@ -107,4 +109,11 @@ pub use postcondition::{
 pub use verdict::{
     Unevaluable, Verification, VerificationReceipt, VerifyOutcome, Violation,
     verify_postconditions, verify_postconditions_with_receipt,
+};
+pub use visual::{
+    DHASH_HEIGHT, DHASH_WIDTH, GrayImage, MAX_HAMMING_DISTANCE, MAX_IMAGE_PIXELS,
+    PERCEPTUAL_HASH_BITS, PHASH_LOW_FREQUENCY_SIDE, PHASH_SIDE, PerceptualHash, VISUAL_ASSERT_KIND,
+    VisualAssert, VisualError, VisualField, VisualMetric, VisualObservation, VisualOp,
+    VisualTolerance, VisualVerdict, compute_dhash, compute_phash, evaluate_visual_assert,
+    hamming_distance, parse_visual_assert,
 };
