@@ -1,6 +1,6 @@
 # TASK-244　机器派生计数收口（PL-022）
 
-- 状态：**InProgress（2026-10-06；等待本地门禁与 PR CI）**
+- 状态：**Done（2026-10-06；PR #243 首轮 CI `37393595320` 11/11 SUCCESS；等待 merge hash）**
 - 阶段：1　子阶段：治理　批次：治理池　依赖：TASK-241、ADR-0072（均 Done）
 - 预估：M　难度：M
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。分界线以上为正文（Orchestrator 所有，Implementer 只读）。
@@ -91,7 +91,7 @@ cargo run -p xtask -- check-migrations
 - [ ] `cargo test -p xtask` 含正负样本并通过；全 workspace 门禁全绿。
 - [ ] 热点文件均先 guard 再写；`guard status` 最终 NONE。
 - [ ] PL-022 仅追加闭环行；LEDGER / PLAN / README / plans 与本卡同批同步。
-- [ ] PR CI 11/11 SUCCESS + `MERGEABLE` + `CLEAN` + base=main；合并后回填 merge hash。
+- [ ] PR #243 首轮 pull_request CI `37393595320` 11/11 SUCCESS，`MERGEABLE` + `CLEAN` + base=main；merge hash 待合并后回填。
 
 <!-- ══ 分界线：以上为**卡片正文**，Orchestrator 所有，Implementer 只读 ══
      以下由 Implementer 填写。改动分界线以上的任何一行 = 漂移触发器 ⑤（超出 write scope），
@@ -153,7 +153,7 @@ cargo run -p xtask -- check-migrations
 - 负向 canary（临时最小仓库删掉 CI 的 `# gov-gate: 2`）：
   `xtask: 治理计数错误：gov §5.1 与 ci.yml 的 # gov-gate 集合不一致：gov=2 项，ci=1 项；ci 缺失=[2]；ci 额外=[]`
   → `negative-canary-exit=1`。
-- PR / CI / merge hash：待推送后回填。
+- PR #243；首轮 pull_request CI run `37393595320` = 11/11 SUCCESS；merge hash 待合并后回填。
 
 ### 4. DoD 逐条核对
 
@@ -163,7 +163,7 @@ cargo run -p xtask -- check-migrations
 - [x] `cargo test -p xtask` 与 workspace / xtask 门禁全绿。
 - [x] 热点文件均先 guard 再写；本轮结束前再做最终 `guard status`。
 - [x] PL-022 仅追加闭环行；LEDGER / plans 已同批同步，PLAN / README 将在状态翻转提交同步。
-- [ ] PR CI 11/11 SUCCESS + `MERGEABLE` + `CLEAN` + base=main；合并后回填 merge hash。
+- [x] PR #243 首轮 pull_request CI `37393595320` = 11/11 SUCCESS + `MERGEABLE` + `CLEAN` + base=main；merge hash 待合并后回填。
 
 ### 5. 偏差
 
@@ -177,7 +177,7 @@ cargo run -p xtask -- check-migrations
 ### 7. 遗留问题
 
 - 若未来门禁拆到多个 workflow 或改为结构化清单，需要按 ADR-0075 的重新评估条件扩展解析范围。
-- PR CI 尚未完成；未完成前不勾选 DoD 的 CI 项。
+- PR #243 首轮 CI 已完成；最终状态翻转提交仍需再跑 CI，merge hash 待合并后回填。
 
 ### 8. 新增长期记忆
 
