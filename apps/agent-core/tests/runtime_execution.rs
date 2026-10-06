@@ -15,7 +15,7 @@ use assistant_task_engine::{
     Budget, CheckpointPolicy, MemoryCheckpointStore, Plan, PlanId, PlanStep, Reversibility,
     StepEffect, StepId, StepTimeouts, TaskEngine, TaskEvent, TaskId, TaskStatus,
 };
-use assistant_verify::Observation;
+use assistant_verify::{GrayImage, Observation, VisualObservation};
 
 #[derive(Clone)]
 struct AllowPolicy;
@@ -97,6 +97,7 @@ impl ToolInvoker for RecordingInvoker {
 struct RecordingObserver {
     events: Arc<Mutex<Vec<&'static str>>>,
     text: &'static str,
+    visual: Option<VisualObservation>,
 }
 
 impl ObservationCollector for RecordingObserver {
@@ -112,6 +113,15 @@ impl ObservationCollector for RecordingObserver {
             text: self.text.to_owned(),
             ..Observation::new("document.body", "test", fingerprint)
         })
+    }
+
+    fn observe_visual(
+        &self,
+        _step: &PlanStep,
+        _envelope: &ToolEnvelope,
+    ) -> Result<Option<VisualObservation>, RuntimeExecutionError> {
+        self.events.lock().expect("events").push("observe_visual");
+        Ok(self.visual.clone())
     }
 }
 
@@ -153,6 +163,55 @@ fn running_engine() -> (TaskEngine<MemoryCheckpointStore>, TaskId, StepId) {
     (engine, task_id, step_id)
 }
 
+fn visual_plan() -> Plan {
+    let task_id = TaskId::new("t_visual_runtime").expect("task");
+    Plan {
+        plan_id: PlanId::new("p_visual_runtime").expect("plan"),
+        task_id,
+        goal: "visual runtime contract".to_owned(),
+        steps: vec![PlanStep {
+            id: StepId::new("s_visual").expect("step"),
+            sequence: 1,
+            tool: "paint.canvas.capture".to_owned(),
+            args: json!({}),
+            depends_on: Vec::new(),
+            postconditions: vec![json!({
+                "kind": "visual_assert",
+                "field": "pixels",
+                "op": "mean_abs_diff_within",
+                "max_mean_abs_diff": 0,
+                "confidence_min": 0.8
+            })],
+            effect: StepEffect::Write,
+            reversibility: Reversibility::L0UndoStack,
+            point_of_no_return: false,
+            timeouts: StepTimeouts::new(500, 2_000, 1_000).expect("timeouts"),
+        }],
+        budget: Budget::new(10, 60_000, 10_000, 1.0).expect("budget"),
+        checkpoint_policy: CheckpointPolicy::AfterEachTransition,
+    }
+}
+
+fn running_visual_engine() -> (TaskEngine<MemoryCheckpointStore>, TaskId, StepId) {
+    let plan = visual_plan();
+    let task_id = plan.task_id.clone();
+    let step_id = plan.steps.first().expect("plan has one step").id.clone();
+    let mut engine = TaskEngine::new(MemoryCheckpointStore::new());
+    engine.create_task(plan, 1_000).expect("create");
+    engine
+        .apply_task_event(&task_id, TaskEvent::SubmitForApproval, 1_010)
+        .expect("submit");
+    engine
+        .apply_task_event(&task_id, TaskEvent::ApprovePlan, 1_020)
+        .expect("approve");
+    (engine, task_id, step_id)
+}
+
+fn matching_visual_observation() -> VisualObservation {
+    let image = GrayImage::new(1, 1, vec![128]).expect("valid image");
+    VisualObservation::new(image.clone(), image, 0.95).expect("valid visual observation")
+}
+
 #[tokio::test]
 async fn test_verified_step_is_committed_only_after_tool_and_observation() {
     let events = Arc::new(Mutex::new(Vec::new()));
@@ -167,6 +226,7 @@ async fn test_verified_step_is_committed_only_after_tool_and_observation() {
         RecordingObserver {
             events: Arc::clone(&events),
             text: "hello",
+            visual: None,
         },
     );
 
@@ -175,7 +235,10 @@ async fn test_verified_step_is_committed_only_after_tool_and_observation() {
         .await
         .expect("advance");
     assert!(matches!(outcome, StepExecutionOutcome::Committed(_)));
-    assert_eq!(*events.lock().expect("events"), vec!["invoke", "observe"]);
+    assert_eq!(
+        *events.lock().expect("events"),
+        vec!["invoke", "observe", "observe_visual"]
+    );
 }
 
 #[tokio::test]
@@ -192,6 +255,7 @@ async fn test_policy_denial_prevents_tool_invocation() {
         RecordingObserver {
             events: Arc::clone(&events),
             text: "hello",
+            visual: None,
         },
     );
 
@@ -217,6 +281,7 @@ async fn test_confirmation_required_prevents_tool_invocation() {
         RecordingObserver {
             events: Arc::clone(&events),
             text: "hello",
+            visual: None,
         },
     );
 
@@ -242,6 +307,7 @@ async fn test_failed_verification_does_not_commit() {
         RecordingObserver {
             events: Arc::clone(&events),
             text: "wrong",
+            visual: None,
         },
     );
 
@@ -271,6 +337,7 @@ async fn test_unknown_tool_outcome_requires_human() {
         RecordingObserver {
             events: Arc::clone(&events),
             text: "hello",
+            visual: None,
         },
     );
 
@@ -302,6 +369,7 @@ async fn test_error_envelope_fails_step_without_verification() {
         RecordingObserver {
             events: Arc::clone(&events),
             text: "hello",
+            visual: None,
         },
     );
 
@@ -324,4 +392,63 @@ async fn test_error_envelope_fails_step_without_verification() {
     }
     // The tool ran, so the observer must not run: no verification without a result.
     assert_eq!(*events.lock().expect("events"), vec!["invoke"]);
+}
+
+#[tokio::test]
+async fn test_visual_assert_commits_when_runtime_collects_matching_images() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let (engine, task_id, step_id) = running_visual_engine();
+    let mut executor = RuntimeExecutor::new(
+        engine,
+        AllowPolicy,
+        RecordingInvoker {
+            events: Arc::clone(&events),
+            mode: InvokeMode::Succeed,
+        },
+        RecordingObserver {
+            events: Arc::clone(&events),
+            text: "hello",
+            visual: Some(matching_visual_observation()),
+        },
+    );
+
+    let outcome = executor
+        .advance(&task_id, &step_id, 2_000)
+        .await
+        .expect("advance");
+    assert!(matches!(outcome, StepExecutionOutcome::Committed(_)));
+    assert_eq!(
+        *events.lock().expect("events"),
+        vec!["invoke", "observe", "observe_visual"]
+    );
+}
+
+#[tokio::test]
+async fn test_visual_assert_without_runtime_images_stays_unevaluable() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let (engine, task_id, step_id) = running_visual_engine();
+    let mut executor = RuntimeExecutor::new(
+        engine,
+        AllowPolicy,
+        RecordingInvoker {
+            events: Arc::clone(&events),
+            mode: InvokeMode::Succeed,
+        },
+        RecordingObserver {
+            events: Arc::clone(&events),
+            text: "hello",
+            visual: None,
+        },
+    );
+
+    let outcome = executor
+        .advance(&task_id, &step_id, 2_000)
+        .await
+        .expect("advance");
+    match outcome {
+        StepExecutionOutcome::VerificationFailed { snapshot, .. } => {
+            assert_eq!(snapshot.status, TaskStatus::Failed);
+        }
+        other => panic!("expected visual verification failure, got {other:?}"),
+    }
 }

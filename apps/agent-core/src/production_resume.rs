@@ -16,10 +16,11 @@ use assistant_task_engine::{
 use crate::production_policy::{ApprovalWindows, CatalogStepPolicy};
 use crate::production_run::{PendingRuntimeApproval, ProductionRun};
 use crate::runtime::{
-    EnvelopeObservationCollector, RuntimeExecutionError, RuntimeExecutor, StepExecutionOutcome,
+    ObservationCollector, RuntimeExecutionError, RuntimeExecutor, StepExecutionOutcome,
 };
 use crate::runtime_binding::{BindingInvoker, RuntimeBindingState};
 use crate::ui_ipc::UiAuthorizationScope;
+use crate::visual_source::StorageVisualObservationCollector;
 
 use super::{ProductionError, ProductionHost, StepHandle};
 
@@ -75,7 +76,7 @@ where
             engine,
             policy,
             binding_invoker,
-            EnvelopeObservationCollector,
+            StorageVisualObservationCollector::new(self.database_handle()),
         );
         self.drive_steps(
             executor,
@@ -90,13 +91,13 @@ where
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub(super) async fn drive_steps(
+    pub(super) async fn drive_steps<Observer>(
         &self,
         mut executor: RuntimeExecutor<
             MemoryCheckpointStore,
             CatalogStepPolicy,
             BindingInvoker<crate::reserved_invoker::ReservedRuntimeInvoker<'_>>,
-            EnvelopeObservationCollector,
+            Observer,
         >,
         task_id: TaskId,
         steps: Vec<StepHandle>,
@@ -104,7 +105,10 @@ where
         approval_windows: ApprovalWindows,
         mut snapshots: Vec<TaskSnapshot>,
         now_ms: i64,
-    ) -> Result<ProductionRun, ProductionError> {
+    ) -> Result<ProductionRun, ProductionError>
+    where
+        Observer: ObservationCollector,
+    {
         for (step_id, sequence, tool) in steps {
             let outcome = executor
                 .advance(&task_id, &step_id, now_ms.saturating_add(3))

@@ -84,8 +84,9 @@
 | **0076** | `0076-windows-gdi-capture-channel-and-redaction.md` | **Accepted** | Windows 单窗口截图 = GDI `PrintWindow(PW_RENDERFULLCONTENT)`（`BitBlt` 仅在未遮挡时回退）+ `redact=true` 时按 UIA `IsPassword` 矩形做不透明黑遮挡；平台层算 SHA-256 内容地址并把字节交给**注入的** `ImageBlobSink`（trait 在 `crates/platform/api`，binary 用 `crates/storage` 实现并在装配后 `attach` 句柄），未注入 → 显式 `Fatal`（TASK-041 拆分 B；2026-10-06 按用户裁决「选项 ①」；`DRIFT-041-2` 闭环） |
 | **0077** | `0077-visual-assert-postcondition-wiring.md` | **Accepted** | `visual_assert` 以**加法式**接进后置断言引擎：新增 `Postcondition::VisualAssert` 与 `*_with_visual` 入口（旧签名保留并委托 `None`）；参考图 / 实测图作为**并列参数**传入，**不进**可序列化的 `Observation`（像素永不入 JSON，ADR-0074）；无图 → `NotEvaluable`，低置信 → `NeedsHuman` → `NotEvaluable`（TASK-247；2026-10-06 按用户预授权代为裁决；`PL-110` / `DRIFT-042-1` 闭环） |
 | **0078** | `0078-no-scripts-top-level-directory.md` | **Accepted** | **不设立 `scripts/` 顶层目录**：脚本类内容一律归已获授权的 `tools/`（TASK-228）；`docs/nightly/logs/` 亦不设立（自动化留痕走 ADR-0054 的先落 PR 再自删）；ADR-0069 的「不预授权」结论继续有效，本 ADR 只取代其「由 PL-023 决定」的指向；`PL-023` 作废（TASK-248；2026-10-06 按用户 2026-10-06 裁决） |
+| **0079** | `0079-visual-observation-source-wiring.md` | **Accepted** | `visual_assert` 的图像来源由宿主层接通：`ObservationCollector::observe_visual` 默认返回 `None`，生产 `StorageVisualObservationCollector` 只从成功信封的 blob 元数据读取参考图 / 实测图，经装配拥有的 storage 读取 BGRA、按固定 Rec.709 整数口径转灰度，再走 `verify_postconditions_with_receipt_and_visual`；像素不进 JSON / IPC / `Observation`（TASK-249；2026-10-06 按用户「继续 TASK-247」授权） |
 
-**下一个可用编号：0079**（= §1 与 §2 已用最大号 **0078** + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0080**（= §1 与 §2 已用最大号 **0079** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由
