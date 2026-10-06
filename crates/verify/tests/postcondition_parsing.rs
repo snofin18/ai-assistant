@@ -60,20 +60,6 @@ fn test_parse_rejects_unknown_kind_with_a_reason() {
 }
 
 #[test]
-fn test_parse_rejects_visual_assert_and_points_at_task_042() {
-    let error = parse_postconditions(&[json!({"kind": "visual_assert", "confidence_min": 0.9})])
-        .expect_err("visual_assert belongs to TASK-042");
-    assert!(matches!(
-        error,
-        VerifyError::UnsupportedPostconditionKind { .. }
-    ));
-    assert!(
-        error.to_string().contains("TASK-042"),
-        "the error must route the reader to the owning card: {error}"
-    );
-}
-
-#[test]
 fn test_parse_rejects_precondition_kinds() {
     for kind in ["target_resolvable", "capability"] {
         let error = parse_postconditions(&[json!({ "kind": kind })])

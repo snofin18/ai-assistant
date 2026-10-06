@@ -127,7 +127,16 @@ xtask hygiene/memory-counts/adr-index/refscan/docscan/card-check/check-ledger/
 
 ### 5. 偏差
 
-无。改动全部是**加法式**：新变体、新入口、新测试；既有公共入口一行未改语义。未改 `Observation` / `VerificationReceipt` / `protocol/**`，未新增依赖。
+**`DRIFT-247-1`（既有测试断言与新契约冲突，已按 ADR-0077 处理并记录）**：首轮 CI 在三个平台都红了
+`cargo test -p assistant-verify --test postcondition_parsing` —— 其中
+`test_parse_rejects_visual_assert_and_points_at_task_042` **断言 `visual_assert` 必须被拒**（`UnsupportedPostconditionKind`
+且错误文案指向 TASK-042）。ADR-0077 的决策正是「把该 kind 接上」，因此这条断言的前提被**契约本身**取代：
+已删除该用例，其覆盖的「未知 kind 被拒」语义仍由同文件既有的 `test_parse_rejects_the_unknown_kind...`
+（`smells_right` 样例）承担，而「`visual_assert` 现在能被正确解析」由本卡新增的
+`visual_postcondition_contract.rs` 承担。**没有放宽任何断言**，也没有为了让测试变绿而改判据语义。
+
+其余无偏差：改动全部是**加法式**（新变体、新入口、新测试）；既有公共入口一行未改语义；未改
+`Observation` / `VerificationReceipt` / `protocol/**`，未新增依赖。
 
 ### 6. 更合理做法
 
