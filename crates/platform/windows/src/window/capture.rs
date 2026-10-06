@@ -190,7 +190,12 @@ pub(super) fn capture_window(
         ));
     };
     // 写入端的错误（IO / 元数据不一致）原样透传，不降级成空图。
-    blob_sink.store_bgra(dimensions.width, dimensions.height, &content_address, &pixels)?;
+    blob_sink.store_bgra(
+        dimensions.width,
+        dimensions.height,
+        &content_address,
+        &pixels,
+    )?;
     Ok(ImageRef::new(
         content_address,
         dimensions.width,

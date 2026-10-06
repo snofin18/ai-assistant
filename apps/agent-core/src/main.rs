@@ -12,7 +12,8 @@ use std::time::Duration;
 
 use assistant_agent_core::{
     HostAssembly, HostAssemblyError, HostAssemblyInput, ProductionConfig, ProductionError,
-    TaskControlHandler, UiServerConfig, assemble_production_host, serve_with_events,
+    StorageBlobSink, TaskControlHandler, UiServerConfig, assemble_production_host,
+    serve_with_events,
 };
 use assistant_audit::Durability;
 use assistant_core::{
@@ -286,7 +287,26 @@ async fn run_production(
 ) -> Result<ProductionReport, ProductionError> {
     let clock: Arc<dyn Clock> = Arc::new(SystemClock);
     let now_ms = clock.now_unix_ms();
-    let host = assemble_production_host(config, WindowsPlatform::new(), Arc::clone(&clock)).await?;
+    // ADR-0076：平台层把截图落盘委托给注入的写入端；数据库句柄要等装配完成才有，故先注入 sink、再 attach。
+    let blob_sink = StorageBlobSink::new();
+    let blob_sink_handle = blob_sink.clone();
+    let host = assemble_production_host(
+        config,
+        WindowsPlatform::new().with_blob_sink(blob_sink.leak()),
+        Arc::clone(&clock),
+    )
+    .await?;
+    // 句柄只用于取出弱引用：立刻收窄作用域，别让这次临时强引用把数据库文件留到 shutdown 之后。
+    let blob_sink_attached = {
+        let database = host.database_handle();
+        blob_sink_handle.attach(&database)
+    };
+    if !blob_sink_attached {
+        return Err(ProductionError::InvalidConfiguration {
+            field: "blob_sink",
+            reason: "the capture blob sink was already attached".to_owned(),
+        });
+    }
     let plan = host.plan_task()?;
     let task_id = plan.task_id.to_string();
     let run = host.execute_plan(plan, now_ms).await?;
@@ -349,23 +369,40 @@ async fn run_self_check() -> Result<(), HostAssemblyError> {
                 reason: error.to_string(),
             }
         })?;
-    let input = HostAssemblyInput::new(&data_root, Arc::new(SystemClock), WindowsPlatform::new())
-        .with_storage_session_store()
-        .with_memory_retriever(Arc::new(EmptyRetriever))
-        .with_app_map_reader(Arc::new(EmptyReader))
-        .with_planner_provider(Arc::clone(&provider))
-        .with_model_router(router)
-        .with_model_providers(vec![provider])
-        .with_model_runtime(
-            Arc::new(SystemMonotonicClock::default()),
-            Arc::new(ThreadSleeper),
-            Arc::new(NoJitter),
-        )
-        .with_policy_rules(RuleSet::example_v0())
-        .with_tool_registry(ToolRegistry::new())
-        .with_history_compressor(Arc::new(NoopCompressor))
-        .with_durability(Durability::Immediate);
+    let blob_sink = StorageBlobSink::new();
+    let blob_sink_handle = blob_sink.clone();
+    let input = HostAssemblyInput::new(
+        &data_root,
+        Arc::new(SystemClock),
+        WindowsPlatform::new().with_blob_sink(blob_sink.leak()),
+    )
+    .with_storage_session_store()
+    .with_memory_retriever(Arc::new(EmptyRetriever))
+    .with_app_map_reader(Arc::new(EmptyReader))
+    .with_planner_provider(Arc::clone(&provider))
+    .with_model_router(router)
+    .with_model_providers(vec![provider])
+    .with_model_runtime(
+        Arc::new(SystemMonotonicClock::default()),
+        Arc::new(ThreadSleeper),
+        Arc::new(NoJitter),
+    )
+    .with_policy_rules(RuleSet::example_v0())
+    .with_tool_registry(ToolRegistry::new())
+    .with_history_compressor(Arc::new(NoopCompressor))
+    .with_durability(Durability::Immediate);
     let host = HostAssembly::new(input).assemble().await?;
+    // 句柄只用于取出弱引用：立刻收窄作用域，别让这次临时强引用把数据库文件留到 shutdown 之后。
+    let blob_sink_attached = {
+        let database = host.database_handle();
+        blob_sink_handle.attach(&database)
+    };
+    if !blob_sink_attached {
+        return Err(HostAssemblyError::InvalidConfiguration {
+            field: "blob_sink",
+            reason: "the capture blob sink was already attached".to_owned(),
+        });
+    }
     host.shutdown().await?;
 
     if let Err(error) = std::fs::remove_dir_all(&data_root)
