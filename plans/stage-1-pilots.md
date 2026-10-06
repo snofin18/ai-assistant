@@ -6,6 +6,7 @@
 > **TASK-245 ✅（2026-10-06）**：2026-10-06 四连发审计收口 —— `LEDGER.md` 里 TASK-041 的 merge-hash 行原重复 5 次且插错位置，去重为 1 条（404 → 400 行、重复行组归零）；`PL-111` 落点 = `DRIFT-041-2`（storage sink 待裁决）+ ADR-0074 号冲突 + `DRIFT-042-1` / `PL-110`。
 > **TASK-041 ✅（2026-10-06）**：**拆分 A + 拆分 B** 落地 —— ADR-0073 冻结「像素遮挡归平台层 / `NeverPersist` 不保留 `ImageRef` / 滚动清理有界」，`crates/capture` + `crates/dlp/src/redact` 零依赖纯逻辑（15 专项测试）；ADR-0076 落地 Windows GDI `PrintWindow` 单窗口截图 + UIA `IsPassword` 像素遮挡 + `ImageBlobSink` 注入（binary `StorageBlobSink` 落盘并核对内容地址），`DRIFT-041-2` / `PL-112` 闭环。
 > **TASK-247 ✅（2026-10-06）**：`visual_assert` 接进后置断言引擎（ADR-0077）—— 新增 `Postcondition::VisualAssert` 与 `evaluate_postcondition_with_visual` / `verify_postconditions_with_visual` / `verify_postconditions_with_receipt_and_visual`（既有签名不变，委托 `None`）；图像作为并列参数传入，不进可序列化的 `Observation`；无图 / 低置信一律 `NotEvaluable`；5 个契约用例。`PL-110` / `DRIFT-042-1` 闭环。
+> **TASK-248 ✅（2026-10-06）**：`PL-023` 作废（人类裁决）+ 顶层目录白名单的指向冲突消解 —— ADR-0078 裁定**不设立 `scripts/`**（脚本归 `tools/`）、`docs/nightly/logs/` 亦不设立；附表变更规则第 3 条与 ADR 登记表 0069 行的「由 PL-023 决定」已改指 ADR-0078；不动白名单表，不改 ADR-0069 正文。
 > **TASK-225 ✅（2026-10-03）**：Host 装配层已用共享 `TargetLeaseRegistry` 接上合成输入 exclusive lease；key / pointer-shaped 输入冲突稳定 `Transient`，成功/失败都释放，只读路径不变；`PL-101` 闭环。TASK-040 正文 DoD 复选框仍因正文只读未勾选。
 > **TASK-226 ✅（2026-10-03）**：PL-104 / PL-105 闭环；ignored 真机用例以异步互斥串行化 fixture 启动，`production_root.rs` 拆分后 3 个文件均 <600 行且断言零放宽。
 > **TASK-227 ✅（2026-10-03）**：状态行与停车位收口 —— TASK-040 / TASK-225 的状态行按实更正为 Done；`PL-103` 给出可直接粘贴的 spec 改法（已由 TASK-229 落笔）；`PL-106` 开卡 TASK-228（Ready，待派单）
