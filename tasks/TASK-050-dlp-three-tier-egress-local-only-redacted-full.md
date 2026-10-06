@@ -1,6 +1,6 @@
 # TASK-050　`dlp`：三档出域策略（`local_only`/`redacted`/`full`）+ 逐应用与逐内容类型覆盖 + 脱敏规则 + endpoint 白名单 + **降级不静默**
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：1　子阶段：**1c**　批次：**1c**　依赖：014,026　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -63,7 +63,8 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 ### 2. 实际改动文件
 
-- `crates/dlp/src/egress.rs`（新增纯逻辑策略模块与 22 个专项测试中的 17 个 egress 用例）
+- `crates/dlp/src/egress.rs`（新增纯逻辑策略模块，551 行）
+- `crates/dlp/src/egress/tests.rs`（新增 egress 专项测试，287 行）
 - `crates/dlp/src/lib.rs`、`crates/dlp/README.md`
 - `docs/adr/0007-egress-policy-tiers-and-resolution.md`、`docs/adr/README.md`
 - `PLAN.md`、`README.md`、`plans/stage-1-pilots.md`、`LEDGER.md`
@@ -83,7 +84,21 @@ x86_64-unknown-linux-gnu clippy -p assistant-dlp             -> EXIT 0
 aarch64-apple-darwin clippy -p assistant-dlp                 -> EXIT 0
 ```
 
-xtask 十一项门禁与最终 PR CI 结果在本记录区下一条状态翻转后补齐。
+```text
+xtask hygiene                -> 0 error / 108 warning / PASSED
+xtask memory-counts          -> 0 error / PASSED
+xtask adr-index              -> 0 error / PASSED
+xtask refscan                -> 0 error / PASSED
+xtask docscan                -> 0 error / 318 warning / PASSED
+xtask card-check             -> 0 error / PASSED
+xtask check-ledger           -> 0 error / PASSED
+xtask check-comments         -> 0 error / 70 warning / PASSED
+xtask verify-schemas         -> PASSED
+xtask codegen --check        -> 0 drift / PASSED
+xtask check-migrations       -> 0 error / PASSED
+PR #258 pull_request run 37498359372 -> 11/11 SUCCESS, pending=0, failed=0
+merge commit                          -> 51bbb27
+```
 
 ### 4. DoD 逐条核对
 
@@ -91,14 +106,16 @@ xtask 十一项门禁与最终 PR CI 结果在本记录区下一条状态翻转�
 - [x] `cargo fmt --all --check` EXIT 0。
 - [x] `cargo clippy --all-targets -- -D warnings` EXIT 0。
 - [x] `cargo test --workspace` EXIT 0。
-- [ ] xtask 十一项门禁待最终收口复跑。
-- [ ] LEDGER merge-hash 回填待 PR 合并。
+- [x] xtask 十一项门禁全 PASSED。
+- [x] LEDGER merge-hash 回填：PR #258 / merge `51bbb27`。
 
 ### 5. 偏差
 
 TASK-050 原目标是“策略变更写审计”，但 `crates/dlp` 的 ADR-0071 边界禁止 IO/持久化。本轮按 ADR 0007 实现为返回不可变 `EgressPolicyChange`；宿主仍未接线到 audit/storage，属本卡 write scope 之外的后续装配工作，已在记录区保留而不伪装为已写库。
 
 流程偏差：首笔 `docs/adr/README.md` 编辑发生在 guard acquire 之前；随后已对其余热点文件先 acquire 再写。无并发写者，未发生 lost update。
+
+范围记录：总 diff 1003 行，超过 400 行软预算。超出部分主要来自 ADR 正文、纯逻辑类型与 22 个正负向测试；行为面仍限定在 `crates/dlp/**`，未新增依赖或公共跨进程契约。
 
 ### 6. 更合理做法
 
