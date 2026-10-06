@@ -1,6 +1,6 @@
 # TASK-250　`refscan` 待建 ADR 集合对齐登记表
 
-- 状态：**InProgress（2026-10-07；PL-099 / DRIFT-W4-1）**
+- 状态：**Done（2026-10-07；PL-099 / DRIFT-W4-1 闭环；PR #262 / merge `7be80b6`）**
 - 阶段：1　子阶段：1c　批次：治理池　依赖：无
 - 预估：S　难度：S
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。分界线以上为正文（Orchestrator 所有，Implementer 只读）。
@@ -87,32 +87,60 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 ### 2. 实际改动文件
 
-- 待收口后补。
+- `xtask/src/refscan.rs`：`ADR_BARE_PENDING` 收敛为 `docs/adr/README.md` §2 的真实待建集合；
+  新增登记表一致性单测与 3 条正负测试（真实待建号命中、Draft / 已建号不命中）。
+- `tasks/TASK-250-refscan-pending-adr-registry-source.md`：本卡正文、执行记录与最终状态。
+- `docs/PARKING_LOT.md`：追加 `PL-099` / `DRIFT-W4-1` 闭环行。
+- `LEDGER.md`：追加 TASK-250 InProgress 与 merge-hash 回填 Done 两行。
+- `PLAN.md`、`README.md`、`plans/stage-1-pilots.md`：仅完成状态 / 当前状态块同步。
+- `docs/automations/2026-10-07-round-3.md`（新增）：本轮产物与偏差记录。
 
 ### 3. 验收输出摘要
 
-- 待收口后补完整实测输出。
+- `cargo test -p xtask refscan::` → **11 passed / 0 failed**。
+- `cargo run -p xtask -- refscan` → **scanned_files=737，0 error(s), 0 warning(s)，PASSED**。
+- `cargo fmt --all --check` → EXIT 0。
+- `cargo clippy --all-targets -- -D warnings` → EXIT 0（仅仓库既有 `clippy::assert_is_empty` unknown-lint 提示）。
+- `cargo test --workspace` → EXIT 0。
+- xtask 十一项门禁全 EXIT 0：`hygiene` / `memory-counts` / `adr-index` / `refscan` / `docscan` /
+  `card-check` / `check-ledger` / `check-comments` / `verify-schemas` / `codegen --check` / `check-migrations`。
+- PR #262 `pull_request` CI：**11/11 SUCCESS**，pending=0、failed=0；合并前 `baseRefName=main`、
+  `mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`、`state=MERGED`。
 
 ### 4. DoD 逐条核对
 
-- [ ] 待收口后补。
+- [x] `ADR_BARE_PENDING` 与 `docs/adr/README.md` §2 的待建集合完全一致。
+- [x] 已转 Draft 的 0016 / 0017 / 0020 / 0027 与已建文件的 0007 均不再被判为裸待建引用。
+- [x] 登记表待建号（0001）仍会被 `scan_file` 正确报为 `adr/bare-pending-reference`。
+- [x] `PL-099` / `DRIFT-W4-1` 在停车位追加闭环记录。
+- [x] 全门禁绿；PR CI 11/11 SUCCESS + `MERGEABLE` + `CLEAN` + base=main 后合并，merge hash 已回填。
 
 ### 5. 偏差
 
-暂无。若发现需要改公开接口或新增 ADR，立即停并记 DRIFT。
+两项过程偏差，均未影响受控文件：
+
+1. 七次 `exec_command` 的 `shell` 参数误设为 `bash`，造成 `cargo` / `Get-Content` / `rg`
+   不适配；其中一次由 bash 命令替换生成了 20 个根目录 0 字节未跟踪乱码文件。已逐一解析绝对路径、
+   确认全部位于 `D:\csart\ai-assistant` 且未被 git 跟踪后，用 .NET 文件 API 删除；`git status -uall`
+   确认这些文件归零。实现与验收命令均以 PowerShell 重跑，未伪造证据。
+2. `PLAN.md` / `README.md` / `plans/stage-1-pilots.md` / `docs/PARKING_LOT.md` / `LEDGER.md`
+   均在 `guard acquire` 后写入并将在本 PR 完成后统一释放。
 
 ### 6. 更合理做法
 
 沿用最小修复：登记表 §2 继续作为唯一事实源，`refscan` 常量由单测机器核对，不改扫描流程。
+这样既消除假阳性，又保持 `scan_file` / 命令行接口和既有豁免行号不变。
 
 ### 7. 遗留问题
 
-待收口后补。
+无。若未来再次把待建号转成 Draft 或正式 ADR，只需同时更新登记表 §2；`refscan` 单测会拦住残留。
 
 ### 8. 新增长期记忆
 
-待收口后确认；预计无新 FACT / PITFALL / REJECTED。
+无新增 FACT / PITFALL / REJECTED。`PL-099` / `DRIFT-W4-1` 已在 `docs/PARKING_LOT.md` 标为闭环。
 
 ### 9. 给审阅者的关注点
 
-重点确认常量与登记表 §2 完全一致、已转 Draft 编号不再命中，且既有两个负向测试豁免行号未被漂移。
+1. 重点确认 `ADR_BARE_PENDING` 与登记表 §2 的集合相等，且测试不是通过放宽断言实现。
+2. 确认 0007 / 0016 / 0017 / 0020 / 0027 不再命中，而真实待建号 0001 仍命中。
+3. 确认 `docs/adr/0032-doc-rule-exemption-registry.md` 的既有行号未漂移，未新增豁免。

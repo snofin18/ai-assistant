@@ -1,6 +1,7 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
 > 周期 10~12 周　状态：**进行中**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> **TASK-250 ✅（2026-10-07）**：`refscan` 待建 ADR 集合对齐 `docs/adr/README.md` §2 —— 0007 / 0016 / 0017 / 0020 / 0027 不再误判为待建号，登记表一致性单测与正负用例落地；`PL-099` / `DRIFT-W4-1` 闭环；PR #262 / merge `7be80b6`。
 > **TASK-053 ✅（2026-10-07）**：静态注入靶页 fixture 落地 —— visible / hidden / aria-hidden / HTML comment / fake system / meta 六类 marker，5 条正常产品提取记录；显式离线与 CSP 边界；PR #260 / merge `79b5566`。
 > **TASK-050 ✅（2026-10-07）**：ADR 0007 三档出域策略落地 —— `crates/dlp` 应用覆盖替换默认、内容类型覆盖只收紧、egress-destination 白名单默认拒绝、`local_only` 无本地模型显式失败、策略变更返回可审计记录；专项 22 passed；PR #258 / merge `51bbb27`。
 > **TASK-244 ✅（2026-10-06）**：PL-022 机器派生计数收口 —— gov §5.4 表格行数为 hygiene 总数 SSOT；gov §5.1 与 ci.yml 的 # gov-gate 标记集合一致，缺失 / 重复 / 额外 / 不可解析均 exit 1。
@@ -332,6 +333,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-051 | 1c | `tasks/TASK-051-taint-tracking-permission-decay.md` | Ready（批次表占位派单前补全） |
 | TASK-052 | 1c | `tasks/TASK-052-instruction-origin-attribution-ui.md` | Ready（批次表占位派单前补全） |
 | **TASK-053 ✅** | 1c | `tasks/TASK-053-injection-target-fixture-visible-hidden.md` | Done（静态注入靶页 fixture；PR #260 / merge `79b5566`） |
+| **TASK-250 ✅** | 治理池 | `tasks/TASK-250-refscan-pending-adr-registry-source.md` | Done（`refscan` 待建 ADR 集合对齐登记表 §2；正负测试覆盖 Draft / 已建号；PL-099 / DRIFT-W4-1 闭环；PR #262 / merge `7be80b6`） |
 | TASK-054 | 1c | `tasks/TASK-054-clean-context-review-small-model-fourth-layer.md` | Ready（批次表占位派单前补全） |
 | TASK-055 | 1c | `tasks/TASK-055-edge-adapter-cdp-ua-blacklist-interrupts.md` | Ready（批次表占位派单前补全） |
 | TASK-056 | 1c | `tasks/TASK-056-t5-1-open-site-extract-list-write-csv.md` | Ready（批次表占位派单前补全） |
