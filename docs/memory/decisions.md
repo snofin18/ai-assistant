@@ -216,3 +216,7 @@
 ## 2026-10-06 追加（ADR-0073，Accepted）
 
 - [2026-10-06][DECISION][src:ADR-0073，按用户 2026-10-06 预授权代为裁决；TASK-041 拆分 A] **截图隐私保持与脱敏决策边界**：`ImageRef` 继续只是平台层 blob 引用 + 宽高，像素级遮挡 / 编解码 / blob 生命周期归 `crates/platform/*`；`crates/capture` 只编排 `WindowProvider::capture`、应用规则并产出遮挡矩形决策，不得读改像素或直接调平台。隐私模式 `NeverPersist` 不构造、不返回、不保留 `ImageRef`，即使 provider 已返回引用，也只能读取宽高后立即丢弃，输出 `retained_image = None`；`PersistBlob` 才允许保留引用。滚动清理只产生有界计划（显式合并方向、重叠像素、步数上限）；零步 / 超上限显式失败。脱敏文本命中只接受调用方已判定区间或显式词表，**不引入正则表达式 / 正则引擎**，ADR-0071 D2 的“正则命中区域”措辞由本 ADR 替换；空规则、负坐标、零宽高、越界、溢出、超规则上限一律显式失败。**不改公共 trait / schema / ErrorCode，不新增 crate / 依赖，不 `#[allow]` / `unsafe`。**
+
+## 2026-10-06 追加（ADR-0075，Accepted）
+
+- [2026-10-06][DECISION][src:ADR-0075，按用户 2026-10-06 预授权代为裁决；TASK-244 / PL-022 闭环] **治理计数由事实源机器派生**：`gov §5.4` 表格数据行数是 hygiene 规则总数唯一事实源，`xtask` 不得再硬编码 `TOTAL_HYGIENE_RULE_COUNT`；已实现数 = 派生总数 − `DEFERRED_HYGIENE_RULES.len()`，负数即 Error。`gov §5.1` 每个门禁数据行派生一个编号；`.github/workflows/ci.yml` 以每条恰好一次的 `# gov-gate: <id>` 注释表达承接步骤 / 作业；两边编号集合必须相等，解析失败、缺失、重复、额外均为 Error（exit 1，不得降为 Warning）。解析逻辑保持纯函数并由 `cargo test -p xtask` 的正负样本覆盖，文件读取留在 IO 边界；不改覆盖率 / `cargo doc` 软门禁，不新增 crate / 依赖 / `#[allow]`，不自动改写文档。ADR 编号取 0075 以避让在飞分支已使用的 0074。

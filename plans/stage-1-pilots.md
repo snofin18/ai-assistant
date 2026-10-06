@@ -306,6 +306,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-241 ✅** | 治理池 | `tasks/TASK-241-derived-value-sweep.md` | Done（ADR-0072 冻结派生值只指向唯一事实源；PL-035 闭环，PL-022 保留机器派生余项，PL-065 / PL-066 复核确认） |
 | **TASK-242 ✅** | 治理池 | `tasks/TASK-242-round-audit-closeout-076-and-002.md` | Done（三连发审计收口：TASK-076 状态行按实改 Done + TASK-002 三方不一致开 PL-109） |
 | **TASK-243 ✅** | 治理池 | `tasks/TASK-243-pl109-adjudication-and-consistency.md` | Done（PL-109 裁决收口：TASK-002 = Done，PLAN 阻塞项 / MEMORY §1 / LEDGER / PARKING_LOT 全部协调一致） |
+| **TASK-244** | 治理池 | `tasks/TASK-244-derived-counts.md` | InProgress（PL-022 机器派生收口：gov §5.4 运行时计数 + gov §5.1 ↔ ci.yml 标记集合校验） |
 | **TASK-040 ✅** | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Done（真机四用例取证；跨层 lease 由 TASK-225 闭环，`PL-101` 关闭） |
 | **TASK-231 ✅** | 1b bridge | `tasks/TASK-231-pointer-coordinate-space-dpi.md` | Done（ADR-0067 pointer 显式坐标空间；`PL-074` 闭环） |
 | **TASK-041 ✅** | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
