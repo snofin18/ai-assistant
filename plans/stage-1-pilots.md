@@ -4,7 +4,7 @@
 > **TASK-244 ✅（2026-10-06）**：PL-022 机器派生计数收口 —— gov §5.4 表格行数为 hygiene 总数 SSOT；gov §5.1 与 ci.yml 的 # gov-gate 标记集合一致，缺失 / 重复 / 额外 / 不可解析均 exit 1。
 > **TASK-042 ✅（2026-10-06）**：ADR-0074 冻结 `visual_assert` 扁平结构化形状（`field` + `op` + 具名容差 + `confidence_min`）与 pHash / dHash 64-bit 口径；`crates/verify/src/visual/**` 零依赖落地 21 个专项测试；接入既有 `Postcondition` / `Observation` 另立卡（`DRIFT-042-1` / `PL-110`）。
 > **TASK-245 ✅（2026-10-06）**：2026-10-06 四连发审计收口 —— `LEDGER.md` 里 TASK-041 的 merge-hash 行原重复 5 次且插错位置，去重为 1 条（404 → 400 行、重复行组归零）；`PL-111` 落点 = `DRIFT-041-2`（storage sink 待裁决）+ ADR-0074 号冲突 + `DRIFT-042-1` / `PL-110`。
-> **TASK-041 ✅（2026-10-06）**：拆分 A 落地 ADR-0073 与零依赖纯截图管线 / 脱敏规则模型；像素遮挡仍在平台层，真机截图与滚动像素拼接未冒充完成。
+> **TASK-041 ✅（2026-10-06）**：**拆分 A + 拆分 B** 落地 —— ADR-0073 冻结「像素遮挡归平台层 / `NeverPersist` 不保留 `ImageRef` / 滚动清理有界」，`crates/capture` + `crates/dlp/src/redact` 零依赖纯逻辑（15 专项测试）；ADR-0076 落地 Windows GDI `PrintWindow` 单窗口截图 + UIA `IsPassword` 像素遮挡 + `ImageBlobSink` 注入（binary `StorageBlobSink` 落盘并核对内容地址），`DRIFT-041-2` / `PL-112` 闭环。
 > **TASK-225 ✅（2026-10-03）**：Host 装配层已用共享 `TargetLeaseRegistry` 接上合成输入 exclusive lease；key / pointer-shaped 输入冲突稳定 `Transient`，成功/失败都释放，只读路径不变；`PL-101` 闭环。TASK-040 正文 DoD 复选框仍因正文只读未勾选。
 > **TASK-226 ✅（2026-10-03）**：PL-104 / PL-105 闭环；ignored 真机用例以异步互斥串行化 fixture 启动，`production_root.rs` 拆分后 3 个文件均 <600 行且断言零放宽。
 > **TASK-227 ✅（2026-10-03）**：状态行与停车位收口 —— TASK-040 / TASK-225 的状态行按实更正为 Done；`PL-103` 给出可直接粘贴的 spec 改法（已由 TASK-229 落笔）；`PL-106` 开卡 TASK-228（Ready，待派单）
@@ -182,7 +182,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | 卡号 | 标题 | write scope | 依赖 | 预估 | 验收要点 |
 |---|---|---|---|---|---|
 | **040 ✅** | 合成输入完善：拖拽（按下-移动-释放的原子性与租约独占）+ 校准流程（首次显示器组合点击已知元素验证命中） | `crates/platform/windows/src/input/**` | 018 | M | 拖拽期间禁止其他写租约；校准失败则**禁用坐标通道**并上报 |
-| **041** | 截图管线：窗口截图 + 脱敏（密码框/正则命中区域遮挡）+ 滚动清理 + 隐私模式（不保存截图） | `crates/capture/**`、`crates/dlp/src/redact*` | 017 | M | 只截目标窗口而非全屏；脱敏规则可配；存储上限与 TTL 生效 |
+| **041 ✅** | 截图管线：窗口截图 + 脱敏（密码框/正则命中区域遮挡）+ 滚动清理 + 隐私模式（不保存截图） | `crates/capture/**`、`crates/dlp/src/redact*` | 017 | M | 只截目标窗口而非全屏；脱敏规则可配；存储上限与 TTL 生效 |
 | **042 ✅** | 视觉验证：容差断言 + 感知哈希(pHash/dHash) + `visual_assert` 断言类型 + `confidence_min` | `crates/verify/src/visual/**` | 023,041 | M | 能稳定区分"画对/画错/没画上"，误判率 < 5%；**低置信结果必须标注且不得单独作为成功依据** |
 | **043** | Paint Adapter：工具选择/颜色/图层（UIA）+ 画布坐标动作 + 像素快照回滚 + 缩放与滚动的坐标换算 | `adapters/com.microsoft.paint/**` | 040,042 | L | 画布坐标 ≠ 屏幕坐标的换算正确；工具状态"设置后回读"验证；图层前置条件生效 |
 | **044** | T3.1：新建画布 → 选矩形工具与颜色 → 指定画布坐标画矩形 → 截图验证形状与颜色 | `adapters/com.microsoft.paint/tasks/**`、`eval/tasks/paint/**` | 043 | M | 10 次成功率 ≥ 75%；坐标命中误差 ≤ 2 px；容差断言生效 |
@@ -313,7 +313,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-245 ✅** | 治理池 | `tasks/TASK-245-round4-audit-closeout.md` | Done（四连发审计收口：LEDGER 去重 404→400 + `PL-111` WIP 落点 / ADR-0074 号冲突登记） |
 | **TASK-040 ✅** | 1b | `tasks/TASK-040-synthetic-input-drag-lease-calibration.md` | Done（真机四用例取证；跨层 lease 由 TASK-225 闭环，`PL-101` 关闭） |
 | **TASK-231 ✅** | 1b bridge | `tasks/TASK-231-pointer-coordinate-space-dpi.md` | Done（ADR-0067 pointer 显式坐标空间；`PL-074` 闭环） |
-| **TASK-041 ✅** | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Ready（批次表占位派单前补全） |
+| **TASK-041 ✅** | 1b | `tasks/TASK-041-capture-window-redact-privacy.md` | Done（拆分 A + B：ADR-0073 / ADR-0076 + `crates/capture` 纯管线 + Windows GDI 截图 / 像素遮挡 + `ImageBlobSink` 注入） |
 | **TASK-042 ✅** | 1b | `tasks/TASK-042-visual-verify-phash-dhash-confidence.md` | Done（ADR-0074 视觉验证纯逻辑；`crates/verify/src/visual/**` 零依赖 + 21 专项测试；`DRIFT-042-1` / `PL-110`） |
 | TASK-043 | 1b | `tasks/TASK-043-paint-adapter-tools-canvas-coords.md` | Ready（批次表占位派单前补全） |
 | TASK-044 | 1b | `tasks/TASK-044-t3-1-newcanvas-rect-color-screenshot.md` | Ready（批次表占位派单前补全） |
