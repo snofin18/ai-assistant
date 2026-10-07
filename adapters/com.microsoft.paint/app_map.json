@@ -1,0 +1,278 @@
+{
+  "schema_version": 1,
+  "app_id": "com.microsoft.paint",
+  "version_range": ">=11.2605 <12",
+  "observed_version": "11.2605.81.0",
+  "identity": {
+    "display_name": "Microsoft Paint",
+    "package_family_name": "Microsoft.Paint_8wekyb3d8bbwe",
+    "aumid": "Microsoft.Paint_8wekyb3d8bbwe!App",
+    "ui_framework": "WinUI 3",
+    "packaged_app": true
+  },
+  "commands": [
+    {
+      "intent": "new_document",
+      "shortcut": "Ctrl+N",
+      "tool": "paint.document.new",
+      "reliable": false,
+      "notes": "Must be guarded by unsaved-canvas handling; the shortcut can trigger a modal dialog."
+    },
+    {
+      "intent": "open_document",
+      "shortcut": "Ctrl+O",
+      "tool": "paint.file.open",
+      "reliable": true,
+      "notes": "The file dialog is cross-process and must be handled explicitly."
+    },
+    {
+      "intent": "save_document",
+      "shortcut": "Ctrl+S",
+      "tool": "paint.file.save_as",
+      "reliable": true,
+      "notes": "A document without a known path must route through Save As."
+    },
+    {
+      "intent": "undo_canvas_write",
+      "shortcut": "Ctrl+Z",
+      "tool": "paint.canvas.rollback_last_write",
+      "reliable": true,
+      "notes": "Undo depth and merge behavior must be verified with pixel evidence."
+    },
+    {
+      "intent": "redo_canvas_write",
+      "shortcut": "Ctrl+Y",
+      "tool": "paint.canvas.draw_rectangle",
+      "reliable": true,
+      "notes": "Redo is not a rollback path; it is only a user-authorized recovery action."
+    },
+    {
+      "intent": "select_pencil",
+      "shortcut": "P",
+      "tool": "paint.tool.select",
+      "reliable": false,
+      "notes": "Tool shortcuts may vary by focus, language, or Paint version."
+    },
+    {
+      "intent": "select_brush",
+      "shortcut": "B",
+      "tool": "paint.tool.select",
+      "reliable": false,
+      "notes": "Prefer verified UIA selection over shortcut input."
+    },
+    {
+      "intent": "select_fill",
+      "shortcut": "F",
+      "tool": "paint.tool.select",
+      "reliable": false,
+      "notes": "Prefer verified UIA selection over shortcut input."
+    },
+    {
+      "intent": "select_rectangle",
+      "shortcut": "R",
+      "tool": "paint.tool.select",
+      "reliable": false,
+      "notes": "The shape tool may be inside a split button on newer Paint versions."
+    },
+    {
+      "intent": "select_eraser",
+      "shortcut": "E",
+      "tool": "paint.tool.select",
+      "reliable": false,
+      "notes": "Prefer verified UIA selection over shortcut input."
+    }
+  ],
+  "ui_map": [
+    {
+      "target": "main_window",
+      "role": "Window",
+      "class_name": "WinUIDesktopWin32WindowClass",
+      "supports": ["inspect", "foreground"],
+      "virtualized": false,
+      "probe_status": "required"
+    },
+    {
+      "target": "toolbar",
+      "role": "ToolBar",
+      "class_name": "Microsoft.UI.Xaml.Controls.CommandBar",
+      "supports": ["invoke", "inspect"],
+      "virtualized": false,
+      "probe_status": "required"
+    },
+    {
+      "target": "rectangle_tool_button",
+      "role": "Button",
+      "class_name": "Microsoft.UI.Xaml.Controls.AppBarButton",
+      "supports": ["invoke", "selection_state"],
+      "virtualized": false,
+      "probe_status": "required"
+    },
+    {
+      "target": "foreground_color_button",
+      "role": "Button",
+      "class_name": "Microsoft.UI.Xaml.Controls.Button",
+      "supports": ["invoke", "color_state"],
+      "virtualized": false,
+      "probe_status": "required"
+    },
+    {
+      "target": "layers_panel",
+      "role": "List",
+      "class_name": "Microsoft.UI.Xaml.Controls.ListView",
+      "supports": ["selection", "inspect"],
+      "virtualized": true,
+      "probe_status": "required",
+      "notes": "Only visible layer items may exist in the UIA tree."
+    },
+    {
+      "target": "layer_item",
+      "role": "ListItem",
+      "class_name": "Microsoft.UI.Xaml.Controls.ListViewItem",
+      "supports": ["selection", "selection_state"],
+      "virtualized": true,
+      "probe_status": "required"
+    },
+    {
+      "target": "canvas",
+      "role": "Image",
+      "class_name": "Image",
+      "supports": ["bounds"],
+      "virtualized": false,
+      "probe_status": "required",
+      "notes": "The canvas is a single self-drawn surface. UIA provides bounds only; drawing requires L4 input."
+    },
+    {
+      "target": "status_bar",
+      "role": "StatusBar",
+      "class_name": "Microsoft.UI.Xaml.Controls.Grid",
+      "supports": ["inspect"],
+      "virtualized": false,
+      "probe_status": "required"
+    },
+    {
+      "target": "zoom_status_text",
+      "role": "Text",
+      "class_name": "Microsoft.UI.Xaml.Controls.TextBlock",
+      "supports": ["text"],
+      "virtualized": false,
+      "probe_status": "required"
+    }
+  ],
+  "coordinate_model": {
+    "canvas_space": "document_top_left_origin",
+    "screen_space": "physical_pixels",
+    "required_inputs": [
+      "canvas_bounds_px",
+      "zoom_ratio",
+      "viewport_offset_x_px",
+      "viewport_offset_y_px",
+      "monitor_id",
+      "dpi_scale"
+    ],
+    "conversion": "screen_px = viewport_origin_px + (canvas_point_px - viewport_offset_px) * zoom_ratio",
+    "rules": [
+      "Resolve the canvas coordinate transform immediately before every drag.",
+      "Do not reuse a point across a zoom, scroll, resize, DPI, or monitor change.",
+      "If calibration fails, disable L4 canvas input and escalate to NeedsHuman.",
+      "The drag start and end points must use the same coordinate-space contract."
+    ]
+  },
+  "workflows": [
+    {
+      "name": "T3.1 new canvas rectangle",
+      "steps": [
+        "paint.document.new",
+        "paint.tool.select",
+        "paint.color.select_foreground",
+        "paint.layer.select",
+        "paint.canvas.resolve_point",
+        "paint.canvas.draw_rectangle",
+        "paint.canvas.capture_pixels"
+      ],
+      "pitfalls": [
+        "A new document can discard unsaved work.",
+        "The active tool, color, and layer must be read back before drawing.",
+        "A visual assertion must tolerate anti-aliasing and compression artifacts."
+      ]
+    },
+    {
+      "name": "T3.2 open PNG and mark region",
+      "steps": [
+        "paint.file.open",
+        "paint.canvas.resolve_point",
+        "paint.canvas.draw_rectangle",
+        "paint.file.save_as"
+      ],
+      "pitfalls": [
+        "The Save As dialog is cross-process.",
+        "The opened image size and zoom must be read back before resolving points.",
+        "Existing output files must not be overwritten silently."
+      ]
+    },
+    {
+      "name": "T3.3 draw then rollback",
+      "steps": [
+        "paint.canvas.capture_pixels",
+        "paint.canvas.draw_rectangle",
+        "paint.canvas.rollback_last_write"
+      ],
+      "pitfalls": [
+        "Ctrl+Z behavior can merge multiple canvas actions.",
+        "A pixel snapshot is evidence and an anchor, not a guarantee that Paint can import it.",
+        "A failed rollback is an incident and must not be reported as success."
+      ]
+    }
+  ],
+  "known_pitfalls": [
+    "Canvas coordinates are not screen coordinates; zoom and scroll offsets must be applied for every write.",
+    "The canvas is self-drawn and has no actionable child-control tree.",
+    "The active drawing tool, color, and layer are implicit state and must be read back.",
+    "Anti-aliasing and alpha blending make exact pixel equality unreliable.",
+    "A drag interrupted mid-way can leave a partial stroke.",
+    "Layer selection determines where drawing lands; virtualized layer lists may instantiate only visible rows.",
+    "AI features may require network access and have unbounded latency; they are disabled.",
+    "The Save As dialog belongs to a Shell child process.",
+    "The PowerShell/UIA probe channel was not usable during this card, so all selector IDs are provisional until TASK-044 verifies them."
+  ],
+  "state_machine": {
+    "states": [
+      "no_document",
+      "document_clean",
+      "document_dirty",
+      "modal_dialog",
+      "color_picker",
+      "save_as_dialog",
+      "busy_or_transient_popup"
+    ],
+    "transitions": [
+      {"from": "no_document", "event": "new_document", "to": "document_clean"},
+      {"from": "document_clean", "event": "canvas_write", "to": "document_dirty"},
+      {"from": "document_dirty", "event": "save_as", "to": "document_clean"},
+      {"from": "document_dirty", "event": "new_document", "to": "modal_dialog"},
+      {"from": "modal_dialog", "event": "cancel", "to": "document_dirty"},
+      {"from": "document_clean", "event": "open_document", "to": "save_as_dialog"}
+    ]
+  },
+  "undo_capability": {
+    "level": "L0_undo_stack",
+    "shortcut": "Ctrl+Z",
+    "granularity": "per_canvas_action",
+    "depth_limit": "unknown_but_large",
+    "survives_save": true,
+    "survives_close": false,
+    "snapshot_fallback": "pixel_snapshot_evidence_and_human_restore",
+    "caveats": [
+      "Canvas undo may merge several pointer events into one action or split one drag into several actions.",
+      "Ctrl+Z is documented by the adapter but must be verified with pixel evidence.",
+      "A pixel snapshot does not by itself guarantee a safe restore path."
+    ]
+  },
+  "evidence_status": {
+    "identity_version": "observed_from_registry",
+    "uia_tree": "not_probed",
+    "selector_ids": "provisional",
+    "coordinate_calibration": "not_measured",
+    "visual_tolerance": "contract_declared_not_measured",
+    "next_required_evidence": "TASK-044 real Paint GUI run with selector success and coordinate error measurements"
+  }
+}

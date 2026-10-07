@@ -1,0 +1,598 @@
+{
+  "schema_version": 1,
+  "app_id": "com.microsoft.paint",
+  "probe_status": "required",
+  "tools": [
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "paint.document.new",
+        "description": "Create a new Paint document after the caller has handled any unsaved canvas state.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "discard_unsaved_confirmed": {"type": "boolean", "const": false}
+          },
+          "required": ["discard_unsaved_confirmed"],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "document_generation": {"type": "integer", "minimum": 1},
+            "canvas_width_px": {"type": "integer", "minimum": 1},
+            "canvas_height_px": {"type": "integer", "minimum": 1}
+          },
+          "required": ["document_generation", "canvas_width_px", "canvas_height_px"],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l3_irreversible",
+        "risk_level": "high",
+        "requires_approval": true,
+        "idempotent": false,
+        "tags": ["paint", "document", "new"]
+      },
+      "postconditions": [
+        {
+          "kind": "value_in_range",
+          "name": "document_generation",
+          "min": 1,
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "state_changed",
+          "fingerprint_scope": "whole_window",
+          "within_ms": 3000,
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "paint.tool.select",
+        "description": "Select a Paint tool through UIA and read the selected state back.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "enum": ["pencil", "brush", "eraser", "fill", "rectangle", "ellipse", "line", "color_picker"]
+            }
+          },
+          "required": ["tool"],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "selected_tool": {"type": "string"},
+            "previous_tool": {"type": "string"}
+          },
+          "required": ["selected_tool", "previous_tool"],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l2_compensation",
+        "risk_level": "medium",
+        "requires_approval": false,
+        "idempotent": true,
+        "tags": ["paint", "tool", "select"]
+      },
+      "postconditions": [
+        {
+          "kind": "value_equals",
+          "name": "selected_tool",
+          "value": "{{tool}}",
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "paint.color.select_foreground",
+        "description": "Set the foreground color and read the active color state back.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "red": {"type": "integer", "minimum": 0, "maximum": 255},
+            "green": {"type": "integer", "minimum": 0, "maximum": 255},
+            "blue": {"type": "integer", "minimum": 0, "maximum": 255}
+          },
+          "required": ["red", "green", "blue"],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "foreground_rgb": {
+              "type": "object",
+              "properties": {
+                "red": {"type": "integer"},
+                "green": {"type": "integer"},
+                "blue": {"type": "integer"}
+              },
+              "required": ["red", "green", "blue"],
+              "additionalProperties": false
+            },
+            "previous_foreground_rgb": {
+              "type": "object",
+              "properties": {
+                "red": {"type": "integer"},
+                "green": {"type": "integer"},
+                "blue": {"type": "integer"}
+              },
+              "required": ["red", "green", "blue"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["foreground_rgb", "previous_foreground_rgb"],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l2_compensation",
+        "risk_level": "medium",
+        "requires_approval": false,
+        "idempotent": true,
+        "tags": ["paint", "color", "foreground"]
+      },
+      "postconditions": [
+        {
+          "kind": "value_equals",
+          "name": "foreground_rgb",
+          "value": "{{red}},{{green}},{{blue}}",
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "paint.layer.select",
+        "description": "Select the active layer by a stable layer id and verify the selection.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "layer_id": {"type": "string", "minLength": 1},
+            "expected_layer_name": {"type": "string", "minLength": 1}
+          },
+          "required": ["layer_id", "expected_layer_name"],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "active_layer_id": {"type": "string"},
+            "active_layer_name": {"type": "string"},
+            "previous_layer_id": {"type": "string"}
+          },
+          "required": ["active_layer_id", "active_layer_name", "previous_layer_id"],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l2_compensation",
+        "risk_level": "medium",
+        "requires_approval": false,
+        "idempotent": true,
+        "tags": ["paint", "layer", "select"]
+      },
+      "postconditions": [
+        {
+          "kind": "value_equals",
+          "name": "active_layer_id",
+          "value": "{{layer_id}}",
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "value_equals",
+          "name": "active_layer_name",
+          "value": "{{expected_layer_name}}",
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "paint.canvas.resolve_point",
+        "description": "Convert a Paint canvas coordinate into a screen point using the current zoom ratio and scroll offsets.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "canvas_x": {"type": "integer", "minimum": 0},
+            "canvas_y": {"type": "integer", "minimum": 0},
+            "zoom_ratio": {"type": "number", "exclusiveMinimum": 0},
+            "viewport_offset_x_px": {"type": "integer"},
+            "viewport_offset_y_px": {"type": "integer"},
+            "coordinate_space": {
+              "type": "object",
+              "properties": {
+                "kind": {"type": "string", "enum": ["physical_pixels"]},
+                "monitor_id": {"type": "string", "minLength": 1},
+                "scale": {"type": "number", "exclusiveMinimum": 0}
+              },
+              "required": ["kind", "monitor_id", "scale"],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "canvas_x",
+            "canvas_y",
+            "zoom_ratio",
+            "viewport_offset_x_px",
+            "viewport_offset_y_px",
+            "coordinate_space"
+          ],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "screen_x_px": {"type": "integer"},
+            "screen_y_px": {"type": "integer"},
+            "canvas_bounds_px": {
+              "type": "object",
+              "properties": {
+                "left": {"type": "integer"},
+                "top": {"type": "integer"},
+                "right": {"type": "integer"},
+                "bottom": {"type": "integer"}
+              },
+              "required": ["left", "top", "right", "bottom"],
+              "additionalProperties": false
+            },
+            "zoom_ratio": {"type": "number"},
+            "viewport_offset_x_px": {"type": "integer"},
+            "viewport_offset_y_px": {"type": "integer"}
+          },
+          "required": [
+            "screen_x_px",
+            "screen_y_px",
+            "canvas_bounds_px",
+            "zoom_ratio",
+            "viewport_offset_x_px",
+            "viewport_offset_y_px"
+          ],
+          "additionalProperties": false
+        },
+        "effect": "read",
+        "reversibility": "none_readonly",
+        "risk_level": "low",
+        "requires_approval": false,
+        "idempotent": true,
+        "tags": ["paint", "canvas", "coordinates"]
+      },
+      "postconditions": [
+        {
+          "kind": "value_equals",
+          "name": "coordinate_space_kind",
+          "value": "physical_pixels",
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "value_equals",
+          "name": "zoom_ratio",
+          "value": "{{zoom_ratio}}",
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "value_in_range",
+          "name": "screen_x_px",
+          "min": 0,
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "value_in_range",
+          "name": "screen_y_px",
+          "min": 0,
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "paint.canvas.draw_rectangle",
+        "description": "Draw one rectangle on the active Paint layer using canvas coordinates and verify it visually.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "object",
+              "properties": {
+                "x": {"type": "integer", "minimum": 0},
+                "y": {"type": "integer", "minimum": 0}
+              },
+              "required": ["x", "y"],
+              "additionalProperties": false
+            },
+            "end": {
+              "type": "object",
+              "properties": {
+                "x": {"type": "integer", "minimum": 0},
+                "y": {"type": "integer", "minimum": 0}
+              },
+              "required": ["x", "y"],
+              "additionalProperties": false
+            },
+            "coordinate_space": {
+              "type": "object",
+              "properties": {
+                "kind": {"type": "string", "enum": ["physical_pixels"]},
+                "monitor_id": {"type": "string", "minLength": 1},
+                "scale": {"type": "number", "exclusiveMinimum": 0}
+              },
+              "required": ["kind", "monitor_id", "scale"],
+              "additionalProperties": false
+            },
+            "expected_tool": {"type": "string", "const": "rectangle"},
+            "expected_foreground_rgb": {
+              "type": "object",
+              "properties": {
+                "red": {"type": "integer", "minimum": 0, "maximum": 255},
+                "green": {"type": "integer", "minimum": 0, "maximum": 255},
+                "blue": {"type": "integer", "minimum": 0, "maximum": 255}
+              },
+              "required": ["red", "green", "blue"],
+              "additionalProperties": false
+            },
+            "expected_layer_id": {"type": "string", "minLength": 1},
+            "pre_snapshot_blob_id": {"type": "string", "minLength": 1}
+          },
+          "required": [
+            "start",
+            "end",
+            "coordinate_space",
+            "expected_tool",
+            "expected_foreground_rgb",
+            "expected_layer_id",
+            "pre_snapshot_blob_id"
+          ],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "selected_tool": {"type": "string"},
+            "active_layer_id": {"type": "string"},
+            "pixel_snapshot_blob_id": {"type": "string"},
+            "undo_steps_recorded": {"type": "integer", "minimum": 1}
+          },
+          "required": [
+            "selected_tool",
+            "active_layer_id",
+            "pixel_snapshot_blob_id",
+            "undo_steps_recorded"
+          ],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l0_undo_stack",
+        "risk_level": "medium",
+        "requires_approval": true,
+        "idempotent": false,
+        "tags": ["paint", "canvas", "rectangle", "draw"]
+      },
+      "postconditions": [
+        {
+          "kind": "value_equals",
+          "name": "selected_tool",
+          "value": "rectangle",
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "value_equals",
+          "name": "active_layer_id",
+          "value": "{{expected_layer_id}}",
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "visual_assert",
+          "field": "pixels",
+          "op": "changed_ratio_within",
+          "pixel_delta_threshold": 12,
+          "max_changed_ratio": 0.08,
+          "confidence_min": 0.85,
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "state_changed",
+          "fingerprint_scope": "canvas",
+          "within_ms": 3000,
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "paint.canvas.capture_pixels",
+        "description": "Capture the current Paint canvas as content-addressed pixel evidence.",
+        "input": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "blob_id": {"type": "string", "minLength": 1},
+            "width_px": {"type": "integer", "minimum": 1},
+            "height_px": {"type": "integer", "minimum": 1},
+            "content_address": {"type": "string", "minLength": 64, "maxLength": 64}
+          },
+          "required": ["blob_id", "width_px", "height_px", "content_address"],
+          "additionalProperties": false
+        },
+        "effect": "read",
+        "reversibility": "none_readonly",
+        "risk_level": "low",
+        "requires_approval": false,
+        "idempotent": true,
+        "tags": ["paint", "canvas", "pixels", "snapshot"]
+      },
+      "postconditions": [
+        {
+          "kind": "value_in_range",
+          "name": "width_px",
+          "min": 1,
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "value_in_range",
+          "name": "height_px",
+          "min": 1,
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "paint.canvas.rollback_last_write",
+        "description": "Undo the last canvas write and verify that pixels match the pre-write snapshot within tolerance.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "pre_snapshot_blob_id": {"type": "string", "minLength": 1},
+            "expected_undo_steps": {"type": "integer", "minimum": 1, "maximum": 64}
+          },
+          "required": ["pre_snapshot_blob_id", "expected_undo_steps"],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "undo_steps_completed": {"type": "integer", "minimum": 0},
+            "pixel_snapshot_blob_id": {"type": "string"}
+          },
+          "required": ["undo_steps_completed", "pixel_snapshot_blob_id"],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l2_compensation",
+        "risk_level": "medium",
+        "requires_approval": true,
+        "idempotent": false,
+        "tags": ["paint", "canvas", "rollback", "undo"]
+      },
+      "postconditions": [
+        {
+          "kind": "value_equals",
+          "name": "undo_steps_completed",
+          "value": "{{expected_undo_steps}}",
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "visual_assert",
+          "field": "pixels",
+          "op": "mean_abs_diff_within",
+          "max_mean_abs_diff": 2,
+          "confidence_min": 0.9,
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "paint.file.open",
+        "description": "Open an image file into Paint only when unsaved canvas state is explicitly handled.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "path": {"type": "string", "minLength": 1},
+            "discard_unsaved_confirmed": {"type": "boolean", "const": false}
+          },
+          "required": ["path", "discard_unsaved_confirmed"],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "opened_path": {"type": "string"},
+            "canvas_width_px": {"type": "integer", "minimum": 1},
+            "canvas_height_px": {"type": "integer", "minimum": 1},
+            "zoom_ratio": {"type": "number", "exclusiveMinimum": 0}
+          },
+          "required": ["opened_path", "canvas_width_px", "canvas_height_px", "zoom_ratio"],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l2_compensation",
+        "risk_level": "medium",
+        "requires_approval": true,
+        "idempotent": false,
+        "tags": ["paint", "file", "open"]
+      },
+      "postconditions": [
+        {
+          "kind": "value_equals",
+          "name": "opened_path",
+          "value": "{{path}}",
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "value_in_range",
+          "name": "canvas_width_px",
+          "min": 1,
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "value_in_range",
+          "name": "canvas_height_px",
+          "min": 1,
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "paint.file.save_as",
+        "description": "Save the current Paint document to a new path without silently overwriting an existing file.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "target_path": {"type": "string", "minLength": 1},
+            "overwrite_existing": {"type": "boolean", "const": false}
+          },
+          "required": ["target_path", "overwrite_existing"],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "target_path": {"type": "string"},
+            "file_created": {"type": "boolean"}
+          },
+          "required": ["target_path", "file_created"],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l3_irreversible",
+        "risk_level": "high",
+        "requires_approval": true,
+        "idempotent": false,
+        "tags": ["paint", "file", "save_as"]
+      },
+      "postconditions": [
+        {
+          "kind": "file_changed",
+          "path": "{{target_path}}",
+          "expect": "size",
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "value_equals",
+          "name": "file_created",
+          "value": true,
+          "error_code": "VerifyFailed"
+        }
+      ]
+    }
+  ]
+}

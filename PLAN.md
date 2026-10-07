@@ -13,9 +13,9 @@
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done
 本日自动化 ：**4/4 已完成**（TASK-050 / TASK-053 / TASK-250 / TASK-251）；运行日阶段报告由 **TASK-252** 补齐。
 最新完成卡 ：**TASK-052 Done** —— 来源归因 canonical 模型落地：`InstructionOrigin` / `InstructionAttribution` 固定四类 token，按来源校验父目标 / 来源引用，`app_content` 只作高风险信号；UI 保持默认拒绝与显式覆盖；ADR-0082
-最新实现卡 ：**TASK-052 ✅（ADR-0082）**：`crates/core/src/origin.rs` + approval UI token/展示测试已闭环；专项与全 workspace 门禁全绿；PR / merge hash 待回填
+最新实现卡 ：**TASK-043 Review** - Paint declarative adapter pack: 16 targets / 10 tools / 6 rollback recipes; selectors stay probe_status=required until TASK-044 real UIA calibration; DRIFT-043-1 open; PR pending
 阻塞项      ：gov **#9 覆盖率**与 **#11 `cargo doc`** 仍是 SOFT 门禁（TASK-002 已于 2026-10-05 裁决为 **Done**，不再列阻塞）
-下一步动作  ：**TASK-052 ✅**（ADR-0082 + core 归因值模型）；下一张由 Orchestrator 派单 / 人工验收选择（TASK-055 Edge Adapter 依赖 048/049，尚未就绪；TASK-043~047 含真实 Paint GUI 验收，不宜无人值守硬做）
+下一步动作  ：**TASK-043 Review** (declarative Paint Adapter pack; DRIFT-043-1 open); next implementation card is TASK-044 after human review
                   → 复验证据见 `docs/audits/stage-1a-reaudit-2026-10-02.md`；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
 ```
 
