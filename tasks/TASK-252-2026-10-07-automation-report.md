@@ -92,7 +92,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 - [x] 报告存在且四轮 PR / CI / merge / 偏差证据完整。
 - [x] LEDGER / PLAN / README / plans 状态同步。
-- [ ] PR CI 11/11、merge hash 回填：待远程 PR 流程完成后追加。
+- [x] PR #266 CI 11/11、merge hash `6b4a912` 回填完成。
 
 ### 5. 偏差
 
