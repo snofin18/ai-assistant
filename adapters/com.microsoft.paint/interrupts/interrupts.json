@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "app_id": "com.microsoft.paint",
+  "default_action": "cancel",
+  "interrupts": [
+    {
+      "id": "unsaved-canvas-dialog",
+      "match": {
+        "class_name": "#32770",
+        "title_candidates": ["Save changes", "Paint", "Unsaved"]
+      },
+      "classification": "unsaved_changes_three_way",
+      "buttons": {
+        "save": ["Save"],
+        "discard": ["Don't Save", "Do not save"],
+        "cancel": ["Cancel"]
+      },
+      "default_action": "cancel",
+      "forbidden_defaults": ["save", "discard"],
+      "requires_human": true,
+      "resume_after": "user_decision",
+      "notes": [
+        "Never default to Save because it can persist an unintended canvas.",
+        "Never default to Don't Save because it discards user drawing."
+      ]
+    },
+    {
+      "id": "save-as-dialog",
+      "match": {
+        "class_name": "#32770",
+        "title_candidates": ["Save As"]
+      },
+      "classification": "cross_process_shell_dialog",
+      "default_action": "delegate_to_task_045",
+      "requires_human": true,
+      "notes": [
+        "The dialog belongs to a Shell child process.",
+        "Existing files must not be overwritten without an explicit backup and confirmation."
+      ]
+    },
+    {
+      "id": "overwrite-confirmation",
+      "match": {
+        "class_name": "#32770",
+        "title_candidates": ["Confirm Save As", "Replace?"]
+      },
+      "classification": "overwrite_confirmation",
+      "default_action": "cancel",
+      "forbidden_defaults": ["yes", "replace"],
+      "requires_human": true,
+      "notes": [
+        "The adapter never chooses Replace on the user's behalf."
+      ]
+    },
+    {
+      "id": "ai-feature-network-prompt",
+      "match": {
+        "class_name_contains": "ContentDialog",
+        "name_candidates": ["Background removal", "AI", "Copilot"]
+      },
+      "classification": "unsupported_network_feature",
+      "default_action": "cancel",
+      "requires_human": true,
+      "notes": [
+        "Paint AI features can require network access and unbounded processing time.",
+        "They are disabled for this adapter and must escalate as NeedsHuman if encountered."
+      ]
+    },
+    {
+      "id": "color-picker-dialog",
+      "match": {
+        "class_name": "#32770",
+        "title_candidates": ["Edit Colors", "Color"]
+      },
+      "classification": "modal_color_picker",
+      "default_action": "cancel_unless_declared_by_tool",
+      "requires_human": false,
+      "notes": [
+        "The canonical color tool uses UIA controls only after this dialog is resolved.",
+        "If the dialog cannot be proven to belong to the target Paint window, fail closed."
+      ]
+    },
+    {
+      "id": "transient-teaching-tip",
+      "match": {
+        "class_name_contains": "TeachingTip"
+      },
+      "classification": "transient_popup",
+      "default_action": "dismiss_explicitly",
+      "forbidden_action": "wait_until_it_disappears",
+      "notes": [
+        "Do not use a fixed sleep as the dismissal strategy.",
+        "Record the dismissal in the task timeline."
+      ]
+    }
+  ]
+}

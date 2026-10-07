@@ -1,0 +1,47 @@
+schema_version = 1
+
+[adapter]
+app_id = "com.microsoft.paint"
+display_name = "Microsoft Paint"
+version_range = ">=11.2605 <12"
+os_version_range = ">=10.0.26100"
+capability_level = "L4_input"
+maintainer = "assistant-project"
+min_assistant_version = "0.1.0"
+aumid = "Microsoft.Paint_8wekyb3d8bbwe!App"
+
+[platforms.windows]
+channel = "uia_plus_input"
+requires = [
+  "uia.invoke_pattern",
+  "uia.selection_item_pattern",
+  "uia.toggle_pattern",
+  "win32.foreground_validation",
+  "win32.per_monitor_v2",
+  "input.pointer",
+  "window.capture",
+]
+elevated_target = false
+requires_dpi_awareness = "per_monitor_v2"
+text_normalization = "none"
+launch = "aumid_activate"
+window_discovery = "enum_windows_and_window_thread_process_id"
+coordinate_space = "physical_pixels_from_platform"
+canvas_coordinate_system = "document_top_left_origin"
+
+[health]
+selector_success_threshold = 0.85
+auto_degrade = true
+reverify_trigger = "app_version_change_or_two_consecutive_selector_failures"
+probe_status = "required"
+
+[safety]
+default_interrupt_action = "cancel"
+allow_unattended = false
+requires_foreground_for_keyboard = true
+requires_foreground_for_pointer = true
+requires_exclusive_lease_for_drag = true
+requires_pixel_snapshot_before_canvas_write = true
+requires_visual_verification_for_canvas_write = true
+remote_ai_features = "disabled"
+canvas_coordinate_calibration = "required_on_first_display_combination"

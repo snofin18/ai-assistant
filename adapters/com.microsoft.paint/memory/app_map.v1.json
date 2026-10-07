@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "app_id": "com.microsoft.paint",
+  "entries": [
+    {
+      "id": "identity",
+      "title": "Paint identity and launch",
+      "content": "Windows 11 Paint is an MSIX WinUI 3 app. Use AUMID Microsoft.Paint_8wekyb3d8bbwe!App. The installed package observed on this host is 11.2605.81.0.",
+      "source_reference": "adapters/com.microsoft.paint/app_map.json#identity",
+      "token_estimate": 48
+    },
+    {
+      "id": "canvas_boundary",
+      "title": "Canvas is self-drawn",
+      "content": "The canvas has no actionable child-control tree. Resolve the canvas bounds through UIA, then use L4 pointer input and L5 visual verification.",
+      "source_reference": "adapters/com.microsoft.paint/selectors/targets.json#canvas",
+      "token_estimate": 42
+    },
+    {
+      "id": "coordinate_model",
+      "title": "Canvas coordinate model",
+      "content": "Convert canvas coordinates through canvas bounds, zoom ratio, and scroll offsets. Never hard-code absolute screen coordinates or reuse a pre-zoom point.",
+      "source_reference": "adapters/com.microsoft.paint/tools/tools.json#paint.canvas.resolve_point",
+      "token_estimate": 44
+    },
+    {
+      "id": "tool_and_layer_state",
+      "title": "Implicit tool, color, and layer state",
+      "content": "Before drawing, read back the active tool, foreground color, and selected layer. A successful click is not evidence that the intended drawing state is active.",
+      "source_reference": "adapters/com.microsoft.paint/tools/tools.json#paint.tool.select",
+      "token_estimate": 45
+    },
+    {
+      "id": "undo_and_snapshot",
+      "title": "Undo and pixel snapshot",
+      "content": "Paint declares Ctrl+Z at L0. Canvas writes also require an exported PNG or pixel snapshot at L1 because Ctrl+Z depth and conflict state cannot be trusted alone.",
+      "source_reference": "adapters/com.microsoft.paint/rollback/recipes.json#draw-rectangle-l0-l1",
+      "token_estimate": 45
+    }
+  ]
+}

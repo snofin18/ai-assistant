@@ -1,0 +1,375 @@
+{
+  "schema_version": 1,
+  "app_id": "com.microsoft.paint",
+  "app_version_range": ">=11.2605 <12",
+  "probe_status": {
+    "status": "required",
+    "reason": "The Windows 11 Paint UIA tree was not captured in this card. Selector candidates are declarative and must be verified before task execution.",
+    "required_before": "TASK-044"
+  },
+  "policy": {
+    "on_ambiguous": "error_and_ask",
+    "on_not_found": "escalate_to_human",
+    "min_score_to_try": 0.2,
+    "max_resolve_ms": 5000
+  },
+  "targets": [
+    {
+      "id": "main_window",
+      "scope": "window",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "paint-window-class-role",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "WinUIDesktopWin32WindowClass", "role": "Window"}},
+          "score": 0.72,
+          "locale_dependent": false
+        },
+        {
+          "id": "paint-window-title-fallback",
+          "kind": "title_regex",
+          "value": {"text": "Paint"},
+          "score": 0.35,
+          "locale_dependent": true
+        },
+        {
+          "id": "paint-window-a11y-path",
+          "kind": "a11y_path",
+          "value": {"path": ["Paint"]},
+          "score": 0.22,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "toolbar",
+      "scope": "element",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "toolbar-command-bar",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.CommandBar", "role": "ToolBar"}},
+          "score": 0.62,
+          "locale_dependent": false
+        },
+        {
+          "id": "toolbar-pane-role",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.Grid", "role": "Pane"}},
+          "score": 0.45,
+          "locale_dependent": false
+        }
+      ]
+    },
+    {
+      "id": "pencil_tool_button",
+      "scope": "element",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "pencil-button-class-role",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.AppBarButton", "role": "Button"}},
+          "score": 0.5,
+          "locale_dependent": false
+        },
+        {
+          "id": "pencil-button-name-fallback",
+          "kind": "name_regex",
+          "value": {"text": "Pencil"},
+          "score": 0.28,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "brush_tool_button",
+      "scope": "element",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "brush-button-class-role",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.AppBarButton", "role": "Button"}},
+          "score": 0.5,
+          "locale_dependent": false
+        },
+        {
+          "id": "brush-button-name-fallback",
+          "kind": "name_regex",
+          "value": {"text": "Brush"},
+          "score": 0.28,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "fill_tool_button",
+      "scope": "element",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "fill-button-class-role",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.AppBarButton", "role": "Button"}},
+          "score": 0.5,
+          "locale_dependent": false
+        },
+        {
+          "id": "fill-button-name-fallback",
+          "kind": "name_regex",
+          "value": {"text": "Fill"},
+          "score": 0.28,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "rectangle_tool_button",
+      "scope": "element",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "rectangle-button-class-role",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.AppBarButton", "role": "Button"}},
+          "score": 0.5,
+          "locale_dependent": false
+        },
+        {
+          "id": "rectangle-button-name-fallback",
+          "kind": "name_regex",
+          "value": {"text": "Rectangle"},
+          "score": 0.28,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "eraser_tool_button",
+      "scope": "element",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "eraser-button-class-role",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.AppBarButton", "role": "Button"}},
+          "score": 0.5,
+          "locale_dependent": false
+        },
+        {
+          "id": "eraser-button-name-fallback",
+          "kind": "name_regex",
+          "value": {"text": "Eraser"},
+          "score": 0.28,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "foreground_color_button",
+      "scope": "element",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "foreground-color-class-role",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.Button", "role": "Button"}},
+          "score": 0.48,
+          "locale_dependent": false
+        },
+        {
+          "id": "foreground-color-name-fallback",
+          "kind": "name_regex",
+          "value": {"text": "Color"},
+          "score": 0.26,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "layers_panel",
+      "scope": "element",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "layers-list",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.ListView", "role": "List"}},
+          "score": 0.6,
+          "locale_dependent": false
+        },
+        {
+          "id": "layers-name-fallback",
+          "kind": "name_regex",
+          "value": {"text": "Layers"},
+          "score": 0.25,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "layer_item",
+      "scope": "element",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "layer-list-item",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.ListViewItem", "role": "ListItem"}},
+          "score": 0.55,
+          "locale_dependent": false
+        },
+        {
+          "id": "layer-item-name-fallback",
+          "kind": "name_regex",
+          "value": {"text": "Layer"},
+          "score": 0.24,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "status_bar",
+      "scope": "element",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "status-bar-role",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.Grid", "role": "StatusBar"}},
+          "score": 0.58,
+          "locale_dependent": false
+        },
+        {
+          "id": "status-bar-text-fallback",
+          "kind": "name_regex",
+          "value": {"text": "px"},
+          "score": 0.2,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "zoom_status_text",
+      "scope": "element",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "zoom-status-text",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.TextBlock", "role": "Text"}},
+          "score": 0.42,
+          "locale_dependent": false
+        },
+        {
+          "id": "zoom-status-name-fallback",
+          "kind": "name_regex",
+          "value": {"text": "%"},
+          "score": 0.2,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "canvas_host",
+      "scope": "element",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "canvas-host-bridge",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Microsoft.UI.Content.DesktopChildSiteBridge", "role": "Pane"}},
+          "score": 0.48,
+          "locale_dependent": false
+        },
+        {
+          "id": "canvas-host-input-site",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "InputSiteWindowClass", "role": "Pane"}},
+          "score": 0.4,
+          "locale_dependent": false
+        }
+      ]
+    },
+    {
+      "id": "canvas",
+      "scope": "element",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "canvas-host-bridge",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Microsoft.UI.Content.DesktopChildSiteBridge", "role": "Pane"}},
+          "score": 0.44,
+          "locale_dependent": false
+        },
+        {
+          "id": "canvas-image",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Image", "role": "Image"}},
+          "score": 0.62,
+          "locale_dependent": false
+        },
+        {
+          "id": "canvas-xaml-image",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.Image", "role": "Image"}},
+          "score": 0.58,
+          "locale_dependent": false
+        },
+        {
+          "id": "canvas-under-host",
+          "kind": "role_and_parent",
+          "value": {"role_and_parent": {"role": "Image", "parent_id": "canvas-host-bridge"}},
+          "score": 0.5,
+          "locale_dependent": false
+        }
+      ]
+    },
+    {
+      "id": "choose_color_dialog",
+      "scope": "window",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "choose-color-class-role",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "#32770", "role": "Window"}},
+          "score": 0.5,
+          "locale_dependent": false
+        },
+        {
+          "id": "choose-color-title-fallback",
+          "kind": "title_regex",
+          "value": {"text": "Color"},
+          "score": 0.25,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "save_as_dialog",
+      "scope": "window",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "save-as-class-role",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "#32770", "role": "Window"}},
+          "score": 0.5,
+          "locale_dependent": false
+        },
+        {
+          "id": "save-as-title-fallback",
+          "kind": "title_regex",
+          "value": {"text": "Save As"},
+          "score": 0.25,
+          "locale_dependent": true
+        }
+      ]
+    }
+  ]
+}

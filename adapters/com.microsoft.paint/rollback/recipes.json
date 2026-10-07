@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "app_id": "com.microsoft.paint",
+  "policy": {
+    "missing_pre_fingerprint": "fail_closed",
+    "missing_post_fingerprint": "fail_closed",
+    "current_state_mismatch": "fail_closed",
+    "prefer_l0_when_supported": true,
+    "require_l1_pixel_snapshot_for_canvas_writes": true,
+    "require_exclusive_lease_for_canvas_drag": true
+  },
+  "recipes": [
+    {
+      "id": "draw-rectangle-l0-l1",
+      "tool": "paint.canvas.draw_rectangle",
+      "preconditions": [
+        "The selected tool has been read back as rectangle.",
+        "The active foreground color and selected layer have been read back.",
+        "A pixel snapshot was captured before the drag.",
+        "The canvas coordinate transform was resolved after the current zoom and scroll state was read."
+      ],
+      "anchor_strategy": [
+        {
+          "level": "L0",
+          "mechanism": "explicit_undo_shortcut",
+          "shortcut": "Ctrl+Z",
+          "granularity": "per_drag_or_shape_action",
+          "max_attempts": 1,
+          "requires_foreground": true,
+          "post_verify": "canvas_pixels_match_pre_snapshot_within_tolerance"
+        },
+        {
+          "level": "L1",
+          "mechanism": "pixel_snapshot",
+          "snapshot": {
+            "source": "paint.canvas.capture_pixels",
+            "content_address": "assistant-storage-blob",
+            "capture_before_write": true,
+            "required_format": "bgra_or_png"
+          },
+          "restore": "escalate_to_human_with_snapshot_and_operation_log",
+          "post_verify": "canvas_pixels_match_pre_snapshot_within_tolerance"
+        }
+      ],
+      "on_rollback_failure": "publish_incident_and_require_human",
+      "notes": [
+        "The pixel snapshot is evidence and an anchor. It is not a claim that Paint can import that snapshot without replacing the document.",
+        "A failed Ctrl+Z must never be reported as rollback success.",
+        "The drag must run under an exclusive target lease."
+      ]
+    },
+    {
+      "id": "tool-selection-l2",
+      "tool": "paint.tool.select",
+      "preconditions": [
+        "The previous selected tool was read before the change.",
+        "The requested tool maps to a declared selector target."
+      ],
+      "anchor_strategy": [
+        {
+          "level": "L2",
+          "mechanism": "compensating_action",
+          "restore": "select_previous_tool_and_read_selected_state_back",
+          "post_verify": "selected_tool_equals_previous_tool"
+        }
+      ],
+      "on_rollback_failure": "publish_incident_and_require_human",
+      "notes": [
+        "Tool state is not document content and is not covered by Ctrl+Z."
+      ]
+    },
+    {
+      "id": "color-selection-l2",
+      "tool": "paint.color.select_foreground",
+      "preconditions": [
+        "The previous foreground RGB was read before the change.",
+        "The active color controls were resolved after any modal dialog was ruled out."
+      ],
+      "anchor_strategy": [
+        {
+          "level": "L2",
+          "mechanism": "compensating_action",
+          "restore": "select_previous_foreground_color_and_read_it_back",
+          "post_verify": "foreground_rgb_equals_previous_foreground_rgb"
+        }
+      ],
+      "on_rollback_failure": "publish_incident_and_require_human",
+      "notes": [
+        "Color selection is state, not canvas content; Ctrl+Z is not a valid rollback path."
+      ]
+    },
+    {
+      "id": "layer-selection-l2",
+      "tool": "paint.layer.select",
+      "preconditions": [
+        "The previous active layer id was read before the change.",
+        "The target layer id and name were resolved uniquely."
+      ],
+      "anchor_strategy": [
+        {
+          "level": "L2",
+          "mechanism": "compensating_action",
+          "restore": "select_previous_layer_and_read_active_layer_back",
+          "post_verify": "active_layer_id_equals_previous_layer_id"
+        }
+      ],
+      "on_rollback_failure": "publish_incident_and_require_human",
+      "notes": [
+        "Selecting a layer changes where subsequent drawing lands; it must be verified before any canvas write."
+      ]
+    },
+    {
+      "id": "open-file-l2",
+      "tool": "paint.file.open",
+      "preconditions": [
+        "Unsaved canvas state was checked and explicitly handled by the caller.",
+        "The path to open was validated by policy."
+      ],
+      "anchor_strategy": [
+        {
+          "level": "L2",
+          "mechanism": "compensating_action",
+          "restore": "reopen_the_previous_document_or_escalate_if_it_was_unsaved",
+          "post_verify": "active_document_identity_equals_pre_snapshot_identity"
+        }
+      ],
+      "on_rollback_failure": "publish_incident_and_require_human",
+      "notes": [
+        "Opening a file over an unsaved canvas must not silently discard user work."
+      ]
+    },
+    {
+      "id": "save-as-l1-l3",
+      "tool": "paint.file.save_as",
+      "preconditions": [
+        "The target path does not already exist.",
+        "The active document identity and pixel snapshot were captured before saving."
+      ],
+      "anchor_strategy": [
+        {
+          "level": "L1",
+          "mechanism": "file_shadow_snapshot",
+          "snapshot": {
+            "source": "shadow_copy_of_target_path_when_it_exists_is_forbidden",
+            "capture_before_write": true
+          },
+          "restore": "remove_created_file_only_after_explicit_human_confirmation",
+          "post_verify": "file_identity_and_content_address_match_created_artifact"
+        }
+      ],
+      "on_rollback_failure": "publish_incident_and_require_human",
+      "notes": [
+        "Save As creates a new artifact and is high risk because it leaves the product boundary.",
+        "Existing files must be rejected by policy rather than overwritten."
+      ]
+    }
+  ]
+}
