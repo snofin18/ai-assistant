@@ -1,6 +1,6 @@
 # TASK-043　Paint Adapter：工具选择/颜色/图层（UIA）+ 画布坐标动作 + 像素快照回滚 + 缩放与滚动的坐标换算
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：040,042　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -91,8 +91,8 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
   `check-ledger` 0E/0W；`check-comments` 0E/71W；`verify-schemas` 0E；
   `codegen --check` 0 drift；`check-migrations` 0E/0W -> 全部 PASSED
 - `cargo deny check` -> advisories / bans / licenses / sources 全 ok
-- PR #273 已创建，分支 `task/TASK-043-paint-adapter-tools-canvas-coords`；
-  卡面在本轮保持 `Review`，等待 CI 与人类合并。
+- PR #273 已合并，merge hash `a3bd2e6`；pull_request run `37627054128`
+  与 push run `37627048113` 全 SUCCESS。
 
 ### 4. DoD 逐条核对
 
@@ -134,7 +134,7 @@ selector 证据、坐标误差与像素容差数据。
 
 - **PL-113 / DRIFT-043-1**：Paint 真机 UIA selector 校准与坐标误差测量仍需
   TASK-044；本轮未伪造该项证据。
-- **PR #273** 处于 open / Review；合并后再补 merge hash 回填。
+- **PR #273** 已合并，merge hash `a3bd2e6`；merge-hash 回填与状态行修正已闭环。
 - `latest protocol ToolSchema` 尚未容纳本包的 `postconditions` / `risk_level` /
   `requires_approval` 等 adapter-level 字段；按现有 Notepad 约定先显式保留。
 
