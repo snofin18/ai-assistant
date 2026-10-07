@@ -1,6 +1,6 @@
 # ADR-0027　测试代码的 lint 允许清单
 
-状态：**Draft**（自动工作单 W4，待人类批准）　日期：2026-10-02　Supersedes：decisions.md `[ADR:待建 0027]`　Superseded by：—
+状态：**Accepted**（2026-10-07，自动化轮次 `ai-assistant-task-round-0800-next-ready` 按预授权代为裁决）　日期：2026-10-02　Supersedes：decisions.md `[ADR:待建 0027]`　Superseded by：—
 关联：`Cargo.toml`、`docs/spec/testing.md`、`AGENTS.md` §5、`docs/governance-ai-agent-execution.md` §5
 
 ## 背景（为什么现在要决定）
@@ -27,10 +27,11 @@ workspace lint 对产品代码禁用 `unwrap_used`、`expect_used`、`panic`，
 | **D4** | 该规则必须进入 `docs/spec/testing.md`，使测试作者与审查者有单一事实源。 |
 | **D5** | 允许的目的是让测试 fail-fast，不是允许产品代码把“不应失败”的路径变成崩溃。 |
 
-> 落地状态（2026-10-02）：`docs/spec/testing.md` 已存在但尚未写入本节；自动轮次
-> 不得修改既有 spec，因此此缺口记录为 `DRIFT-W3-1`，本 Draft 不改写 spec。
-> 同时，后续 **ADR-0035** 已对产品代码中的 per-line allow 给出“注释 + 任务卡登记”限制；
-> 本 Draft 忠实保留 2026-09-16 的原始决定，但在批准前必须由人类裁决两条规则的适用边界。
+> 落地状态（2026-10-07）：本 ADR 已由 **TASK-251** 转 **Accepted**，`docs/spec/testing.md` §4.4
+> 已写入本节的三项允许清单与产品代码禁令，`DRIFT-W3-1` / `PL-098` 闭环（章程 §13 W3 勾选）。
+> 与 **ADR-0035** 的边界：ADR-0035 处理的是**产品代码**的 per-line allow（B 路，禁止 workspace
+> `exceptions`）；本 ADR 处理的是**测试模块**的模块级 allow，二者作用域不同、不冲突 —— ADR-0035
+> 的 baseline 表本身已把「`#[cfg(test)] #[allow(clippy::unwrap_used, ...)] mod tests`」列为「保留（合法）」。
 
 ## 考虑过的选项（至少 2 个，含被否理由）
 
@@ -44,7 +45,7 @@ workspace lint 对产品代码禁用 `unwrap_used`、`expect_used`、`panic`，
 ## 影响（需要改的 spec / 代码 / 文档 / 任务卡）
 
 - `Cargo.toml`：继续在 workspace 层 deny 三项 lint。
-- `docs/spec/testing.md`：新增测试允许清单与理由；当前为已知待补缺口。
+- `docs/spec/testing.md`：新增测试允许清单与理由（**已于 2026-10-07 由 TASK-251 落地 §4.4**）。
 - 测试模块：允许 `#[cfg(test)] mod tests` 使用三项 lint。
 - 代码审查：把产品代码中的相关 `#[allow]` 视为漂移触发器。
 
