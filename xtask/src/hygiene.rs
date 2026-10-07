@@ -99,8 +99,7 @@ pub fn check_rust_source(relative_path: &str, source: &str) -> Vec<Finding> {
 /// 对 ADR-0025 定义的文本文件字节应用文件级换行规则。
 ///
 /// 两条规则都看原始字节而不是解码后的字符串：CRLF 与“末尾多一个空行”属于文件形状问题，
-/// 不能依赖平台文本解码的容错行为。`missing-final-newline` 先保持 Warning，直到存量文件清扫完
-/// 再由后续任务裁决升 Error。
+/// 不能依赖平台文本解码的容错行为。`missing-final-newline` 已在 PL-027 存量清扫后升为 Error。
 ///
 /// 返回顺序固定为 CRLF、末尾换行，便于强制快照测试。
 #[must_use]
@@ -119,7 +118,7 @@ pub fn check_text_file_bytes(relative_path: &str, bytes: &[u8]) -> Vec<Finding> 
     if bytes.is_empty() {
         findings.push(Finding::new(
             "hygiene/missing-final-newline",
-            Severity::Warning,
+            Severity::Error,
             relative_path,
             0,
             "空文件没有末尾换行；文本文件必须以单个 LF 结尾（gov §5.4 / ADR-0025 D1）".to_string(),
@@ -127,7 +126,7 @@ pub fn check_text_file_bytes(relative_path: &str, bytes: &[u8]) -> Vec<Finding> 
     } else if !bytes.ends_with(b"\n") {
         findings.push(Finding::new(
             "hygiene/missing-final-newline",
-            Severity::Warning,
+            Severity::Error,
             relative_path,
             0,
             "文件末尾缺少 LF；文本文件必须以单个 LF 结尾（gov §5.4 / ADR-0025 D1）".to_string(),
@@ -135,7 +134,7 @@ pub fn check_text_file_bytes(relative_path: &str, bytes: &[u8]) -> Vec<Finding> 
     } else if bytes.ends_with(b"\n\n") {
         findings.push(Finding::new(
             "hygiene/missing-final-newline",
-            Severity::Warning,
+            Severity::Error,
             relative_path,
             0,
             "文件以空行结尾；文本文件必须以单个 LF 结尾（gov §5.4 / ADR-0025 D1）".to_string(),

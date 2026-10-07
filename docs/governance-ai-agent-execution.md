@@ -486,7 +486,7 @@ DRIFT-012-1
 | 空实现 / `Ok(())` 直接返回的 stub | 必须带 `// STUB: TASK-NNN` 标记 |
 | 测试文件是否被跳过（`#[ignore]` / `.skip`） | 必须带原因与任务卡号 |
 | **文件不得含 CRLF**（`hygiene/crlf-line-endings`，ADR-0025 D1） | **Error**：任何文本文件的字节里出现 `\r` 即失败。`.gitattributes` 只管入库形态、**管不住工作区**，而 `cargo fmt --check` 会在 Linux runner 上因此变红 |
-| **必须以单个 `\n` 结尾**（`hygiene/missing-final-newline`，ADR-0025 D1） | 先 **Warning**，清扫完 15 个既有文件后升 **Error**。真实事故：末行无换行会让「以整行 + `\n` 为锚点」的编辑脚本断言失败，**而报错信息与真因毫无关系** |
+| **必须以单个 `\n` 结尾**（`hygiene/missing-final-newline`，ADR-0025 D1） | **Error**（PL-027 清扫后由 TASK-254 升级）。真实事故：末行无换行会让「以整行 + `\n` 为锚点」的编辑脚本断言失败，**而报错信息与真因毫无关系** |
 
 ### 5.5 提交与分支规范
 
