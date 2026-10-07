@@ -1,0 +1,228 @@
+{
+  "schema_version": 1,
+  "task_id": "paint.t3_1.new_canvas_rectangle_color_visual",
+  "app_id": "com.microsoft.paint",
+  "title": "New canvas, select rectangle and color, draw one rectangle, verify visually",
+  "goal": "Draw one rectangle at declared canvas coordinates in Microsoft Paint and verify its location and color with tolerance.",
+  "read_only": false,
+  "open_mode": "platform_launch_app",
+  "inputs": {
+    "canvas_width": {"type": "integer", "required": true, "minimum": 1, "maximum": 8192},
+    "canvas_height": {"type": "integer", "required": true, "minimum": 1, "maximum": 8192},
+    "rectangle_start": {"type": "object", "required": true},
+    "rectangle_end": {"type": "object", "required": true},
+    "foreground_red": {"type": "integer", "required": true, "minimum": 0, "maximum": 255},
+    "foreground_green": {"type": "integer", "required": true, "minimum": 0, "maximum": 255},
+    "foreground_blue": {"type": "integer", "required": true, "minimum": 0, "maximum": 255},
+    "layer_id": {"type": "string", "required": true},
+    "expected_layer_name": {"type": "string", "required": true},
+    "zoom_ratio": {"type": "number", "required": true, "exclusive_minimum": 0},
+    "viewport_offset_x_px": {"type": "integer", "required": true},
+    "viewport_offset_y_px": {"type": "integer", "required": true},
+    "coordinate_space": {"type": "object", "required": true},
+    "tolerance_px": {"type": "integer", "required": false, "default": 2, "minimum": 0, "maximum": 2}
+  },
+  "outputs": {
+    "document_generation": "integer",
+    "canvas_width_px": "integer",
+    "canvas_height_px": "integer",
+    "selected_tool": "string",
+    "foreground_rgb": "string",
+    "active_layer_id": "string",
+    "pre_snapshot_blob_id": "string",
+    "post_snapshot_blob_id": "string",
+    "start_screen_x_px": "integer",
+    "start_screen_y_px": "integer",
+    "end_screen_x_px": "integer",
+    "end_screen_y_px": "integer",
+    "coordinate_error_px": "integer",
+    "visual_confidence": "number"
+  },
+  "steps": [
+    {
+      "id": "new_document",
+      "kind": "tool",
+      "tool": "paint.document.new",
+      "args": {"discard_unsaved_confirmed": false},
+      "outputs": ["document_generation", "canvas_width_px", "canvas_height_px"]
+    },
+    {
+      "id": "capture_initial_fingerprint",
+      "kind": "host_service",
+      "operation": "capture_initial_fingerprint",
+      "notes": [
+        "ADR-0065: always runs so later conditional steps have a real initial fingerprint."
+      ]
+    },
+    {
+      "id": "select_rectangle_tool",
+      "kind": "tool",
+      "tool": "paint.tool.select",
+      "args": {"tool": "rectangle"},
+      "outputs": ["selected_tool", "previous_tool"]
+    },
+    {
+      "id": "select_foreground_color",
+      "kind": "tool",
+      "tool": "paint.color.select_foreground",
+      "args": {
+        "red": "$input.foreground_red",
+        "green": "$input.foreground_green",
+        "blue": "$input.foreground_blue"
+      },
+      "outputs": ["foreground_rgb", "previous_foreground_rgb"]
+    },
+    {
+      "id": "select_layer",
+      "kind": "tool",
+      "tool": "paint.layer.select",
+      "args": {
+        "layer_id": "$input.layer_id",
+        "expected_layer_name": "$input.expected_layer_name"
+      },
+      "outputs": ["active_layer_id", "active_layer_name", "previous_layer_id"]
+    },
+    {
+      "id": "capture_pre_snapshot",
+      "kind": "tool",
+      "tool": "paint.canvas.capture_pixels",
+      "outputs": ["blob_id", "width_px", "height_px", "content_address"]
+    },
+    {
+      "id": "resolve_start",
+      "kind": "tool",
+      "tool": "paint.canvas.resolve_point",
+      "args": {
+        "canvas_x": "$input.rectangle_start.x",
+        "canvas_y": "$input.rectangle_start.y",
+        "zoom_ratio": "$input.zoom_ratio",
+        "viewport_offset_x_px": "$input.viewport_offset_x_px",
+        "viewport_offset_y_px": "$input.viewport_offset_y_px",
+        "coordinate_space": "$input.coordinate_space"
+      },
+      "outputs": [
+        "screen_x_px",
+        "screen_y_px",
+        "canvas_bounds_px",
+        "zoom_ratio",
+        "viewport_offset_x_px",
+        "viewport_offset_y_px",
+        "coordinate_space_kind"
+      ]
+    },
+    {
+      "id": "resolve_end",
+      "kind": "tool",
+      "tool": "paint.canvas.resolve_point",
+      "args": {
+        "canvas_x": "$input.rectangle_end.x",
+        "canvas_y": "$input.rectangle_end.y",
+        "zoom_ratio": "$input.zoom_ratio",
+        "viewport_offset_x_px": "$input.viewport_offset_x_px",
+        "viewport_offset_y_px": "$input.viewport_offset_y_px",
+        "coordinate_space": "$input.coordinate_space"
+      },
+      "outputs": [
+        "screen_x_px",
+        "screen_y_px",
+        "canvas_bounds_px",
+        "zoom_ratio",
+        "viewport_offset_x_px",
+        "viewport_offset_y_px",
+        "coordinate_space_kind"
+      ]
+    },
+    {
+      "id": "draw_rectangle",
+      "kind": "tool",
+      "tool": "paint.canvas.draw_rectangle",
+      "args": {
+        "start": "$input.rectangle_start",
+        "end": "$input.rectangle_end",
+        "coordinate_space": "$input.coordinate_space",
+        "expected_tool": "rectangle",
+        "expected_foreground_rgb": "$foreground_rgb",
+        "expected_layer_id": "$input.layer_id",
+        "pre_snapshot_blob_id": "$pre_snapshot_blob_id"
+      },
+      "outputs": [
+        "selected_tool",
+        "foreground_rgb",
+        "active_layer_id",
+        "pixel_snapshot_blob_id",
+        "undo_steps_recorded"
+      ]
+    },
+    {
+      "id": "capture_post_snapshot",
+      "kind": "tool",
+      "tool": "paint.canvas.capture_pixels",
+      "outputs": ["blob_id", "width_px", "height_px", "content_address"]
+    }
+  ],
+  "preconditions": [
+    "Paint version is within adapter version_range.",
+    "The target window is foreground and not minimized.",
+    "Unsaved canvas state is handled before paint.document.new.",
+    "The requested layer exists and is visible.",
+    "Zoom ratio and viewport offsets match the canvas state at resolve time.",
+    "The coordinate space names a physical monitor and DPI scale."
+  ],
+  "postconditions": [
+    {
+      "id": "selected_tool_is_rectangle",
+      "description": "selected_tool is rectangle after selection and before draw.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "color_readback_matches",
+      "description": "foreground_rgb equals the requested red, green, blue tuple.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "active_layer_matches",
+      "description": "active_layer_id equals the requested layer id.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "coordinate_error_within_tolerance",
+      "description": "coordinate_error_px <= tolerance_px and tolerance_px <= 2.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "rectangle_visual_assert",
+      "description": "Post-write canvas pixels satisfy the declared visual tolerance and confidence.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "rollback_snapshot_exists",
+      "description": "pre_snapshot_blob_id exists before drawing and post_snapshot_blob_id exists after drawing.",
+      "error_code": "VerifyFailed"
+    }
+  ],
+  "failure_mapping": [
+    {"condition": "paint_window_not_found", "error_code": "TargetNotFound"},
+    {"condition": "paint_window_not_foreground", "error_code": "TargetUnresponsive"},
+    {"condition": "unsupported_remote_ai_feature", "error_code": "NeedsHuman"},
+    {"condition": "layer_not_found", "error_code": "TargetNotFound"},
+    {"condition": "color_not_read_back", "error_code": "VerifyFailed"},
+    {"condition": "coordinate_calibration_failed", "error_code": "PlatformPermission"},
+    {"condition": "visual_confidence_low", "error_code": "VerifyFailed"},
+    {"condition": "canvas_drag_interrupted", "error_code": "Transient"}
+  ],
+  "metrics": {
+    "repeat_runs": 10,
+    "minimum_success_rate": 0.75,
+    "silent_failure_rate": 0,
+    "coordinate_error_max_px": 2,
+    "first_selector_hit_rate_min": 0.85,
+    "step_efficiency_max": 1.5,
+    "time_budget_ms": 60000
+  },
+  "evidence_status": {
+    "probe_window_tree": "observed_on_2026-10-07",
+    "real_ten_run_evaluation": "not_run",
+    "coordinate_error_measurement": "not_run",
+    "visual_tolerance_calibration": "declared_not_measured"
+  }
+}

@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "app_id": "com.microsoft.paint",
+  "observed_at": "2026-10-07",
+  "observed_version": "11.2605.81.0",
+  "probe": "temporary Rust UIA probe under target/paint_probe (not committed)",
+  "aumid": "Microsoft.Paint_8wekyb3d8bbwe!App",
+  "process_image": "mspaint.exe",
+  "window_class": "MSPaintApp",
+  "window_role": "Window",
+  "controls": [
+    {
+      "target": "toolbar_region",
+      "role": "Pane",
+      "class_name": "LandmarkTarget",
+      "automation_id": "",
+      "locale_dependent": false,
+      "fallback_only": true
+    },
+    {
+      "target": "pencil_tool",
+      "role": "Button",
+      "class_name": "ToggleButton",
+      "automation_id": "PencilTool",
+      "locale_dependent": false,
+      "fallback_only": false
+    },
+    {
+      "target": "eraser_tool",
+      "role": "Button",
+      "class_name": "ToggleButton",
+      "automation_id": "EraserTool",
+      "locale_dependent": false,
+      "fallback_only": false
+    },
+    {
+      "target": "rectangle_shape",
+      "role": "ListItem",
+      "class_name": "GridViewItem",
+      "automation_id": "",
+      "visible_name": "矩形",
+      "locale_dependent": true,
+      "fallback_only": true
+    },
+    {
+      "target": "foreground_color_1",
+      "role": "RadioButton",
+      "class_name": "RadioButton",
+      "automation_id": "",
+      "visible_name": "颜色 1: 黑色",
+      "locale_dependent": true,
+      "fallback_only": true
+    },
+    {
+      "target": "palette_red",
+      "role": "ListItem",
+      "class_name": "GridViewItem",
+      "automation_id": "",
+      "visible_name": "红色",
+      "locale_dependent": true,
+      "fallback_only": true
+    },
+    {
+      "target": "layers_toggle",
+      "role": "Button",
+      "class_name": "ToggleButton",
+      "automation_id": "",
+      "locale_dependent": false,
+      "fallback_only": true,
+      "notes": "Requires parent-scope disambiguation; no stable automation id was observed."
+    },
+    {
+      "target": "canvas_host",
+      "role": "Pane",
+      "class_name": "ScrollViewer",
+      "automation_id": "scrollViewer",
+      "locale_dependent": false,
+      "fallback_only": false
+    },
+    {
+      "target": "canvas",
+      "role": "Group",
+      "class_name": "",
+      "automation_id": "image",
+      "locale_dependent": false,
+      "fallback_only": false,
+      "observed_bounds_px": {"left": 696, "top": 525, "right": 905, "bottom": 562},
+      "observed_canvas_size_px": {"width": 418, "height": 74},
+      "observed_zoom_ratio": 0.5,
+      "notes": "Canvas content has no actionable child controls; drawing still requires L4 pointer input."
+    },
+    {
+      "target": "canvas_size_text",
+      "role": "Text",
+      "class_name": "TextBlock",
+      "automation_id": "CanvasSizeTextBlock",
+      "locale_dependent": false,
+      "fallback_only": false
+    },
+    {
+      "target": "zoom_combo",
+      "role": "ComboBox",
+      "class_name": "ComboBox",
+      "automation_id": "ZoomValuesComboBox",
+      "locale_dependent": false,
+      "fallback_only": false
+    },
+    {
+      "target": "zoom_slider",
+      "role": "Slider",
+      "class_name": "Slider",
+      "automation_id": "ZoomSliderControl",
+      "locale_dependent": false,
+      "fallback_only": false
+    },
+    {
+      "target": "settings_button",
+      "role": "Button",
+      "class_name": "AppBarButton",
+      "automation_id": "SettingsButton",
+      "locale_dependent": false,
+      "fallback_only": false
+    }
+  ],
+  "observed_coordinate_transform": {
+    "canvas_origin_screen_px": {"x": 696, "y": 525},
+    "canvas_size_px": {"width": 418, "height": 74},
+    "rendered_canvas_bounds_px": {"width": 209, "height": 37},
+    "zoom_ratio_from_bounds": 0.5,
+    "coordinate_space": "observed_physical_pixels_not_yet_multi_monitor_calibrated"
+  },
+  "not_measured": [
+    "real drag coordinate error",
+    "ten-run success rate",
+    "pixel tolerance calibration",
+    "mixed-DPI and multi-monitor conversion"
+  ]
+}

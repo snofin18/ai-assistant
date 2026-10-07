@@ -15,7 +15,7 @@
 
 ## 2. 进程与窗口模型
 
-**未测**。本轮没有取得真实 Paint 窗口的进程、hwnd、窗口类或 UIA 根元素。
+**2026-10-07 初次实测**：进程为 `mspaint.exe`，窗口类为 `MSPaintApp`，AUMID 为 `Microsoft.Paint_8wekyb3d8bbwe!App`；真实只读 UIA 探针已导出窗口树，详见 §9。启动 PID 仍不得当窗口属主 PID，窗口属主必须走 Win32 查询。
 
 已知约束（来自 feasibility P3 与通用 Windows 规则）：
 
@@ -25,8 +25,7 @@
 
 ## 3. UIA 形状
 
-**未测**。本轮 PowerShell / UIA 探针通道处于已知挂起状态，没有产出可引用的
-Paint 树快照。
+**2026-10-07 初次实测**：真实 Paint 树已由一次性 Rust UIA 探针导出；工具栏、形状、颜色、缩放与画布形状见 §9。PowerShell UIA 仍不作为本卡路径。
 
 已声明的 provisional 形状：
 
@@ -89,7 +88,7 @@ dpi_scale
 
 ## 8. 未测项
 
-- 真实 Paint UIA 树与 AutomationId 普查。
+- 完整 AutomationId 普查；形状和调色板仍无稳定 AutomationId。
 - 画布 bounds、viewport origin、zoom 与 scroll offset 的精确读取方式。
 - 单点 / drag 命中误差，含混合 DPI 多屏。
 - 工具按钮、颜色按钮、图层行的真实 selector 成功率。
@@ -97,3 +96,30 @@ dpi_scale
 - 像素快照大小、截图耗时、树遍历耗时。
 - 保存 / 另存为 / 未保存对话框与覆盖确认的真实按钮身份。
 - TASK-044 的真实 Paint 校准结果。
+
+## 9. TASK-044 真实 UIA 探针（2026-10-07）
+
+探针方法：不入库的临时 Rust 程序（`target/paint_probe`）通过 AUMID 启动
+Paint，使用 `IUIAutomation` + `ControlViewWalker` 只读导出窗口树。
+
+| 目标 | role / class | AutomationId | 观察 |
+|---|---|---|---|
+| 主窗口 | Window / `MSPaintApp` | 空 | 进程 `mspaint.exe`；标题本地化 |
+| 工具栏区域 | Pane / `LandmarkTarget` | 空 | 只能作父作用域兜底 |
+| 铅笔工具 | Button / `ToggleButton` | `PencilTool` | 稳定 ID |
+| 橡皮擦工具 | Button / `ToggleButton` | `EraserTool` | 稳定 ID |
+| 矩形形状 | ListItem / `GridViewItem` | 空 | 可见名 `矩形`；只能 fallback-only |
+| 前景色 1 | RadioButton / `RadioButton` | 空 | 可见名本地化；只能 fallback-only |
+| 调色板红色 | ListItem / `GridViewItem` | 空 | 可见名本地化；只能 fallback-only |
+| 图层开关 | Button / `ToggleButton` | 空 | 需父作用域消歧 |
+| 画布 host | Pane / `ScrollViewer` | `scrollViewer` | 稳定 ID |
+| 画布 | Group / 空 | `image` | 实测 bounds `(696,525)-(905,562)`；无子动作 |
+| 画布尺寸 | Text / `TextBlock` | `CanvasSizeTextBlock` | 实测 `418 x 74` 像素 |
+| 缩放组合框 | ComboBox / `ComboBox` | `ZoomValuesComboBox` | 稳定 ID |
+| 缩放滑块 | Slider / `Slider` | `ZoomSliderControl` | 稳定 ID |
+
+画布换算观察：画布像素尺寸 `418 x 74`，渲染 bounds `209 x 37`，当前
+zoom ratio = `0.5`；画布屏幕原点观察到 `(696,525)`。这只是一次单显示器
+物理像素观察，混合 DPI / 多屏仍未验收。
+
+未测项不变：真实拖拽误差、连续 10 次成功率、像素容差最终校准。

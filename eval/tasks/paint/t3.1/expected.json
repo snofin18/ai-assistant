@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "task_id": "paint.t3_1.new_canvas_rectangle_color_visual",
+  "real_run_status": "not_run",
+  "coordinate_error_max_px": 2,
+  "visual_tolerance": {
+    "field": "pixels",
+    "op": "changed_ratio_within",
+    "pixel_delta_threshold": 12,
+    "max_changed_ratio": 0.08,
+    "confidence_min": 0.85
+  },
+  "cases": {
+    "standard_red_rectangle": {
+      "expected_tool": "rectangle",
+      "foreground_rgb": "255,0,0",
+      "rectangle": {"left": 120, "top": 100, "right": 420, "bottom": 300},
+      "coordinate_error_max_px": 2,
+      "outcome": "declared_not_measured"
+    },
+    "blue_square_edges": {
+      "expected_tool": "rectangle",
+      "foreground_rgb": "0,0,255",
+      "rectangle": {"left": 0, "top": 0, "right": 320, "bottom": 320},
+      "coordinate_error_max_px": 2,
+      "outcome": "declared_not_measured"
+    },
+    "green_wide_rectangle": {
+      "expected_tool": "rectangle",
+      "foreground_rgb": "0,180,0",
+      "rectangle": {"left": 50, "top": 50, "right": 1100, "bottom": 150},
+      "coordinate_error_max_px": 2,
+      "outcome": "declared_not_measured"
+    },
+    "yellow_tall_rectangle": {
+      "expected_tool": "rectangle",
+      "foreground_rgb": "255,255,0",
+      "rectangle": {"left": 100, "top": 80, "right": 240, "bottom": 900},
+      "coordinate_error_max_px": 2,
+      "outcome": "declared_not_measured"
+    },
+    "magenta_small_rectangle": {
+      "expected_tool": "rectangle",
+      "foreground_rgb": "255,0,255",
+      "rectangle": {"left": 100, "top": 100, "right": 180, "bottom": 160},
+      "coordinate_error_max_px": 2,
+      "outcome": "declared_not_measured"
+    },
+    "black_outline_rectangle": {
+      "expected_tool": "rectangle",
+      "foreground_rgb": "0,0,0",
+      "rectangle": {"left": 400, "top": 300, "right": 700, "bottom": 500},
+      "coordinate_error_max_px": 2,
+      "outcome": "declared_not_measured"
+    },
+    "white_rectangle": {
+      "expected_tool": "rectangle",
+      "foreground_rgb": "255,255,255",
+      "rectangle": {"left": 20, "top": 20, "right": 480, "bottom": 480},
+      "coordinate_error_max_px": 2,
+      "outcome": "declared_not_measured"
+    },
+    "zoom_50_canvas": {
+      "expected_tool": "rectangle",
+      "foreground_rgb": "0,128,255",
+      "rectangle": {"left": 400, "top": 250, "right": 1200, "bottom": 750},
+      "coordinate_error_max_px": 2,
+      "outcome": "declared_not_measured"
+    },
+    "zoom_200_canvas": {
+      "expected_tool": "rectangle",
+      "foreground_rgb": "128,0,128",
+      "rectangle": {"left": 40, "top": 40, "right": 240, "bottom": 160},
+      "coordinate_error_max_px": 2,
+      "outcome": "declared_not_measured"
+    },
+    "near_bottom_right": {
+      "expected_tool": "rectangle",
+      "foreground_rgb": "255,128,0",
+      "rectangle": {"left": 824, "top": 568, "right": 1014, "bottom": 758},
+      "coordinate_error_max_px": 2,
+      "outcome": "declared_not_measured"
+    }
+  }
+}
