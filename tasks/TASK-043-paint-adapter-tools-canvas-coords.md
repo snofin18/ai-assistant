@@ -91,6 +91,8 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
   `check-ledger` 0E/0W；`check-comments` 0E/71W；`verify-schemas` 0E；
   `codegen --check` 0 drift；`check-migrations` 0E/0W -> 全部 PASSED
 - `cargo deny check` -> advisories / bans / licenses / sources 全 ok
+- PR #273 已创建，分支 `task/TASK-043-paint-adapter-tools-canvas-coords`；
+  卡面在本轮保持 `Review`，等待 CI 与人类合并。
 
 ### 4. DoD 逐条核对
 
@@ -127,6 +129,7 @@ selector 证据、坐标误差与像素容差数据。
 
 - **PL-113 / DRIFT-043-1**：Paint 真机 UIA selector 校准与坐标误差测量仍需
   TASK-044；本轮未伪造该项证据。
+- **PR #273** 处于 open / Review；合并后再补 merge hash 回填。
 - `latest protocol ToolSchema` 尚未容纳本包的 `postconditions` / `risk_level` /
   `requires_approval` 等 adapter-level 字段；按现有 Notepad 约定先显式保留。
 

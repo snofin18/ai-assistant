@@ -1,7 +1,7 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
 > 周期 10~12 周　状态：**进行中**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
-> **TASK-043 Review（2026-10-07）**：Paint declarative Adapter pack 落地 （16 selector targets / 10 tools / 6 rollback recipes）；所有 selector 标 `probe_status=required`，真机 UIA 与坐标校准未取证（`DRIFT-043-1` / `PL-113`），PR 待创建。
+> **TASK-043 Review（2026-10-07）**：Paint declarative Adapter pack 落地 （16 selector targets / 10 tools / 6 rollback recipes）；所有 selector 标 `probe_status=required`，真机 UIA 与坐标校准未取证（`DRIFT-043-1` / `PL-113`），PR #273 open。
 > **TASK-250 ✅（2026-10-07）**：`refscan` 待建 ADR 集合对齐 `docs/adr/README.md` §2 —— 0007 / 0016 / 0017 / 0020 / 0027 不再误判为待建号，登记表一致性单测与正负用例落地；`PL-099` / `DRIFT-W4-1` 闭环；PR #262 / merge `7be80b6`。
 > **TASK-251 ✅（2026-10-07）**：ADR-0027 由 Draft 转 Accepted，`docs/spec/testing.md` §4.4 测试 lint 允许清单落地（三项 lint 仅 `#[cfg(test)] mod tests`；产品代码禁止）；`PL-098` / `DRIFT-W3-1` 闭环，章程 §13 W3 勾选；治理池 S 卡；PR #264 / merge `1b98365`。
 > **TASK-252 ✅（2026-10-07）**：补齐 2026-10-07 运行日阶段报告 —— `docs/automations/2026-10-07-report.md` 汇总四轮任务、代码/回填 PR、merge hash、CI、偏差与遗留；ADR-0054 的“先落地、再自删”欠账闭环；零产品代码改动。

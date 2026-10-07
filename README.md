@@ -84,7 +84,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
-**2026-10-07 TASK-043 Review - Paint Adapter data pack**：`adapters/com.microsoft.paint/**` 落地 16 个 selector target、10 个工具、6 条回滚 recipe，以及坐标换算、像素快照、网络 AI 禁用和 interrupt 契约；所有 selector 以 `probe_status=required` 显式标记，真机 Paint UIA / 坐标校准未取证，残留 `DRIFT-043-1` / `PL-113`。
+**2026-10-07 TASK-043 Review - Paint Adapter data pack**：`adapters/com.microsoft.paint/**` 落地 16 个 selector target、10 个工具、6 条回滚 recipe，以及坐标换算、像素快照、网络 AI 禁用和 interrupt 契约；所有 selector 以 `probe_status=required` 显式标记，真机 Paint UIA / 坐标校准未取证，残留 `DRIFT-043-1` / `PL-113`；PR #273 open。
 
 **2026-10-07 TASK-052 指令来源归因**：ADR-0082 冻结 core 的 `InstructionOrigin` / `InstructionAttribution`：四类稳定 token、`plan_derived` 父目标、`app_content` / `tool_suggestion` 来源引用和未知 token fail-closed；`app_content` 仍是高风险信号而非权限决策。审批 UI token 集合与展示路径已对齐并测试。
 
@@ -236,7 +236,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
-**2026-10-07 TASK-043 Review**：Paint declarative Adapter pack + 专项契约校验落地；真机 selector / 坐标误差 / 像素容差仍待 TASK-044 校准，因此不标 Done。
+**2026-10-07 TASK-043 Review**：Paint declarative Adapter pack + 专项契约校验落地；真机 selector / 坐标误差 / 像素容差仍待 TASK-044 校准，因此不标 Done；PR #273 open。
 > **2026-10-07 TASK-052 Done（ADR-0082；指令来源归因）**：core 新增 `InstructionOrigin` / `InstructionAttribution`，四类 token 与按来源校验的元数据 fail-closed；`app_content` 仅为高风险信号；UI 保持 `app_content` 默认拒绝与显式覆盖，token/展示测试补齐。
 > **2026-10-07 TASK-054 Done（ADR-0081；干净上下文复核第 4 层）**：`core` 新增 `CleanContextReview`，输入只允许 session goal + 已校验 Step 摘要；无工具、无外部内容进入 prompt，Provider / 解析失败与不一致均 fail-closed；复核不写会话、不改 taint；实现与专项测试已拆分，`hygiene` 回到 0E/109W。
 > **2026-10-07 TASK-051 Done（ADR-0080；污点追踪 + 权限衰减）**：`SessionManager` 新增运行时 taint 状态：Tool 消息置污、User 消息或显式 `clear_taint` 清除，恢复时从消息角色重算；policy 在 tainted 下确认范围只保留 `Once`，高风险 / L3 强制拒绝不变。专项与全 workspace 门禁全绿。
