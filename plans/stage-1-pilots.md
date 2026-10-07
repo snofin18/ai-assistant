@@ -1,6 +1,7 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> 周期 10~12 周　状态：**进行中；TASK-254 ✅（PL-027 末行换行清扫 + Error 化）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> **TASK-254 ✅（2026-10-07）**：PL-027 闭环 —— 8 个受版本控制文本文件补齐末尾 LF；Tauri 被忽略生成目录按精确相对路径排除；`hygiene/missing-final-newline` 升为 Error；PR #278 / merge `1aa082b`。
 > **TASK-253 ✅（2026-10-07）**：ADR-0083 明确任务卡 `- 状态：` 行是正文区唯一可写例外，且必须与状态提交同批；AGENTS / gov / card-check 口径同步，`PL-073` 闭环。
 > **TASK-043 ✅（2026-10-07）**：Paint declarative Adapter pack 落地 （16 selector targets / 10 tools / 6 rollback recipes）；专项契约校验与独立复核修复已合并，PR #273 / merge `a3bd2e6`；真机 UIA 与坐标校准仍由 TASK-044 承接（`DRIFT-043-1` / `PL-113`）。
 > **TASK-250 ✅（2026-10-07）**：`refscan` 待建 ADR 集合对齐 `docs/adr/README.md` §2 —— 0007 / 0016 / 0017 / 0020 / 0027 不再误判为待建号，登记表一致性单测与正负用例落地；`PL-099` / `DRIFT-W4-1` 闭环；PR #262 / merge `7be80b6`。
@@ -344,6 +345,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-251 ✅** | 治理池 | `tasks/TASK-251-test-only-lint-allowlist-spec.md` | Done（ADR-0027 Accepted + `docs/spec/testing.md` §4.4 测试 lint 允许清单；PL-098 / DRIFT-W3-1 闭环，章程 §13 W3 勾选） |
 | **TASK-252 ✅** | 治理池 | `tasks/TASK-252-2026-10-07-automation-report.md` | Done（补写 `docs/automations/2026-10-07-report.md`；四轮 PR / CI / merge / 偏差汇总；零产品代码改动） |
 | **TASK-253 ✅** | 治理池 | `tasks/TASK-253-task-card-status-line-writable-exception.md` | Done（ADR-0083：任务卡 `- 状态：` 行是正文区唯一可写例外；`PL-073` 闭环） |
+| **TASK-254 ✅** | 治理池 | `tasks/TASK-254-pl027-final-newline-cleanup.md` | Done（PL-027 末行换行清扫与 Error 化；PR #278 / merge `1aa082b`） |
 | **TASK-054 ✅** | 1c | `tasks/TASK-054-clean-context-review-small-model-fourth-layer.md` | Done（ADR-0081：clean-context review 组件；输入仅 session goal + Step 摘要；无 Tool / 外部内容、不写会话 / 不改 taint；实现 / 测试已拆分；PR / merge hash 待回填） |
 | TASK-055 | 1c | `tasks/TASK-055-edge-adapter-cdp-ua-blacklist-interrupts.md` | Ready（批次表占位派单前补全） |
 | TASK-056 | 1c | `tasks/TASK-056-t5-1-open-site-extract-list-write-csv.md` | Ready（批次表占位派单前补全） |
