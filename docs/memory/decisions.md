@@ -252,3 +252,7 @@
 ## 2026-10-07 追加（ADR-0082，Accepted）
 
 - [2026-10-07][DECISION][src:ADR-0082，按用户 2026-10-07「合并 PR #270，并授权你先立 ADR-0082 + 最小扩权」授权；TASK-052] **指令来源归因采用 core 纯模型**：新增 `InstructionOrigin` 与 `InstructionAttribution`，稳定 token 固定为 `user_request` / `plan_derived` / `app_content` / `tool_suggestion`；`plan_derived` 必须携带非空 `parent_goal`，`app_content` / `tool_suggestion` 必须携带非空 `source_ref`，`user_request` 不得携带这两类元数据，非法 token / 组合 fail-closed。`app_content` 仅标记为高风险来源信号，不自行放行或拒绝；policy / HITL 仍是唯一放行点，UI 对 `app_content` 继续默认拒绝并要求显式覆盖。**不改 `PlanStep` / `PolicyDecision` / `ApprovalRequest` / audit-event schema / IPC / DB，不新增依赖或 crate**；跨层写入归因另立后续 ADR。
+
+## 2026-10-07 追加（ADR-0083，Accepted）
+
+- [2026-10-07][DECISION][src:ADR-0083，预授权自动化轮次代为裁决；TASK-253；`PL-073` 闭环] **任务卡 `- 状态：` 行是正文区唯一可写例外**：状态唯一落点仍是卡文件的该行；Implementer 只允许按真实状态更新这一行，且必须与产生该状态的提交 / PR 同批。目标、In/Out scope、必须遵守、验收命令、DoD、依赖、难度与预估等正文行仍只读；`plans/*` 不得新增状态列。`card-check` 的未来正文 diff 判据只排除唯一规范化状态行，其他分界线以上行变化仍是 Error。**不改既有 Accepted ADR 正文、不改产品契约、不新增依赖或 crate**。
