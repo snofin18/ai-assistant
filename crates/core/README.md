@@ -25,6 +25,8 @@ task-engine Plan contract.
 - Load and validate versioned App Map files through an injected file reader.
 - Build bounded memory projections from caller-selected App Map entries and
   storage retrieval hits, preserving source references and omission reasons.
+- Run clean-context review for high-risk Steps through an injected
+  `ModelProvider`, using only the session goal and a validated Step summary.
 
 ## Boundaries
 
@@ -43,6 +45,9 @@ task-engine Plan contract.
   maps to the storage API.
 - **No model prompt policy.** The compressor is an injected strategy and may
   later bridge to `model-gateway`.
+- **No permission decision or session mutation in clean-context review.** The
+  reviewer returns a typed decision or fail-closed error; policy / HITL remain
+  the final gates.
 
 ## Invariants
 
@@ -71,6 +76,9 @@ task-engine Plan contract.
 13. Taint never becomes clean silently: only a User message or the
     `SessionManager::clear_taint` entry point clears it; restore recomputes the
     conservative state from persisted messages.
+14. Clean-context review only accepts `SessionSnapshot::goal()` plus a
+    validated `HighRiskStepSummary`; Tool / document / web content never enters
+    the prompt, and review calls never append messages or change taint.
 
 ## Typical Use
 
@@ -159,14 +167,19 @@ Core.
   unknown fields.
 - Production retrieval still needs a TASK-029 adapter from `MemoryRetriever`
   to the storage API; tests use deterministic in-memory implementations.
+- The clean-context reviewer is a review primitive, not an automatic hook. The
+  binary assembly layer must invoke it before high-risk Steps and treat every
+  provider or parsing failure as fail-closed; the model-provided reason is
+  untrusted display text.
 
 ## Related Documents
 
 - `docs/spec/core-orchestration.md`
 - `docs/adr/0053-core-orchestration-layer-interface.md`
 - `docs/adr/0080-taint-tracking-and-permission-decay.md`
+- `docs/adr/0081-clean-context-review-component.md`
 - `cross-platform-ai-assistant-architecture-v2.md` sections 7.1, 7.2, 11.3,
-  and 15.
+  12.4, and 15.
 - `tasks/TASK-028-core-session-context.md`
 - `tasks/TASK-207-core-planner-plan-step-dag.md`
 - `tasks/TASK-208-core-memory-app-map-fts-retrieval.md`

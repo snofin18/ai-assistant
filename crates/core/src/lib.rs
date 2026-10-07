@@ -2,7 +2,8 @@
 //!
 //! Core orchestration components for session lifecycle, message trees, context
 //! selection, trimming, compression, token budgeting, model-output planning,
-//! App Map loading, and bounded memory projection.
+//! App Map loading, bounded memory projection, and clean-context review for
+//! high-risk Steps.
 //!
 //! The crate does not assemble other components or hold a database connection.
 //! A binary creates [`SessionManager`], [`ContextManager`], and [`Planner`]
@@ -14,6 +15,7 @@
 //! - No platform API calls or platform implementation dependencies.
 //! - No policy decisions, tool execution, audit writes, or Host assembly.
 //! - No SQL and no hidden global state.
+//! - Clean-context review never mutates a session or changes runtime taint.
 //! - No silent context loss: trimming and compression produce explicit
 //!   [`ContextOmission`] records.
 //! - Planner never accepts a step whose tool is absent from the caller-supplied
@@ -29,6 +31,8 @@
 //! 4. A required context that exceeds budget fails closed.
 //! 5. Compression failure never degrades into silent history loss.
 //! 6. Planner model output is parsed and validated before producing a Plan.
+//! 7. Clean-context review accepts no Tool / external content and fails closed
+//!    on malformed output or provider failure.
 //!
 //! ## Related Documents
 //!
@@ -46,6 +50,7 @@ mod message;
 mod planner;
 mod session;
 mod store;
+mod verify_review;
 
 pub use app_map::{
     APP_MAP_VERSION, AppMap, AppMapEntry, AppMapFileReader, AppMapLoader, AppMapReadError,
@@ -67,5 +72,9 @@ pub use message::{
 pub use planner::{Planner, PlannerRequest};
 pub use session::{NewMessage, SessionClock, SessionManager};
 pub use store::{MemorySessionStore, SessionStore};
+pub use verify_review::{
+    CleanContextReviewDecision, CleanContextReviewError, CleanContextReviewRequest,
+    CleanContextReviewResult, CleanContextReviewer, HighRiskStepSummary,
+};
 
 pub use assistant_storage::{MemoryQuery, MemoryRecordKind, MemorySearchResult};

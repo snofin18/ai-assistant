@@ -244,3 +244,7 @@
 ## 2026-10-07 追加（ADR-0080，Accepted）
 
 - [2026-10-07][DECISION][src:ADR-0080，按用户 2026-10-07「可以继续进行下一步」授权；TASK-051] **污点追踪与权限衰减采用运行时状态**：`SessionManager` 为每个缓存会话维护私有 `TaintState`，`MessageRole::Tool` 置污、`MessageRole::User` 清除，`System` / `Assistant` 不改变状态；`is_tainted` 查询与 `clear_taint` 显式清除均经 `SessionManager`，且 clear 只对当前活动缓存生效，不重写消息历史。会话恢复时按消息树的 `sequence` 顺序从角色序列重算，因此“只 clear、不加 User 消息”的显式清除不会持久化，重启后仍按历史保守回到 tainted。policy 在 `tainted=true` 时把所有 `AllowWithConfirmation` 的范围降级为 `Once`，高风险 / critical / L3 的强制拒绝继续不变。**不新增依赖、不改 `SessionSnapshot` / `SessionStore` / protocol / IPC / DB schema**，也不新增 taint 持久化表。
+
+## 2026-10-07 追加（ADR-0081，Accepted）
+
+- [2026-10-07][DECISION][src:ADR-0081，按用户 2026-10-07「授权你按你说的做」授权；TASK-054；`DRIFT-054-1` 闭环] **core 新增干净上下文复核组件**：`CleanContextReview` 只接收 `SessionSnapshot::goal()` 中的用户原始请求和调用方构造、经校验的 `HighRiskStepSummary`；复核请求只有 `System` 指令 + JSON 数据载荷，无 Tool / 外部内容，不使用工具，temperature `0.0`。注入的独立 `ModelProvider` 必须返回严格 JSON：`verdict` 只能是 `consistent` / `inconsistent`，`reason` 必须合法；空输出、超限、ToolCall、未知字段或非法 verdict 一律 fail-closed。`Rejected` 由 `ensure_allowed` 转为 `PolicyDenied`，Provider 失败保留原 `ErrorCode`，非法输入 / 非法模型输出分别映射 `ToolInvalidArgs` / `ModelInvalidOutput`。复核不写 `SessionManager`、不改 taint、不替代 policy / HITL。**新增 core 公开组件但不改依赖白名单、protocol / IPC / DB schema，不新增依赖或 crate。**
