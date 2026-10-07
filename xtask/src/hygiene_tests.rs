@@ -385,25 +385,33 @@ fn test_lf_only_file_has_no_crlf_finding() {
 }
 
 #[test]
-fn test_missing_final_newline_is_warning() {
+fn test_missing_final_newline_is_error() {
     let findings = check_text_file_bytes("a.md", b"first");
     assert_eq!(rules_of(&findings), vec!["hygiene/missing-final-newline"]);
     assert_eq!(
         findings.first().map(|finding| finding.severity),
-        Some(Severity::Warning)
+        Some(Severity::Error)
     );
 }
 
 #[test]
-fn test_trailing_blank_line_is_warning() {
+fn test_trailing_blank_line_is_error() {
     let findings = check_text_file_bytes("a.md", b"first\n\n");
     assert_eq!(rules_of(&findings), vec!["hygiene/missing-final-newline"]);
+    assert_eq!(
+        findings.first().map(|finding| finding.severity),
+        Some(Severity::Error)
+    );
 }
 
 #[test]
-fn test_empty_text_file_is_warning() {
+fn test_empty_text_file_is_error() {
     let findings = check_text_file_bytes("a.md", b"");
     assert_eq!(rules_of(&findings), vec!["hygiene/missing-final-newline"]);
+    assert_eq!(
+        findings.first().map(|finding| finding.severity),
+        Some(Severity::Error)
+    );
 }
 
 // --- TASK-086：依赖登记规则 ---

@@ -31,6 +31,9 @@ pub const SCANNED_SOURCE_ROOTS: [&str; 3] = ["crates", "apps", "xtask"];
 /// 递归遍历时跳过的目录名（构建产物与版本库元数据）。
 pub const SKIPPED_DIRECTORY_NAMES: [&str; 4] = ["target", ".git", "node_modules", "dist"];
 
+/// Exact repository-relative generated directories excluded from text hygiene scans.
+pub const SKIPPED_RELATIVE_DIRECTORIES: [&str; 1] = ["apps/desktop-ui/src-tauri/gen"];
+
 const HYGIENE_TEXT_EXTENSIONS: [&str; 10] = [
     "rs", "toml", "md", "yml", "yaml", "json", "ps1", "sh", "ts", "tsx",
 ];
@@ -355,7 +358,7 @@ fn collect_repo_files_recursively(
             .map_err(|e| WalkError::ReadDirectory(format!("{} 条目：{e}", directory.display())))?;
         let path = entry.path();
         if path.is_dir() {
-            if is_skipped_directory(&path) {
+            if is_skipped_directory(&path) || is_skipped_relative_directory(root, &path) {
                 continue;
             }
             collect_repo_files_recursively(root, &path, extensions, out)?;
@@ -412,6 +415,13 @@ pub fn is_skipped_directory(path: &Path) -> bool {
     path.file_name()
         .map(std::ffi::OsStr::to_string_lossy)
         .is_some_and(|name| SKIPPED_DIRECTORY_NAMES.contains(&name.as_ref()))
+}
+
+/// Returns whether `path` is an exact repository-relative directory excluded from text scans.
+#[must_use]
+pub fn is_skipped_relative_directory(root: &Path, path: &Path) -> bool {
+    let relative_path = relative_display_path(root, path);
+    SKIPPED_RELATIVE_DIRECTORIES.contains(&relative_path.as_str())
 }
 
 /// 生成用于报告的路径文本：相对仓库根、统一用 `/` 分隔（不变量 3）。
@@ -522,6 +532,35 @@ mod tests {
         let error = collect_rust_files(Path::new("Z:/definitely-not-a-directory-xyz"))
             .expect_err("不存在的目录必须报错，不能返回空列表");
         assert!(matches!(error, WalkError::ReadDirectory(_)));
+    }
+
+    #[test]
+    fn test_skipped_relative_directory_matches_generated_tree_only() {
+        let root = Path::new("D:/repo");
+        assert!(is_skipped_relative_directory(
+            root,
+            &root.join("apps/desktop-ui/src-tauri/gen")
+        ));
+        assert!(!is_skipped_relative_directory(
+            root,
+            &root.join("apps/desktop-ui/src-tauri/src")
+        ));
+        assert!(!is_skipped_relative_directory(
+            root,
+            &root.join("crates/codegen")
+        ));
+    }
+
+    #[test]
+    fn test_collect_hygiene_text_files_excludes_taurai_generated_schemas() {
+        let root = resolve_repo_root(None).expect("默认仓库根应可用");
+        let files = collect_hygiene_text_files(&root).expect("遍历不应失败");
+        assert!(
+            files
+                .iter()
+                .all(|entry| { !entry.rel_path.starts_with("apps/desktop-ui/src-tauri/gen/") }),
+            "Tauri 生成目录不得进入 hygiene 文本扫描集"
+        );
     }
 
     #[test]

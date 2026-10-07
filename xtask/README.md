@@ -102,7 +102,7 @@
 | `hygiene/missing-card-reference` | Error | naming §8（待办/占位必须带卡号） |
 | `hygiene/commented-out-code` | Error（连续 ≥5 行形似代码的 `//`） | gov §5.4 / §6.1.2 |
 | `hygiene/crlf-line-endings` | Error（白名单文本文件的字节含 `\r`） | gov §5.4 / ADR-0025 D1 |
-| `hygiene/missing-final-newline` | Warning（文件无末尾 LF，或以多余空行结尾） | gov §5.4 / ADR-0025 D1 |
+| `hygiene/missing-final-newline` | Error（文件无末尾 LF，或以多余空行结尾） | gov §5.4 / ADR-0025 D1 |
 | `hygiene/unregistered-dependency` | Error（直接依赖未登记）；Warning（Approved 依赖当前未直接使用） | gov §5.4 |
 | `hygiene/duplicate-code` | Warning（跨文件 token shingle 包含度 ≥ 80% 且共享 ≥ 4） | gov §5.4 / ADR-0068 |
 | `hygiene/duplicate-scan-truncated` | Warning（重复代码扫描达到文件 / shingle 预算） | ADR-0068 D9 |
