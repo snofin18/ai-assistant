@@ -89,8 +89,9 @@
 | **0080** | `0080-taint-tracking-and-permission-decay.md` | **Accepted** | 污点追踪是 `SessionManager` 的运行时状态：Tool 消息置污、User 消息或 `clear_taint` 清除；恢复时从消息角色序列保守重算。policy 在 `tainted=true` 时把所有确认范围降级为 `Once`，高风险 / L3 强制拒绝不变；不改快照 / DB schema / protocol（TASK-051；2026-10-07 按用户「可以继续进行下一步」授权） |
 | **0081** | `0081-clean-context-review-component.md` | **Accepted** | `core` 新增 `CleanContextReview` 公开组件：只接收 `SessionSnapshot::goal()` 的用户原始请求与已校验的高风险 Step 摘要，用注入的独立 `ModelProvider` 做严格 JSON 复核；不一致返回 `PolicyDenied`。复核请求不含 Tool / 外部内容、不写入会话、不改变 taint；组件不替代 policy / HITL，不改 protocol / IPC / DB schema（TASK-054；2026-10-07 按用户「授权你按你说的做」授权；`DRIFT-054-1` 闭环） |
 | **0082** | `0082-instruction-origin-attribution.md` | **Accepted** | `core` 新增纯模型 `InstructionOrigin` / `InstructionAttribution`：固定 `user_request` / `plan_derived` / `app_content` / `tool_suggestion` 四类 token，按来源校验父目标 / 来源引用，`app_content` 只作为高风险信号；UI approval 继续默认拒绝 `app_content`。**不**改 policy / `PlanStep` / `PolicyDecision` / `ApprovalRequest` / audit schema / IPC / DB（TASK-052；2026-10-07 按用户「合并 PR #270，并授权你先立 ADR-0082 + 最小扩权」授权） |
+| **0083** | `0083-task-card-status-line-writable-exception.md` | **Accepted** | 任务卡 `- 状态：` 行是分界线以上正文区的唯一可写例外；Implementer 只能改这一行的真实状态，且必须与产生该状态的提交同批，其他正文行仍只读；`card-check` 的未来正文 diff 判据只排除这一行（TASK-253；2026-10-07 按预授权自动化代为裁决；`PL-073` 闭环） |
 
-**下一个可用编号：0083**（= §1 与 §2 已用最大号 **0082** + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0084**（= §1 与 §2 已用最大号 **0083** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由

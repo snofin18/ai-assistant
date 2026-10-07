@@ -32,7 +32,7 @@
 | `facts.md` | 238 | 185 | 按主题分节；**grep 优先**，不必全读 |
 | `pitfalls.md` | 279 | 168 | 按主题分节；**grep 优先**，不必全读 |
 | `rejected.md` | 60 | 40 | ★ **动手前全量读**（防止同一方案被反复重新提出） |
-| `decisions.md` | 254 | 94 | 索引 → `docs/adr/NNNN-*.md` |
+| `decisions.md` | 258 | 95 | 索引 → `docs/adr/NNNN-*.md` |
 | `open.md` | 57 | 26 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
 | `apps/notepad.md` | 343 | 0 | 接记事本时**全量读**；8 个固定小节 |
 | `apps/paint.md` | 99 | 0 | Read fully when working on Paint; 8 fixed sections; selectors provisional before real-machine calibration |

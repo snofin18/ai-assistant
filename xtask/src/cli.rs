@@ -39,7 +39,7 @@ pub const USAGE: &str = r#"xtask — 仓库护栏与开发任务工具（只读�
   adr-index          ADR 编号登记表 ↔ docs/adr/*.md ↔ decisions.md 是否一致（ADR-0030 D3）
   refscan           ADR 编号一致性扩展（ADR-0032 + ADR-0026）：范围写法 / 裁引用 / .ps1 非 ASCII
   docscan           文档结构扫描（破表 / setext 风险 / 编码形状），不免
-  card-check         任务卡格式完整性（ADR-0031 D6，**当前实现部分**）：9 节骨架齐全（Ready 豁免） + 状态=Done/Review + 记录区空 → Warning；**未实现**：状态行唯一 / 分界线唯一（计划归 TASK-060）
+  card-check         任务卡格式完整性（ADR-0031 D6 + ADR-0083，**当前实现部分**）：9 节骨架齐全（Ready 豁免） + 状态=Done/Review + 记录区空 → Warning；正文 diff 判据未来只排除唯一 `- 状态：` 行；**未实现**：状态行唯一 / 分界线唯一（计划归 TASK-060）
   guard <操作>       文件改写互斥锁（ADR-0028）；操作 = acquire | release | status | reap
   write <目标>       命令行唯一写通道（ADR-0066）：stdin → 目标；先取 guard 锁，Windows
                      上再做独占占用探测与退避重试；读取路径不进通道

@@ -17,7 +17,7 @@
 | 回忆"项目已知什么/否决过什么/踩过什么坑" | `MEMORY.md`（**L0 索引，含路由表；行数上限以文件自身为准**）→ 按路由跳读 `docs/memory/*` |
 | **动手前防止重复辩论**（★ 必读） | `docs/memory/rejected.md`（全量，最短的一个） |
 | 接某个应用（记事本 / 画图 / Edge…） | `docs/memory/apps/<app>.md`（全量，8 个固定小节） |
-| 看某张卡当时怎么做的（正文 + 执行记录） | `tasks/TASK-NNN-<slug>.md`（ADR-0031「一卡一文件」；正文区**只读**、记录区由 Implementer 填） |
+| 看某张卡当时怎么做的（正文 + 执行记录） | `tasks/TASK-NNN-<slug>.md`（ADR-0031「一卡一文件」；正文区**只读**，唯一例外是 `- 状态：` 行且须与状态提交同批（ADR-0083）、记录区由 Implementer 填） |
 | 记忆分层规则与读取路由 | `docs/memory/README.md`（ADR-0021） |
 | 架构、分层、进程边界、安全、平台 | `cross-platform-ai-assistant-architecture-v2.md` 对应章节（§3 架构 / §5 工具 / §6 定位 / §7 验证 / §8 状态机 / §9 撤销 / §12 安全 / §13 平台 / §15 存储） |
 | 某个应用怎么接 | `target-apps-feasibility.md` §3 对应档案 |
@@ -203,7 +203,7 @@ cargo run -p xtask -- replay --suite core      # 回放基准
 
 | 文件 | 你（Implementer）的权限 |
 |---|---|
-| `tasks/TASK-NNN-<slug>.md`（**仅本卡号那一个文件**） | **记录区**（分界线以下的 9 节）可写；**正文区**（分界线以上：In/Out scope、必须遵守、验收命令、DoD）**只读**（ADR-0031 D3/D5） |
+| `tasks/TASK-NNN-<slug>.md`（**仅本卡号那一个文件**） | **记录区**（分界线以下的 9 节）可写；**正文区**（分界线以上：In/Out scope、必须遵守、验收命令、DoD）**只读**（ADR-0031 D3/D5）。唯一例外 = `- 状态：` 行：只允许按真实状态更新，且必须与产生该状态的提交同批（**ADR-0083**）；其他正文行仍一律只读 |
 | `LEDGER.md`、`docs/PARKING_LOT.md`、`docs/memory/{facts,pitfalls,rejected,decisions,open}.md`、本卡涉及应用的 `docs/memory/apps/<app>.md` | **可追加**（不改写他人条目；更正用 `[supersedes:日期]`） |
 | 任务卡列出的 write scope 内文件、相关 crate `README.md` | 可改 |
 | `PLAN.md`、`plans/*`（**计划类文件**） | **可写面 = 完成状态 + 「当前状态 / 当前进度」块**（**ADR-0041 D1**）：① 任务条目前的**完成标记**（`✅` / `Done` / 该文件既有定义的形式 —— **只允许加在行首，不得重写条目正文**）；② 「当前状态 / 当前进度」**块的内容**；③ **新增**任务行（新卡派单）。**禁止**改：排期 / 周期 / 批次顺序、各任务条目的**正文**（名称、write scope、验收要点、依赖、预估）、已在跑的排期时刻、以及阶段索引 / 范围冻结提示 / 关联文件 / 变更历史（后四者仍 **Orchestrator-only** —— ADR-0039 D4）。要改正文 → DRIFT + 人类裁决（**ADR-0041 D2 / D3**）。状态更新必须与产生该状态的提交**同批**（**ADR-0041 D4**） |

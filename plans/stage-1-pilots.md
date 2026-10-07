@@ -1,6 +1,7 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
 > 周期 10~12 周　状态：**进行中**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> **TASK-253 ✅（2026-10-07）**：ADR-0083 明确任务卡 `- 状态：` 行是正文区唯一可写例外，且必须与状态提交同批；AGENTS / gov / card-check 口径同步，`PL-073` 闭环。
 > **TASK-043 ✅（2026-10-07）**：Paint declarative Adapter pack 落地 （16 selector targets / 10 tools / 6 rollback recipes）；专项契约校验与独立复核修复已合并，PR #273 / merge `a3bd2e6`；真机 UIA 与坐标校准仍由 TASK-044 承接（`DRIFT-043-1` / `PL-113`）。
 > **TASK-250 ✅（2026-10-07）**：`refscan` 待建 ADR 集合对齐 `docs/adr/README.md` §2 —— 0007 / 0016 / 0017 / 0020 / 0027 不再误判为待建号，登记表一致性单测与正负用例落地；`PL-099` / `DRIFT-W4-1` 闭环；PR #262 / merge `7be80b6`。
 > **TASK-251 ✅（2026-10-07）**：ADR-0027 由 Draft 转 Accepted，`docs/spec/testing.md` §4.4 测试 lint 允许清单落地（三项 lint 仅 `#[cfg(test)] mod tests`；产品代码禁止）；`PL-098` / `DRIFT-W3-1` 闭环，章程 §13 W3 勾选；治理池 S 卡；PR #264 / merge `1b98365`。
@@ -342,6 +343,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-250 ✅** | 治理池 | `tasks/TASK-250-refscan-pending-adr-registry-source.md` | Done（`refscan` 待建 ADR 集合对齐登记表 §2；正负测试覆盖 Draft / 已建号；PL-099 / DRIFT-W4-1 闭环；PR #262 / merge `7be80b6`） |
 | **TASK-251 ✅** | 治理池 | `tasks/TASK-251-test-only-lint-allowlist-spec.md` | Done（ADR-0027 Accepted + `docs/spec/testing.md` §4.4 测试 lint 允许清单；PL-098 / DRIFT-W3-1 闭环，章程 §13 W3 勾选） |
 | **TASK-252 ✅** | 治理池 | `tasks/TASK-252-2026-10-07-automation-report.md` | Done（补写 `docs/automations/2026-10-07-report.md`；四轮 PR / CI / merge / 偏差汇总；零产品代码改动） |
+| **TASK-253 ✅** | 治理池 | `tasks/TASK-253-task-card-status-line-writable-exception.md` | Done（ADR-0083：任务卡 `- 状态：` 行是正文区唯一可写例外；`PL-073` 闭环） |
 | **TASK-054 ✅** | 1c | `tasks/TASK-054-clean-context-review-small-model-fourth-layer.md` | Done（ADR-0081：clean-context review 组件；输入仅 session goal + Step 摘要；无 Tool / 外部内容、不写会话 / 不改 taint；实现 / 测试已拆分；PR / merge hash 待回填） |
 | TASK-055 | 1c | `tasks/TASK-055-edge-adapter-cdp-ua-blacklist-interrupts.md` | Ready（批次表占位派单前补全） |
 | TASK-056 | 1c | `tasks/TASK-056-t5-1-open-site-extract-list-write-csv.md` | Ready（批次表占位派单前补全） |
