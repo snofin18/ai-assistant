@@ -94,6 +94,8 @@ Select-String docs/PARKING_LOT.md -Pattern 'PL-073.*已闭环'
 - `refscan` → 0E/0W；`docscan` → 0E/273W；`card-check` → 0E/34W
 - `check-ledger` → 0E/0W；`check-comments` → 0E/71W；`verify-schemas`、`codegen --check`、`check-migrations` → PASSED
 - `rg "ADR-0083"` 命中 ADR / AGENTS / gov / card-check / decisions；`PL-073` 闭环行已追加
+- PR #276 的 CI run `37648957638` → **11/11 SUCCESS**；合并前 `baseRefName=main`、
+  `mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`、`state=MERGED`；merge hash = `b27b8dd`
 
 ### 4. DoD 逐条核对
 
@@ -103,6 +105,7 @@ Select-String docs/PARKING_LOT.md -Pattern 'PL-073.*已闭环'
 - Rust / UI / 覆盖率 / 安全性门禁全绿：满足（§3）
 - `LEDGER.md` 与 `decisions.md` 已更新：满足
 - 正文仅状态行变化：满足（本卡其余正文未改；行号豁免同步是 gov 编辑的直接机械后果）
+- CI / merge 证据：满足（PR #276 / run `37648957638` / merge `b27b8dd`）
 
 ### 5. 偏差
 
