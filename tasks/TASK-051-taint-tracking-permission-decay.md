@@ -98,7 +98,7 @@ xtask 十一项门禁                                          -> 11/11 EXIT 0
 - [x] `SessionManager` 是唯一公开清除点；显式 clear 不伪造持久化。
 - [x] tainted 上下文确认范围只提供 `Once`；高风险 / L3 强制拒绝不变。
 - [x] 所有验收门槛绿；未改 protocol / DB schema / 公共 `Decision`。
-- [ ] PR / CI / merge hash 回填待远程流程完成后追加。
+- [x] PR #268 CI 11/11、merge hash `96fae10` 回填完成。
 
 ### 5. 偏差
 
