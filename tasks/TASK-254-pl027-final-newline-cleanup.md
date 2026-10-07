@@ -1,6 +1,6 @@
 # TASK-254　PL-027 末行换行清扫与 Error 化
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：治理池　批次：治理池　依赖：无　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `PLAN.md` 与 `plans/stage-1-pilots.md`。
@@ -97,6 +97,9 @@ cargo run -p xtask -- codegen --check
 - `cargo deny check` -> advisories / bans / licenses / sources 全 ok。
 - `cargo run -p xtask -- hygiene` -> scanned=387，**0E/100W**，无 `hygiene/missing-final-newline`。
 - `memory-counts` / `adr-index` / `refscan` / `docscan` / `card-check` / `check-ledger` / `check-comments` / `verify-schemas` / `codegen --check` / `check-migrations` -> 全部 PASSED。
+- PR #278：pull_request run `37669241763` 全 11/11 SUCCESS；合并前
+  `baseRefName=main`、`mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`；
+  merge hash `1aa082b`。
 
 ### 4. DoD 逐条核对
 
@@ -104,7 +107,7 @@ cargo run -p xtask -- codegen --check
 - [x] 专项测试全绿：生成目录跳过正反样本 + 三类换行违规均为 Error。
 - [x] `fmt` / `clippy` / `workspace tests` 全绿。
 - [x] xtask 十一项门禁全 PASSED。
-- [x] LEDGER 追加行；PL-027 闭环行与状态文件同步。
+- [x] LEDGER 追加行；PL-027 闭环行与状态文件同步；PR #278 已合并。
 
 ### 5. 偏差
 
@@ -116,7 +119,8 @@ cargo run -p xtask -- codegen --check
 
 ### 7. 遗留问题
 
-无。PR #275（TASK-044）仍因真实 Paint GUI 验收缺口保持 open，且当前已变 `CONFLICTING/DIRTY`；本轮未触碰、未合并。
+PR #275（TASK-044）仍因真实 Paint GUI 验收缺口保持 open，且当前已变
+`CONFLICTING/DIRTY`；本轮未触碰、未合并。除此之外无偏差。
 
 ### 8. 新增长期记忆
 
