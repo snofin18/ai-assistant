@@ -240,3 +240,7 @@
 ## 2026-10-06 追加（ADR-0079，Accepted）
 
 - [2026-10-06][DECISION][src:ADR-0079，按用户 2026-10-06「继续 TASK-247」授权；TASK-249] **`visual_assert` 图像来源由宿主层接通**：`ObservationCollector` 新增带默认实现的 `observe_visual`，既有 collector 保持 `None` 与 TASK-247 行为；`RuntimeExecutor` 在普通 `Observation` 后收集可选 `VisualObservation`，并调用 `verify_postconditions_with_receipt_and_visual`。生产 `StorageVisualObservationCollector` 只从成功 `ToolEnvelope.data.visual_observation` 读取 `reference` / `observed` 两个描述符与 `confidence`；描述符只含 `blob_id` / `width` / `height`，不内联像素或哈希。参考图与实测图必须成对出现，`blob_id` 由 `BlobId::parse` 校验，字节数必须满足 `width * height * 4`；宿主经装配拥有的 storage 读取 BGRA，按固定整数 Rec.709 luma `(77R + 150G + 29B + 128) >> 8` 转灰度，忽略 alpha，再经 `GrayImage::new` 与 `VisualObservation::new` 校验。任一 blob 缺失 / 损坏、尺寸不符、半组对象、非法置信度均显式失败，绝不补零或默认图。**不改** `platform/api` / `protocol/**` / tool schema / IPC / `Observation` / `VerificationReceipt`，不新增依赖或 crate。
+
+## 2026-10-07 追加（ADR-0080，Accepted）
+
+- [2026-10-07][DECISION][src:ADR-0080，按用户 2026-10-07「可以继续进行下一步」授权；TASK-051] **污点追踪与权限衰减采用运行时状态**：`SessionManager` 为每个缓存会话维护私有 `TaintState`，`MessageRole::Tool` 置污、`MessageRole::User` 清除，`System` / `Assistant` 不改变状态；`is_tainted` 查询与 `clear_taint` 显式清除均经 `SessionManager`，且 clear 只对当前活动缓存生效，不重写消息历史。会话恢复时按消息树的 `sequence` 顺序从角色序列重算，因此“只 clear、不加 User 消息”的显式清除不会持久化，重启后仍按历史保守回到 tainted。policy 在 `tainted=true` 时把所有 `AllowWithConfirmation` 的范围降级为 `Once`，高风险 / critical / L3 的强制拒绝继续不变。**不新增依赖、不改 `SessionSnapshot` / `SessionStore` / protocol / IPC / DB schema**，也不新增 taint 持久化表。

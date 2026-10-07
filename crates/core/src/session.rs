@@ -1,4 +1,9 @@
-//! Session lifecycle and message-tree mutations.
+//! Session lifecycle, message-tree mutations, and runtime taint state.
+//!
+//! Taint is intentionally runtime-only: the message tree is the durable input,
+//! and a restored session recomputes taint from its role sequence. This keeps
+//! the security marker fail-closed without changing the persisted snapshot or
+//! storage schema.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -10,6 +15,10 @@ use crate::message::{
     MessageContent, MessageNode, MessageNodeParts, MessageRole, SessionSnapshot, SessionStatus,
 };
 use crate::store::SessionStore;
+
+mod taint;
+
+use taint::TaintState;
 
 /// Injected wall-clock source for session timestamps.
 pub trait SessionClock: Send + Sync {
@@ -38,7 +47,13 @@ pub struct NewMessage {
 pub struct SessionManager {
     store: Arc<dyn SessionStore>,
     clock: Arc<dyn SessionClock>,
-    sessions: BTreeMap<SessionId, SessionSnapshot>,
+    sessions: BTreeMap<SessionId, ManagedSession>,
+}
+
+/// One cached session and its runtime-only security state.
+struct ManagedSession {
+    snapshot: SessionSnapshot,
+    taint: TaintState,
 }
 
 impl SessionManager {
@@ -75,7 +90,13 @@ impl SessionManager {
         let snapshot =
             SessionSnapshot::new(session_id.clone(), goal.into(), self.clock.now_unix_ms())?;
         self.store.insert_session(&snapshot)?;
-        self.sessions.insert(session_id, snapshot.clone());
+        self.sessions.insert(
+            session_id,
+            ManagedSession {
+                snapshot: snapshot.clone(),
+                taint: TaintState::clean(),
+            },
+        );
         Ok(snapshot)
     }
 
@@ -88,8 +109,8 @@ impl SessionManager {
     /// Returns [`CoreError::SessionNotFound`] when the store has no session and
     /// [`CoreError::SessionStore`] when the store fails.
     pub fn restore_session(&mut self, session_id: &SessionId) -> CoreResult<SessionSnapshot> {
-        if let Some(snapshot) = self.sessions.get(session_id) {
-            return Ok(snapshot.clone());
+        if let Some(managed) = self.sessions.get(session_id) {
+            return Ok(managed.snapshot.clone());
         }
         let snapshot =
             self.store
@@ -106,7 +127,14 @@ impl SessionManager {
                 ),
             });
         }
-        self.sessions.insert(session_id.clone(), snapshot.clone());
+        let taint = TaintState::from_messages(snapshot.messages());
+        self.sessions.insert(
+            session_id.clone(),
+            ManagedSession {
+                snapshot: snapshot.clone(),
+                taint,
+            },
+        );
         Ok(snapshot)
     }
 
@@ -118,9 +146,46 @@ impl SessionManager {
     pub fn snapshot(&self, session_id: &SessionId) -> CoreResult<&SessionSnapshot> {
         self.sessions
             .get(session_id)
+            .map(|managed| &managed.snapshot)
             .ok_or_else(|| CoreError::SessionNotFound {
                 session_id: session_id.to_string(),
             })
+    }
+
+    /// Returns whether untrusted content currently taints the session.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CoreError::SessionNotFound`] when the session is not cached.
+    pub fn is_tainted(&self, session_id: &SessionId) -> CoreResult<bool> {
+        self.sessions
+            .get(session_id)
+            .map(|managed| managed.taint.is_tainted())
+            .ok_or_else(|| CoreError::SessionNotFound {
+                session_id: session_id.to_string(),
+            })
+    }
+
+    /// Clears runtime taint after an explicit user action.
+    ///
+    /// This is intentionally the only public clear path. It does not rewrite
+    /// message history or persist a clear marker; a restored session derives
+    /// taint again from its message roles.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CoreError::SessionNotFound`] when the session is not cached or
+    /// [`CoreError::SessionEnded`] when the session is not active.
+    pub fn clear_taint(&mut self, session_id: &SessionId) -> CoreResult<()> {
+        let managed =
+            self.sessions
+                .get_mut(session_id)
+                .ok_or_else(|| CoreError::SessionNotFound {
+                    session_id: session_id.to_string(),
+                })?;
+        ensure_active(&managed.snapshot)?;
+        managed.taint = TaintState::clean();
+        Ok(())
     }
 
     /// Appends one message to an active session.
@@ -138,13 +203,21 @@ impl SessionManager {
         session_id: &SessionId,
         message: NewMessage,
     ) -> CoreResult<MessageId> {
-        let mut next =
-            self.sessions
-                .get(session_id)
-                .cloned()
-                .ok_or_else(|| CoreError::SessionNotFound {
-                    session_id: session_id.to_string(),
-                })?;
+        let message_role = message.role;
+        let current_taint = self
+            .sessions
+            .get(session_id)
+            .map(|managed| managed.taint)
+            .ok_or_else(|| CoreError::SessionNotFound {
+                session_id: session_id.to_string(),
+            })?;
+        let mut next = self
+            .sessions
+            .get(session_id)
+            .map(|managed| managed.snapshot.clone())
+            .ok_or_else(|| CoreError::SessionNotFound {
+                session_id: session_id.to_string(),
+            })?;
         ensure_active(&next)?;
         if next.messages().iter().any(|node| node.id() == &message.id) {
             return Err(CoreError::InvalidSessionSnapshot {
@@ -180,7 +253,13 @@ impl SessionManager {
         next.push_message(node);
         next.increment_revision()?;
         self.store.update_session(&next)?;
-        self.sessions.insert(session_id.clone(), next);
+        self.sessions.insert(
+            session_id.clone(),
+            ManagedSession {
+                snapshot: next,
+                taint: current_taint.observe(message_role),
+            },
+        );
         Ok(message.id)
     }
 
@@ -195,13 +274,20 @@ impl SessionManager {
         session_id: &SessionId,
         message_id: &MessageId,
     ) -> CoreResult<()> {
-        let mut next =
-            self.sessions
-                .get(session_id)
-                .cloned()
-                .ok_or_else(|| CoreError::SessionNotFound {
-                    session_id: session_id.to_string(),
-                })?;
+        let current_taint = self
+            .sessions
+            .get(session_id)
+            .map(|managed| managed.taint)
+            .ok_or_else(|| CoreError::SessionNotFound {
+                session_id: session_id.to_string(),
+            })?;
+        let mut next = self
+            .sessions
+            .get(session_id)
+            .map(|managed| managed.snapshot.clone())
+            .ok_or_else(|| CoreError::SessionNotFound {
+                session_id: session_id.to_string(),
+            })?;
         ensure_active(&next)?;
         if !next.messages().iter().any(|node| node.id() == message_id) {
             return Err(CoreError::MessageNotFound {
@@ -221,7 +307,13 @@ impl SessionManager {
         next.remove_message(message_id);
         next.increment_revision()?;
         self.store.update_session(&next)?;
-        self.sessions.insert(session_id.clone(), next);
+        self.sessions.insert(
+            session_id.clone(),
+            ManagedSession {
+                snapshot: next,
+                taint: current_taint,
+            },
+        );
         Ok(())
     }
 
@@ -233,13 +325,20 @@ impl SessionManager {
     ///
     /// Returns session-not-found, ended-session, invalid-clock, or store errors.
     pub fn end_session(&mut self, session_id: &SessionId) -> CoreResult<()> {
-        let mut next =
-            self.sessions
-                .get(session_id)
-                .cloned()
-                .ok_or_else(|| CoreError::SessionNotFound {
-                    session_id: session_id.to_string(),
-                })?;
+        let current_taint = self
+            .sessions
+            .get(session_id)
+            .map(|managed| managed.taint)
+            .ok_or_else(|| CoreError::SessionNotFound {
+                session_id: session_id.to_string(),
+            })?;
+        let mut next = self
+            .sessions
+            .get(session_id)
+            .map(|managed| managed.snapshot.clone())
+            .ok_or_else(|| CoreError::SessionNotFound {
+                session_id: session_id.to_string(),
+            })?;
         ensure_active(&next)?;
         let ended_at = self.clock.now_unix_ms();
         if ended_at < next.created_at_unix_ms() {
@@ -251,7 +350,13 @@ impl SessionManager {
         next.end(ended_at);
         next.increment_revision()?;
         self.store.update_session(&next)?;
-        self.sessions.insert(session_id.clone(), next);
+        self.sessions.insert(
+            session_id.clone(),
+            ManagedSession {
+                snapshot: next,
+                taint: current_taint,
+            },
+        );
         Ok(())
     }
 }
@@ -263,4 +368,80 @@ fn ensure_active(snapshot: &SessionSnapshot) -> CoreResult<()> {
         });
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
+
+    use std::sync::Arc;
+
+    use super::SessionManager;
+    use crate::{
+        ContextRetention, MemorySessionStore, MessageContent, MessageId, MessageRole, NewMessage,
+        SessionClock, SessionId, TokenCount,
+    };
+
+    struct FixedClock(i64);
+
+    impl SessionClock for FixedClock {
+        fn now_unix_ms(&self) -> i64 {
+            self.0
+        }
+    }
+
+    fn session_id() -> SessionId {
+        SessionId::new("s_taint").expect("session id")
+    }
+
+    fn message(id: &str, role: MessageRole) -> NewMessage {
+        NewMessage {
+            id: MessageId::new(id).expect("message id"),
+            parent_id: None,
+            role,
+            content: MessageContent::new(id).expect("content"),
+            token_estimate: TokenCount::new(1),
+            retention: ContextRetention::Required,
+        }
+    }
+
+    #[test]
+    fn test_session_manager_marks_tool_and_clears_on_user() {
+        let store: Arc<dyn crate::SessionStore> = Arc::new(MemorySessionStore::new());
+        let mut manager = SessionManager::new(store, Arc::new(FixedClock(100)));
+        let session = session_id();
+        manager
+            .create_session(session.clone(), "goal")
+            .expect("create session");
+        assert!(!manager.is_tainted(&session).expect("clean session"));
+
+        manager
+            .append_message(&session, message("tool", MessageRole::Tool))
+            .expect("append tool result");
+        assert!(manager.is_tainted(&session).expect("tainted session"));
+
+        manager
+            .append_message(&session, message("user", MessageRole::User))
+            .expect("append user instruction");
+        assert!(!manager.is_tainted(&session).expect("cleared session"));
+    }
+
+    #[test]
+    fn test_explicit_clear_only_affects_runtime_state() {
+        let store: Arc<dyn crate::SessionStore> = Arc::new(MemorySessionStore::new());
+        let mut manager = SessionManager::new(Arc::clone(&store), Arc::new(FixedClock(100)));
+        let session = session_id();
+        manager
+            .create_session(session.clone(), "goal")
+            .expect("create session");
+        manager
+            .append_message(&session, message("tool", MessageRole::Tool))
+            .expect("append tool result");
+        manager.clear_taint(&session).expect("explicit clear");
+        assert!(!manager.is_tainted(&session).expect("live clear"));
+
+        let mut restored = SessionManager::new(store, Arc::new(FixedClock(100)));
+        restored.restore_session(&session).expect("restore session");
+        assert!(restored.is_tainted(&session).expect("restored fail-closed"));
+    }
 }
