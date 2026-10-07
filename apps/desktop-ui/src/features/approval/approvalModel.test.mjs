@@ -59,12 +59,10 @@ test("test_parse_approval_card_valid_model_preserves_fields", () => {
 });
 
 test("test_instruction_origin_tokens_match_core_contract", () => {
-  assert.deepEqual([...instructionOrigins], [
-    "user_request",
-    "plan_derived",
-    "app_content",
-    "tool_suggestion",
-  ]);
+  assert.deepEqual(
+    [...instructionOrigins],
+    ["user_request", "plan_derived", "app_content", "tool_suggestion"],
+  );
 });
 
 test("test_plan_derived_and_tool_suggestion_origins_are_accepted", () => {
