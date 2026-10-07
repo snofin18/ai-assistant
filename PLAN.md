@@ -13,7 +13,7 @@
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done
 本日自动化 ：**4/4 已完成**（TASK-050 / TASK-053 / TASK-250 / TASK-251）；运行日阶段报告由 **TASK-252** 补齐。
 最新完成卡 ：**TASK-054 Done** —— 干净上下文复核第 4 层落地：`CleanContextReview` 只接收 `SessionSnapshot::goal()` 与已校验 `HighRiskStepSummary`，注入独立 `ModelProvider` 做严格 JSON 复核；不一致 fail-closed，无 Tool / 外部内容进入 prompt，不写会话、不改 taint；ADR-0081
-最新实现卡 ：**TASK-054 ✅（ADR-0081）**：`crates/core/src/verify_review.rs` 与 `crates/core/src/lib.rs` 公开组件接线已闭环；专项与全 workspace 门禁全绿；PR / merge hash 待回填
+最新实现卡 ：**TASK-054 ✅（ADR-0081）**：`CleanContextReview` 组件与 `verify_review/tests.rs` 测试拆分已闭环；专项与全 workspace 门禁全绿；PR / merge hash 待回填
 阻塞项      ：gov **#9 覆盖率**与 **#11 `cargo doc`** 仍是 SOFT 门禁（TASK-002 已于 2026-10-05 裁决为 **Done**，不再列阻塞）
 下一步动作  ：**TASK-054 ✅**（ADR-0081 + `CleanContextReview` 公开组件；`DRIFT-054-1` 闭环）；下一张由 Orchestrator 派单（TASK-055 Edge Adapter 依赖 048/049，尚未就绪；TASK-043~047 含真实 Paint GUI 验收，不宜无人值守硬做）
                   → 复验证据见 `docs/audits/stage-1a-reaudit-2026-10-02.md`；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）

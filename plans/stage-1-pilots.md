@@ -5,7 +5,7 @@
 > **TASK-251 ✅（2026-10-07）**：ADR-0027 由 Draft 转 Accepted，`docs/spec/testing.md` §4.4 测试 lint 允许清单落地（三项 lint 仅 `#[cfg(test)] mod tests`；产品代码禁止）；`PL-098` / `DRIFT-W3-1` 闭环，章程 §13 W3 勾选；治理池 S 卡；PR #264 / merge `1b98365`。
 > **TASK-252 ✅（2026-10-07）**：补齐 2026-10-07 运行日阶段报告 —— `docs/automations/2026-10-07-report.md` 汇总四轮任务、代码/回填 PR、merge hash、CI、偏差与遗留；ADR-0054 的“先落地、再自删”欠账闭环；零产品代码改动。
 > **TASK-051 ✅（2026-10-07）**：污点追踪 + 权限衰减 —— Tool 消息置污、User / `clear_taint` 清除，恢复时从消息角色重算；policy 在 tainted 下把确认范围降级为 `Once`，高风险 / L3 拒绝不变；ADR-0080，不新增依赖 / DB schema。
-> **TASK-054 ✅（2026-10-07）**：干净上下文复核第 4 层 —— `CleanContextReview` 只接收 session goal + 已校验 Step 摘要，注入独立 `ModelProvider` 做严格 JSON 复核；不一致 fail-closed，无 Tool / 外部内容进入 prompt，不写会话、不改 taint；ADR-0081。
+> **TASK-054 ✅（2026-10-07）**：干净上下文复核第 4 层 —— `CleanContextReview` 只接收 session goal + 已校验 Step 摘要，注入独立 `ModelProvider` 做严格 JSON 复核；不一致 fail-closed，无 Tool / 外部内容进入 prompt，不写会话、不改 taint；ADR-0081；实现与专项测试已拆分。
 > **TASK-053 ✅（2026-10-07）**：静态注入靶页 fixture 落地 —— visible / hidden / aria-hidden / HTML comment / fake system / meta 六类 marker，5 条正常产品提取记录；显式离线与 CSP 边界；PR #260 / merge `79b5566`。
 > **TASK-050 ✅（2026-10-07）**：ADR 0007 三档出域策略落地 —— `crates/dlp` 应用覆盖替换默认、内容类型覆盖只收紧、egress-destination 白名单默认拒绝、`local_only` 无本地模型显式失败、策略变更返回可审计记录；专项 22 passed；PR #258 / merge `51bbb27`。
 > **TASK-244 ✅（2026-10-06）**：PL-022 机器派生计数收口 —— gov §5.4 表格行数为 hygiene 总数 SSOT；gov §5.1 与 ci.yml 的 # gov-gate 标记集合一致，缺失 / 重复 / 额外 / 不可解析均 exit 1。
@@ -340,7 +340,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-250 ✅** | 治理池 | `tasks/TASK-250-refscan-pending-adr-registry-source.md` | Done（`refscan` 待建 ADR 集合对齐登记表 §2；正负测试覆盖 Draft / 已建号；PL-099 / DRIFT-W4-1 闭环；PR #262 / merge `7be80b6`） |
 | **TASK-251 ✅** | 治理池 | `tasks/TASK-251-test-only-lint-allowlist-spec.md` | Done（ADR-0027 Accepted + `docs/spec/testing.md` §4.4 测试 lint 允许清单；PL-098 / DRIFT-W3-1 闭环，章程 §13 W3 勾选） |
 | **TASK-252 ✅** | 治理池 | `tasks/TASK-252-2026-10-07-automation-report.md` | Done（补写 `docs/automations/2026-10-07-report.md`；四轮 PR / CI / merge / 偏差汇总；零产品代码改动） |
-| **TASK-054 ✅** | 1c | `tasks/TASK-054-clean-context-review-small-model-fourth-layer.md` | Done（ADR-0081：clean-context review 组件；输入仅 session goal + Step 摘要；无 Tool / 外部内容、不写会话 / 不改 taint；PR / merge hash 待回填） |
+| **TASK-054 ✅** | 1c | `tasks/TASK-054-clean-context-review-small-model-fourth-layer.md` | Done（ADR-0081：clean-context review 组件；输入仅 session goal + Step 摘要；无 Tool / 外部内容、不写会话 / 不改 taint；实现 / 测试已拆分；PR / merge hash 待回填） |
 | TASK-055 | 1c | `tasks/TASK-055-edge-adapter-cdp-ua-blacklist-interrupts.md` | Ready（批次表占位派单前补全） |
 | TASK-056 | 1c | `tasks/TASK-056-t5-1-open-site-extract-list-write-csv.md` | Ready（批次表占位派单前补全） |
 | TASK-057 | 1c | `tasks/TASK-057-t5-2-form-fill-stop-before-submit-diff-origin.md` | Ready（批次表占位派单前补全） |

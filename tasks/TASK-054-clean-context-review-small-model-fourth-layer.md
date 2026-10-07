@@ -70,7 +70,8 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 ### 2. 实际改动文件
 
-- `crates/core/src/verify_review.rs`（新增 clean-context review 组件与 10 个专项测试）
+- `crates/core/src/verify_review.rs`（新增 clean-context review 组件，545 行）
+- `crates/core/src/verify_review/tests.rs`（10 个专项测试，354 行）
 - `crates/core/src/lib.rs`（注册并导出组件，模块文档补充边界与不变量）
 - `crates/core/README.md`（职责 / 边界 / 不变量 / 已知限制 / 关联文档）
 - `docs/adr/0081-clean-context-review-component.md`（新增 Accepted ADR）
@@ -89,7 +90,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - `cargo test --workspace` → 全绿；`xtask` 单元测试 **467 passed / 0 failed**；文档测试全绿。
 - `cargo fmt --all --check` → EXIT 0。
 - `cargo clippy --all-targets -- -D warnings` → EXIT 0（既有 unknown-lint 警告不属于本卡新增错误）。
-- `xtask hygiene` → PASSED，0E/110W（本卡新增软告警：`verify_review.rs` 900 行，>600 warning、<900 error）。
+- `xtask hygiene` → PASSED，0E/109W；`verify_review.rs` 的 900 行 `file-too-long` 软告警已通过拆分消除。
 - `xtask memory-counts` → PASSED，0E/0W。
 - `xtask adr-index` → PASSED，0E/0W。
 - `xtask refscan` → PASSED，0E/0W。
@@ -125,7 +126,7 @@ DRIFT-054-1（已闭环）
 
 ### 7. 遗留问题
 
-无必须转 PARKING_LOT 的功能缺口。本卡披露一个软告警：`crates/core/src/verify_review.rs` 900 行（超过 600 行 warning、低于 900 行硬上限）；未来继续扩展该模块时应拆分实现与测试，不在本卡做 drive-by 重构。
+无必须转 PARKING_LOT 的功能缺口。应人类要求已把测试外置到 `crates/core/src/verify_review/tests.rs`：实现 545 行、测试 354 行，原 `file-too-long` 软告警消除。
 
 ### 8. 新增长期记忆
 
