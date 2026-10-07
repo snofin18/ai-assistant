@@ -11,6 +11,8 @@ task-engine Plan contract.
   `SessionStore`.
 - Maintain a validated message tree with stable ids, parent links, sequence
   order, content validation, and explicit delete rules.
+- Maintain runtime taint state for each cached session: Tool messages taint,
+  User messages clear, and restoration recomputes from the role sequence.
 - Select one caller-chosen root-to-leaf branch for model context.
 - Keep required anchors and evidence inside the context budget.
 - Omit droppable history only with an auditable omission record.
@@ -66,6 +68,9 @@ task-engine Plan contract.
 12. Memory never injects an entire App Map implicitly. Only caller-selected
     entry ids plus retrieval hits are considered, and every omitted candidate
     has an explicit origin, token estimate, and `MemoryOmissionReason`.
+13. Taint never becomes clean silently: only a User message or the
+    `SessionManager::clear_taint` entry point clears it; restore recomputes the
+    conservative state from persisted messages.
 
 ## Typical Use
 
@@ -142,6 +147,10 @@ Core.
   only the Step DAG shape.
 - Session deletion is leaf-only; branch deletion and tombstone semantics are
   not defined by TASK-028.
+- Runtime taint is not persisted as a separate column or snapshot field. A
+  restored session recomputes it from message roles, so an explicit live-only
+  clear can become tainted again after a process restart unless a User message
+  followed the Tool result.
 - The crate does not persist audit events for context omissions. Callers can
   project the returned omission records into audit events at the assembly
   boundary.
@@ -155,6 +164,7 @@ Core.
 
 - `docs/spec/core-orchestration.md`
 - `docs/adr/0053-core-orchestration-layer-interface.md`
+- `docs/adr/0080-taint-tracking-and-permission-decay.md`
 - `cross-platform-ai-assistant-architecture-v2.md` sections 7.1, 7.2, 11.3,
   and 15.
 - `tasks/TASK-028-core-session-context.md`

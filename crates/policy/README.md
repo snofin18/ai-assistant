@@ -15,7 +15,8 @@ TASK-021 的**唯一策略放行点**：用纯函数表达白名单、风险分�
 - **不执行动作、不做 IO**：不读文件、不解析 DNS、不发网络请求、不读取时钟或随机数。
 - **不做审批流程**：只返回 `AllowWithConfirmation`；审批请求、授权范围与用户接管归
   TASK-027 的 `crates/hitl`。
-- **不做污点传播或 DLP**：只读取上下文的 `tainted` / `egress` 字段。
+- **不做污点传播或 DLP**：只读取上下文的 `tainted` / `egress` 字段；taint
+  的存储与传播归 `SessionManager`，本 crate 只对 tainted 上下文应用确认范围降级。
 - **不做持久化、热加载或 UI 编辑**：规则集由调用方在内存中构造或从 JSON 载入。
 - **不替代平台解析**：路径的符号链接解析结果必须由调用方作为输入提供。
 
@@ -24,7 +25,8 @@ TASK-021 的**唯一策略放行点**：用纯函数表达白名单、风险分�
 1. **默认拒绝**：空规则集、无规则命中或解析失败都不得产生隐式放行；加载失败必须由
    调用方映射为拒绝。
 2. **安全底线不可绕过**：`L3Irreversible + unattended` 无条件拒绝；污点上下文中的
-   `L3Irreversible`、`High`、`Critical` 动作无条件拒绝，自定义规则不能覆盖。
+   `L3Irreversible`、`High`、`Critical` 动作无条件拒绝；污点上下文的
+   `AllowWithConfirmation` 只允许 `Once`，自定义规则不能恢复 `ThisTask`。
 3. **deny 优先**：任一命中的 deny 规则压过所有 allow / confirmation 规则。
 4. **判定是纯函数**：同样输入重复求值必须得到同样输出；判定路径没有 IO、时钟、随机数
    或全局可变状态。
@@ -90,9 +92,12 @@ DSL v0 使用 JSON（不引入 TOML 依赖）。所有五条架构示例规则�
   任意允许模式一定线性时间。
 - 路径校验要求调用方提供平台解析后的绝对路径；未提供或提供错误解析结果时，本 crate
   无法单独发现符号链接逃逸。
+- taint 的来源与清除时机不由本 crate 决定；调用方必须提供正确的 `tainted` 布尔值，
+  本轮不在 policy 内持久化会话状态。
 
 ## 相关文档
 
 `cross-platform-ai-assistant-architecture-v2.md` §8.7 / §9.1 / §12.2 / §12.3 / §12.4、
+`docs/adr/0080-taint-tracking-and-permission-decay.md`、
 `docs/spec/error-codes.md`、`docs/spec/capability-matrix.md`、
 `docs/spec/tool-schema.md`、`tasks/TASK-021-policy-whitelist-risk-default-deny.md`。

@@ -8,6 +8,9 @@ use crate::{
 use assistant_protocol::RiskLevel;
 use std::collections::HashSet;
 
+#[path = "taint.rs"]
+mod taint;
+
 const MAX_RULES: usize = 256;
 const DEFAULT_DENY_RULE_ID: &str = "default_deny";
 const IRREVERSIBLE_UNATTENDED_RULE_ID: &str = "block_irreversible_unattended";
@@ -118,9 +121,14 @@ impl RuleSet {
                     show_diff,
                 } => {
                     if confirmation.is_none() {
+                        let scope_options = if context.tainted {
+                            taint::decay_confirmation_scopes(scope_options)
+                        } else {
+                            scope_options.clone()
+                        };
                         confirmation = Some(Decision::AllowWithConfirmation {
                             rule_id: rule.id.as_str().to_owned(),
-                            scope_options: scope_options.clone(),
+                            scope_options,
                             show_diff: *show_diff,
                         });
                     }
