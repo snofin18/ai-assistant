@@ -33,7 +33,7 @@
 | 0024 | `0024-spike-toolchain-dependencies-and-gate-coverage.md` | Accepted | Spike 工具链 / 依赖 / 门禁覆盖（`windows` crate UIA、`spike-deny`、`.ps1` 纯 ASCII） |
 | 0025 | `0025-hygiene-rule-count-unification.md` | Accepted → **Superseded**（by ADR-0030） | 仓库卫生规则总数 = 13（gov §5 表格行数为唯一事实源）— CI 门禁计数口径 = 17 行清单 ↔ 16 个步骤（7 硬 + 9 软）已被 ADR-0030 §决策 1 改为 18 行 ↔ 17 步骤 = 8 硬 + 9 软；supersede 关系 = 扩 #12b 子编号而非推翻（hygiene 13 项 SSOT 仍生效）（gov §5.4 表格行数为唯一事实源） |
 | 0026 | `0026-adr-number-registry-and-0019-collision.md` | Accepted | 建立本登记表 + 修正 0019 号双重占用（待建号 0019 → 0027；章程 W4 修正） |
-| **0027** | `0027-test-only-lint-allowlist.draft.md` | **Draft** | 三项 lint（`unwrap_used` / `expect_used` / `panic`）只允许在 `#[cfg(test)] mod tests` 豁免；产品代码不得按本决定放宽 |
+| **0027** | `0027-test-only-lint-allowlist.md` | **Accepted** | 三项 lint（`unwrap_used` / `expect_used` / `panic`）只允许在 `#[cfg(test)] mod tests` 豁免；产品代码不得按本决定放宽（TASK-251；2026-10-07 按预授权代为裁决；`PL-098` / `DRIFT-W3-1` 闭环） |
 | 0028 | `0028-file-rewrite-mutex-protocol.md` | Accepted | 文件改写互斥锁协议（`xtask guard`：按文件加锁、等待、超时放弃、放弃必须通报） |
 | 0029 | `0029-nightly-automation-back-to-codex-scheduled-tasks.md` | Accepted | 夜间自动化的投递机制改回 **Codex 官方 scheduled tasks**（取代 ADR-0018 的任务计划程序方案） |
 | 0030 | `0030-machine-verified-memory-counts-and-adr-index.md` | Accepted | 「记忆规模计数」与「本登记表」由手工维护改为机器校验（`xtask memory-counts` / `adr-index`） |
@@ -91,9 +91,9 @@
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由
-`0027-test-only-lint-allowlist.draft.md` 落成 **Draft**，仍需人类批准后才转正式状态。
+`0027-test-only-lint-allowlist.md` 落成 **Accepted**（TASK-251，2026-10-07）。
 
-> 编号**不连续是正常的**：本表只列已登记项；0016 / 0017 / 0020 / 0027 已由 W4 落成 Draft。
+> 编号**不连续是正常的**：本表只列已登记项；0016 / 0017 / 0020 已由 W4 落成 Draft，0027 已由 TASK-251 转 Accepted。
 
 ## 2. 已决定、但尚未写成 ADR 文件的编号（`[ADR:待建 NNNN]`）
 

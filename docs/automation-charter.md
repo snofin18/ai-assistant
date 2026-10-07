@@ -541,7 +541,7 @@ cron（standalone）与 heartbeat **两种形态**都验过（GATE-0.2）；触�
 
 ### W3　`docs/spec/testing.md` 草案（白盒测试策略）
 
-- [ ] 未完成
+- [x] 已完成（2026-10-07 TASK-251 / round 4：ADR-0027 由 Draft 转 Accepted，`docs/spec/testing.md` §4.4 测试 lint 允许清单落地；`PL-098` / `DRIFT-W3-1` 闭环；commit `<merge-hash 回填>`）
 - **目标**：写出白盒测试契约草案，**文件头必须标注** `状态：Draft（待人类批准）`。
   至少覆盖：① 四类可测试性接缝（纯函数规则 / 输出注入 `&mut dyn Write` / IO 集中在边界 /
   阈值为 `pub const`）② 测试命名 `test_<unit>_<condition>_<expected>` ③ 允许在
