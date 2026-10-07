@@ -248,3 +248,7 @@
 ## 2026-10-07 追加（ADR-0081，Accepted）
 
 - [2026-10-07][DECISION][src:ADR-0081，按用户 2026-10-07「授权你按你说的做」授权；TASK-054；`DRIFT-054-1` 闭环] **core 新增干净上下文复核组件**：`CleanContextReview` 只接收 `SessionSnapshot::goal()` 中的用户原始请求和调用方构造、经校验的 `HighRiskStepSummary`；复核请求只有 `System` 指令 + JSON 数据载荷，无 Tool / 外部内容，不使用工具，temperature `0.0`。注入的独立 `ModelProvider` 必须返回严格 JSON：`verdict` 只能是 `consistent` / `inconsistent`，`reason` 必须合法；空输出、超限、ToolCall、未知字段或非法 verdict 一律 fail-closed。`Rejected` 由 `ensure_allowed` 转为 `PolicyDenied`，Provider 失败保留原 `ErrorCode`，非法输入 / 非法模型输出分别映射 `ToolInvalidArgs` / `ModelInvalidOutput`。复核不写 `SessionManager`、不改 taint、不替代 policy / HITL。**新增 core 公开组件但不改依赖白名单、protocol / IPC / DB schema，不新增依赖或 crate。**
+
+## 2026-10-07 追加（ADR-0082，Accepted）
+
+- [2026-10-07][DECISION][src:ADR-0082，按用户 2026-10-07「合并 PR #270，并授权你先立 ADR-0082 + 最小扩权」授权；TASK-052] **指令来源归因采用 core 纯模型**：新增 `InstructionOrigin` 与 `InstructionAttribution`，稳定 token 固定为 `user_request` / `plan_derived` / `app_content` / `tool_suggestion`；`plan_derived` 必须携带非空 `parent_goal`，`app_content` / `tool_suggestion` 必须携带非空 `source_ref`，`user_request` 不得携带这两类元数据，非法 token / 组合 fail-closed。`app_content` 仅标记为高风险来源信号，不自行放行或拒绝；policy / HITL 仍是唯一放行点，UI 对 `app_content` 继续默认拒绝并要求显式覆盖。**不改 `PlanStep` / `PolicyDecision` / `ApprovalRequest` / audit-event schema / IPC / DB，不新增依赖或 crate**；跨层写入归因另立后续 ADR。

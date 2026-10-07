@@ -27,6 +27,8 @@ task-engine Plan contract.
   storage retrieval hits, preserving source references and omission reasons.
 - Run clean-context review for high-risk Steps through an injected
   `ModelProvider`, using only the session goal and a validated Step summary.
+- Define the canonical `InstructionOrigin` tokens and validate per-origin
+  attribution metadata (`parent_goal` / `source_ref`).
 
 ## Boundaries
 
@@ -48,6 +50,9 @@ task-engine Plan contract.
 - **No permission decision or session mutation in clean-context review.** The
   reviewer returns a typed decision or fail-closed error; policy / HITL remain
   the final gates.
+- **No permission decision or persistence in instruction attribution.** An
+  `app_content` origin is a high-risk signal; policy / HITL still decide whether
+  an action may proceed.
 
 ## Invariants
 
@@ -79,6 +84,9 @@ task-engine Plan contract.
 14. Clean-context review only accepts `SessionSnapshot::goal()` plus a
     validated `HighRiskStepSummary`; Tool / document / web content never enters
     the prompt, and review calls never append messages or change taint.
+15. Instruction origins use only `user_request` / `plan_derived` /
+    `app_content` / `tool_suggestion`; unknown tokens and invalid metadata
+    combinations fail closed.
 
 ## Typical Use
 
@@ -171,6 +179,10 @@ Core.
   binary assembly layer must invoke it before high-risk Steps and treat every
   provider or parsing failure as fail-closed; the model-provided reason is
   untrusted display text.
+- Instruction attribution is a canonical pure value. This crate does not yet
+  persist it in audit events or carry it through IPC / ApprovalRequest; those
+  cross-layer schema changes require a later contract and are intentionally out
+  of scope for this card.
 
 ## Related Documents
 
@@ -178,8 +190,9 @@ Core.
 - `docs/adr/0053-core-orchestration-layer-interface.md`
 - `docs/adr/0080-taint-tracking-and-permission-decay.md`
 - `docs/adr/0081-clean-context-review-component.md`
+- `docs/adr/0082-instruction-origin-attribution.md`
 - `cross-platform-ai-assistant-architecture-v2.md` sections 7.1, 7.2, 11.3,
-  12.4, and 15.
+  10.5, 12.4, and 15.
 - `tasks/TASK-028-core-session-context.md`
 - `tasks/TASK-207-core-planner-plan-step-dag.md`
 - `tasks/TASK-208-core-memory-app-map-fts-retrieval.md`

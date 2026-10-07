@@ -3,7 +3,7 @@
 //! Core orchestration components for session lifecycle, message trees, context
 //! selection, trimming, compression, token budgeting, model-output planning,
 //! App Map loading, bounded memory projection, and clean-context review for
-//! high-risk Steps.
+//! high-risk Steps, plus canonical instruction-origin attribution.
 //!
 //! The crate does not assemble other components or hold a database connection.
 //! A binary creates [`SessionManager`], [`ContextManager`], and [`Planner`]
@@ -47,6 +47,7 @@ mod error;
 mod identifiers;
 mod memory;
 mod message;
+mod origin;
 mod planner;
 mod session;
 mod store;
@@ -69,6 +70,7 @@ pub use message::{
     ContextRetention, MessageContent, MessageNode, MessageNodeParts, MessageRole, SessionSnapshot,
     SessionSnapshotParts, SessionStatus,
 };
+pub use origin::{InstructionAttribution, InstructionOrigin, OriginError, OriginResult};
 pub use planner::{Planner, PlannerRequest};
 pub use session::{NewMessage, SessionClock, SessionManager};
 pub use store::{MemorySessionStore, SessionStore};

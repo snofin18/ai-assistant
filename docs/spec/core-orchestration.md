@@ -1,6 +1,6 @@
 # spec: `core` 编排层（core-orchestration）
 
-> 摘要：`assistant-core` 的**编排组件**契约 —— 会话 / 上下文 / Planner / Memory 四组组件，以及独立的干净上下文复核组件的接口面、依赖白名单、错误语义与边界。
+> 摘要：`assistant-core` 的**编排组件**契约 —— 会话 / 上下文 / Planner / Memory 四组组件，以及独立的干净上下文复核组件和指令来源归因值模型的接口面、依赖白名单、错误语义与边界。
 > 状态：Draft（由 **ADR-0053** 授权建立；随实现卡落地逐条硬化）　版本：0.1　日期：2026-09-26
 > 上位：`AGENTS.md` §2（十条铁律）、`docs/adr/0053-core-orchestration-layer-interface.md`、架构 v2 §5 / §7 / §8.3 / §11.3 / §13.1.1
 > 强制性：**本文档是契约**。违反即 Reviewer 拒绝合并；能机器化的部分随实现卡接入 `xtask`。
@@ -19,7 +19,7 @@
 **管**：
 
 - `assistant-core` 的**依赖白名单 / 黑名单**（ADR-0053 D2 / D3）
-- 四组组件的职责与边界（会话 / 上下文 / Planner / Memory），加上安全复核组件的结构边界
+- 四组组件的职责与边界（会话 / 上下文 / Planner / Memory），加上安全复核组件与指令来源归因值模型的结构边界
 - `core` 的**错误语义**（何时返回哪个 `ErrorCode` / 何时必须 fail-closed）
 - 「不重定义别家类型」的清单（`task-engine` / `protocol` / `storage`）
 
@@ -41,6 +41,7 @@
 | **Planner** | 模型输出 → 可校验的 Plan / Step DAG | `ModelProvider` 的补全结果 + 工具目录（`protocol::ToolSchema` **参数传入**） | `task-engine` 的 `Plan` / `PlanStep` | 无（Plan 的持久化归 `task-engine`） | 不重新定义 `Plan` / `Step`；不放行任何工具；`effect` / `reversibility` 只从 ToolSchema 注入，模型自报即拒绝（ADR-0055） |
 | **Memory** | App Map 加载 + 检索 | App Map 文件、检索查询 | 按需片段（含来源与置信信息） | 检索走 `assistant-storage` 的检索 API | 不做向量检索（阶段 1 Out of scope）；不把 App Map 内容当可信输入 |
 | **CleanContextReview** | 高风险 Step 前做干净上下文一致性复核 | 用户原始请求（`SessionSnapshot::goal()`）+ 已校验的 `HighRiskStepSummary` + 注入 `ModelProvider` | `Allowed` / `Rejected`；不一致或失败均 fail-closed | 无（不写会话、不写 audit） | 不得接收 Tool / 网页 / 文档原文；不得改变 taint；不得替代 policy / HITL 的放行与人工确认 |
+| **InstructionOrigin** | 表达并校验动作的指令来源归因 | 四类稳定 token + 按来源类型所需的元数据 | 已校验的 `InstructionAttribution`；未知 token / 非法组合 fail-closed | 无（本卡不写 audit / IPC / DB） | 不判定权限；`app_content` 只作高风险信号；UI 仍须默认拒绝并显式覆盖 |
 
 ## 4. 不变量
 
@@ -55,6 +56,7 @@
 9. **无 `unsafe`**：`crates/core` 保持 `#![deny(unsafe_code)]`（workspace `[lints]` 亦 deny）。
 10. **可装配性**：`core` 的每个组件都可由 binary **构造 + 注入**（不依赖全局单例、不在 `core` 内 new 出别家的实现）。
 11. **干净上下文复核隔离**：`CleanContextReview` 只接受用户原始请求与结构化 Step 摘要；复核请求不得含 `MessageRole::Tool` 或外部原文，且不得修改 `SessionManager` / taint（ADR-0081）。
+12. **指令来源归因稳定**：只允许 `user_request` / `plan_derived` / `app_content` / `tool_suggestion`；`plan_derived` 必须带父目标，`app_content` / `tool_suggestion` 必须带来源引用，未知 token / 非法组合一律失败（ADR-0082）。
 
 ## 5. 与其他 spec 的关系
 
@@ -67,6 +69,7 @@
 | §4 不变量 3 | `docs/spec/error-codes.md` | `core` 返回的错误必须带 `ErrorCode`；不得新增 `ErrorCategory` |
 | §4 不变量 8 | `docs/spec/testing.md` | 可回放要求 = 回放类测试（无真实 IO / 网络）的前提 |
 | §3 CleanContextReview 行 / §4 不变量 11 | `docs/adr/0081-clean-context-review-component.md` | 干净上下文复核组件的输入边界、失败语义与不替代 policy / HITL 的约束 |
+| §3 InstructionOrigin 行 / §4 不变量 12 | `docs/adr/0082-instruction-origin-attribution.md` | 指令来源 token、归因元数据校验与“不判定权限”的约束 |
 
 ## 6. 错误与失败语义
 
@@ -93,3 +96,4 @@
 |---|---|---|
 | 2026-09-26 | 建立本 spec：四组组件接口面 + 依赖白名单 + 错误语义 + 与其他 spec 的关系 | **ADR-0053**（TASK-028 的 DRIFT-028-1 / 028-3 裁决落地） |
 | 2026-10-07 | 增加独立 `CleanContextReview` 组件行、输入隔离不变量与 ADR-0081 关联 | **ADR-0081**（TASK-054；`DRIFT-054-1` 裁决落地） |
+| 2026-10-07 | 增加 `InstructionOrigin` 值模型行、来源校验不变量与 ADR-0082 关联 | **ADR-0082**（TASK-052；最小扩权授权落地） |

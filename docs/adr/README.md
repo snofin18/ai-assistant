@@ -88,8 +88,9 @@
 | **0079** | `0079-visual-observation-source-wiring.md` | **Accepted** | `visual_assert` 的图像来源由宿主层接通：`ObservationCollector::observe_visual` 默认返回 `None`，生产 `StorageVisualObservationCollector` 只从成功信封的 blob 元数据读取参考图 / 实测图，经装配拥有的 storage 读取 BGRA、按固定 Rec.709 整数口径转灰度，再走 `verify_postconditions_with_receipt_and_visual`；像素不进 JSON / IPC / `Observation`（TASK-249；2026-10-06 按用户「继续 TASK-247」授权） |
 | **0080** | `0080-taint-tracking-and-permission-decay.md` | **Accepted** | 污点追踪是 `SessionManager` 的运行时状态：Tool 消息置污、User 消息或 `clear_taint` 清除；恢复时从消息角色序列保守重算。policy 在 `tainted=true` 时把所有确认范围降级为 `Once`，高风险 / L3 强制拒绝不变；不改快照 / DB schema / protocol（TASK-051；2026-10-07 按用户「可以继续进行下一步」授权） |
 | **0081** | `0081-clean-context-review-component.md` | **Accepted** | `core` 新增 `CleanContextReview` 公开组件：只接收 `SessionSnapshot::goal()` 的用户原始请求与已校验的高风险 Step 摘要，用注入的独立 `ModelProvider` 做严格 JSON 复核；不一致返回 `PolicyDenied`。复核请求不含 Tool / 外部内容、不写入会话、不改变 taint；组件不替代 policy / HITL，不改 protocol / IPC / DB schema（TASK-054；2026-10-07 按用户「授权你按你说的做」授权；`DRIFT-054-1` 闭环） |
+| **0082** | `0082-instruction-origin-attribution.md` | **Accepted** | `core` 新增纯模型 `InstructionOrigin` / `InstructionAttribution`：固定 `user_request` / `plan_derived` / `app_content` / `tool_suggestion` 四类 token，按来源校验父目标 / 来源引用，`app_content` 只作为高风险信号；UI approval 继续默认拒绝 `app_content`。**不**改 policy / `PlanStep` / `PolicyDecision` / `ApprovalRequest` / audit schema / IPC / DB（TASK-052；2026-10-07 按用户「合并 PR #270，并授权你先立 ADR-0082 + 最小扩权」授权） |
 
-**下一个可用编号：0082**（= §1 与 §2 已用最大号 **0081** + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0083**（= §1 与 §2 已用最大号 **0082** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由
