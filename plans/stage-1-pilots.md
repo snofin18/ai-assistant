@@ -6,6 +6,7 @@
 > **TASK-252 ✅（2026-10-07）**：补齐 2026-10-07 运行日阶段报告 —— `docs/automations/2026-10-07-report.md` 汇总四轮任务、代码/回填 PR、merge hash、CI、偏差与遗留；ADR-0054 的“先落地、再自删”欠账闭环；零产品代码改动。
 > **TASK-051 ✅（2026-10-07）**：污点追踪 + 权限衰减 —— Tool 消息置污、User / `clear_taint` 清除，恢复时从消息角色重算；policy 在 tainted 下把确认范围降级为 `Once`，高风险 / L3 拒绝不变；ADR-0080，不新增依赖 / DB schema。
 > **TASK-054 ✅（2026-10-07）**：干净上下文复核第 4 层 —— `CleanContextReview` 只接收 session goal + 已校验 Step 摘要，注入独立 `ModelProvider` 做严格 JSON 复核；不一致 fail-closed，无 Tool / 外部内容进入 prompt，不写会话、不改 taint；ADR-0081；实现与专项测试已拆分。
+> **TASK-052 ✅（2026-10-07）**：指令来源归因 —— core 新增四类稳定 token 与 `InstructionAttribution` 元数据校验，`app_content` 只作高风险信号；UI approval 保持默认拒绝与显式覆盖，token / 展示测试已补齐；ADR-0082。
 > **TASK-053 ✅（2026-10-07）**：静态注入靶页 fixture 落地 —— visible / hidden / aria-hidden / HTML comment / fake system / meta 六类 marker，5 条正常产品提取记录；显式离线与 CSP 边界；PR #260 / merge `79b5566`。
 > **TASK-050 ✅（2026-10-07）**：ADR 0007 三档出域策略落地 —— `crates/dlp` 应用覆盖替换默认、内容类型覆盖只收紧、egress-destination 白名单默认拒绝、`local_only` 无本地模型显式失败、策略变更返回可审计记录；专项 22 passed；PR #258 / merge `51bbb27`。
 > **TASK-244 ✅（2026-10-06）**：PL-022 机器派生计数收口 —— gov §5.4 表格行数为 hygiene 总数 SSOT；gov §5.1 与 ci.yml 的 # gov-gate 标记集合一致，缺失 / 重复 / 额外 / 不可解析均 exit 1。
@@ -210,7 +211,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **049** | 专用 profile 管理：自定义 `--user-data-dir` 生命周期 + 独立窗口标识 + **禁止复制用户 profile** 的硬约束 + 首次登录引导 | `crates/browser-profile/**` | 048 | M | 136+ 约束正确处理；代码审查确认无任何 Cookie/凭据复制路径 |
 | **050 ✅** | `dlp`：三档出域策略（`local_only`/`redacted`/`full`）+ 逐应用与逐内容类型覆盖 + 脱敏规则 + endpoint 白名单 + **降级不静默** | `crates/dlp/**` | 014,026 | L | 选 `local_only` 而无本地模型时**明确报错**而非改走云端；策略变更写审计 |
 | **051 ✅** | 污点追踪 + 权限衰减：`untrusted` 内容引入后标记生效，宽授权降级为 `once`，高风险 deny | `crates/policy/src/taint**`、`crates/core/src/session**` | 021,020 | M | v2 §12.4 四层中第 2/3 层生效；污点只能由 SessionManager 清除（**不变量写进 README**） |
-| **052** | 来源归因：每个动作记录 `instruction_origin`（user_request/plan_derived/app_content/tool_suggestion）+ UI 展示 | `crates/core/src/origin**`、`apps/desktop-ui/src/features/approval/**` | 027,030 | M | `app_content` 来源在卡片上标红且默认拒绝 |
+| **052 ✅** | 来源归因：每个动作记录 `instruction_origin`（user_request/plan_derived/app_content/tool_suggestion）+ UI 展示 | `crates/core/src/origin**`、`apps/desktop-ui/src/features/approval/**` | 027,030 | M | `app_content` 来源在卡片上标红且默认拒绝 |
 | **053 ✅** | 注入靶页 fixture：可见指令 / 隐藏元素指令 / HTML 注释 / 伪系统提示 + 一个正常提取任务 | `fixtures/web/injection-target/**` | 001 | S | 页面可本地打开（`file://` 或本地 http），无需外网 |
 | **054 ✅** | 干净上下文复核（第 4 层）：高风险动作前用不含外部内容的小模型复核一致性 | `crates/core/src/verify_review**`、`crates/model-gateway/**` | 026,051 | M | 不一致 → 拒绝并告警；复核调用本身不计入污点上下文 |
 | **055** | Edge Adapter：CDP 工具集（读取/填表/导航/下载）+ 外壳 UIA 工具（地址栏/标签/下载栏）+ 站点黑名单（银行/支付/密码修改）+ interrupts（Cookie 横幅/登录墙/验证码 → NeedsHuman） | `adapters/browser.edge/**`、`adapters/browser.chrome/**` | 048,049 | L | **禁止绕过验证码**；黑名单命中即拒绝；标签身份用 URL+标题+自定义标记组合，不用 tab index |
@@ -335,7 +336,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-049 | 1c | `tasks/TASK-049-browser-profile-no-copy-user-profile.md` | Ready（批次表占位派单前补全） |
 | **TASK-050 ✅** | 1c | `tasks/TASK-050-dlp-three-tier-egress-local-only-redacted-full.md` | Done（ADR 0007；`crates/dlp` 22 专项测试） |
 | **TASK-051 ✅** | 1c | `tasks/TASK-051-taint-tracking-permission-decay.md` | Done（ADR-0080：Tool 置污 / User 清除 / 恢复重算；tainted 确认降级为 Once） |
-| TASK-052 | 1c | `tasks/TASK-052-instruction-origin-attribution-ui.md` | Ready（批次表占位派单前补全） |
+| **TASK-052 ✅** | 1c | `tasks/TASK-052-instruction-origin-attribution-ui.md` | Done（ADR-0082：core 四类 token + 归因元数据校验；UI token / 展示测试；PR / merge hash 待回填） |
 | **TASK-053 ✅** | 1c | `tasks/TASK-053-injection-target-fixture-visible-hidden.md` | Done（静态注入靶页 fixture；PR #260 / merge `79b5566`） |
 | **TASK-250 ✅** | 治理池 | `tasks/TASK-250-refscan-pending-adr-registry-source.md` | Done（`refscan` 待建 ADR 集合对齐登记表 §2；正负测试覆盖 Draft / 已建号；PL-099 / DRIFT-W4-1 闭环；PR #262 / merge `7be80b6`） |
 | **TASK-251 ✅** | 治理池 | `tasks/TASK-251-test-only-lint-allowlist-spec.md` | Done（ADR-0027 Accepted + `docs/spec/testing.md` §4.4 测试 lint 允许清单；PL-098 / DRIFT-W3-1 闭环，章程 §13 W3 勾选） |

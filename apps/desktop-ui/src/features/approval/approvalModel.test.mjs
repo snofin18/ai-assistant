@@ -5,6 +5,7 @@ import {
   approvalControllerReducer,
   createInitialApprovalControllerState,
   getApprovalBlockReason,
+  instructionOrigins,
   parseApprovalCardModel,
 } from "./approvalModel.ts";
 
@@ -55,6 +56,25 @@ test("test_parse_approval_card_valid_model_preserves_fields", () => {
   assert.equal(result.ok, true);
   assert.equal(result.model.action, "notepad.replace_text");
   assert.deepEqual(result.model.scopeOptions, ["once", "this_task"]);
+});
+
+test("test_instruction_origin_tokens_match_core_contract", () => {
+  assert.deepEqual(
+    [...instructionOrigins],
+    ["user_request", "plan_derived", "app_content", "tool_suggestion"],
+  );
+});
+
+test("test_plan_derived_and_tool_suggestion_origins_are_accepted", () => {
+  for (const instructionOrigin of ["plan_derived", "tool_suggestion"]) {
+    const result = parseApprovalCardModel(createModel({ instructionOrigin }));
+    assert.equal(result.ok, true);
+    assert.equal(result.model.instructionOrigin, instructionOrigin);
+    assert.equal(
+      getApprovalBlockReason(result.model, createInitialApprovalControllerState(result.model)),
+      "approval.error.scope_required",
+    );
+  }
 });
 
 test("test_approval_app_content_requires_explicit_override_before_approval", () => {
