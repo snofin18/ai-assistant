@@ -95,6 +95,9 @@ rg -n -F "PL-057" docs/PARKING_LOT.md
 - `xtask hygiene` → 0E/100W；`memory-counts` / `adr-index` / `refscan` / `check-ledger` /
   `verify-schemas` / `codegen --check` / `check-migrations` → 0E/0W。
 - `docscan` → 0E/273W；`card-check` → 0E/34W；`check-comments` → 0E/71W；全部 PASSED。
+- PR #280 的 pull_request run `37685893175` → **11/11 SUCCESS**；合并前
+  `baseRefName=main`、`mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`、`state=MERGED`；
+  merge hash = `1a7037f`。
 
 ### 4. DoD 逐条核对
 
@@ -120,7 +123,6 @@ PL-057 已由后续 ADR-0051 / ADR-0054 / ADR-0078 在事实上修复；本轮�
 
 ### 7. 遗留问题
 
-- PR / CI / merge hash 待回填。
 - TASK-044 / `DRIFT-044-1` / `PL-113` 的真实 Paint GUI 验收仍为人工阻塞。
 
 ### 8. 新增长期记忆
