@@ -1,6 +1,6 @@
 # TASK-052　来源归因：每个动作记录 `instruction_origin`（user_request/plan_derived/app_content/tool_suggestion）+ UI 展示
 
-- 状态：**Ready**
+- 状态：**Done**
 - 阶段：1　子阶段：**1c**　批次：**1c**　依赖：027,030　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -111,7 +111,7 @@ none。人类已预先授权 ADR-0082 + 最小扩权；本卡没有新增实现�
 
 ### 7. 遗留问题
 
-跨层写入归因（audit event / IPC / `ApprovalRequest`）仍待后续 ADR + schema 卡；本卡明确不把 `is_high_risk` 当作权限决策。
+跨层写入归因（audit event / IPC / `ApprovalRequest`）仍待后续 ADR + schema 卡；本卡明确不把 `is_high_risk` 当作权限决策。人类授权收口后，卡面状态行已从 `Ready` 修正为 `Done`；正文其余内容未改。
 
 ### 8. 新增长期记忆
 
