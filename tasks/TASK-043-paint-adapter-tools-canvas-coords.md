@@ -116,6 +116,11 @@ selector 证据、坐标误差与像素容差数据。
 拆成多个半成品目录会让 TASK-044 无法得到完整契约；本轮没有新增运行时代码、公共
 接口或依赖。
 
+**独立复核跟进（2026-10-07）**：修正三处契约缺口 —— `foreground_rgb` 的
+对象 / 字符串比较不一致、`coordinate_space_kind` 输出缺失、`draw_rectangle`
+未回读 `expected_foreground_rgb`；同时移除 App Map 中把 `Ctrl+Y` 错挂到绘制
+工具的条目，并把校验脚本加强为“postcondition 引用的输出字段和模板 token 必须存在”。
+
 ### 6. 更合理做法
 
 - 不在数据包里硬编码未经验证的 AutomationId；用低分、locale-dependent 的

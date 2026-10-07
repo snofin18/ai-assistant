@@ -40,13 +40,6 @@
       "notes": "Undo depth and merge behavior must be verified with pixel evidence."
     },
     {
-      "intent": "redo_canvas_write",
-      "shortcut": "Ctrl+Y",
-      "tool": "paint.canvas.draw_rectangle",
-      "reliable": true,
-      "notes": "Redo is not a rollback path; it is only a user-authorized recovery action."
-    },
-    {
       "intent": "select_pencil",
       "shortcut": "P",
       "tool": "paint.tool.select",

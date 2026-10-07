@@ -107,26 +107,8 @@
         "output": {
           "type": "object",
           "properties": {
-            "foreground_rgb": {
-              "type": "object",
-              "properties": {
-                "red": {"type": "integer"},
-                "green": {"type": "integer"},
-                "blue": {"type": "integer"}
-              },
-              "required": ["red", "green", "blue"],
-              "additionalProperties": false
-            },
-            "previous_foreground_rgb": {
-              "type": "object",
-              "properties": {
-                "red": {"type": "integer"},
-                "green": {"type": "integer"},
-                "blue": {"type": "integer"}
-              },
-              "required": ["red", "green", "blue"],
-              "additionalProperties": false
-            }
+            "foreground_rgb": {"type": "string", "minLength": 5, "maxLength": 11},
+            "previous_foreground_rgb": {"type": "string", "minLength": 5, "maxLength": 11}
           },
           "required": ["foreground_rgb", "previous_foreground_rgb"],
           "additionalProperties": false
@@ -245,7 +227,8 @@
             },
             "zoom_ratio": {"type": "number"},
             "viewport_offset_x_px": {"type": "integer"},
-            "viewport_offset_y_px": {"type": "integer"}
+            "viewport_offset_y_px": {"type": "integer"},
+            "coordinate_space_kind": {"type": "string", "const": "physical_pixels"}
           },
           "required": [
             "screen_x_px",
@@ -253,7 +236,8 @@
             "canvas_bounds_px",
             "zoom_ratio",
             "viewport_offset_x_px",
-            "viewport_offset_y_px"
+            "viewport_offset_y_px",
+            "coordinate_space_kind"
           ],
           "additionalProperties": false
         },
@@ -328,16 +312,7 @@
               "additionalProperties": false
             },
             "expected_tool": {"type": "string", "const": "rectangle"},
-            "expected_foreground_rgb": {
-              "type": "object",
-              "properties": {
-                "red": {"type": "integer", "minimum": 0, "maximum": 255},
-                "green": {"type": "integer", "minimum": 0, "maximum": 255},
-                "blue": {"type": "integer", "minimum": 0, "maximum": 255}
-              },
-              "required": ["red", "green", "blue"],
-              "additionalProperties": false
-            },
+            "expected_foreground_rgb": {"type": "string", "minLength": 5, "maxLength": 11},
             "expected_layer_id": {"type": "string", "minLength": 1},
             "pre_snapshot_blob_id": {"type": "string", "minLength": 1}
           },
@@ -356,12 +331,14 @@
           "type": "object",
           "properties": {
             "selected_tool": {"type": "string"},
+            "foreground_rgb": {"type": "string", "minLength": 5, "maxLength": 11},
             "active_layer_id": {"type": "string"},
             "pixel_snapshot_blob_id": {"type": "string"},
             "undo_steps_recorded": {"type": "integer", "minimum": 1}
           },
           "required": [
             "selected_tool",
+            "foreground_rgb",
             "active_layer_id",
             "pixel_snapshot_blob_id",
             "undo_steps_recorded"
@@ -379,7 +356,13 @@
         {
           "kind": "value_equals",
           "name": "selected_tool",
-          "value": "rectangle",
+          "value": "{{expected_tool}}",
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "value_equals",
+          "name": "foreground_rgb",
+          "value": "{{expected_foreground_rgb}}",
           "error_code": "VerifyFailed"
         },
         {

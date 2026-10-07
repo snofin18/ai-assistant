@@ -121,12 +121,27 @@ def main() -> int:
                   f"tool {name}: high risk requires approval")
         check(isinstance(schema.get("input"), dict), f"tool {name}: input schema missing")
         check(isinstance(schema.get("output"), dict), f"tool {name}: output schema missing")
+        input_properties = set(schema.get("input", {}).get("properties", {}))
+        output_properties = set(schema.get("output", {}).get("properties", {}))
         postconditions = entry.get("postconditions", [])
         check(postconditions, f"tool {name}: at least one postcondition required")
         for postcondition in postconditions:
             check("assert" not in postcondition, f"tool {name}: free-form assert is forbidden")
             check(postcondition.get("kind"), f"tool {name}: postcondition kind missing")
             check(postcondition.get("error_code"), f"tool {name}: postcondition error_code missing")
+            postcondition_name = postcondition.get("name")
+            if postcondition.get("kind") in {"value_equals", "value_in_range"} and postcondition_name:
+                check(postcondition_name in output_properties,
+                      f"tool {name}: postcondition references missing output field {postcondition_name}")
+            for token_name in re.findall(r"\{\{([a-z0-9_]+)\}\}", str(postcondition.get("value", ""))):
+                check(token_name in input_properties or token_name in output_properties,
+                      f"tool {name}: postcondition token {token_name} is not declared")
+        for input_name in input_properties:
+            if input_name.startswith("expected_"):
+                token = "{{" + input_name + "}}"
+                check(any(token in str(postcondition.get("value", ""))
+                          for postcondition in postconditions),
+                      f"tool {name}: input {input_name} is not read back in a postcondition")
 
     recipes = rollback.get("recipes", [])
     check(recipes, "rollback/recipes.json: recipes missing")
