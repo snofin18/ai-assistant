@@ -37,6 +37,25 @@ acceptance run:
 Calibrating these selectors is outside TASK-044's write scope and needs its own
 card before the real ten-run acceptance can run.
 
+The same probe captured the full real ControlView tree (`real_control_tree`) and
+compared the runtime handlers against it (`handler_contract_probe`). Selector
+calibration alone is not enough: TASK-106's handlers were validated only against
+a fake platform that mirrors the handler's own expectations.
+
+- `paint.tool.select` reads the tool button text back and expects the English
+  tool id (`rectangle`); the real rectangle `GridViewItem` exposes the localized
+  Name `矩形` and has no AutomationId.
+- `paint.color.select_foreground` calls `set_value(button, "R,G,B")` and expects
+  that exact read-back; the real foreground control is a `RadioButton` named
+  `颜色 1: 黑色` with no settable value.
+- `paint.layer.select` needs a `ListViewItem`; the layers panel is collapsed by
+  default and the tree contains no `ListView`/`ListItem` at all.
+- `paint.document.new` resolves `status_bar`; no StatusBar-role element exists,
+  and the canvas size is exposed by `CanvasSizeTextBlock` as `418 × 74像素`.
+
+These read-back and anchor contracts need a design decision, so the unblocking
+card is a Paint real-contract calibration, not a selector-only edit.
+
 Validate the declarations with:
 
 ```powershell

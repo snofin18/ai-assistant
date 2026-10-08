@@ -166,6 +166,134 @@
     ],
     "conclusion": "The provisional selector pack cannot drive TASK-044's real ten-run acceptance: main_window fails outright and the canvas / rectangle candidates are ambiguous. Calibrating these selectors is outside TASK-044's write scope."
   },
+  "real_control_tree": {
+    "observed_at": "2026-10-08",
+    "method": "temporary Rust UIA probe under target/paint_probe (not committed); ControlView tree of the live Paint 11.2605.81.0 window",
+    "window": {
+      "class": "MSPaintApp",
+      "role": "Window",
+      "automation_id": "",
+      "notes": "the only top-level mspaint.exe window that carries the app UI"
+    },
+    "controls": [
+      {
+        "target_hint": "canvas_host",
+        "class": "Microsoft.UI.Content.DesktopChildSiteBridge",
+        "role": "Pane",
+        "automation_id": ""
+      },
+      {
+        "target_hint": "canvas",
+        "class": "NamedContainerAutomationPeer",
+        "role": "Group",
+        "automation_id": "image",
+        "bounds_px": [696, 525, 905, 562]
+      },
+      {
+        "target_hint": "status_bar",
+        "class": "TextBlock",
+        "role": "Text",
+        "automation_id": "CanvasSizeTextBlock",
+        "visible_name": "418 × 74像素",
+        "notes": "there is no StatusBar-role element; this TextBlock is the canvas-size read-back"
+      },
+      {
+        "target_hint": "zoom_combo",
+        "class": "ComboBox",
+        "role": "ComboBox",
+        "automation_id": "ZoomValuesComboBox"
+      },
+      {
+        "target_hint": "zoom_slider",
+        "class": "Slider",
+        "role": "Slider",
+        "automation_id": "ZoomSliderControl"
+      },
+      {
+        "target_hint": "pencil_tool_button",
+        "class": "ToggleButton",
+        "role": "Button",
+        "automation_id": "PencilTool",
+        "visible_name": "铅笔"
+      },
+      {
+        "target_hint": "eraser_tool_button",
+        "class": "ToggleButton",
+        "role": "Button",
+        "automation_id": "EraserTool",
+        "visible_name": "橡皮擦"
+      },
+      {
+        "target_hint": "rectangle_tool_button",
+        "class": "GridViewItem",
+        "role": "ListItem",
+        "automation_id": "",
+        "visible_name": "矩形",
+        "parent_chain": ["NamedContainerAutomationPeer(name=形状)", "GridView"]
+      },
+      {
+        "target_hint": "foreground_color_button",
+        "class": "RadioButton",
+        "role": "RadioButton",
+        "automation_id": "",
+        "visible_name": "颜色 1: 黑色",
+        "parent_chain": ["NamedContainerAutomationPeer(name=颜色)"]
+      },
+      {
+        "target_hint": "palette_red",
+        "class": "GridViewItem",
+        "role": "ListItem",
+        "automation_id": "",
+        "visible_name": "红色",
+        "parent_chain": ["NamedContainerAutomationPeer(name=颜色)", "GridView"]
+      },
+      {
+        "target_hint": "layers_panel",
+        "class": "NamedContainerAutomationPeer",
+        "role": "Group",
+        "automation_id": "",
+        "visible_name": "层",
+        "child_controls": ["ToggleButton"],
+        "notes": "collapsed by default; no List / ListView is present"
+      },
+      {
+        "target_hint": "layer_item",
+        "present": false,
+        "notes": "no ListViewItem exists anywhere in the default Paint tree"
+      }
+    ]
+  },
+  "handler_contract_probe": {
+    "observed_at": "2026-10-08",
+    "method": "read apps/agent-core/src/paint_handlers.rs against the measured real tree and compare with the fake platform in apps/agent-core/tests/production_paint.rs",
+    "findings": [
+      {
+        "tool": "paint.tool.select",
+        "handler_contract": "read_text(button) must equal the English tool id, e.g. `rectangle`",
+        "real_paint": "the rectangle GridViewItem exposes the localized Name `矩形` and has no AutomationId",
+        "verdict": "the read-back can never equal `rectangle` on a zh-CN Paint"
+      },
+      {
+        "tool": "paint.color.select_foreground",
+        "handler_contract": "set_value(button, \"R,G,B\") then read_text(button) must equal \"R,G,B\"",
+        "real_paint": "the foreground control is a RadioButton named `颜色 1: 黑色`; Paint exposes no settable value for it",
+        "verdict": "set_value plus RGB read-back is unsupported by the real control"
+      },
+      {
+        "tool": "paint.layer.select",
+        "handler_contract": "select(ListViewItem, ByStableValue(layer_id)) then read_text must equal `Layer 1`",
+        "real_paint": "the layers panel is collapsed and exposes no ListViewItem; the tree has no ListView/ListItem at all",
+        "verdict": "the target element does not exist in the default Paint state"
+      },
+      {
+        "tool": "paint.document.new",
+        "handler_contract": "resolve `status_bar` and parse two integers from its text",
+        "real_paint": "no StatusBar-role element exists; the canvas size lives in TextBlock aid=CanvasSizeTextBlock as `418 × 74像素`",
+        "verdict": "the selector must point at CanvasSizeTextBlock; the integer parse itself would work"
+      }
+    ],
+    "conclusion": "TASK-106's Paint handlers were validated only against a fake platform that mirrors the handler's own expectations. Selector calibration alone cannot make T3.1 run: the tool/color/layer read-back contracts and the shape/color gallery anchors need a design decision (localized fallback versus another anchor, palette click versus the color dialog, collapsed layers panel)."
+  },
   "not_measured": [
     "real drag coordinate error",
     "ten-run success rate",

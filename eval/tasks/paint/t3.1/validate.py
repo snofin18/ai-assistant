@@ -105,6 +105,26 @@ def main() -> None:
     assert "209x37" in measured_canvas["detail"], measured_canvas
     assert "outside TASK-044's write scope" in resolution["conclusion"], resolution
 
+    # 2026-10-08 full real control tree + handler-contract mismatch. These lock
+    # in that selector calibration alone cannot unblock the acceptance run.
+    tree = probe["real_control_tree"]
+    assert tree["window"]["class"] == "MSPaintApp", tree["window"]
+    controls = {control["target_hint"]: control for control in tree["controls"]}
+    assert controls["canvas"]["automation_id"] == "image", controls["canvas"]
+    assert controls["canvas"]["bounds_px"] == [696, 525, 905, 562], controls["canvas"]
+    assert controls["status_bar"]["automation_id"] == "CanvasSizeTextBlock", controls["status_bar"]
+    assert controls["layer_item"]["present"] is False, controls["layer_item"]
+
+    contract = probe["handler_contract_probe"]
+    tools = {finding["tool"] for finding in contract["findings"]}
+    assert tools == {
+        "paint.tool.select",
+        "paint.color.select_foreground",
+        "paint.layer.select",
+        "paint.document.new",
+    }, tools
+    assert "Selector calibration alone cannot make T3.1 run" in contract["conclusion"], contract
+
     rectangle = next(
         control for control in probe["controls"] if control["target"] == "rectangle_shape"
     )

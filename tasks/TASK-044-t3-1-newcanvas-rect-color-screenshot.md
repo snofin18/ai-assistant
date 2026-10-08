@@ -135,6 +135,23 @@ class+role 兜底、`fallback_only` / `locale_dependent` 标注），再回来�
 **已停工作**：未改 `selectors/**`（不在本卡 write scope，卡面已明确 selector 校正属后续卡），
 未跑真实拖拽，未把探测数据冒充十次验收；只把实测结果落进 `eval/tasks/paint/**` 并加断言。
 
+`DRIFT-044-3`（漂移触发器 ⑤ + ⑧）：同日抓取真实 Paint 的**完整 ControlView 树**后确认，
+阻塞不止在 selector —— `apps/agent-core/src/paint_handlers.rs` 的 read-back 契约在真实控件上
+不成立，而这些契约只在 fake 平台（`tests/production_paint.rs`）被验证过：
+`paint.tool.select` 要求按钮文本等于英文工具 id（真实是本地化 `矩形` 的 `GridViewItem`、无 aid）；
+`paint.color.select_foreground` 要求 `set_value(button,"R,G,B")` 后读回同值（真实是
+`RadioButton`「颜色 1: 黑色」，无 set_value）；`paint.layer.select` 要求 `ListViewItem`（层面板
+默认折叠，整棵树没有 `ListView`/`ListViewItem`）；`paint.document.new` 解析 `status_bar`（无该角色，
+尺寸在 `TextBlock aid=CanvasSizeTextBlock`）。
+**影响**：即使 selector 全部校准，T3.1 真机 `Plan` 仍会在 `select_rectangle_tool` /
+`select_foreground_color` / `select_layer` 上失败 —— 这不是本卡能修的，也不在本卡 write scope。
+**建议**：由 **TASK-256**（`tasks/TASK-256-paint-real-contract-calibration.md`）承接，
+它同时拥有 `selectors/**` 与 `paint_handlers.rs` 写权限，并在卡面列出四条待人类裁决的设计点
+（无 aid 的调色板锚点、任意 RGB 选择路径、图层折叠态、工具 read-back 语义）。
+**已停工作**：未改 handler、未改 selector、未跑真机拖拽；只把实测树与契约错配落进
+`eval/tasks/paint/t3.1/probe-evidence.json`（`real_control_tree` + `handler_contract_probe`）
+并由 `validate.py` 断言锁定。
+
 另：2026-10-08 本卡分支因 `main` 前进到 `2e5e184` 出现冲突，已重基并复跑全套门禁；
 冲突只在 `LEDGER.md`（保留主库 TASK-253/254/255 行与本卡行）。本卡状态仍为
 `Review`，实机十次运行完成前不得标记 Done。
@@ -158,10 +175,13 @@ TASK-044 write scope 内；本卡把真实 UIA 证据落到评测目录和应用
 - `DRIFT-044-2`：**先决阻塞** —— Paint selector 包未按真实 UIA 校准（`main_window` 直接
   0 命中），真机十次验收在它修好前跑不起来。需要一张拥有
   `adapters/com.microsoft.paint/selectors/**` 写权限的校准卡。
+- `DRIFT-044-3`：**先决阻塞** —— `paint_handlers.rs` 的工具 / 颜色 / 图层 read-back 契约
+  只在 fake 平台成立，真实 Paint 给不出（无 aid 的本地化 `GridViewItem`、无 `set_value` 的
+  `RadioButton`、折叠的层面板）。只校准 selector 仍跑不通。
 - TASK-043 selector 文件需要后续集成卡按本卡探针证据更新；当前保持 provisional。
-- 归属缺口：TASK-043 的 write scope 覆盖 `adapters/com.microsoft.paint/**`（含 selectors）
-  但把真机校准交给 TASK-044，而 TASK-044 的 write scope 不含 selectors —— 目前没有一张
-  已派单的卡拥有「按实测校准 Paint selector」这件事，需 Orchestrator 裁决落点。
+- 归属缺口**已开卡**：**TASK-256**（`tasks/TASK-256-paint-real-contract-calibration.md`，
+  Ready）同时拥有 `adapters/com.microsoft.paint/**` 与 `apps/agent-core/src/paint_handlers.rs`，
+  卡面列出四条待人类裁决的设计点；`DRIFT-044-1/2/3` 全部由它承接。
 
 ### 8. 新增长期记忆
 
