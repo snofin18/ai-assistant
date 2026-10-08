@@ -20,7 +20,6 @@
 //! Related documents: ADR-0084, ADR-0085, ADR-0067, ADR-0076, and
 //! `adapters/com.microsoft.paint/tools/tools.json`.
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -141,7 +140,7 @@ pub struct PaintHandlerContext<P> {
     pub(crate) app_id: String,
     pub(crate) targets: Arc<crate::notepad_targets::NotepadTargetCatalog>,
     pub(crate) input_leases: TargetLeaseGate,
-    document_generation: AtomicU64,
+    document_generation: Mutex<u64>,
     selection: Mutex<PaintSelectionState>,
 }
 
@@ -161,7 +160,7 @@ where
             app_id,
             targets,
             input_leases,
-            document_generation: AtomicU64::new(0),
+            document_generation: Mutex::new(0),
             selection: Mutex::new(PaintSelectionState::default()),
         }
     }
@@ -720,15 +719,19 @@ where
     }
 
     fn next_document_generation(&self) -> Result<u64, ToolBusError> {
-        self.document_generation
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |current| {
-                current.checked_add(1)
-            })
-            .map(|previous| previous + 1)
-            .map_err(|_| ToolBusError::EnvelopeAssembly {
+        let mut generation = self
+            .document_generation
+            .lock()
+            .map_err(|_| unavailable("paint document generation state"))?;
+        let next = generation
+            .checked_add(1)
+            .ok_or_else(|| ToolBusError::EnvelopeAssembly {
                 tool: TOOL_DOCUMENT_NEW.to_owned(),
                 reason: "document generation reached u64::MAX".to_owned(),
-            })
+            })?;
+        *generation = next;
+        drop(generation);
+        Ok(next)
     }
 
     fn resolved_point(
