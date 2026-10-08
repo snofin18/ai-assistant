@@ -35,7 +35,7 @@
 | `decisions.md` | 258 | 95 | 索引 → `docs/adr/NNNN-*.md` |
 | `open.md` | 57 | 26 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
 | `apps/notepad.md` | 343 | 0 | 接记事本时**全量读**；8 个固定小节 |
-| `apps/paint.md` | 99 | 0 | Read fully when working on Paint; 8 fixed sections; selectors provisional before real-machine calibration |
+| `apps/paint.md` | 125 | 0 | Read fully when working on Paint; 8 fixed sections plus TASK-044 real UIA probe evidence; selectors provisional before real-machine calibration |
 | win32-input-research.md | 193 | 0 | 接 Notepad Adapter + 任何 Win32 输入操作时**全量读**（SendInput / keybd_event / SendKeys / AttachThreadInput / BlockInput / SetForegroundWindow / WindowPattern.Close / UIPI / 推荐 pipeline） |
 
 
