@@ -89,6 +89,8 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
   `check-comments` / `verify-schemas` 全 **PASSED**。
 - 2026-10-08 复跑把本分支从 `codex/task-043-merge-backfill` 重基到 `main`（`2e5e184`），
   消解 PR #275 的 `CONFLICTING` 状态；重基提交 `78bddd7`。
+- 2026-10-08 PR #275 已合并，**merge hash `c7db833`**（base `main`，pull_request 与 push
+  两条工作流全部 job pass）。
 
 ### 4. DoD 逐条核对
 
