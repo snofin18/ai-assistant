@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中；TASK-255 ✅（PL-057 旧日志路径引用收口）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> 周期 10~12 周　状态：**进行中；TASK-106 ✅（Paint T3.1 运行时装配；ADR-0085；PR #284 / merge `f5bdfa6`）；TASK-255 ✅（PL-057 旧日志路径引用收口）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
 > **TASK-255 ✅（2026-10-08）**：PL-057 闭环 —— production live 章程对 `docs/nightly/logs` 为 0 命中；旧目录不存在，fallback / 历史 / 自含证据之外不改写。
 > **TASK-254 ✅（2026-10-07）**：PL-027 闭环 —— 8 个受版本控制文本文件补齐末尾 LF；Tauri 被忽略生成目录按精确相对路径排除；`hygiene/missing-final-newline` 升为 Error；PR #278 / merge `1aa082b`。
 > **TASK-253 ✅（2026-10-07）**：ADR-0083 明确任务卡 `- 状态：` 行是正文区唯一可写例外，且必须与状态提交同批；AGENTS / gov / card-check 口径同步，`PL-073` 闭环。
@@ -332,6 +332,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-042 ✅** | 1b | `tasks/TASK-042-visual-verify-phash-dhash-confidence.md` | Done（ADR-0074 视觉验证纯逻辑；`crates/verify/src/visual/**` 零依赖 + 21 专项测试；`DRIFT-042-1` / `PL-110`） |
 | **TASK-249 ✅** | 1b bridge | `tasks/TASK-249-visual-observation-source-runtime-wiring.md` | Done（ADR-0079 宿主 blob→BGRA→GrayImage→VisualObservation；运行时 `observe_visual` + 生产 collector；专项 15 passed） |
 | **TASK-043 ✅** | 1b | `tasks/TASK-043-paint-adapter-tools-canvas-coords.md` | Done（declarative Paint Adapter pack；PR #273 / merge `a3bd2e6`；真机校准转 TASK-044，DRIFT-043-1 / PL-113） |
+| **TASK-106 ✅** | 1b | `tasks/TASK-106-paint-runtime-assembly-t3-1.md` | Done（ADR-0085 `element_bounds` + Paint T3.1 7-handler runtime assembly；PR #284 / merge `f5bdfa6`） |
 | TASK-044 | 1b | `tasks/TASK-044-t3-1-newcanvas-rect-color-screenshot.md` | Ready（批次表占位派单前补全） |
 | TASK-045 | 1b | `tasks/TASK-045-t3-2-png-open-read-region-saveas.md` | Ready（批次表占位派单前补全） |
 | TASK-046 | 1b | `tasks/TASK-046-t3-3-draw-undo-pixel-snapshot-verify.md` | Ready（批次表占位派单前补全） |
