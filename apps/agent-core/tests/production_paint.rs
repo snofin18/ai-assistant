@@ -1,5 +1,6 @@
 //! Fake-platform production acceptance for the Paint T3.1 runtime slice.
 
+#![cfg(windows)]
 #![allow(
     clippy::expect_used,
     clippy::panic,
