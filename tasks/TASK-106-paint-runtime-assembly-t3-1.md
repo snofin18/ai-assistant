@@ -141,6 +141,27 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 ### 7. 遗留问题
 
+**TASK-106 未完成部分（handler 模块，约 600 行，参照 `notepad_handlers.rs`）**：
+
+1. `paint_handlers.rs`：`PaintHandlerContext<P>`（`platform` / `app_id` / `targets` / `input_leases`）
+   + 7 个 handler；一律经 `poll_immediate` + `support::map_platform_error`，与 Notepad 同形。
+2. `build_paint_registry`：复用第二步抽出的
+   `register_declared_tools(declared, PAINT_EXPECTED_TOOL_NAMES, &handlers)`。
+3. `production.rs`：加适配器选择**具体分支**（Notepad / Paint；不用 trait —— `rejected.md`
+   明确否决「只有一个真实 Adapter 就抽象」）；把 `mounted_notepad != 5` 泛化为「与声明集精确一致」。
+4. fake 平台正向（T3.1 → `Plan` → `Completed`）+ fail-closed 负向测试。
+
+**实现前必须注意的 trait 事实（2026-10-08 核对）**：
+
+- `UiAutomationProvider` 方法面 = `snapshot_tree` / `resolve_element` / `wait_for` / `read_text` /
+  `set_value` / `edit_text` / `invoke_action` / `select` / `scroll` / `pointer_action` /
+  `key_action` / `fingerprint`；**没有 `bounds`** —— 所以 `paint.canvas.resolve_point` 的画布
+  bounds 只能取自 `snapshot_tree` 里 canvas 节点的 bounds（若需新增平台能力，另立 ADR）。
+- `draw_rectangle` 走 `pointer_action`（`DragTo`，两端显式 `CoordinateSpace`，ADR-0067）。
+- `capture_pixels` 走 `WindowProvider::capture`（ADR-0076）+ 注入的 `ImageBlobSink`。
+- Paint selectors 仍是 `probe_status=required`（未真机校准）；解析路径在真机十次验收前无法证明，
+  属 `DRIFT-044-1` / `PL-113`。
+
 ### 8. 新增长期记忆
 
 ### 9. 给审阅者的关注点
