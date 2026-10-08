@@ -33,10 +33,10 @@ use std::future::{Future, poll_fn};
 use std::task::Poll;
 
 use assistant_platform_api::{
-    CoordinateSpace, ElementQuery, ElementState, Fingerprint, FingerprintScope, KeyChord,
-    KeyTarget, NormalizedPoint, PlatformResult, PointerAction, ResolvedElement, ResolvedWindow,
-    ScrollTarget, Selection, SelectorChain, TextEditOp, Timeout, TreeOptions, TreeSnapshot,
-    UiAutomationProvider,
+    CoordinateSpace, ElementBounds, ElementQuery, ElementState, Fingerprint, FingerprintScope,
+    KeyChord, KeyTarget, NormalizedPoint, PlatformResult, PointerAction, ResolvedElement,
+    ResolvedWindow, ScrollTarget, Selection, SelectorChain, TextEditOp, Timeout, TreeOptions,
+    TreeSnapshot, UiAutomationProvider,
 };
 use windows::Win32::Foundation::HWND;
 use windows::Win32::System::Com::SAFEARRAY;
@@ -85,6 +85,13 @@ impl UiAutomationProvider for WindowsPlatform {
         chain: &SelectorChain,
     ) -> impl Future<Output = PlatformResult<ResolvedElement>> + Send {
         poll_fn(move |_context| Poll::Ready(resolve::resolve_element(scope, chain)))
+    }
+
+    fn element_bounds(
+        &self,
+        element: &ResolvedElement,
+    ) -> impl Future<Output = PlatformResult<ElementBounds>> + Send {
+        poll_fn(move |_context| Poll::Ready(tree::element_bounds(element)))
     }
 
     fn wait_for(

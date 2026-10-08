@@ -22,7 +22,10 @@
 
 use std::future::Future;
 
-use crate::error::PlatformResult;
+use serde::{Deserialize, Serialize};
+
+use crate::ErrorCode;
+use crate::error::{PlatformError, PlatformResult};
 use crate::fingerprint::Fingerprint;
 use crate::geometry::{CoordinateSpace, NormalizedPoint};
 use crate::handle::{ResolvedElement, ResolvedWindow};
@@ -100,6 +103,87 @@ impl TreeSnapshot {
     #[must_use]
     pub const fn node_count(&self) -> u32 {
         self.node_count
+    }
+}
+
+/// One resolved element's physical bounds.
+///
+/// Coordinates are global virtual-screen physical pixels under the
+/// Per-Monitor V2 contract. The right and bottom edges are exclusive.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct ElementBounds {
+    /// Left edge in physical pixels.
+    left: i32,
+    /// Top edge in physical pixels.
+    top: i32,
+    /// Right edge in physical pixels.
+    right: i32,
+    /// Bottom edge in physical pixels.
+    bottom: i32,
+}
+
+impl ElementBounds {
+    /// Creates a bounded, non-empty physical rectangle.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ToolInvalidArgs` when either axis has no positive extent.
+    pub fn new(left: i32, top: i32, right: i32, bottom: i32) -> PlatformResult<Self> {
+        if right <= left {
+            return Err(PlatformError::new(
+                ErrorCode::ToolInvalidArgs,
+                format!("element bounds right ({right}) must be greater than left ({left})"),
+            ));
+        }
+        if bottom <= top {
+            return Err(PlatformError::new(
+                ErrorCode::ToolInvalidArgs,
+                format!("element bounds bottom ({bottom}) must be greater than top ({top})"),
+            ));
+        }
+        Ok(Self {
+            left,
+            top,
+            right,
+            bottom,
+        })
+    }
+
+    /// Left edge in physical pixels.
+    #[must_use]
+    pub const fn left(&self) -> i32 {
+        self.left
+    }
+
+    /// Top edge in physical pixels.
+    #[must_use]
+    pub const fn top(&self) -> i32 {
+        self.top
+    }
+
+    /// Right edge in physical pixels (exclusive).
+    #[must_use]
+    pub const fn right(&self) -> i32 {
+        self.right
+    }
+
+    /// Bottom edge in physical pixels (exclusive).
+    #[must_use]
+    pub const fn bottom(&self) -> i32 {
+        self.bottom
+    }
+
+    /// Width in physical pixels.
+    #[must_use]
+    pub const fn width(&self) -> i32 {
+        self.right.saturating_sub(self.left)
+    }
+
+    /// Height in physical pixels.
+    #[must_use]
+    pub const fn height(&self) -> i32 {
+        self.bottom.saturating_sub(self.top)
     }
 }
 
@@ -410,6 +494,23 @@ pub trait UiAutomationProvider: Send + Sync {
         chain: &SelectorChain,
     ) -> impl Future<Output = PlatformResult<ResolvedElement>> + Send;
 
+    /// Reads one resolved element's physical bounds.
+    ///
+    /// The result is a global virtual-screen physical-pixel rectangle and does
+    /// not expose or serialize the underlying platform handle. It must be
+    /// validated against the caller's explicit `CoordinateSpace` before use
+    /// for synthetic input.
+    ///
+    /// # Errors
+    ///
+    /// A stale or thread-local element handle → `TargetNotFound`; a
+    /// non-positive / unreadable rectangle → `TargetUnresponsive`; an
+    /// unsupported platform → `CapabilityMissing`.
+    fn element_bounds(
+        &self,
+        element: &ResolvedElement,
+    ) -> impl Future<Output = PlatformResult<ElementBounds>> + Send;
+
     /// 在 `scope` 窗口内等待元素进入期望状态（**ADR-0043**）。
     ///
     /// # Errors
@@ -515,4 +616,52 @@ pub trait UiAutomationProvider: Send + Sync {
         window: &ResolvedWindow,
         scope: &FingerprintScope,
     ) -> impl Future<Output = PlatformResult<Fingerprint>> + Send;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ElementBounds;
+    use crate::ErrorCode;
+
+    #[test]
+    fn test_element_bounds_accepts_a_positive_physical_rectangle() {
+        let bounds = ElementBounds::new(10, 20, 42, 52).ok();
+        assert_eq!(
+            bounds.map(|bounds| (
+                bounds.left(),
+                bounds.top(),
+                bounds.right(),
+                bounds.bottom(),
+                bounds.width(),
+                bounds.height()
+            )),
+            Some((10, 20, 42, 52, 32, 32))
+        );
+    }
+
+    #[test]
+    fn test_element_bounds_rejects_empty_axis() {
+        assert_eq!(
+            ElementBounds::new(10, 20, 10, 52)
+                .err()
+                .map(|error| error.code()),
+            Some(ErrorCode::ToolInvalidArgs)
+        );
+        assert_eq!(
+            ElementBounds::new(10, 20, 42, 20)
+                .err()
+                .map(|error| error.code()),
+            Some(ErrorCode::ToolInvalidArgs)
+        );
+    }
+
+    #[test]
+    fn test_element_bounds_rejects_reversed_axis() {
+        assert_eq!(
+            ElementBounds::new(42, 52, 10, 20)
+                .err()
+                .map(|error| error.code()),
+            Some(ErrorCode::ToolInvalidArgs)
+        );
+    }
 }

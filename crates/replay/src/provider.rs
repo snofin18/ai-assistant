@@ -4,10 +4,11 @@ use std::future::{Future, ready};
 use std::sync::Arc;
 
 use assistant_platform_api::{
-    CaptureOptions, CoordinateSpace, ErrorCode, FocusPolicy, ImageRef, KeyChord, KeyTarget,
-    PlatformError, PlatformResult, PointerAction, ResolvedElement, ResolvedWindow, ScrollTarget,
-    Selection, SelectorChain, SelectorKind, SelectorValue, TextEditOp, Timeout, TreeOptions,
-    TreeSnapshot, UiAutomationProvider, WindowFilter, WindowInfo, WindowProvider, WindowState,
+    CaptureOptions, CoordinateSpace, ElementBounds, ErrorCode, FocusPolicy, ImageRef, KeyChord,
+    KeyTarget, PlatformError, PlatformResult, PointerAction, ResolvedElement, ResolvedWindow,
+    ScrollTarget, Selection, SelectorChain, SelectorKind, SelectorValue, TextEditOp, Timeout,
+    TreeOptions, TreeSnapshot, UiAutomationProvider, WindowFilter, WindowInfo, WindowProvider,
+    WindowState,
 };
 
 use crate::model::{RecordedNode, Recording};
@@ -109,6 +110,13 @@ impl UiAutomationProvider for ReplayUiAutomationProvider {
         chain: &SelectorChain,
     ) -> impl Future<Output = PlatformResult<ResolvedElement>> + Send {
         ready(resolve_element(&self.recording, scope, chain))
+    }
+
+    fn element_bounds(
+        &self,
+        element: &ResolvedElement,
+    ) -> impl Future<Output = PlatformResult<ElementBounds>> + Send {
+        ready(element_bounds(&self.recording, element))
     }
 
     fn wait_for(
@@ -469,6 +477,55 @@ fn read_text(recording: &Recording, element: &ResolvedElement) -> PlatformResult
                 "element has no recorded text outcome",
             )
         })
+}
+
+fn element_bounds(
+    recording: &Recording,
+    element: &ResolvedElement,
+) -> PlatformResult<ElementBounds> {
+    let handle = element.id().value();
+    let node = recording
+        .nodes()
+        .iter()
+        .find(|node| node.local_handle_id() == handle)
+        .ok_or_else(|| {
+            platform_error(
+                ErrorCode::TargetNotFound,
+                "element handle is not present in recording",
+            )
+        })?;
+    let [left, top, right, bottom] = node.bounds();
+    let left = i32::try_from(left).map_err(|_| {
+        platform_error(
+            ErrorCode::Fatal,
+            "recorded bounds left edge does not fit in i32",
+        )
+    })?;
+    let top = i32::try_from(top).map_err(|_| {
+        platform_error(
+            ErrorCode::Fatal,
+            "recorded bounds top edge does not fit in i32",
+        )
+    })?;
+    let right = i32::try_from(right).map_err(|_| {
+        platform_error(
+            ErrorCode::Fatal,
+            "recorded bounds right edge does not fit in i32",
+        )
+    })?;
+    let bottom = i32::try_from(bottom).map_err(|_| {
+        platform_error(
+            ErrorCode::Fatal,
+            "recorded bounds bottom edge does not fit in i32",
+        )
+    })?;
+    if right <= left || bottom <= top {
+        return Err(platform_error(
+            ErrorCode::TargetUnresponsive,
+            "recorded element bounds are empty",
+        ));
+    }
+    ElementBounds::new(left, top, right, bottom)
 }
 
 fn resolved_window(handle: u64, display_label: &str) -> ResolvedWindow {

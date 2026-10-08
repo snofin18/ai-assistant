@@ -19,7 +19,8 @@ use assistant_platform_api::{
 };
 use assistant_tool_bus::ToolBusError;
 
-use super::{NotepadHandlerContext, poll_immediate, support};
+use super::NotepadHandlerContext;
+use crate::handler_support as support;
 use crate::target_lease::window_lease_key;
 
 impl<P> NotepadHandlerContext<P>
@@ -44,7 +45,7 @@ where
         let lease_key = window_lease_key(&self.app_id, window.id(), tool)?;
         self.input_leases.run(task_id, lease_key, tool, || {
             let chord = KeyChord::new(key.to_owned(), modifiers);
-            let result = poll_immediate(
+            let result = support::poll_immediate(
                 self.platform
                     .key_action(&chord, &KeyTarget::Window(window.clone())),
                 tool,
@@ -75,7 +76,7 @@ where
         let lease_key = window_lease_key(&self.app_id, element.parent(), tool)?;
         self.input_leases.run(task_id, lease_key, tool, || {
             let chord = KeyChord::new(key.to_owned(), modifiers);
-            let result = poll_immediate(
+            let result = support::poll_immediate(
                 self.platform
                     .key_action(&chord, &KeyTarget::Element(element.clone())),
                 tool,

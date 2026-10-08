@@ -273,6 +273,9 @@ fn extract_output(tool: &str, output: &str, data: &Map<String, Value>) -> Option
         ("notepad.file.replace_text", "canonical_text_after") => {
             data.get("canonical_text").cloned()
         }
+        ("paint.canvas.capture_pixels", "pre_snapshot_blob_id" | "post_snapshot_blob_id") => {
+            data.get("blob_id").cloned()
+        }
         ("notepad.file.save", "save_result")
         | ("notepad.file.save_as", "dialog_evidence")
         | (

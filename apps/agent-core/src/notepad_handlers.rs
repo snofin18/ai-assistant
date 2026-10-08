@@ -22,10 +22,8 @@
 //! Related documents: ADR-0022, ADR-0043, ADR-0058, `runtime-execution.md`.
 
 use std::collections::BTreeMap;
-use std::future::Future;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::task::{Context, Poll, Waker};
 use std::time::{Duration, Instant};
 
 use assistant_platform_api::{
@@ -36,6 +34,7 @@ use assistant_protocol::serde_json;
 use assistant_tool_bus::{CallContext, SourceDescriptor, ToolBusError, ToolHandler, ToolOutput};
 use serde_json::{Map, Value, json};
 
+use crate::handler_support as support;
 use crate::notepad_files::snapshot_file;
 use crate::notepad_registry::{
     TOOL_READ_TEXT, TOOL_REPLACE_TEXT, TOOL_SAVE, TOOL_SAVE_AS, TOOL_TAB_NEW,
@@ -45,9 +44,6 @@ use crate::notepad_targets::{
     SAVE_AS_FILENAME_TARGET, SAVE_AS_SAVE_BUTTON_TARGET,
 };
 use crate::target_lease::TargetLeaseGate;
-
-#[path = "notepad_handlers_support.rs"]
-mod support;
 
 const SAVE_AS_DIALOG_ATTEMPTS: usize = 30;
 const SAVE_AS_DIALOG_INTERVAL_MS: u64 = 100;
@@ -370,7 +366,7 @@ where
                     tool: tool.to_owned(),
                     reason: error.to_string(),
                 })?;
-        let result = poll_immediate(
+        let result = support::poll_immediate(
             self.platform.resolve_window(descriptor),
             tool,
             "resolve_window",
@@ -393,7 +389,7 @@ where
                 })?;
         let chain =
             assistant_platform_api::SelectorChain::new(descriptor.element_candidates().to_vec());
-        let result = poll_immediate(
+        let result = support::poll_immediate(
             self.platform.resolve_element(scope, &chain),
             tool,
             "resolve_element",
@@ -406,7 +402,7 @@ where
         element: &ResolvedElement,
         tool: &str,
     ) -> Result<String, ToolBusError> {
-        let result = poll_immediate(self.platform.read_text(element), tool, "read_text")?;
+        let result = support::poll_immediate(self.platform.read_text(element), tool, "read_text")?;
         result.map_err(|error| support::map_platform_error(tool, &error))
     }
 
@@ -416,7 +412,8 @@ where
         value: &str,
         tool: &str,
     ) -> Result<(), ToolBusError> {
-        let result = poll_immediate(self.platform.set_value(element, value), tool, "set_value")?;
+        let result =
+            support::poll_immediate(self.platform.set_value(element, value), tool, "set_value")?;
         result.map_err(|error| support::map_platform_error(tool, &error))
     }
 
@@ -492,7 +489,7 @@ where
         action: &str,
         tool: &str,
     ) -> Result<(), ToolBusError> {
-        let result = poll_immediate(
+        let result = support::poll_immediate(
             self.platform.invoke_action(element, action),
             tool,
             "invoke_action",
@@ -505,7 +502,7 @@ where
         window: &ResolvedWindow,
         tool: &str,
     ) -> Result<Fingerprint, ToolBusError> {
-        let result = poll_immediate(
+        let result = support::poll_immediate(
             self.platform
                 .fingerprint(window, &FingerprintScope::WholeWindow),
             tool,
@@ -515,7 +512,7 @@ where
     }
 
     fn window_title(&self, window: &ResolvedWindow, tool: &str) -> Result<String, ToolBusError> {
-        let result = poll_immediate(
+        let result = support::poll_immediate(
             self.platform.list_windows(&WindowFilter::any()),
             tool,
             "list_windows",
@@ -560,27 +557,6 @@ fn required_u64(arguments: &Map<String, Value>, field: &str) -> Result<u64, Tool
             format!("{field} must be a non-negative integer"),
         )
     })
-}
-
-/// Executes only immediately-ready provider futures.
-///
-/// The Windows provider is synchronous internally and exposes that work as an
-/// immediately-ready future. A pending future means this assumption no longer
-/// holds, so the handler fails closed instead of blocking or spawning.
-fn poll_immediate<F: Future>(
-    future: F,
-    tool: &str,
-    operation: &str,
-) -> Result<F::Output, ToolBusError> {
-    let mut future = std::pin::pin!(future);
-    let waker = Waker::noop();
-    let mut context = Context::from_waker(waker);
-    match future.as_mut().poll(&mut context) {
-        Poll::Ready(output) => Ok(output),
-        Poll::Pending => Err(ToolBusError::Transport {
-            reason: format!("{tool}: {operation} future unexpectedly returned Pending"),
-        }),
-    }
 }
 
 pub(crate) fn normalize_line_endings(text: &str) -> String {

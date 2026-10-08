@@ -27,11 +27,14 @@ mod approval_grants;
 mod assembly;
 mod blob_sink;
 mod error;
+pub(crate) mod handler_support;
 pub mod notepad_files;
 pub mod notepad_handlers;
 pub mod notepad_registry;
 mod notepad_rollback;
 pub mod notepad_targets;
+pub(crate) mod paint_handlers;
+pub(crate) mod paint_registry;
 mod production;
 mod production_policy;
 mod production_run;
@@ -59,7 +62,9 @@ pub use approval_grants::{ApprovalGrants, GrantError, GrantRequest};
 pub use assembly::{HostAssembly, HostAssemblyInput, HostComponents};
 pub use blob_sink::StorageBlobSink;
 pub use error::HostAssemblyError;
-pub use production::{ProductionConfig, ProductionError, ProductionHost, assemble_production_host};
+pub use production::{
+    AdapterKind, ProductionConfig, ProductionError, ProductionHost, assemble_production_host,
+};
 pub use production_run::{PendingRuntimeApproval, ProductionRun};
 pub use reserved_invoker::ReservedRuntimeInvoker;
 pub use runtime::{

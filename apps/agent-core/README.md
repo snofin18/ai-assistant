@@ -13,6 +13,9 @@ TASK-029 的 binary-layer Host 装配库。
 - 提供 ADR-0058 的 `--production` 装配根：加载 Notepad Adapter 声明、注册 5 个
   Host handler、注入确定性 TaskPackage Provider，并把 RuntimeExecutor 快照接到
   `SnapshotEventSource`。`--serve-ui` 会在任务结束后进入 UI 监听循环。
+- 提供 ADR-0084 / ADR-0085 的 Paint T3.1 装配分支：按显式 `AdapterKind::Paint`
+  加载 Paint target 目录，注册 7 个 Paint handler，并用 `element_bounds` 读取 canvas
+  物理矩形；Notepad 路径保持默认行为不变。
 - 提供 UI 命令/事件适配层（`ui_ipc` + `ui_control`）：版本化命令信封、未知字段/
   未知 kind 的 fail-closed 解析、以及把 approve/deny/pause/cancel/takeover 应用到
   真实 task-engine 的处理器。

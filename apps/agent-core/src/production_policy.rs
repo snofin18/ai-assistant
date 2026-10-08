@@ -38,30 +38,67 @@ pub struct CatalogStepPolicy {
 /// Bounded bridge from committed `hitl` steps to the next policy write.
 #[derive(Debug, Clone, Default)]
 pub struct ApprovalWindows {
-    sequences: Arc<Mutex<Vec<u32>>>,
+    before_write: Arc<Mutex<Vec<u32>>>,
+    exact_step: Arc<Mutex<Vec<u32>>>,
 }
 
 impl ApprovalWindows {
     /// Records that the approval step at `sequence` committed.
     pub fn record(&self, sequence: u32) -> Result<(), RuntimeExecutionError> {
+        let mut sequences =
+            self.before_write
+                .lock()
+                .map_err(|_| RuntimeExecutionError::Policy {
+                    reason: "approval-window state is unavailable".to_owned(),
+                })?;
+        sequences.push(sequence);
+        drop(sequences);
+        Ok(())
+    }
+
+    /// Records a bounded grant for the current tool step.
+    pub fn record_exact(&self, sequence: u32) -> Result<(), RuntimeExecutionError> {
         let mut sequences = self
-            .sequences
+            .exact_step
             .lock()
             .map_err(|_| RuntimeExecutionError::Policy {
-                reason: "approval-window state is unavailable".to_owned(),
+                reason: "exact approval-window state is unavailable".to_owned(),
             })?;
         sequences.push(sequence);
         drop(sequences);
         Ok(())
     }
 
-    fn consume_before(&self, sequence: u32) -> Result<bool, RuntimeExecutionError> {
+    /// Consumes a grant recorded for exactly this step.
+    fn consume_exact(&self, sequence: u32) -> Result<bool, RuntimeExecutionError> {
         let mut sequences = self
-            .sequences
+            .exact_step
             .lock()
             .map_err(|_| RuntimeExecutionError::Policy {
-                reason: "approval-window state is unavailable".to_owned(),
+                reason: "exact approval-window state is unavailable".to_owned(),
             })?;
+        let Some(index) = sequences
+            .iter()
+            .position(|candidate| *candidate == sequence)
+        else {
+            return Ok(false);
+        };
+        sequences.remove(index);
+        drop(sequences);
+        Ok(true)
+    }
+
+    /// Consumes one recorded approval before the current step.
+    ///
+    /// Explicit `hitl` steps are recorded at their own sequence; direct tool
+    /// grants are recorded at the tool step's sequence before policy runs.
+    fn consume_before(&self, sequence: u32) -> Result<bool, RuntimeExecutionError> {
+        let mut sequences =
+            self.before_write
+                .lock()
+                .map_err(|_| RuntimeExecutionError::Policy {
+                    reason: "approval-window state is unavailable".to_owned(),
+                })?;
         let Some(index) = sequences.iter().position(|candidate| *candidate < sequence) else {
             return Ok(false);
         };
@@ -80,7 +117,8 @@ impl StepPolicy for CatalogStepPolicy {
                     reason: format!("tool `{}` is absent from the policy catalog", step.tool),
                 })?;
         if policy_effect(step.effect) == Effect::Write
-            && self.approvals.consume_before(step.sequence)?
+            && (self.approvals.consume_exact(step.sequence)?
+                || self.approvals.consume_before(step.sequence)?)
         {
             return Ok(Decision::Allow {
                 rule_id: "explicit_hitl_approval".to_owned(),

@@ -21,7 +21,8 @@
 //! 相关：架构 v2 §7.3、`docs/spike-reports/SPIKE-A.md`、`docs/memory/apps/notepad.md` §3。
 
 use assistant_platform_api::{
-    Fingerprint, FingerprintScope, PlatformResult, ResolvedWindow, TreeOptions, TreeSnapshot,
+    ElementBounds, Fingerprint, FingerprintScope, PlatformResult, ResolvedElement, ResolvedWindow,
+    TreeOptions, TreeSnapshot,
 };
 use windows::Win32::UI::Accessibility::{IUIAutomationElement, IUIAutomationTreeWalker};
 use windows::core::{BOOL, HRESULT};
@@ -84,6 +85,36 @@ pub fn fingerprint(
             "unknown fingerprint scope: refusing to guess what to fingerprint (fail closed)",
         )),
     }
+}
+
+/// Reads one resolved element's global virtual-screen physical bounds.
+///
+/// # Errors
+///
+/// - element handle is absent on this thread / stale → `TargetNotFound`
+/// - UIA rejects the property read → the existing HRESULT mapping
+/// - rectangle is empty or non-positive → `TargetUnresponsive`
+pub fn element_bounds(element: &ResolvedElement) -> PlatformResult<ElementBounds> {
+    handles::with_element(element.id(), |automation_element| {
+        // SAFETY: `automation_element` is the thread-local COM reference for this opaque
+        // handle; this is a read-only property query and does not transfer ownership.
+        let rectangle =
+            unsafe { automation_element.CurrentBoundingRectangle() }.map_err(|failure| {
+                error::error_from_hresult(failure.code().0, "CurrentBoundingRectangle")
+            })?;
+        if rectangle.right <= rectangle.left || rectangle.bottom <= rectangle.top {
+            return Err(error::target_unresponsive(format!(
+                "element bounds are empty: ({}, {})-({}, {})",
+                rectangle.left, rectangle.top, rectangle.right, rectangle.bottom
+            )));
+        }
+        ElementBounds::new(
+            rectangle.left,
+            rectangle.top,
+            rectangle.right,
+            rectangle.bottom,
+        )
+    })
 }
 
 /// 对一棵子树算指纹（不限深度、含离屏节点 —— 指纹必须反映**完整**状态）。

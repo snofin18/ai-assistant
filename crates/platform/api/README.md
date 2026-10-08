@@ -7,7 +7,7 @@
 ## 职责
 
 1. **纯类型**（可序列化、可跨进程）：`TargetDescriptor` / `NormalizedPoint` / `Fingerprint` /
-   `CapabilityMatrix`（+ 它携带的 `ProbeContext`：探测时刻 / 平台 / 会话状态）。
+   `ElementBounds`（元素物理矩形）/ `CapabilityMatrix`（+ 它携带的 `ProbeContext`：探测时刻 / 平台 / 会话状态）。
 2. **不透明句柄**（**不可**序列化、**不得**跨进程）：`ResolvedWindow` / `ResolvedElement`。
 3. **trait 形状**：`PlatformService` / `WindowProvider` / `UiAutomationProvider`（架构 v2 §13.1.1）。
 4. **能力矩阵不变量**：`CapabilityMatrix::validate()` 把 `docs/spec/capability-matrix.md` §4 的
@@ -32,6 +32,8 @@
    换算只经 `NormalizedPoint::to_physical`，不允许各平台自己约定。
 5. **判定逻辑是纯函数**：`validate()` / 坐标换算 / 指纹比较都不碰 IO，同样的输入必得同样的输出
    （`docs/memory/pitfalls.md` 2026-09-24 的 flaky 教训）。
+6. **元素 bounds 是显式读取**：`UiAutomationProvider::element_bounds` 返回全局虚拟屏物理像素矩形；
+   它不暴露元素句柄，也不把 `TreeSnapshot` 扩成结构化树（ADR-0085）。
 
 ## 测试
 

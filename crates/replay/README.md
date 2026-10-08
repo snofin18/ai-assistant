@@ -20,8 +20,10 @@
 2. Node handles are unique, parents exist, and the parent graph is acyclic.
 3. Recorded text references must point to an existing node.
 4. Element resolution follows selector-chain order and fails closed on ambiguity.
-5. Replay never pretends an unrecorded write action succeeded.
-6. `xtask replay --suite core` may consume version 2 sequence fixtures for
+5. `element_bounds` is replayed only from recorded node bounds; missing nodes,
+   non-positive rectangles, and `i64 -> i32` overflow fail closed.
+6. Replay never pretends an unrecorded write action succeeded.
+7. `xtask replay --suite core` may consume version 2 sequence fixtures for
    deterministic tree diffing; the provider API in this crate remains the
    version 1 single-snapshot offline provider.
 
