@@ -48,7 +48,7 @@ use crate::adapters::DatabaseHandle;
 use crate::approval_grants::ApprovalGrants;
 use crate::assembly::{HostAssemblyInput, HostComponents};
 use crate::notepad_registry::{NotepadRegistryBuild, build_notepad_registry};
-use crate::notepad_targets::NotepadTargetCatalog;
+use crate::notepad_targets::{NOTEPAD_REQUIRED_TARGETS, NotepadTargetCatalog};
 use crate::production_policy::{ApprovalWindows, CatalogStepPolicy};
 use crate::production_run::ProductionRun;
 use crate::production_support::{EmptyRetriever, NoopCompressor};
@@ -311,12 +311,14 @@ where
 {
     let tools_path = config.adapter_root.join("tools").join("tools.json");
     let targets_path = config.adapter_root.join("selectors").join("targets.json");
-    let targets = Arc::new(NotepadTargetCatalog::load(&targets_path).map_err(|error| {
-        ProductionError::InvalidConfiguration {
-            field: "adapter_root.selectors.targets",
-            reason: error.to_string(),
-        }
-    })?);
+    let targets = Arc::new(
+        NotepadTargetCatalog::load(&targets_path, NOTEPAD_REQUIRED_TARGETS).map_err(|error| {
+            ProductionError::InvalidConfiguration {
+                field: "adapter_root.selectors.targets",
+                reason: error.to_string(),
+            }
+        })?,
+    );
     let input_leases = config.lease_registry.gate(clock);
     let registry_build = build_notepad_registry(
         Arc::new(platform.clone()),

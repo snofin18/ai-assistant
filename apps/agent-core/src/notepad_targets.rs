@@ -48,7 +48,12 @@ pub(crate) const SAVE_AS_SAVE_BUTTON_TARGET: &str = "save_as_save_button";
 /// missing declaration instead of inventing a number.
 pub(crate) const TAB_COUNT_TARGET: &str = "tab_count";
 
-const REQUIRED_TARGETS: &[&str] = &[
+/// Required target ids for the Notepad adapter package.
+///
+/// Per ADR-0084 the loader no longer hardcodes this set: each adapter passes its
+/// own required list to [`NotepadTargetCatalog::load`], so a second adapter
+/// (Paint) can declare a different required set without a second loader.
+pub(crate) const NOTEPAD_REQUIRED_TARGETS: &[&str] = &[
     MAIN_WINDOW_TARGET,
     EDITOR_TARGET,
     ADD_TAB_BUTTON_TARGET,
@@ -107,7 +112,14 @@ pub(crate) struct NotepadTargetCatalog {
 
 impl NotepadTargetCatalog {
     /// Loads and validates `selectors/targets.json`.
-    pub(crate) fn load(path: &Path) -> Result<Self, TargetCatalogError> {
+    ///
+    /// `required_targets` is the adapter's own required id list (ADR-0084 D1):
+    /// the loader rejects a package that omits any of them, but does not impose
+    /// a Notepad-shaped set on a different adapter.
+    pub(crate) fn load(
+        path: &Path,
+        required_targets: &[&str],
+    ) -> Result<Self, TargetCatalogError> {
         let body = std::fs::read_to_string(path).map_err(|error| TargetCatalogError::Read {
             path: path.display().to_string(),
             reason: error.to_string(),
@@ -162,7 +174,7 @@ impl NotepadTargetCatalog {
             );
             descriptors.insert(target.id, descriptor);
         }
-        for required in REQUIRED_TARGETS {
+        for required in required_targets {
             if !descriptors.contains_key(*required) {
                 return Err(TargetCatalogError::MissingTarget {
                     target: (*required).to_owned(),
@@ -270,7 +282,10 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::{EDITOR_TARGET, MAIN_WINDOW_TARGET, NotepadTargetCatalog, SAVE_AS_DIALOG_TARGET};
+    use super::{
+        EDITOR_TARGET, MAIN_WINDOW_TARGET, NOTEPAD_REQUIRED_TARGETS, NotepadTargetCatalog,
+        SAVE_AS_DIALOG_TARGET,
+    };
 
     fn workspace_root() -> PathBuf {
         let canonical = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -284,7 +299,8 @@ mod tests {
     #[test]
     fn test_scope_routes_window_and_element_candidates() {
         let path = workspace_root().join("adapters/com.microsoft.notepad/selectors/targets.json");
-        let catalog = NotepadTargetCatalog::load(&path).expect("adapter target catalog");
+        let catalog = NotepadTargetCatalog::load(&path, NOTEPAD_REQUIRED_TARGETS)
+            .expect("adapter target catalog");
         let window = catalog.descriptor(MAIN_WINDOW_TARGET).expect("main window");
         assert!(
             !window.window_candidates().is_empty(),
@@ -342,12 +358,41 @@ mod tests {
   ]
 }"#;
         std::fs::write(&path, body).expect("write temp targets");
-        let result = NotepadTargetCatalog::load(&path);
+        let result = NotepadTargetCatalog::load(&path, NOTEPAD_REQUIRED_TARGETS);
         let _ = std::fs::remove_file(&path);
         let error = result.expect_err("an unknown scope must be rejected");
         assert!(
             error.to_string().contains("unsupported scope"),
             "unexpected scope error: {error}"
+        );
+    }
+
+    /// ADR-0084 D1: a second adapter declares its own required target set, and
+    /// the loader must not impose the Notepad set on it.
+    #[test]
+    fn test_second_adapter_loads_with_its_own_required_targets() {
+        const PAINT_REQUIRED_TARGETS: &[&str] = &[
+            "main_window",
+            "canvas",
+            "rectangle_tool_button",
+            "foreground_color_button",
+        ];
+        let path = workspace_root().join("adapters/com.microsoft.paint/selectors/targets.json");
+        let catalog = NotepadTargetCatalog::load(&path, PAINT_REQUIRED_TARGETS)
+            .expect("paint target catalog");
+        assert_eq!(catalog.app_id(), "com.microsoft.paint");
+        let canvas = catalog.descriptor("canvas").expect("canvas descriptor");
+        assert!(
+            !canvas.element_candidates().is_empty(),
+            "canvas is element-scoped and keeps its declared candidates"
+        );
+        assert!(
+            !canvas.window_candidates().is_empty(),
+            "element scope needs the main-window anchor"
+        );
+        assert!(
+            catalog.descriptor("editor").is_err(),
+            "the Notepad required set must not be imposed on another adapter"
         );
     }
 }

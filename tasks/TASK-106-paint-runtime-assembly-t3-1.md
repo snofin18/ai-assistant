@@ -1,6 +1,6 @@
 # TASK-106　Paint 运行时装配：T3.1 垂直切片（生产 handler + Plan 来源参数化）
 
-- 状态：**Ready**
+- 状态：**InProgress**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：043、044、**ADR-0084 Accepted**　预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -77,9 +77,33 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 ### 1. 约束回执
 
+```text
+【任务】TASK-106 Paint 运行时装配：T3.1 垂直切片
+【目标】把 Paint T3.1 的 6 个工具接进生产装配根，使任务包在 fake 平台可执行到 Completed
+【write scope】apps/agent-core/src/**、apps/agent-core/tests/**；本卡与状态同步文件
+【铁律】无静默失败；策略引擎唯一放行点；契约先行；不静默扩大范围；热点文件先 guard
+【禁止】改 crates/** 公共接口 / schema / ErrorCode；新增 crate / 依赖；操作真实 GUI；接 T3.1 之外的 Paint 工具
+【验收】fmt / clippy / cargo test --workspace / production_root* 回归 / xtask 门禁
+【依赖】ADR-0084 Accepted（已合并 `471ddce`）
+【疑问】无
+```
+
 ### 2. 实际改动文件
 
+第一步（2026-10-08，参数化 target 目录加载）：
+
+- `apps/agent-core/src/notepad_targets.rs`：`REQUIRED_TARGETS` 改为参数化的
+  `load(path, required_targets)`，新增 `NOTEPAD_REQUIRED_TARGETS` 常量，并加「第二适配器
+  按自身必需集加载 Paint 目录」的用例。
+- `apps/agent-core/src/production.rs`：调用点显式传入 `NOTEPAD_REQUIRED_TARGETS`（Notepad 行为不变）。
+
 ### 3. 验收输出摘要
+
+- `cargo test -p assistant-agent-core --lib notepad_targets::` → **3 passed / 0 failed**
+  （含新增 `test_second_adapter_loads_with_its_own_required_targets`）。
+- `cargo clippy -p assistant-agent-core --all-targets -- -D warnings` → EXIT 0。
+- Notepad 回归：`--test production_root` **7 passed**、`production_root_t1_2` **6 passed**、
+  `production_root_t1_3` **1 passed**、`production_root_uia` **1 passed / 8 ignored** → 全绿。
 
 ### 4. DoD 逐条核对
 
