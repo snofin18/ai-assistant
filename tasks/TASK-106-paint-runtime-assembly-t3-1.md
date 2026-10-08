@@ -137,6 +137,22 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - **闭环（2026-10-08 人类裁决）**：按建议第 1 条 —— `paint.layer.select` 移入 In scope，
   T3.1 子集 = 7 个工具；卡面 In/Out scope 已按裁决更正，ADR-0084 D4 的"6 个"在登记表标注勘误。
 
+**DRIFT-106-2**（触发器 ④ + ⑧）
+
+- **现象**：ADR-0084 D5 与实现前勘察说 `paint.canvas.resolve_point` 的 canvas bounds 从
+  `snapshot_tree` 的 canvas 节点读取。但现行 `UiAutomationProvider::snapshot_tree` 的公共
+  返回类型 `TreeSnapshot` 只暴露 `window` / `fingerprint` / `node_count`，没有树节点、
+  canvas 句柄或 bounds。`ResolvedElement` 也只有本地句柄、父句柄与 role；`ResolvedWindow`
+  同样不含屏幕矩形。当前平台 trait 没有 `bounds` 方法。
+- **影响**：handler 在不新增平台能力、不伪造 `canvas_bounds_px`、不改用可见文本兜底的
+  前提下，无法计算屏幕坐标。用任务输入或常量冒充 bounds 会违反铁律 1/2；改
+  `crates/platform/api/**` 触发 ADR-0084 D8 和漂移触发器 ③④，必须先有 ADR。
+- **建议**：另立 ADR/卡扩展平台读取路径（候选是 `snapshot_tree` 返回结构化节点、
+  新增 element bounds 方法，或让平台 capture/coordinate provider 显式提供 target bounds）；
+  人类裁决后再实现 `paint.canvas.resolve_point`。不得在本卡直接改公共 trait。
+- **已停工作**：`paint_handlers.rs`、`build_paint_registry`、`production.rs` 适配器分支、
+  T3.1 fake 正向/负向测试均未编写；已提交的 target 与注册循环参数化不受影响。
+
 ### 6. 更合理做法
 
 ### 7. 遗留问题
@@ -161,6 +177,8 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - `capture_pixels` 走 `WindowProvider::capture`（ADR-0076）+ 注入的 `ImageBlobSink`。
 - Paint selectors 仍是 `probe_status=required`（未真机校准）；解析路径在真机十次验收前无法证明，
   属 `DRIFT-044-1` / `PL-113`。
+**DRIFT-106-2 阻断（2026-10-08 核对）**：现行 `TreeSnapshot` 没有节点或 bounds，无法按
+ADR-0084 D5 获取 canvas bounds；需要单独平台能力 ADR/人类裁决，本卡不再猜测实现。
 
 ### 8. 新增长期记忆
 
