@@ -73,6 +73,58 @@ def main() -> None:
     assert canvas["observed_zoom_ratio"] == 0.5
     assert probe["observed_coordinate_transform"]["canvas_origin_screen_px"] == {"x": 696, "y": 525}
 
+    # 2026-10-08 measured selector-resolution facts (real Paint window via the
+    # repository's own WindowsPlatform). These lock in *why* the provisional
+    # pack blocks TASK-044's real ten-run acceptance.
+    resolution = probe["selector_resolution_probe"]
+    results = resolution["results"]
+    declared_main = next(
+        entry
+        for entry in results
+        if entry["target_id"] == "main_window" and entry["candidate"].startswith("declared")
+    )
+    assert declared_main["outcome"] == "TargetNotFound", declared_main
+    measured_main = next(
+        entry
+        for entry in results
+        if entry["target_id"] == "main_window" and entry["candidate"].startswith("measured")
+    )
+    assert measured_main["outcome"] == "resolved", measured_main
+    declared_canvas = next(
+        entry
+        for entry in results
+        if entry["target_id"] == "canvas" and entry["candidate"].startswith("declared")
+    )
+    assert declared_canvas["outcome"] == "TargetAmbiguous", declared_canvas
+    measured_canvas = next(
+        entry
+        for entry in results
+        if entry["target_id"] == "canvas" and entry["candidate"].startswith("measured")
+    )
+    assert measured_canvas["outcome"] == "resolved", measured_canvas
+    assert "209x37" in measured_canvas["detail"], measured_canvas
+    assert "outside TASK-044's write scope" in resolution["conclusion"], resolution
+
+    # 2026-10-08 full real control tree + handler-contract mismatch. These lock
+    # in that selector calibration alone cannot unblock the acceptance run.
+    tree = probe["real_control_tree"]
+    assert tree["window"]["class"] == "MSPaintApp", tree["window"]
+    controls = {control["target_hint"]: control for control in tree["controls"]}
+    assert controls["canvas"]["automation_id"] == "image", controls["canvas"]
+    assert controls["canvas"]["bounds_px"] == [696, 525, 905, 562], controls["canvas"]
+    assert controls["status_bar"]["automation_id"] == "CanvasSizeTextBlock", controls["status_bar"]
+    assert controls["layer_item"]["present"] is False, controls["layer_item"]
+
+    contract = probe["handler_contract_probe"]
+    tools = {finding["tool"] for finding in contract["findings"]}
+    assert tools == {
+        "paint.tool.select",
+        "paint.color.select_foreground",
+        "paint.layer.select",
+        "paint.document.new",
+    }, tools
+    assert "Selector calibration alone cannot make T3.1 run" in contract["conclusion"], contract
+
     rectangle = next(
         control for control in probe["controls"] if control["target"] == "rectangle_shape"
     )

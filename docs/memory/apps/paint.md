@@ -124,6 +124,44 @@ zoom ratio = `0.5`；画布屏幕原点观察到 `(696,525)`。这只是一次�
 
 未测项不变：真实拖拽误差、连续 10 次成功率、像素容差最终校准。
 
+### 9.1 TASK-044 selector 解析实测（2026-10-08）
+
+用仓库自身的 `assistant-platform-windows::WindowsPlatform`（临时 harness，不入库）打真实
+Paint 11.2605.81.0 窗口，实测**声明式 selector 包当前跑不通**：
+
+| 目标 | 声明候选 | 实测结果 |
+|---|---|---|
+| `main_window` | `class_and_role class=WinUIDesktopWin32WindowClass role=Window` | `TargetNotFound`（0 命中）；真实 class 是 **`MSPaintApp`** |
+| `main_window` | `class_and_role class=MSPaintApp role=Window` | 解析成功 |
+| `canvas` | `class_and_role class=Image role=Image` | `TargetAmbiguous`（窗口内 38 命中） |
+| `canvas` | `automation_id=image` | 解析成功，`role=Group`、`bounds=(696,525,905,562)`、`size=209x37` |
+| `rectangle_tool_button` | `class_and_role class=GridViewItem role=ListItem` | `TargetAmbiguous`（窗口内 43 命中） |
+
+结论：`adapters/com.microsoft.paint/selectors/targets.json` 的 class/role 候选与真实树不符，
+`main_window` 在第 1 步就会让 TASK-106 的 7 个 handler 全部失败。**校准 selectors 不在
+TASK-044 write scope 内**（`DRIFT-044-2`），需另立拥有 `selectors/**` 写权限的校准卡；
+校准前真机十次验收不可跑。
+
+### 9.2 handler read-back 契约与真实控件不匹配（2026-10-08）
+
+真实 ControlView 树还暴露出比 selector 更深的一层：`paint_handlers.rs` 的 read-back 契约
+只在 fake 平台成立，真实 Paint 提供不了。逐条实测：
+
+| 工具 | handler 要求 | 真实 Paint |
+|---|---|---|
+| `paint.tool.select` | 按钮文本 == 英文工具 id（`rectangle`） | 矩形项是 `GridViewItem`、无 aid、Name 本地化为 `矩形` |
+| `paint.color.select_foreground` | `set_value(button,"R,G,B")` 后读回 `"R,G,B"` | 前景色是 `RadioButton`、Name 本地化为 `颜色 1: 黑色`、无 set_value |
+| `paint.layer.select` | `ListViewItem` + 读回 `Layer 1` | 层面板默认折叠，整棵树没有 `ListView` / `ListViewItem` |
+| `paint.document.new` | 解析 `status_bar` 文本里的两个整数 | 没有 `StatusBar` 角色元素；尺寸在 `TextBlock aid=CanvasSizeTextBlock`（`418 × 74像素`） |
+
+**结论**：TASK-106 的 Paint handler 只被 fake 验证过（`production_paint.rs` 的 fake 按 handler
+的期望回放）。只校准 selector 不足以让 T3.1 跑起来；工具/颜色/图层的 read-back 语义与
+形状/调色板的锚点都需要设计裁决。已开 **TASK-256**（`DRIFT-044-3`），并在卡里列出四条待裁决。
+
+另外两条事实：形状调色板与颜色调色板是**两个** `GridView`，本身也只能靠本地化 Name
+（`形状` / `颜色`）区分；任意 RGB（如 `0,180,0`）不在固定调色板里，需走「编辑颜色」对话框
+或收窄评测用例。
+
 ## 10. 运行时装配（TASK-106）
 
 - `apps/agent-core` 已为 T3.1 注册 7 个 Paint handler：

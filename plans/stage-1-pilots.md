@@ -204,6 +204,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **045** | T3.2：打开 PNG → 读尺寸与缩放 → 区域标记 → 另存为新文件 | 同上 | 044 | M | 不覆盖已有文件；缩放状态下坐标仍正确 |
 | **046** | T3.3：绘制 → 用户点撤销 → **像素级验证回到快照** | 同上 | 045 | S | 像素级回滚确认；undo 粒度实测结论回填 `MEMORY.md` |
 | **047** | 阶段 1b 集成验收 + Adapter 复用度检查（Paint 是否被迫改了平台层？改了 → 记 ADR） | `docs/audits/**` | 040~046 | S | 若 Paint 需要修改 `platform/api` trait → 必须 ADR（这是抽象是否正确的关键信号） |
+| **256** | Paint 真机契约校准：selector 与 handler read-back 对齐实测树（解锁 TASK-044 的 `DRIFT-044-1` / `DRIFT-044-2` / `DRIFT-044-3`） | `adapters/com.microsoft.paint/**`、`apps/agent-core/src/paint_handlers.rs`、`apps/agent-core/tests/production_paint.rs`、`eval/tasks/paint/**` | 043,044,106 | L | T3.1 target 全部按实测树校准；工具/颜色/图层 read-back 与真实控件一致；真机验收可复跑；四条设计点先经人类裁决 |
 
 ---
 
@@ -337,6 +338,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-045 | 1b | `tasks/TASK-045-t3-2-png-open-read-region-saveas.md` | Ready（批次表占位派单前补全） |
 | TASK-046 | 1b | `tasks/TASK-046-t3-3-draw-undo-pixel-snapshot-verify.md` | Ready（批次表占位派单前补全） |
 | TASK-047 | 1b | `tasks/TASK-047-stage-1b-integration-adapter-reuse.md` | Ready（批次表占位派单前补全） |
+| TASK-256 | 1b | `tasks/TASK-256-paint-real-contract-calibration.md` | Ready（实测证据已就位；四条设计点待 Orchestrator 裁决） |
 | TASK-048 | 1c | `tasks/TASK-048-cdp-provider-connect-dom-nav-download.md` | Ready（批次表占位派单前补全） |
 | TASK-049 | 1c | `tasks/TASK-049-browser-profile-no-copy-user-profile.md` | Ready（批次表占位派单前补全） |
 | **TASK-050 ✅** | 1c | `tasks/TASK-050-dlp-three-tier-egress-local-only-redacted-full.md` | Done（ADR 0007；`crates/dlp` 22 专项测试） |
