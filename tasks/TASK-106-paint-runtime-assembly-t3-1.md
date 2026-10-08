@@ -27,14 +27,16 @@
 1. `production.rs` 由 Notepad 专用改为**适配器参数化**（ADR-0084 D1）：target 目录、handler 集、
    任务包路径由装配输入给出；Notepad 既有行为不变。
 2. 新增 Paint target 目录加载（输入 `adapters/com.microsoft.paint/selectors/targets.json`）。
-3. 新增 Paint handler 模块，实现 T3.1 的 6 个工具：`paint.document.new` / `paint.tool.select` /
-   `paint.color.select_foreground` / `paint.canvas.resolve_point` / `paint.canvas.draw_rectangle` /
-   `paint.canvas.capture_pixels`；注册集与声明子集**精确一致**。
+3. 新增 Paint handler 模块，实现 T3.1 的 **7 个工具**：`paint.document.new` / `paint.tool.select` /
+   `paint.color.select_foreground` / `paint.layer.select` / `paint.canvas.resolve_point` /
+   `paint.canvas.draw_rectangle` / `paint.canvas.capture_pixels`；注册集与声明子集**精确一致**。
+   （2026-10-08 人类裁决：`paint.layer.select` 由 Out of scope 移入 In scope —— T3.1 任务包
+   `select_layer` 步骤依赖它；ADR-0084 D4 的"6 个"按勘误处理，见登记表。）
 4. fake 平台上的正向测试（T3.1 任务包 → `Plan` → `Completed`）与 fail-closed 负向测试。
 
 **Out of scope**
 
-- Paint 其余 4 个工具（`paint.layer.select` / `paint.canvas.rollback_last_write` / `paint.file.open` /
+- Paint 其余 3 个工具（`paint.canvas.rollback_last_write` / `paint.file.open` /
   `paint.file.save_as`）—— 另立后续卡。
 - 真机十次运行与坐标误差测量（`DRIFT-044-1` / `PL-113`）—— 独立验收卡。
 - 改 `crates/**` 公共接口 / schema / ErrorCode；新增 crate 或第三方依赖；操作真实 GUI。
@@ -97,6 +99,13 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
   按自身必需集加载 Paint 目录」的用例。
 - `apps/agent-core/src/production.rs`：调用点显式传入 `NOTEPAD_REQUIRED_TARGETS`（Notepad 行为不变）。
 
+第二步（2026-10-08，registry 注册循环参数化）：
+
+- `apps/agent-core/src/notepad_registry.rs`：抽出共享的
+  `register_declared_tools(declared, expected_tool_names, handlers)`；`load_and_validate_declarations`
+  与 `missing_production_tools` 改为接受 expected 工具名参数；`build_notepad_registry` 显式传
+  `EXPECTED_TOOL_NAMES`（Notepad 行为不变）。这样第二个适配器复用同一条注册循环，不复制实现。
+
 ### 3. 验收输出摘要
 
 - `cargo test -p assistant-agent-core --lib notepad_targets::` → **3 passed / 0 failed**
@@ -104,6 +113,9 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - `cargo clippy -p assistant-agent-core --all-targets -- -D warnings` → EXIT 0。
 - Notepad 回归：`--test production_root` **7 passed**、`production_root_t1_2` **6 passed**、
   `production_root_t1_3` **1 passed**、`production_root_uia` **1 passed / 8 ignored** → 全绿。
+- 第二步复跑：`cargo clippy -p assistant-agent-core --all-targets -- -D warnings` EXIT 0；
+  `cargo test -p assistant-agent-core --lib notepad_registry::` **7 passed**；Notepad 回归
+  `production_root` 7 / `production_root_t1_2` 6 / `production_root_t1_3` 1 → 全绿。
 
 ### 4. DoD 逐条核对
 
@@ -122,6 +134,8 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
   ADR-0084 D4 的"6 个"按勘误处理（ADR 只增不改，在本卡记录 + 后续 ADR/登记表标注）。
 - **已停工作**：未开始 Paint handler 实现与 registry 的工具名绑定；已提交的
   `a7e2b25`（target 目录参数化）与工具数量无关，不受影响。
+- **闭环（2026-10-08 人类裁决）**：按建议第 1 条 —— `paint.layer.select` 移入 In scope，
+  T3.1 子集 = 7 个工具；卡面 In/Out scope 已按裁决更正，ADR-0084 D4 的"6 个"在登记表标注勘误。
 
 ### 6. 更合理做法
 

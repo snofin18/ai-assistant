@@ -24,7 +24,7 @@ use std::time::Instant;
 
 use assistant_platform_api::{UiAutomationProvider, WindowProvider};
 use assistant_protocol::{ErrorCode, ToolSchema};
-use assistant_tool_bus::{ToolBusError, ToolDefinition, ToolRegistry};
+use assistant_tool_bus::{ToolBusError, ToolDefinition, ToolHandler, ToolRegistry};
 use serde::Deserialize;
 use serde_json::Value;
 use thiserror::Error;
@@ -120,7 +120,7 @@ pub(crate) fn build_notepad_registry<P>(
 where
     P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
 {
-    let declared = load_and_validate_declarations(tools_path, targets.app_id())?;
+    let declared = load_and_validate_declarations(tools_path, targets.app_id(), EXPECTED_TOOL_NAMES)?;
 
     let context = Arc::new(NotepadHandlerContext {
         platform,
@@ -136,6 +136,26 @@ where
         task_requires_l1: required_anchor_levels_include_l1(task_inputs),
     });
     let handlers = build_handler_map(&context);
+    let (registry, tool_schemas) =
+        register_declared_tools(declared, EXPECTED_TOOL_NAMES, &handlers)?;
+    Ok(NotepadRegistryBuild {
+        registry,
+        tool_schemas,
+        host_operations,
+    })
+}
+
+/// Registers exactly the declared tools the adapter is expected to expose.
+///
+/// ADR-0084 D1: the expected name set and handler map are arguments, so a second
+/// adapter (Paint) reuses this loop instead of a second registration path. The
+/// declared set must match `expected_tool_names` exactly: an unknown name, a
+/// duplicate, a missing handler, or a missing tool all fail closed.
+fn register_declared_tools(
+    declared: DeclaredToolsFile,
+    expected_tool_names: &[&str],
+    handlers: &BTreeMap<String, Arc<dyn ToolHandler>>,
+) -> Result<(ToolRegistry, Vec<ToolSchema>), NotepadRegistryError> {
     let mut registry = ToolRegistry::new();
     let mut tool_schemas = Vec::with_capacity(declared.tools.len());
     let mut names = BTreeSet::new();
@@ -146,7 +166,7 @@ where
                 reason: format!("tool `{}` must use schema version 1.0", schema.name),
             });
         }
-        if !EXPECTED_TOOL_NAMES.contains(&schema.name.as_str()) {
+        if !expected_tool_names.contains(&schema.name.as_str()) {
             return Err(NotepadRegistryError::Malformed {
                 reason: format!("unexpected production tool `{}`", schema.name),
             });
@@ -164,7 +184,7 @@ where
         registry.register(tool_definition(&schema)?, handler)?;
         tool_schemas.push(schema);
     }
-    if let Some(missing) = missing_production_tools(&names) {
+    if let Some(missing) = missing_production_tools(&names, expected_tool_names) {
         return Err(NotepadRegistryError::Malformed {
             reason: format!("missing production tools: {missing}"),
         });
@@ -177,11 +197,7 @@ where
             .map_err(|reason| NotepadRegistryError::Malformed { reason })?,
     );
     tool_schemas.sort_by(|left, right| left.name.cmp(&right.name));
-    Ok(NotepadRegistryBuild {
-        registry,
-        tool_schemas,
-        host_operations,
-    })
+    Ok((registry, tool_schemas))
 }
 
 /// Loads the tool declaration file and validates its app id and tool count.
@@ -193,6 +209,7 @@ where
 fn load_and_validate_declarations(
     tools_path: &Path,
     expected_app_id: &str,
+    expected_tool_names: &[&str],
 ) -> Result<DeclaredToolsFile, NotepadRegistryError> {
     let body = std::fs::read_to_string(tools_path).map_err(|error| NotepadRegistryError::Read {
         path: tools_path.display().to_string(),
@@ -210,11 +227,11 @@ fn load_and_validate_declarations(
             ),
         });
     }
-    if declared.tools.len() != EXPECTED_TOOL_NAMES.len() {
+    if declared.tools.len() != expected_tool_names.len() {
         return Err(NotepadRegistryError::Malformed {
             reason: format!(
                 "expected {} declared tools, found {}",
-                EXPECTED_TOOL_NAMES.len(),
+                expected_tool_names.len(),
                 declared.tools.len()
             ),
         });
@@ -222,8 +239,11 @@ fn load_and_validate_declarations(
     Ok(declared)
 }
 
-fn missing_production_tools(names: &BTreeSet<String>) -> Option<String> {
-    let missing = EXPECTED_TOOL_NAMES
+fn missing_production_tools(
+    names: &BTreeSet<String>,
+    expected_tool_names: &[&str],
+) -> Option<String> {
+    let missing = expected_tool_names
         .iter()
         .filter(|name| !names.contains(**name))
         .copied()
