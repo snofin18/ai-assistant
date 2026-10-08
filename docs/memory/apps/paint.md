@@ -124,6 +124,24 @@ zoom ratio = `0.5`；画布屏幕原点观察到 `(696,525)`。这只是一次�
 
 未测项不变：真实拖拽误差、连续 10 次成功率、像素容差最终校准。
 
+### 9.1 TASK-044 selector 解析实测（2026-10-08）
+
+用仓库自身的 `assistant-platform-windows::WindowsPlatform`（临时 harness，不入库）打真实
+Paint 11.2605.81.0 窗口，实测**声明式 selector 包当前跑不通**：
+
+| 目标 | 声明候选 | 实测结果 |
+|---|---|---|
+| `main_window` | `class_and_role class=WinUIDesktopWin32WindowClass role=Window` | `TargetNotFound`（0 命中）；真实 class 是 **`MSPaintApp`** |
+| `main_window` | `class_and_role class=MSPaintApp role=Window` | 解析成功 |
+| `canvas` | `class_and_role class=Image role=Image` | `TargetAmbiguous`（窗口内 38 命中） |
+| `canvas` | `automation_id=image` | 解析成功，`role=Group`、`bounds=(696,525,905,562)`、`size=209x37` |
+| `rectangle_tool_button` | `class_and_role class=GridViewItem role=ListItem` | `TargetAmbiguous`（窗口内 43 命中） |
+
+结论：`adapters/com.microsoft.paint/selectors/targets.json` 的 class/role 候选与真实树不符，
+`main_window` 在第 1 步就会让 TASK-106 的 7 个 handler 全部失败。**校准 selectors 不在
+TASK-044 write scope 内**（`DRIFT-044-2`），需另立拥有 `selectors/**` 写权限的校准卡；
+校准前真机十次验收不可跑。
+
 ## 10. 运行时装配（TASK-106）
 
 - `apps/agent-core` 已为 T3.1 注册 7 个 Paint handler：

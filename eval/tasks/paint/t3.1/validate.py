@@ -73,6 +73,38 @@ def main() -> None:
     assert canvas["observed_zoom_ratio"] == 0.5
     assert probe["observed_coordinate_transform"]["canvas_origin_screen_px"] == {"x": 696, "y": 525}
 
+    # 2026-10-08 measured selector-resolution facts (real Paint window via the
+    # repository's own WindowsPlatform). These lock in *why* the provisional
+    # pack blocks TASK-044's real ten-run acceptance.
+    resolution = probe["selector_resolution_probe"]
+    results = resolution["results"]
+    declared_main = next(
+        entry
+        for entry in results
+        if entry["target_id"] == "main_window" and entry["candidate"].startswith("declared")
+    )
+    assert declared_main["outcome"] == "TargetNotFound", declared_main
+    measured_main = next(
+        entry
+        for entry in results
+        if entry["target_id"] == "main_window" and entry["candidate"].startswith("measured")
+    )
+    assert measured_main["outcome"] == "resolved", measured_main
+    declared_canvas = next(
+        entry
+        for entry in results
+        if entry["target_id"] == "canvas" and entry["candidate"].startswith("declared")
+    )
+    assert declared_canvas["outcome"] == "TargetAmbiguous", declared_canvas
+    measured_canvas = next(
+        entry
+        for entry in results
+        if entry["target_id"] == "canvas" and entry["candidate"].startswith("measured")
+    )
+    assert measured_canvas["outcome"] == "resolved", measured_canvas
+    assert "209x37" in measured_canvas["detail"], measured_canvas
+    assert "outside TASK-044's write scope" in resolution["conclusion"], resolution
+
     rectangle = next(
         control for control in probe["controls"] if control["target"] == "rectangle_shape"
     )

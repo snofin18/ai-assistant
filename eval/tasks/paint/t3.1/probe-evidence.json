@@ -129,6 +129,43 @@
     "zoom_ratio_from_bounds": 0.5,
     "coordinate_space": "observed_physical_pixels_not_yet_multi_monitor_calibrated"
   },
+  "selector_resolution_probe": {
+    "observed_at": "2026-10-08",
+    "method": "temporary Rust harness under target/paint_bind (not committed) driving the repository's own assistant-platform-windows WindowsPlatform against a live Paint window",
+    "results": [
+      {
+        "target_id": "main_window",
+        "candidate": "declared class_and_role class=WinUIDesktopWin32WindowClass role=Window score=0.72",
+        "outcome": "TargetNotFound",
+        "detail": "0 visible top-level windows matched the declared class; the live Paint window reports class MSPaintApp"
+      },
+      {
+        "target_id": "main_window",
+        "candidate": "measured class_and_role class=MSPaintApp role=Window score=0.72",
+        "outcome": "resolved",
+        "detail": "label=mspaint.exe [MSPaintApp]"
+      },
+      {
+        "target_id": "canvas",
+        "candidate": "declared class_and_role class=Image role=Image score=0.62",
+        "outcome": "TargetAmbiguous",
+        "detail": "38 elements matched inside the Paint window; the platform layer refuses to guess"
+      },
+      {
+        "target_id": "canvas",
+        "candidate": "measured automation_id=image score=0.90",
+        "outcome": "resolved",
+        "detail": "role=Group bounds=(696,525,905,562) size=209x37"
+      },
+      {
+        "target_id": "rectangle_tool_button",
+        "candidate": "declared class_and_role class=GridViewItem role=ListItem score=0.50",
+        "outcome": "TargetAmbiguous",
+        "detail": "43 elements matched inside the Paint window"
+      }
+    ],
+    "conclusion": "The provisional selector pack cannot drive TASK-044's real ten-run acceptance: main_window fails outright and the canvas / rectangle candidates are ambiguous. Calibrating these selectors is outside TASK-044's write scope."
+  },
   "not_measured": [
     "real drag coordinate error",
     "ten-run success rate",
