@@ -1,0 +1,94 @@
+# TASK-106　Paint 运行时装配：T3.1 垂直切片（生产 handler + Plan 来源参数化）
+
+- 状态：**Ready**
+- 阶段：1　子阶段：**1b**　批次：**1b**　依赖：043、044、**ADR-0084 Accepted**　预估：L　难度：L
+- 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
+- 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
+
+---
+
+- **依赖**：043、044、**ADR-0084 Accepted**　**预估**：L　**难度**：L
+- **write scope**：`apps/agent-core/src/**`、`apps/agent-core/tests/**`、本卡与状态同步文件
+- **关联**：ADR-0084、ADR-0058、ADR-0043、ADR-0067、ADR-0076、ADR-0077、ADR-0079、
+  `adapters/com.microsoft.paint/**`、`eval/tasks/paint/**`、`docs/spec/runtime-execution.md`
+
+**目标**
+
+把 Paint 的 T3.1 工具子集接进生产装配根，使「新建画布 → 选矩形工具与颜色 → 解析画布坐标 →
+画矩形 → 捕获像素」成为**可运行的 `Plan`**（fake 平台可执行到 `Completed`），
+为 `DRIFT-044-1` / `PL-113` 的真机十次验收提供运行对象。
+
+**write scope**（本卡独有部分）
+
+`apps/agent-core/src/**`、`apps/agent-core/tests/**`；按卡面步骤同步记录与必要记忆 / 台账。
+
+**In scope**
+
+1. `production.rs` 由 Notepad 专用改为**适配器参数化**（ADR-0084 D1）：target 目录、handler 集、
+   任务包路径由装配输入给出；Notepad 既有行为不变。
+2. 新增 Paint target 目录加载（输入 `adapters/com.microsoft.paint/selectors/targets.json`）。
+3. 新增 Paint handler 模块，实现 T3.1 的 6 个工具：`paint.document.new` / `paint.tool.select` /
+   `paint.color.select_foreground` / `paint.canvas.resolve_point` / `paint.canvas.draw_rectangle` /
+   `paint.canvas.capture_pixels`；注册集与声明子集**精确一致**。
+4. fake 平台上的正向测试（T3.1 任务包 → `Plan` → `Completed`）与 fail-closed 负向测试。
+
+**Out of scope**
+
+- Paint 其余 4 个工具（`paint.layer.select` / `paint.canvas.rollback_last_write` / `paint.file.open` /
+  `paint.file.save_as`）—— 另立后续卡。
+- 真机十次运行与坐标误差测量（`DRIFT-044-1` / `PL-113`）—— 独立验收卡。
+- 改 `crates/**` 公共接口 / schema / ErrorCode；新增 crate 或第三方依赖；操作真实 GUI。
+
+**步骤**
+
+1. 读 ADR-0084 + ADR-0058 + 现有 `production.rs` / `notepad_handlers.rs` / `notepad_targets.rs` 的接线形状。
+2. 先做参数化重构，跑既有 `production_root*` 回归，确认 Notepad 行为不变。
+3. 加 Paint target 目录 + handler 模块，按 tools.json 形状注册 6 个工具。
+4. fake 平台正向 / 负向测试。
+5. 跑全部验收命令；不合格 → DRIFT。
+6. 同步 `docs/memory/apps/paint.md` / `facts` / `pitfalls`（如有新事实）。
+
+**DoD**
+
+- [ ] T3.1 任务包经装配可渲染为 `Plan` 并在 fake 平台执行到 `Completed`
+- [ ] Paint 注册集缺任一 T3.1 工具 / target 缺必需目标 / 未注入 blob sink → 显式失败带 `ErrorCode`
+- [ ] 既有 Notepad `production_root*` 测试全绿（参数化零回归）
+- [ ] `cargo fmt --all --check` 0 diff
+- [ ] `cargo clippy --all-targets -- -D warnings` 退出码 0
+- [ ] `cargo test --workspace` 全绿
+- [ ] `xtask hygiene / memory-counts / adr-index / refscan / docscan / card-check / check-ledger` 全部 PASSED
+- [ ] LEDGER.md 追加一行；如新增事实/坑则追加 `docs/memory/{facts,pitfalls}.md` 或 `apps/paint.md`
+
+**验收命令**
+
+```powershell
+cargo fmt --all --check; cargo clippy --all-targets -- -D warnings
+cargo test --workspace
+cargo test -p assistant-agent-core production_root::
+cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / card-check / check-ledger
+```
+
+<!-- ══ 分界线：以上为**卡片正文**，Orchestrator 所有，Implementer 只读 ══
+     以下由 Implementer 填写。改动分界线以上的任何一行 = 漂移触发器 ⑤（超出 write scope），
+     并会被 `xtask card-check` 判为 Error（ADR-0031 D3 / D6）。 -->
+
+
+## 执行记录（Implementer 填写；9 节骨架见 gov §3.4 / ADR-0031 D4）
+
+### 1. 约束回执
+
+### 2. 实际改动文件
+
+### 3. 验收输出摘要
+
+### 4. DoD 逐条核对
+
+### 5. 偏差
+
+### 6. 更合理做法
+
+### 7. 遗留问题
+
+### 8. 新增长期记忆
+
+### 9. 给审阅者的关注点
