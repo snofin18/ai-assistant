@@ -109,6 +109,20 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 ### 5. 偏差
 
+**DRIFT-106-1**（漂移触发器 ⑤ + ⑧）
+
+- **现象**：本卡正文与 ADR-0084 D4 把 T3.1 工具子集写成 **6 个**，并把
+  `paint.layer.select` 明确列入 Out of scope（"Paint 其余 4 个工具"）。但
+  `adapters/com.microsoft.paint/tasks/t3.1.new-canvas-rectangle-color-screenshot.json`
+  的第 5 步 `select_layer` 调用的正是 **`paint.layer.select`**，且后续
+  `paint.canvas.draw_rectangle` 的 `expected_layer_id` 依赖它的输出。
+- **影响**：按卡面只实现 6 个工具，T3.1 的 `Plan` 会引用未注册工具 → 执行不到
+  `Completed`，卡的 DoD 不可达；实现 7 个则违反卡面 Out of scope（触发器 ⑤）。
+- **建议**：把 `paint.layer.select` 从 Out of scope 移入 In scope（T3.1 子集 = **7 个**工具）；
+  ADR-0084 D4 的"6 个"按勘误处理（ADR 只增不改，在本卡记录 + 后续 ADR/登记表标注）。
+- **已停工作**：未开始 Paint handler 实现与 registry 的工具名绑定；已提交的
+  `a7e2b25`（target 目录参数化）与工具数量无关，不受影响。
+
 ### 6. 更合理做法
 
 ### 7. 遗留问题
