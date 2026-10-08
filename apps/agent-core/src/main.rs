@@ -11,8 +11,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use assistant_agent_core::{
-    HostAssembly, HostAssemblyError, HostAssemblyInput, ProductionConfig, ProductionError,
-    StorageBlobSink, TaskControlHandler, UiServerConfig, assemble_production_host,
+    AdapterKind, HostAssembly, HostAssemblyError, HostAssemblyInput, ProductionConfig,
+    ProductionError, StorageBlobSink, TaskControlHandler, UiServerConfig, assemble_production_host,
     serve_with_events,
 };
 use assistant_audit::Durability;
@@ -180,7 +180,8 @@ async fn main() -> ExitCode {
     let _ = report_error(
         "usage: assistant-agent-core [--self-check | --production \
          --task-package <path> --ui-peer <path> [--task-inputs <path>] [--adapter-root <path>] \
-         [--data-root <path>] [--ui-pipe <name>] [--ui-token-env <name>] [--serve-ui]]",
+         [--adapter-kind notepad|paint] [--data-root <path>] [--ui-pipe <name>] \
+         [--ui-token-env <name>] [--serve-ui]]",
     );
     ExitCode::from(2)
 }
@@ -191,7 +192,8 @@ struct ProductionOptions {
 }
 
 fn parse_production_options(arguments: &[String]) -> Result<ProductionOptions, String> {
-    let mut adapter_root = PathBuf::from("adapters/com.microsoft.notepad");
+    let mut adapter_kind = AdapterKind::Notepad;
+    let mut adapter_root = None;
     let mut data_root = std::env::temp_dir().join(format!(
         "assistant-agent-core-production-{}",
         std::process::id()
@@ -206,7 +208,10 @@ fn parse_production_options(arguments: &[String]) -> Result<ProductionOptions, S
     while let Some(argument) = iterator.next() {
         match argument.as_str() {
             "--adapter-root" => {
-                adapter_root = PathBuf::from(next_value(&mut iterator, argument)?);
+                adapter_root = Some(PathBuf::from(next_value(&mut iterator, argument)?));
+            }
+            "--adapter-kind" => {
+                adapter_kind = parse_adapter_kind(&next_value(&mut iterator, argument)?)?;
             }
             "--data-root" => {
                 data_root = PathBuf::from(next_value(&mut iterator, argument)?);
@@ -245,11 +250,30 @@ fn parse_production_options(arguments: &[String]) -> Result<ProductionOptions, S
         Duration::from_secs(10),
     )
     .with_allowed_peer(ui_peer);
+    let adapter_root = adapter_root.unwrap_or_else(|| default_adapter_root(adapter_kind));
     Ok(ProductionOptions {
         config: ProductionConfig::new(data_root, adapter_root, task_package_path, ui_config)
+            .with_adapter_kind(adapter_kind)
             .with_task_inputs(task_inputs),
         serve_ui,
     })
+}
+
+fn parse_adapter_kind(value: &str) -> Result<AdapterKind, String> {
+    match value {
+        "notepad" => Ok(AdapterKind::Notepad),
+        "paint" => Ok(AdapterKind::Paint),
+        other => Err(format!(
+            "unknown adapter kind `{other}`; expected `notepad` or `paint`"
+        )),
+    }
+}
+
+fn default_adapter_root(adapter_kind: AdapterKind) -> PathBuf {
+    match adapter_kind {
+        AdapterKind::Notepad => PathBuf::from("adapters/com.microsoft.notepad"),
+        AdapterKind::Paint => PathBuf::from("adapters/com.microsoft.paint"),
+    }
 }
 
 fn read_task_inputs(path: &Path) -> Result<Map<String, Value>, String> {

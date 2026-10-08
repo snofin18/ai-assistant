@@ -29,11 +29,12 @@
 use std::future::Future;
 
 use assistant_platform_api::{
-    CapabilityMatrix, CaptureOptions, CoordinateSpace, ElementQuery, ElementState, ErrorCode,
-    Fingerprint, FingerprintScope, FocusPolicy, ImageBlobSink, ImageRef, KeyChord, KeyTarget,
-    NormalizedPoint, PlatformError, PlatformResult, PointerAction, ResolvedElement, ResolvedWindow,
-    ScrollTarget, Selection, SelectorChain, SessionState, TextEditOp, Timeout, TreeOptions,
-    TreeSnapshot, UiAutomationProvider, WindowFilter, WindowInfo, WindowProvider, WindowState,
+    CapabilityMatrix, CaptureOptions, CoordinateSpace, ElementBounds, ElementQuery, ElementState,
+    ErrorCode, Fingerprint, FingerprintScope, FocusPolicy, ImageBlobSink, ImageRef, KeyChord,
+    KeyTarget, NormalizedPoint, PlatformError, PlatformResult, PointerAction, ResolvedElement,
+    ResolvedWindow, ScrollTarget, Selection, SelectorChain, SessionState, TextEditOp, Timeout,
+    TreeOptions, TreeSnapshot, UiAutomationProvider, WindowFilter, WindowInfo, WindowProvider,
+    WindowState,
 };
 
 /// 非 Windows 平台上的 `WindowsPlatform`。
@@ -158,6 +159,15 @@ impl UiAutomationProvider for WindowsPlatform {
         chain: &SelectorChain,
     ) -> impl Future<Output = PlatformResult<ResolvedElement>> + Send {
         std::future::ready(resolve_element_outcome(chain))
+    }
+
+    fn element_bounds(
+        &self,
+        _element: &ResolvedElement,
+    ) -> impl Future<Output = PlatformResult<ElementBounds>> + Send {
+        std::future::ready(Err(requires_windows(
+            "UiAutomationProvider::element_bounds",
+        )))
     }
 
     fn wait_for(

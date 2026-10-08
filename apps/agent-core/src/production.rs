@@ -47,8 +47,11 @@ use crate::HostAssembly;
 use crate::adapters::DatabaseHandle;
 use crate::approval_grants::ApprovalGrants;
 use crate::assembly::{HostAssemblyInput, HostComponents};
-use crate::notepad_registry::{NotepadRegistryBuild, build_notepad_registry};
+use crate::notepad_registry::build_notepad_registry;
 use crate::notepad_targets::{NOTEPAD_REQUIRED_TARGETS, NotepadTargetCatalog};
+use crate::paint_registry::{
+    PAINT_EXPECTED_TOOL_NAMES, PAINT_REQUIRED_TARGETS, build_paint_registry,
+};
 use crate::production_policy::{ApprovalWindows, CatalogStepPolicy};
 use crate::production_run::ProductionRun;
 use crate::production_support::{EmptyRetriever, NoopCompressor};
@@ -72,13 +75,24 @@ const PRODUCTION_PLAN_BUDGET_COST_USD: f64 = 1.0;
 
 type StepHandle = (StepId, u32, String);
 
+/// Declarative adapter selected by the production composition root.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AdapterKind {
+    /// The existing Notepad adapter.
+    Notepad,
+    /// The Paint T3.1 runtime adapter.
+    Paint,
+}
+
 /// Paths and UI configuration required by the production mode.
 #[derive(Debug, Clone)]
 pub struct ProductionConfig {
     /// Root for the Host database and audit files.
     pub data_root: PathBuf,
-    /// Root of the declarative Notepad adapter package.
+    /// Root of the selected declarative adapter package.
     pub adapter_root: PathBuf,
+    /// Adapter whose target catalog and handler set this assembly should use.
+    adapter_kind: AdapterKind,
     /// The task package that supplies the deterministic 1a Plan.
     pub task_package_path: PathBuf,
     /// Explicit task inputs keyed by the reference name without the leading `$`.
@@ -101,11 +115,25 @@ impl ProductionConfig {
         Self {
             data_root: data_root.into(),
             adapter_root: adapter_root.into(),
+            adapter_kind: AdapterKind::Notepad,
             task_package_path: task_package_path.into(),
             task_inputs: Map::new(),
             ui_config,
             lease_registry: TargetLeaseRegistry::new(),
         }
+    }
+
+    /// Selects the concrete adapter branch used by the production root.
+    #[must_use]
+    pub const fn with_adapter_kind(mut self, adapter_kind: AdapterKind) -> Self {
+        self.adapter_kind = adapter_kind;
+        self
+    }
+
+    /// Returns the selected adapter.
+    #[must_use]
+    pub const fn adapter_kind(&self) -> AdapterKind {
+        self.adapter_kind
     }
 
     /// Adds explicit task inputs used while rendering the deterministic Plan.
@@ -212,6 +240,15 @@ pub struct ProductionHost<P> {
     ui_config: UiServerConfig,
 }
 
+struct ProductionAssets {
+    targets: Arc<NotepadTargetCatalog>,
+    registry: ToolRegistry,
+    tool_schemas: Vec<ToolSchema>,
+    host_operations: Arc<dyn ReservedHostOperations>,
+    provider: TaskPackageProvider,
+    expected_tool_names: &'static [&'static str],
+}
+
 /// Assembles the production Host from explicit dependencies.
 ///
 /// # Errors
@@ -228,18 +265,17 @@ where
     P: WindowProvider + UiAutomationProvider + Clone + Send + Sync + 'static,
 {
     validate_config(&config)?;
-    let (targets, registry_build, provider) =
-        load_production_assets(&config, &platform, Arc::clone(&clock))?;
-    let provider_arc: Arc<dyn ModelProvider> = Arc::new(provider.clone());
-    let model_id = provider.model_id().clone();
+    let assets = load_production_assets(&config, &platform, Arc::clone(&clock))?;
+    let provider_arc: Arc<dyn ModelProvider> = Arc::new(assets.provider.clone());
+    let model_id = assets.provider.model_id().clone();
     let router =
         ModelRouter::new(model_id.clone(), Vec::new(), vec![model_id]).map_err(|error| {
             ProductionError::ModelRouter {
                 reason: error.to_string(),
             }
         })?;
-    let tool_catalog = registry_build.tool_schemas.clone();
-    let host_operations = Arc::clone(&registry_build.host_operations);
+    let tool_catalog = assets.tool_schemas.clone();
+    let host_operations = Arc::clone(&assets.host_operations);
     let policy_catalog = tool_catalog
         .iter()
         .map(|schema| (schema.name.clone(), schema.clone()))
@@ -261,29 +297,43 @@ where
             Arc::new(NoJitter),
         )
         .with_policy_rules(production_policy_rules())
-        .with_tool_registry(registry_build.registry)
+        .with_tool_registry(assets.registry)
         .with_history_compressor(Arc::new(NoopCompressor) as Arc<dyn HistoryCompressor>)
         .with_durability(Durability::Immediate);
 
     let host = HostAssembly::new(input).assemble().await?;
-    let mounted_notepad = host
+    let mounted = host
         .toolset_report()
         .mounted
         .iter()
-        .filter(|name| name.starts_with("notepad."))
-        .count();
-    if mounted_notepad != 5 {
+        .map(String::as_str)
+        .filter(|name| {
+            let prefix = name.split('.').next();
+            assets
+                .expected_tool_names
+                .iter()
+                .any(|expected| expected.split('.').next() == prefix)
+        })
+        .collect::<std::collections::BTreeSet<_>>();
+    let expected = assets
+        .expected_tool_names
+        .iter()
+        .copied()
+        .collect::<std::collections::BTreeSet<_>>();
+    if mounted != expected {
         return Err(ProductionError::InvalidConfiguration {
             field: "toolset_report.mounted",
-            reason: format!("expected 5 mounted Notepad tools, found {mounted_notepad}"),
+            reason: format!(
+                "mounted tools `{mounted:?}` do not exactly match the selected adapter's declarations `{expected:?}`"
+            ),
         });
     }
     Ok(ProductionHost {
         host,
-        provider,
+        provider: assets.provider,
         tool_catalog,
         policy_catalog,
-        app_id: targets.app_id().to_owned(),
+        app_id: assets.targets.app_id().to_owned(),
         latest_snapshot: Arc::new(Mutex::new(None)),
         clock,
         approvals: Arc::new(ApprovalGrants::new()),
@@ -298,45 +348,84 @@ fn load_production_assets<P>(
     config: &ProductionConfig,
     platform: &P,
     clock: Arc<dyn Clock>,
-) -> Result<
-    (
-        Arc<NotepadTargetCatalog>,
-        NotepadRegistryBuild,
-        TaskPackageProvider,
-    ),
-    ProductionError,
->
+) -> Result<ProductionAssets, ProductionError>
 where
     P: WindowProvider + UiAutomationProvider + Clone + Send + Sync + 'static,
 {
     let tools_path = config.adapter_root.join("tools").join("tools.json");
     let targets_path = config.adapter_root.join("selectors").join("targets.json");
-    let targets = Arc::new(
-        NotepadTargetCatalog::load(&targets_path, NOTEPAD_REQUIRED_TARGETS).map_err(|error| {
-            ProductionError::InvalidConfiguration {
-                field: "adapter_root.selectors.targets",
-                reason: error.to_string(),
-            }
-        })?,
-    );
     let input_leases = config.lease_registry.gate(clock);
-    let registry_build = build_notepad_registry(
-        Arc::new(platform.clone()),
-        Arc::clone(&targets),
-        &tools_path,
-        &config.task_inputs,
-        input_leases,
-    )
-    .map_err(|error| ProductionError::InvalidConfiguration {
-        field: "adapter_root.tools.tools",
-        reason: error.to_string(),
-    })?;
-    validate_registry_not_empty(&registry_build.registry)?;
+    let (targets, registry, tool_schemas, host_operations, expected_tool_names) =
+        match config.adapter_kind {
+            AdapterKind::Notepad => {
+                let targets = Arc::new(
+                    NotepadTargetCatalog::load(&targets_path, NOTEPAD_REQUIRED_TARGETS).map_err(
+                        |error| ProductionError::InvalidConfiguration {
+                            field: "adapter_root.selectors.targets",
+                            reason: error.to_string(),
+                        },
+                    )?,
+                );
+                let registry_build = build_notepad_registry(
+                    Arc::new(platform.clone()),
+                    Arc::clone(&targets),
+                    &tools_path,
+                    &config.task_inputs,
+                    input_leases,
+                )
+                .map_err(|error| ProductionError::InvalidConfiguration {
+                    field: "adapter_root.tools.tools",
+                    reason: error.to_string(),
+                })?;
+                (
+                    targets,
+                    registry_build.registry,
+                    registry_build.tool_schemas,
+                    registry_build.host_operations,
+                    crate::notepad_registry::EXPECTED_TOOL_NAMES,
+                )
+            }
+            AdapterKind::Paint => {
+                let targets = Arc::new(
+                    NotepadTargetCatalog::load(&targets_path, PAINT_REQUIRED_TARGETS).map_err(
+                        |error| ProductionError::InvalidConfiguration {
+                            field: "adapter_root.selectors.targets",
+                            reason: error.to_string(),
+                        },
+                    )?,
+                );
+                let registry_build = build_paint_registry(
+                    Arc::new(platform.clone()),
+                    Arc::clone(&targets),
+                    &tools_path,
+                    input_leases,
+                )
+                .map_err(|error| ProductionError::InvalidConfiguration {
+                    field: "adapter_root.tools.tools",
+                    reason: error.to_string(),
+                })?;
+                (
+                    targets,
+                    registry_build.registry,
+                    registry_build.tool_schemas,
+                    registry_build.host_operations,
+                    PAINT_EXPECTED_TOOL_NAMES,
+                )
+            }
+        };
+    validate_registry_not_empty(&registry)?;
     let provider = TaskPackageProvider::from_package_file_with_inputs(
         &config.task_package_path,
         &config.task_inputs,
     )?;
-    Ok((targets, registry_build, provider))
+    Ok(ProductionAssets {
+        targets,
+        registry,
+        tool_schemas,
+        host_operations,
+        provider,
+        expected_tool_names,
+    })
 }
 
 fn validate_registry_not_empty(registry: &ToolRegistry) -> Result<(), ProductionError> {

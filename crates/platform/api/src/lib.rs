@@ -61,8 +61,9 @@ pub use target::{
     TargetDescriptor,
 };
 pub use traits::{
-    CaptureOptions, DisplayInfo, ElementQuery, ElementState, FingerprintScope, FocusPolicy,
-    ImageBlobSink, ImageRef, KeyChord, KeyModifier, KeyTarget, PlatformService, PointerAction,
-    ScrollTarget, Selection, SelectorChain, SessionState, TextEditOp, Timeout, TreeOptions,
-    TreeSnapshot, UiAutomationProvider, WindowFilter, WindowInfo, WindowProvider, WindowState,
+    CaptureOptions, DisplayInfo, ElementBounds, ElementQuery, ElementState, FingerprintScope,
+    FocusPolicy, ImageBlobSink, ImageRef, KeyChord, KeyModifier, KeyTarget, PlatformService,
+    PointerAction, ScrollTarget, Selection, SelectorChain, SessionState, TextEditOp, Timeout,
+    TreeOptions, TreeSnapshot, UiAutomationProvider, WindowFilter, WindowInfo, WindowProvider,
+    WindowState,
 };

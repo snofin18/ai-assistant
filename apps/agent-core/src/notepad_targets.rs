@@ -116,10 +116,7 @@ impl NotepadTargetCatalog {
     /// `required_targets` is the adapter's own required id list (ADR-0084 D1):
     /// the loader rejects a package that omits any of them, but does not impose
     /// a Notepad-shaped set on a different adapter.
-    pub(crate) fn load(
-        path: &Path,
-        required_targets: &[&str],
-    ) -> Result<Self, TargetCatalogError> {
+    pub(crate) fn load(path: &Path, required_targets: &[&str]) -> Result<Self, TargetCatalogError> {
         let body = std::fs::read_to_string(path).map_err(|error| TargetCatalogError::Read {
             path: path.display().to_string(),
             reason: error.to_string(),

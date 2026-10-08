@@ -109,6 +109,7 @@ fn replays_recorded_text_and_tree_metadata() {
     let element =
         poll_once(provider.resolve_element(&session.window(), &chain)).expect("element resolves");
     let text = poll_once(provider.read_text(&element)).expect("recorded text must replay");
+    let bounds = poll_once(provider.element_bounds(&element)).expect("recorded bounds must replay");
     let snapshot = poll_once(provider.snapshot_tree(
         &session.window(),
         &assistant_platform_api::TreeOptions::new(None, true),
@@ -116,6 +117,10 @@ fn replays_recorded_text_and_tree_metadata() {
     .expect("recorded tree snapshot must replay");
 
     assert_eq!(text, "notepad-like fixture");
+    assert_eq!(bounds.left(), 8);
+    assert_eq!(bounds.top(), 48);
+    assert_eq!(bounds.right(), 884);
+    assert_eq!(bounds.bottom(), 420);
     assert_eq!(snapshot.node_count(), 4);
     assert_eq!(
         snapshot.fingerprint().as_str(),

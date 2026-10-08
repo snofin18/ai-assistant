@@ -123,3 +123,14 @@ zoom ratio = `0.5`；画布屏幕原点观察到 `(696,525)`。这只是一次�
 物理像素观察，混合 DPI / 多屏仍未验收。
 
 未测项不变：真实拖拽误差、连续 10 次成功率、像素容差最终校准。
+
+## 10. 运行时装配（TASK-106）
+
+- `apps/agent-core` 已为 T3.1 注册 7 个 Paint handler：
+  `paint.document.new` / `paint.tool.select` / `paint.color.select_foreground` /
+  `paint.layer.select` / `paint.canvas.resolve_point` / `paint.canvas.draw_rectangle` /
+  `paint.canvas.capture_pixels`。
+- canvas 物理矩形通过 `UiAutomationProvider::element_bounds` 读取（ADR-0085），不再从
+  `TreeSnapshot` 猜几何；`TreeSnapshot` 仍只有窗口句柄、指纹与节点数。
+- 当前 selector 仍是 provisional，T3.1 fake 平台已跑通 `Plan -> Completed`；
+  真机十次运行与拖拽误差仍由 `DRIFT-044-1` / `PL-113` 跟踪。

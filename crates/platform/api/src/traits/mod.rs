@@ -27,9 +27,9 @@ mod window;
 
 pub use session::{DisplayInfo, PlatformService, SessionState};
 pub use ui::{
-    ElementQuery, ElementState, FingerprintScope, KeyChord, KeyModifier, KeyTarget, PointerAction,
-    ScrollTarget, Selection, SelectorChain, TextEditOp, Timeout, TreeOptions, TreeSnapshot,
-    UiAutomationProvider,
+    ElementBounds, ElementQuery, ElementState, FingerprintScope, KeyChord, KeyModifier, KeyTarget,
+    PointerAction, ScrollTarget, Selection, SelectorChain, TextEditOp, Timeout, TreeOptions,
+    TreeSnapshot, UiAutomationProvider,
 };
 pub use window::{
     CaptureOptions, FocusPolicy, ImageBlobSink, ImageRef, WindowFilter, WindowInfo, WindowProvider,

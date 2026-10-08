@@ -1,7 +1,7 @@
 # assistant-platform-windows
 
 > **铁律 7 的实现侧**：把 `assistant-platform-api` 的两个 trait（`WindowProvider` 5 方法 +
-> `UiAutomationProvider` 13 方法）落到**真实的 Win32 / UIA3 客户端 COM** 上。
+> `UiAutomationProvider` 14 方法）落到**真实的 Win32 / UIA3 客户端 COM** 上。
 > `core` / `Host` **永不** `use windows::…`，它们只见 trait 与纯类型；
 > 分层断言见 `crates/core/tests/arch_layering.rs`（gov §5.1 门禁 #5）。
 
@@ -11,7 +11,8 @@
    解析**唯一**窗口 → 查询窗口状态（最小化 / 前台 / 遮挡）→ 受策略约束的前台化 →
    GDI `PrintWindow` 单窗口截图 + UIA 密码框像素遮挡（ADR-0074）。
 2. **元素域**（`src/uia/**`）：control view 树快照（`TreeOptions` 裁剪 + 指纹）、候选链解析、
-   `wait_for` 轮询、`read_text`（`ValuePattern` → `TextPattern` 兜底）、
+   `element_bounds`（`CurrentBoundingRectangle` 的物理像素矩形）、`wait_for` 轮询、
+   `read_text`（`ValuePattern` → `TextPattern` 兜底）、
    **五类写操作**（`set_value` / `edit_text` / `invoke_action` / `select` / `scroll`，每个都回读）、
    状态指纹（`FingerprintScope`）。
 3. **合成输入域**（`src/input/**`，TASK-018）：`SendInput` 封装（VK 路径 + `KEYEVENTF_UNICODE` 文本路径）、
@@ -111,6 +112,9 @@
 - **`capture` 的内容地址尚未接 storage sink**：返回的 `ImageRef.blob_id` 是遮挡后 BGRA
   的 SHA-256 内容地址，但平台层没有 storage 句柄，不能在不改公共 trait 的前提下写库；
   `DRIFT-041-2` 未裁决前不得把它宣称为已持久化 blob。
+- **`element_bounds` 的坐标语义固定为全局虚拟屏物理像素**（ADR-0085）：返回值必须与调用方
+  显式传入的 `CoordinateSpace` 一起校验；混合 DPI / 跨屏矩形若无法由单一空间描述，调用方
+  必须 fail-closed，不得猜测。
 - **硬件合成窗口可能得到黑图**：部分 DirectComposition / 高保护窗口对 `PrintWindow` 只返回黑帧；
   GDI 无法在所有应用上可靠判定“黑帧”是真实内容还是渲染拒绝。真机验收必须覆盖目标应用；
   后续可评估 Windows.Graphics.Capture。

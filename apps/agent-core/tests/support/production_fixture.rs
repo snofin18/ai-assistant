@@ -6,11 +6,11 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use assistant_platform_api::{
-    CaptureOptions, CoordinateSpace, ErrorCode, Fingerprint, FingerprintScope, FocusPolicy,
-    ImageRef, KeyChord, KeyTarget, NormalizedPoint, PlatformError, PlatformResult, PointerAction,
-    ResolvedElement, ResolvedWindow, ScrollTarget, Selection, SelectorChain, SelectorValue,
-    TargetDescriptor, TextEditOp, Timeout, TreeOptions, TreeSnapshot, UiAutomationProvider,
-    WindowFilter, WindowInfo, WindowProvider, WindowState,
+    CaptureOptions, CoordinateSpace, ElementBounds, ErrorCode, Fingerprint, FingerprintScope,
+    FocusPolicy, ImageRef, KeyChord, KeyTarget, NormalizedPoint, PlatformError, PlatformResult,
+    PointerAction, ResolvedElement, ResolvedWindow, ScrollTarget, Selection, SelectorChain,
+    SelectorValue, TargetDescriptor, TextEditOp, Timeout, TreeOptions, TreeSnapshot,
+    UiAutomationProvider, WindowFilter, WindowInfo, WindowProvider, WindowState,
 };
 use assistant_storage::Clock;
 
@@ -199,6 +199,19 @@ impl UiAutomationProvider for FakePlatform {
             _ => editor(),
         };
         ready(Ok(element))
+    }
+
+    fn element_bounds(
+        &self,
+        element: &ResolvedElement,
+    ) -> impl Future<Output = PlatformResult<ElementBounds>> + Send {
+        let bounds = match element.id().value() {
+            EDITOR_ID => ElementBounds::new(100, 120, 500, 420),
+            TAB_COUNT_ID | ADD_TAB_ID => ElementBounds::new(10, 10, 110, 40),
+            SAVE_AS_FILENAME_ID | SAVE_AS_SAVE_BUTTON_ID => ElementBounds::new(200, 200, 420, 240),
+            _ => ElementBounds::new(1, 1, 2, 2),
+        };
+        ready(bounds)
     }
 
     fn wait_for(

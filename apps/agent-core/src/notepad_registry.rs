@@ -55,6 +55,15 @@ pub(crate) const EXPECTED_TOOL_NAMES: &[&str] = &[
     TOOL_SAVE_AS,
 ];
 
+/// How an adapter's declared tool catalog maps onto the production registry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DeclaredToolSelection {
+    /// The declaration set and registry set must match exactly.
+    Exact,
+    /// The declaration may contain future tools, but every expected tool must be present.
+    Subset,
+}
+
 /// Hard cap on the number of tasks whose rollback anchors are kept.
 ///
 /// Each anchor holds the editor text plus the target file bytes. A long-running Host must not
@@ -120,7 +129,12 @@ pub(crate) fn build_notepad_registry<P>(
 where
     P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
 {
-    let declared = load_and_validate_declarations(tools_path, targets.app_id(), EXPECTED_TOOL_NAMES)?;
+    let declared = load_and_validate_declarations(
+        tools_path,
+        targets.app_id(),
+        EXPECTED_TOOL_NAMES,
+        DeclaredToolSelection::Exact,
+    )?;
 
     let context = Arc::new(NotepadHandlerContext {
         platform,
@@ -136,13 +150,37 @@ where
         task_requires_l1: required_anchor_levels_include_l1(task_inputs),
     });
     let handlers = build_handler_map(&context);
-    let (registry, tool_schemas) =
-        register_declared_tools(declared, EXPECTED_TOOL_NAMES, &handlers)?;
+    let (registry, tool_schemas) = register_declared_tools(
+        declared,
+        EXPECTED_TOOL_NAMES,
+        DeclaredToolSelection::Exact,
+        &handlers,
+    )?;
     Ok(NotepadRegistryBuild {
         registry,
         tool_schemas,
         host_operations,
     })
+}
+
+/// Loads one adapter declaration and registers exactly the requested tool subset.
+///
+/// ADR-0084: Notepad and Paint share this loop, while the selection policy keeps
+/// Notepad exact and allows Paint's future tools to remain declared but unmounted.
+pub(crate) fn load_and_register_declared_tools(
+    tools_path: &Path,
+    expected_app_id: &str,
+    expected_tool_names: &[&str],
+    selection: DeclaredToolSelection,
+    handlers: &BTreeMap<String, Arc<dyn ToolHandler>>,
+) -> Result<(ToolRegistry, Vec<ToolSchema>), NotepadRegistryError> {
+    let declared = load_and_validate_declarations(
+        tools_path,
+        expected_app_id,
+        expected_tool_names,
+        selection,
+    )?;
+    register_declared_tools(declared, expected_tool_names, selection, handlers)
 }
 
 /// Registers exactly the declared tools the adapter is expected to expose.
@@ -154,6 +192,7 @@ where
 fn register_declared_tools(
     declared: DeclaredToolsFile,
     expected_tool_names: &[&str],
+    selection: DeclaredToolSelection,
     handlers: &BTreeMap<String, Arc<dyn ToolHandler>>,
 ) -> Result<(ToolRegistry, Vec<ToolSchema>), NotepadRegistryError> {
     let mut registry = ToolRegistry::new();
@@ -167,9 +206,12 @@ fn register_declared_tools(
             });
         }
         if !expected_tool_names.contains(&schema.name.as_str()) {
-            return Err(NotepadRegistryError::Malformed {
-                reason: format!("unexpected production tool `{}`", schema.name),
-            });
+            if selection == DeclaredToolSelection::Exact {
+                return Err(NotepadRegistryError::Malformed {
+                    reason: format!("unexpected production tool `{}`", schema.name),
+                });
+            }
+            continue;
         }
         if !names.insert(schema.name.clone()) {
             return Err(NotepadRegistryError::Malformed {
@@ -210,6 +252,7 @@ fn load_and_validate_declarations(
     tools_path: &Path,
     expected_app_id: &str,
     expected_tool_names: &[&str],
+    selection: DeclaredToolSelection,
 ) -> Result<DeclaredToolsFile, NotepadRegistryError> {
     let body = std::fs::read_to_string(tools_path).map_err(|error| NotepadRegistryError::Read {
         path: tools_path.display().to_string(),
@@ -227,7 +270,11 @@ fn load_and_validate_declarations(
             ),
         });
     }
-    if declared.tools.len() != expected_tool_names.len() {
+    let wrong_count = match selection {
+        DeclaredToolSelection::Exact => declared.tools.len() != expected_tool_names.len(),
+        DeclaredToolSelection::Subset => declared.tools.len() < expected_tool_names.len(),
+    };
+    if wrong_count {
         return Err(NotepadRegistryError::Malformed {
             reason: format!(
                 "expected {} declared tools, found {}",
@@ -661,12 +708,18 @@ mod tests {
     #![allow(clippy::expect_used, clippy::print_stderr, clippy::unwrap_used)]
 
     use std::path::PathBuf;
+    use std::sync::Arc;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use assistant_protocol::ErrorCode;
+    use assistant_tool_bus::{CallContext, ToolHandler, ToolOutput};
     use serde_json::Value;
 
-    use super::{MAX_TASK_ANCHORS, TaskAnchorRegistry, read_utf8_prefix_data};
+    use super::{
+        DeclaredToolSelection, MAX_TASK_ANCHORS, TaskAnchorRegistry,
+        load_and_register_declared_tools, read_utf8_prefix_data,
+    };
+    use crate::paint_registry::PAINT_EXPECTED_TOOL_NAMES;
 
     fn field<'value>(value: &'value Value, name: &str) -> &'value Value {
         value.get(name).expect("tested field is present")
@@ -783,5 +836,39 @@ mod tests {
         assert_eq!(evicted, Some(1), "the oldest anchor must be evicted");
         assert!(registry.get("task-0000").is_none());
         assert_eq!(registry.get("task-over-cap"), Some(&999));
+    }
+
+    #[test]
+    fn test_subset_registration_mounts_only_the_expected_paint_tools() {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../adapters/com.microsoft.paint/tools/tools.json");
+        let handler: Arc<dyn ToolHandler> = Arc::new(
+            |_call: &CallContext, _arguments: &serde_json::Map<String, Value>| {
+                Ok(ToolOutput::json(serde_json::json!({})))
+            },
+        );
+        let handlers = PAINT_EXPECTED_TOOL_NAMES
+            .iter()
+            .map(|name| ((*name).to_owned(), Arc::clone(&handler)))
+            .collect::<std::collections::BTreeMap<_, _>>();
+        let (_registry, schemas) = load_and_register_declared_tools(
+            &path,
+            "com.microsoft.paint",
+            PAINT_EXPECTED_TOOL_NAMES,
+            DeclaredToolSelection::Subset,
+            &handlers,
+        )
+        .expect("Paint T3.1 subset registration");
+        let names = schemas
+            .iter()
+            .map(|schema| schema.name.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
+        for expected in PAINT_EXPECTED_TOOL_NAMES {
+            assert!(names.contains(expected), "{expected} must be mounted");
+        }
+        assert!(
+            !names.contains("paint.file.save_as"),
+            "declared-but-out-of-scope Paint tools must not be mounted"
+        );
     }
 }

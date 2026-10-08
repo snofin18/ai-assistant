@@ -93,8 +93,21 @@ fn render_step(
             tool: tool.to_owned(),
         });
     };
-    register_step_dataflow(step, tool, condition, known_outputs, dataflow)?;
-    let point_of_no_return = tool == "notepad.file.save_as";
+    let mut outputs = step.outputs.clone();
+    match (tool, step.id.as_str()) {
+        ("paint.canvas.capture_pixels", "capture_pre_snapshot") => {
+            outputs.push("pre_snapshot_blob_id".to_owned());
+        }
+        ("paint.canvas.capture_pixels", "capture_post_snapshot") => {
+            outputs.push("post_snapshot_blob_id".to_owned());
+        }
+        _ => {}
+    }
+    register_step_dataflow(step, tool, condition, &outputs, known_outputs, dataflow)?;
+    let point_of_no_return = matches!(
+        tool,
+        "notepad.file.save_as" | "paint.document.new" | "paint.file.save_as"
+    );
     Ok(Some(json!({
         "id": step.id,
         "sequence": sequence,
@@ -148,10 +161,11 @@ fn register_step_dataflow(
     step: &DeclaredStep,
     tool: &str,
     condition: Option<ConditionExpr>,
+    outputs: &[String],
     known_outputs: &mut BTreeMap<String, String>,
     dataflow: &mut RuntimeDataflowPlan,
 ) -> Result<(), TaskPackageError> {
-    for output in &step.outputs {
+    for output in outputs {
         known_outputs.insert(output.clone(), step.id.clone());
     }
     dataflow
@@ -160,7 +174,7 @@ fn register_step_dataflow(
             RuntimeStepBinding {
                 tool: tool.to_owned(),
                 condition,
-                outputs: step.outputs.clone(),
+                outputs: outputs.to_vec(),
             },
         )
         .map_err(|error| match error {
@@ -296,6 +310,12 @@ pub(super) fn normalize_task_id(value: &str) -> String {
 }
 
 fn assertion_table(tool: &str, arguments: &Value) -> Option<Vec<Value>> {
+    paint_assertion_table(tool, arguments)
+        .or_else(|| notepad_assertion_table(tool, arguments))
+        .or_else(|| reserved_assertion_table(tool))
+}
+
+fn notepad_assertion_table(tool: &str, arguments: &Value) -> Option<Vec<Value>> {
     match tool {
         "notepad.file.read_text" => Some(vec![json!({ "kind": "state_unchanged" })]),
         "notepad.file.replace_text" => {
@@ -313,6 +333,130 @@ fn assertion_table(tool: &str, arguments: &Value) -> Option<Vec<Value>> {
             "name": "file_created",
             "value": true,
         })]),
+        _ => None,
+    }
+}
+
+fn paint_assertion_table(tool: &str, arguments: &Value) -> Option<Vec<Value>> {
+    paint_selection_assertions(tool, arguments).or_else(|| paint_canvas_assertions(tool, arguments))
+}
+
+fn paint_selection_assertions(tool: &str, arguments: &Value) -> Option<Vec<Value>> {
+    match tool {
+        "paint.document.new" => Some(vec![
+            json!({
+                "kind": "value_in_range",
+                "name": "document_generation",
+                "min": 1,
+                "max": 9_007_199_254_740_991_i64,
+            }),
+            json!({
+                "kind": "state_changed",
+                "within_ms": STATE_CHANGED_WINDOW_MS,
+            }),
+        ]),
+        "paint.tool.select" => Some(vec![json!({
+            "kind": "value_equals",
+            "name": "selected_tool",
+            "value": arguments.get("tool")?,
+        })]),
+        "paint.color.select_foreground" => {
+            let red = arguments.get("red")?;
+            let green = arguments.get("green")?;
+            let blue = arguments.get("blue")?;
+            let foreground = format!("{},{},{}", red.as_u64()?, green.as_u64()?, blue.as_u64()?);
+            Some(vec![json!({
+                "kind": "value_equals",
+                "name": "foreground_rgb",
+                "value": foreground,
+            })])
+        }
+        "paint.layer.select" => Some(vec![
+            json!({
+                "kind": "value_equals",
+                "name": "active_layer_id",
+                "value": arguments.get("layer_id")?,
+            }),
+            json!({
+                "kind": "value_equals",
+                "name": "active_layer_name",
+                "value": arguments.get("expected_layer_name")?,
+            }),
+        ]),
+        _ => None,
+    }
+}
+
+fn paint_canvas_assertions(tool: &str, arguments: &Value) -> Option<Vec<Value>> {
+    match tool {
+        "paint.canvas.resolve_point" => Some(vec![
+            json!({
+                "kind": "value_equals",
+                "name": "coordinate_space_kind",
+                "value": "physical_pixels",
+            }),
+            json!({
+                "kind": "value_equals",
+                "name": "zoom_ratio",
+                "value": arguments.get("zoom_ratio")?,
+            }),
+            json!({
+                "kind": "value_in_range",
+                "name": "screen_x_px",
+                "min": 0,
+                "max": i32::MAX,
+            }),
+            json!({
+                "kind": "value_in_range",
+                "name": "screen_y_px",
+                "min": 0,
+                "max": i32::MAX,
+            }),
+        ]),
+        "paint.canvas.draw_rectangle" => Some(vec![
+            json!({
+                "kind": "value_equals",
+                "name": "selected_tool",
+                "value": arguments.get("expected_tool")?,
+            }),
+            json!({
+                "kind": "value_equals",
+                "name": "active_layer_id",
+                "value": arguments.get("expected_layer_id")?,
+            }),
+            json!({
+                "kind": "visual_assert",
+                "field": "pixels",
+                "op": "changed_ratio_within",
+                "pixel_delta_threshold": 12,
+                "max_changed_ratio": 0.08,
+                "confidence_min": 0.85,
+            }),
+            json!({
+                "kind": "state_changed",
+                "within_ms": STATE_CHANGED_WINDOW_MS,
+            }),
+        ]),
+        "paint.canvas.capture_pixels" => Some(vec![
+            json!({
+                "kind": "value_in_range",
+                "name": "width_px",
+                "min": 1,
+                "max": i32::MAX,
+            }),
+            json!({
+                "kind": "value_in_range",
+                "name": "height_px",
+                "min": 1,
+                "max": i32::MAX,
+            }),
+        ]),
+        _ => None,
+    }
+}
+
+fn reserved_assertion_table(tool: &str) -> Option<Vec<Value>> {
+    match tool {
         crate::runtime_tools::TOOL_HOST_SET_EDITOR_VALUE => Some(vec![json!({
             "kind": "state_changed",
             "within_ms": STATE_CHANGED_WINDOW_MS,

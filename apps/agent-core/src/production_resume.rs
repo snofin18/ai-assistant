@@ -3,12 +3,13 @@
 //! Responsibilities: validate the paused snapshot, rebuild the runtime
 //! executor, and continue from the same Prechecking step.
 //!
-//! Boundaries: it does not decide policy, grant approval, or replay committed
-//! steps.
+//! Boundaries: it does not decide policy or replay committed steps; it only
+//! consumes a bounded human grant that was already recorded for a step.
 
 use std::sync::{Arc, Mutex};
 
 use assistant_platform_api::{UiAutomationProvider, WindowProvider};
+use assistant_protocol::{RiskLevel, ToolEffect};
 use assistant_task_engine::{
     MemoryCheckpointStore, Plan, PlanStep, StepId, StepStatus, TaskId, TaskSnapshot,
 };
@@ -110,6 +111,9 @@ where
         Observer: ObservationCollector,
     {
         for (step_id, sequence, tool) in steps {
+            if self.consume_tool_approval(&task_id, &step_id, now_ms, &tool)? {
+                approval_windows.record_exact(sequence)?;
+            }
             let outcome = executor
                 .advance(&task_id, &step_id, now_ms.saturating_add(3))
                 .await?;
@@ -156,6 +160,31 @@ where
             binding_state,
             approval_windows,
         ))
+    }
+
+    fn consume_tool_approval(
+        &self,
+        task_id: &TaskId,
+        step_id: &StepId,
+        now_ms: i64,
+        tool: &str,
+    ) -> Result<bool, ProductionError> {
+        let requires_confirmation = self.policy_catalog.get(tool).is_some_and(|schema| {
+            !crate::runtime_tools::RESERVED_RUNTIME_TOOLS.contains(&tool)
+                && (schema.requires_approval
+                    || (schema.effect == ToolEffect::Write && schema.risk_level != RiskLevel::Low))
+        });
+        if !requires_confirmation {
+            return Ok(false);
+        }
+        self.approvals
+            .consume(task_id.as_str(), step_id.as_str(), now_ms)
+            .map(|scope| scope.is_some())
+            .map_err(|error| {
+                ProductionError::Runtime(RuntimeExecutionError::Tool {
+                    reason: format!("cannot consume approval for step {step_id}: {error}"),
+                })
+            })
     }
 
     fn register_pending_approval(
