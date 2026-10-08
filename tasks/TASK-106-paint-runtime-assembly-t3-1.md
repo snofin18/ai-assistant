@@ -1,6 +1,6 @@
 # TASK-106　Paint 运行时装配：T3.1 垂直切片（生产 handler + Plan 来源参数化）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：043、044、**ADR-0084 Accepted**　预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -145,6 +145,8 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - xtask：`hygiene` 0E/119W、`memory-counts` PASSED、`adr-index` PASSED、`refscan` PASSED、
   `docscan` PASSED、`card-check` PASSED、`check-ledger` PASSED、`check-comments` PASSED、
   `verify-schemas` PASSED、`codegen --check` PASSED、`check-migrations` PASSED。
+- PR #284：CI 全绿、`base=main`、`mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`；
+  merge hash **`f5bdfa6`**。
 
 ### 4. DoD 逐条核对
 
