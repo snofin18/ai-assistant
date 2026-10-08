@@ -83,7 +83,12 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - `python eval/tasks/paint/t3.1/validate.py` ->
   `paint_t3_1_static_validation_ok cases=10 tolerance_px=2 probe=canvas_image_zoom_0.5`
 - 专项 JSON 解析：`json.tool` 对 task / cases / expected / probe 全部通过。
-- 待合并后补跑：`fmt` / `clippy` / `cargo test --workspace` / xtask 全套门禁。
+- 2026-10-08 复跑：`cargo fmt --all --check` EXIT 0；`cargo clippy --all-targets -- -D warnings`
+  EXIT 0；`cargo test --workspace` EXIT 0（xtask 469 passed）；xtask `hygiene`（0E/100W）/
+  `memory-counts` / `adr-index` / `refscan` / `docscan` / `card-check` / `check-ledger` /
+  `check-comments` / `verify-schemas` 全 **PASSED**。
+- 2026-10-08 复跑把本分支从 `codex/task-043-merge-backfill` 重基到 `main`（`2e5e184`），
+  消解 PR #275 的 `CONFLICTING` 状态；重基提交 `78bddd7`。
 
 ### 4. DoD 逐条核对
 
@@ -92,13 +97,17 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - [x] 真实 UIA 探针证据已落 `probe-evidence.json` 与 Paint 应用档案。
 - [ ] 真机连续 10 次成功率 >= 75%（未运行，DRIFT-044-1）。
 - [ ] 真机拖拽坐标误差 <= 2 px（未运行，DRIFT-044-1）。
-- [ ] `cargo fmt --all --check` / `clippy` / `test --workspace` / xtask 全套（提交前补跑）。
+- [x] `cargo fmt --all --check` / `clippy` / `test --workspace` / xtask 全套 —— 2026-10-08 复跑全绿（见 §3）。
 
 ### 5. 偏差
 
 `DRIFT-044-1`：本会话取得了真实 UIA 树和单次画布 bounds/zoom，但没有完成
 真实拖拽、10 次成功率、混合 DPI 坐标误差与最终像素容差测量。TASK-044 的
 评测契约因此是 `real_run_status = not_run`，不得把探针结果冒充验收结果。
+
+另：2026-10-08 本卡分支因 `main` 前进到 `2e5e184` 出现冲突，已重基并复跑全套门禁；
+冲突只在 `LEDGER.md`（保留主库 TASK-253/254/255 行与本卡行）。本卡状态仍为
+`Review`，实机十次运行完成前不得标记 Done。
 
 另：TASK-043 selector 包仍标记 `probe_status=required`，其真实 ID 更新不在
 TASK-044 write scope 内；本卡把真实 UIA 证据落到评测目录和应用记忆，供后续
