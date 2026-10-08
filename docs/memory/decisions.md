@@ -256,3 +256,7 @@
 ## 2026-10-07 追加（ADR-0083，Accepted）
 
 - [2026-10-07][DECISION][src:ADR-0083，预授权自动化轮次代为裁决；TASK-253；`PL-073` 闭环] **任务卡 `- 状态：` 行是正文区唯一可写例外**：状态唯一落点仍是卡文件的该行；Implementer 只允许按真实状态更新这一行，且必须与产生该状态的提交 / PR 同批。目标、In/Out scope、必须遵守、验收命令、DoD、依赖、难度与预估等正文行仍只读；`plans/*` 不得新增状态列。`card-check` 的未来正文 diff 判据只排除唯一规范化状态行，其他分界线以上行变化仍是 Error。**不改既有 Accepted ADR 正文、不改产品契约、不新增依赖或 crate**。
+
+## 2026-10-08 追加（ADR-0084，Accepted）
+
+- [2026-10-08][DECISION][src:ADR-0084，按用户 2026-10-08「接着按你建议的跑」授权；TASK-106；扩展 ADR-0058 范围] **生产装配根扩展到 Paint，方式是「适配器参数化」**：装配根仍由 `apps/agent-core` binary 层独占，但 target 目录 / handler 集 / 任务包路径由装配输入给出，`production.rs` 不再硬编码 Notepad；`TaskPackageProvider` 视为任意适配器的「路径 → 确定性 `Plan`」入口，`model_id` 语义与确定性不变。Paint handler 在 binary 层新增模块实现（T3.1 垂直切片的 6 个工具：`paint.document.new` / `paint.tool.select` / `paint.color.select_foreground` / `paint.canvas.resolve_point` / `paint.canvas.draw_rectangle` / `paint.canvas.capture_pixels`），形状取自 `adapters/com.microsoft.paint/tools/tools.json`，注册集与声明子集必须精确一致、缺一 fail-closed。画布坐标 → 屏幕点换算在 handler 内完成，合成拖拽两端各带显式 `CoordinateSpace`（ADR-0067）并持写租约；像素证据复用 ADR-0076 截图 + 注入 `ImageBlobSink`，`visual_assert` 走 ADR-0077 / 0079。**真机十次运行与坐标误差是独立验收卡，本 ADR 不授权无人值守操作真实 GUI**；不改 `crates/**` 公共接口 / schema / ErrorCode，不新增 crate 或第三方依赖。
