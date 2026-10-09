@@ -333,7 +333,7 @@ impl UiAutomationProvider for PaintFakePlatform {
     ) -> impl Future<Output = PlatformResult<()>> + Send {
         let mut state = self.state.lock().expect("paint fake state");
         match (element.id().value(), selection) {
-            (RECTANGLE_TOOL_ID, Selection::ByIndex(index)) if *index == 3 => {
+            (RECTANGLE_TOOL_ID, Selection::ByIndex(index)) if *index == 3 || *index == 4 => {
                 "rectangle".clone_into(&mut state.tool);
             }
             (FOREGROUND_COLOR_ID, Selection::ByIndex(index)) => match *index {

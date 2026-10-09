@@ -189,6 +189,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - 第二次运行在 `select_rectangle_tool` 触发 `select: unrecognized COM failure (HRESULT 0x00000000)`：实测形状库 / 调色板项是 `Invoke + ExpandCollapse` 按钮而非 `SelectionItem` 项；`GetCurrentPatternAs(SelectionItemPatternId)` 返回 0（语义即"无该 pattern"），`pattern_missing` 默认 fatal 路径没有识别。在 `crates/platform/windows/src/uia/actions.rs` 加 `CapabilityMissing` 回退到 `Invoke`（`select` 在选择项是按钮时退化为点击）；fake / replay / workspace 全绿。
 - 第三次在 `new_document` 后 fingerprint 验证失败：`Ctrl+N` 真在真机创建新文档，但结构树 fingerprint 未变（窗口、工具栏、画布、状态栏节点不变）。`paint_handlers::document_new_output` 追加 `Alt+L` 展开图层面板，让结构树多出 layersList 节点，fingerprint 变化；fake `key_action` 同步支持 `Ctrl+N` 与 `Alt+L`。
 - 第四次 `select_rectangle_tool` 仍报 `unrecognized COM failure (HRESULT 0x00000000)`：根因是 `pattern_missing` 只把 `E_NOINTERFACE` 视为"能力缺失"，但 Windows 绑定把 `GetCurrentPatternAs` 的"pattern 不存在"投影成 `Err(HRESULT(0))`，落到默认 fatal。修 `crates/platform/windows/src/uia/patterns.rs::pattern_missing`：把 `code == 0` 与 `E_NOINTERFACE` 同样映射为 `CapabilityMissing`，让 `actions::select` 的 `Invoke` 回退命中。
+- 第五次 `select_rectangle_tool` 报 `CapabilityMissing: element does not support InvokePattern`：根因是 Paint 形状库前面有 `ScrollViewer` 占 child index 0，`child_at(3)` 取到的是第三项 ellipse，而不是矩形。`actions::select` 调 `ScrollIntoView`（`ScrollItemPattern`）唤起目标；`RECTANGLE_GALLERY_INDEX` 从 3 调到 4；fake 同步接受 index 3 / 4。
 - `paint_handlers.rs` 当前 900 行，仍有 600 行软建议 warning；若继续增长，需另立拆文件卡，不在本卡 write scope 内静默扩模块。
 - TASK-256 尚未达到 Done，不能解锁 TASK-044 的十次运行声明。
 

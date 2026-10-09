@@ -65,7 +65,7 @@ const TARGET_LAYERS_TOGGLE: &str = "layers_toggle";
 const TARGET_LAYER_ITEM: &str = "layer_item";
 const TARGET_STATUS_BAR: &str = "status_bar";
 const TARGET_CANVAS: &str = "canvas";
-const RECTANGLE_GALLERY_INDEX: u32 = 3;
+const RECTANGLE_GALLERY_INDEX: u32 = 4; // 形状库前面有一个 ScrollViewer 占 child 0
 /// Measured Windows 11 Paint 11.2605.81.0 palette order and RGB values.
 ///
 /// The palette exposes no `AutomationId` and only localized display names, so the
