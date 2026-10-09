@@ -11,7 +11,7 @@
 use std::future::{Future, ready};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use assistant_agent_core::{
     AdapterKind, GrantRequest, ProductionConfig, StorageBlobSink, UiServerConfig,
@@ -572,6 +572,26 @@ async fn test_paint_t3_1_runs_to_completed_on_the_fake_platform()
     Ok(())
 }
 
+async fn wait_for_real_paint_foreground(
+    platform: &WindowsPlatform,
+) -> Result<ResolvedWindow, Box<dyn std::error::Error>> {
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        let windows = platform.list_windows(&WindowFilter::any()).await?;
+        if let Some(info) = windows
+            .into_iter()
+            .find(|info| info.app_id().to_ascii_lowercase().contains("mspaint"))
+            && platform.window_state(info.window()).await?.foreground()
+        {
+            return Ok(info.window().clone());
+        }
+        if Instant::now() >= deadline {
+            return Err("timed out waiting for a human to bring Paint to the foreground".into());
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+}
+
 /// Real-machine acceptance is intentionally opt-in: it needs an interactive Paint window and
 /// a human observer. The test uses the same adapter, task package, approvals, and production
 /// assembly as the fake acceptance above; no result is fabricated when Paint is absent.
@@ -582,6 +602,7 @@ async fn test_paint_t3_1_runs_on_real_paint() -> Result<(), Box<dyn std::error::
     let blob_sink = StorageBlobSink::new();
     let sink_handle = blob_sink.clone();
     let platform = WindowsPlatform::new().with_blob_sink(blob_sink.leak());
+    wait_for_real_paint_foreground(&platform).await?;
     let host = assemble_production_host(
         paint_config(&directory.path),
         platform,
