@@ -33,6 +33,7 @@ use windows::core::HRESULT;
 
 use crate::error;
 use crate::handles;
+use assistant_platform_api::ErrorCode;
 
 use super::patterns::pattern_missing;
 use super::tree::walk_step_for_actions;
@@ -244,7 +245,15 @@ pub fn select(element: &ResolvedElement, selection: &Selection) -> PlatformResul
                 ));
             }
         };
-        select_item(&target, "select")
+        // Paint 形状库 / 调色板项的 UIA 形态是 `Invoke` 按钮而不是 `SelectionItem`：
+        // 实测 GetCurrentPatternAs(SelectionItemPatternId) 返回 0（语义即"无该 pattern"），
+        // `pattern_missing` 走默认 fatal 路径会变成 "unrecognized COM failure"。
+        // 因此在 `CapabilityMissing` 时安全回退到 `Invoke`，其余错误原样上抛。
+        match select_item(&target, "select") {
+            Ok(()) => Ok(()),
+            Err(failure) if failure.code() == ErrorCode::CapabilityMissing => invoke(&target),
+            Err(failure) => Err(failure),
+        }
     })
 }
 

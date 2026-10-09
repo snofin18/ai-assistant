@@ -186,6 +186,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 ### 7. 遗留问题
 
 - 真实 Paint 11.2605.81.0 交互验收首次运行在 `new_document` 前因 Windows foreground lock 返回 `TargetUnresponsive`；Paint 窗口句柄有效，但测试进程不能主动抢前台。验收入口现等待用户将 Paint 置于前台后再执行，不会绕过焦点安全闸门。
+- 第二次运行在 `select_rectangle_tool` 触发 `select: unrecognized COM failure (HRESULT 0x00000000)`：实测形状库 / 调色板项是 `Invoke + ExpandCollapse` 按钮而非 `SelectionItem` 项；`GetCurrentPatternAs(SelectionItemPatternId)` 返回 0（语义即"无该 pattern"），`pattern_missing` 默认 fatal 路径没有识别。在 `crates/platform/windows/src/uia/actions.rs` 加 `CapabilityMissing` 回退到 `Invoke`（`select` 在选择项是按钮时退化为点击）；fake / replay / workspace 全绿。
 - `paint_handlers.rs` 当前 900 行，仍有 600 行软建议 warning；若继续增长，需另立拆文件卡，不在本卡 write scope 内静默扩模块。
 - TASK-256 尚未达到 Done，不能解锁 TASK-044 的十次运行声明。
 
