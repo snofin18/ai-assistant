@@ -339,6 +339,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-046 | 1b | `tasks/TASK-046-t3-3-draw-undo-pixel-snapshot-verify.md` | Ready（批次表占位派单前补全） |
 | TASK-047 | 1b | `tasks/TASK-047-stage-1b-integration-adapter-reuse.md` | Ready（批次表占位派单前补全） |
 | TASK-256 | 1b | `tasks/TASK-256-paint-real-contract-calibration.md` | Ready（实测证据已就位；四条设计点待 Orchestrator 裁决） |
+| TASK-257 | 1b | `tasks/TASK-257-paint-shape-container-anchor.md` | Ready（ADR-0086 `SelectorKind::ExactName`；为无 aid 的形状/调色板容器提供精确名兜底锚点，解锁 TASK-256 的 `DRIFT-256-1`） |
 | TASK-048 | 1c | `tasks/TASK-048-cdp-provider-connect-dom-nav-download.md` | Ready（批次表占位派单前补全） |
 | TASK-049 | 1c | `tasks/TASK-049-browser-profile-no-copy-user-profile.md` | Ready（批次表占位派单前补全） |
 | **TASK-050 ✅** | 1c | `tasks/TASK-050-dlp-three-tier-egress-local-only-redacted-full.md` | Done（ADR 0007；`crates/dlp` 22 专项测试） |

@@ -92,8 +92,9 @@
 | **0083** | `0083-task-card-status-line-writable-exception.md` | **Accepted** | 任务卡 `- 状态：` 行是分界线以上正文区的唯一可写例外；Implementer 只能改这一行的真实状态，且必须与产生该状态的提交同批，其他正文行仍只读；`card-check` 的未来正文 diff 判据只排除这一行（TASK-253；2026-10-07 按预授权自动化代为裁决；`PL-073` 闭环） |
 | **0084** | `0084-paint-runtime-assembly-and-plan-source-extension.md` | **Accepted** | 生产装配根保持 binary 层独占并**参数化适配器**：target 目录 / handler 集 / 任务包路径由装配输入给出（Notepad 与 Paint 各一套），`TaskPackageProvider` 与 `ToolRegistry` 不改公共形状；Paint handler 在 binary 层新增模块实现，仍走 platform trait、仍 fail-closed；T3.1 做 **7 个**工具的垂直切片（**勘误 2026-10-08**：D4 原文写"6 个"漏列 `paint.layer.select`，任务包 `select_layer` 步骤依赖它，经人类裁决更正为 7 个，见 TASK-106 `DRIFT-106-1`；读契约以本行为准），真机十次验收另卡；不改 `crates/**` 公共接口、不新增 crate / 依赖（TASK-106；2026-10-08 按用户「接着按你建议的跑」授权；扩展 ADR-0058 范围，不推翻其决策） |
 | **0085** | `0085-element-bounds-read-path.md` | **Accepted** | 新增 `UiAutomationProvider::element_bounds` 与 `ElementBounds`，返回全局虚拟屏物理像素矩形；不扩 `TreeSnapshot`、不新增树节点 / 不透明句柄暴露；Windows 走 `CurrentBoundingRectangle`，replay 读录制 bounds，unsupported fail-closed；补充 ADR-0084 D5/D8 为 TASK-106 的 Paint 坐标换算提供唯一读取路径（TASK-106；2026-10-08 按用户「选择后者」授权） |
+| **0086** | `0086-exact-name-selector-candidate.md` | **Accepted** | `SelectorKind` 新增 `ExactName`：UIA `PropertyCondition(NameProperty, value)` **精确相等**（不带 `MatchSubstring`），零依赖、`locale_dependent=true`、只作兜底、0/多命中 fail-closed；不引入 regex 引擎、不改 `SelectorValue` / `ErrorCode`；为无 aid 的 Paint 形状/调色板容器提供锚点（TASK-256 `DRIFT-256-1`；2026-10-09 按用户「就按这个执行」授权；落地卡 TASK-257） |
 
-**下一个可用编号：0086**（= §1 与 §2 已用最大号 **0085** + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0087**（= §1 与 §2 已用最大号 **0086** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由

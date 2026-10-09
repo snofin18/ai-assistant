@@ -1,6 +1,6 @@
 # TASK-256　Paint 真机契约校准：selector 与 handler read-back 对齐实测树
 
-- 状态：**Ready**
+- 状态：**Blocked**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：043、044、106　预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -126,7 +126,36 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 ### 5. 偏差
 
-（未开工。）
+`DRIFT-256-1`（漂移触发器 ③ + ⑨）：`1A` 在当前 selector 能力下不可实现。
+
+- **现象**：2026-10-08 真机单次探针确认，`形状` / `颜色` / `层` 的
+  `name_regex` 是 UIA 原生子串匹配，分别命中 **3 / 5 / 6** 个元素
+  （例如 `形状` 同时命中 `形状轮廓`、`形状填充`）。把它们作为
+  `RoleAndParent.parent_id` 的作用域候选时，平台会先因父候选歧义返回
+  `TargetAmbiguous`，根本不会继续解析子候选。
+- **影响**：现有候选种类无法同时表达“非本地化 class/role + 精确名称”或
+  “容器内第 N 个可选项”。WIP 中“父作用域 + `Selection::ByIndex`”可按
+  逻辑完成 handler，但真机仍在第一步 selector 失败；只跑 fake 会制造
+  假绿。
+- **已停工作**：停止继续改 selector / handler / fake，不提交 WIP，不把
+  fake 通过冒充真机校准，不开 PR。
+- **建议**：按卡面选项 C 另立 ADR/放行，选择最小候选扩展：
+  ①新增精确名称 + class/role 候选，或②为容器增加受版本约束的子项索引
+  候选。裁决前不要放宽 `TargetAmbiguous`，也不要新增依赖。
+
+保留的已验证事实：展开 `层` 后，`automation_id=layersList` 可唯一解析，
+第一项可见名为 `图层 1`；`SelectionItemPattern::IsSelected` 强后置条件可用。
+调色板 20 色及 RGB/index 映射已实测并保存在
+`eval/tasks/paint/t3.1/probe-evidence.json` 的 `real_contract_calibration`。
+
+**2026-10-09 人类裁决 + 补充真机实测**：按用户「就按这个执行」，
+① 把本轮真机结论写入 `probe-evidence.json` 的 `keytip_and_palette_probe` 与
+`docs/memory/apps/paint.md` §11 —— Ribbon KeyTips 可用（工具 `Alt+T,*` / 画笔 `Alt+B` /
+图层 `Alt+L` / 编辑颜色 `Alt+E,C`）；**形状库无 KeyTip 且形状项 `IsKeyboardFocusable=false`**
+（L2 选形状不成立）；固定调色板 = 公开的 MS Paint 20 色表且与实测 RGB 逐色相等；
+② 按建议①立 **ADR-0086**（`SelectorKind::ExactName`：UIA `PropertyCondition` 精确相等、
+零依赖、`locale_dependent=true`、只作兜底、0/多命中 fail-closed）+ 落地卡 **TASK-257**。
+本卡保持 **Blocked**，待 TASK-257 落地后恢复。
 
 ### 6. 更合理做法
 
@@ -134,7 +163,13 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 ### 7. 遗留问题
 
-（未开工。）
+- **TASK-257**（Ready）：落地 ADR-0086 的 `ExactName`，让形状库 / 调色板容器唯一解析。
+- 恢复本卡后仍待处理：`paint_handlers.rs` 的工具 / 颜色 / 图层 read-back 契约对齐、
+  真机 `#[ignore]` 验收、以及状态一致性（本卡状态行已按 LEDGER 修正为 `Blocked`）。
+- **`hygiene/file-too-long`（硬门禁，待处理）**：本卡 WIP 把
+  `apps/agent-core/src/paint_handlers.rs` 从 HEAD 的 **792** 行推到 **920** 行，
+  超过 900 行硬上限 → 恢复本卡时必须先按职责拆分该文件（`xtask hygiene` 会红）。
+  2026-10-09 的文档 / ADR / 证据改动本身不触发任何 `hygiene` error。
 
 ### 8. 新增长期记忆
 
