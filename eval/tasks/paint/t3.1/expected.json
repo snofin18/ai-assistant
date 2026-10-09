@@ -13,35 +13,35 @@
   "cases": {
     "standard_red_rectangle": {
       "expected_tool": "rectangle",
-      "foreground_rgb": "255,0,0",
+      "foreground_rgb": "237,28,36",
       "rectangle": {"left": 120, "top": 100, "right": 420, "bottom": 300},
       "coordinate_error_max_px": 2,
       "outcome": "declared_not_measured"
     },
     "blue_square_edges": {
       "expected_tool": "rectangle",
-      "foreground_rgb": "0,0,255",
+      "foreground_rgb": "0,162,232",
       "rectangle": {"left": 0, "top": 0, "right": 320, "bottom": 320},
       "coordinate_error_max_px": 2,
       "outcome": "declared_not_measured"
     },
     "green_wide_rectangle": {
       "expected_tool": "rectangle",
-      "foreground_rgb": "0,180,0",
+      "foreground_rgb": "34,177,76",
       "rectangle": {"left": 50, "top": 50, "right": 1100, "bottom": 150},
       "coordinate_error_max_px": 2,
       "outcome": "declared_not_measured"
     },
     "yellow_tall_rectangle": {
       "expected_tool": "rectangle",
-      "foreground_rgb": "255,255,0",
+      "foreground_rgb": "255,242,0",
       "rectangle": {"left": 100, "top": 80, "right": 240, "bottom": 900},
       "coordinate_error_max_px": 2,
       "outcome": "declared_not_measured"
     },
     "magenta_small_rectangle": {
       "expected_tool": "rectangle",
-      "foreground_rgb": "255,0,255",
+      "foreground_rgb": "163,73,164",
       "rectangle": {"left": 100, "top": 100, "right": 180, "bottom": 160},
       "coordinate_error_max_px": 2,
       "outcome": "declared_not_measured"
@@ -62,21 +62,21 @@
     },
     "zoom_50_canvas": {
       "expected_tool": "rectangle",
-      "foreground_rgb": "0,128,255",
+      "foreground_rgb": "255,127,39",
       "rectangle": {"left": 400, "top": 250, "right": 1200, "bottom": 750},
       "coordinate_error_max_px": 2,
       "outcome": "declared_not_measured"
     },
     "zoom_200_canvas": {
       "expected_tool": "rectangle",
-      "foreground_rgb": "128,0,128",
+      "foreground_rgb": "63,72,204",
       "rectangle": {"left": 40, "top": 40, "right": 240, "bottom": 160},
       "coordinate_error_max_px": 2,
       "outcome": "declared_not_measured"
     },
     "near_bottom_right": {
       "expected_tool": "rectangle",
-      "foreground_rgb": "255,128,0",
+      "foreground_rgb": "255,201,14",
       "rectangle": {"left": 824, "top": 568, "right": 1014, "bottom": 758},
       "coordinate_error_max_px": 2,
       "outcome": "declared_not_measured"
