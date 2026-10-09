@@ -17,13 +17,13 @@
     {
       "id": "main_window",
       "scope": "window",
-      "probe_status": "required",
+      "probe_status": "observed",
       "candidates": [
         {
           "id": "paint-window-class-role",
           "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "WinUIDesktopWin32WindowClass", "role": "Window"}},
-          "score": 0.72,
+          "value": {"class_and_role": {"class": "MSPaintApp", "role": "Window"}},
+          "score": 0.85,
           "locale_dependent": false
         },
         {
@@ -31,14 +31,16 @@
           "kind": "title_regex",
           "value": {"text": "Paint"},
           "score": 0.35,
-          "locale_dependent": true
+          "locale_dependent": true,
+          "fallback_only": true
         },
         {
           "id": "paint-window-a11y-path",
           "kind": "a11y_path",
           "value": {"path": ["Paint"]},
           "score": 0.22,
-          "locale_dependent": true
+          "locale_dependent": true,
+          "fallback_only": true
         }
       ]
     },
@@ -129,21 +131,22 @@
     {
       "id": "rectangle_tool_button",
       "scope": "element",
-      "probe_status": "required",
+      "probe_status": "observed",
       "candidates": [
         {
-          "id": "rectangle-button-class-role",
-          "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.AppBarButton", "role": "Button"}},
-          "score": 0.5,
-          "locale_dependent": false
+          "id": "shape-gallery-exact-name-fallback",
+          "kind": "exact_name",
+          "value": {"text": "形状"},
+          "score": 0.22,
+          "locale_dependent": true,
+          "fallback_only": true
         },
         {
-          "id": "rectangle-button-name-fallback",
-          "kind": "name_regex",
-          "value": {"text": "Rectangle"},
-          "score": 0.28,
-          "locale_dependent": true
+          "id": "shape-gallery-role-parent",
+          "kind": "role_and_parent",
+          "value": {"role_and_parent": {"role": "List", "parent_id": "shape-gallery-exact-name-fallback"}},
+          "score": 0.68,
+          "locale_dependent": false
         }
       ]
     },
@@ -171,84 +174,87 @@
     {
       "id": "foreground_color_button",
       "scope": "element",
-      "probe_status": "required",
+      "probe_status": "observed",
       "candidates": [
         {
-          "id": "foreground-color-class-role",
-          "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.Button", "role": "Button"}},
-          "score": 0.48,
-          "locale_dependent": false
+          "id": "color-gallery-exact-name-fallback",
+          "kind": "exact_name",
+          "value": {"text": "颜色"},
+          "score": 0.22,
+          "locale_dependent": true,
+          "fallback_only": true
         },
         {
-          "id": "foreground-color-name-fallback",
-          "kind": "name_regex",
-          "value": {"text": "Color"},
-          "score": 0.26,
-          "locale_dependent": true
+          "id": "color-gallery-role-parent",
+          "kind": "role_and_parent",
+          "value": {"role_and_parent": {"role": "List", "parent_id": "color-gallery-exact-name-fallback"}},
+          "score": 0.66,
+          "locale_dependent": false
         }
       ]
     },
     {
       "id": "layers_panel",
       "scope": "element",
-      "probe_status": "required",
+      "probe_status": "observed",
       "candidates": [
         {
-          "id": "layers-list",
-          "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.ListView", "role": "List"}},
-          "score": 0.6,
-          "locale_dependent": false
+          "id": "layers-container-name-fallback",
+          "kind": "name_regex",
+          "value": {"text": "层"},
+          "score": 0.2,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "layers_toggle",
+      "scope": "element",
+      "probe_status": "observed",
+      "candidates": [
+        {
+          "id": "layers-toggle-container-name-fallback",
+          "kind": "name_regex",
+          "value": {"text": "层"},
+          "score": 0.2,
+          "locale_dependent": true,
+          "fallback_only": true
         },
         {
-          "id": "layers-name-fallback",
-          "kind": "name_regex",
-          "value": {"text": "Layers"},
-          "score": 0.25,
-          "locale_dependent": true
+          "id": "layers-toggle-role-parent",
+          "kind": "role_and_parent",
+          "value": {"role_and_parent": {"role": "Button", "parent_id": "layers-toggle-container-name-fallback"}},
+          "score": 0.64,
+          "locale_dependent": false
         }
       ]
     },
     {
       "id": "layer_item",
       "scope": "element",
-      "probe_status": "required",
+      "probe_status": "observed",
       "candidates": [
         {
-          "id": "layer-list-item",
-          "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.ListViewItem", "role": "ListItem"}},
-          "score": 0.55,
+          "id": "layers-list-automation-id",
+          "kind": "automation_id",
+          "value": {"text": "layersList"},
+          "score": 0.82,
           "locale_dependent": false
-        },
-        {
-          "id": "layer-item-name-fallback",
-          "kind": "name_regex",
-          "value": {"text": "Layer"},
-          "score": 0.24,
-          "locale_dependent": true
         }
       ]
     },
     {
       "id": "status_bar",
       "scope": "element",
-      "probe_status": "required",
+      "probe_status": "observed",
       "candidates": [
         {
-          "id": "status-bar-role",
-          "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.Grid", "role": "StatusBar"}},
-          "score": 0.58,
+          "id": "status-bar-canvas-size-automation-id",
+          "kind": "automation_id",
+          "value": {"text": "CanvasSizeTextBlock"},
+          "score": 0.84,
           "locale_dependent": false
-        },
-        {
-          "id": "status-bar-text-fallback",
-          "kind": "name_regex",
-          "value": {"text": "px"},
-          "score": 0.2,
-          "locale_dependent": true
         }
       ]
     },
@@ -297,34 +303,20 @@
     {
       "id": "canvas",
       "scope": "element",
-      "probe_status": "required",
+      "probe_status": "observed",
       "candidates": [
         {
-          "id": "canvas-host-bridge",
-          "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "Microsoft.UI.Content.DesktopChildSiteBridge", "role": "Pane"}},
-          "score": 0.44,
+          "id": "canvas-image-automation-id",
+          "kind": "automation_id",
+          "value": {"text": "image"},
+          "score": 0.86,
           "locale_dependent": false
         },
         {
-          "id": "canvas-image",
+          "id": "canvas-image-class-role-fallback",
           "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "Image", "role": "Image"}},
-          "score": 0.62,
-          "locale_dependent": false
-        },
-        {
-          "id": "canvas-xaml-image",
-          "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.Image", "role": "Image"}},
-          "score": 0.58,
-          "locale_dependent": false
-        },
-        {
-          "id": "canvas-under-host",
-          "kind": "role_and_parent",
-          "value": {"role_and_parent": {"role": "Image", "parent_id": "canvas-host-bridge"}},
-          "score": 0.5,
+          "value": {"class_and_role": {"class": "NamedContainerAutomationPeer", "role": "Group"}},
+          "score": 0.42,
           "locale_dependent": false
         }
       ]

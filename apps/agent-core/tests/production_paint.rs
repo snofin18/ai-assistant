@@ -79,6 +79,7 @@ const LAYERS_PANEL_ID: u64 = 104;
 const LAYER_ITEM_ID: u64 = 105;
 const STATUS_BAR_ID: u64 = 106;
 const CANVAS_ID: u64 = 107;
+const LAYERS_TOGGLE_ID: u64 = 108;
 
 #[derive(Clone)]
 struct PaintFakePlatform {
@@ -92,6 +93,7 @@ struct PaintFakeState {
     foreground_rgb: String,
     layer_id: String,
     layer_name: String,
+    layers_expanded: bool,
     drawn: bool,
     pointer_actions: usize,
     capture_calls: usize,
@@ -106,6 +108,7 @@ impl PaintFakePlatform {
                 foreground_rgb: "0,0,0".to_owned(),
                 layer_id: "layer-0".to_owned(),
                 layer_name: "Layer 0".to_owned(),
+                layers_expanded: false,
                 drawn: false,
                 pointer_actions: 0,
                 capture_calls: 0,
@@ -177,20 +180,39 @@ impl UiAutomationProvider for PaintFakePlatform {
         _scope: &ResolvedWindow,
         chain: &SelectorChain,
     ) -> impl Future<Output = PlatformResult<ResolvedElement>> + Send {
-        let Some(candidate) = chain.candidates().first() else {
+        let Some(candidate) = chain.candidates().iter().find(|candidate| {
+            matches!(
+                candidate.id(),
+                "toolbar-command-bar"
+                    | "shape-gallery-role-parent"
+                    | "color-gallery-role-parent"
+                    | "layers-container-name-fallback"
+                    | "layers-toggle-role-parent"
+                    | "layers-list-automation-id"
+                    | "status-bar-canvas-size-automation-id"
+                    | "canvas-image-automation-id"
+            )
+        }) else {
             return ready(Err(platform_error(
                 ErrorCode::ToolInvalidArgs,
-                "empty selector chain",
+                "selector chain has no fixture-supported target candidate",
             )));
         };
         let id = match candidate.id() {
             "toolbar-command-bar" => TOOLBAR_ID,
-            "rectangle-button-class-role" => RECTANGLE_TOOL_ID,
-            "foreground-color-class-role" => FOREGROUND_COLOR_ID,
-            "layers-list" => LAYERS_PANEL_ID,
-            "layer-list-item" => LAYER_ITEM_ID,
-            "status-bar-role" => STATUS_BAR_ID,
-            "canvas-host-bridge" | "canvas-image" | "canvas-xaml-image" => CANVAS_ID,
+            "shape-gallery-role-parent" => RECTANGLE_TOOL_ID,
+            "color-gallery-role-parent" => FOREGROUND_COLOR_ID,
+            "layers-container-name-fallback" => LAYERS_PANEL_ID,
+            "layers-toggle-role-parent" => LAYERS_TOGGLE_ID,
+            "layers-list-automation-id" => {
+                let mut state = self.state.lock().expect("paint fake state");
+                // The real panel is opened by Alt+L; the fixture accepts either
+                // handler sequence and exposes the measured list once requested.
+                state.layers_expanded = true;
+                LAYER_ITEM_ID
+            }
+            "status-bar-canvas-size-automation-id" => STATUS_BAR_ID,
+            "canvas-image-automation-id" => CANVAS_ID,
             _ => {
                 return ready(Err(platform_error(
                     ErrorCode::TargetNotFound,
@@ -210,6 +232,7 @@ impl UiAutomationProvider for PaintFakePlatform {
             TOOLBAR_ID => ElementBounds::new(10, 10, 300, 50),
             RECTANGLE_TOOL_ID | FOREGROUND_COLOR_ID => ElementBounds::new(20, 20, 80, 60),
             LAYERS_PANEL_ID | LAYER_ITEM_ID => ElementBounds::new(160, 20, 280, 200),
+            LAYERS_TOGGLE_ID => ElementBounds::new(200, 20, 240, 60),
             STATUS_BAR_ID => ElementBounds::new(0, 180, 320, 200),
             _ => ElementBounds::new(0, 0, 1, 1),
         };
@@ -237,10 +260,14 @@ impl UiAutomationProvider for PaintFakePlatform {
         let text = match element.id().value() {
             RECTANGLE_TOOL_ID => state.tool.clone(),
             FOREGROUND_COLOR_ID => state.foreground_rgb.clone(),
-            LAYERS_PANEL_ID => state.layer_id.clone(),
-            LAYER_ITEM_ID => state.layer_name.clone(),
+            LAYERS_PANEL_ID | LAYER_ITEM_ID => state.layer_name.clone(),
             STATUS_BAR_ID => "100 x 100 px".to_owned(),
-            _ => String::new(),
+            _ => {
+                return ready(Err(platform_error(
+                    ErrorCode::CapabilityMissing,
+                    "fixture exposes read-back only for calibrated Paint controls",
+                )));
+            }
         };
         drop(state);
         ready(Ok(text))
@@ -283,10 +310,13 @@ impl UiAutomationProvider for PaintFakePlatform {
         let mut state = self.state.lock().expect("paint fake state");
         match element.id().value() {
             RECTANGLE_TOOL_ID => "rectangle".clone_into(&mut state.tool),
+            LAYERS_TOGGLE_ID => {
+                state.layers_expanded = !state.layers_expanded;
+            }
             _ => {
                 return ready(Err(platform_error(
                     ErrorCode::CapabilityMissing,
-                    "fixture only supports the rectangle tool",
+                    "fixture only supports the rectangle tool and layer toggle",
                 )));
             }
         }
@@ -300,21 +330,35 @@ impl UiAutomationProvider for PaintFakePlatform {
         element: &ResolvedElement,
         selection: &Selection,
     ) -> impl Future<Output = PlatformResult<()>> + Send {
-        if element.id().value() != LAYER_ITEM_ID {
-            return ready(Err(platform_error(
-                ErrorCode::CapabilityMissing,
-                "fixture only supports layer selection",
-            )));
-        }
-        let Selection::ByStableValue(layer_id) = selection else {
-            return ready(Err(platform_error(
-                ErrorCode::ToolInvalidArgs,
-                "fixture requires a stable layer id",
-            )));
-        };
         let mut state = self.state.lock().expect("paint fake state");
-        state.layer_id.clone_from(layer_id);
-        "Layer 1".clone_into(&mut state.layer_name);
+        match (element.id().value(), selection) {
+            (RECTANGLE_TOOL_ID, Selection::ByIndex(index)) if *index == 3 => {
+                "rectangle".clone_into(&mut state.tool);
+            }
+            (FOREGROUND_COLOR_ID, Selection::ByIndex(index)) => match *index {
+                3 => "237,28,36".clone_into(&mut state.foreground_rgb),
+                _ => {
+                    return ready(Err(platform_error(
+                        ErrorCode::TargetNotFound,
+                        format!("fixture has no measured palette index {index}"),
+                    )));
+                }
+            },
+            (LAYER_ITEM_ID, Selection::ByIndex(index)) if *index == 0 => {
+                "layer-1".clone_into(&mut state.layer_id);
+                "Layer 1".clone_into(&mut state.layer_name);
+            }
+            (LAYER_ITEM_ID, Selection::ByStableValue(value)) if value == "layer-1" => {
+                "layer-1".clone_into(&mut state.layer_id);
+                "Layer 1".clone_into(&mut state.layer_name);
+            }
+            _ => {
+                return ready(Err(platform_error(
+                    ErrorCode::TargetNotFound,
+                    "fixture has no selectable child matching the requested contract",
+                )));
+            }
+        }
         state.revision = state.revision.saturating_add(1);
         drop(state);
         ready(Ok(()))
@@ -361,6 +405,7 @@ impl UiAutomationProvider for PaintFakePlatform {
         "0,0,0".clone_into(&mut state.foreground_rgb);
         "layer-0".clone_into(&mut state.layer_id);
         "Layer 0".clone_into(&mut state.layer_name);
+        state.layers_expanded = false;
         state.drawn = false;
         state.revision = state.revision.saturating_add(1);
         drop(state);
@@ -400,7 +445,7 @@ fn capture_fixture(
                 "fixture pixel buffer is unexpectedly small",
             ));
         };
-        pixel.copy_from_slice(&[0, 0, 255, 255]);
+        pixel.copy_from_slice(&[36, 28, 237, 255]);
     }
     let content_address = BlobId::of_content(&pixels);
     blob_sink.store_bgra(width, height, content_address.as_str(), &pixels)?;
@@ -450,9 +495,9 @@ fn paint_config(data_root: &Path) -> ProductionConfig {
         "input.rectangle_end": {"x": 50, "y": 50},
         "input.rectangle_end.x": 50,
         "input.rectangle_end.y": 50,
-        "input.foreground_red": 255,
-        "input.foreground_green": 0,
-        "input.foreground_blue": 0,
+        "input.foreground_red": 237,
+        "input.foreground_green": 28,
+        "input.foreground_blue": 36,
         "input.layer_id": "layer-1",
         "input.expected_layer_name": "Layer 1",
         "input.zoom_ratio": 1.0,

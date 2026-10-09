@@ -1,6 +1,6 @@
 # TASK-257　Paint 形状 / 调色板容器锚点：精确名候选（ExactName）
 
-- 状态：**Ready**
+- 状态：**Done**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：256　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -91,36 +91,62 @@ cargo run -p xtask -- verify-schemas / codegen --check / hygiene / memory-counts
 
 ### 1. 约束回执
 
-（未开工。）
+- 任务：TASK-257 Paint 形状 / 调色板容器锚点：落地 ADR-0086 `SelectorKind::ExactName`。
+- write scope：API selector、Windows UIA 搜索、replay provider、Paint adapter 与 fake/eval 契约测试；TASK-256 的 `paint_handlers.rs`、评测颜色 WIP 未纳入。
+- 关键约束：`ExactName` 只接受 `SelectorValue::Text`，UIA 精确相等、不带 `MatchSubstring`，本地化最低分兜底；空值显式拒绝，0/多命中 fail-closed。
 
 ### 2. 实际改动文件
 
-（未开工。）
+- `crates/platform/api/src/target.rs`：新增 `SelectorKind::ExactName` 及 ADR-0086 不变量说明。
+- `crates/platform/api/tests/target_descriptor.rs`：新增 ExactName 取值、本地化降权契约测试。
+- `crates/platform/windows/src/uia/search.rs`：新增 UIA `NameProperty` 精确条件；空值返回 `ToolInvalidArgs`，非 `Text` 返回 `Unsupported`。
+- `crates/replay/src/provider.rs`：新增精确 Name 回放、空值拒绝与非 `Text` fail-closed。
+- `crates/replay/tests/replay.rs`：新增精确匹配、近似名称不匹配、空值、重复命中和非 `Text` 负向测试。
+- `adapters/com.microsoft.paint/selectors/targets.json`：形状 / 调色板容器改用 `exact_name` 本地化兜底候选，保留 `RoleAndParent` 子项定位。
+- `adapters/com.microsoft.paint/tests/validate_adapter_pack.py`：验证 ExactName 的 kind、精确文本、本地化与 fallback-only 约束。
+- `apps/agent-core/tests/production_paint.rs`：更新 Paint fake selector/read-back fixture，使 ExactName 目标链在 fake 平台通过。
 
 ### 3. 验收输出摘要
 
-（未开工。）
+- `cargo fmt --all`：通过。
+- `cargo test --workspace`：通过，469 tests passed；doc-tests 全部通过。
+- `cargo clippy --all-targets -- -D warnings`：通过；仅仓库既有 `clippy::assert_is_empty` unknown-lint warning。
+- `cargo test -p assistant-agent-core --test production_paint`：4 passed。
+- `cargo test -p assistant-replay --test replay`：20 passed。
+- `python adapters/com.microsoft.paint/tests/validate_adapter_pack.py`：PASSED。
+- `python eval/tasks/paint/t3.1/validate.py`：PASSED。
+- `verify-schemas`、`codegen --check`、`hygiene`、`memory-counts`、`adr-index`、`refscan`、`docscan`、`card-check`、`check-ledger`、`check-comments`：均通过；hygiene 为 0 errors / 120 existing warnings。
 
 ### 4. DoD 逐条核对
 
-（未开工。）
+- [x] `SelectorKind::ExactName` 落地，API / replay 正向与负向测试全绿。
+- [x] Windows 使用精确 UIA Name 条件；replay / unsupported 通道不静默解析，0/多命中与非法值显式失败。
+- [x] Paint selector pack 的形状库 / 调色板容器改用 `exact_name` 兜底，`locale_dependent=true` 且 `fallback_only=true`。
+- [x] 近似名称不命中精确候选；空值走 `ToolInvalidArgs`；多命中走 `TargetAmbiguous`。
+- [x] `cargo test --workspace`、Paint 专项、adapter/eval 校验与 xtask 门禁全绿。
+- [x] 未引入第三方依赖，未改 `SelectorValue` / `ErrorCode` / IPC / DB schema。
+- [x] TASK-256 的 `paint_handlers.rs` 与颜色评测 WIP 继续保存在 stash，未纳入本卡提交。
 
 ### 5. 偏差
 
-（未开工。）
+- 无代码偏差。
+- TASK-256 未提交 WIP 在实现前保存为 `stash@{0}`，只取用了本卡 write scope 内作为前置的 selector / fake fixture 变更；`paint_handlers.rs`、cases/expected 未取出。
 
 ### 6. 更合理做法
 
-（未开工。）
+先以 ADR-0086 固定精确名语义，再在平台 API、Windows、replay、adapter validator、fake fixture 五层同步落地，避免只在 fake 层制造“精确匹配”假绿。
 
 ### 7. 遗留问题
 
-（未开工。）
+- TASK-256 仍为 `Blocked`，待本卡合并后恢复：拆分超长 `paint_handlers.rs`，继续真实 selector / handler read-back 校准与真机十次验收。
+- 本卡未做真实 Paint GUI 验收；真机唯一命中与多语言失配需在 TASK-256 / TASK-044 的有人在场验收中复验。
 
 ### 8. 新增长期记忆
 
-（未开工。）
+- 无新增长期事实；Paint 真机取证与 ADR-0086 背景已在 `docs/memory/apps/paint.md` / `docs/memory/decisions.md` 记录。
 
 ### 9. 给审阅者的关注点
 
-（未开工。）
+- Windows 分支必须保持 `CreatePropertyCondition` 而非 `CreatePropertyConditionEx(...MatchSubstring)`；这是 ExactName 与既有 NameRegex 的唯一语义差异。
+- replay 的 `node.name() == value` 与 Windows 的逐字符 Name 相等必须保持一致，不能改成 contains 或 trim。
+- `adapters/com.microsoft.paint/selectors/targets.json` 中 ExactName 仅为 `fallback_only`，没有替代稳定 AutomationId / ClassAndRole 候选。

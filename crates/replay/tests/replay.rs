@@ -55,6 +55,14 @@ fn automation_id(value: &str) -> SelectorCandidate {
     )
 }
 
+fn exact_name(value: &str) -> SelectorCandidate {
+    candidate(
+        "exact-name",
+        SelectorKind::ExactName,
+        SelectorValue::Text(value.to_string()),
+    )
+}
+
 #[test]
 fn loads_fixture_and_resolves_stable_automation_id() {
     let session = ReplaySession::from_json(&fixture_json()).expect("fixture must load");
@@ -69,6 +77,86 @@ fn loads_fixture_and_resolves_stable_automation_id() {
     assert_eq!(element.id().value(), 102);
     assert_eq!(element.parent().value(), 101);
     assert_eq!(element.role(), "Edit");
+}
+
+#[test]
+fn exact_name_matches_only_the_complete_display_name() {
+    let raw = mutated_fixture(|value| {
+        let mut near_match = value["nodes"][3].clone();
+        near_match["local_handle_id"] = json!(104);
+        near_match["name"] = json!("Ready!");
+        value["nodes"]
+            .as_array_mut()
+            .expect("nodes array")
+            .push(near_match);
+    });
+    let session = ReplaySession::from_json(&raw).expect("fixture must load");
+    let chain = SelectorChain::new(vec![exact_name("Ready")]);
+    let element = poll_once(
+        session
+            .ui_automation_provider()
+            .resolve_element(&session.window(), &chain),
+    )
+    .expect("exact name must resolve");
+
+    assert_eq!(element.id().value(), 103);
+}
+
+#[test]
+fn exact_name_rejects_empty_values_before_matching() {
+    let session = ReplaySession::from_json(&fixture_json()).expect("fixture must load");
+    let chain = SelectorChain::new(vec![exact_name("")]);
+    let error = poll_once(
+        session
+            .ui_automation_provider()
+            .resolve_element(&session.window(), &chain),
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), ErrorCode::ToolInvalidArgs);
+}
+
+#[test]
+fn exact_name_rejects_non_text_values() {
+    let session = ReplaySession::from_json(&fixture_json()).expect("fixture must load");
+    let chain = SelectorChain::new(vec![candidate(
+        "exact-name-invalid",
+        SelectorKind::ExactName,
+        SelectorValue::ClassAndRole {
+            class: "Group".to_string(),
+            role: "Group".to_string(),
+        },
+    )]);
+    let error = poll_once(
+        session
+            .ui_automation_provider()
+            .resolve_element(&session.window(), &chain),
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), ErrorCode::CapabilityMissing);
+}
+
+#[test]
+fn exact_name_rejects_duplicate_complete_names() {
+    let raw = mutated_fixture(|value| {
+        let mut duplicate = value["nodes"][3].clone();
+        duplicate["local_handle_id"] = json!(104);
+        value["nodes"]
+            .as_array_mut()
+            .expect("nodes array")
+            .push(duplicate);
+    });
+    let session = ReplaySession::from_json(&raw).expect("fixture must load");
+    let chain = SelectorChain::new(vec![exact_name("Ready")]);
+    let error = poll_once(
+        session
+            .ui_automation_provider()
+            .resolve_element(&session.window(), &chain),
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), ErrorCode::TargetAmbiguous);
 }
 
 #[test]
