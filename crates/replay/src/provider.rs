@@ -410,6 +410,25 @@ fn resolve_candidate<'a>(
         ));
     }
     let matches = match (candidate.kind(), candidate.value()) {
+        // ADR-0086：回放必须与 Windows 的 UIA 精确 Name 条件保持同语义；
+        // 不使用 contains / regex，避免把 `形状轮廓` 当成 `形状`。
+        (SelectorKind::ExactName, SelectorValue::Text(value)) if value.is_empty() => {
+            return Err(platform_error(
+                ErrorCode::ToolInvalidArgs,
+                "ExactName candidate value must not be empty; refusing to match every node",
+            ));
+        }
+        (SelectorKind::ExactName, SelectorValue::Text(value)) => recording
+            .nodes()
+            .iter()
+            .filter(|node| node.name() == value)
+            .collect(),
+        (SelectorKind::ExactName, _) => {
+            return Err(platform_error(
+                ErrorCode::CapabilityMissing,
+                "ExactName candidate requires SelectorValue::Text",
+            ));
+        }
         (SelectorKind::AutomationId, SelectorValue::Text(value)) => recording
             .nodes()
             .iter()

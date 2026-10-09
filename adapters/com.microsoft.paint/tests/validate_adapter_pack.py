@@ -70,8 +70,9 @@ def main() -> int:
         check(isinstance(target_id, str) and target_id, "selector target id missing")
         check(target_id not in target_ids, f"selector target id duplicated: {target_id}")
         target_ids.add(target_id)
-        check(target.get("probe_status") == "required",
-              f"selector target {target_id}: probe_status must be required")
+        probe_status = target.get("probe_status")
+        check(probe_status in {"required", "observed"},
+              f"selector target {target_id}: unsupported probe_status {probe_status}")
         candidates = target.get("candidates", [])
         check(candidates, f"selector target {target_id}: candidates missing")
         candidate_ids: set[str] = set()
@@ -87,13 +88,37 @@ def main() -> int:
                   f"selector target {target_id}: bad score on {candidate_id}")
             check(kind != "runtime_id",
                   f"selector target {target_id}: runtime_id must not be declarative")
-            if kind in {"a11y_path", "title_regex", "name_regex", "visual_anchor"}:
+            if kind in {"a11y_path", "title_regex", "name_regex", "exact_name", "visual_anchor"}:
                 check(candidate.get("locale_dependent") is True,
                       f"selector target {target_id}: {kind} must be locale-dependent")
+                if probe_status == "observed":
+                    check(candidate.get("fallback_only") is True,
+                          f"selector target {target_id}: {kind} must be fallback-only")
+            elif probe_status == "observed":
+                check(candidate.get("fallback_only") is not True,
+                      f"selector target {target_id}: {kind} must not be fallback-only")
             if kind == "role_and_parent":
                 parent_id = candidate.get("value", {}).get("role_and_parent", {}).get("parent_id")
                 check(parent_id in candidate_ids,
                       f"selector target {target_id}: unknown parent id {parent_id}")
+
+    exact_name_targets = {
+        "rectangle_tool_button": ("shape-gallery-exact-name-fallback", "形状"),
+        "foreground_color_button": ("color-gallery-exact-name-fallback", "颜色"),
+    }
+    targets_by_id = {target.get("id"): target for target in targets}
+    for target_id, (candidate_id, expected_name) in exact_name_targets.items():
+        target = targets_by_id.get(target_id, {})
+        candidates = {candidate.get("id"): candidate for candidate in target.get("candidates", [])}
+        exact_name = candidates.get(candidate_id, {})
+        check(exact_name.get("kind") == "exact_name",
+              f"selector target {target_id}: {candidate_id} must use exact_name")
+        check(exact_name.get("value", {}).get("text") == expected_name,
+              f"selector target {target_id}: {candidate_id} must use exact text {expected_name!r}")
+        check(exact_name.get("locale_dependent") is True,
+              f"selector target {target_id}: {candidate_id} must be locale-dependent")
+        check(exact_name.get("fallback_only") is True,
+              f"selector target {target_id}: {candidate_id} must be fallback-only")
 
     tools = tools_document.get("tools", [])
     check(isinstance(tools, list) and tools, "tools/tools.json: tools missing")

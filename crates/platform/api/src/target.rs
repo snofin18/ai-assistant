@@ -9,7 +9,8 @@
 //! 3. `locale_dependent` 的候选在多语言环境下**自动降权**（§6.3：`score *= 0.5`），
 //!    降权只影响**顺序**，绝不自动新增候选（§6.3 自愈规则：避免不可解释的行为）。
 //! 4. **禁用可见文本作主 selector**（AGENTS.md §7 + ADR-0022 D4）：`TitleRegex` / `NameRegex` /
-//!    `A11yPath` / `VisualAnchor` 都只能作低分兜底，且**必须**标 `locale_dependent = true`。
+//!    `ExactName` / `A11yPath` / `VisualAnchor` 都只能作低分兜底，且**必须**标
+//!    `locale_dependent = true`。
 //!
 //! 相关：架构 v2 §6.2 / §6.3 / §6.4（定位禁止事项）、ADR-0022 D4、`docs/spec/naming.md` §7。
 
@@ -39,6 +40,12 @@ pub enum SelectorKind {
     TitleRegex,
     /// 控件可见文本正则 —— **本地化相关**，最低分兜底（ADR-0022 D4 明令）。
     NameRegex,
+    /// 控件可见文本精确相等 —— **本地化相关**，最低分兜底（ADR-0086）。
+    ///
+    /// Windows 通过 UIA `PropertyCondition(NameProperty, value)` 实现；不带
+    /// `MatchSubstring`，因此 `形状` 不会命中 `形状轮廓`。取值必须是
+    /// [`SelectorValue::Text`]，0 / 多命中由平台解析层显式失败。
+    ExactName,
     /// 视觉锚点（OCR 文本 + 区域）—— 最低分兜底。
     VisualAnchor,
 }

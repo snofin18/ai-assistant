@@ -88,6 +88,17 @@ pub(super) fn find_all(
                 "RoleAndParent 候选必须用 SelectorValue::RoleAndParent 表达取值",
             )),
         },
+        // ADR-0086：ExactName 是本地化最低分兜底，但必须逐字符相等；
+        // 不带 MatchSubstring，避免 `形状` 误命中 `形状轮廓`。
+        assistant_platform_api::SelectorKind::ExactName => match candidate.value() {
+            SelectorValue::Text(value) if value.is_empty() => Err(error::invalid_args(
+                "ExactName candidate value must not be empty; refusing to match every element",
+            )),
+            SelectorValue::Text(value) => property_search(scope, UIA_NamePropertyId, value, false),
+            _ => Ok(SearchOutcome::Unsupported(
+                "ExactName 候选必须用 SelectorValue::Text 表达取值",
+            )),
+        },
         // DRIFT-017-4：本卡没有 regex 引擎（加依赖 = 漂移触发器 ①），改用 UIA 原生的
         // **子串**匹配（`PropertyConditionFlags_MatchSubstring`）。只可能漏命中，不会假命中。
         assistant_platform_api::SelectorKind::NameRegex

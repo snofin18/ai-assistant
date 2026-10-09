@@ -76,6 +76,25 @@ fn test_locale_dependent_candidate_is_halved_only_on_locale_mismatch() {
 }
 
 #[test]
+fn test_exact_name_candidate_uses_text_and_is_localized_fallback() {
+    let exact_name = ok_or_fail(
+        SelectorCandidate::new(
+            "shape-container",
+            SelectorKind::ExactName,
+            SelectorValue::Text("形状".to_string()),
+            0.18,
+            true,
+        ),
+        "ExactName 测试候选必须合法",
+    );
+
+    assert_eq!(exact_name.kind(), SelectorKind::ExactName);
+    assert!(exact_name.is_locale_dependent());
+    assert_eq!(exact_name.value(), &SelectorValue::Text("形状".to_string()));
+    assert!((exact_name.effective_score("zh-CN", "en-US") - 0.09).abs() < 1e-9);
+}
+
+#[test]
 fn test_policy_rejects_zero_timeout_and_bad_threshold() {
     assert!(
         ResolutionPolicy::new(
