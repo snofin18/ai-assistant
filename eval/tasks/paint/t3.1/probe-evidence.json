@@ -294,6 +294,140 @@
     ],
     "conclusion": "TASK-106's Paint handlers were validated only against a fake platform that mirrors the handler's own expectations. Selector calibration alone cannot make T3.1 run: the tool/color/layer read-back contracts and the shape/color gallery anchors need a design decision (localized fallback versus another anchor, palette click versus the color dialog, collapsed layers panel)."
   },
+  "real_contract_calibration": {
+    "observed_at": "2026-10-08",
+    "method": "temporary Rust UIA probe under target/paint_probe (not committed), including toggling the Paint layers panel and sampling the measured palette rectangles",
+    "shape_gallery": {
+      "container_name": "形状",
+      "container_role": "Group",
+      "gallery_role": "List",
+      "gallery_class": "GridView",
+      "list_item_count": 23,
+      "rectangle_index": 3,
+      "rectangle_visible_name": "矩形",
+      "selection_contract": "SelectionItemPattern::Select must report IsSelected=true for the selected GridViewItem"
+    },
+    "color_gallery": {
+      "container_name": "颜色",
+      "container_role": "Group",
+      "gallery_role": "List",
+      "gallery_class": "GridView",
+      "list_item_count": 20,
+      "selection_contract": "Select the measured child index; the platform verifies SelectionItemPattern::IsSelected",
+      "palette": [
+        {"index": 0, "visible_name": "黑色", "rgb": [0, 0, 0]},
+        {"index": 1, "visible_name": "灰色", "rgb": [127, 127, 127]},
+        {"index": 2, "visible_name": "深红色", "rgb": [136, 0, 21]},
+        {"index": 3, "visible_name": "红色", "rgb": [237, 28, 36]},
+        {"index": 4, "visible_name": "橙色", "rgb": [255, 127, 39]},
+        {"index": 5, "visible_name": "黄色", "rgb": [255, 242, 0]},
+        {"index": 6, "visible_name": "绿色", "rgb": [34, 177, 76]},
+        {"index": 7, "visible_name": "青绿", "rgb": [0, 162, 232]},
+        {"index": 8, "visible_name": "靛蓝色", "rgb": [63, 72, 204]},
+        {"index": 9, "visible_name": "紫色", "rgb": [163, 73, 164]},
+        {"index": 10, "visible_name": "白色", "rgb": [255, 255, 255]},
+        {"index": 11, "visible_name": "浅灰", "rgb": [195, 195, 195]},
+        {"index": 12, "visible_name": "褐色", "rgb": [185, 122, 87]},
+        {"index": 13, "visible_name": "玫瑰红", "rgb": [255, 174, 201]},
+        {"index": 14, "visible_name": "金色", "rgb": [255, 201, 14]},
+        {"index": 15, "visible_name": "浅黄色", "rgb": [239, 228, 176]},
+        {"index": 16, "visible_name": "酸橙色", "rgb": [181, 230, 29]},
+        {"index": 17, "visible_name": "淡青绿色", "rgb": [153, 217, 234]},
+        {"index": 18, "visible_name": "蓝灰色", "rgb": [112, 146, 190]},
+        {"index": 19, "visible_name": "淡紫色", "rgb": [200, 191, 231]}
+      ]
+    },
+    "layers": {
+      "toggle_role": "Button",
+      "toggle_class": "ToggleButton",
+      "expanded_list_automation_id": "layersList",
+      "first_layer_index": 0,
+      "first_layer_visible_name": "图层 1",
+      "selection_contract": "Expand the panel, select the measured first child by index, and verify SelectionItemPattern::IsSelected; restore the collapsed state after selection"
+    },
+    "handler_resolution": {
+      "paint.tool.select": "Resolve the shape GridView under the localized 形状 scope and select measured child index 3; do not compare localized item text.",
+      "paint.color.select_foreground": "Resolve the color GridView under the localized 颜色 scope and select the measured RGB-to-index mapping; unsupported RGB fails explicitly.",
+      "paint.layer.select": "Expand the measured layers panel when needed, select measured child index 0, then restore the collapsed state.",
+      "paint.document.new": "Resolve status_bar to CanvasSizeTextBlock and parse the existing integer text."
+    },
+    "conclusion": "TASK-256 calibrates the T3.1 selector and handler contracts without changing platform traits or schemas; the remaining real-GUI acceptance measurements stay in TASK-044."
+  },
+  "keytip_and_palette_probe": {
+    "observed_at": "2026-10-09",
+    "observed_version": "11.2605.81.0",
+    "ui_language": "zh-CN",
+    "method": "throwaway probe under target/paint_keytip (not committed): read the UIA AccessKey property of every element, press Alt + KeyTip letters via keybd_event, and cross-check the fixed palette against a published source",
+    "keytip_inventory": [
+      {"target": "pencil_tool", "automation_id": "PencilTool", "access_key": "Alt, T, P", "verified": "tool switched to pencil"},
+      {"target": "fill_tool", "automation_id": "", "access_key": "Alt, T, F", "verified": null},
+      {"target": "text_tool", "automation_id": "", "access_key": "Alt, T, X", "verified": null},
+      {"target": "eraser_tool", "automation_id": "EraserTool", "access_key": "Alt, T, E", "verified": null},
+      {"target": "color_picker_tool", "automation_id": "", "access_key": "Alt, T, C", "verified": null},
+      {"target": "magnifier_tool", "automation_id": "", "access_key": "Alt, T, M", "verified": null},
+      {"target": "brush_tool", "automation_id": "BrushesSplitButton", "access_key": "Alt, B", "verified": null},
+      {"target": "shape_outline", "automation_id": "", "access_key": "Alt, S, O", "enabled_without_shape": false},
+      {"target": "shape_fill", "automation_id": "", "access_key": "Alt, S, F", "enabled_without_shape": false},
+      {"target": "shape_size", "automation_id": "", "access_key": "Alt, S, Z", "enabled_without_shape": false},
+      {"target": "foreground_color_slot", "automation_id": "", "access_key": "Alt, 1", "verified": null},
+      {"target": "background_color_slot", "automation_id": "", "access_key": "Alt, 2", "verified": null},
+      {"target": "edit_colors", "automation_id": "", "access_key": "Alt, E, C", "verified": "Edit Colors popup opened"},
+      {"target": "layers_toggle", "automation_id": "", "access_key": "Alt, L", "parent_name": "层", "verified": "layersList appears"}
+    ],
+    "shape_gallery": {
+      "container_role": "Group",
+      "container_name": "形状",
+      "gallery_role": "List",
+      "gallery_class": "GridView",
+      "gallery_automation_id": "",
+      "has_keytip": false,
+      "items_keyboard_focusable": false,
+      "item_count": 23,
+      "conclusion": "No KeyTip for the shapes gallery and no keyboard-focusable shape item; L2 keyboard selection of a shape tool is impossible on this build."
+    },
+    "color_gallery": {
+      "container_role": "Group",
+      "container_name": "颜色",
+      "gallery_role": "List",
+      "gallery_class": "GridView",
+      "gallery_automation_id": "",
+      "has_keytip": false,
+      "items_keyboard_focusable": true,
+      "item_count": 20,
+      "palette_hex_source": "lospec.com/palette-list/ms-paint-20",
+      "palette_hex_order": "aligned to the measured palette index order (0..19), not the source page order",
+      "palette_hex_matches_measured": true,
+      "palette_hex": [
+        "#000000", "#7f7f7f", "#880015", "#ed1c24", "#ff7f27",
+        "#fff200", "#22b14c", "#00a2e8", "#3f48cc", "#a349a4",
+        "#ffffff", "#c3c3c3", "#b97a57", "#ffaec9", "#ffc90e",
+        "#efe4b0", "#b5e61d", "#99d9ea", "#7092be", "#c8bfe7"
+      ],
+      "conclusion": "No per-swatch KeyTip; the fixed palette is a known RGB set, so fixed or arbitrary colors can go through the Edit Colors dialog instead of swatch selection."
+    },
+    "edit_colors_dialog": {
+      "opened_by_keytip": "Alt, E, C",
+      "popup_kind": "in-window XAML popup",
+      "stable_automation_ids": ["HexTextBox", "RedTextBox", "GreenTextBox", "BlueTextBox"],
+      "conclusion": "Arbitrary RGB has a stable-aid path; write HexTextBox or the three channel edits."
+    },
+    "layers_panel": {
+      "opened_by_keytip": "Alt, L",
+      "expanded_list_automation_id": "layersList",
+      "first_item_visible_name": "图层 1",
+      "conclusion": "Alt+L toggles the layers panel without resolving the localized toggle button."
+    },
+    "selector_gap": {
+      "shape_container": "Group name 形状, no AutomationId, no distinguishing ClassName; NameRegex is a UIA substring match so 形状 also hits 形状轮廓 / 形状填充",
+      "color_container": "Group name 颜色, no AutomationId, no distinguishing ClassName",
+      "required_capability": "exact Name equality candidate (ADR-0086) to disambiguate the container without a regex engine",
+      "blocked_handlers": ["paint.tool.select", "paint.color.select_foreground"]
+    },
+    "pitfalls": [
+      "A full UIA tree walk hangs while the Edit Colors modal popup is open; the resolver must bound the walk.",
+      "The layers panel is present in the UIA tree (offscreen=false, real rect) but is not captured by CopyFromScreen; visual verification needs PrintWindow(PW_RENDERFULLCONTENT)."
+    ]
+  },
   "not_measured": [
     "real drag coordinate error",
     "ten-run success rate",

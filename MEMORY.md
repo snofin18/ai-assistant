@@ -32,10 +32,10 @@
 | `facts.md` | 240 | 187 | 按主题分节；**grep 优先**，不必全读 |
 | `pitfalls.md` | 280 | 169 | 按主题分节；**grep 优先**，不必全读 |
 | `rejected.md` | 60 | 40 | ★ **动手前全量读**（防止同一方案被反复重新提出） |
-| `decisions.md` | 266 | 97 | 索引 → `docs/adr/NNNN-*.md` |
+| `decisions.md` | 270 | 98 | 索引 → `docs/adr/NNNN-*.md` |
 | `open.md` | 57 | 26 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
 | `apps/notepad.md` | 343 | 0 | 接记事本时**全量读**；8 个固定小节 |
-| `apps/paint.md` | 174 | 0 | Read fully when working on Paint; 8 fixed sections plus TASK-044 real UIA probe and TASK-106 runtime assembly evidence; selectors provisional before real-machine calibration |
+| `apps/paint.md` | 243 | 0 | Read fully when working on Paint; 8 fixed sections plus TASK-044 real UIA probe, TASK-106 runtime assembly evidence, and the TASK-256 real-machine KeyTip / palette / shape probe; selectors provisional before real-machine calibration |
 | win32-input-research.md | 193 | 0 | 接 Notepad Adapter + 任何 Win32 输入操作时**全量读**（SendInput / keybd_event / SendKeys / AttachThreadInput / BlockInput / SetForegroundWindow / WindowPattern.Close / UIPI / 推荐 pipeline） |
 
 

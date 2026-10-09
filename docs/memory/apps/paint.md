@@ -172,3 +172,72 @@ TASK-044 write scope 内**（`DRIFT-044-2`），需另立拥有 `selectors/**` �
   `TreeSnapshot` 猜几何；`TreeSnapshot` 仍只有窗口句柄、指纹与节点数。
 - 当前 selector 仍是 provisional，T3.1 fake 平台已跑通 `Plan -> Completed`；
   真机十次运行与拖拽误差仍由 `DRIFT-044-1` / `PL-113` 跟踪。
+
+## 11. 真机 KeyTip / 调色板 / 形状实测（TASK-256，2026-10-09）
+
+一次性探针 `target/paint_keytip`（不入库）：读 UIA `AccessKey` 属性、用 `keybd_event`
+发 `Alt` + KeyTip 字母、并对固定调色板做外部交叉验证。版本 **11.2605.81.0**，界面 **zh-CN**。
+
+### 11.1 Ribbon KeyTips 可用（L2 通道）
+
+按 `Alt` 会弹出 KeyTip 徽标；`Alt` 后按字母可触发。UIA `AccessKey` 属性给出权威清单：
+
+| 控件 | KeyTip | AutomationId |
+|---|---|---|
+| 铅笔 / 填充 / 文本 | `Alt+T,P` / `Alt+T,F` / `Alt+T,X` | `PencilTool` / 空 / 空 |
+| 橡皮擦 / 颜色选取器 / 放大镜 | `Alt+T,E` / `Alt+T,C` / `Alt+T,M` | `EraserTool` / 空 / 空 |
+| 画笔（split-button） | `Alt+B` | `BrushesSplitButton` |
+| 形状轮廓 / 形状填充 / 大小 | `Alt+S,O` / `Alt+S,F` / `Alt+S,Z` | 空（未选形状时 disabled） |
+| 颜色 1 / 颜色 2 / 编辑颜色 | `Alt+1` / `Alt+2` / `Alt+E,C` | 空 |
+| 图层开关 | **`Alt+L`** | 空（父节点名 `层`） |
+| 裁剪 / 删除背景 / 旋转 / 翻转 / 重设大小和倾斜 | `Alt+I,C` / `Alt+I,B` / `Alt+I,O` / `Alt+I,F` / `Alt+I,E` | `CropButton` / 空 / `RotateDropdown` / `Flip` / 空 |
+| 保存 / 共享 / 撤消 / 重做 / 设置 / Copilot | `Alt+S,A` / `Alt+D` / `Alt+U` / `Alt+R` / `Alt+Y` / `Alt+C` | 空 / 空 / 空 / 空 / `SettingsButton` / `CopilotDropDownButton` |
+
+已验证：`Alt+T,P` 真的把工具切到铅笔；`Alt+L` 真的让 `layersList` 出现。
+
+### 11.2 形状：**没有** KeyTip，且形状项不可键盘聚焦
+
+形状库容器是 `Group`（本地化名 `形状`），画廊是 `List` / `GridView`，**都无 AutomationId**；
+22–23 个形状项（`直线` / `曲线` / `椭圆` / `矩形` / …）全部 `IsKeyboardFocusable=false`。
+形状库本身也没有 KeyTip 徽标（只有作用于「已选形状」的 `形状轮廓` / `形状填充` / `大小`）。
+
+→ **结论：Paint 11.2605.81.0 没有任何原生键盘方式选择形状工具。** 只能回到 L3 的 UIA 定位。
+
+### 11.3 固定调色板：逐色块无 KeyTip，但就是一组已知 RGB
+
+调色板容器是 `Group`（本地化名 `颜色`），画廊是 `List` / `GridView`，无 AutomationId；
+20 个色块（`黑色` / `灰色` / …）无 KeyTip、无 aid、名字本地化，但 `IsKeyboardFocusable=true`。
+
+调色板 = 公开的 **MS Paint 20** 色表（来源 `lospec.com/palette-list/ms-paint-20`），
+与本机实测 RGB **逐色相等**（按实测索引顺序）：
+
+```text
+0  #000000  1  #7f7f7f  2  #880015  3  #ed1c24  4  #ff7f27
+5  #fff200  6  #22b14c  7  #00a2e8  8  #3f48cc  9  #a349a4
+10 #ffffff  11 #c3c3c3  12 #b97a57  13 #ffaec9  14 #ffc90e
+15 #efe4b0  16 #b5e61d  17 #99d9ea  18 #7092be  19 #c8bfe7
+```
+
+→ 固定色与任意 RGB 都可以**绕开色块选择**：走「编辑颜色」（`Alt+E,C`）写 `HexTextBox`
+或 `RedTextBox` / `GreenTextBox` / `BlueTextBox`（四个都是稳定 aid 的 Edit）。
+注意别拿 Lospec 的另一个 **「MS Paint Basic」44 色**（XP/Vista 时代）当成本表。
+
+### 11.4 图层面板：`Alt+L` 直接开关
+
+发 `Alt+L` 后 `layersList`（`List`，aid=`layersList`）出现，含 `图层 1`（ListItem，可聚焦）
+与 `背景`（Button，aid=`BackgroundButton`）。**不需要**先解析本地化的 `层` 按钮。
+
+### 11.5 新坑
+
+1. **「编辑颜色」弹层打开时整树 UIA 遍历会挂住** —— 探针卡死需强杀。解析器必须给遍历加
+   上限 / 超时（ADR-0063 同族）。
+2. **图层面板在 UIA 树里 `offscreen=false` 且有真实 rect，但 `CopyFromScreen` 截不到**
+   （合成层）。视觉校验要走 `PrintWindow(PW_RENDERFULLCONTENT)`（ADR-0076 已是这条路）。
+3. UIA 返回的 bounds 与 PowerShell `CopyFromScreen` 截图的像素尺度不一致（DPI 感知差异），
+   对坐标不要跨这两个来源混算。
+
+### 11.6 影响
+
+- 工具 / 图层 / 任意颜色有 L2 或稳定 aid 路径；**形状与固定色块没有**。
+- 形状库与调色板容器的消歧需要新候选：**ADR-0086**（`SelectorKind::ExactName`，UIA 精确相等，
+  零依赖、本地化兜底），落地卡 **TASK-257**。
