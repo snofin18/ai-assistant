@@ -185,7 +185,9 @@ impl UiAutomationProvider for PaintFakePlatform {
             matches!(
                 candidate.id(),
                 "toolbar-command-bar"
+                    | "shape-gallery-exact-name-fallback"
                     | "shape-gallery-role-parent"
+                    | "color-gallery-exact-name-fallback"
                     | "color-gallery-role-parent"
                     | "layers-container-name-fallback"
                     | "layers-toggle-role-parent"
@@ -201,7 +203,9 @@ impl UiAutomationProvider for PaintFakePlatform {
         };
         let id = match candidate.id() {
             "toolbar-command-bar" => TOOLBAR_ID,
+            "shape-gallery-exact-name-fallback" => RECTANGLE_TOOL_ID,
             "shape-gallery-role-parent" => RECTANGLE_TOOL_ID,
+            "color-gallery-exact-name-fallback" => FOREGROUND_COLOR_ID,
             "color-gallery-role-parent" => FOREGROUND_COLOR_ID,
             "layers-container-name-fallback" => LAYERS_PANEL_ID,
             "layers-toggle-role-parent" => LAYERS_TOGGLE_ID,
@@ -333,7 +337,7 @@ impl UiAutomationProvider for PaintFakePlatform {
     ) -> impl Future<Output = PlatformResult<()>> + Send {
         let mut state = self.state.lock().expect("paint fake state");
         match (element.id().value(), selection) {
-            (RECTANGLE_TOOL_ID, Selection::ByIndex(index)) if *index == 3 || *index == 4 => {
+            (RECTANGLE_TOOL_ID, Selection::ByIndex(index)) if *index == 3 => {
                 "rectangle".clone_into(&mut state.tool);
             }
             (FOREGROUND_COLOR_ID, Selection::ByIndex(index)) => match *index {

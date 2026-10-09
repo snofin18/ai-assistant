@@ -245,10 +245,6 @@ pub fn select(element: &ResolvedElement, selection: &Selection) -> PlatformResul
                 ));
             }
         };
-        // Paint 形状库 / 调色板是虚拟化列表；目标子项若未渲染，`ControlViewWalker`
-        // 会取到 ScrollViewer 或别的占位元素，命中错目标。`ScrollIntoView` 在子项
-        // 支持 `ScrollItemPattern` 时强制把目标滚进可见区，失败也不致命。
-        ensure_realized(&target);
         // Paint 形状库 / 调色板项的 UIA 形态是 `Invoke` 按钮而不是 `SelectionItem`：
         // 实测 GetCurrentPatternAs(SelectionItemPatternId) 返回 0（语义即"无该 pattern"），
         // `pattern_missing` 走默认 fatal 路径会变成 "unrecognized COM failure"。
@@ -259,19 +255,6 @@ pub fn select(element: &ResolvedElement, selection: &Selection) -> PlatformResul
             Err(failure) => Err(failure),
         }
     })
-}
-
-// Paint 形状库 / 调色板在子项未渲染时（虚拟化列表）`child_at` 会取到一个不存在
-// 的子节点（甚至 ScrollViewer 包装）；Select 就会回退到 Invoke 但元素无 `Invoke` 模式。
-// `ScrollItemPattern::ScrollIntoView` 在子项支持时让容器把它滚进可见区，必要
-// 时把它放到能命中的 child index。`ensure_realized` 失败也不致命：让上层继续走
-// 原有失败路径，不把无害的滚动失败升级为 fatal。
-fn ensure_realized(element: &IUIAutomationElement) {
-    if let Ok(scroll_item) = unsafe {
-        element.GetCurrentPatternAs::<IUIAutomationScrollItemPattern>(UIA_ScrollItemPatternId)
-    } {
-        let _ = unsafe { scroll_item.ScrollIntoView() };
-    }
 }
 
 /// 取第 `index` 个 control view 子节点（0 起）。
