@@ -125,6 +125,58 @@ def main() -> None:
     }, tools
     assert "Selector calibration alone cannot make T3.1 run" in contract["conclusion"], contract
 
+    calibration = probe["real_contract_calibration"]
+    shape_gallery = calibration["shape_gallery"]
+    assert shape_gallery["list_item_count"] == 23, shape_gallery
+    assert shape_gallery["rectangle_index"] == 3, shape_gallery
+    color_gallery = calibration["color_gallery"]
+    palette = color_gallery["palette"]
+    assert color_gallery["list_item_count"] == len(palette) == 20, color_gallery
+    assert palette[3] == {"index": 3, "visible_name": "红色", "rgb": [237, 28, 36]}, palette[3]
+    assert palette[6]["rgb"] == [34, 177, 76], palette[6]
+    layers = calibration["layers"]
+    assert layers["expanded_list_automation_id"] == "layersList", layers
+    assert layers["first_layer_index"] == 0, layers
+    assert "localized" in calibration["handler_resolution"]["paint.tool.select"], calibration
+
+    # 2026-10-09 real-machine KeyTip / palette probe (TASK-256 DRIFT-256-1).
+    # Locks in: (a) the L2 keyboard path cannot select a shape, (b) the fixed
+    # palette is a known RGB set equal to the published MS Paint 20 palette,
+    # (c) the shape/color containers have no stable non-localized anchor.
+    keytip = probe["keytip_and_palette_probe"]
+    assert keytip["observed_version"] == "11.2605.81.0", keytip
+    inventory = {entry["target"]: entry for entry in keytip["keytip_inventory"]}
+    assert inventory["pencil_tool"]["access_key"] == "Alt, T, P", inventory["pencil_tool"]
+    assert inventory["brush_tool"]["access_key"] == "Alt, B", inventory["brush_tool"]
+    assert inventory["layers_toggle"]["access_key"] == "Alt, L", inventory["layers_toggle"]
+    assert inventory["edit_colors"]["access_key"] == "Alt, E, C", inventory["edit_colors"]
+    for target in ("shape_outline", "shape_fill", "shape_size"):
+        assert inventory[target]["enabled_without_shape"] is False, inventory[target]
+
+    keytip_shape_gallery = keytip["shape_gallery"]
+    assert keytip_shape_gallery["has_keytip"] is False, keytip_shape_gallery
+    assert keytip_shape_gallery["items_keyboard_focusable"] is False, keytip_shape_gallery
+    assert keytip_shape_gallery["gallery_automation_id"] == "", keytip_shape_gallery
+
+    keytip_color_gallery = keytip["color_gallery"]
+    assert keytip_color_gallery["has_keytip"] is False, keytip_color_gallery
+    assert keytip_color_gallery["palette_hex_matches_measured"] is True, keytip_color_gallery
+    published_hex = keytip_color_gallery["palette_hex"]
+    assert len(published_hex) == len(palette) == 20, keytip_color_gallery
+    measured_hex = ["#{:02x}{:02x}{:02x}".format(*entry["rgb"]) for entry in palette]
+    assert published_hex == measured_hex, (published_hex, measured_hex)
+
+    dialog = keytip["edit_colors_dialog"]
+    assert dialog["stable_automation_ids"] == [
+        "HexTextBox",
+        "RedTextBox",
+        "GreenTextBox",
+        "BlueTextBox",
+    ], dialog
+    assert keytip["selector_gap"]["required_capability"].startswith("exact Name equality"), (
+        keytip["selector_gap"]
+    )
+
     rectangle = next(
         control for control in probe["controls"] if control["target"] == "rectangle_shape"
     )
