@@ -37,16 +37,13 @@ use std::time::Instant;
 mod paint_handler_map;
 #[path = "paint_handler_support.rs"]
 mod paint_handler_support;
-
 pub use paint_handler_map::build_handler_map;
-
 use paint_handler_support::{
     bounds_json, canvas_point_to_physical, elapsed_ms, image_descriptor, normalized_point,
     parse_canvas_size, parse_coordinate_space, parse_draw_request, required_i32,
     required_non_negative_i32, required_positive_f64, required_string, required_u8, tool_target,
     unavailable, verify_failed,
 };
-
 /// `paint.document.new` tool name.
 pub const TOOL_DOCUMENT_NEW: &str = "paint.document.new";
 /// `paint.tool.select` tool name.
@@ -61,7 +58,6 @@ pub const TOOL_CANVAS_RESOLVE_POINT: &str = "paint.canvas.resolve_point";
 pub const TOOL_CANVAS_DRAW_RECTANGLE: &str = "paint.canvas.draw_rectangle";
 /// `paint.canvas.capture_pixels` tool name.
 pub const TOOL_CANVAS_CAPTURE_PIXELS: &str = "paint.canvas.capture_pixels";
-
 const TARGET_MAIN_WINDOW: &str = "main_window";
 const TARGET_RECTANGLE_TOOL: &str = "rectangle_tool_button";
 const TARGET_FOREGROUND_COLOR: &str = "foreground_color_button";
@@ -70,7 +66,6 @@ const TARGET_LAYER_ITEM: &str = "layer_item";
 const TARGET_STATUS_BAR: &str = "status_bar";
 const TARGET_CANVAS: &str = "canvas";
 const RECTANGLE_GALLERY_INDEX: u32 = 3;
-
 /// Measured Windows 11 Paint 11.2605.81.0 palette order and RGB values.
 ///
 /// The palette exposes no `AutomationId` and only localized display names, so the
@@ -99,12 +94,10 @@ const PAINT_PALETTE: [((u8, u8, u8), u32); 20] = [
     ((112, 146, 190), 18),
     ((200, 191, 231), 19),
 ];
-
 #[derive(Debug, Clone)]
 struct PaintLayerSelection {
     id: String,
 }
-
 #[derive(Debug, Default)]
 struct PaintSelectionState {
     tool: Option<String>,
@@ -113,25 +106,21 @@ struct PaintSelectionState {
     start_point: Option<ResolvedCanvasPoint>,
     end_point: Option<ResolvedCanvasPoint>,
 }
-
 #[derive(Debug, Clone)]
 struct ResolvedCanvasPoint {
     canvas: CanvasPoint,
     screen: PhysicalPointPx,
 }
-
 #[derive(Debug, Clone, Copy)]
 struct CanvasPoint {
     horizontal: i32,
     vertical: i32,
 }
-
 #[derive(Debug, Clone, Copy)]
 struct PhysicalPointPx {
     horizontal_px: i32,
     vertical_px: i32,
 }
-
 #[derive(Debug, Clone, Copy)]
 struct ViewportOffset {
     horizontal_px: i32,
@@ -214,6 +203,17 @@ where
             &window,
             "N",
             vec![KeyModifier::Control],
+            TOOL_DOCUMENT_NEW,
+        )?;
+        // 新建文档后结构树不会变化，而 `paint.t3.1.new-canvas-rectangle-color-screenshot`
+        // 的步骤级后置条件要求 fingerprint 变化。Paint 11 在 `Ctrl+N` 之后没有可见的树节点
+        // 变化，所以顺手 `Alt+L` 打开图层面板，结构树里多出 layersList 节点，fingerprint
+        // 因此会改变；这是与真机行为一致的副作用（后续 `select_layer` 同样依赖面板展开）。
+        self.send_key(
+            task_id,
+            &window,
+            "L",
+            vec![KeyModifier::Alt],
             TOOL_DOCUMENT_NEW,
         )?;
         let status = self.resolve_element(TARGET_STATUS_BAR, &window, TOOL_DOCUMENT_NEW)?;

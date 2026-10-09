@@ -395,22 +395,33 @@ impl UiAutomationProvider for PaintFakePlatform {
         chord: &KeyChord,
         _target: &KeyTarget,
     ) -> impl Future<Output = PlatformResult<()>> + Send {
-        if chord.key() != "N" {
-            return ready(Err(platform_error(
+        match chord.key() {
+            "N" => {
+                let mut state = self.state.lock().expect("paint fake state");
+                "pencil".clone_into(&mut state.tool);
+                "0,0,0".clone_into(&mut state.foreground_rgb);
+                "layer-0".clone_into(&mut state.layer_id);
+                "Layer 0".clone_into(&mut state.layer_name);
+                state.layers_expanded = false;
+                state.drawn = false;
+                state.revision = state.revision.saturating_add(1);
+                drop(state);
+                ready(Ok(()))
+            }
+            "L" => {
+                // 对应 `paint.document.new` 之后追加的 `Alt+L`：展开图层面板，
+                // 真实机上这一步会改变结构树 fingerprint；fake 只需翻 `layers_expanded`。
+                let mut state = self.state.lock().expect("paint fake state");
+                state.layers_expanded = true;
+                state.revision = state.revision.saturating_add(1);
+                drop(state);
+                ready(Ok(()))
+            }
+            _ => ready(Err(platform_error(
                 ErrorCode::ToolInvalidArgs,
-                "fixture only supports Ctrl+N",
-            )));
+                "fixture only supports Ctrl+N and Alt+L",
+            ))),
         }
-        let mut state = self.state.lock().expect("paint fake state");
-        "pencil".clone_into(&mut state.tool);
-        "0,0,0".clone_into(&mut state.foreground_rgb);
-        "layer-0".clone_into(&mut state.layer_id);
-        "Layer 0".clone_into(&mut state.layer_name);
-        state.layers_expanded = false;
-        state.drawn = false;
-        state.revision = state.revision.saturating_add(1);
-        drop(state);
-        ready(Ok(()))
     }
 
     fn fingerprint(
