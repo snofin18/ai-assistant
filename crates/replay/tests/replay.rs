@@ -34,6 +34,11 @@ fn mutated_fixture(mutate: impl FnOnce(&mut Value)) -> String {
     assistant_protocol::serde_json::to_string(&value).expect("mutated fixture must serialize")
 }
 
+fn expect_recording_error(mutate: impl FnOnce(&mut Value)) -> ReplayError {
+    let raw = mutated_fixture(mutate);
+    Recording::from_json(&raw).expect_err("mutated recording must be rejected")
+}
+
 fn poll_once<F: Future>(future: F) -> F::Output {
     let mut future = Box::pin(future);
     let mut context = Context::from_waker(Waker::noop());
@@ -42,6 +47,16 @@ fn poll_once<F: Future>(future: F) -> F::Output {
         Poll::Pending => panic!("replay futures must complete without an executor"),
     }
 }
+
+fn assert_error_code<T: std::fmt::Debug>(
+    result: Result<T, assistant_platform_api::PlatformError>,
+    expected: ErrorCode,
+) {
+    assert_eq!(result.unwrap_err().code(), expected);
+}
+
+type RecordingMutation = fn(&mut Value);
+type RecordingCase<'a> = (&'a str, RecordingMutation);
 
 fn candidate(id: &str, kind: SelectorKind, value: SelectorValue) -> SelectorCandidate {
     SelectorCandidate::new(id, kind, value, 1.0, false).expect("valid selector candidate")
@@ -387,4 +402,380 @@ fn fingerprint_on_unknown_window_is_target_not_found() {
     .unwrap_err();
 
     assert_eq!(error.code(), ErrorCode::TargetNotFound);
+}
+
+#[test]
+fn replay_error_display_is_stable_for_every_variant() {
+    let cases = [
+        (
+            ReplayError::InvalidJson("bad".to_string()),
+            "invalid recording JSON: bad",
+        ),
+        (
+            ReplayError::InvalidField {
+                field: "nodes[0].role".to_string(),
+                message: "must not be blank".to_string(),
+            },
+            "invalid field `nodes[0].role`: must not be blank",
+        ),
+        (
+            ReplayError::UnsupportedVersion(9),
+            "unsupported recording version: 9",
+        ),
+        (ReplayError::DuplicateHandle(7), "duplicate node handle: 7"),
+        (
+            ReplayError::OrphanParent {
+                child: 8,
+                parent: 9,
+            },
+            "node 8 references missing parent 9",
+        ),
+        (ReplayError::ParentCycle(10), "parent cycle at node 10"),
+        (
+            ReplayError::DanglingTextReference(11),
+            "recorded text references missing node 11",
+        ),
+        (
+            ReplayError::DuplicateTextOutcome(12),
+            "node 12 has multiple recorded text outcomes",
+        ),
+        (ReplayError::EmptyTree, "recording contains no tree nodes"),
+    ];
+
+    for (error, expected) in cases {
+        assert_eq!(error.to_string(), expected);
+    }
+}
+
+#[test]
+fn recording_rejects_malformed_top_level_and_window_fields() {
+    assert!(matches!(
+        Recording::from_json("{"),
+        Err(ReplayError::InvalidJson(_))
+    ));
+    assert!(matches!(
+        Recording::from_json("[]"),
+        Err(ReplayError::InvalidField { .. })
+    ));
+
+    let cases: &[RecordingCase<'_>] = &[
+        ("blank recording id", |value| {
+            value["recording_id"] = json!("  ");
+        }),
+        ("missing window", |value| {
+            value.as_object_mut().expect("object").remove("window");
+        }),
+        ("zero window handle", |value| {
+            value["window"]["local_handle_id"] = json!(0);
+        }),
+        ("blank window display label", |value| {
+            value["window"]["display_label"] = json!("");
+        }),
+        ("invalid window fingerprint", |value| {
+            value["window"]["fingerprint"] = json!("not-a-fingerprint");
+        }),
+        ("missing nodes", |value| {
+            value.as_object_mut().expect("object").remove("nodes");
+        }),
+        ("empty nodes", |value| value["nodes"] = json!([])),
+    ];
+
+    assert_invalid_recording_cases(cases);
+}
+
+#[test]
+fn recording_rejects_malformed_tree_and_text_fields() {
+    let cases: &[RecordingCase<'_>] = &[
+        ("node is not an object", |value| {
+            value["nodes"][0] = json!(1);
+        }),
+        ("blank node role", |value| {
+            value["nodes"][0]["role"] = json!(" ");
+        }),
+        ("node handle collides with window", |value| {
+            value["nodes"][0]["local_handle_id"] = json!(1);
+        }),
+        ("bounds has the wrong arity", |value| {
+            value["nodes"][0]["bounds"] = json!([0, 0, 900]);
+        }),
+        ("bounds entry is not an integer", |value| {
+            value["nodes"][0]["bounds"][0] = json!("0");
+        }),
+        ("pattern entry is not a string", |value| {
+            value["nodes"][0]["patterns"] = json!([1]);
+        }),
+        ("automation id is neither string nor null", |value| {
+            value["nodes"][0]["automation_id"] = json!(1);
+        }),
+        ("read text is not an array", |value| {
+            value["read_text"] = json!({});
+        }),
+        ("read text entry is not an object", |value| {
+            value["read_text"][0] = json!("text");
+        }),
+        ("read text is missing", |value| {
+            value["read_text"][0]
+                .as_object_mut()
+                .expect("object")
+                .remove("text");
+        }),
+    ];
+
+    assert_invalid_recording_cases(cases);
+}
+
+fn assert_invalid_recording_cases(cases: &[RecordingCase<'_>]) {
+    for (name, mutate) in cases {
+        let error = expect_recording_error(*mutate);
+        assert!(
+            matches!(
+                error,
+                ReplayError::InvalidField { .. } | ReplayError::EmptyTree
+            ),
+            "{name}: {error:?}"
+        );
+    }
+}
+
+#[test]
+fn provider_unrecorded_actions_fail_closed() {
+    let session = ReplaySession::from_json(&fixture_json()).expect("fixture must load");
+    let provider = session.ui_automation_provider();
+    let window = session.window();
+    let chain = SelectorChain::new(vec![automation_id("EditorTextBox")]);
+    let element = poll_once(provider.resolve_element(&window, &chain)).expect("element resolves");
+
+    assert_error_code(
+        poll_once(provider.edit_text(
+            &element,
+            &assistant_platform_api::TextEditOp::Insert {
+                at: 0,
+                text: "x".to_string(),
+            },
+        )),
+        ErrorCode::CapabilityMissing,
+    );
+    assert_error_code(
+        poll_once(provider.invoke_action(&element, "click")),
+        ErrorCode::CapabilityMissing,
+    );
+    assert_error_code(
+        poll_once(provider.select(&element, &assistant_platform_api::Selection::ByIndex(0))),
+        ErrorCode::CapabilityMissing,
+    );
+    assert_error_code(
+        poll_once(provider.scroll(
+            &element,
+            &assistant_platform_api::ScrollTarget::new(0.0, 0.0),
+        )),
+        ErrorCode::CapabilityMissing,
+    );
+    assert_error_code(
+        poll_once(
+            provider.pointer_action(
+                &assistant_platform_api::CoordinateSpace::new(
+                    assistant_platform_api::CoordinateSpaceKind::LogicalPixels,
+                    1.0,
+                    r"\\.\DISPLAY1",
+                )
+                .expect("valid coordinate space"),
+                assistant_platform_api::NormalizedPoint::new(0.0, 0.0)
+                    .expect("finite normalized point"),
+                &assistant_platform_api::PointerAction::Click,
+            ),
+        ),
+        ErrorCode::CapabilityMissing,
+    );
+    assert_error_code(
+        poll_once(provider.key_action(
+            &assistant_platform_api::KeyChord::new("A".to_string(), Vec::new()),
+            &assistant_platform_api::KeyTarget::Foreground,
+        )),
+        ErrorCode::CapabilityMissing,
+    );
+    assert_error_code(
+        poll_once(
+            session
+                .window_provider()
+                .capture(&window, &assistant_platform_api::CaptureOptions::new(true)),
+        ),
+        ErrorCode::CapabilityMissing,
+    );
+}
+
+#[test]
+fn provider_rejects_wrong_handles_and_invalid_bounds() {
+    let session = ReplaySession::from_json(&fixture_json()).expect("fixture must load");
+    let provider = session.ui_automation_provider();
+    let wrong_window = assistant_platform_api::ResolvedWindow::new(
+        assistant_platform_api::LocalHandleId::new(999),
+        "wrong".to_string(),
+    );
+    assert_error_code(
+        poll_once(provider.snapshot_tree(&wrong_window, &TreeOptions::new(None, true))),
+        ErrorCode::TargetNotFound,
+    );
+    assert_error_code(
+        poll_once(session.window_provider().window_state(&wrong_window)),
+        ErrorCode::TargetNotFound,
+    );
+
+    let missing = assistant_platform_api::ResolvedElement::new(
+        assistant_platform_api::LocalHandleId::new(999),
+        assistant_platform_api::LocalHandleId::new(0),
+        "Edit".to_string(),
+    );
+    assert_error_code(
+        poll_once(provider.read_text(&missing)),
+        ErrorCode::TargetNotFound,
+    );
+    assert_error_code(
+        poll_once(provider.element_bounds(&missing)),
+        ErrorCode::TargetNotFound,
+    );
+
+    let no_text = assistant_platform_api::ResolvedElement::new(
+        assistant_platform_api::LocalHandleId::new(101),
+        assistant_platform_api::LocalHandleId::new(100),
+        "Pane".to_string(),
+    );
+    assert_error_code(
+        poll_once(provider.read_text(&no_text)),
+        ErrorCode::CapabilityMissing,
+    );
+
+    let overflow = ReplaySession::from_json(&mutated_fixture(|value| {
+        value["nodes"][0]["bounds"] = json!([0, 0, i64::MAX, 600]);
+    }))
+    .expect("structurally valid recording");
+    let overflow_element = assistant_platform_api::ResolvedElement::new(
+        assistant_platform_api::LocalHandleId::new(100),
+        assistant_platform_api::LocalHandleId::new(0),
+        "Window".to_string(),
+    );
+    assert_error_code(
+        poll_once(
+            overflow
+                .ui_automation_provider()
+                .element_bounds(&overflow_element),
+        ),
+        ErrorCode::Fatal,
+    );
+
+    let empty = ReplaySession::from_json(&mutated_fixture(|value| {
+        value["nodes"][0]["bounds"] = json!([10, 10, 10, 20]);
+    }))
+    .expect("structurally valid recording");
+    assert_error_code(
+        poll_once(
+            empty
+                .ui_automation_provider()
+                .element_bounds(&overflow_element),
+        ),
+        ErrorCode::TargetUnresponsive,
+    );
+}
+
+#[test]
+fn provider_covers_window_filtering_and_fingerprint_scopes() {
+    let session = ReplaySession::from_json(&fixture_json()).expect("fixture must load");
+    let windows = session.window_provider();
+    assert_eq!(
+        poll_once(windows.list_windows(&WindowFilter::any()))
+            .expect("any filter")
+            .len(),
+        1
+    );
+    assert!(
+        poll_once(windows.list_windows(&WindowFilter::for_app("other")))
+            .expect("other app")
+            .is_empty()
+    );
+
+    let wrong_app = assistant_platform_api::TargetDescriptor::new(
+        "2.0".to_string(),
+        "other".to_string(),
+        vec![automation_id("MainWindow")],
+        Vec::new(),
+        assistant_platform_api::ResolutionPolicy::new(
+            assistant_platform_api::OnAmbiguous::ErrorAndAsk,
+            assistant_platform_api::OnNotFound::new(Vec::new(), false),
+            100,
+            0.0,
+        )
+        .expect("valid policy"),
+    );
+    assert_error_code(
+        poll_once(windows.resolve_window(&wrong_app)),
+        ErrorCode::TargetNotFound,
+    );
+
+    let element = assistant_platform_api::ResolvedElement::new(
+        assistant_platform_api::LocalHandleId::new(102),
+        assistant_platform_api::LocalHandleId::new(101),
+        "Edit".to_string(),
+    );
+    assert_error_code(
+        poll_once(session.ui_automation_provider().fingerprint(
+            &session.window(),
+            &assistant_platform_api::FingerprintScope::Element(element),
+        )),
+        ErrorCode::CapabilityMissing,
+    );
+}
+
+#[test]
+fn provider_covers_parent_resolution_failure_paths_and_offscreen_filtering() {
+    let session = ReplaySession::from_json(&fixture_json()).expect("fixture must load");
+    let provider = session.ui_automation_provider();
+    let child = candidate(
+        "missing-parent",
+        SelectorKind::RoleAndParent,
+        SelectorValue::RoleAndParent {
+            role: "Edit".to_string(),
+            parent_id: "not-a-candidate".to_string(),
+        },
+    );
+    assert_error_code(
+        poll_once(provider.resolve_element(&session.window(), &SelectorChain::new(vec![child]))),
+        ErrorCode::ToolInvalidArgs,
+    );
+
+    let raw = mutated_fixture(|value| {
+        let mut duplicate = value["nodes"][1].clone();
+        duplicate["local_handle_id"] = json!(200);
+        value["nodes"]
+            .as_array_mut()
+            .expect("nodes")
+            .push(duplicate);
+        value["nodes"][0]["is_offscreen"] = json!(true);
+    });
+    let ambiguous = ReplaySession::from_json(&raw).expect("structurally valid recording");
+    let host = candidate(
+        "host",
+        SelectorKind::AutomationId,
+        SelectorValue::Text("EditorHost".to_string()),
+    );
+    let nested_child = candidate(
+        "nested-child",
+        SelectorKind::RoleAndParent,
+        SelectorValue::RoleAndParent {
+            role: "Edit".to_string(),
+            parent_id: "host".to_string(),
+        },
+    );
+    assert_error_code(
+        poll_once(ambiguous.ui_automation_provider().resolve_element(
+            &ambiguous.window(),
+            &SelectorChain::new(vec![nested_child, host]),
+        )),
+        ErrorCode::TargetAmbiguous,
+    );
+    let snapshot = poll_once(
+        ambiguous
+            .ui_automation_provider()
+            .snapshot_tree(&ambiguous.window(), &TreeOptions::new(None, false)),
+    )
+    .expect("snapshot without offscreen nodes");
+    assert_eq!(snapshot.node_count(), 4);
 }
