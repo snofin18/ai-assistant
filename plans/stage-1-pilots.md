@@ -1,6 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
-> 周期 10~12 周　状态：**进行中；TASK-257 Review（ADR-0086 `SelectorKind::ExactName`；形状 / 调色板容器精确名兜底）；TASK-256 Review（等待恢复真机 handler 校准）；TASK-106 ✅（Paint T3.1 运行时装配；ADR-0085；PR #284 / merge `f5bdfa6`）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> 周期 10~12 周　状态：**进行中；TASK-258 ✅（2026-10-10；`crates/undo` 契约测试覆盖率 90.36%；PR #292 / merge `c01c546`）；TASK-257 Review（ADR-0086 `SelectorKind::ExactName`；形状 / 调色板容器精确名兜底）；TASK-256 Review（等待恢复真机 handler 校准）；TASK-106 ✅（Paint T3.1 运行时装配；ADR-0085；PR #284 / merge `f5bdfa6`）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
 > **TASK-255 ✅（2026-10-08）**：PL-057 闭环 —— production live 章程对 `docs/nightly/logs` 为 0 命中；旧目录不存在，fallback / 历史 / 自含证据之外不改写。
 > **TASK-254 ✅（2026-10-07）**：PL-027 闭环 —— 8 个受版本控制文本文件补齐末尾 LF；Tauri 被忽略生成目录按精确相对路径排除；`hygiene/missing-final-newline` 升为 Error；PR #278 / merge `1aa082b`。
 > **TASK-253 ✅（2026-10-07）**：ADR-0083 明确任务卡 `- 状态：` 行是正文区唯一可写例外，且必须与状态提交同批；AGENTS / gov / card-check 口径同步，`PL-073` 闭环。
@@ -340,6 +340,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | TASK-047 | 1b | `tasks/TASK-047-stage-1b-integration-adapter-reuse.md` | Ready（批次表占位派单前补全） |
 | **TASK-256 Review** | 1b | `tasks/TASK-256-paint-real-contract-calibration.md` | Review（ADR-0087 ContentViewWalker 审计纠偏；等待真机验收） |
 | **TASK-257 Review** | 1b | `tasks/TASK-257-paint-shape-container-anchor.md` | Review（ADR-0086 `SelectorKind::ExactName`；为无 aid 的形状/调色板容器提供精确名兜底锚点，解锁 TASK-256 的 `DRIFT-256-1`；真机唯一解析待 TASK-256 验收） |
+| **TASK-258 ✅** | 治理池 | `tasks/TASK-258-undo-coverage-hardening.md` | Done（`crates/undo` 契约测试覆盖率 90.36%；PR #292 / merge `c01c546`） |
 | TASK-048 | 1c | `tasks/TASK-048-cdp-provider-connect-dom-nav-download.md` | Ready（批次表占位派单前补全） |
 | TASK-049 | 1c | `tasks/TASK-049-browser-profile-no-copy-user-profile.md` | Ready（批次表占位派单前补全） |
 | **TASK-050 ✅** | 1c | `tasks/TASK-050-dlp-three-tier-egress-local-only-redacted-full.md` | Done（ADR 0007；`crates/dlp` 22 专项测试） |
