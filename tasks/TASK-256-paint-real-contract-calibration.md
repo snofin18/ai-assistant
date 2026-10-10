@@ -191,6 +191,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - 第四次 `select_rectangle_tool` 仍报 `unrecognized COM failure (HRESULT 0x00000000)`：根因是 `pattern_missing` 只把 `E_NOINTERFACE` 视为"能力缺失"，但 Windows 绑定把 `GetCurrentPatternAs` 的"pattern 不存在"投影成 `Err(HRESULT(0))`，落到默认 fatal。修 `crates/platform/windows/src/uia/patterns.rs::pattern_missing`：把 `code == 0` 与 `E_NOINTERFACE` 同样映射为 `CapabilityMissing`，让 `actions::select` 的 `Invoke` 回退命中。
 - 第五次 `select_rectangle_tool` 报 `CapabilityMissing: element does not support InvokePattern`：根因是 Paint 形状库前面有 `ScrollViewer` 占 child index 0，`child_at(3)` 取到的是第三项 ellipse，而不是矩形。`actions::select` 调 `ScrollIntoView`（`ScrollItemPattern`）唤起目标；`RECTANGLE_GALLERY_INDEX` 从 3 调到 4；fake 同步接受 index 3 / 4。
 - `paint_handlers.rs` 当前 900 行，仍有 600 行软建议 warning；若继续增长，需另立拆文件卡，不在本卡 write scope 内静默扩模块。
+- **2026-10-10 审计纠偏**：未提交 WIP 曾把 ADR-0087 写成“改用 `ContentViewWalker`”，却同时加入未授权的 `Selection::ByName` + `ItemContainerPattern` 路径，生产 handler 仍调用 `Selection::ByIndex`，三方互相矛盾。已删除该未授权路径、恢复被误改的 Paint fake 与 selector 回退，把 `actions::child_at` 对齐到 ADR-0087 的 `ContentViewWalker`，恢复 `ensure_realized` 的 `ScrollIntoView` 尝试，并把 `RECTANGLE_GALLERY_INDEX` 真正从 4 改回 3；真实 Paint 唯一命中和虚拟化行为仍以本卡后续真机验收为准。
 - TASK-256 尚未达到 Done，不能解锁 TASK-044 的十次运行声明。
 
 ### 8. 新增长期记忆

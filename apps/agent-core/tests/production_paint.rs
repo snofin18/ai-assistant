@@ -203,10 +203,10 @@ impl UiAutomationProvider for PaintFakePlatform {
         };
         let id = match candidate.id() {
             "toolbar-command-bar" => TOOLBAR_ID,
-            "shape-gallery-exact-name-fallback" => RECTANGLE_TOOL_ID,
-            "shape-gallery-role-parent" => RECTANGLE_TOOL_ID,
-            "color-gallery-exact-name-fallback" => FOREGROUND_COLOR_ID,
-            "color-gallery-role-parent" => FOREGROUND_COLOR_ID,
+            "shape-gallery-exact-name-fallback" | "shape-gallery-role-parent" => RECTANGLE_TOOL_ID,
+            "color-gallery-exact-name-fallback" | "color-gallery-role-parent" => {
+                FOREGROUND_COLOR_ID
+            }
             "layers-container-name-fallback" => LAYERS_PANEL_ID,
             "layers-toggle-role-parent" => LAYERS_TOGGLE_ID,
             "layers-list-automation-id" => {

@@ -1,6 +1,6 @@
 # TASK-257　Paint 形状 / 调色板容器锚点：精确名候选（ExactName）
 
-- 状态：**Done**
+- 状态：**Review**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：256　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -140,6 +140,7 @@ cargo run -p xtask -- verify-schemas / codegen --check / hygiene / memory-counts
 
 - TASK-256 仍为 `Blocked`，待本卡合并后恢复：拆分超长 `paint_handlers.rs`，继续真实 selector / handler read-back 校准与真机十次验收。
 - 本卡未做真实 Paint GUI 验收；真机唯一命中与多语言失配需在 TASK-256 / TASK-044 的有人在场验收中复验。
+- **2026-10-10 状态更正（用户裁决）**：本卡 DoD 中“真机上形状库与调色板容器唯一解析”未完成，不得标 `Done`；状态按卡面 DoD 改为 **Review**，真机唯一命中交由 TASK-256 验收后闭环。
 
 ### 8. 新增长期记忆
 

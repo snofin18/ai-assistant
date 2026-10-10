@@ -245,6 +245,9 @@ pub fn select(element: &ResolvedElement, selection: &Selection) -> PlatformResul
                 ));
             }
         };
+        // ADR-0087：content-view 取到逻辑子项后，若 provider 仍把它标为离屏，
+        // 用 `ScrollItemPattern::ScrollIntoView` 尝试物化；不支持时保留原失败路径。
+        ensure_realized(&target);
         // Paint 形状库 / 调色板项的 UIA 形态是 `Invoke` 按钮而不是 `SelectionItem`：
         // 实测 GetCurrentPatternAs(SelectionItemPatternId) 返回 0（语义即"无该 pattern"），
         // `pattern_missing` 走默认 fatal 路径会变成 "unrecognized COM failure"。
@@ -257,12 +260,28 @@ pub fn select(element: &ResolvedElement, selection: &Selection) -> PlatformResul
     })
 }
 
-/// 取第 `index` 个 control view 子节点（0 起）。
+/// 对支持 `ScrollItemPattern` 的元素尝试滚入可见区（ADR-0087）。
+///
+/// 这里故意忽略 `ScrollIntoView` 失败：它是一个物化辅助步骤，真正的成功判据仍是
+/// 后续 `SelectionItemPattern` / `Invoke` 的强后置条件；不支持该 pattern 时直接跳过。
+fn ensure_realized(element: &IUIAutomationElement) {
+    // SAFETY: 在当前 STA 线程内取 UIA pattern 接口；不转移元素所有权，失败仅返回 Result。
+    if let Ok(scroll_item) = unsafe {
+        element.GetCurrentPatternAs::<IUIAutomationScrollItemPattern>(UIA_ScrollItemPatternId)
+    } {
+        // SAFETY: `ScrollIntoView` 是标准 UIA 导航调用，无缓冲区/无指针跨界。
+        let _ = unsafe { scroll_item.ScrollIntoView() };
+    }
+}
+
+/// 取第 `index` 个 content view 子节点（0 起）。
 fn child_at(element: &IUIAutomationElement, index: u32) -> PlatformResult<IUIAutomationElement> {
     com::with_automation(|automation| {
-        // SAFETY: 只读地取 control view walker。
-        let walker = unsafe { automation.ControlViewWalker() }
-            .map_err(|failure| error::error_from_hresult(failure.code().0, "ControlViewWalker"))?;
+        // SAFETY: 只读地取 content view walker。ADR-0087 要求虚拟化列表按
+        // content view 的逻辑子项取 index；若 provider 不暴露虚拟化项，调用
+        // 仍以 `TargetNotFound` fail closed，绝不退回猜 index 的第一个元素。
+        let walker = unsafe { automation.ContentViewWalker() }
+            .map_err(|failure| error::error_from_hresult(failure.code().0, "ContentViewWalker"))?;
         // SAFETY: 只读遍历。
         let mut current = walk_step_for_actions(
             unsafe { walker.GetFirstChildElement(element) },
