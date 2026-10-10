@@ -94,7 +94,7 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 
 ### 4. DoD 逐条核对
 
-- 生产逻辑零改动：满足；只改 `crates/replay/tests/replay.rs`。
+- 生产逻辑零改动：满足；只改 `crates/replay/tests/replay.rs`；PR #302 / merge `53c9418`。
 - recording 校验失败路径与 provider 失败关闭分支：满足；覆盖全部 `ReplayError`
   Display、JSON / 顶层形状 / window / tree / read_text 字段错误、未录制写动作、
   错误窗口句柄、无效 bounds、窗口过滤、非整窗指纹与父候选歧义。
