@@ -359,7 +359,7 @@ mod tests {
     use std::time::Duration;
 
     use assistant_ipc::{
-        IpcError, RequestMessage, ResponseMessage, ServerHello, Transport, WireMessage,
+        Heartbeat, IpcError, RequestMessage, ResponseMessage, ServerHello, Transport, WireMessage,
     };
     use assistant_protocol::{ErrorCode, ToolEnvelope, serde_json::json};
 
@@ -369,6 +369,7 @@ mod tests {
     struct ScriptedTransport {
         incoming: VecDeque<WireMessage>,
         sent: Vec<WireMessage>,
+        timeouts_before_disconnect: usize,
     }
 
     impl Transport for ScriptedTransport {
@@ -390,6 +391,13 @@ mod tests {
         }
 
         fn recv(&mut self, _timeout: Duration) -> assistant_ipc::IpcResult<WireMessage> {
+            if self.timeouts_before_disconnect > 0 {
+                self.timeouts_before_disconnect -= 1;
+                return Err(IpcError::Timeout {
+                    operation: "scripted receive",
+                    timeout_ms: 0,
+                });
+            }
             self.incoming
                 .pop_front()
                 .ok_or_else(|| IpcError::Disconnected {
@@ -580,5 +588,165 @@ mod tests {
             .ok_or("the session did not send a response")?;
         assert_eq!(response.correlation_id, "c_1");
         Ok(())
+    }
+
+    #[test]
+    fn test_session_accepts_negotiated_heartbeat_then_disconnects() {
+        let server_hello = ServerHello {
+            version: assistant_ipc::IPC_PROTOCOL_VERSION,
+            capabilities: Vec::new(),
+            session_id: "018f6d4e-52a1-7b03-8f22-1234567890ab".to_owned(),
+        };
+        let mut transport = ScriptedTransport::default();
+        transport
+            .incoming
+            .push_back(WireMessage::Heartbeat(Heartbeat {
+                session_id: server_hello.session_id.clone(),
+                timestamp_unix_ms: 1,
+                alive: true,
+            }));
+
+        let ended = run_session(
+            &mut transport,
+            &server_hello,
+            &session_config(),
+            &mut EchoDispatcher,
+        );
+
+        assert!(matches!(ended, Err(IpcError::Disconnected { .. })));
+        assert!(transport.sent.iter().any(|message| matches!(
+            message,
+            WireMessage::Heartbeat(Heartbeat { alive: true, .. })
+        )));
+    }
+
+    #[test]
+    fn test_session_rejects_heartbeat_for_another_session() {
+        let server_hello = ServerHello {
+            version: assistant_ipc::IPC_PROTOCOL_VERSION,
+            capabilities: Vec::new(),
+            session_id: "018f6d4e-52a1-7b03-8f22-1234567890ab".to_owned(),
+        };
+        let mut transport = ScriptedTransport::default();
+        transport
+            .incoming
+            .push_back(WireMessage::Heartbeat(Heartbeat {
+                session_id: "018f6d4e-52a1-7b03-8f22-000000000000".to_owned(),
+                timestamp_unix_ms: 1,
+                alive: true,
+            }));
+
+        let ended = run_session(
+            &mut transport,
+            &server_hello,
+            &session_config(),
+            &mut EchoDispatcher,
+        );
+
+        assert!(matches!(ended, Err(IpcError::UnexpectedMessage { .. })));
+    }
+
+    #[test]
+    fn test_session_rejects_non_request_messages() {
+        let server_hello = ServerHello {
+            version: assistant_ipc::IPC_PROTOCOL_VERSION,
+            capabilities: Vec::new(),
+            session_id: "018f6d4e-52a1-7b03-8f22-1234567890ab".to_owned(),
+        };
+        let mut transport = ScriptedTransport::default();
+        transport
+            .incoming
+            .push_back(WireMessage::ServerHello(server_hello.clone()));
+
+        let ended = run_session(
+            &mut transport,
+            &server_hello,
+            &session_config(),
+            &mut EchoDispatcher,
+        );
+
+        assert!(matches!(ended, Err(IpcError::UnexpectedMessage { .. })));
+    }
+
+    #[test]
+    fn test_session_sends_heartbeat_after_receive_timeout() {
+        let server_hello = ServerHello {
+            version: assistant_ipc::IPC_PROTOCOL_VERSION,
+            capabilities: Vec::new(),
+            session_id: "018f6d4e-52a1-7b03-8f22-1234567890ab".to_owned(),
+        };
+        let mut transport = ScriptedTransport {
+            timeouts_before_disconnect: 1,
+            ..ScriptedTransport::default()
+        };
+
+        let ended = run_session(
+            &mut transport,
+            &server_hello,
+            &session_config(),
+            &mut EchoDispatcher,
+        );
+
+        assert!(matches!(ended, Err(IpcError::Disconnected { .. })));
+        assert!(
+            transport
+                .sent
+                .iter()
+                .filter(|message| matches!(message, WireMessage::Heartbeat(_)))
+                .count()
+                >= 2
+        );
+    }
+
+    #[test]
+    fn test_parse_rejects_unknown_argument() {
+        let parsed = HostConfig::parse(arguments(&["host", "--unknown"]));
+        assert!(matches!(parsed, Err(IpcError::Serialization { .. })));
+    }
+
+    #[test]
+    fn test_parse_rejects_empty_peer_entry() {
+        let parsed = HostConfig::parse(arguments(&[
+            "host",
+            "--pipe-name",
+            "test-pipe",
+            "--token-env",
+            "TOKEN",
+            "--allow-peer",
+            "",
+        ]));
+        assert!(matches!(parsed, Err(IpcError::Serialization { .. })));
+    }
+
+    #[test]
+    fn test_parse_rejects_zero_heartbeat_timeout() {
+        let parsed = HostConfig::parse(arguments(&[
+            "host",
+            "--pipe-name",
+            "test-pipe",
+            "--token-env",
+            "TOKEN",
+            "--allow-peer",
+            r"C:\app\core.exe",
+            "--heartbeat-timeout-ms",
+            "0",
+        ]));
+        assert!(matches!(parsed, Err(IpcError::Serialization { .. })));
+    }
+
+    #[test]
+    fn test_parse_rejects_non_numeric_handshake_timeout() {
+        let parsed = HostConfig::parse(arguments(&[
+            "host",
+            "--pipe-name",
+            "test-pipe",
+            "--token-env",
+            "TOKEN",
+            "--allow-peer",
+            r"C:\app\core.exe",
+            "--handshake-timeout-ms",
+            "not-a-number",
+        ]));
+        assert!(matches!(parsed, Err(IpcError::Serialization { .. })));
     }
 }
