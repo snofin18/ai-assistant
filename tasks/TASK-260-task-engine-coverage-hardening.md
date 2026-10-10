@@ -1,6 +1,6 @@
 # TASK-260　task-engine 契约测试覆盖率加固（章程 §5.3）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**治理/质量**（跨阶段）　批次：**治理池**（ADR-0037 号段 200~299）　依赖：无　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**；`- 状态：` 行按 ADR-0083 为唯一例外）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -103,7 +103,8 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
   check-comments / verify-schemas / check-migrations / codegen --check / replay --suite core`：
   全部 exit 0；`hygiene` 0E/121W，`docscan` 0E/264W，`card-check` 0E/34W，
   `check-comments` 0E/73W，`replay` 2 step / 5 change / 0 mismatch。
-- PR / CI / merge hash：待本轮 PR 收口。
+- PR / CI / merge hash：PR #296 / merge `57416d6`；pull_request CI run `38060622373` =
+  11/11 SUCCESS；post-merge main push CI run `38061276927` = success。
 
 ### 4. DoD 逐条核对
 
@@ -113,7 +114,7 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 - crate 行覆盖率 ≥90%：满足，实测 90.40%。
 - `cargo test -p assistant-task-engine` 与全 workspace 门禁：满足。
 - 热点文件 guard：满足，六个热点文件先 acquire 后编辑并 release。
-- 最终状态：**Review**；PR / CI / merge hash 待回填。
+- 最终状态：**Done**；PR #296 / CI `38060622373` / merge `57416d6` 已回填。
 
 ### 5. 偏差
 
