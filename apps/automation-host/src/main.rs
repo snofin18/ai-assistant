@@ -29,3 +29,41 @@ fn argument_value(arguments: &[std::ffi::OsString], option: &str) -> Option<Path
         .and_then(|pair| pair.get(1))
         .map(PathBuf::from)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::ffi::OsString;
+    use std::path::PathBuf;
+
+    use super::argument_value;
+
+    #[test]
+    fn test_argument_value_returns_the_token_after_the_exact_option() {
+        let arguments = [
+            OsString::from("host"),
+            OsString::from("--status-file"),
+            OsString::from(r"C:\temp\status.txt"),
+        ];
+
+        assert_eq!(
+            argument_value(&arguments, "--status-file"),
+            Some(PathBuf::from(r"C:\temp\status.txt"))
+        );
+    }
+
+    #[test]
+    fn test_argument_value_requires_an_exact_adjacent_option() {
+        let arguments = [
+            OsString::from("host"),
+            OsString::from("--status-file-prefix"),
+            OsString::from("ignored"),
+            OsString::from("--status-file"),
+        ];
+
+        assert_eq!(argument_value(&arguments, "--status-file"), None);
+        assert_eq!(
+            argument_value(&arguments, "--status-file-prefix"),
+            Some(PathBuf::from("ignored"))
+        );
+    }
+}
