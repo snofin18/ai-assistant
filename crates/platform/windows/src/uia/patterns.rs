@@ -213,7 +213,11 @@ pub(super) fn pattern_missing(
     pattern_name: &str,
 ) -> assistant_platform_api::PlatformError {
     let code = failure.code().0;
-    if code == crate::error::E_NOINTERFACE {
+    // windows 绑定把「元素不支持该 pattern」投影成 `Err(HRESULT(0))`（不是
+    // `E_NOINTERFACE`）。这让默认 fatal 路径把"能力缺失"误判成"未识别 COM 失败"。
+    // 在 pattern 检索上下文里，0 与 `E_NOINTERFACE` 语义等价：接口不存在 -> 走
+    // `CapabilityMissing`，让上层（如 `actions::select` 的 `Invoke` 回退）能命中。
+    if code == 0 || code == crate::error::E_NOINTERFACE {
         return error::capability_missing(format!(
             "{context}: element does not support {pattern_name}"
         ));

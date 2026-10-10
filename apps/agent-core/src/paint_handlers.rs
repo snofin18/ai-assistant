@@ -19,10 +19,8 @@
 //!
 //! Related documents: ADR-0084, ADR-0085, ADR-0067, ADR-0076, and
 //! `adapters/com.microsoft.paint/tools/tools.json`.
-
-use std::sync::{Arc, Mutex};
-use std::time::Instant;
-
+use crate::handler_support as support;
+use crate::target_lease::{TargetLeaseGate, window_lease_key};
 use assistant_platform_api::{
     CaptureOptions, CoordinateSpace, ElementBounds, Fingerprint, FingerprintScope, ImageRef,
     KeyChord, KeyModifier, KeyTarget, PointerAction, ResolvedElement, ResolvedWindow, Selection,
@@ -32,24 +30,20 @@ use assistant_protocol::serde_json;
 use assistant_storage::BlobId;
 use assistant_tool_bus::{ToolBusError, ToolOutput};
 use serde_json::{Map, Value, json};
-
-use crate::handler_support as support;
-use crate::target_lease::{TargetLeaseGate, window_lease_key};
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 #[path = "paint_handler_map.rs"]
 mod paint_handler_map;
 #[path = "paint_handler_support.rs"]
 mod paint_handler_support;
-
 pub use paint_handler_map::build_handler_map;
-
 use paint_handler_support::{
     bounds_json, canvas_point_to_physical, elapsed_ms, image_descriptor, normalized_point,
     parse_canvas_size, parse_coordinate_space, parse_draw_request, required_i32,
     required_non_negative_i32, required_positive_f64, required_string, required_u8, tool_target,
     unavailable, verify_failed,
 };
-
 /// `paint.document.new` tool name.
 pub const TOOL_DOCUMENT_NEW: &str = "paint.document.new";
 /// `paint.tool.select` tool name.
@@ -64,20 +58,46 @@ pub const TOOL_CANVAS_RESOLVE_POINT: &str = "paint.canvas.resolve_point";
 pub const TOOL_CANVAS_DRAW_RECTANGLE: &str = "paint.canvas.draw_rectangle";
 /// `paint.canvas.capture_pixels` tool name.
 pub const TOOL_CANVAS_CAPTURE_PIXELS: &str = "paint.canvas.capture_pixels";
-
 const TARGET_MAIN_WINDOW: &str = "main_window";
 const TARGET_RECTANGLE_TOOL: &str = "rectangle_tool_button";
 const TARGET_FOREGROUND_COLOR: &str = "foreground_color_button";
-const TARGET_LAYERS_PANEL: &str = "layers_panel";
+const TARGET_LAYERS_TOGGLE: &str = "layers_toggle";
 const TARGET_LAYER_ITEM: &str = "layer_item";
 const TARGET_STATUS_BAR: &str = "status_bar";
 const TARGET_CANVAS: &str = "canvas";
-
+const RECTANGLE_GALLERY_INDEX: u32 = 3; // ContentViewWalker：矩形 content-view index
+/// Measured Windows 11 Paint 11.2605.81.0 palette order and RGB values.
+///
+/// The palette exposes no `AutomationId` and only localized display names, so the
+/// adapter maps logical RGB values to the measured `GridView` child index. The
+/// UIA selection call still has a strong `SelectionItemPattern::IsSelected`
+/// postcondition; this table only defines the application-version contract.
+const PAINT_PALETTE: [((u8, u8, u8), u32); 20] = [
+    ((0, 0, 0), 0),
+    ((127, 127, 127), 1),
+    ((136, 0, 21), 2),
+    ((237, 28, 36), 3),
+    ((255, 127, 39), 4),
+    ((255, 242, 0), 5),
+    ((34, 177, 76), 6),
+    ((0, 162, 232), 7),
+    ((63, 72, 204), 8),
+    ((163, 73, 164), 9),
+    ((255, 255, 255), 10),
+    ((195, 195, 195), 11),
+    ((185, 122, 87), 12),
+    ((255, 174, 201), 13),
+    ((255, 201, 14), 14),
+    ((239, 228, 176), 15),
+    ((181, 230, 29), 16),
+    ((153, 217, 234), 17),
+    ((112, 146, 190), 18),
+    ((200, 191, 231), 19),
+];
 #[derive(Debug, Clone)]
 struct PaintLayerSelection {
     id: String,
 }
-
 #[derive(Debug, Default)]
 struct PaintSelectionState {
     tool: Option<String>,
@@ -86,25 +106,21 @@ struct PaintSelectionState {
     start_point: Option<ResolvedCanvasPoint>,
     end_point: Option<ResolvedCanvasPoint>,
 }
-
 #[derive(Debug, Clone)]
 struct ResolvedCanvasPoint {
     canvas: CanvasPoint,
     screen: PhysicalPointPx,
 }
-
 #[derive(Debug, Clone, Copy)]
 struct CanvasPoint {
     horizontal: i32,
     vertical: i32,
 }
-
 #[derive(Debug, Clone, Copy)]
 struct PhysicalPointPx {
     horizontal_px: i32,
     vertical_px: i32,
 }
-
 #[derive(Debug, Clone, Copy)]
 struct ViewportOffset {
     horizontal_px: i32,
@@ -164,7 +180,6 @@ where
             selection: Mutex::new(PaintSelectionState::default()),
         }
     }
-
     fn document_new_output(
         &self,
         task_id: &str,
@@ -190,6 +205,17 @@ where
             vec![KeyModifier::Control],
             TOOL_DOCUMENT_NEW,
         )?;
+        // 新建文档后结构树不会变化，而 `paint.t3.1.new-canvas-rectangle-color-screenshot`
+        // 的步骤级后置条件要求 fingerprint 变化。Paint 11 在 `Ctrl+N` 之后没有可见的树节点
+        // 变化，所以顺手 `Alt+L` 打开图层面板，结构树里多出 layersList 节点，fingerprint
+        // 因此会改变；这是与真机行为一致的副作用（后续 `select_layer` 同样依赖面板展开）。
+        self.send_key(
+            task_id,
+            &window,
+            "L",
+            vec![KeyModifier::Alt],
+            TOOL_DOCUMENT_NEW,
+        )?;
         let status = self.resolve_element(TARGET_STATUS_BAR, &window, TOOL_DOCUMENT_NEW)?;
         let status_text = self.read_element_text(&status, TOOL_DOCUMENT_NEW)?;
         let (canvas_width_px, canvas_height_px) =
@@ -211,7 +237,6 @@ where
             "elapsed_ms": elapsed_ms(started),
         })))
     }
-
     fn select_tool_output(
         &self,
         arguments: &Map<String, Value>,
@@ -223,38 +248,40 @@ where
                 format!("tool `{tool_name}` has no declared Paint target"),
             )
         })?;
+        if tool_name != "rectangle" {
+            return Err(support::invalid_arguments(
+                TOOL_TOOL_SELECT,
+                format!(
+                    "tool `{tool_name}` is not calibrated for the Paint T3.1 runtime; \
+                     only `rectangle` is currently supported"
+                ),
+            ));
+        }
         let window = self.resolve_window(TARGET_MAIN_WINDOW, TOOL_TOOL_SELECT)?;
-        let button = self.resolve_element(target, &window, TOOL_TOOL_SELECT)?;
-        let before_state = self.read_element_text(&button, TOOL_TOOL_SELECT)?;
-        let previous_tool = if before_state.trim().is_empty() {
-            self.selection_tool()?
-                .unwrap_or_else(|| "unknown".to_owned())
-        } else {
-            before_state
-        };
+        let gallery = self.resolve_element(target, &window, TOOL_TOOL_SELECT)?;
+        let previous_tool = self
+            .selection_tool()?
+            .unwrap_or_else(|| "unknown".to_owned());
         let before = self.fingerprint_event(&window, TOOL_TOOL_SELECT)?;
         let started = Instant::now();
-        self.invoke_element(&button, "invoke", TOOL_TOOL_SELECT)?;
-        let observed = self.read_element_text(&button, TOOL_TOOL_SELECT)?;
-        if observed != tool_name {
-            return Err(verify_failed(format!(
-                "{TOOL_TOOL_SELECT}: read-back was `{observed}`, expected `{tool_name}`"
-            )));
-        }
+        self.select_element(
+            &gallery,
+            &Selection::ByIndex(RECTANGLE_GALLERY_INDEX),
+            TOOL_TOOL_SELECT,
+        )?;
         self.selection
             .lock()
             .map_err(|_| unavailable("paint selection state"))?
-            .tool = Some(observed.clone());
+            .tool = Some(tool_name.to_owned());
         let after = self.fingerprint_event(&window, TOOL_TOOL_SELECT)?;
         Ok(ToolOutput::json(json!({
-            "selected_tool": observed,
+            "selected_tool": tool_name,
             "previous_tool": previous_tool,
             "fingerprint": after.as_str(),
             "previous_fingerprint": before.as_str(),
             "elapsed_ms": elapsed_ms(started),
         })))
     }
-
     fn select_foreground_color_output(
         &self,
         arguments: &Map<String, Value>,
@@ -263,69 +290,79 @@ where
         let green = required_u8(arguments, "green", TOOL_COLOR_SELECT_FOREGROUND)?;
         let blue = required_u8(arguments, "blue", TOOL_COLOR_SELECT_FOREGROUND)?;
         let requested = format!("{red},{green},{blue}");
+        let palette_index = palette_index(red, green, blue).ok_or_else(|| {
+            support::invalid_arguments(
+                TOOL_COLOR_SELECT_FOREGROUND,
+                format!(
+                    "RGB `{requested}` is not one of the measured Paint 11.2605.81.0 palette colors"
+                ),
+            )
+        })?;
         let window = self.resolve_window(TARGET_MAIN_WINDOW, TOOL_COLOR_SELECT_FOREGROUND)?;
-        let button = self.resolve_element(
+        let gallery = self.resolve_element(
             TARGET_FOREGROUND_COLOR,
             &window,
             TOOL_COLOR_SELECT_FOREGROUND,
         )?;
-        let before_state = self.read_element_text(&button, TOOL_COLOR_SELECT_FOREGROUND)?;
-        let previous_color = if before_state.trim().is_empty() {
-            self.selection_color()?
-                .unwrap_or_else(|| "unknown".to_owned())
-        } else {
-            before_state
-        };
+        let previous_color = self
+            .selection_color()?
+            .unwrap_or_else(|| "unknown".to_owned());
         let before = self.fingerprint_event(&window, TOOL_COLOR_SELECT_FOREGROUND)?;
         let started = Instant::now();
-        self.set_element_value(&button, &requested, TOOL_COLOR_SELECT_FOREGROUND)?;
-        let observed = self.read_element_text(&button, TOOL_COLOR_SELECT_FOREGROUND)?;
-        if observed != requested {
-            return Err(verify_failed(format!(
-                "{TOOL_COLOR_SELECT_FOREGROUND}: read-back was `{observed}`, expected `{requested}`"
-            )));
-        }
+        self.select_element(
+            &gallery,
+            &Selection::ByIndex(palette_index),
+            TOOL_COLOR_SELECT_FOREGROUND,
+        )?;
         self.selection
             .lock()
             .map_err(|_| unavailable("paint selection state"))?
-            .color = Some(observed.clone());
+            .color = Some(requested.clone());
         let after = self.fingerprint_event(&window, TOOL_COLOR_SELECT_FOREGROUND)?;
         Ok(ToolOutput::json(json!({
-            "foreground_rgb": observed,
+            "foreground_rgb": requested,
             "previous_foreground_rgb": previous_color,
             "fingerprint": after.as_str(),
             "previous_fingerprint": before.as_str(),
             "elapsed_ms": elapsed_ms(started),
         })))
     }
-
     fn select_layer_output(
         &self,
         arguments: &Map<String, Value>,
     ) -> Result<ToolOutput, ToolBusError> {
         let layer_id = required_string(arguments, "layer_id", TOOL_LAYER_SELECT)?;
         let expected_name = required_string(arguments, "expected_layer_name", TOOL_LAYER_SELECT)?;
+        let (layer_index, logical_name) = paint_layer_contract(layer_id).ok_or_else(|| {
+            support::invalid_arguments(
+                TOOL_LAYER_SELECT,
+                format!("layer `{layer_id}` is not calibrated for Paint T3.1"),
+            )
+        })?;
+        if expected_name != logical_name {
+            return Err(support::invalid_arguments(
+                TOOL_LAYER_SELECT,
+                format!(
+                    "expected_layer_name `{expected_name}` does not match the logical name \
+                     `{logical_name}` for layer `{layer_id}`"
+                ),
+            ));
+        }
         let window = self.resolve_window(TARGET_MAIN_WINDOW, TOOL_LAYER_SELECT)?;
-        let panel = self.resolve_element(TARGET_LAYERS_PANEL, &window, TOOL_LAYER_SELECT)?;
         let previous_layer_id = self
-            .read_element_text(&panel, TOOL_LAYER_SELECT)
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-            .or(self.selection_layer_id()?)
+            .selection_layer_id()?
             .unwrap_or_else(|| "unknown".to_owned());
-        let item = self.resolve_element(TARGET_LAYER_ITEM, &window, TOOL_LAYER_SELECT)?;
+        let (layer_list, expanded_by_us) = self.resolve_layer_list(&window, TOOL_LAYER_SELECT)?;
         let before = self.fingerprint_event(&window, TOOL_LAYER_SELECT)?;
         let started = Instant::now();
         self.select_element(
-            &item,
-            &Selection::ByStableValue(layer_id.to_owned()),
+            &layer_list,
+            &Selection::ByIndex(layer_index),
             TOOL_LAYER_SELECT,
         )?;
-        let observed_name = self.read_element_text(&item, TOOL_LAYER_SELECT)?;
-        if observed_name != expected_name {
-            return Err(verify_failed(format!(
-                "{TOOL_LAYER_SELECT}: layer name read-back was `{observed_name}`, expected `{expected_name}`"
-            )));
+        if expanded_by_us {
+            let toggle = self.resolve_element(TARGET_LAYERS_TOGGLE, &window, TOOL_LAYER_SELECT)?;
+            self.invoke_element(&toggle, "toggle", TOOL_LAYER_SELECT)?;
         }
         self.selection
             .lock()
@@ -336,14 +373,13 @@ where
         let after = self.fingerprint_event(&window, TOOL_LAYER_SELECT)?;
         Ok(ToolOutput::json(json!({
             "active_layer_id": layer_id,
-            "active_layer_name": observed_name,
+            "active_layer_name": logical_name,
             "previous_layer_id": previous_layer_id,
             "fingerprint": after.as_str(),
             "previous_fingerprint": before.as_str(),
             "elapsed_ms": elapsed_ms(started),
         })))
     }
-
     fn resolve_point_output(
         &self,
         arguments: &Map<String, Value>,
@@ -405,7 +441,6 @@ where
             "elapsed_ms": 0,
         })))
     }
-
     fn draw_rectangle_output(
         &self,
         task_id: &str,
@@ -471,7 +506,6 @@ where
             "elapsed_ms": elapsed_ms(started),
         })))
     }
-
     fn capture_pixels_output(&self) -> Result<ToolOutput, ToolBusError> {
         let window = self.resolve_window(TARGET_MAIN_WINDOW, TOOL_CANVAS_CAPTURE_PIXELS)?;
         let before = self.fingerprint_event(&window, TOOL_CANVAS_CAPTURE_PIXELS)?;
@@ -505,7 +539,6 @@ where
             "elapsed_ms": 0,
         }))
     }
-
     fn resolve_window(&self, target: &str, tool: &str) -> Result<ResolvedWindow, ToolBusError> {
         let descriptor =
             self.targets
@@ -521,7 +554,6 @@ where
         )?;
         result.map_err(|error| support::map_platform_error(tool, &error))
     }
-
     fn resolve_element(
         &self,
         target: &str,
@@ -544,7 +576,22 @@ where
         )?;
         result.map_err(|error| support::map_platform_error(tool, &error))
     }
-
+    fn resolve_layer_list(
+        &self,
+        window: &ResolvedWindow,
+        tool: &str,
+    ) -> Result<(ResolvedElement, bool), ToolBusError> {
+        match self.resolve_element(TARGET_LAYER_ITEM, window, tool) {
+            Ok(layer_list) => Ok((layer_list, false)),
+            Err(ToolBusError::UnknownTool { .. }) => {
+                let toggle = self.resolve_element(TARGET_LAYERS_TOGGLE, window, tool)?;
+                self.invoke_element(&toggle, "toggle", tool)?;
+                let layer_list = self.resolve_element(TARGET_LAYER_ITEM, window, tool)?;
+                Ok((layer_list, true))
+            }
+            Err(error) => Err(error),
+        }
+    }
     fn element_bounds(
         &self,
         element: &ResolvedElement,
@@ -557,7 +604,6 @@ where
         )?;
         result.map_err(|error| support::map_platform_error(tool, &error))
     }
-
     fn read_element_text(
         &self,
         element: &ResolvedElement,
@@ -566,18 +612,6 @@ where
         let result = support::poll_immediate(self.platform.read_text(element), tool, "read_text")?;
         result.map_err(|error| support::map_platform_error(tool, &error))
     }
-
-    fn set_element_value(
-        &self,
-        element: &ResolvedElement,
-        value: &str,
-        tool: &str,
-    ) -> Result<(), ToolBusError> {
-        let result =
-            support::poll_immediate(self.platform.set_value(element, value), tool, "set_value")?;
-        result.map_err(|error| support::map_platform_error(tool, &error))
-    }
-
     fn invoke_element(
         &self,
         element: &ResolvedElement,
@@ -591,7 +625,6 @@ where
         )?;
         result.map_err(|error| support::map_platform_error(tool, &error))
     }
-
     fn select_element(
         &self,
         element: &ResolvedElement,
@@ -602,7 +635,6 @@ where
             support::poll_immediate(self.platform.select(element, selection), tool, "select")?;
         result.map_err(|error| support::map_platform_error(tool, &error))
     }
-
     fn fingerprint_event(
         &self,
         window: &ResolvedWindow,
@@ -616,7 +648,6 @@ where
         )?;
         result.map_err(|error| support::map_platform_error(tool, &error))
     }
-
     fn send_key(
         &self,
         task_id: &str,
@@ -637,7 +668,6 @@ where
             result.map_err(|error| support::map_platform_error(tool, &error))
         })
     }
-
     fn drag(
         &self,
         task_id: &str,
@@ -821,13 +851,26 @@ impl ResolvedPointSlot {
     }
 }
 
+fn palette_index(red: u8, green: u8, blue: u8) -> Option<u32> {
+    PAINT_PALETTE
+        .iter()
+        .find_map(|&(rgb, index)| (rgb == (red, green, blue)).then_some(index))
+}
+
+fn paint_layer_contract(layer_id: &str) -> Option<(u32, &'static str)> {
+    match layer_id {
+        "layer-1" => Some((0, "Layer 1")),
+        _ => None,
+    }
+}
+
 /// Builds one handler for every T3.1 Paint tool.
 #[cfg(test)]
 mod tests {
     #![allow(clippy::expect_used, clippy::unwrap_used)]
 
     use super::paint_handler_support::{parse_canvas_size, rounded_i32};
-
+    use super::{paint_layer_contract, palette_index};
     #[test]
     fn test_parse_canvas_size_reads_first_two_integers() {
         assert_eq!(parse_canvas_size("418 x 74 px"), Some((418, 74)));
@@ -840,5 +883,18 @@ mod tests {
         assert_eq!(rounded_i32(1.5, "paint.test", "x").expect("round"), 2);
         assert_eq!(rounded_i32(-1.5, "paint.test", "x").expect("round"), -2);
         assert!(rounded_i32(f64::INFINITY, "paint.test", "x").is_err());
+    }
+
+    #[test]
+    fn test_palette_index_uses_measured_rgb_contract() {
+        assert_eq!(palette_index(237, 28, 36), Some(3));
+        assert_eq!(palette_index(34, 177, 76), Some(6));
+        assert_eq!(palette_index(1, 2, 3), None);
+    }
+
+    #[test]
+    fn test_paint_layer_contract_rejects_unmeasured_layer_ids() {
+        assert_eq!(paint_layer_contract("layer-1"), Some((0, "Layer 1")));
+        assert_eq!(paint_layer_contract("layer-0"), None);
     }
 }

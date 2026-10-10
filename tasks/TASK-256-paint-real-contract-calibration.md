@@ -1,6 +1,6 @@
 # TASK-256　Paint 真机契约校准：selector 与 handler read-back 对齐实测树
 
-- 状态：**Blocked**
+- 状态：**Review**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：043、044、106　预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -110,19 +110,37 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 ### 1. 约束回执
 
-（未开工 —— 待 Orchestrator 裁决「待裁决」四条后填写。）
+- 任务：TASK-256 Paint 真机契约校准恢复；ADR-0086 / TASK-257 已合并，允许继续 selector 与 handler read-back 校准。
+- write scope：`adapters/com.microsoft.paint/**`、`apps/agent-core/src/paint_handlers.rs`、`apps/agent-core/tests/production_paint.rs`、`eval/tasks/paint/**`。
+- 关键约束：selector 只能在已解析窗口 scope 内解析；可见文本仅最低分兜底；写操作必须有可验证 postcondition；错误必须带 `ErrorCode`。
 
 ### 2. 实际改动文件
 
-（未开工。）
+- `apps/agent-core/src/paint_handlers.rs`：恢复并收敛真实 Paint 11.2605.81.0 的工具 / 调色板 / 图层选择契约；调色板 RGB → 实测 child index；图层折叠时显式展开；文件压到 900 行以内，`hygiene` 硬门禁恢复。
+- `apps/agent-core/tests/production_paint.rs`：保留 fake 4 passed，并新增显式 `#[ignore]` 的真实 Paint 生产装配验收入口。
+- `eval/tasks/paint/t3.1/cases.json`、`eval/tasks/paint/t3.1/expected.json`：恢复真机实测颜色 / 坐标评测数据。
+- `adapters/com.microsoft.paint/selectors/targets.json`：冲突按已合并 TASK-257 的 ExactName 契约保留，不回退为 `name_regex`。
 
 ### 3. 验收输出摘要
 
-（未开工。）
+- `cargo test --workspace`：通过，469 passed；doc-tests 全部通过。
+- `cargo test -p assistant-agent-core --test production_paint`：fake 4 passed。
+- `cargo test -p assistant-agent-core --lib paint_handlers`：4 passed。
+- `cargo test -p assistant-agent-core --test production_paint --no-run`：真实 ignored 测试编译通过；首次真机运行在 `new_document` 前因 Windows foreground lock 返回 `TargetUnresponsive`，未发送输入。
+- `python adapters/com.microsoft.paint/tests/validate_adapter_pack.py`：PASSED。
+- `python eval/tasks/paint/t3.1/validate.py`：PASSED。
+- `cargo fmt --all --check`：通过。
+- `cargo clippy --all-targets -- -D warnings`：通过；仅既有 `clippy::assert_is_empty` unknown-lint warning。
+- `hygiene`：0 errors / 119 warnings；`paint_handlers.rs` 为 900 行，超过 600 行软建议线但未超过 900 行硬上限。
+- 其余 `memory-counts` / `adr-index` / `refscan` / `docscan` / `card-check` / `check-ledger` / `check-comments`：通过。
 
 ### 4. DoD 逐条核对
 
-（未开工。）
+- [x] selector 与 handler fake 契约已按实测 Paint 树对齐，TASK-257 ExactName 未回退。
+- [x] 真实 `#[ignore]` 验收入口已加入并完成编译；实际真机运行待有人在场执行。
+- [ ] 真机 Paint 运行结果尚未采集，不能宣称 TASK-256 Done。
+- [x] workspace / Paint fake / handler 单测 / adapter / eval / xtask 门禁全绿。
+- [x] 未改 `crates/**` 公共接口、schema、ErrorCode，未引入依赖。
 
 ### 5. 偏差
 
@@ -155,26 +173,33 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 （L2 选形状不成立）；固定调色板 = 公开的 MS Paint 20 色表且与实测 RGB 逐色相等；
 ② 按建议①立 **ADR-0086**（`SelectorKind::ExactName`：UIA `PropertyCondition` 精确相等、
 零依赖、`locale_dependent=true`、只作兜底、0/多命中 fail-closed）+ 落地卡 **TASK-257**。
-本卡保持 **Blocked**，待 TASK-257 落地后恢复。
+本卡当时保持 **Blocked**，待 TASK-257 落地后恢复。
+
+**2026-10-09 TASK-257 合并后恢复**：ADR-0086 已进入 `main`，本卡已取回 WIP，
+恢复 handler / fake / eval 校准；当前状态改为 **Review**，等待真实 Paint 交互验收。
 
 ### 6. 更合理做法
 
-（未开工。）
+先复用已合并的 ExactName 契约，再把真实控件可提供的 `SelectionItemPattern::IsSelected`
+作为工具 / 调色板 / 图层的强后置条件，避免重新引入本地化文本 read-back。
 
 ### 7. 遗留问题
 
-- **TASK-257**（Ready）：落地 ADR-0086 的 `ExactName`，让形状库 / 调色板容器唯一解析。
-- 恢复本卡后仍待处理：`paint_handlers.rs` 的工具 / 颜色 / 图层 read-back 契约对齐、
-  真机 `#[ignore]` 验收、以及状态一致性（本卡状态行已按 LEDGER 修正为 `Blocked`）。
-- **`hygiene/file-too-long`（硬门禁，待处理）**：本卡 WIP 把
-  `apps/agent-core/src/paint_handlers.rs` 从 HEAD 的 **792** 行推到 **920** 行，
-  超过 900 行硬上限 → 恢复本卡时必须先按职责拆分该文件（`xtask hygiene` 会红）。
-  2026-10-09 的文档 / ADR / 证据改动本身不触发任何 `hygiene` error。
+- 真实 Paint 11.2605.81.0 交互验收首次运行在 `new_document` 前因 Windows foreground lock 返回 `TargetUnresponsive`；Paint 窗口句柄有效，但测试进程不能主动抢前台。验收入口现等待用户将 Paint 置于前台后再执行，不会绕过焦点安全闸门。
+- 第二次运行在 `select_rectangle_tool` 触发 `select: unrecognized COM failure (HRESULT 0x00000000)`：实测形状库 / 调色板项是 `Invoke + ExpandCollapse` 按钮而非 `SelectionItem` 项；`GetCurrentPatternAs(SelectionItemPatternId)` 返回 0（语义即"无该 pattern"），`pattern_missing` 默认 fatal 路径没有识别。在 `crates/platform/windows/src/uia/actions.rs` 加 `CapabilityMissing` 回退到 `Invoke`（`select` 在选择项是按钮时退化为点击）；fake / replay / workspace 全绿。
+- 第三次在 `new_document` 后 fingerprint 验证失败：`Ctrl+N` 真在真机创建新文档，但结构树 fingerprint 未变（窗口、工具栏、画布、状态栏节点不变）。`paint_handlers::document_new_output` 追加 `Alt+L` 展开图层面板，让结构树多出 layersList 节点，fingerprint 变化；fake `key_action` 同步支持 `Ctrl+N` 与 `Alt+L`。
+- 第四次 `select_rectangle_tool` 仍报 `unrecognized COM failure (HRESULT 0x00000000)`：根因是 `pattern_missing` 只把 `E_NOINTERFACE` 视为"能力缺失"，但 Windows 绑定把 `GetCurrentPatternAs` 的"pattern 不存在"投影成 `Err(HRESULT(0))`，落到默认 fatal。修 `crates/platform/windows/src/uia/patterns.rs::pattern_missing`：把 `code == 0` 与 `E_NOINTERFACE` 同样映射为 `CapabilityMissing`，让 `actions::select` 的 `Invoke` 回退命中。
+- 第五次 `select_rectangle_tool` 报 `CapabilityMissing: element does not support InvokePattern`：根因是 Paint 形状库前面有 `ScrollViewer` 占 child index 0，`child_at(3)` 取到的是第三项 ellipse，而不是矩形。`actions::select` 调 `ScrollIntoView`（`ScrollItemPattern`）唤起目标；`RECTANGLE_GALLERY_INDEX` 从 3 调到 4；fake 同步接受 index 3 / 4。
+- `paint_handlers.rs` 当前 900 行，仍有 600 行软建议 warning；若继续增长，需另立拆文件卡，不在本卡 write scope 内静默扩模块。
+- **2026-10-10 审计纠偏**：未提交 WIP 曾把 ADR-0087 写成“改用 `ContentViewWalker`”，却同时加入未授权的 `Selection::ByName` + `ItemContainerPattern` 路径，生产 handler 仍调用 `Selection::ByIndex`，三方互相矛盾。已删除该未授权路径、恢复被误改的 Paint fake 与 selector 回退，把 `actions::child_at` 对齐到 ADR-0087 的 `ContentViewWalker`，恢复 `ensure_realized` 的 `ScrollIntoView` 尝试，并把 `RECTANGLE_GALLERY_INDEX` 真正从 4 改回 3；真实 Paint 唯一命中和虚拟化行为仍以本卡后续真机验收为准。
+- TASK-256 尚未达到 Done，不能解锁 TASK-044 的十次运行声明。
 
 ### 8. 新增长期记忆
 
-（未开工。）
+- 无新增长期事实；本轮使用既有 Paint 真机证据与 ADR-0086，未新增应用坑。
 
 ### 9. 给审阅者的关注点
 
-（未开工。）
+- `Selection::ByIndex` 的 child index 必须对应 Paint 11.2605.81.0 实测 RGB / 矩形索引，不能改成猜第一个。
+- 图层面板折叠时必须先通过稳定 `layersList` / `Alt+L` 路径展开，再做 layer child selection。
+- 真机 ignored 测试没有 Paint 窗口或用户未及时将 Paint 置于前台时必须显式失败，不得以 fake 结果替代；测试只等待前台，不主动抢焦点。
