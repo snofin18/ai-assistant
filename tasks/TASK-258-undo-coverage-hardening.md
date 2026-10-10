@@ -1,6 +1,6 @@
 # TASK-258　undo 契约测试覆盖率加固（章程 §5.3）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**治理/质量**（跨阶段）　批次：**治理池**（ADR-0037 号段 200~299）　依赖：无　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**；`- 状态：` 行按 ADR-0083 为唯一例外）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -91,6 +91,8 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 - `xtask hygiene / verify-schemas / codegen --check / memory-counts / adr-index / refscan /
   docscan / card-check / check-ledger / check-comments / check-migrations` → 全部
   `verdict=PASSED`；其中 `check-comments` 0E/73W，`memory-counts` 0E/0W。
+- PR #292 的 pull_request CI run `38042510915` → **11/11 SUCCESS**；合并前
+  `base=main`、`mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`；merge hash = `c01c546`。
 
 ### 4. DoD 逐条核对
 
@@ -99,12 +101,13 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 - crate 覆盖率 ≥85%：满足，实测 90.36%。
 - `cargo test -p assistant-undo` 与全 workspace 门禁：满足。
 - 热点文件 guard：满足，`LEDGER.md` / `docs/memory/facts.md` / `MEMORY.md` 均先取锁后释放。
-- 最终状态：当前为 **Review**；CI 与 merge hash 由本轮 PR 收口后回填。
+- 最终状态：**Done**；PR #292 / CI `38042510915` / merge `c01c546` 已在 §3 回填。
 
 ### 5. 偏差
 
-- 有 5 次只读/查询命令误用 `shell=bash`，均在 PowerShell 环境缺失命令时以 exit 127 立即失败
-  （读取技能文件一次、读取 facts 尾部一次、执行 `memory-counts` 一次、组合验收一次、guard 一次）；随后均改用
+- 有 9 次只读/查询命令误用 `shell=bash`，均在 PowerShell 环境缺失命令时以 exit 127 立即失败
+  （首轮预检两次、读取产品源码一次、读取 facts 尾部一次、执行 `memory-counts` 一次、
+  组合验收一次、guard acquire 两次、读取轮次文件一次）；随后均改用
   `shell=powershell` 重跑。失败发生在写入前，未污染工作区，也未把未运行命令记作已通过。
 - 单卡 diff 为 **761 行**，超过章程 §6 的 400 行审阅预算；本轮唯一产品面变更是 539 行测试，
   其余为卡片 / 轮次 / LEDGER / FACT 留痕。未拆轮的原因是覆盖率缺口跨越同一组安全不变量，
@@ -119,7 +122,6 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 
 ### 7. 遗留问题
 
-- 本轮 PR 的 CI 与 merge hash 待收口。
 - TASK-256 / TASK-257 / TASK-044 的真实 Paint GUI 验收仍由有人在场时执行。
 
 ### 8. 新增长期记忆
