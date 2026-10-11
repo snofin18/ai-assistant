@@ -7,11 +7,11 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-10-11（**TASK-271 Done**（assistant-dlp 契约测试覆盖率 83.59% → 98.89%；PR #320 / merge `8a5ad5f`））
-当前阶段    ：**阶段 1（三试点闭环）进行中**；**TASK-271 Done**（assistant-dlp 独立行覆盖率 83.59% → 98.89%；新增 10 个公共契约测试；生产源码零改动；PR #320 / merge `8a5ad5f`）；此前 TASK-270 / 269 / 268 / 267 / 266 / 265 / 264 等质量加固已收口；TASK-257 / TASK-256 Review。
-当前任务卡  ：**TASK-271 Done**（assistant-dlp 契约测试覆盖率加固；PR #320 / merge `8a5ad5f`）；**TASK-257 Review**（ADR-0086 `SelectorKind::ExactName`）；**TASK-256 Review**（等待真机 Paint 校准）；下一张待 Orchestrator 派单；
+更新日期    ：2026-10-12（**TASK-272 Review**（assistant-platform-api 契约测试覆盖率 62.96% → 99.33%；PR / CI / merge 待回填））
+当前阶段    ：**阶段 1（三试点闭环）进行中**；**TASK-272 Review**（assistant-platform-api 独立行覆盖率 62.96% → 99.33%；新增 14 个公共契约测试；生产源码零改动）；**TASK-271 Done**（assistant-dlp 独立行覆盖率 83.59% → 98.89%；PR #320 / merge `8a5ad5f`）；TASK-257 / TASK-256 Review。
+当前任务卡  ：**TASK-272 Review**（assistant-platform-api 契约测试覆盖率加固；PR / CI / merge 待回填）；**TASK-257 Review**（ADR-0086 `SelectorKind::ExactName`）；**TASK-256 Review**（等待真机 Paint 校准）；下一张待 Orchestrator 派单；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done
-本日自动化 ：TASK-271 Done（assistant-dlp 覆盖率 83.59% → 98.89%；新增 10 个公共契约测试；PR #320 / merge `8a5ad5f`）；TASK-270 / 269 / 268 / 267 / 266 / 265 / 264 等质量加固已收口；TASK-256 真机验收仍待有人值守流程。
+本日自动化 ：TASK-272 Review（assistant-platform-api 覆盖率 62.96% → 99.33%；新增 14 个公共契约测试；PR / CI / merge 待回填）；TASK-271 Done（assistant-dlp 覆盖率 83.59% → 98.89%；PR #320 / merge `8a5ad5f`）；TASK-256 真机验收仍待有人值守流程。
 最新完成卡 ：**TASK-271 Done**（assistant-dlp 独立行覆盖率 83.59% → 98.89%；新增 10 个公共契约测试；生产源码零改动；PR #320 / merge `8a5ad5f`）；此前 TASK-270 已修复 model-gateway 无 fallback 错误保留。
 最新实现卡 ：**TASK-271 Done**（assistant-dlp 独立行覆盖率 83.59% → 98.89%；新增 10 个公共契约测试；生产源码零改动；PR #320 / merge `8a5ad5f`）；此前 TASK-270 已修复 model-gateway 无 fallback 错误保留。
 阻塞项      ：gov **#9 覆盖率**与 **#11 `cargo doc`** 仍是 SOFT 门禁（TASK-002 已于 2026-10-05 裁决为 **Done**，不再列阻塞）
