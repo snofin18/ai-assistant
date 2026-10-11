@@ -1,6 +1,6 @@
 # TASK-269　assistant-model-gateway 契约测试覆盖率加固（章程 §2 P2）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**治理/质量**（跨阶段）　批次：**治理池**（ADR-0037 号段 200~299）　依赖：无　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**；`- 状态：` 行按 ADR-0083 为唯一例外）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -95,6 +95,9 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 - `cargo deny check`、`cargo test -p assistant-core arch::`、
   `cargo run -p xtask -- replay --suite core` 全绿。
 - 新增动作为仅新增测试文件；生产源码、依赖、schema、trait、ErrorCode、IPC 与 CI 均未改动。
+- PR #316：pull_request CI run `38152902565` = **11/11 SUCCESS**；合并前
+  base=`main`、mergeable=`MERGEABLE`、mergeStateStatus=`CLEAN`；
+  merge `fc20a44`；post-merge main push CI run `38153403739` = **success**。
 
 ### 4. DoD 逐条核对
 
@@ -104,8 +107,8 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 - crate 独立行覆盖率 ≥85%：满足，实测 93.78%。
 - `cargo test -p assistant-model-gateway` 与全 workspace 门禁：满足。
 - 全部现行 xtask 硬门禁：满足，见本卡验收输出。
-- 热点文件 guard：将在状态同步前 acquire，编辑后 release。
-- PR / CI / merge hash：待 PR 收口后回填。
+- 热点文件 guard：满足，状态同步前 acquire，编辑后 release。
+- PR / CI / merge hash：满足；PR #316 / CI `38152902565` / merge `fc20a44`。
 
 ### 5. 偏差
 
@@ -131,7 +134,8 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 
 ### 7. 遗留问题
 
-- PR / CI / merge hash 待 PR 收口后回填。
+- PR #316 / CI `38152902565` / merge `fc20a44` 已回填；post-merge main CI
+  `38153403739` success。
 - `DRIFT-269-1` 需要 Orchestrator 开卡修复；当前只留测试证据与建议。
 
 ### 8. 新增长期记忆
