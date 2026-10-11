@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**TASK-267 Review**（assistant-ipc 独立行覆盖率 41.47% → 81.49%；新增 9 个真实 NamedPipe 契约测试；生产源码零改动；PR / CI 待收口）；**TASK-266 Done**（`crates/core` 独立行覆盖率 86.16% → 90.04%；新增 8 个公共契约测试；生产源码零改动；PR #310 / merge `c1455ba`）；**TASK-265 Done**（`crates/hitl` 独立行覆盖率 92.00%；PR #308 / merge `4e9b573`）；**TASK-264 Done**（`crates/tool-bus` 独立行覆盖率 85.62%；PR #306 / merge `f9058dc`）；**TASK-263 Done**（`crates/replay` 独立行覆盖率 89.77%；PR #302 / merge `53c9418`）；**TASK-262 Done**（`assistant-automation-host` 独立行覆盖率 83.39%；PR #300 / merge `81f196a`）；**TASK-261 Done**（`assistant-capture` 契约覆盖率 96.84%；PR #298 / merge `9e99c2f`）；**TASK-260 Done**（`crates/task-engine` 契约覆盖率 90.40%；PR #296 / merge `57416d6`）；**TASK-259 Done**（`crates/verify` 契约覆盖率 88.51%；PR #294 / merge `866c321`）；**TASK-258 Done**（`crates/undo` 契约测试覆盖率 90.36%；PR #292 / merge `c01c546`）；**TASK-257 Review**（ADR-0086 `SelectorKind::ExactName`）；**TASK-106 Done**（Paint T3.1 运行时装配；PR #284 / merge `f5bdfa6`）；**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）进行中**。
+> 状态：**TASK-267 Done**（assistant-ipc 独立行覆盖率 41.47% → 81.49%；新增 9 个真实 NamedPipe 契约测试；生产源码零改动；PR #312 / merge `5a5aa7f`）；**TASK-266 Done**（`crates/core` 独立行覆盖率 86.16% → 90.04%；新增 8 个公共契约测试；生产源码零改动；PR #310 / merge `c1455ba`）；**TASK-265 Done**（`crates/hitl` 独立行覆盖率 92.00%；PR #308 / merge `4e9b573`）；**TASK-264 Done**（`crates/tool-bus` 独立行覆盖率 85.62%；PR #306 / merge `f9058dc`）；**TASK-263 Done**（`crates/replay` 独立行覆盖率 89.77%；PR #302 / merge `53c9418`）；**TASK-262 Done**（`assistant-automation-host` 独立行覆盖率 83.39%；PR #300 / merge `81f196a`）；**TASK-261 Done**（`assistant-capture` 契约覆盖率 96.84%；PR #298 / merge `9e99c2f`）；**TASK-260 Done**（`crates/task-engine` 契约覆盖率 90.40%；PR #296 / merge `57416d6`）；**TASK-259 Done**（`crates/verify` 契约覆盖率 88.51%；PR #294 / merge `866c321`）；**TASK-258 Done**（`crates/undo` 契约测试覆盖率 90.36%；PR #292 / merge `c01c546`）；**TASK-257 Review**（ADR-0086 `SelectorKind::ExactName`）；**TASK-106 Done**（Paint T3.1 运行时装配；PR #284 / merge `f5bdfa6`）；**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）进行中**。
 > **TASK-041 Done（拆分 A + B）**：ADR-0073 冻结「像素遮挡归平台层 / `NeverPersist` 不保留 `ImageRef` / 滚动清理有界」，`crates/capture` + `crates/dlp/src/redact` 零依赖纯逻辑（15 专项测试）；ADR-0076 落地 Windows GDI `PrintWindow` 单窗口截图 + UIA `IsPassword` 像素遮挡 + `ImageBlobSink` 注入（平台层算内容地址、binary `StorageBlobSink` 用 `crates/storage` 落盘并核对地址，未注入 → 显式 `Fatal`），`DRIFT-041-2` / `PL-112` 闭环；真机截图与真机 blob 落盘由 **TASK-246** 取证。
 > 状态：**TASK-052 Done（ADR-0082 指令来源归因；阶段 1 进行中）**：core 新增 `InstructionOrigin` / `InstructionAttribution` 纯模型，固定四类 token 并按来源校验父目标 / 来源引用；`app_content` 只作高风险信号，UI 继续默认拒绝并需显式覆盖；零 protocol / DB schema 变更。
 > **TASK-230 Done**：storage `0005` 新增 `conversations` + `conversation_messages` 与会话 / 消息树公开记录 API；真实关闭并重开 SQLite 后逐字段一致，缺失会话、非法父子关系和 revision 跳号显式失败，`PL-092` 闭环。
@@ -84,7 +84,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
-**2026-10-11 TASK-267 Review（`assistant-ipc` 公共契约覆盖率）**：新增 9 个真实 NamedPipe 连接 / 握手 / 断连 / peer 身份测试；独立行覆盖率从 41.47% 提升到 81.49%，生产源码零改动；PR / CI 待收口。
+**2026-10-11 TASK-267 Done（`assistant-ipc` 公共契约覆盖率）**：新增 9 个真实 NamedPipe 连接 / 握手 / 断连 / peer 身份测试；独立行覆盖率从 41.47% 提升到 81.49%，生产源码零改动；PR #312 / merge `5a5aa7f`。
 **2026-10-11 TASK-266 Done（`crates/core` 公共契约覆盖率）**：新增 8 个会话存储、错误码与 clean-context review 契约测试；独立行覆盖率从 86.16% 提升到 90.04%，生产源码零改动；PR #310 / merge `c1455ba`。
 **2026-10-11 TASK-265 Done（`crates/hitl` 公共契约覆盖率）**：新增 393 行审批、授权、错误码与 diff 公共契约测试；独立行覆盖率从 77.93% 提升到 92.00%，生产源码零改动；PR #308 / merge `4e9b573`。
 **2026-10-11 TASK-264 Done（`crates/tool-bus` 公共契约覆盖率）**：新增实例校验、信封截断、错误码映射与挂载选择契约测试；独立行覆盖率从 73.12% 提升到 85.62%，生产源码零改动；PR #306 / merge `f9058dc`。
@@ -254,7 +254,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
-**TASK-267 Review（2026-10-11）**：`crates/ipc` 新增真实 Windows NamedPipe 连接、握手、收发、断连、peer 身份与错误分类契约测试；独立行覆盖率由 41.47% 提升到 81.49%，生产源码零改动；PR / CI 待收口。
+**TASK-267 Done（2026-10-11）**：`crates/ipc` 新增真实 Windows NamedPipe 连接、握手、收发、断连、peer 身份与错误分类契约测试；独立行覆盖率由 41.47% 提升到 81.49%，生产源码零改动；PR #312 / merge `5a5aa7f`。
 **TASK-266 Done（2026-10-11）**：`crates/core` 新增 8 个公共契约测试，覆盖内存会话存储的插入 / 更新 / 缺失 / revision 冲突与溢出、`CoreError` 稳定映射、clean-context review 输入与解析 / provider 事件失败关闭；独立行覆盖率由 86.16% 提升到 90.04%，生产源码零改动；PR #310 / merge `c1455ba`。
 **TASK-265 Done（2026-10-11）**：`crates/hitl` 新增 393 行公共契约测试，覆盖审批输入边界、时间回退、TTL / uses 超限、维度校验、错误码映射与 diff 构造；独立行覆盖率由 77.93% 提升到 92.00%；`cargo llvm-cov -p assistant-hitl --tests --fail-under-lines 85` 与全 workspace 门禁全绿；PR #308 / merge `4e9b573`。
 **TASK-264 Done（2026-10-11）**：`crates/tool-bus` 新增 380 行公共契约测试，覆盖 draft-07 子集校验、信封 / 截断失败关闭、错误码映射与挂载选择；独立行覆盖率由 73.12% 提升到 85.62%；`cargo llvm-cov -p assistant-tool-bus --tests --fail-under-lines 85` 与全 workspace 门禁全绿；PR #306 / merge `f9058dc`。
