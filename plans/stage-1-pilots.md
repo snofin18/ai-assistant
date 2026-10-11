@@ -1,6 +1,7 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
+> **TASK-271 Done（2026-10-11）**：`assistant-dlp` 新增 10 个公共契约测试，独立行覆盖率 83.59% → 98.89%；生产源码零改动；PR #320 / merge `8a5ad5f`。
 
-> 周期 10~12 周　状态：**进行中；TASK-270 Done（assistant-model-gateway 无 fallback 错误保留修复；PR #318 / merge `dbeb645`；`DRIFT-269-1` 已闭环）；TASK-269 Done（model-gateway 覆盖率 75.54% → 93.78%；PR #316 / merge `fc20a44`）；TASK-268 / 267 / 266 / 265 / 264 / 263 / 262 / 261 / 260 / 259 / 258 等质量加固已收口；TASK-257 Review；TASK-256 Review（等待恢复真机 handler 校准）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> 周期 10~12 周　状态：**进行中；TASK-271 Done（assistant-dlp 覆盖率 83.59% → 98.89%；PR #320 / merge `8a5ad5f`）；TASK-270 Done（assistant-model-gateway 无 fallback 错误保留修复；PR #318 / merge `dbeb645`；`DRIFT-269-1` 已闭环）；TASK-268 / 267 / 266 / 265 / 264 / 263 / 262 / 261 / 260 / 259 / 258 等质量加固已收口；TASK-257 Review；TASK-256 Review（等待恢复真机 handler 校准）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
 > **TASK-269 Done（2026-10-11）**：assistant-model-gateway 新增 13 个公共契约测试，独立行覆盖率 75.54% → 93.78%；生产源码零改动；PR #316 / merge `fc20a44`；**DRIFT-269-1** 待另卡修复。
 > **TASK-268 Done（2026-10-11）**：`assistant-storage` 新增 9 个公共契约测试，独立行覆盖率 78.43% → 88.97%；生产源码零改动；PR #314 / merge `076fe2d`。
 > **TASK-267 Done（2026-10-11）**：`assistant-ipc` 新增 9 个真实 NamedPipe 契约测试，独立行覆盖率 41.47% → 81.49%；生产源码零改动；PR #312 / merge `5a5aa7f`。
@@ -358,6 +359,8 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-267 Done** | 治理池 | `tasks/TASK-267-ipc-coverage-hardening.md` | Done（`assistant-ipc` 独立行覆盖率 41.47% → 81.49%；9 个真实 NamedPipe 契约测试；生产源码零改动；PR #312 / merge `5a5aa7f`） |
 | **TASK-269 Done** | 治理池 | `tasks/TASK-269-model-gateway-coverage-hardening.md` | Done（`assistant-model-gateway` 独立行覆盖率 75.54% → 93.78%；13 个公共契约测试；生产源码零改动；PR #316 / merge `fc20a44`；DRIFT-269-1 待另卡） |
 | **TASK-270 Done** | 治理池 | `tasks/TASK-270-model-gateway-error-preservation.md` | Done（无 fallback 的启动失败保留原错误；`DRIFT-269-1` 闭环；PR #318 / merge `dbeb645`） |
+| **TASK-271 Done** | 治理池 | `tasks/TASK-271-dlp-coverage-hardening.md` | Done（`assistant-dlp` 独立行覆盖率 83.59% → 98.89%；新增 10 个公共契约测试；生产源码零改动；PR #320 / merge `8a5ad5f`） |
+
 | **TASK-268 Done** | 治理池 | `tasks/TASK-268-storage-coverage-hardening.md` | Done（`assistant-storage` 独立行覆盖率 78.43% → 88.97%；9 个公共契约测试；生产源码零改动；PR #314 / merge `076fe2d`） |
 | TASK-048 | 1c | `tasks/TASK-048-cdp-provider-connect-dom-nav-download.md` | Ready（批次表占位派单前补全） |
 | TASK-049 | 1c | `tasks/TASK-049-browser-profile-no-copy-user-profile.md` | Ready（批次表占位派单前补全） |
