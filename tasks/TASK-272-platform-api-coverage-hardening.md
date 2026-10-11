@@ -1,6 +1,6 @@
 # TASK-272　assistant-platform-api 契约测试覆盖率加固（章程 §2 P2）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**治理/质量**（跨阶段）　批次：**治理池**（ADR-0037 号段 200~299）　依赖：无　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**；`- 状态：` 行按 ADR-0083 为唯一例外）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -109,7 +109,9 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 - `cargo test -p assistant-platform-api` 与全 workspace 门禁：满足。
 - 全部现行 xtask 硬门禁：满足。
 - 热点文件 guard：满足；状态同步前 acquire，编辑后 release。
-- PR / CI / merge hash：待本轮 PR 收口后回填。
+- PR / CI / merge hash：满足；PR #322 / pull_request CI run `38183576810` =
+  **11/11 SUCCESS** / merge `c1bd6e2`；post-merge main push CI run
+  `38184116719` = **11/11 SUCCESS**。
 
 ### 5. 偏差
 
@@ -117,6 +119,8 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
   执行 git/cargo/gh、WSL 执行文本读取，并记录到本轮报告。
 - 两次命令误用 `shell: bash`，均只得到 `cargo: command not found`，未计入验收；
   已用 `cmd.exe` 重跑成功。
+- 回填阶段再次误用一次 `shell: bash` 执行 guard acquire，仍只得到
+  `cargo: command not found`，未产生锁或文件变更；已用 `cmd.exe` 重跑成功。
 - 并行运行多个 xtask / cargo 命令时出现 package cache 等待，但均最终 EXIT 0；
   不影响验收结果。
 - 本轮总 diff 预计超过章程 §6 的单卡 400 行审阅预算；新增内容集中在单个测试文件
@@ -129,7 +133,7 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 
 ### 7. 遗留问题
 
-- PR / CI / merge hash 待本轮 PR 收口后回填。
+- 无；PR #322 / CI `38183576810` / merge `c1bd6e2` 已回填。
 
 ### 8. 新增长期记忆
 
