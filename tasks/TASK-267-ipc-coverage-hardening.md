@@ -1,6 +1,6 @@
 # TASK-267　assistant-ipc 契约测试覆盖率加固（章程 §2 P2）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**治理/质量**（跨阶段）　批次：**治理池**（ADR-0037 号段 200~299）　依赖：无　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**；`- 状态：` 行按 ADR-0083 为唯一例外）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -99,6 +99,8 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
   `docscan`、`card-check`、`check-ledger`、`check-comments`、`verify-schemas`、
   `codegen --check`、`check-migrations` 全部 PASSED。
 - `cargo test -p assistant-core arch::`、`cargo deny check`、`replay --suite core` 全绿。
+- PR #312：pull_request CI run `38132895715` = **11/11 SUCCESS**；合并前
+  base=`main`、mergeable=`MERGEABLE`、mergeStateStatus=`CLEAN`；merge `5a5aa7f`。
 
 ### 4. DoD 逐条核对
 
@@ -109,7 +111,7 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 - `cargo test -p assistant-ipc` 与全 workspace 门禁：满足。
 - 全部现行 xtask 硬门禁：满足，见本卡验收输出与轮次报告。
 - 热点文件 guard：满足，六个公共热点文件均先 acquire 后编辑。
-- PR / CI / merge hash：待本轮 PR 收口后回填。
+- PR / CI / merge hash：满足；PR #312 / CI `38132895715` / merge `5a5aa7f`。
 
 ### 5. 偏差
 
@@ -128,7 +130,7 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 
 ### 7. 遗留问题
 
-- PR / CI run / merge hash 待本轮收口后回填。
+- PR #312 / CI run `38132895715` / merge `5a5aa7f` 已回填。
 - 真实 Paint 验收仍由 TASK-256 / TASK-044 的有人值守流程承接。
 
 ### 8. 新增长期记忆
