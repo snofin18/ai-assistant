@@ -44,7 +44,7 @@
 > 依据：架构 v2.2 §20.2、feasibility v1.1 §3.0/§3（P1/P3/P5 档案）
 > 全局拆解见 `docs/wbs-overview.md`；每张卡在开工前由 Orchestrator 按 gov §3.2 模板展开为 `tasks/TASK-NNN-*.md`
 
-> **TASK-266 Review（2026-10-11）**：`assistant-core` 新增 8 个公共契约测试，独立行覆盖率 86.16% → 90.04%；生产源码零改动；PR / CI / merge hash 待本轮回填。
+> **TASK-266 ✅（2026-10-11）**：`assistant-core` 新增 8 个公共契约测试，独立行覆盖率 86.16% → 90.04%；生产源码零改动；PR #310 / CI `38125111862` / merge `c1455ba`。
 
 ## In scope（冻结）
 
@@ -351,7 +351,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-263 ✅** | 治理池 | `tasks/TASK-263-replay-coverage-hardening.md` | Done（`crates/replay` 独立行覆盖率 89.77%；新增 391 行契约测试；生产源码零改动；PR #302 / merge `53c9418`） |
 | **TASK-264 ✅** | 治理池 | `tasks/TASK-264-tool-bus-coverage-hardening.md` | Done（`crates/tool-bus` 独立行覆盖率 85.62%；新增 380 行公共契约测试；生产源码零改动；PR #306 / merge `f9058dc`） |
 | **TASK-265 ✅** | 治理池 | `tasks/TASK-265-hitl-coverage-hardening.md` | Done（`crates/hitl` 独立行覆盖率 92.00%；新增 393 行公共契约测试；生产源码零改动；PR #308 / merge `4e9b573`） |
-| **TASK-266 Review** | 治理池 | `tasks/TASK-266-core-coverage-hardening.md` | Review（`crates/core` 独立行覆盖率 90.04%；8 个公共契约测试；生产源码零改动；PR / merge hash 待回填） |
+| **TASK-266 ✅** | 治理池 | `tasks/TASK-266-core-coverage-hardening.md` | Done（`crates/core` 独立行覆盖率 90.04%；8 个公共契约测试；生产源码零改动；PR #310 / merge `c1455ba`） |
 | TASK-048 | 1c | `tasks/TASK-048-cdp-provider-connect-dom-nav-download.md` | Ready（批次表占位派单前补全） |
 | TASK-049 | 1c | `tasks/TASK-049-browser-profile-no-copy-user-profile.md` | Ready（批次表占位派单前补全） |
 | **TASK-050 ✅** | 1c | `tasks/TASK-050-dlp-three-tier-egress-local-only-redacted-full.md` | Done（ADR 0007；`crates/dlp` 22 专项测试） |
