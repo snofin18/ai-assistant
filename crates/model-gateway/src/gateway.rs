@@ -334,31 +334,13 @@ impl GatewayCompletion {
             let provider = match provider {
                 Ok(provider) => provider,
                 Err(error) => {
-                    if self
-                        .handle_stream_failure(error, &model_id, self.retry_index)
-                        .is_ok()
-                    {
-                        continue;
-                    }
-                    return Err(self.last_error.take().unwrap_or(
-                        ModelGatewayError::InternalInvariant {
-                            reason: "provider failure was not retained",
-                        },
-                    ));
+                    self.handle_stream_failure(error, &model_id, self.retry_index)?;
+                    continue;
                 }
             };
             if let Err(error) = validate_capabilities(&model_id, provider.as_ref(), &self.request) {
-                if self
-                    .handle_stream_failure(error, &model_id, self.retry_index)
-                    .is_ok()
-                {
-                    continue;
-                }
-                return Err(self.last_error.take().unwrap_or(
-                    ModelGatewayError::InternalInvariant {
-                        reason: "capability failure was not retained",
-                    },
-                ));
+                self.handle_stream_failure(error, &model_id, self.retry_index)?;
+                continue;
             }
             let started_at = self.runtime.clock.now_ms();
             match provider.complete(self.request.clone(), self.cancellation.clone()) {
@@ -372,17 +354,7 @@ impl GatewayCompletion {
                     return Ok(());
                 }
                 Err(error) => {
-                    if self
-                        .handle_stream_failure(error, &model_id, self.retry_index)
-                        .is_ok()
-                    {
-                        continue;
-                    }
-                    return Err(self.last_error.take().unwrap_or(
-                        ModelGatewayError::InternalInvariant {
-                            reason: "provider start failure was not retained",
-                        },
-                    ));
+                    self.handle_stream_failure(error, &model_id, self.retry_index)?;
                 }
             }
         }

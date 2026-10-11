@@ -15,8 +15,10 @@ use std::thread;
 use std::time::{Duration as StdDuration, Instant};
 
 use assistant_model_gateway::{
-    AttemptOutcome, CancellationToken, CompletionEvent, DurationMs, FinishReason, ModelGateway,
-    ModelGatewayError, ModelId, ModelRouter, NoJitter, RetryPolicy, TaskStage, TokenCount, Usage,
+    AttemptOutcome, CancellationToken, CompletionEvent, CompletionRequest, CompletionStream,
+    DurationMs, FinishReason, ModelGateway, ModelGatewayError, ModelId, ModelProvider, ModelResult,
+    ModelRouter, NoJitter, Pricing, ProviderCapabilities, ProviderFeatures, RetryPolicy, TaskStage,
+    TokenCount, Usage,
 };
 
 use common::{
@@ -233,6 +235,117 @@ fn test_budget_overrun_returns_policy_denied_error() {
         error.error_code(),
         assistant_protocol::ErrorCode::PolicyDenied
     );
+}
+
+#[test]
+fn test_unfallbackable_capability_missing_preserves_error() {
+    let model = model_id("no-stream");
+    let provider = Arc::new(NoStreamProvider::new(model.clone()));
+    let gateway = ModelGateway::new(
+        ModelRouter::new(model.clone(), Vec::new(), vec![model.clone()]).unwrap(),
+        RetryPolicy::default(),
+        vec![provider],
+    )
+    .unwrap();
+
+    let error = gateway
+        .collect(
+            request(),
+            context(TaskStage::Chat),
+            CancellationToken::new(),
+        )
+        .unwrap_err();
+    let error_code = error.error_code();
+
+    match error {
+        ModelGatewayError::CapabilityMissing {
+            model_id,
+            capability,
+        } => {
+            assert_eq!(model_id, model);
+            assert_eq!(capability, "streaming");
+        }
+        other => panic!("expected CapabilityMissing, got {other:?}"),
+    }
+    assert_eq!(error_code, assistant_protocol::ErrorCode::ToolInvalidArgs);
+}
+
+#[test]
+fn test_unfallbackable_provider_start_failure_preserves_error() {
+    let model = model_id("start-failure");
+    let provider = Arc::new(ScriptedProvider::new(
+        model.clone(),
+        vec![ProviderAction::Fail(ModelGatewayError::ServerError {
+            model_id: model.clone(),
+            status: Some(503),
+        })],
+    ));
+    let gateway = ModelGateway::new(
+        ModelRouter::new(model.clone(), Vec::new(), vec![model.clone()]).unwrap(),
+        RetryPolicy::new(0, DurationMs::new(1), DurationMs::new(1)),
+        vec![provider],
+    )
+    .unwrap();
+
+    let error = gateway
+        .collect(
+            request(),
+            context(TaskStage::Chat),
+            CancellationToken::new(),
+        )
+        .unwrap_err();
+    let error_code = error.error_code();
+
+    match error {
+        ModelGatewayError::ServerError { model_id, status } => {
+            assert_eq!(model_id, model);
+            assert_eq!(status, Some(503));
+        }
+        other => panic!("expected ServerError, got {other:?}"),
+    }
+    assert_eq!(
+        error_code,
+        assistant_protocol::ErrorCode::ModelNetworkFailure
+    );
+}
+
+struct NoStreamProvider {
+    model_id: ModelId,
+}
+
+impl NoStreamProvider {
+    const fn new(model_id: ModelId) -> Self {
+        Self { model_id }
+    }
+}
+
+impl ModelProvider for NoStreamProvider {
+    fn model_id(&self) -> &ModelId {
+        &self.model_id
+    }
+
+    fn capabilities(&self) -> ProviderCapabilities {
+        ProviderCapabilities::new(ProviderFeatures::TOOLS, TokenCount::new(8_192))
+    }
+
+    fn pricing(&self) -> Pricing {
+        Pricing::new(1_000_000, 100_000, 2_000_000)
+    }
+
+    fn count_tokens(
+        &self,
+        _messages: &[assistant_model_gateway::Message],
+    ) -> ModelResult<TokenCount> {
+        Ok(TokenCount::new(0))
+    }
+
+    fn complete(
+        &self,
+        _request: CompletionRequest,
+        _cancellation: CancellationToken,
+    ) -> ModelResult<Box<dyn CompletionStream>> {
+        panic!("capability preflight should block before complete")
+    }
 }
 
 #[test]
