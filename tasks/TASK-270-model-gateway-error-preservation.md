@@ -1,6 +1,6 @@
 # TASK-270　修复 model-gateway 无 fallback 错误被覆盖（DRIFT-269-1）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**治理/质量**（跨阶段）　批次：**治理池**（ADR-0037 号段 200~299）　依赖：无　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**；`- 状态：` 行按 ADR-0083 为唯一例外）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -96,6 +96,9 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 - `cargo deny check` PASSED；`cargo test -p assistant-core arch::` 10 passed；
   `cargo run -p xtask -- replay --suite core` 2 steps / 5 changes / PASSED。
 - `cargo llvm-cov --workspace --fail-under-lines 75`：行覆盖率 **79.01%** / PASSED。
+- PR #318：pull_request CI run `38163000583` = **11/11 SUCCESS**；合并前
+  base=`main`、mergeable=`MERGEABLE`、mergeStateStatus=`CLEAN`；merge
+  `dbeb645`；post-merge main push CI run `38163555544` = **11/11 SUCCESS**。
 
 ### 4. DoD 逐条核对
 
@@ -104,7 +107,8 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
   启动失败保留 `ServerError` / `ModelNetworkFailure` 的回归测试。
 - crate、workspace、xtask、deny、arch、replay 验收：满足，见 §3。
 - 热点文件 guard：满足；本批 acquire 后编辑，随后 release。
-- 状态同步：实现提交按实写 **Review**；PR / CI / merge hash 由后续回填批次推进。
+- 状态同步：实现提交按实写 **Review**；本回填提交把卡面推进为 **Done**，并同步
+  PLAN / README / plans / LEDGER / round 文件。
 - `DRIFT-269-1`：满足，代码路径与负向回归均已闭环。
 
 ### 5. 偏差

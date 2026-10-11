@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**TASK-269 Done**（assistant-model-gateway 独立行覆盖率 75.54% → 93.78%；新增 13 个公共契约测试；生产源码零改动；PR #316 / merge `fc20a44`；**DRIFT-269-1** 待另卡修复）；**TASK-268 Done**（assistant-storage 独立行覆盖率 78.43% → 88.97%；新增 9 个公共契约测试；生产源码零改动；PR #314 / merge `076fe2d`）；**TASK-267 Done**（assistant-ipc 独立行覆盖率 41.47% → 81.49%；新增 9 个真实 NamedPipe 契约测试；生产源码零改动；PR #312 / merge `5a5aa7f`）；**TASK-266 Done**（`crates/core` 独立行覆盖率 86.16% → 90.04%；新增 8 个公共契约测试；生产源码零改动；PR #310 / merge `c1455ba`）；**TASK-265 Done**（`crates/hitl` 独立行覆盖率 92.00%；PR #308 / merge `4e9b573`）；**TASK-264 Done**（`crates/tool-bus` 独立行覆盖率 85.62%；PR #306 / merge `f9058dc`）；**TASK-263 Done**（`crates/replay` 独立行覆盖率 89.77%；PR #302 / merge `53c9418`）；**TASK-262 Done**（`assistant-automation-host` 独立行覆盖率 83.39%；PR #300 / merge `81f196a`）；**TASK-261 Done**（`assistant-capture` 契约覆盖率 96.84%；PR #298 / merge `9e99c2f`）；**TASK-260 Done**（`crates/task-engine` 契约覆盖率 90.40%；PR #296 / merge `57416d6`）；**TASK-259 Done**（`crates/verify` 契约覆盖率 88.51%；PR #294 / merge `866c321`）；**TASK-258 Done**（`crates/undo` 契约测试覆盖率 90.36%；PR #292 / merge `c01c546`）；**TASK-257 Review**（ADR-0086 `SelectorKind::ExactName`）；**TASK-106 Done**（Paint T3.1 运行时装配；PR #284 / merge `f5bdfa6`）；**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）进行中**。
+> 状态：**TASK-270 Done**（assistant-model-gateway 无 fallback 错误保留修复；PR #318 / merge `dbeb645`；`DRIFT-269-1` 已闭环）；**TASK-269 Done**（model-gateway 覆盖率 75.54% → 93.78%；PR #316 / merge `fc20a44`）；**TASK-257 Review**；**TASK-106 Done**（Paint T3.1 运行时装配；PR #284 / merge `f5bdfa6`）；**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）进行中**。
 > **TASK-041 Done（拆分 A + B）**：ADR-0073 冻结「像素遮挡归平台层 / `NeverPersist` 不保留 `ImageRef` / 滚动清理有界」，`crates/capture` + `crates/dlp/src/redact` 零依赖纯逻辑（15 专项测试）；ADR-0076 落地 Windows GDI `PrintWindow` 单窗口截图 + UIA `IsPassword` 像素遮挡 + `ImageBlobSink` 注入（平台层算内容地址、binary `StorageBlobSink` 用 `crates/storage` 落盘并核对地址，未注入 → 显式 `Fatal`），`DRIFT-041-2` / `PL-112` 闭环；真机截图与真机 blob 落盘由 **TASK-246** 取证。
 > 状态：**TASK-052 Done（ADR-0082 指令来源归因；阶段 1 进行中）**：core 新增 `InstructionOrigin` / `InstructionAttribution` 纯模型，固定四类 token 并按来源校验父目标 / 来源引用；`app_content` 只作高风险信号，UI 继续默认拒绝并需显式覆盖；零 protocol / DB schema 变更。
 > **TASK-230 Done**：storage `0005` 新增 `conversations` + `conversation_messages` 与会话 / 消息树公开记录 API；真实关闭并重开 SQLite 后逐字段一致，缺失会话、非法父子关系和 revision 跳号显式失败，`PL-092` 闭环。
@@ -84,6 +84,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-11 TASK-270 Done（model-gateway 无 fallback 错误保留）**：`start_available_attempt` 的失败分支直接传播原错误；无 fallback capability 缺失保持 `CapabilityMissing` / `ToolInvalidArgs`，provider 启动失败保持 `ServerError` / `ModelNetworkFailure`；`DRIFT-269-1` 闭环；PR #318 / merge `dbeb645`。
 **2026-10-11 TASK-269 Done（`assistant-model-gateway` 公共契约覆盖率）**：新增请求 / 流事件 / 路由 / capability / retry / cancellation / budget 契约测试；独立行覆盖率从 75.54% 提升到 93.78%，生产源码零改动；PR #316 / merge `fc20a44`；**DRIFT-269-1** 待另卡修复。
 **2026-10-11 TASK-268 Done（`assistant-storage` 公共契约覆盖率）**：新增迁移注册、会话 / 消息树、blob、记忆检索与缺失记录契约测试；独立行覆盖率从 78.43% 提升到 88.97%，生产源码零改动；PR #314 / merge `076fe2d`。
 **2026-10-11 TASK-267 Done（`assistant-ipc` 公共契约覆盖率）**：新增 9 个真实 NamedPipe 连接 / 握手 / 断连 / peer 身份测试；独立行覆盖率从 41.47% 提升到 81.49%，生产源码零改动；PR #312 / merge `5a5aa7f`。
@@ -256,6 +257,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-11 TASK-270 Done（model-gateway 无 fallback 错误保留）**：修复前真实得到 `InternalInvariant { reason: "capability failure was not retained" }`；三个启动失败分支改用 `handle_stream_failure(...)?` 后，capability 与 provider 启动错误均保留原变体及稳定 `ErrorCode`；两条负向回归测试通过，`DRIFT-269-1` 闭环；PR #318 / merge `dbeb645`。
 **2026-10-11 TASK-269 Done（`assistant-model-gateway` 公共契约覆盖率）**：新增请求 / 流事件 / 路由 / capability / retry / cancellation / budget 契约测试；独立行覆盖率从 75.54% 提升到 93.78%，生产源码零改动；PR #316 / merge `fc20a44`；**DRIFT-269-1** 待另卡修复。
 **2026-10-11 TASK-268 Done（`assistant-storage` 公共契约覆盖率）**：新增 9 个公共契约测试，独立行覆盖率从 78.43% 提升到 88.97%，生产源码零改动；PR #314 / merge `076fe2d`。
 **TASK-267 Done（2026-10-11）**：`crates/ipc` 新增真实 Windows NamedPipe 连接、握手、收发、断连、peer 身份与错误分类契约测试；独立行覆盖率由 41.47% 提升到 81.49%，生产源码零改动；PR #312 / merge `5a5aa7f`。
