@@ -7,13 +7,13 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-10-12（**TASK-272 Review**（assistant-platform-api 契约测试覆盖率 62.96% → 99.33%；PR / CI / merge 待回填））
-当前阶段    ：**阶段 1（三试点闭环）进行中**；**TASK-272 Review**（assistant-platform-api 独立行覆盖率 62.96% → 99.33%；新增 14 个公共契约测试；生产源码零改动）；**TASK-271 Done**（assistant-dlp 独立行覆盖率 83.59% → 98.89%；PR #320 / merge `8a5ad5f`）；TASK-257 / TASK-256 Review。
-当前任务卡  ：**TASK-272 Review**（assistant-platform-api 契约测试覆盖率加固；PR / CI / merge 待回填）；**TASK-257 Review**（ADR-0086 `SelectorKind::ExactName`）；**TASK-256 Review**（等待真机 Paint 校准）；下一张待 Orchestrator 派单；
+更新日期    ：2026-10-12（**TASK-272 Done**（assistant-platform-api 契约测试覆盖率 62.96% → 99.33%；PR #322 / merge `c1bd6e2`））
+当前阶段    ：**阶段 1（三试点闭环）进行中**；**TASK-272 Done**（assistant-platform-api 独立行覆盖率 62.96% → 99.33%；新增 14 个公共契约测试；生产源码零改动；PR #322 / merge `c1bd6e2`）；**TASK-271 Done**（assistant-dlp 独立行覆盖率 83.59% → 98.89%；PR #320 / merge `8a5ad5f`）；TASK-257 / TASK-256 Review。
+当前任务卡  ：**TASK-272 Done**（assistant-platform-api 契约测试覆盖率加固；PR #322 / merge `c1bd6e2`）；**TASK-257 Review**（ADR-0086 `SelectorKind::ExactName`）；**TASK-256 Review**（等待真机 Paint 校准）；下一张待 Orchestrator 派单；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done
-本日自动化 ：TASK-272 Review（assistant-platform-api 覆盖率 62.96% → 99.33%；新增 14 个公共契约测试；PR / CI / merge 待回填）；TASK-271 Done（assistant-dlp 覆盖率 83.59% → 98.89%；PR #320 / merge `8a5ad5f`）；TASK-256 真机验收仍待有人值守流程。
-最新完成卡 ：**TASK-271 Done**（assistant-dlp 独立行覆盖率 83.59% → 98.89%；新增 10 个公共契约测试；生产源码零改动；PR #320 / merge `8a5ad5f`）；此前 TASK-270 已修复 model-gateway 无 fallback 错误保留。
-最新实现卡 ：**TASK-271 Done**（assistant-dlp 独立行覆盖率 83.59% → 98.89%；新增 10 个公共契约测试；生产源码零改动；PR #320 / merge `8a5ad5f`）；此前 TASK-270 已修复 model-gateway 无 fallback 错误保留。
+本日自动化 ：TASK-272 Done（assistant-platform-api 覆盖率 62.96% → 99.33%；新增 14 个公共契约测试；PR #322 / merge `c1bd6e2`）；TASK-271 Done（assistant-dlp 覆盖率 83.59% → 98.89%；PR #320 / merge `8a5ad5f`）；TASK-256 真机验收仍待有人值守流程。
+最新完成卡 ：**TASK-272 Done**（assistant-platform-api 独立行覆盖率 62.96% → 99.33%；新增 14 个公共契约测试；生产源码零改动；PR #322 / merge `c1bd6e2`）；此前 TASK-271 已完成 assistant-dlp 覆盖率加固。
+最新实现卡 ：**TASK-272 Done**（assistant-platform-api 独立行覆盖率 62.96% → 99.33%；新增 14 个公共契约测试；生产源码零改动；PR #322 / merge `c1bd6e2`）；此前 TASK-271 已完成 assistant-dlp 覆盖率加固。
 阻塞项      ：gov **#9 覆盖率**与 **#11 `cargo doc`** 仍是 SOFT 门禁（TASK-002 已于 2026-10-05 裁决为 **Done**，不再列阻塞）
 下一步动作  ：**TASK-256** — Review：打开真实 Paint 后执行 `production_paint` ignored 验收；通过后再进入 TASK-044 真机十次运行；承接 `DRIFT-256-1` / `DRIFT-044-1` / `PL-113`；`DRIFT-269-1` 已由 TASK-270 闭环
                   → 复验证据见 `docs/audits/stage-1a-reaudit-2026-10-02.md`；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
