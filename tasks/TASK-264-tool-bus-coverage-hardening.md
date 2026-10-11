@@ -97,7 +97,7 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 
 ### 4. DoD 逐条核对
 
-- 生产逻辑零改动：满足；只新增 `crates/tool-bus/tests/coverage_contract.rs`。
+- 生产逻辑零改动：满足；只新增 `crates/tool-bus/tests/coverage_contract.rs`；PR #306 / merge `f9058dc`。
 - 实例校验、信封组装 / 截断、错误码映射与挂载选择边界：满足；新增 9 个公共 API 契约测试。
 - crate 独立行覆盖率 ≥85%：满足，实测 85.62%。
 - `cargo test -p assistant-tool-bus` 与全 workspace 门禁：满足。

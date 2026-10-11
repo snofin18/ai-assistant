@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**TASK-264 Done**（`crates/tool-bus` 独立行覆盖率 73.12% → 85.62%；新增 380 行公共契约测试；生产源码零改动）；**TASK-263 Done**（`crates/replay` 独立行覆盖率 89.77%；PR #302 / merge `53c9418`）；**TASK-262 Done**（`assistant-automation-host` 独立行覆盖率 83.39%；PR #300 / merge `81f196a`）；**TASK-261 Done**（`assistant-capture` 契约覆盖率 96.84%；PR #298 / merge `9e99c2f`）；**TASK-260 Done**（`crates/task-engine` 契约覆盖率 90.40%；PR #296 / merge `57416d6`）；**TASK-259 Done**（`crates/verify` 契约覆盖率 88.51%；PR #294 / merge `866c321`）；**TASK-258 Done**（`crates/undo` 契约测试覆盖率 90.36%；PR #292 / merge `c01c546`）；**TASK-257 Review**（ADR-0086 `SelectorKind::ExactName`）；**TASK-106 Done**（Paint T3.1 运行时装配；PR #284 / merge `f5bdfa6`）；**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）进行中**。
+> 状态：**TASK-264 Done**（`crates/tool-bus` 独立行覆盖率 73.12% → 85.62%；新增 380 行公共契约测试；生产源码零改动；PR #306 / merge `f9058dc`）；**TASK-263 Done**（`crates/replay` 独立行覆盖率 89.77%；PR #302 / merge `53c9418`）；**TASK-262 Done**（`assistant-automation-host` 独立行覆盖率 83.39%；PR #300 / merge `81f196a`）；**TASK-261 Done**（`assistant-capture` 契约覆盖率 96.84%；PR #298 / merge `9e99c2f`）；**TASK-260 Done**（`crates/task-engine` 契约覆盖率 90.40%；PR #296 / merge `57416d6`）；**TASK-259 Done**（`crates/verify` 契约覆盖率 88.51%；PR #294 / merge `866c321`）；**TASK-258 Done**（`crates/undo` 契约测试覆盖率 90.36%；PR #292 / merge `c01c546`）；**TASK-257 Review**（ADR-0086 `SelectorKind::ExactName`）；**TASK-106 Done**（Paint T3.1 运行时装配；PR #284 / merge `f5bdfa6`）；**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）进行中**。
 > **TASK-041 Done（拆分 A + B）**：ADR-0073 冻结「像素遮挡归平台层 / `NeverPersist` 不保留 `ImageRef` / 滚动清理有界」，`crates/capture` + `crates/dlp/src/redact` 零依赖纯逻辑（15 专项测试）；ADR-0076 落地 Windows GDI `PrintWindow` 单窗口截图 + UIA `IsPassword` 像素遮挡 + `ImageBlobSink` 注入（平台层算内容地址、binary `StorageBlobSink` 用 `crates/storage` 落盘并核对地址，未注入 → 显式 `Fatal`），`DRIFT-041-2` / `PL-112` 闭环；真机截图与真机 blob 落盘由 **TASK-246** 取证。
 > 状态：**TASK-052 Done（ADR-0082 指令来源归因；阶段 1 进行中）**：core 新增 `InstructionOrigin` / `InstructionAttribution` 纯模型，固定四类 token 并按来源校验父目标 / 来源引用；`app_content` 只作高风险信号，UI 继续默认拒绝并需显式覆盖；零 protocol / DB schema 变更。
 > **TASK-230 Done**：storage `0005` 新增 `conversations` + `conversation_messages` 与会话 / 消息树公开记录 API；真实关闭并重开 SQLite 后逐字段一致，缺失会话、非法父子关系和 revision 跳号显式失败，`PL-092` 闭环。
@@ -84,7 +84,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
-**2026-10-11 TASK-264 Done（`crates/tool-bus` 公共契约覆盖率）**：新增实例校验、信封截断、错误码映射与挂载选择契约测试；独立行覆盖率从 73.12% 提升到 85.62%，生产源码零改动。
+**2026-10-11 TASK-264 Done（`crates/tool-bus` 公共契约覆盖率）**：新增实例校验、信封截断、错误码映射与挂载选择契约测试；独立行覆盖率从 73.12% 提升到 85.62%，生产源码零改动；PR #306 / merge `f9058dc`。
 **2026-10-11 TASK-263 Done（`crates/replay` 覆盖率契约）**：扩展既有 replay 契约测试覆盖错误展示、recording 校验、provider 失败关闭与边界分支；独立行覆盖率从 63.61% 提升到 89.77%，生产源码零改动；PR #302 / merge `53c9418`。
 **2026-10-11 TASK-262 Done（`apps/automation-host` 覆盖率契约）**：新增参数提取、配置错误、协商心跳、错误会话心跳、非请求消息与接收超时测试；独立行覆盖率从 69.05% 提升到 83.39%，生产控制流零改动；PR #300 / merge `81f196a`。
 **2026-10-10 TASK-261 Done（`crates/capture` 覆盖率契约）**：新增 4 个公共 API 契约测试，行覆盖率从 71.58% 提升到 96.84%，生产源码零改动；PR #298 / merge `9e99c2f`。
@@ -251,7 +251,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
-**TASK-264 Done（2026-10-11）**：`crates/tool-bus` 新增 380 行公共契约测试，覆盖 draft-07 子集校验、信封 / 截断失败关闭、错误码映射与挂载选择；独立行覆盖率由 73.12% 提升到 85.62%；`cargo llvm-cov -p assistant-tool-bus --tests --fail-under-lines 85` 与全 workspace 门禁全绿。
+**TASK-264 Done（2026-10-11）**：`crates/tool-bus` 新增 380 行公共契约测试，覆盖 draft-07 子集校验、信封 / 截断失败关闭、错误码映射与挂载选择；独立行覆盖率由 73.12% 提升到 85.62%；`cargo llvm-cov -p assistant-tool-bus --tests --fail-under-lines 85` 与全 workspace 门禁全绿；PR #306 / merge `f9058dc`。
 **TASK-263 Done（2026-10-11）**：`crates/replay` 新增 `ReplayError` Display、recording 校验失败路径与 provider 失败关闭契约测试，独立行覆盖率由 63.61% 提升到 89.77%；`cargo llvm-cov -p assistant-replay --tests --fail-under-lines 75` 与全 workspace 门禁全绿；PR #302 / merge `53c9418`。
 **TASK-262 Done（2026-10-11）**：`apps/automation-host` 新增 `#[cfg(test)]` 会话与参数契约测试，独立行覆盖率由 69.05% 提升到 83.39%；`cargo llvm-cov -p assistant-automation-host --tests --fail-under-lines 75` 与全 workspace 门禁全绿；PR #300 / merge `81f196a`。
 **TASK-261 Done（2026-10-10）**：`crates/capture` 新增错误分类与稳定 Display 契约测试，行覆盖率由 71.58% 提升到 96.84%；`cargo llvm-cov -p assistant-capture --tests --fail-under-lines 90` 通过；PR #298 / merge `9e99c2f`。
