@@ -1,6 +1,6 @@
 # TASK-265　assistant-hitl 契约测试覆盖率加固（章程 §2 P2）
 
-- 状态：**Review**（2026-10-11）
+- 状态：**Done**（2026-10-11）
 - 阶段：1　子阶段：**治理/质量**（跨阶段）　批次：**治理池**（ADR-0037 号段 200~299）　依赖：无　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**；`- 状态：` 行按 ADR-0083 为唯一例外）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -95,10 +95,12 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
   `cargo test --workspace`：EXIT 0，workspace 469 passed / 0 failed。
 - `xtask` 现行硬门禁全部 PASSED；`cargo deny check` 为 advisories / bans / licenses / sources 全 ok；
   `cargo test -p assistant-core arch::` 10 passed；`replay --suite core` 2 steps / 0 mismatch。
+- PR #308：pull_request CI run `38115879774` = **11/11 SUCCESS**；合并前 base=`main`、
+  mergeable=`MERGEABLE`、mergeStateStatus=`CLEAN`；merge `4e9b573`。
 
 ### 4. DoD 逐条核对
 
-- 生产逻辑零改动：满足；只新增 `crates/hitl/tests/coverage_contract.rs`。
+- 生产逻辑零改动：满足；只新增 `crates/hitl/tests/coverage_contract.rs`；PR #308 / merge `4e9b573`。
 - 审批、授权、错误码与 diff 的公开失败关闭契约：满足；新增 6 个公共 API 契约测试。
 - crate 独立行覆盖率 ≥85%：满足，实测 92.00%。
 - `cargo test -p assistant-hitl` 与全 workspace 门禁：满足。
@@ -117,7 +119,7 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 
 ### 7. 遗留问题
 
-- PR / CI / merge hash 待本轮 PR 收口后回填；真机 Paint 验收仍由 TASK-256 / TASK-044 的有人值守流程承接。
+- PR #308 / CI run `38115879774` / merge `4e9b573` 已回填；真机 Paint 验收仍由 TASK-256 / TASK-044 的有人值守流程承接。
 
 ### 8. 新增长期记忆
 
