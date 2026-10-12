@@ -1,6 +1,6 @@
 # TASK-273　assistant-ipc 契约测试覆盖率加固（章程 §2 P2）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**治理/质量**（跨阶段）　批次：**治理池**（ADR-0037 号段 200~299）　依赖：无　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**；`- 状态：` 行按 ADR-0083 为唯一例外）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -99,6 +99,9 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
   79.55% / PASSED。
 - 非宿主平台 clippy：`x86_64-unknown-linux-gnu` 与 `aarch64-apple-darwin`
   的 `assistant-ipc --all-targets -- -D warnings` 均 EXIT 0。
+- PR #326 的 pull_request CI run `38203102939` = **11/11 SUCCESS**；
+  合并前 base=`main`、mergeable=`MERGEABLE`、mergeStateStatus=`CLEAN`；
+  merge `b4528fd`。
 
 ### 4. DoD 逐条核对
 
@@ -109,16 +112,19 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 - `cargo test -p assistant-ipc` 与全 workspace 门禁：满足。
 - 全部现行 xtask 硬门禁：满足。
 - 热点文件 guard：满足；状态同步前 acquire，编辑后 release。
-- PR / CI / merge hash：待本轮 PR 收口后在 docs-only 回填 PR 中追加。
+- PR / CI / merge hash：满足；PR #326 / CI `38203102939` / merge `b4528fd`；
+  post-merge main push CI run `38204275524` 已在回填前启动。
 
 ### 5. 偏差
 
 - 第一版新增测试把 11 字节全零帧预期为长度错误；真实协议先命中
   `MagicMismatch`。已按协议拆成 0/1/7 字节长度错误与 11 字节 magic 错误，
   未改生产代码或放宽旧断言。
-- PowerShell 未卡；但本轮有 11 次命令误用 WSL bash，均为
+- PowerShell 未卡；但本轮有 13 次命令误用 WSL bash，均为
   `Get-Content` / `Get-ChildItem` / `rg: command not found`，未产生文件、
   锁或验收结果污染；随后全部用 PowerShell 重跑。
+- 初始提交总 diff 456 行，超章程 §6 的 400 行审阅预算；其中测试 186 行，
+  其余为卡 / 轮次 / LEDGER 证据，按 §2 P2 回退路径保留。
 
 ### 6. 更合理做法
 
@@ -127,11 +133,12 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 
 ### 7. 遗留问题
 
-- 无；PR / CI / merge hash 待回填。
+- 无；PR #326 / CI `38203102939` / merge `b4528fd` 已回填。
 
 ### 8. 新增长期记忆
 
-- 待 docs-only 回填 PR 追加 `docs/memory/facts.md`。
+- `docs/memory/facts.md`：`assistant-ipc` 独立行覆盖率从 81.49% 提升到
+  85.57%，生产源码零改动；PR #326 / merge `b4528fd`。
 
 ### 9. 给审阅者的关注点
 

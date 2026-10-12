@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**TASK-272 Done**（assistant-platform-api 公共契约覆盖率 62.96% → 99.33%；PR #322 / merge `c1bd6e2`）；**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）进行中**。
+> 状态：**TASK-273 Done**（assistant-ipc 公共契约覆盖率 81.49% → 85.57%；PR #326 / merge `b4528fd`）；**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）进行中**。
 > **TASK-041 Done（拆分 A + B）**：ADR-0073 冻结「像素遮挡归平台层 / `NeverPersist` 不保留 `ImageRef` / 滚动清理有界」，`crates/capture` + `crates/dlp/src/redact` 零依赖纯逻辑（15 专项测试）；ADR-0076 落地 Windows GDI `PrintWindow` 单窗口截图 + UIA `IsPassword` 像素遮挡 + `ImageBlobSink` 注入（平台层算内容地址、binary `StorageBlobSink` 用 `crates/storage` 落盘并核对地址，未注入 → 显式 `Fatal`），`DRIFT-041-2` / `PL-112` 闭环；真机截图与真机 blob 落盘由 **TASK-246** 取证。
 > 状态：**TASK-052 Done（ADR-0082 指令来源归因；阶段 1 进行中）**：core 新增 `InstructionOrigin` / `InstructionAttribution` 纯模型，固定四类 token 并按来源校验父目标 / 来源引用；`app_content` 只作高风险信号，UI 继续默认拒绝并需显式覆盖；零 protocol / DB schema 变更。
 > **TASK-230 Done**：storage `0005` 新增 `conversations` + `conversation_messages` 与会话 / 消息树公开记录 API；真实关闭并重开 SQLite 后逐字段一致，缺失会话、非法父子关系和 revision 跳号显式失败，`PL-092` 闭环。
@@ -84,6 +84,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-12 TASK-273 Done（`assistant-ipc` 公共契约覆盖率）**：新增 10 个帧 / 握手 / wire message / 进程身份公共契约测试；独立行覆盖率从 81.49% 提升到 85.57%，生产源码零改动；PR #326 / merge `b4528fd`。
 **2026-10-12 TASK-272 Done（`assistant-platform-api` 公共契约覆盖率）**：新增 14 个会话 / 窗口 / 元素 / 目标描述 / 能力矩阵 / 几何公共契约测试；独立行覆盖率从 62.96% 提升到 99.33%，生产源码零改动；PR #322 / merge `c1bd6e2`。
 **2026-10-11 TASK-271 Done（`assistant-dlp` 公共契约覆盖率）**：新增 10 个 egress / redact 公共契约测试；独立行覆盖率从 83.59% 提升到 98.89%，生产源码零改动；PR #320 / merge `8a5ad5f`。
 **2026-10-11 TASK-270 Done（model-gateway 无 fallback 错误保留）**：`start_available_attempt` 的失败分支直接传播原错误；无 fallback capability 缺失保持 `CapabilityMissing` / `ToolInvalidArgs`，provider 启动失败保持 `ServerError` / `ModelNetworkFailure`；`DRIFT-269-1` 闭环；PR #318 / merge `dbeb645`。
@@ -259,6 +260,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-12 TASK-273 Done（`assistant-ipc` 公共契约覆盖率）**：新增 10 个公开 API 契约测试，独立行覆盖率由 81.49% 提升到 85.57%；`cargo llvm-cov -p assistant-ipc --tests --fail-under-lines 85`、全 workspace 门禁、deny、arch、replay 与双平台纯 Rust clippy 全绿；PR #326 / merge `b4528fd`。
 **2026-10-12 TASK-272 Done（`assistant-platform-api` 公共契约覆盖率）**：新增 14 个公开 API 契约测试，独立行覆盖率由 62.96% 提升到 99.33%；`cargo llvm-cov -p assistant-platform-api --tests --fail-under-lines 85`、全 workspace 门禁、deny、arch、replay 与双平台纯 Rust clippy 全绿；PR #322 / merge `c1bd6e2`。
 **2026-10-11 TASK-271 Done（`assistant-dlp` 公共契约覆盖率）**：新增标识符 / 策略变更 / allow-list / 遮挡边界与错误展示契约测试；独立行覆盖率由 83.59% 提升到 98.89%；`cargo llvm-cov -p assistant-dlp --tests --fail-under-lines 85` 与全 workspace 门禁全绿；PR #320 / merge `8a5ad5f`。
 **2026-10-11 TASK-270 Done（model-gateway 无 fallback 错误保留）**：修复前真实得到 `InternalInvariant { reason: "capability failure was not retained" }`；三个启动失败分支改用 `handle_stream_failure(...)?` 后，capability 与 provider 启动错误均保留原变体及稳定 `ErrorCode`；两条负向回归测试通过，`DRIFT-269-1` 闭环；PR #318 / merge `dbeb645`。
