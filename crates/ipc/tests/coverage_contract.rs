@@ -14,10 +14,11 @@ use std::time::Duration;
 
 use assistant_ipc::{
     AuthenticatedClientHello, ClientHello, Heartbeat, IPC_PROTOCOL_VERSION, IpcError,
-    NamedPipeTransport, ServerHello, SessionId, Transport, WireMessage, client_handshake,
-    generate_session_id, peer_process_image_path, server_handshake, validate_authentication_token,
+    MAX_ENVELOPE_SIZE, NamedPipeTransport, RequestMessage, ResponseMessage, ServerHello, SessionId,
+    Transport, WireMessage, client_handshake, decode_frame, encode_frame, generate_session_id,
+    peer_process_image_path, server_handshake, validate_authentication_token,
 };
-use assistant_protocol::ErrorCategory;
+use assistant_protocol::{ErrorCategory, ToolEnvelope};
 
 const TOKEN: &str = "0123456789abcdef0123456789abcdef";
 const TIMEOUT: Duration = Duration::from_secs(5);
@@ -49,6 +50,57 @@ fn authenticated_hello(version: u32, token: &str) -> WireMessage {
         },
         authentication_token: token.to_string(),
     })
+}
+
+#[derive(Debug, Default)]
+struct MockTransport {
+    next: Option<WireMessage>,
+    sent: Vec<WireMessage>,
+}
+
+impl MockTransport {
+    const fn with_next(next: WireMessage) -> Self {
+        Self {
+            next: Some(next),
+            sent: Vec::new(),
+        }
+    }
+
+    fn empty() -> Self {
+        Self::default()
+    }
+}
+
+impl Transport for MockTransport {
+    fn connect(&mut self, _timeout: Duration) -> assistant_ipc::IpcResult<()> {
+        self.next = None;
+        Ok(())
+    }
+
+    fn accept(&mut self, _timeout: Duration) -> assistant_ipc::IpcResult<()> {
+        self.sent.clear();
+        Ok(())
+    }
+
+    fn send(&mut self, message: &WireMessage, _timeout: Duration) -> assistant_ipc::IpcResult<()> {
+        self.sent.push(message.clone());
+        Ok(())
+    }
+
+    fn recv(&mut self, _timeout: Duration) -> assistant_ipc::IpcResult<WireMessage> {
+        self.next.take().ok_or_else(|| IpcError::Disconnected {
+            message: "mock transport has no queued message".to_string(),
+        })
+    }
+
+    fn close(&mut self) -> assistant_ipc::IpcResult<()> {
+        self.next = None;
+        Ok(())
+    }
+
+    fn peer_process_id(&self) -> assistant_ipc::IpcResult<u32> {
+        Ok(1)
+    }
 }
 
 #[test]
@@ -263,6 +315,137 @@ fn test_authentication_token_bounds_are_stable() {
         validate_authentication_token(&"a".repeat(257)),
         Err(IpcError::InvalidAuthenticationToken)
     ));
+}
+
+#[test]
+fn test_authenticated_client_hello_debug_redacts_token() {
+    let hello = AuthenticatedClientHello {
+        hello: ClientHello {
+            version: IPC_PROTOCOL_VERSION,
+            capabilities: Vec::new(),
+        },
+        authentication_token: TOKEN.to_string(),
+    };
+    let rendered = format!("{hello:?}");
+    assert!(rendered.contains("<redacted>"));
+    assert!(!rendered.contains(TOKEN));
+}
+
+#[test]
+fn test_request_and_response_constructors_preserve_correlation_and_payload() {
+    let envelope = ToolEnvelope::ok(
+        "paint.canvas.draw".to_string(),
+        "task-273".to_string(),
+        "step-1".to_string(),
+        serde_json::json!({"shape": "rectangle"}),
+    );
+    let request = RequestMessage::new("correlation-1", "paint-window", envelope.clone());
+    assert_eq!(request.correlation_id, "correlation-1");
+    assert_eq!(request.target, "paint-window");
+    assert_eq!(request.tool_invoke, envelope);
+
+    let response = ResponseMessage::new("correlation-1", envelope);
+    assert_eq!(response.correlation_id, "correlation-1");
+    assert_eq!(response.result.tool, "paint.canvas.draw");
+    assert_eq!(WireMessage::Request(request).kind(), "Request");
+    assert_eq!(WireMessage::Response(response).kind(), "Response");
+}
+
+#[test]
+fn test_wire_message_invalid_json_is_a_serialization_error() {
+    let error = WireMessage::from_json(b"not-json").expect_err("malformed JSON must fail");
+    assert!(matches!(error, IpcError::Serialization { .. }));
+}
+
+#[test]
+fn test_client_handshake_rejects_invalid_local_token_before_transport() {
+    let mut transport = MockTransport::empty();
+    let error = client_handshake(&mut transport, "short", Vec::new(), TIMEOUT)
+        .expect_err("short local token must fail before send");
+    assert!(matches!(error, IpcError::InvalidAuthenticationToken));
+    assert!(transport.sent.is_empty());
+}
+
+#[test]
+fn test_client_handshake_validates_server_version_and_session_id() {
+    let cases = [
+        (
+            WireMessage::ServerHello(ServerHello {
+                version: IPC_PROTOCOL_VERSION + 1,
+                capabilities: Vec::new(),
+                session_id: SESSION.to_string(),
+            }),
+            "version",
+        ),
+        (
+            WireMessage::ServerHello(ServerHello {
+                version: IPC_PROTOCOL_VERSION,
+                capabilities: Vec::new(),
+                session_id: "not-a-canonical-uuid".to_string(),
+            }),
+            "session",
+        ),
+    ];
+
+    for (message, expected_error) in cases {
+        let mut transport = MockTransport::with_next(message);
+        let error = client_handshake(&mut transport, TOKEN, Vec::new(), TIMEOUT)
+            .expect_err("malformed server response must fail");
+        match expected_error {
+            "version" => assert!(matches!(error, IpcError::ProtocolVersionMismatch { .. })),
+            "session" => assert!(matches!(error, IpcError::Serialization { .. })),
+            _ => unreachable!("test case label"),
+        }
+        assert!(matches!(
+            transport.sent.first(),
+            Some(WireMessage::ClientHello(_))
+        ));
+    }
+}
+
+#[test]
+fn test_server_handshake_rejects_invalid_local_token_before_receive() {
+    let mut transport = MockTransport::empty();
+    let session = session_id();
+    let error = server_handshake(&mut transport, "short", Vec::new(), &session, TIMEOUT)
+        .expect_err("short expected token must fail before receive");
+    assert!(matches!(error, IpcError::InvalidAuthenticationToken));
+    assert!(transport.sent.is_empty());
+}
+
+#[test]
+fn test_frame_encoder_rejects_oversized_envelope() {
+    let oversized = vec![0_u8; MAX_ENVELOPE_SIZE + 1];
+    let error = encode_frame(&oversized).expect_err("oversized envelope must fail");
+    assert!(matches!(error, IpcError::EnvelopeTooLarge { .. }));
+}
+
+#[test]
+fn test_decode_frame_rejects_truncated_prefixes() {
+    for length in [0_usize, 1, 7] {
+        let bytes = vec![0_u8; length];
+        let error = decode_frame(&bytes).expect_err("truncated frame must fail");
+        assert!(matches!(error, IpcError::FrameLengthMismatch { .. }));
+    }
+
+    let error = decode_frame(&[0_u8; 11]).expect_err("zero magic must fail");
+    assert!(matches!(error, IpcError::MagicMismatch { .. }));
+}
+
+#[test]
+fn test_peer_process_image_path_rejects_missing_process() {
+    let error = peer_process_image_path(0).expect_err("pid zero must not resolve");
+    assert!(matches!(error, IpcError::PeerIdentityUnavailable { .. }));
+}
+
+#[test]
+fn test_unconnected_named_pipe_send_fails_explicitly() {
+    let mut client = NamedPipeTransport::client(&unique_pipe_name()).expect("create client");
+    let error = client
+        .send(&heartbeat(), TIMEOUT)
+        .expect_err("unconnected client must fail");
+    assert!(matches!(error, IpcError::Transport { .. }));
+    client.close().expect("close unconnected client");
 }
 
 #[test]
