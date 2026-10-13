@@ -7,7 +7,7 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-10-12（**TASK-274 Done**（assistant-automation-host 契约测试覆盖率 83.39% → 86.68%；PR #328 / merge `3bed141`））
+更新日期    ：2026-10-13（**ROUND-AUDIT Done**：26 个一次性 automation 审计更正；保留已合并测试，明确未来 prompt 运行日 / N>3 规则，并建立仓库外持久日志）
 当前阶段    ：**阶段 1（三试点闭环）进行中**；**TASK-274 Done**（assistant-automation-host 独立行覆盖率 83.39% → 86.68%；新增 3 个公共契约测试；生产源码零改动；PR #328 / merge `3bed141`）；**TASK-273 Done**（assistant-ipc 独立行覆盖率 81.49% → 85.57%；PR #326 / merge `b4528fd`）；TASK-257 / TASK-256 Review。
 当前任务卡  ：**TASK-274 Done**（automation-host 契约测试覆盖率补齐；PR #328 / merge `3bed141`）；**TASK-273 Done**（assistant-ipc 契约测试覆盖率加固；PR #326 / merge `b4528fd`）；**TASK-257 Review**（ADR-0086 `SelectorKind::ExactName`）；**TASK-256 Review**（等待真机 Paint 校准）；下一张待 Orchestrator 派单；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done
