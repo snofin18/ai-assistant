@@ -95,7 +95,9 @@
 | **0086** | `0086-exact-name-selector-candidate.md` | **Accepted** | `SelectorKind` 新增 `ExactName`：UIA `PropertyCondition(NameProperty, value)` **精确相等**（不带 `MatchSubstring`），零依赖、`locale_dependent=true`、只作兜底、0/多命中 fail-closed；不引入 regex 引擎、不改 `SelectorValue` / `ErrorCode`；为无 aid 的 Paint 形状/调色板容器提供锚点（TASK-256 `DRIFT-256-1`；2026-10-09 按用户「就按这个执行」授权；落地卡 TASK-257） |
 | **0087** | `0087-content-view-walker-for-virtualized-lists.md` | **Accepted** | `actions::select` 改用 `IUIAutomation::ContentViewWalker` 取虚拟化列表的逻辑子项，保留 `Selection::ByIndex` 语义并由 `ScrollItemPattern::ScrollIntoView` 尝试物化；不扩公共 API；未物化或越界仍 fail-closed；解决 `DRIFT-256-2`（TASK-256；2026-10-09 按用户「走 B 路径」授权） |
 
-**下一个可用编号：0088**（= §1 与 §2 已用最大号 **0087** + 1；由 `cargo run -p xtask -- adr-index`
+| **0088** | `0088-run-date-boundary-0800.md` | **Accepted** | 运行日边界由本地 12:00 提前到 08:00：§11.3「运行日归属」改为本地 00:00~07:59 归前一天、08:00~23:59 归当日；§11.1 抖动建议改指 08:00 日界；不改机制 / 轮次计数 / N>3 停止条件 / 锁 / 报告，不改历史轮次产物与 ADR-0029 / 0052 正文（人类 2026-10-13「把闸门时间提前到早上 8 点」授权） |
+
+**下一个可用编号：0089**（= §1 与 §2 已用最大号 **0088** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由
