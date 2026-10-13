@@ -7,13 +7,13 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-10-13（**TASK-276 Done**（assistant-task-engine 契约覆盖率 90.40% → 91.58%；PR #348 / merge `3b2081e`）；同日 TASK-275 Done + ADR-0088 运行日边界改 08:00）
-当前阶段    ：**阶段 1（三试点闭环）进行中**；**TASK-276 Done**（assistant-task-engine 独立行覆盖率 90.40% → 91.58%；新增 6 个公共契约测试；生产源码零改动；PR #348 / merge `3b2081e`）；**TASK-275 Done**（assistant-tool-bus 独立行覆盖率 85.62% → 87.93%；PR #346 / merge `85973c5`）；TASK-257 / TASK-256 Review。
-当前任务卡  ：**TASK-276 Done**（task-engine 预算核算 fail-closed 契约覆盖率；PR #348 / merge `3b2081e`）；**TASK-275 Done**（tool-bus 注册期形状拒绝契约覆盖率；PR #346 / merge `85973c5`）；**TASK-257 Review**（ADR-0086 `SelectorKind::ExactName`）；**TASK-256 Review**（等待真机 Paint 校准）；下一张待 Orchestrator 派单；
+更新日期    ：2026-10-13（**TASK-277 Done**（agent-core task_package.rs 覆盖率 75.00% → 94.35%；PR #350 / merge `441212f`）；同日 TASK-276 / TASK-275 Done + ADR-0088 运行日边界改 08:00）
+当前阶段    ：**阶段 1（三试点闭环）进行中**；**TASK-277 Done**（assistant-agent-core task_package.rs 行覆盖率 75.00% → 94.35%；新增 6 个公共契约测试；生产源码零改动；PR #350 / merge `441212f`）；**TASK-276 Done**（assistant-task-engine 独立行覆盖率 90.40% → 91.58%；PR #348 / merge `3b2081e`）；**TASK-275 Done**（assistant-tool-bus 独立行覆盖率 85.62% → 87.93%；PR #346 / merge `85973c5`）；TASK-257 / TASK-256 Review。
+当前任务卡  ：**TASK-277 Done**（agent-core task-package provider 契约覆盖率；PR #350 / merge `441212f`）；**TASK-276 Done**（task-engine 预算核算 fail-closed 契约覆盖率；PR #348 / merge `3b2081e`）；**TASK-275 Done**（tool-bus 注册期形状拒绝契约覆盖率；PR #346 / merge `85973c5`）；**TASK-257 Review**；**TASK-256 Review**（等待真机 Paint 校准）；下一张待 Orchestrator 派单；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done
-本日自动化 ：TASK-276 Done（assistant-task-engine 独立行覆盖率 90.40% → 91.58%；新增 6 个公共契约测试；PR #348 / merge `3b2081e`）；TASK-275 Done（assistant-tool-bus 覆盖率 85.62% → 87.93%）；TASK-256 真机验收仍待有人值守流程。
-最新完成卡 ：**TASK-276 Done**（assistant-task-engine 独立行覆盖率 90.40% → 91.58%；新增 6 个公共契约测试；生产源码零改动；PR #348 / merge `3b2081e`）；此前 **TASK-275 Done**（assistant-tool-bus 独立行覆盖率 85.62% → 87.93%；PR #346 / merge `85973c5`）。
-最新实现卡 ：**TASK-276 Done**（assistant-task-engine 独立行覆盖率 90.40% → 91.58%；新增 6 个公共契约测试；生产源码零改动；PR #348 / merge `3b2081e`）；此前 **TASK-275 Done**（assistant-tool-bus 独立行覆盖率 85.62% → 87.93%；PR #346 / merge `85973c5`）。
+本日自动化 ：TASK-277 Done（agent-core task_package.rs 覆盖率 75.00% → 94.35%；PR #350 / merge `441212f`）；TASK-276 Done（task-engine 覆盖率 90.40% → 91.58%）；TASK-275 Done（tool-bus 覆盖率 85.62% → 87.93%）；运行日 2026-10-13 做满 3 轮，阶段报告见 `docs/automations/2026-10-13-report.md`；TASK-256 真机验收仍待有人值守流程。
+最新完成卡 ：**TASK-277 Done**（agent-core task_package.rs 行覆盖率 75.00% → 94.35%；新增 6 个公共契约测试；生产源码零改动；PR #350 / merge `441212f`）；此前 **TASK-276 Done**（task-engine 覆盖率 90.40% → 91.58%；PR #348 / merge `3b2081e`）。
+最新实现卡 ：**TASK-277 Done**（agent-core task_package.rs 行覆盖率 75.00% → 94.35%；新增 6 个公共契约测试；生产源码零改动；PR #350 / merge `441212f`）；此前 **TASK-276 Done**（task-engine 覆盖率 90.40% → 91.58%；PR #348 / merge `3b2081e`）。
 阻塞项      ：gov **#9 覆盖率**与 **#11 `cargo doc`** 仍是 SOFT 门禁（TASK-002 已于 2026-10-05 裁决为 **Done**，不再列阻塞）
 下一步动作  ：**TASK-256** — Review：打开真实 Paint 后执行 `production_paint` ignored 验收；通过后再进入 TASK-044 真机十次运行；承接 `DRIFT-256-1` / `DRIFT-044-1` / `PL-113`；`DRIFT-269-1` 已由 TASK-270 闭环
                   → 复验证据见 `docs/audits/stage-1a-reaudit-2026-10-02.md`；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）
