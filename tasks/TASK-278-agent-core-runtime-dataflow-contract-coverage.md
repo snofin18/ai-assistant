@@ -1,6 +1,6 @@
 # TASK-278　agent-core runtime dataflow 公共契约覆盖率补齐（章程 §2 P2）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**治理/质量**（跨阶段）　批次：**治理池**（ADR-0037 号段 200~299）　依赖：无　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**；`- 状态：` 行按 ADR-0083 为唯一例外）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -88,11 +88,26 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 - `cargo test -p assistant-agent-core --test runtime_dataflow_contract`：9 passed。
 - `cargo llvm-cov -p assistant-agent-core --tests --fail-under-lines 75`：EXIT 0；
   crate 行覆盖率 **76.02%**；`runtime_dataflow.rs` 行覆盖率 **96.73%**（region 95.99%）。
-- （完整门禁与 PR / CI / merge 证据在收口与回填后补记。）
+- `cargo fmt --all --check`、`cargo clippy --all-targets -- -D warnings`、
+  `cargo test --workspace`：EXIT 0。
+- xtask：`hygiene` scanned=409 / 0E / 128W / PASSED，`docscan` 0E/264W，
+  `memory-counts`、`adr-index`、`check-ledger`、`card-check`、`refscan`(0E/0W)、
+  `check-comments`、`verify-schemas`、`check-migrations` 全部 PASSED。
+- PR #354；pull_request CI = **11/11 SUCCESS**；合并前 base=`main`、mergeable=`MERGEABLE`、
+  mergeStateStatus=`CLEAN`；merge `719699a`。
 
 ### 4. DoD 逐条核对
 
-- （收口后逐条填写。）
+- 生产逻辑零改动：满足；仅新增 `apps/agent-core/tests/runtime_dataflow_contract.rs`。
+- 新增测试只调用公开 API 覆盖 dataflow 契约：满足；9 个测试覆盖计划重复 id / 访问器、
+  闭集拒绝、比较运算符矩阵、类型 / 布尔失败、引用解析与收集的失败关闭。
+- `cargo llvm-cov -p assistant-agent-core --tests --fail-under-lines 75` 且 `runtime_dataflow.rs` ≥90%：
+  满足，crate 76.02%、模块 96.73%。
+- `cargo test -p assistant-agent-core` 全绿：满足。
+- `cargo fmt --all --check` / `clippy --all-targets -- -D warnings` / `test --workspace` 全绿：满足。
+- 全部现行 xtask 硬门禁 PASSED：满足。
+- 热点文件 guard：满足；`LEDGER.md` / `docs/memory/facts.md` / `MEMORY.md`（收口）与
+  `PLAN.md` / `README.md` / `plans/stage-1-pilots.md`（回填）先 acquire 后 release。
 
 ### 5. 偏差
 
