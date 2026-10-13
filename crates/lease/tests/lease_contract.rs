@@ -424,3 +424,176 @@ fn test_default_manager_starts_lease_ids_at_one() -> Result<(), Box<dyn std::err
     assert_eq!(lease.id().value(), 1);
     Ok(())
 }
+
+fn assert_lease_error(error: &LeaseError, expected: ErrorCode, fragment: &str) {
+    assert_eq!(error.error_code(), expected);
+    let rendered = error.to_string();
+    assert!(
+        rendered.contains(fragment),
+        "expected `{rendered}` to contain `{fragment}`"
+    );
+}
+
+#[test]
+fn test_lease_key_and_owner_accessors_are_stable() -> Result<(), Box<dyn std::error::Error>> {
+    let task = owner("task_1")?;
+    assert_eq!(task.as_str(), "task_1");
+    assert_eq!(task.to_string(), "task_1");
+
+    let bare = key("app")?;
+    assert_eq!(bare.app_id(), "app");
+    assert_eq!(bare.window_id(), None);
+    assert_eq!(bare.document_id(), None);
+    assert_eq!(bare.resource(), None);
+    assert_eq!(bare.to_string(), "app=app");
+
+    let full = bare
+        .with_window_id("window_1")?
+        .with_document_id("document_1")?
+        .with_resource("selection")?;
+    assert_eq!(full.app_id(), "app");
+    assert_eq!(full.window_id(), Some("window_1"));
+    assert_eq!(full.document_id(), Some("document_1"));
+    assert_eq!(full.resource(), Some("selection"));
+    assert_eq!(
+        full.to_string(),
+        "app=app window=window_1 document=document_1 resource=selection"
+    );
+    Ok(())
+}
+
+#[test]
+fn test_lease_identifier_boundaries_are_explicit() -> Result<(), Box<dyn std::error::Error>> {
+    let maximum = "a".repeat(256);
+    assert_eq!(LeaseOwner::parse(maximum.clone())?.as_str(), maximum);
+    assert_eq!(LeaseKey::new(maximum)?.app_id(), "a".repeat(256));
+
+    let too_long = "a".repeat(257);
+    assert_eq!(
+        LeaseOwner::parse(too_long.clone()).map_err(|error| error.error_code()),
+        Err(ErrorCode::ToolInvalidArgs)
+    );
+    assert_eq!(
+        LeaseKey::new(too_long).map_err(|error| error.error_code()),
+        Err(ErrorCode::ToolInvalidArgs)
+    );
+    assert_eq!(
+        LeaseKey::new("app\0suffix").map_err(|error| error.error_code()),
+        Err(ErrorCode::ToolInvalidArgs)
+    );
+    assert_eq!(
+        key("app")?
+            .with_window_id("   ")
+            .map_err(|error| error.error_code()),
+        Err(ErrorCode::ToolInvalidArgs)
+    );
+    assert_eq!(
+        key("app")?
+            .with_document_id("doc\0suffix")
+            .map_err(|error| error.error_code()),
+        Err(ErrorCode::ToolInvalidArgs)
+    );
+    assert_eq!(
+        key("app")?
+            .with_resource("a".repeat(257))
+            .map_err(|error| error.error_code()),
+        Err(ErrorCode::ToolInvalidArgs)
+    );
+    Ok(())
+}
+
+#[test]
+fn test_lease_input_error_display_and_codes_are_stable() -> Result<(), Box<dyn std::error::Error>> {
+    let task = owner("task_1")?;
+    let mut manager = LeaseManager::new();
+    let invalid_owner = expect_error(LeaseOwner::parse(""), "empty owner")?;
+    assert_lease_error(
+        &invalid_owner,
+        ErrorCode::ToolInvalidArgs,
+        "invalid lease_owner",
+    );
+    let invalid_ttl = expect_error(
+        manager.acquire(key("app")?, LeaseMode::Shared, &task, 0, 100),
+        "zero ttl",
+    )?;
+    assert_lease_error(&invalid_ttl, ErrorCode::ToolInvalidArgs, "lease TTL");
+    let invalid_timestamp = expect_error(
+        manager.acquire(key("app")?, LeaseMode::Shared, &task, 100, -1),
+        "negative timestamp",
+    )?;
+    assert_lease_error(
+        &invalid_timestamp,
+        ErrorCode::ToolInvalidArgs,
+        "lease timestamp must be non-negative",
+    );
+    let _lease = manager.acquire(key("app")?, LeaseMode::Shared, &task, 100, 100)?;
+    let backward_clock = expect_error(manager.reap_expired(99), "backward clock")?;
+    assert_lease_error(
+        &backward_clock,
+        ErrorCode::Fatal,
+        "lease clock moved backwards",
+    );
+    let overflow = expect_error(
+        manager.acquire(key("other")?, LeaseMode::Shared, &task, 1, i64::MAX),
+        "expiration overflow",
+    )?;
+    assert_lease_error(&overflow, ErrorCode::Fatal, "numeric overflow");
+    Ok(())
+}
+
+#[test]
+fn test_lease_lookup_error_display_is_stable() -> Result<(), Box<dyn std::error::Error>> {
+    let task = owner("task_1")?;
+    let mut manager = LeaseManager::new();
+    let lease = manager.acquire(key("app")?, LeaseMode::Shared, &task, 1_000, 100)?;
+    manager.release(lease.id(), &task)?;
+    let missing = expect_error(
+        manager.release(lease.id(), &task),
+        "released lease is missing",
+    )?;
+    assert_lease_error(&missing, ErrorCode::ToolInvalidArgs, "not found");
+    let expired = manager.acquire(key("app")?, LeaseMode::Shared, &task, 100, 1_000)?;
+    let expired_error = expect_error(
+        manager.renew(expired.id(), &task, 200, 1_100),
+        "expired renew",
+    )?;
+    assert_lease_error(&expired_error, ErrorCode::Transient, "expired at");
+    let other_owner = owner("task_2")?;
+    let mismatch = expect_error(
+        manager.release(expired.id(), &other_owner),
+        "owner mismatch",
+    )?;
+    assert_lease_error(&mismatch, ErrorCode::ToolInvalidArgs, "is owned by");
+    Ok(())
+}
+
+#[test]
+fn test_lease_duplicate_error_display_is_stable() -> Result<(), Box<dyn std::error::Error>> {
+    let task = owner("task_1")?;
+    let mut manager = LeaseManager::new();
+    let duplicate = expect_error(
+        manager.acquire_many(
+            &task,
+            &[
+                LeaseRequest::new(key("duplicate")?, LeaseMode::Shared, 100),
+                LeaseRequest::new(key("duplicate")?, LeaseMode::Intent, 100),
+            ],
+            1_100,
+        ),
+        "duplicate key",
+    )?;
+    assert_lease_error(
+        &duplicate,
+        ErrorCode::ToolInvalidArgs,
+        "duplicate target key",
+    );
+    let blocker_owner = owner("task_3")?;
+    let blocker = manager.acquire(key("app")?, LeaseMode::Exclusive, &task, 1_000, 1_100)?;
+    let conflict = expect_error(
+        manager.acquire(key("app")?, LeaseMode::Shared, &blocker_owner, 1_000, 1_101),
+        "exclusive blocks shared",
+    )?;
+    assert_lease_error(&conflict, ErrorCode::Transient, "lease conflict");
+    assert!(conflict.to_string().contains(&blocker.id().to_string()));
+    Ok(())
+}
