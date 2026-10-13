@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**TASK-285 Done**（policy 规则模型校验契约覆盖率；`model.rs` 83.64% → 100.00%、policy crate 92.25% → 95.03%；新增 9 个跨平台契约测试；生产源码零改动；PR / merge hash 待回填）；**TASK-284 Done**（`StorageBlobSink` 公共契约覆盖率；`blob_sink.rs` 54.39% → 100.00%、crate 76.56% → 76.86%；PR #367 / merge `bff4c12`）；**TASK-283 Done**（assistant-lease key/error 契约覆盖率；crate 89.53% → 97.54%；PR #364 / merge `6346352`）；**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）进行中**。
+> 状态：**TASK-285 Done**（policy 规则模型校验契约覆盖率；`model.rs` 83.64% → 100.00%、policy crate 92.25% → 95.03%；新增 9 个跨平台契约测试；生产源码零改动；PR #369 / merge `93173a3`）；**TASK-284 Done**（`StorageBlobSink` 公共契约覆盖率；`blob_sink.rs` 54.39% → 100.00%、crate 76.56% → 76.86%；PR #367 / merge `bff4c12`）；**TASK-283 Done**（assistant-lease key/error 契约覆盖率；crate 89.53% → 97.54%；PR #364 / merge `6346352`）；**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）进行中**。
 > **TASK-041 Done（拆分 A + B）**：ADR-0073 冻结「像素遮挡归平台层 / `NeverPersist` 不保留 `ImageRef` / 滚动清理有界」，`crates/capture` + `crates/dlp/src/redact` 零依赖纯逻辑（15 专项测试）；ADR-0076 落地 Windows GDI `PrintWindow` 单窗口截图 + UIA `IsPassword` 像素遮挡 + `ImageBlobSink` 注入（平台层算内容地址、binary `StorageBlobSink` 用 `crates/storage` 落盘并核对地址，未注入 → 显式 `Fatal`），`DRIFT-041-2` / `PL-112` 闭环；真机截图与真机 blob 落盘由 **TASK-246** 取证。
 > 状态：**TASK-052 Done（ADR-0082 指令来源归因；阶段 1 进行中）**：core 新增 `InstructionOrigin` / `InstructionAttribution` 纯模型，固定四类 token 并按来源校验父目标 / 来源引用；`app_content` 只作高风险信号，UI 继续默认拒绝并需显式覆盖；零 protocol / DB schema 变更。
 > **TASK-230 Done**：storage `0005` 新增 `conversations` + `conversation_messages` 与会话 / 消息树公开记录 API；真实关闭并重开 SQLite 后逐字段一致，缺失会话、非法父子关系和 revision 跳号显式失败，`PL-092` 闭环。
@@ -84,7 +84,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
-**2026-10-13 TASK-285 Done（policy 规则模型校验契约覆盖率）**：新增 9 个 policy-local 公共契约测试，覆盖 `PolicyRule::validate` 的规则 id 形状 / 空条件 / 空列表 / 非法 target_app / 空或重复 scope / deny 原因上下界，以及 `RuleConditions::matches` 的每个约束字段；`model.rs` 行覆盖率 83.64% → 100.00%，policy crate 92.25% → 95.03%；生产源码零改动；PR / merge hash 待回填。
+**2026-10-13 TASK-285 Done（policy 规则模型校验契约覆盖率）**：新增 9 个 policy-local 公共契约测试，覆盖 `PolicyRule::validate` 的规则 id 形状 / 空条件 / 空列表 / 非法 target_app / 空或重复 scope / deny 原因上下界，以及 `RuleConditions::matches` 的每个约束字段；`model.rs` 行覆盖率 83.64% → 100.00%，policy crate 92.25% → 95.03%；生产源码零改动；PR #369 / merge `93173a3`。
 **2026-10-13 TASK-284 Done（`StorageBlobSink` 公共契约覆盖率）**：新增 7 个跨平台公共契约测试，覆盖一次性 attach、未注入 / 数据库失效 / 互斥锁中毒 / 尺寸与地址校验、storage 失败映射和 Screenshot 成功读回；`blob_sink.rs` 行覆盖率 54.39% → 100.00%，crate 76.56% → 76.86%；生产源码零改动；PR #367 / merge `bff4c12`。
 **2026-10-13 TASK-283 Done（`assistant-lease` key/error 契约覆盖率）**：新增 6 个公开契约测试，覆盖 owner/key 访问器、256-byte 边界和全部公开可达 `LeaseError` 的稳定 ErrorCode / Display；crate 行覆盖率 89.53% → 97.54%，`key.rs` 79.22% → 94.81%，`error.rs` 60.24% → 92.77%；生产源码零改动；PR #364 / merge `6346352`。
 **2026-10-13 TASK-282 Done（P3 非设计告警清理）**：`hygiene` 131W → 117W、`check-comments` 73W → 67W；目标 20 条告警清零（2 PITFALL 格式 + 4 模块头 + 14 bare-stub）；仅注释 / 文档，生产行为零改动；PR #362 / merge `bd23c3e`。
@@ -272,7 +272,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
-**2026-10-13 TASK-285 Done（policy 规则模型校验契约覆盖率）**：新增 9 个 policy-local 公开 API 契约测试，覆盖畸形规则形状的 fail-closed 分支与 `RuleConditions::matches` 的全部约束字段；`model.rs` 行覆盖率由 83.64% 提升到 100.00%，policy crate 92.25% → 95.03%（越过 §5 的 85% 门槛）；`cargo llvm-cov -p assistant-policy --summary-only`、全 workspace 门禁、deny、arch、replay、UI 与双平台纯 Rust clippy 全绿；生产源码零改动；PR / merge hash 待回填。
+**2026-10-13 TASK-285 Done（policy 规则模型校验契约覆盖率）**：新增 9 个 policy-local 公开 API 契约测试，覆盖畸形规则形状的 fail-closed 分支与 `RuleConditions::matches` 的全部约束字段；`model.rs` 行覆盖率由 83.64% 提升到 100.00%，policy crate 92.25% → 95.03%（越过 §5 的 85% 门槛）；`cargo llvm-cov -p assistant-policy --summary-only`、全 workspace 门禁、deny、arch、replay、UI 与双平台纯 Rust clippy 全绿；生产源码零改动；PR #369 / merge `93173a3`。
 **2026-10-13 TASK-284 Done（`StorageBlobSink` 公共契约覆盖率）**：新增 7 个跨平台公共契约测试，覆盖一次性 attach、未注入 / 数据库失效 / 互斥锁中毒 / 尺寸与地址校验、storage 失败映射和 Screenshot 成功读回；`blob_sink.rs` 行覆盖率由 54.39% 提升到 100.00%，crate 76.56% → 76.86%；生产源码零改动；PR #367 / merge `bff4c12`。
 **2026-10-13 TASK-283 Done（`assistant-lease` key/error 契约覆盖率）**：新增 6 个公开 API 契约测试，覆盖 owner/key 访问器、256-byte 边界、输入 / 时钟 / 冲突 / 缺失 / 过期 / owner mismatch / duplicate key 的稳定错误契约；crate 行覆盖率由 89.53% 提升到 97.54%；`cargo llvm-cov -p assistant-lease --tests --fail-under-lines 85`、全 workspace 门禁、deny、arch、replay、UI 与双平台纯 Rust clippy 全绿；PR #364 / merge `6346352`。
 **2026-10-13 TASK-282 Done（P3 非设计告警清理）**：`hygiene` 0E/131W → 0E/117W、`check-comments` 0E/73W → 0E/67W；`comments/pitfall-format` / `comments/module-header-missing` / `hygiene/bare-stub` 共 20 条目标告警清零；全 workspace、UI、deny、llvm-cov、replay 与全部 xtask 硬门禁全绿；PR #362 / merge `bd23c3e`。
