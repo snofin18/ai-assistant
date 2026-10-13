@@ -89,6 +89,41 @@ fn node(
     .expect("message node")
 }
 
+/// Builds one validated message node with an explicit retention policy.
+fn node_with_retention(
+    id: &str,
+    parent: Option<&str>,
+    sequence: u32,
+    role: MessageRole,
+    retention: ContextRetention,
+    content: &str,
+) -> MessageNode {
+    MessageNode::restore(MessageNodeParts {
+        id: MessageId::new(id).expect("message id"),
+        parent_id: parent.map(|parent| MessageId::new(parent).expect("parent id")),
+        sequence,
+        role,
+        content: MessageContent::new(content).expect("message content"),
+        token_estimate: TokenCount::new(7),
+        retention,
+    })
+    .expect("message node")
+}
+
+/// Builds one validated message node with an explicit token estimate.
+fn node_with_tokens(id: &str, role: MessageRole, token_estimate: u64) -> MessageNode {
+    MessageNode::restore(MessageNodeParts {
+        id: MessageId::new(id).expect("message id"),
+        parent_id: None,
+        sequence: 0,
+        role,
+        content: MessageContent::new("hi").expect("message content"),
+        token_estimate: TokenCount::new(token_estimate),
+        retention: ContextRetention::Required,
+    })
+    .expect("message node")
+}
+
 /// Builds one validated session snapshot.
 fn snapshot(revision: u64, messages: Vec<MessageNode>) -> SessionSnapshot {
     SessionSnapshot::restore(SessionSnapshotParts {
@@ -271,4 +306,129 @@ fn test_storage_session_store_rejects_tampered_rows() {
         .load_session(first.id())
         .expect_err("an out-of-range persisted sequence must fail closed");
     assert_eq!(sequence_error.reason_code(), "persisted_row_invalid");
+}
+
+#[test]
+fn test_storage_session_store_round_trips_ended_status_and_every_variant() {
+    let directory = TestDirectory::new("ended-variants");
+    let store = StorageSessionStore::new(open_handle(&directory));
+    let ended = SessionSnapshot::restore(SessionSnapshotParts {
+        id: SessionId::new("session-ended-variants").expect("session id"),
+        goal: "cover every role and retention".to_owned(),
+        status: SessionStatus::Ended,
+        created_at_unix_ms: 1_700_000_000_000,
+        ended_at_unix_ms: Some(1_700_000_005_000),
+        revision: 0,
+        messages: vec![
+            node_with_retention(
+                "s",
+                None,
+                0,
+                MessageRole::System,
+                ContextRetention::Required,
+                "sys",
+            ),
+            node_with_retention(
+                "u",
+                Some("s"),
+                1,
+                MessageRole::User,
+                ContextRetention::Summarizable,
+                "user",
+            ),
+            node_with_retention(
+                "a",
+                Some("u"),
+                2,
+                MessageRole::Assistant,
+                ContextRetention::Required,
+                "assistant",
+            ),
+            node_with_retention(
+                "t",
+                Some("a"),
+                3,
+                MessageRole::Tool,
+                ContextRetention::Droppable,
+                "tool",
+            ),
+        ],
+    })
+    .expect("ended snapshot");
+    store
+        .insert_session(&ended)
+        .expect("insert the ended session");
+    let loaded = store
+        .load_session(ended.id())
+        .expect("load the ended session")
+        .expect("the ended session must persist");
+    assert_eq!(
+        loaded, ended,
+        "ended snapshot with every role / retention round-trips"
+    );
+    assert_eq!(loaded.status(), SessionStatus::Ended);
+    assert_eq!(loaded.ended_at_unix_ms(), Some(1_700_000_005_000));
+}
+
+/// A revision that cannot fit the persisted `i64` column is rejected up front,
+/// never truncated into a different stored revision.
+#[test]
+fn test_storage_session_store_rejects_unrepresentable_revision() {
+    let directory = TestDirectory::new("revision-overflow");
+    let store = StorageSessionStore::new(open_handle(&directory));
+    let oversized = SessionSnapshot::restore(SessionSnapshotParts {
+        id: SessionId::new("session-overflow").expect("session id"),
+        goal: "revision too large to persist".to_owned(),
+        status: SessionStatus::Active,
+        created_at_unix_ms: 1_700_000_000_000,
+        ended_at_unix_ms: None,
+        revision: u64::MAX,
+        messages: vec![node("m1", None, 0, MessageRole::User, "hi")],
+    })
+    .expect("snapshot accepts a large revision");
+    let error = store
+        .insert_session(&oversized)
+        .expect_err("an unrepresentable revision must fail closed");
+    assert_eq!(error.reason_code(), "snapshot_not_persistable");
+}
+
+/// A message token estimate that cannot fit the persisted `i64` column is
+/// rejected up front, never truncated.
+#[test]
+fn test_storage_session_store_rejects_unrepresentable_token_estimate() {
+    let directory = TestDirectory::new("token-overflow");
+    let store = StorageSessionStore::new(open_handle(&directory));
+    let oversized = SessionSnapshot::restore(SessionSnapshotParts {
+        id: SessionId::new("session-token-overflow").expect("session id"),
+        goal: "token estimate too large to persist".to_owned(),
+        status: SessionStatus::Active,
+        created_at_unix_ms: 1_700_000_000_000,
+        ended_at_unix_ms: None,
+        revision: 0,
+        messages: vec![node_with_tokens("m1", MessageRole::User, u64::MAX)],
+    })
+    .expect("snapshot accepts a large token estimate");
+    let error = store
+        .insert_session(&oversized)
+        .expect_err("an unrepresentable token estimate must fail closed");
+    assert_eq!(error.reason_code(), "snapshot_not_persistable");
+}
+
+/// A poisoned database mutex fails closed with a stable reason code instead of
+/// panicking inside the adapter.
+#[test]
+fn test_storage_session_store_fails_closed_when_the_mutex_is_poisoned() {
+    let directory = TestDirectory::new("poisoned");
+    let handle = open_handle(&directory);
+    let poisoner = Arc::clone(&handle);
+    let _ = std::thread::spawn(move || {
+        let _guard = poisoner.lock().expect("poisoning thread holds the lock");
+        panic!("poison the mutex on purpose");
+    })
+    .join();
+    let store = StorageSessionStore::new(handle);
+    let error = store
+        .load_session(&SessionId::new("session-any").expect("session id"))
+        .expect_err("a poisoned database mutex must fail closed");
+    assert_eq!(error.reason_code(), "session_store_unavailable");
 }
