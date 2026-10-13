@@ -114,7 +114,7 @@ cargo deny check
 - P6 的提示路径为 `MEMORY.md` §5，但 ADR-0021 已把 `MEMORY.md` 降为 L0 索引，无 §5；按章程回退到 P2，未自行改 ADR/spec。
 - 首次新增测试使用 `expect_err`，clippy `expect_used` 拒绝；改为复用既有 `expect_error` helper 后通过。
 - 首次追加测试使 `lease_contract.rs` 达 605 行，hygiene 新增 file-too-long；压缩测试后回到 599 行，新增告警归零。
-- 工具通道偏差：本轮误用 7 次 bash，均未执行到 cargo / 仓库文件；后续严格使用 PowerShell。
+- 工具通道偏差：本轮累计误用 15 次 bash，均未执行到 cargo / 仓库文件；后续严格使用 PowerShell。
 
 ### 6. 更合理做法
 
