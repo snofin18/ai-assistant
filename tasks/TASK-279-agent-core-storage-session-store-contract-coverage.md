@@ -1,6 +1,6 @@
 # TASK-279　agent-core storage-session-store 公共契约覆盖率补齐（章程 §2 P2）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**治理/质量**（跨阶段）　批次：**治理池**（ADR-0037 号段 200~299）　依赖：无　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**；`- 状态：` 行按 ADR-0083 为唯一例外）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -88,11 +88,25 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 - `cargo test -p assistant-agent-core --test session_store_persistence`：7 passed（3 既有 + 4 新增）。
 - `cargo llvm-cov -p assistant-agent-core --tests --fail-under-lines 75`：EXIT 0；
   crate 行覆盖率 **76.28%**；`storage_session_store.rs` 行覆盖率 **84.92%**（region 84.59%）。
-- （完整门禁与 PR / CI / merge 证据在收口与回填后补记。）
+- `cargo fmt --all --check`、`cargo clippy --all-targets -- -D warnings`、
+  `cargo test --workspace`：EXIT 0。
+- xtask：`hygiene` scanned=409 / 0E / 128W / PASSED，`docscan` 0E/264W，
+  `memory-counts`、`adr-index`、`check-ledger`、`card-check`、`refscan`(0E/0W)、
+  `check-comments`、`verify-schemas`、`check-migrations` 全部 PASSED。
+- PR #356；pull_request CI = **11/11 SUCCESS**；合并前 base=`main`、mergeable=`MERGEABLE`、
+  mergeStateStatus=`CLEAN`；merge `6586821`。
 
 ### 4. DoD 逐条核对
 
-- （收口后逐条填写。）
+- 生产逻辑零改动：满足；仅追加 `apps/agent-core/tests/session_store_persistence.rs` 用例。
+- 新增测试覆盖契约：满足；Ended + 全 role / retention 往返、溢出、锁中毒均断言精确 reason code。
+- `cargo llvm-cov -p assistant-agent-core --tests --fail-under-lines 75` 且模块 ≥80%：
+  满足，crate 76.28%、模块 84.92%。
+- `cargo test -p assistant-agent-core` 全绿：满足。
+- `cargo fmt --all --check` / `clippy --all-targets -- -D warnings` / `test --workspace` 全绿：满足。
+- 全部现行 xtask 硬门禁 PASSED：满足。
+- 热点文件 guard：满足；`LEDGER.md` / `docs/memory/facts.md` / `MEMORY.md`（收口）与
+  `PLAN.md` / `README.md` / `plans/stage-1-pilots.md`（回填）先 acquire 后 release。
 
 ### 5. 偏差
 
