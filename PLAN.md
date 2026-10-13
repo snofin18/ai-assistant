@@ -7,11 +7,11 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-10-13（**TASK-282 Done**（P3 告警清理；PR #362 / merge `bd23c3e`）；同日 TASK-275~281 Done + ADR-0088 / ADR-0089 治理）
-当前阶段    ：**阶段 1（三试点闭环）进行中**；**TASK-282 Done**（`hygiene` 131W → 117W、`check-comments` 73W → 67W；目标 20 条非设计告警清零；生产行为零改动；PR #362 / merge `bd23c3e`）；**TASK-281 Done**（assistant-tool-bus registry.rs 行覆盖率 79.52% → 94.38%；PR #360 / merge `1c19646`）；**TASK-280 Done**（agent-core ui_server.rs 67.20% → 80.11%；PR #358 / merge `99801f1`）；TASK-257 / TASK-256 Review。
-当前任务卡  ：**TASK-282 Done**（P3 非设计告警清理；PR #362 / merge `bd23c3e`）；**TASK-281 Done**（tool-bus ToolDefinition 声明契约覆盖率；PR #360 / merge `1c19646`）；**TASK-257 Review**；**TASK-256 Review**（等待真机 Paint 校准）；下一张待 Orchestrator 派单；
+更新日期    ：2026-10-13（**TASK-283 Review**（assistant-lease key/error 契约覆盖率；PR / merge hash 待回填）；同日 **TASK-282 Done**（P3 告警清理；PR #362 / merge `bd23c3e`）；TASK-275~281 Done + ADR-0088 / ADR-0089 治理）
+当前阶段    ：**阶段 1（三试点闭环）进行中**；**TASK-283 Review**（`assistant-lease` crate 89.53% → 97.54%、`key.rs` 79.22% → 94.81%、`error.rs` 60.24% → 92.77%；生产源码零改动；PR / merge hash 待回填）；**TASK-282 Done**（`hygiene` 131W → 117W、`check-comments` 73W → 67W；目标 20 条非设计告警清零；生产行为零改动；PR #362 / merge `bd23c3e`）；**TASK-281 Done**（assistant-tool-bus registry.rs 行覆盖率 79.52% → 94.38%；PR #360 / merge `1c19646`）；TASK-257 / TASK-256 Review。
+当前任务卡  ：**TASK-283 Review**（assistant-lease key/error 契约覆盖率；生产源码零改动；PR / merge hash 待回填）；**TASK-282 Done**（P3 非设计告警清理；PR #362 / merge `bd23c3e`）；**TASK-281 Done**（tool-bus ToolDefinition 声明契约覆盖率；PR #360 / merge `1c19646`）；**TASK-257 Review**；**TASK-256 Review**（等待真机 Paint 校准）；下一张待 Orchestrator 派单；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done
-本日自动化 ：TASK-282 Done（P3 告警清理；PR #362 / merge `bd23c3e`）；TASK-275~281 Done；运行日 2026-10-13 阶段报告见 `docs/automations/2026-10-13-report.md`；TASK-256 真机验收仍待有人值守流程。
+本日自动化 ：TASK-283 Review（assistant-lease key/error 契约覆盖率；PR / merge hash 待回填）；TASK-282 Done（P3 告警清理；PR #362 / merge `bd23c3e`）；TASK-275~281 Done；运行日 2026-10-13 阶段报告见 `docs/automations/2026-10-13-report.md`；TASK-256 真机验收仍待有人值守流程。
 最新完成卡 ：**TASK-282 Done**（P3 非设计告警清理；20 条目标告警清零；PR #362 / merge `bd23c3e`）；此前 **TASK-281 Done**（assistant-tool-bus registry.rs 行覆盖率 79.52% → 94.38%；PR #360 / merge `1c19646`）。
 最新实现卡 ：**TASK-282 Done**（P3 非设计告警清理；PR #362 / merge `bd23c3e`）；此前 **TASK-281 Done**（assistant-tool-bus registry.rs 行覆盖率 79.52% → 94.38%；PR #360 / merge `1c19646`）。
 阻塞项      ：gov **#9 覆盖率**与 **#11 `cargo doc`** 仍是 SOFT 门禁（TASK-002 已于 2026-10-05 裁决为 **Done**，不再列阻塞）
