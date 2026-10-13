@@ -1,6 +1,6 @@
 # Codex 原生 scheduled tasks（automations）操作手册
 
-> 状态：Active　版本：**1.15**　日期：**2026-09-28**　变更历史见 §9
+> 状态：Active　版本：**1.16**　日期：**2026-10-13**　变更历史见 §9
 > 上位：**ADR-0029**（自动化的投递机制改回 Codex 官方 scheduled tasks，Supersedes ADR-0018 的「Windows 任务计划程序 + `codex exec`」方案）、`docs/automation-charter.md` §11
 > **用途**：把「Codex 桌面应用的 scheduled tasks / automations 怎么建、怎么改、怎么删、怎么跑、怎么暂停、怎么停」写成可以照着做的操作手册，并且**逐条标明证据强度** —— 哪些是官方写明的、哪些是本机实测的、哪些其实谁都不知道。
 > **适用范围**：本机（Windows + Codex 桌面应用 + 第三方 Responses 兼容端点）。**不覆盖** ChatGPT Work 云端任务；**不覆盖** `codex exec` CLI 路径（那是 ADR-0018 的旧方案，只在 §1 门禁不通过时作为回落手段出现）。
@@ -225,7 +225,7 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 > **反例（2026-09-26 真实发生）**：14:15 那次一次性自动化把 `DRIFT-206-1` 的全部证据提交在**未 push 的本地分支**
 > 后就自删 → `main` 上既看不到卡片记录也看不到 `LEDGER.md` 行，下一个会话只能重新撞墙。
 
-#### 4.1.c 「prompt 固定块」：每轮必须写进 prompt 的两件事（`.automation.lock` + 轮次产物）
+#### 4.1.c 「prompt 固定块」：每轮必须写进 prompt 的三件事（`.automation.lock` + 轮次产物 + 本地持久日志）
 
 > **依据 = 章程 §11.2（G8 两层互斥锁）/ §11.3（运行日与轮次产物）/ §11.4（阶段报告）/ **§11.12（先落地，再自删）**；本子块由 ADR-0049 追加，**ADR-0054** 修订。**
 
@@ -243,12 +243,22 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 2. 顺序落盘：先建锁，再改仓库；**结束前必删自己的锁**（失败也要在报告里写明锁是否残留）。
 
 【收尾 —— 轮次产物 + 阶段报告（章程 §11.3 / §11.4）】
-3. 写 docs/automations/<运行日日期>-round-<N>.md（N = **main 上**现有 round-* 文件数 + 1 —— 先 `git fetch` 再 `git ls-tree --name-only origin/main -- docs/automations/`，**不要**数工作区；该路径已存在则**顺延**，**禁止覆盖**），记：本轮做了什么、依据哪些文件、验收结果、遗留；
+3. 先按 §11.3 计算运行日：本地 00:00~11:59 开始的运行归属**前一天**；再 `git fetch` 后按
+   `git ls-tree --name-only origin/main -- docs/automations/` 计算 N。若 N > 3，本 run
+   **只补/校阶段报告，不写代码**；否则写 docs/automations/<运行日日期>-round-<N>.md
+   （该路径已存在则**顺延**，**禁止覆盖**），记：本轮做了什么、依据哪些文件、验收结果、遗留；
 4. 若本轮是运行日最后一次（人类指定，或按轮数 / 最后时刻判定）→ 另写 docs/automations/<运行日日期>-report.md。
+
+【本地持久日志 —— 仓库外取证（automation 自删后仍可回溯）】
+5. 开工后在 `%USERPROFILE%\.codex\automations-logs\<运行日日期>\<automation-id>.jsonl`
+   建立本地日志；至少追加 `start` / `gates` / `work` / `pr` / `ci` / `merge` /
+   `lock_release` / `self_delete` 事件。日志不得写入仓库、不得写入凭据。
+6. 自删前确认本地日志已写入并保留。Codex automation 条目仍必须在最后一步删除；
+   仓库外日志**不随 automation 删除**，用于补齐自删后的取证缺口。
 ```
 
 > **建后硬核对（2026-09-28 复发修复）**：automation 创建成功后，不得直接等触发。必须立刻读取 `~/.codex/automations/<id>/automation.toml`，逐项确认 prompt 已包含上列固定块：
-> ① `.automation.lock` 的获取、跳过 / 陈旧接管与释放；② 运行日归属规则（00:00~11:59 归前一天）；③ `git fetch` + `git ls-tree --name-only origin/main -- docs/automations/` 计算轮次 N；④ 轮次文件禁止覆盖；⑤ 阶段报告触发条件；⑥ 先落地、再自删。
+> ① `.automation.lock` 的获取、跳过 / 陈旧接管与释放；② 运行日归属规则（00:00~11:59 归前一天）；③ `git fetch` + `git ls-tree --name-only origin/main -- docs/automations/` 计算轮次 N，且 N>3 只补报告不写代码；④ 轮次文件禁止覆盖；⑤ 阶段报告触发条件；⑥ 先落地、再自删；⑦ 仓库外持久日志路径与事件清单。
 > **任一项缺失 → 立刻 `mode = "update"` 修正，或删除后重建；不得保留一个缺少固定块的 `ACTIVE` automation。** 反例（2026-09-27 运行日）：round-1 有轮次产物，round-2 / round-3 的 prompt 没带固定块，结果两轮都完成了产品工作却没有轮次记录；2026-09-28 已按 ADR-0054 的留痕原则 docs-only 回填。以后“建完就核对”是唯一可靠的收口点。
 
 > **与 `#### 4.1.b` 自删的顺序**：自删仍是**整个 run 的最后一步**；`.automation.lock` 的**释放**排在自删**之前**（先放锁，再自删）。
@@ -508,3 +518,4 @@ heartbeat 约定 18:04:23 → 实际 **18:04:24（约 +1 s）**。→ 计划时�
 | 1.13 | 2026-09-26 | **全量措辞去夜间化（ADR-0052）**：§1~§8 的 `夜间 / 每夜 / 当夜 / 晨间 / 整夜` 全量换成 `自动化 / 每次运行 / 运行日 / 阶段报告 / 本次运行`；文件头适用范围声明改为「一律时间中性」。§8.2 基线表、§9 变更历史既有行、数字预算不动 | 人类 2026-09-26「做「全量措辞」扫」；**ADR-0052** |
 | 1.14 | 2026-09-26 | **「先落地，再自删」+ 轮次编号取 `main`（ADR-0054）**：§4.1.b 新增自删的**前置条件**（本轮产生留痕却没可合并 PR → 必须先开 docs-only PR 再自删；唯一例外 = 完全没产生留痕；`-skipped.md` 不属例外）；§4.1.c 的固定块把轮次编号的取数改为 **`main`**（`git ls-tree`，禁止数工作区；路径已占用则顺延、禁止覆盖）；§4.1.c 依据行补 §11.12 | 2026-09-26 两个一次性自动化暴露：① 14:15 轮把 DRIFT-206-1 证据留在未 push 的本地分支后自删；② 同日两轮都写 `round-1`，前一轮记录被覆盖 |
 | 1.15 | 2026-09-28 | **新增建后硬核对，防止固定块只写在手册却漏进 prompt**：在 §4.1.c 的固定块后要求创建成功后立即读取 `automation.toml`，逐项核对锁、运行日、`git ls-tree` 轮次编号、禁止覆盖、阶段报告与先落地后自删；任一缺失必须 update 或重建，不得保留缺固定块的 ACTIVE automation。**反例** = 2026-09-27 运行日 round-2 / round-3 完成产品工作但漏写轮次产物，已 docs-only 回填。 | 人类 2026-09-28 复核要求；ADR-0054；2026-09-27 运行日实际缺失证据 |
+| 1.16 | 2026-10-13 | **prompt 固定块补运行日 / N>3 / 仓库外持久日志**：§4.1.c 从“两件事”改为“三件事”，明确要求先按 §11.3 归运行日、N>3 只补报告不写代码，并在 `%USERPROFILE%\.codex\automations-logs\<run-date>\<automation-id>.jsonl` 留下 start / gates / work / PR / CI / merge / lock_release / self_delete 事件；建后硬核对新增第 ⑦ 项。Codex automation 条目仍必须自删，仓库外日志不删。 | 用户 2026-10-13 裁决；`docs/audits/automation-26-audit-2026-10-13.md`；26 轮审计发现 N>3 漂移与自删后取证缺口 |
