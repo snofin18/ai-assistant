@@ -9,7 +9,8 @@ use std::collections::VecDeque;
 use std::time::Duration;
 
 use assistant_ipc::{
-    IpcError, RequestMessage, ServerHello, Transport, UiIpcRequest, UiIpcResult, WireMessage,
+    Heartbeat, IpcError, RequestMessage, ServerHello, Transport, UiIpcRequest, UiIpcResult,
+    WireMessage,
 };
 use assistant_protocol::ToolEnvelope;
 
@@ -258,6 +259,22 @@ fn test_empty_peer_allow_list_denies_everyone() {
     assert!(!looks_like_image_path(std::path::Path::new("")));
 }
 
+/// `serve` reads the token before opening the pipe, so a missing token fails
+/// closed without touching the transport.
+#[test]
+fn test_serve_without_a_token_fails_closed_before_opening_the_pipe() {
+    let config = UiServerConfig::new(
+        "assistant-ui-missing-token",
+        "ASSISTANT_UI_TOKEN_DEFINITELY_UNSET_FOR_THIS_TEST",
+        Duration::from_millis(2_000),
+    );
+    let mut handler = RecordingHandler::default();
+    assert!(matches!(
+        super::serve(&config, &mut handler),
+        Err(IpcError::InvalidAuthenticationToken)
+    ));
+}
+
 /// 一次性的假事件源：第一次 drain 返回 1 条，之后返回空。
 struct OneEvent {
     pending: Vec<crate::ui_ipc::UiEvent>,
@@ -321,5 +338,132 @@ fn test_session_pushes_events_before_serving_the_request() {
         kinds,
         vec!["Heartbeat", "UiEvent", "UiResponse"],
         "事件必须先于响应发出，且顺序确定"
+    );
+}
+
+/// A live heartbeat for the negotiated session is observed and re-answered; a
+/// heartbeat for another session, or one that is not alive, fails the session.
+#[test]
+fn test_session_handles_live_heartbeats_and_rejects_bad_ones() {
+    let mut live = ScriptedTransport::default();
+    live.incoming.push_back(WireMessage::Heartbeat(Heartbeat {
+        session_id: "018f6d4e-52a1-7b03-8f22-1234567890ab".to_owned(),
+        timestamp_unix_ms: 1,
+        alive: true,
+    }));
+    let mut handler = RecordingHandler::default();
+    assert!(matches!(
+        serve_session(
+            &mut live,
+            &hello(),
+            Duration::from_millis(2_000),
+            &mut handler
+        ),
+        Err(IpcError::Disconnected { .. })
+    ));
+    let heartbeats = live
+        .sent
+        .iter()
+        .filter(|message| matches!(message, WireMessage::Heartbeat(_)))
+        .count();
+    assert!(
+        heartbeats >= 2,
+        "initial heartbeat plus a reply to the live one, got {heartbeats}"
+    );
+
+    let mut wrong_session = ScriptedTransport::default();
+    wrong_session
+        .incoming
+        .push_back(WireMessage::Heartbeat(Heartbeat {
+            session_id: "some-other-session".to_owned(),
+            timestamp_unix_ms: 1,
+            alive: true,
+        }));
+    assert!(matches!(
+        serve_session(
+            &mut wrong_session,
+            &hello(),
+            Duration::from_millis(2_000),
+            &mut RecordingHandler::default()
+        ),
+        Err(IpcError::UnexpectedMessage { .. })
+    ));
+
+    let mut dead = ScriptedTransport::default();
+    dead.incoming.push_back(WireMessage::Heartbeat(Heartbeat {
+        session_id: "018f6d4e-52a1-7b03-8f22-1234567890ab".to_owned(),
+        timestamp_unix_ms: 1,
+        alive: false,
+    }));
+    assert!(matches!(
+        serve_session(
+            &mut dead,
+            &hello(),
+            Duration::from_millis(2_000),
+            &mut RecordingHandler::default()
+        ),
+        Err(IpcError::UnexpectedMessage { .. })
+    ));
+}
+
+/// A receive timeout re-checks the watchdog and re-sends the server heartbeat
+/// instead of ending the session.
+#[test]
+fn test_session_renews_after_a_receive_timeout() {
+    struct TimeoutThenDisconnect {
+        sent: usize,
+        timed_out: bool,
+    }
+
+    impl Transport for TimeoutThenDisconnect {
+        fn connect(&mut self, _timeout: Duration) -> assistant_ipc::IpcResult<()> {
+            Ok(())
+        }
+        fn accept(&mut self, _timeout: Duration) -> assistant_ipc::IpcResult<()> {
+            Ok(())
+        }
+        fn send(
+            &mut self,
+            _message: &WireMessage,
+            _timeout: Duration,
+        ) -> assistant_ipc::IpcResult<()> {
+            self.sent += 1;
+            Ok(())
+        }
+        fn recv(&mut self, _timeout: Duration) -> assistant_ipc::IpcResult<WireMessage> {
+            if !self.timed_out {
+                self.timed_out = true;
+                return Err(IpcError::timeout("recv", Duration::from_millis(1)));
+            }
+            Err(IpcError::Disconnected {
+                message: "scripted transport exhausted".to_owned(),
+            })
+        }
+        fn close(&mut self) -> assistant_ipc::IpcResult<()> {
+            Ok(())
+        }
+        fn peer_process_id(&self) -> assistant_ipc::IpcResult<u32> {
+            Ok(1)
+        }
+    }
+
+    let mut transport = TimeoutThenDisconnect {
+        sent: 0,
+        timed_out: false,
+    };
+    let mut handler = RecordingHandler::default();
+    assert!(matches!(
+        serve_session(
+            &mut transport,
+            &hello(),
+            Duration::from_millis(2_000),
+            &mut handler
+        ),
+        Err(IpcError::Disconnected { .. })
+    ));
+    assert!(
+        transport.sent >= 2,
+        "initial heartbeat plus renewal after the timeout, got {}",
+        transport.sent
     );
 }
