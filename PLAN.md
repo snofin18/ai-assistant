@@ -7,13 +7,13 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-10-13（**TASK-280 Done**（agent-core ui_server.rs 覆盖率 67.20% → 80.11%；PR #358 / merge `99801f1`）；同日 TASK-275~279 Done + ADR-0088 / ADR-0089 治理）
-当前阶段    ：**阶段 1（三试点闭环）进行中**；**TASK-280 Done**（assistant-agent-core ui_server.rs 行覆盖率 67.20% → 80.11%；新增 3 个白盒契约测试；生产源码零改动；PR #358 / merge `99801f1`）；**TASK-279 Done**（agent-core storage_session_store.rs 76.19% → 84.92%；PR #356 / merge `6586821`）；TASK-257 / TASK-256 Review。
-当前任务卡  ：**TASK-280 Done**（agent-core ui-server 契约覆盖率；PR #358 / merge `99801f1`）；**TASK-279 Done**（agent-core storage-session-store 契约覆盖率；PR #356 / merge `6586821`）；**TASK-257 Review**；**TASK-256 Review**（等待真机 Paint 校准）；下一张待 Orchestrator 派单（§③ 公开可及的低覆盖模块基本做尽）；
+更新日期    ：2026-10-13（**TASK-281 Done**（tool-bus registry.rs 覆盖率 79.52% → 94.38%；PR #360 / merge `1c19646`）；同日 TASK-275~280 Done + ADR-0088 / ADR-0089 治理）
+当前阶段    ：**阶段 1（三试点闭环）进行中**；**TASK-281 Done**（assistant-tool-bus registry.rs 行覆盖率 79.52% → 94.38%；新增 5 个公共契约测试；生产源码零改动；PR #360 / merge `1c19646`）；**TASK-280 Done**（agent-core ui_server.rs 67.20% → 80.11%；PR #358 / merge `99801f1`）；TASK-257 / TASK-256 Review。
+当前任务卡  ：**TASK-281 Done**（tool-bus ToolDefinition 声明契约覆盖率；PR #360 / merge `1c19646`）；**TASK-280 Done**（agent-core ui-server 契约覆盖率；PR #358 / merge `99801f1`）；**TASK-257 Review**；**TASK-256 Review**（等待真机 Paint 校准）；下一张待 Orchestrator 派单（crate 级 ≥89%、模块级公开可测模块亦接近做尽）；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done
-本日自动化 ：TASK-280 Done（agent-core ui_server.rs 覆盖率 67.20% → 80.11%；PR #358 / merge `99801f1`）；TASK-275~279 Done；运行日 2026-10-13 阶段报告见 `docs/automations/2026-10-13-report.md`；TASK-256 真机验收仍待有人值守流程。
-最新完成卡 ：**TASK-280 Done**（agent-core ui_server.rs 行覆盖率 67.20% → 80.11%；新增 3 个白盒契约测试；生产源码零改动；PR #358 / merge `99801f1`）；此前 **TASK-279 Done**（agent-core storage_session_store.rs 76.19% → 84.92%；PR #356 / merge `6586821`）。
-最新实现卡 ：**TASK-280 Done**（agent-core ui_server.rs 行覆盖率 67.20% → 80.11%；新增 3 个白盒契约测试；生产源码零改动；PR #358 / merge `99801f1`）；此前 **TASK-279 Done**（agent-core storage_session_store.rs 76.19% → 84.92%；PR #356 / merge `6586821`）。
+本日自动化 ：TASK-281 Done（tool-bus registry.rs 覆盖率 79.52% → 94.38%；PR #360 / merge `1c19646`）；TASK-275~280 Done；运行日 2026-10-13 阶段报告见 `docs/automations/2026-10-13-report.md`；TASK-256 真机验收仍待有人值守流程。
+最新完成卡 ：**TASK-281 Done**（assistant-tool-bus registry.rs 行覆盖率 79.52% → 94.38%；新增 5 个公共契约测试；生产源码零改动；PR #360 / merge `1c19646`）；此前 **TASK-280 Done**（agent-core ui_server.rs 67.20% → 80.11%；PR #358 / merge `99801f1`）。
+最新实现卡 ：**TASK-281 Done**（assistant-tool-bus registry.rs 行覆盖率 79.52% → 94.38%；新增 5 个公共契约测试；生产源码零改动；PR #360 / merge `1c19646`）；此前 **TASK-280 Done**（agent-core ui_server.rs 67.20% → 80.11%；PR #358 / merge `99801f1`）。
 阻塞项      ：gov **#9 覆盖率**与 **#11 `cargo doc`** 仍是 SOFT 门禁（TASK-002 已于 2026-10-05 裁决为 **Done**，不再列阻塞）
 下一步动作  ：**TASK-256** — Review：打开真实 Paint 后执行 `production_paint` ignored 验收；通过后再进入 TASK-044 真机十次运行；承接 `DRIFT-256-1` / `DRIFT-044-1` / `PL-113`；`DRIFT-269-1` 已由 TASK-270 闭环
                   → 复验证据见 `docs/audits/stage-1a-reaudit-2026-10-02.md`；详见 `plans/stage-1-pilots.md` 与 `MEMORY.md` §1（派生值一律不写进本文件，ADR-0030 D2）

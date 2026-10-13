@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**TASK-280 Done**（agent-core ui_server.rs 覆盖率 67.20% → 80.11%；PR #358 / merge `99801f1`）；**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）进行中**。
+> 状态：**TASK-281 Done**（tool-bus registry.rs 覆盖率 79.52% → 94.38%；PR #360 / merge `1c19646`）；**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）进行中**。
 > **TASK-041 Done（拆分 A + B）**：ADR-0073 冻结「像素遮挡归平台层 / `NeverPersist` 不保留 `ImageRef` / 滚动清理有界」，`crates/capture` + `crates/dlp/src/redact` 零依赖纯逻辑（15 专项测试）；ADR-0076 落地 Windows GDI `PrintWindow` 单窗口截图 + UIA `IsPassword` 像素遮挡 + `ImageBlobSink` 注入（平台层算内容地址、binary `StorageBlobSink` 用 `crates/storage` 落盘并核对地址，未注入 → 显式 `Fatal`），`DRIFT-041-2` / `PL-112` 闭环；真机截图与真机 blob 落盘由 **TASK-246** 取证。
 > 状态：**TASK-052 Done（ADR-0082 指令来源归因；阶段 1 进行中）**：core 新增 `InstructionOrigin` / `InstructionAttribution` 纯模型，固定四类 token 并按来源校验父目标 / 来源引用；`app_content` 只作高风险信号，UI 继续默认拒绝并需显式覆盖；零 protocol / DB schema 变更。
 > **TASK-230 Done**：storage `0005` 新增 `conversations` + `conversation_messages` 与会话 / 消息树公开记录 API；真实关闭并重开 SQLite 后逐字段一致，缺失会话、非法父子关系和 revision 跳号显式失败，`PL-092` 闭环。
@@ -84,6 +84,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-13 TASK-281 Done（`assistant-tool-bus` ToolDefinition 声明契约）**：新增 5 个公开契约测试；`registry.rs` 行覆盖率从 79.52% 提升到 94.38%（crate 87.93% → 89.91%），生产源码零改动；PR #360 / merge `1c19646`。
 **2026-10-13 TASK-280 Done（`assistant-agent-core` ui-server）**：新增 3 个白盒契约测试；`ui_server.rs` 行覆盖率从 67.20% 提升到 80.11%（crate 76.28% → 76.56%），生产源码零改动；PR #358 / merge `99801f1`。
 **2026-10-13 TASK-279 Done（`assistant-agent-core` storage-session-store）**：新增 4 个公开契约测试；`storage_session_store.rs` 行覆盖率从 76.19% 提升到 84.92%（crate 76.02% → 76.28%），生产源码零改动；PR #356 / merge `6586821`。
 **2026-10-13 TASK-278 Done（`assistant-agent-core` runtime dataflow）**：新增 9 个 dataflow 公共契约测试；`runtime_dataflow.rs` 行覆盖率从 77.12% 提升到 96.73%（crate 75.32% → 76.02%），生产源码零改动；PR #354 / merge `719699a`。
@@ -267,6 +268,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-13 TASK-281 Done（`assistant-tool-bus` ToolDefinition 声明契约）**：新增 5 个公开契约测试覆盖名字规则 / 根 schema fail-closed / 各 builder；`registry.rs` 行覆盖率由 79.52% 提升到 94.38%；全 workspace 门禁与全部 xtask 硬门禁全绿；PR #360 / merge `1c19646`。
 **2026-10-13 TASK-280 Done（`assistant-agent-core` ui-server）**：新增 3 个白盒契约测试覆盖心跳往返 / 异常心跳 / 接收超时续命 / 缺失 token；`ui_server.rs` 行覆盖率由 67.20% 提升到 80.11%；全 workspace 门禁与全部 xtask 硬门禁全绿；PR #358 / merge `99801f1`。
 **2026-10-13 TASK-279 Done（`assistant-agent-core` storage-session-store）**：新增 4 个公开 API 契约测试覆盖 Ended 状态 + 全 role / retention 往返、revision / token 溢出与锁中毒；`storage_session_store.rs` 行覆盖率由 76.19% 提升到 84.92%；全 workspace 门禁与全部 xtask 硬门禁全绿；PR #356 / merge `6586821`。
 **2026-10-13 TASK-278 Done（`assistant-agent-core` runtime dataflow）**：新增 9 个公开 API 契约测试覆盖闭集拒绝 / 比较运算符矩阵 / 类型失败 / 引用解析失败，`runtime_dataflow.rs` 行覆盖率由 77.12% 提升到 96.73%；`cargo llvm-cov -p assistant-agent-core --tests --fail-under-lines 75`、全 workspace 门禁与全部 xtask 硬门禁全绿；PR #354 / merge `719699a`。

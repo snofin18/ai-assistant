@@ -1,6 +1,6 @@
 # TASK-281　tool-bus ToolDefinition 声明契约覆盖率补齐（章程 §2 P2）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**治理/质量**（跨阶段）　批次：**治理池**（ADR-0037 号段 200~299）　依赖：无　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**；`- 状态：` 行按 ADR-0083 为唯一例外）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -89,15 +89,33 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 - `cargo test -p assistant-tool-bus --test definition_contract`：5 passed。
 - `cargo llvm-cov -p assistant-tool-bus --tests --fail-under-lines 89`：EXIT 0；
   crate 行覆盖率 **89.91%**；`registry.rs` 行覆盖率 **94.38%**（region 96.00%）。
-- （完整门禁与 PR / CI / merge 证据在收口与回填后补记。）
+- `cargo fmt --all --check`、`cargo clippy --all-targets -- -D warnings`、
+  `cargo test --workspace`：EXIT 0。
+- xtask：`hygiene` scanned=409 / 0E / 128W / PASSED，`docscan` 0E/264W，
+  `memory-counts`、`adr-index`、`check-ledger`、`card-check`、`refscan`(0E/0W)、
+  `check-comments`、`verify-schemas`、`check-migrations` 全部 PASSED。
+- PR #360；pull_request CI = **11/11 SUCCESS**；合并前 base=`main`、mergeable=`MERGEABLE`、
+  mergeStateStatus=`CLEAN`；merge `1c19646`。
 
 ### 4. DoD 逐条核对
 
-- （收口后逐条填写。）
+- 生产逻辑零改动：满足；仅新增 `crates/tool-bus/tests/definition_contract.rs`。
+- 新增测试只调用公开 API 覆盖声明契约：满足；5 个测试覆盖名字规则、根 schema 拒绝、
+  output / idempotent / tags / approval builder 与注解一致放行。
+- `cargo llvm-cov -p assistant-tool-bus --tests --fail-under-lines 89` 且模块 ≥90%：
+  满足，crate 89.91%、模块 94.38%。
+- `cargo test -p assistant-tool-bus` 全绿：满足。
+- `cargo fmt --all --check` / `clippy --all-targets -- -D warnings` / `test --workspace` 全绿：
+  满足（首次 clippy 报 `redundant clone`，移除后通过）。
+- 全部现行 xtask 硬门禁 PASSED：满足。
+- 热点文件 guard：满足；`LEDGER.md` / `docs/memory/facts.md` / `MEMORY.md`（收口）与
+  `PLAN.md` / `README.md` / `plans/stage-1-pilots.md`（回填）先 acquire 后 release。
 
 ### 5. 偏差
 
-- 无。
+- 首次 commit 又误落在上一张卡的合并回填分支（忘了先开分支）；已在 `origin/main` 上重建
+  `codex/task-281-tool-bus-definition-contract` 并 cherry-pick，旧分支本地指针复位；未 push 错误分支。
+- 首次 `clippy -D warnings` 报 `redundant clone`（`critical.clone()` 后未再用），移除后通过。
 
 ### 6. 更合理做法
 
