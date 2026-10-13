@@ -373,10 +373,12 @@ mod tests {
     }
 
     impl Transport for ScriptedTransport {
+        // STUB(TASK-282): scripted test transport intentionally opens no OS resources.
         fn connect(&mut self, _timeout: Duration) -> assistant_ipc::IpcResult<()> {
             Ok(())
         }
 
+        // STUB(TASK-282): scripted test transport intentionally has no accept step.
         fn accept(&mut self, _timeout: Duration) -> assistant_ipc::IpcResult<()> {
             Ok(())
         }
@@ -405,6 +407,7 @@ mod tests {
                 })
         }
 
+        // STUB(TASK-282): scripted test transport has no OS handle to close.
         fn close(&mut self) -> assistant_ipc::IpcResult<()> {
             Ok(())
         }

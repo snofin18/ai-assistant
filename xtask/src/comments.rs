@@ -110,7 +110,7 @@ pub fn check_rust_source(relative_path: &str, source: &str) -> Vec<Finding> {
     }
     // ⑤ unsafe 缺 `// SAFETY:`
     findings.extend(check_unsafe_safety(relative_path, &scanned));
-    // ⑥ PITFALL 标签格式
+    // ⑥ 结构化坑位标签格式
     findings.extend(check_pitfall_format(relative_path, &scanned.comments));
     // ⑦⑧ 命名类规则只针对**对外命名面**（库 crate 的 src，非生成物）：
     // 测试辅助函数与生成代码不是"给人读的 API 面"，对它们报命名违规只会制造噪声。

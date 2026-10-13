@@ -29,9 +29,11 @@ struct ScriptedTransport {
 }
 
 impl Transport for ScriptedTransport {
+    // STUB(TASK-282): scripted test transport intentionally opens no OS resources.
     fn connect(&mut self, _timeout: Duration) -> assistant_ipc::IpcResult<()> {
         Ok(())
     }
+    // STUB(TASK-282): scripted test transport intentionally has no accept step.
     fn accept(&mut self, _timeout: Duration) -> assistant_ipc::IpcResult<()> {
         Ok(())
     }
@@ -46,6 +48,7 @@ impl Transport for ScriptedTransport {
                 message: "scripted transport exhausted".to_owned(),
             })
     }
+    // STUB(TASK-282): scripted test transport has no OS handle to close.
     fn close(&mut self) -> assistant_ipc::IpcResult<()> {
         Ok(())
     }
@@ -416,9 +419,11 @@ fn test_session_renews_after_a_receive_timeout() {
     }
 
     impl Transport for TimeoutThenDisconnect {
+        // STUB(TASK-282): scripted test transport intentionally opens no OS resources.
         fn connect(&mut self, _timeout: Duration) -> assistant_ipc::IpcResult<()> {
             Ok(())
         }
+        // STUB(TASK-282): scripted test transport intentionally has no accept step.
         fn accept(&mut self, _timeout: Duration) -> assistant_ipc::IpcResult<()> {
             Ok(())
         }
@@ -439,6 +444,7 @@ fn test_session_renews_after_a_receive_timeout() {
                 message: "scripted transport exhausted".to_owned(),
             })
         }
+        // STUB(TASK-282): scripted test transport has no OS handle to close.
         fn close(&mut self) -> assistant_ipc::IpcResult<()> {
             Ok(())
         }
