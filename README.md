@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**TASK-276 Done**（assistant-task-engine 契约覆盖率 90.40% → 91.58%；PR #348 / merge `3b2081e`）；**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）进行中**。
+> 状态：**TASK-277 Done**（agent-core task_package.rs 覆盖率 75.00% → 94.35%；PR #350 / merge `441212f`）；**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）进行中**。
 > **TASK-041 Done（拆分 A + B）**：ADR-0073 冻结「像素遮挡归平台层 / `NeverPersist` 不保留 `ImageRef` / 滚动清理有界」，`crates/capture` + `crates/dlp/src/redact` 零依赖纯逻辑（15 专项测试）；ADR-0076 落地 Windows GDI `PrintWindow` 单窗口截图 + UIA `IsPassword` 像素遮挡 + `ImageBlobSink` 注入（平台层算内容地址、binary `StorageBlobSink` 用 `crates/storage` 落盘并核对地址，未注入 → 显式 `Fatal`），`DRIFT-041-2` / `PL-112` 闭环；真机截图与真机 blob 落盘由 **TASK-246** 取证。
 > 状态：**TASK-052 Done（ADR-0082 指令来源归因；阶段 1 进行中）**：core 新增 `InstructionOrigin` / `InstructionAttribution` 纯模型，固定四类 token 并按来源校验父目标 / 来源引用；`app_content` 只作高风险信号，UI 继续默认拒绝并需显式覆盖；零 protocol / DB schema 变更。
 > **TASK-230 Done**：storage `0005` 新增 `conversations` + `conversation_messages` 与会话 / 消息树公开记录 API；真实关闭并重开 SQLite 后逐字段一致，缺失会话、非法父子关系和 revision 跳号显式失败，`PL-092` 闭环。
@@ -84,6 +84,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-13 TASK-277 Done（`assistant-agent-core` task-package provider）**：新增 6 个 provider 公共契约测试；`task_package.rs` 行覆盖率从 75.00% 提升到 94.35%（crate 75.04% → 75.32%），生产源码零改动；PR #350 / merge `441212f`。
 **2026-10-13 TASK-276 Done（`assistant-task-engine` 公共契约覆盖率）**：新增 6 个预算核算 fail-closed 公共契约测试；独立行覆盖率从 90.40% 提升到 91.58%（`budget.rs` 82.02% → 100.00%），生产源码零改动；PR #348 / merge `3b2081e`。
 **2026-10-13 TASK-275 Done（`assistant-tool-bus` 公共契约覆盖率）**：新增 6 个注册期形状拒绝公共契约测试；独立行覆盖率从 85.62% 提升到 87.93%（`schema/registration.rs` 73.63% → 95.02%），生产源码零改动；PR #346 / merge `85973c5`。
 **2026-10-12 TASK-274 Done（`assistant-automation-host` 公共契约覆盖率）**：新增 3 个 status-file / `write_status` / 缺失 token 公共契约测试；独立行覆盖率从 83.39% 提升到 86.68%，生产源码零改动；PR #328 / merge `3bed141`。
@@ -263,6 +264,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-13 TASK-277 Done（`assistant-agent-core` task-package provider）**：新增 6 个公开 API 契约测试覆盖 provider 元数据 / 访问器 / 缺省 goal / 文件读取失败 / 取消边界，`task_package.rs` 行覆盖率由 75.00% 提升到 94.35%；`cargo llvm-cov -p assistant-agent-core --tests --fail-under-lines 75`、全 workspace 门禁与全部 xtask 硬门禁全绿；PR #350 / merge `441212f`。
 **2026-10-13 TASK-276 Done（`assistant-task-engine` 公共契约覆盖率）**：新增 6 个公开 API 契约测试覆盖预算核算 fail-closed 分支，独立行覆盖率由 90.40% 提升到 91.58%；`cargo llvm-cov -p assistant-task-engine --tests --fail-under-lines 91`、全 workspace 门禁与全部 xtask 硬门禁全绿；PR #348 / merge `3b2081e`。
 **2026-10-13 TASK-275 Done（`assistant-tool-bus` 公共契约覆盖率）**：新增 6 个公开 API 契约测试覆盖注册期形状拒绝，独立行覆盖率由 85.62% 提升到 87.93%；`cargo llvm-cov -p assistant-tool-bus --tests --fail-under-lines 87`、全 workspace 门禁与全部 xtask 硬门禁全绿；PR #346 / merge `85973c5`。
 **2026-10-12 TASK-274 Done（`assistant-automation-host` 公共契约覆盖率）**：新增 3 个公开 API 契约测试，独立行覆盖率由 83.39% 提升到 86.68%；`cargo llvm-cov -p assistant-automation-host --tests --fail-under-lines 85`、全 workspace 门禁、deny、arch、replay 与双平台纯 Rust clippy 全绿；PR #328 / merge `3bed141`。
