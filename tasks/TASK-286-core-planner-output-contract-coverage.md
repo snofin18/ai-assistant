@@ -78,6 +78,8 @@ cargo run -p xtask -- codegen --check; cargo run -p xtask -- check-migrations; c
   非宿主 `x86_64-unknown-linux-gnu` 与 `aarch64-apple-darwin` clippy / `codegen --check` /
   `replay --suite core` / UI `lint` / `typecheck` / `test` 全部 EXIT 0。
 - xtask：`hygiene` 0E/117W、`check-comments` 0E/67W，其余硬门禁 PASSED。
+- PR #371；pull_request CI = 11/11 SUCCESS；合并前 base=main、mergeable=MERGEABLE、
+  mergeStateStatus=CLEAN；merge `b718aa4`。
 
 ### 4. DoD 逐条核对
 
@@ -90,6 +92,8 @@ cargo run -p xtask -- codegen --check; cargo run -p xtask -- check-migrations; c
 - 本轮首选 P3 / P6 均不可执行：`hygiene` 117W 与 `check-comments` 67W 的剩余项全部是
   复杂度 / 文件长度重构或 `as_str` / `element` 等需改**公共 API** 的受控词汇改名（契约动作，
   出无人值守范围）；P6 的 `MEMORY.md` §5 路径与 ADR-0021 分层记忆冲突。按章程回退 P2。
+- 两次内联 shell 写入（heredoc / `sed`）因外层 shell 吞引号而 runaway，在仓库根生成乱码垃圾
+  文件；已终止进程组并 `git clean -fd` 清除，受版本控制内容未受影响；此后一律走 `apply_patch`。
 
 ### 6. 更合理做法
 
