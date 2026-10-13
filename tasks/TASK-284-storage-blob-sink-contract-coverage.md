@@ -75,6 +75,7 @@ cargo run -p xtask -- codegen --check; cargo run -p xtask -- check-migrations; c
 - `fmt` / `clippy -D warnings` / `test --workspace` / `cargo deny check` / UI / arch / replay
   全部 EXIT 0；clippy 仅保留既有 `clippy::assert_is_empty` unknown-lint 噪音。
 - xtask：`hygiene` 0E/117W、`check-comments` 0E/67W、`docscan` 0E/264W，其余硬门禁 PASSED。
+- PR #367；pull_request CI = 11/11 SUCCESS；merge `bff4c12`。
 
 ### 4. DoD 逐条核对
 
