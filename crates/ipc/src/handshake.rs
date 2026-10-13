@@ -433,10 +433,12 @@ mod tests {
     }
 
     impl Transport for MockTransport {
+        // STUB(TASK-282): mock test transport intentionally opens no OS resources.
         fn connect(&mut self, _timeout: Duration) -> IpcResult<()> {
             Ok(())
         }
 
+        // STUB(TASK-282): mock test transport intentionally has no accept step.
         fn accept(&mut self, _timeout: Duration) -> IpcResult<()> {
             Ok(())
         }
@@ -452,6 +454,7 @@ mod tests {
             })
         }
 
+        // STUB(TASK-282): mock test transport has no OS handle to close.
         fn close(&mut self) -> IpcResult<()> {
             Ok(())
         }

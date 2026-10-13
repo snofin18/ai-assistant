@@ -1,3 +1,9 @@
+//! Shared model-gateway test fixtures.
+//!
+//! Responsibility: provide scripted providers, requests, and route contexts for gateway tests.
+//! Boundary: test-only support code; it must not be imported by production crates.
+//! Invariant: fixtures remain deterministic and perform no real network I/O.
+
 #![allow(
     dead_code,
     clippy::expect_used,

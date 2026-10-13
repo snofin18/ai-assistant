@@ -139,7 +139,7 @@ const RESERVED_TOOL_DECLARATIONS: [ToolDeclaration; 11] = {
             "l2_compensation",
             true,
         ),
-        // PITFALL(runtime-tools): the protocol's `ToolReversibility` has no
+        // runtime-tools constraint (DRIFT-214-2): the protocol's `ToolReversibility` has no
         // `none_readonly` variant (the adapter declaration does), so the two
         // read-only reserved tools carry `l0_undo_stack` exactly like the
         // Notepad registry normalises `none_readonly` (DRIFT-214-2).

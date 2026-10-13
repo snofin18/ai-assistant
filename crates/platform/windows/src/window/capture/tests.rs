@@ -1,3 +1,9 @@
+//! Unit tests for Windows window-capture geometry and pixel masking.
+//!
+//! Responsibility: verify pure capture helpers without touching a real desktop.
+//! Boundary: no live `PrintWindow`, HWND capture, or GUI interaction.
+//! Invariant: all fixture buffers and rectangles stay fully in memory.
+
 use super::*;
 
 fn valid_dimensions(width: i64, height: i64) -> CaptureDimensions {

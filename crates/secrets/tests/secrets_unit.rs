@@ -77,6 +77,7 @@ fn test_secret_value_over_limit_is_rejected() {
 fn test_secret_value_implements_zeroize() {
     // 编译期断言：`Zeroize` 是"用后清零"的机器可读证据。
     // 注意：**不**声称运行期可观测 —— 无 `unsafe` 无法在测试里观察已清零的内存。
+    // STUB(TASK-282): compile-time assertion function intentionally has no runtime body.
     fn assert_zeroize<T: Zeroize>() {}
     assert_zeroize::<SecretValue>();
 

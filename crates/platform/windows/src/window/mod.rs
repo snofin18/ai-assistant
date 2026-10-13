@@ -349,6 +349,7 @@ fn capture(
 
 /// 编译期断言：本类型必须满足两个 trait 的 `Send + Sync` 约束（否则 async 方法无法编译）。
 const _: () = {
+    // STUB(TASK-282): compile-time assertion function intentionally has no runtime body.
     const fn assert_send_sync<T: Send + Sync>() {}
     assert_send_sync::<WindowsPlatform>();
 };
