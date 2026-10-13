@@ -1,6 +1,6 @@
 # TASK-276　task-engine 预算核算 fail-closed 契约覆盖率补齐（章程 §2 P2）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**治理/质量**（跨阶段）　批次：**治理池**（ADR-0037 号段 200~299）　依赖：无　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**；`- 状态：` 行按 ADR-0083 为唯一例外）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -87,11 +87,26 @@ cargo run -p xtask -- verify-schemas; cargo run -p xtask -- codegen --check; car
 - `cargo test -p assistant-task-engine --test budget_contract`：6 passed。
 - `cargo llvm-cov -p assistant-task-engine --tests --fail-under-lines 91`：EXIT 0；
   crate 行覆盖率 **91.58%**（region 88.59%），1354 行中 1240 行覆盖；`budget.rs` 行覆盖率 **100.00%**。
-- （完整门禁与 PR / CI / merge 证据在收口与回填后补记。）
+- `cargo fmt --all --check`、`cargo clippy --all-targets -- -D warnings`、
+  `cargo test --workspace`：EXIT 0。
+- xtask：`hygiene` scanned=409 / 0E / 128W / PASSED，`docscan` 0E/264W，
+  `memory-counts`、`adr-index`、`check-ledger`、`card-check`、`refscan`(0E/0W)、
+  `check-comments`、`verify-schemas`、`check-migrations` 全部 PASSED。
+- PR #348；pull_request CI = **11/11 SUCCESS**；合并前 base=`main`、mergeable=`MERGEABLE`、
+  mergeStateStatus=`CLEAN`；merge `3b2081e`。
 
 ### 4. DoD 逐条核对
 
-- （收口后逐条填写。）
+- 生产逻辑零改动：满足；仅新增 `crates/task-engine/tests/budget_contract.rs`。
+- 新增测试只调用公开 API 覆盖预算 fail-closed 契约：满足；6 个测试覆盖 `Budget::new`
+  参数校验、`BudgetUsage` 计数器 / token / cost 溢出、`record_usage` 非法 cost、
+  `Budget::check` 的 token 溢出与 `Within`。
+- `cargo llvm-cov -p assistant-task-engine --tests --fail-under-lines 91`：满足，实测 91.58%。
+- `cargo test -p assistant-task-engine` 全绿：满足。
+- `cargo fmt --all --check` / `clippy --all-targets -- -D warnings` / `test --workspace` 全绿：满足。
+- 全部现行 xtask 硬门禁 PASSED：满足。
+- 热点文件 guard：满足；`LEDGER.md` / `docs/memory/facts.md` / `MEMORY.md`（收口）与
+  `PLAN.md` / `README.md` / `plans/stage-1-pilots.md`（回填）先 acquire 后 release。
 
 ### 5. 偏差
 
