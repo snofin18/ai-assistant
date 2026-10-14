@@ -1,6 +1,6 @@
 # 自动推进章程（Automation Charter）
 
-> 状态：Active　版本：**1.19**　日期：**2026-10-13**　变更历史见 §12
+> 状态：Active　版本：**1.20**　日期：**2026-10-14**　变更历史见 §12
 > 上位：`AGENTS.md`、`docs/governance-ai-agent-execution.md`（gov）、`docs/subagent-orchestration.md`
 > 本文件是**自动化任务**的**唯一权威规则源**。automation（或回退方案的调度器）传给 agent 的 prompt
 > 变更门槛：修改本章程需 ADR。
@@ -49,7 +49,7 @@
 | P3 | 修复既有的 `xtask hygiene` / `check-comments` / clippy 告警 | 告警所在文件 | 只修告警，不顺手改别的 |
 | P4 | 补文档：crate README 的**不变量**一节、`docs/spec/*` 的 **Draft** 草案 | `crates/*/README.md`、`docs/spec/*`（仅新建或标注 Draft） | 草案必须标 `状态：Draft（待人类批准）` |
 | P5 | ADR **草稿**（编号顺延，状态 Draft） | `docs/adr/NNNN-*.draft.md` | **不得**写 `状态：Accepted` |
-| P6 | 汇总代码中的 `PITFALL(...)` 标签进 `MEMORY.md` §5；补录 `LEDGER.md` | `MEMORY.md`、`LEDGER.md`（只追加） | 记忆维护 |
+| P6 | 汇总代码中的 `PITFALL(...)` 标签进 `docs/memory/pitfalls.md`（跨应用）或 `docs/memory/apps/<app>.md` §6（应用专属）；补录 `LEDGER.md` | `docs/memory/pitfalls.md`、`docs/memory/apps/<app>.md`、`LEDGER.md`（只追加） | 记忆维护 |
 | P7 | 实现靶机应用 fixture | `fixtures/apps/**` | 为白盒/回放测试铺路 |
 | P8 | 分析 `docs/PARKING_LOT.md` 条目，产出**建议**（不实现） | `docs/automations/*.md` | 只给分析 |
 
@@ -483,6 +483,7 @@ cron（standalone）与 heartbeat **两种形态**都验过（GATE-0.2）；触�
 | 1.17 | 2026-09-26 | **§11.3 轮次编号取数改为 `main`（禁止数工作区；已占用则顺延、禁止覆盖）+ 新增 §11.12「轮次产物的落地（先落地，再自删）」（ADR-0054）** | 2026-09-26 两个一次性自动化暴露：① 14:15 轮把 DRIFT-206-1 的证据留在未 push 的本地分支后自删 → main 无记录；② 同日两轮都写 `round-1` → 前一轮记录被覆盖 |
 | 1.18 | 2026-10-13 | **运行日边界由本地 12:00 提前到 08:00**（§11.3「运行日归属」改为本地 00:00~07:59 归前一天、08:00~23:59 归当日；§11.1 抖动建议随之改指 08:00 日界）—— **ADR-0088** | 人类 2026-10-13：闸门时间设置不合理，提前到早上 8 点；12:00 边界把上午的白天开工压到前一天，与「运行日 = 干活的那一天」冲突 |
 | 1.19 | 2026-10-13 | **无人值守轮次上限改为派生 + 人类会话重置**（§6：总 diff 1200→2000、`N = ⌊2000/400⌋ = 5`；§11.3：`N_auto` 自最近一次人类会话以来计、人类会话不受闸门）—— **ADR-0089** | 人类 2026-10-13 裁决：N=3 写死不合理（应由 diff 预算派生）；无人值守才需攒批闸门，人类驱动的「一卡一审」不应计入 |
+| 1.20 | 2026-10-14 | **§2 P6 的 PITFALL 落点改为 `docs/memory/`**（跨应用 → `pitfalls.md`、应用专属 → `apps/<app>.md` §6；write scope 去掉 `MEMORY.md`）—— **ADR-0090** | ADR-0021 已把 `MEMORY.md` 重构成 ≤150 行索引、无 §5；2026-10-13 无人值守批次 round 9~12 均因该冲突放弃 P6，需把章程对齐过来 |
 
 ---
 

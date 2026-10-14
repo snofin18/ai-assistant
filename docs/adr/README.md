@@ -99,7 +99,9 @@
 
 | **0089** | `0089-unattended-round-cap-derived-and-human-reset.md` | **Accepted** | 无人值守轮次上限 `N` 改为由 §6 派生（`N = ⌊总 diff 预算 ÷ 单卡 diff 上限⌋`；总 diff 1200 → 2000、单卡 ≤400 ⇒ `N = 5`），且停止闸门只约束无人值守 automation：`N_auto` 自最近一次人类会话轮次以来计、人类会话重置且自身不受闸门（章程 §6 / §11.3；人类 2026-10-13 裁决） |
 
-**下一个可用编号：0090**（= §1 与 §2 已用最大号 **0089** + 1；由 `cargo run -p xtask -- adr-index`
+| **0090** | `0090-charter-p6-pitfall-landing.md` | **Accepted** | 章程 §2 P6 的 `PITFALL(...)` 落点由 `MEMORY.md` §5 改为 `docs/memory/pitfalls.md`（跨应用）/ `docs/memory/apps/<app>.md` §6（应用专属），write scope 去掉 `MEMORY.md`；与 ADR-0021 分层 + AGENTS.md §5.2 对齐（人类 2026-10-14 裁决） |
+
+**下一个可用编号：0091**（= §1 与 §2 已用最大号 **0090** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由
