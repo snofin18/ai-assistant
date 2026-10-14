@@ -1,6 +1,6 @@
 # Codex 原生 scheduled tasks（automations）操作手册
 
-> 状态：Active　版本：**1.16**　日期：**2026-10-13**　变更历史见 §9
+> 状态：Active　版本：**1.17**　日期：**2026-10-14**　变更历史见 §9
 > 上位：**ADR-0029**（自动化的投递机制改回 Codex 官方 scheduled tasks，Supersedes ADR-0018 的「Windows 任务计划程序 + `codex exec`」方案）、`docs/automation-charter.md` §11
 > **用途**：把「Codex 桌面应用的 scheduled tasks / automations 怎么建、怎么改、怎么删、怎么跑、怎么暂停、怎么停」写成可以照着做的操作手册，并且**逐条标明证据强度** —— 哪些是官方写明的、哪些是本机实测的、哪些其实谁都不知道。
 > **适用范围**：本机（Windows + Codex 桌面应用 + 第三方 Responses 兼容端点）。**不覆盖** ChatGPT Work 云端任务；**不覆盖** `codex exec` CLI 路径（那是 ADR-0018 的旧方案，只在 §1 门禁不通过时作为回落手段出现）。
@@ -184,6 +184,23 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 > **仍未验证**：在 UI 里**编辑并保存**这样一条任务会不会把 `COUNT=1` 抹掉（表单重建 RRULE）→ **PL-085**；
 > 在验证前，一次性任务**只在工具侧建立与删除**，不要在 UI 里改它的排期。
 > 证据全文：`docs/memory/facts.md` 2026-09-25 的 `[supersedes]` 条、`docs/PARKING_LOT.md` PL-081 更正行。
+
+> **2026-10-14 实测更正：`BYHOUR` 走的是「本地钟表」，不是 UTC。** 本条**推翻**上面的
+> 「ⓑ 不要用 `COUNT≠1` 或 `UNTIL` —— 它们会掉出「本地钟表」快路径，`BYHOUR` 被按 UTC 解释」
+> 里隐含的「`COUNT=1` 也要按 UTC 写」读法：那条 UTC 观察来自**掉出本地钟表快路径**的规则形状，
+> **不适用于** `RRULE:FREQ=DAILY;COUNT=1;BYHOUR=H;BYMINUTE=M`。
+>
+> 实测（2026-10-14 16:17 +08 建 5 个一次性 automation，建完直接读 `%USERPROFILE%\.codex\sqlite\codex-dev.db`
+> 的 `automations.rrule` / `next_run_at`）：
+>
+> - 先按旧口径写 `BYHOUR=9;BYMINUTE=0`（意图 = 本地 17:00）→ `next_run_at` = **2026-10-15 09:00 +08**（被当成**本地** 9 点，落到次日）。
+> - 改成 `BYHOUR=17;BYMINUTE=0` → `next_run_at` = **2026-10-14 17:00 +08**（✅ 就是本地 17:00）。
+> - 最终 5 个槽位按**本地墙钟**直写：`BYHOUR=17`（17:00）、`19`（19:30）、`22`（22:00）、`0`（00:30）、`3`（03:00），
+>   实测 `next_run_at` 依次为 2026-10-14 17:00 / 19:30 / 22:00 + 2026-10-15 00:30 / 03:00（+08），**相邻间隔均 2.5 h**。
+>
+> 操作口径：**`BYHOUR` 直接填你想要的本时刻小时，不要做 -8 时区换算**（本机 Asia/Shanghai，UTC+8）；
+> 判据仍是 `automations.next_run_at`（epoch ms → +08），不看 UI 文案、也不看 `status`。
+> 本条的「已确认」范围仅限 `FREQ=DAILY;COUNT=1` + `BYHOUR`/`BYMINUTE`；带 `BYMONTHDAY` 等其它 BY* 的形状仍未复测。
 
 #### 4.1.b 完成后自删（第二重保护）—— 让 run 自己删掉自己
 
@@ -519,3 +536,4 @@ heartbeat 约定 18:04:23 → 实际 **18:04:24（约 +1 s）**。→ 计划时�
 | 1.14 | 2026-09-26 | **「先落地，再自删」+ 轮次编号取 `main`（ADR-0054）**：§4.1.b 新增自删的**前置条件**（本轮产生留痕却没可合并 PR → 必须先开 docs-only PR 再自删；唯一例外 = 完全没产生留痕；`-skipped.md` 不属例外）；§4.1.c 的固定块把轮次编号的取数改为 **`main`**（`git ls-tree`，禁止数工作区；路径已占用则顺延、禁止覆盖）；§4.1.c 依据行补 §11.12 | 2026-09-26 两个一次性自动化暴露：① 14:15 轮把 DRIFT-206-1 证据留在未 push 的本地分支后自删；② 同日两轮都写 `round-1`，前一轮记录被覆盖 |
 | 1.15 | 2026-09-28 | **新增建后硬核对，防止固定块只写在手册却漏进 prompt**：在 §4.1.c 的固定块后要求创建成功后立即读取 `automation.toml`，逐项核对锁、运行日、`git ls-tree` 轮次编号、禁止覆盖、阶段报告与先落地后自删；任一缺失必须 update 或重建，不得保留缺固定块的 ACTIVE automation。**反例** = 2026-09-27 运行日 round-2 / round-3 完成产品工作但漏写轮次产物，已 docs-only 回填。 | 人类 2026-09-28 复核要求；ADR-0054；2026-09-27 运行日实际缺失证据 |
 | 1.16 | 2026-10-13 | **prompt 固定块补运行日 / N>3 / 仓库外持久日志**：§4.1.c 从“两件事”改为“三件事”，明确要求先按 §11.3 归运行日、N>3 只补报告不写代码，并在 `%USERPROFILE%\.codex\automations-logs\<run-date>\<automation-id>.jsonl` 留下 start / gates / work / PR / CI / merge / lock_release / self_delete 事件；建后硬核对新增第 ⑦ 项。Codex automation 条目仍必须自删，仓库外日志不删。 | 用户 2026-10-13 裁决；`docs/audits/automation-26-audit-2026-10-13.md`；26 轮审计发现 N>3 漂移与自删后取证缺口 |
+| 1.17 | 2026-10-14 | **§4.1.a 追加「`BYHOUR` 走本地钟表」实测更正块**：旧文里「`BYHOUR` 被按 UTC 解释」的观察只适用于**掉出本地钟表快路径**的规则形状，**不适用于** `FREQ=DAILY;COUNT=1` + `BYHOUR`/`BYMINUTE`。2026-10-14 建 5 个一次性 automation 时当场实测：`BYHOUR=9`（意图本地 17:00）落到 `next_run_at` = 2026-10-15 09:00 +08，改成 `BYHOUR=17` 后 = 2026-10-14 17:00 +08；5 槽位按本地墙钟直写后 `next_run_at` = 17:00 / 19:30 / 22:00（10-14）+ 00:30 / 03:00（10-15），相邻间隔均 2.5 h。口径改为「`BYHOUR` 直接填本地小时，不做 -8 换算」。文件头版本 1.16 → **1.17**。§1 / §3 / §4.0 / §4.1.b~§4.1.c / §4.2~§8 正文一字未改 | 人类 2026-10-14 指令建 5 个一次性自动化（本地 17:00 起、间隔 2.5 h）；`automation_update(mode=create)` × 5 + `mode=update` × 5 + `~/.codex/automations/*/automation.toml` 与 `codex-dev.db` 的 `automations` 表实测；**ADR-0046 D2**（下次建立时当场实测并回填本手册） |
