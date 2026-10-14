@@ -108,7 +108,7 @@ cargo run -p xtask -- codegen --check; cargo run -p xtask -- check-migrations; c
 - 默认建议目标 `crates/core/src/store.rs` 实测 80.33%，但 12 个未覆盖行全部是私有
   `Mutex` 中毒错误闭包；公开 API 测试不可达。按“不要追不可达行”改为同一 P2 白名单内
   的 `crates/verify/src/fingerprint.rs`，未改生产源码。
-- 本轮有 13 次 `exec_command` 误用默认 bash：多为 `cargo` / `Get-Content` / `gh` /
+- 本轮有至少 14 次 `exec_command` 误用默认 bash：多为 `cargo` / `Get-Content` / `gh` /
   `rg` not found，另有行号脚本 shell 语法错误、CLI 输出解析语法错误，以及一次 `git
   switch` 虽意外成功但违反硬要求；均已立即以 `shell: "powershell"` 重跑，没有产生仓库
   垃圾文件或未跑即报通过的命令。
