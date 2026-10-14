@@ -278,3 +278,7 @@
 ## 2026-10-13 追加（ADR-0089，Accepted）
 
 - [2026-10-13][DECISION][src:ADR-0089，按用户 2026-10-13 裁决（变体 2 + N 派生 + 总 diff 2000）；治理变更，无卡] **无人值守轮次上限改为派生 + 人类会话重置**：章程 §6 的「每次运行轮数」改为派生值 `N = ⌊总 diff 预算 ÷ 单卡 diff 上限⌋`（总 diff 1200 → **2000**、单卡 ≤400 ⇒ **N = 5**）；§11.3 的停止闸门只约束**无人值守 automation**，计数量 `N_auto` = 自最近一次人类会话轮次以来 `机制=automation` 的轮次数，人类在场的会话**重置该计数且自身不受闸门**；轮次文件须标 `机制：automation|human`（历史文件不改）。不改轮次命名 / 防覆盖、`.automation.lock`、单卡 400 上限。
+
+## 2026-10-14 追加（ADR-0090，Accepted）
+
+- [2026-10-14][DECISION][src:ADR-0090，按用户 2026-10-14「按你的建议做」授权；治理变更，无卡] **章程 §2 P6 的 PITFALL 落点改为 `docs/memory/`**：跨应用的 `PITFALL(...)` 汇总进 `docs/memory/pitfalls.md`、应用专属的进 `docs/memory/apps/<app>.md` §6，并补录 `LEDGER.md`（只追加）；P6 的 write scope 去掉 `MEMORY.md`（L0 由 Orchestrator 维护，仅 §1 快照 / 规模表变化时改）。对齐 ADR-0021 分层与 AGENTS.md §5.2；**不改 ADR-0021 / AGENTS.md / docs/memory/README.md**（它们已是正确口径）。

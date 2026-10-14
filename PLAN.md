@@ -7,7 +7,7 @@
 ## 当前状态
 
 ```text
-更新日期    ：2026-10-13（**TASK-286 Done**（core planner 模型输出解析契约覆盖率；`planner.rs` 80.00% → 93.25%、`assistant-core` crate 90.04% → 92.09%；新增 17 个跨平台契约测试；生产源码零改动；PR #371 / merge `b718aa4`）；此前 **TASK-285 Done**（policy 规则模型校验契约覆盖率；PR #369 / merge `93173a3`）；同日 **TASK-284 Done**（PR #367 / merge `bff4c12`）；TASK-275~283 Done + ADR-0088 / ADR-0089 治理）
+更新日期    ：2026-10-14（**ADR-0090 治理变更**：§2 P6 的 `PITFALL` 落点改为 `docs/memory/`；此前 TASK-286 Done（core planner 80.00% → 93.25%；PR #371 / merge `b718aa4`））
 当前阶段    ：**阶段 1（三试点闭环）进行中**；**TASK-286 Done**（core planner 模型输出解析契约覆盖率；`planner.rs` 80.00% → 93.25%，`assistant-core` crate 90.04% → 92.09%；新增 17 个跨平台契约测试；生产源码零改动；PR #371 / merge `b718aa4`）；**TASK-285 Done**（policy 规则模型校验契约覆盖率；`model.rs` 83.64% → 100.00%，crate 92.25% → 95.03%；生产源码零改动；PR #369 / merge `93173a3`）；**TASK-284 Done**（StorageBlobSink 公共契约覆盖率；`blob_sink.rs` 54.39% → 100.00%、crate 76.56% → 76.86%；生产源码零改动；PR #367 / merge `bff4c12`）；TASK-257 / TASK-256 Review。
 当前任务卡  ：**TASK-286 Done**（core planner 模型输出解析契约覆盖率；`planner.rs` 80.00% → 93.25%；新增 17 个跨平台契约测试；生产源码零改动；PR #371 / merge `b718aa4`）；**TASK-285 Done**（policy 规则模型校验契约覆盖率；生产源码零改动；PR #369 / merge `93173a3`）；**TASK-284 Done**（StorageBlobSink 公共契约覆盖率；生产源码零改动；PR #367 / merge `bff4c12`）；**TASK-257 Review**；**TASK-256 Review**（等待真机 Paint 校准）；下一张待 Orchestrator 派单；
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done
