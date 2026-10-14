@@ -282,3 +282,7 @@
 ## 2026-10-14 追加（ADR-0090，Accepted）
 
 - [2026-10-14][DECISION][src:ADR-0090，按用户 2026-10-14「按你的建议做」授权；治理变更，无卡] **章程 §2 P6 的 PITFALL 落点改为 `docs/memory/`**：跨应用的 `PITFALL(...)` 汇总进 `docs/memory/pitfalls.md`、应用专属的进 `docs/memory/apps/<app>.md` §6，并补录 `LEDGER.md`（只追加）；P6 的 write scope 去掉 `MEMORY.md`（L0 由 Orchestrator 维护，仅 §1 快照 / 规模表变化时改）。对齐 ADR-0021 分层与 AGENTS.md §5.2；**不改 ADR-0021 / AGENTS.md / docs/memory/README.md**（它们已是正确口径）。
+
+## 2026-10-14 追加（ADR-0091，Accepted）
+
+- [2026-10-14][DECISION][src:ADR-0091，按用户 2026-10-14「按A做」授权；TASK-256 `DRIFT-256-3`] **新增 `SelectorKind::ExactNameAndRole`**：取值 `SelectorValue::ExactNameAndRole { name, role }`，Windows 用 UIA `AndCondition(NameProperty, ControlTypePropertyId)` 实现；逐字符相等（**不带** `MatchSubstring`）、`role` 走非本地化角色词表、空 `name` → `ToolInvalidArgs`、未知 `role` / 0 / 多命中 fail-closed；`locale_dependent=true`、最低分兜底。**加法式**（两个枚举都是 `#[non_exhaustive]`），不改 `protocol/**` schema / `ErrorCode` / 既有候选种类；回放（`crates/replay`）同语义，Windows 窗口域返回 `Unsupported`。用于真实 Paint 形状库「容器与其 `DropDownButton` 同名 `形状`」造成的 `TargetAmbiguous`。

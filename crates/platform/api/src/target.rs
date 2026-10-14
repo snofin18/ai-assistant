@@ -9,7 +9,7 @@
 //! 3. `locale_dependent` 的候选在多语言环境下**自动降权**（§6.3：`score *= 0.5`），
 //!    降权只影响**顺序**，绝不自动新增候选（§6.3 自愈规则：避免不可解释的行为）。
 //! 4. **禁用可见文本作主 selector**（AGENTS.md §7 + ADR-0022 D4）：`TitleRegex` / `NameRegex` /
-//!    `ExactName` / `A11yPath` / `VisualAnchor` 都只能作低分兜底，且**必须**标
+//!    `ExactName` / `ExactNameAndRole` / `A11yPath` / `VisualAnchor` 都只能作低分兜底，且**必须**标
 //!    `locale_dependent = true`。
 //!
 //! 相关：架构 v2 §6.2 / §6.3 / §6.4（定位禁止事项）、ADR-0022 D4、`docs/spec/naming.md` §7。
@@ -46,6 +46,14 @@ pub enum SelectorKind {
     /// `MatchSubstring`，因此 `形状` 不会命中 `形状轮廓`。取值必须是
     /// [`SelectorValue::Text`]，0 / 多命中由平台解析层显式失败。
     ExactName,
+    /// 控件可见文本精确相等 **且** 角色匹配 —— **本地化相关**，最低分兜底（ADR-0091）。
+    ///
+    /// 为什么需要它：真实 Paint 11.2605.81.0 里形状库容器（`NamedContainerAutomationPeer` /
+    /// `Group`）与它自己的 `DropDownButton`（`Button`）**同名** `形状` —— 只按名字（[`Self::ExactName`]）
+    /// 会命中 2 个元素并报 `TargetAmbiguous`。Windows 通过 UIA
+    /// `AndCondition(NameProperty == value, ControlTypePropertyId == role)` 实现；
+    /// 取值必须是 [`SelectorValue::ExactNameAndRole`]，0 / 多命中由平台解析层显式失败。
+    ExactNameAndRole,
     /// 视觉锚点（OCR 文本 + 区域）—— 最低分兜底。
     VisualAnchor,
 }
@@ -62,6 +70,13 @@ pub enum SelectorValue {
         /// 控件类名。
         class: String,
         /// 无障碍角色。
+        role: String,
+    },
+    /// 精确名 + role 组合（ADR-0091）。
+    ExactNameAndRole {
+        /// 控件可见文本（逐字符相等，**不带**子串匹配）。
+        name: String,
+        /// 无障碍角色（非本地化角色名，与 [`Self::ClassAndRole`] 的 `role` 同一词表）。
         role: String,
     },
     /// role + 父元素引用。

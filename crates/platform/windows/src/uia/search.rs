@@ -99,6 +99,16 @@ pub(super) fn find_all(
                 "ExactName 候选必须用 SelectorValue::Text 表达取值",
             )),
         },
+        // ADR-0091：精确名 + role 组合。用于同名元素可及、但角色可区分的场景
+        // （真实 Paint 形状库容器与它自己的 DropDownButton 同名 `形状`，只按名字会 `TargetAmbiguous`）。
+        assistant_platform_api::SelectorKind::ExactNameAndRole => match candidate.value() {
+            SelectorValue::ExactNameAndRole { name, role } => {
+                name_and_role_search(scope, name, role)
+            }
+            _ => Ok(SearchOutcome::Unsupported(
+                "ExactNameAndRole 候选必须用 SelectorValue::ExactNameAndRole 表达取值",
+            )),
+        },
         // DRIFT-017-4：本卡没有 regex 引擎（加依赖 = 漂移触发器 ①），改用 UIA 原生的
         // **子串**匹配（`PropertyConditionFlags_MatchSubstring`）。只可能漏命中，不会假命中。
         assistant_platform_api::SelectorKind::NameRegex
@@ -181,6 +191,37 @@ fn class_and_role_search(
             property_condition(automation, UIA_ControlTypePropertyId, control_type.0)?;
         // SAFETY: 两个条件在调用期间存活，UIA 只引用它们。
         let condition = unsafe { automation.CreateAndCondition(&class_condition, &role_condition) }
+            .map_err(|failure| error::error_from_hresult(failure.code().0, "CreateAndCondition"))?;
+        collect_matches(scope, &condition)
+    })?;
+    Ok(SearchOutcome::Matches(elements))
+}
+
+/// `Name`（**精确相等**）+ `ControlType` 组合搜索（ADR-0091）。
+///
+/// 与 [`class_and_role_search`] 同形：`AndCondition`；空名 / 未知角色一律 `Unsupported`，
+/// **绝不**退化成"只按名字" —— 那正是 ADR-0091 要消除的歧义源。
+fn name_and_role_search(
+    scope: &IUIAutomationElement,
+    name: &str,
+    role: &str,
+) -> PlatformResult<SearchOutcome<IUIAutomationElement>> {
+    if name.is_empty() {
+        return Ok(SearchOutcome::Unsupported(
+            "ExactNameAndRole 的 name 为空：空取名会匹配一切，拒绝执行（配置错误）",
+        ));
+    }
+    let Some(control_type) = uia::control_type_from_role(role) else {
+        return Ok(SearchOutcome::Unsupported(
+            "ExactNameAndRole 的 role 不是已知的非本地化角色名",
+        ));
+    };
+    let elements = com::with_automation(|automation| {
+        let name_condition = property_condition(automation, UIA_NamePropertyId, name)?;
+        let role_condition =
+            property_condition(automation, UIA_ControlTypePropertyId, control_type.0)?;
+        // SAFETY: 两个条件在调用期间存活，UIA 只引用它们。
+        let condition = unsafe { automation.CreateAndCondition(&name_condition, &role_condition) }
             .map_err(|failure| error::error_from_hresult(failure.code().0, "CreateAndCondition"))?;
         collect_matches(scope, &condition)
     })?;

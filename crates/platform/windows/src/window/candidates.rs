@@ -92,6 +92,9 @@ pub fn match_window(facts: &WindowFacts, candidate: &SelectorCandidate) -> Candi
         SelectorKind::A11yPath => CandidateMatch::Unsupported(
             "A11yPath 需要无障碍树路径遍历；窗口域未实现（元素域见 uia::resolve）",
         ),
+        SelectorKind::ExactNameAndRole => CandidateMatch::Unsupported(
+            "ExactNameAndRole 用于元素域（顶层窗口的 UIA 角色恒为 Window；窗口用 TitleRegex / ClassAndRole）",
+        ),
         SelectorKind::VisualAnchor => {
             CandidateMatch::Unsupported("VisualAnchor 需要视觉 / OCR 通道（TASK-041 / 042）")
         }

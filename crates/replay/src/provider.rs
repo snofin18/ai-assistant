@@ -397,6 +397,31 @@ fn resolve_element(
     ))
 }
 
+/// ADR-0091: the replay matcher for `ExactNameAndRole`, kept in lockstep with the Windows UIA
+/// `AndCondition(NameProperty, ControlTypePropertyId)` search (empty name = config error).
+fn exact_name_and_role_matches<'a>(
+    recording: &'a Recording,
+    value: &SelectorValue,
+) -> PlatformResult<Vec<&'a RecordedNode>> {
+    let SelectorValue::ExactNameAndRole { name, role } = value else {
+        return Err(platform_error(
+            ErrorCode::CapabilityMissing,
+            "ExactNameAndRole candidate requires SelectorValue::ExactNameAndRole",
+        ));
+    };
+    if name.is_empty() {
+        return Err(platform_error(
+            ErrorCode::ToolInvalidArgs,
+            "ExactNameAndRole candidate name must not be empty; refusing to match every node",
+        ));
+    }
+    Ok(recording
+        .nodes()
+        .iter()
+        .filter(|node| node.name() == name && node.role() == role)
+        .collect())
+}
+
 fn resolve_candidate<'a>(
     recording: &'a Recording,
     chain: &SelectorChain,
@@ -439,6 +464,10 @@ fn resolve_candidate<'a>(
             .iter()
             .filter(|node| node.class_name() == Some(class.as_str()) && node.role() == role)
             .collect(),
+        // ADR-0091：回放必须与 Windows 的 UIA 精确 Name + ControlType 组合保持同语义。
+        (SelectorKind::ExactNameAndRole, value) => {
+            return exact_name_and_role_matches(recording, value);
+        }
         (SelectorKind::RoleAndParent, SelectorValue::RoleAndParent { role, parent_id }) => {
             let Some(parent_candidate) = chain
                 .candidates()
