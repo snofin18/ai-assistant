@@ -198,6 +198,28 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
   B. 给 `SelectorValue::ClassAndRole` 增加可选 `name` 字段（改动既有公共形状，风险更大）。
   倾向 **A**：落地后把 `shape-gallery-*` 的父候选换成 `ExactNameAndRole(name=形状, role=group)`，其余链不动。
 
+**2026-10-14 人类裁决「按A做」+ ADR-0091 落地 + DRIFT-256-4（漂移触发器 ⑤ / ⑨）**：
+
+- 人类 2026-10-14 裁决「按A做」→ 立 **ADR-0091**（`SelectorKind::ExactNameAndRole`），
+  已合并 **PR #376 / `611a067`**（pull_request CI = 11/11 SUCCESS，MERGEABLE + CLEAN + base=main）。
+  候选种类部分已落地：`crates/platform/api` 新变体 + 模块不变量兜底清单 + 契约测试、
+  `crates/platform/windows::uia::search::name_and_role_search`（`AndCondition(NameProperty, ControlTypePropertyId)`）、
+  `crates/replay` 匹配器；窗口域对 `ExactNameAndRole` 返回 `Unsupported`。**未改** protocol schema /
+  ErrorCode / 既有候选种类（加法式，两枚举均 `#[non_exhaustive]`）。
+- **现象**：在本卡 write scope 内落地 handler / adapter 需要 ——
+  ①把 `shape-gallery-*` 父候选从 `ExactName` 换成 `ExactNameAndRole(name=形状, role=group)`；
+  ②加入折叠按钮 `AutomationId=CollapsedButton` 的展开动作（真机上 `InvokePattern` 可用、
+  `ExpandCollapsePattern::Expand()` 失败）；③以 Button + `TogglePattern` 处理形状项，
+  并对 `GridView` **异步物化**做固定次数 × 间隔的有界轮询。三处加法实测使
+  `apps/agent-core/src/paint_handlers.rs` 涨到 **949 行**，触发 `hygiene/file-too-long`
+  （**900 行硬上限**）。
+- **影响**：TASK-256 的 handler / adapter 落地受阻；本卡 write scope 内无法在不超过硬上限的
+  前提下完成这一轮改动，fake 平台与 eval 的同步改动同样受影响。
+- **已停工作**：把 `paint_handlers.rs` / adapter / fake 的加法以 `git checkout --` 回退，
+  不在 TASK-256 内提交超限 WIP；ADR-0091 的候选种类部分作为独立治理变更先落地（PR #376）。
+- **建议（需人类裁决）**：另立 **拆文件卡**（拆分 `paint_handlers.rs`，例如按工具 / 颜色 / 图层
+  拆分子模块），完成后再恢复 TASK-256 的 adapter / handler 落地与真机验收。TASK-256 保持 **Blocked**。
+
 ### 6. 更合理做法
 
 先复用已合并的 ExactName 契约，再把真实控件可提供的 `SelectionItemPattern::IsSelected`
