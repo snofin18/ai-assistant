@@ -112,7 +112,7 @@ cargo run -p xtask -- codegen --check; cargo run -p xtask -- check-migrations; c
 - `pnpm` 首次在仓库根执行，因根目录无 `package.json` 得到
   `ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND`；随后在正确的 `apps/desktop-ui` 目录重跑，
   lint / typecheck / test 全绿。
-- 至少 12 次 `exec_command` 误用默认 bash，均为读取 / 解析 / git 命令：
+- 至少 14 次 `exec_command` 误用默认 bash，均为读取 / 解析 / git 命令：
   `Get-Content` / `cargo` / PowerShell cmdlet 不存在或语法被 bash 误解析；均已立即以
   `shell: "powershell"` 重跑，没有仓库垃圾文件或未跑即报通过。
 
@@ -124,7 +124,8 @@ cargo run -p xtask -- codegen --check; cargo run -p xtask -- check-migrations; c
 
 ### 7. 遗留问题
 
-- 无产品遗留；PR #392、CI run `38600729795` 与 merge `60947ff` 已在回填提交补齐。
+- 无产品遗留；主 PR #392 / merge `60947ff` 与回填 PR #393 / merge `6b36cb5`
+  均已落地；CI run `38600729795` / `38602644835` 记录在回填提交。
 
 ### 8. 新增长期记忆
 
