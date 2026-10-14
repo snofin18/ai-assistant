@@ -20,29 +20,30 @@
 //! Related documents: ADR-0084, ADR-0085, ADR-0067, ADR-0076, and
 //! `adapters/com.microsoft.paint/tools/tools.json`.
 use crate::handler_support as support;
-use crate::target_lease::{TargetLeaseGate, window_lease_key};
+use crate::target_lease::TargetLeaseGate;
 use assistant_platform_api::{
-    CaptureOptions, CoordinateSpace, ElementBounds, Fingerprint, FingerprintScope, ImageRef,
-    KeyChord, KeyModifier, KeyTarget, PointerAction, ResolvedElement, ResolvedWindow, Selection,
-    UiAutomationProvider, WindowProvider,
+    CoordinateSpace, ElementBounds, KeyModifier, Selection, UiAutomationProvider, WindowProvider,
 };
 use assistant_protocol::serde_json;
-use assistant_storage::BlobId;
 use assistant_tool_bus::{ToolBusError, ToolOutput};
 use serde_json::{Map, Value, json};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+#[path = "paint_handler_actions.rs"]
+mod paint_handler_actions;
 #[path = "paint_handler_map.rs"]
 mod paint_handler_map;
+#[path = "paint_handler_selection.rs"]
+mod paint_handler_selection;
 #[path = "paint_handler_support.rs"]
 mod paint_handler_support;
 pub use paint_handler_map::build_handler_map;
+use paint_handler_selection::{ResolvedPointSlot, paint_layer_contract, palette_index};
 use paint_handler_support::{
-    bounds_json, canvas_point_to_physical, elapsed_ms, image_descriptor, normalized_point,
-    parse_canvas_size, parse_coordinate_space, parse_draw_request, required_i32,
-    required_non_negative_i32, required_positive_f64, required_string, required_u8, tool_target,
-    unavailable, verify_failed,
+    bounds_json, canvas_point_to_physical, elapsed_ms, image_descriptor, parse_canvas_size,
+    parse_coordinate_space, parse_draw_request, required_i32, required_non_negative_i32,
+    required_positive_f64, required_string, required_u8, tool_target, unavailable, verify_failed,
 };
 /// `paint.document.new` tool name.
 pub const TOOL_DOCUMENT_NEW: &str = "paint.document.new";
@@ -538,329 +539,6 @@ where
             "previous_fingerprint": fingerprint.as_str(),
             "elapsed_ms": 0,
         }))
-    }
-    fn resolve_window(&self, target: &str, tool: &str) -> Result<ResolvedWindow, ToolBusError> {
-        let descriptor =
-            self.targets
-                .descriptor(target)
-                .map_err(|error| ToolBusError::EnvelopeAssembly {
-                    tool: tool.to_owned(),
-                    reason: error.to_string(),
-                })?;
-        let result = support::poll_immediate(
-            self.platform.resolve_window(descriptor),
-            tool,
-            "resolve_window",
-        )?;
-        result.map_err(|error| support::map_platform_error(tool, &error))
-    }
-    fn resolve_element(
-        &self,
-        target: &str,
-        scope: &ResolvedWindow,
-        tool: &str,
-    ) -> Result<ResolvedElement, ToolBusError> {
-        let descriptor =
-            self.targets
-                .descriptor(target)
-                .map_err(|error| ToolBusError::EnvelopeAssembly {
-                    tool: tool.to_owned(),
-                    reason: error.to_string(),
-                })?;
-        let chain =
-            assistant_platform_api::SelectorChain::new(descriptor.element_candidates().to_vec());
-        let result = support::poll_immediate(
-            self.platform.resolve_element(scope, &chain),
-            tool,
-            "resolve_element",
-        )?;
-        result.map_err(|error| support::map_platform_error(tool, &error))
-    }
-    fn resolve_layer_list(
-        &self,
-        window: &ResolvedWindow,
-        tool: &str,
-    ) -> Result<(ResolvedElement, bool), ToolBusError> {
-        match self.resolve_element(TARGET_LAYER_ITEM, window, tool) {
-            Ok(layer_list) => Ok((layer_list, false)),
-            Err(ToolBusError::UnknownTool { .. }) => {
-                let toggle = self.resolve_element(TARGET_LAYERS_TOGGLE, window, tool)?;
-                self.invoke_element(&toggle, "toggle", tool)?;
-                let layer_list = self.resolve_element(TARGET_LAYER_ITEM, window, tool)?;
-                Ok((layer_list, true))
-            }
-            Err(error) => Err(error),
-        }
-    }
-    fn element_bounds(
-        &self,
-        element: &ResolvedElement,
-        tool: &str,
-    ) -> Result<ElementBounds, ToolBusError> {
-        let result = support::poll_immediate(
-            self.platform.element_bounds(element),
-            tool,
-            "element_bounds",
-        )?;
-        result.map_err(|error| support::map_platform_error(tool, &error))
-    }
-    fn read_element_text(
-        &self,
-        element: &ResolvedElement,
-        tool: &str,
-    ) -> Result<String, ToolBusError> {
-        let result = support::poll_immediate(self.platform.read_text(element), tool, "read_text")?;
-        result.map_err(|error| support::map_platform_error(tool, &error))
-    }
-    fn invoke_element(
-        &self,
-        element: &ResolvedElement,
-        action: &str,
-        tool: &str,
-    ) -> Result<(), ToolBusError> {
-        let result = support::poll_immediate(
-            self.platform.invoke_action(element, action),
-            tool,
-            "invoke_action",
-        )?;
-        result.map_err(|error| support::map_platform_error(tool, &error))
-    }
-    fn select_element(
-        &self,
-        element: &ResolvedElement,
-        selection: &Selection,
-        tool: &str,
-    ) -> Result<(), ToolBusError> {
-        let result =
-            support::poll_immediate(self.platform.select(element, selection), tool, "select")?;
-        result.map_err(|error| support::map_platform_error(tool, &error))
-    }
-    fn fingerprint_event(
-        &self,
-        window: &ResolvedWindow,
-        tool: &str,
-    ) -> Result<Fingerprint, ToolBusError> {
-        let result = support::poll_immediate(
-            self.platform
-                .fingerprint(window, &FingerprintScope::WholeWindow),
-            tool,
-            "fingerprint",
-        )?;
-        result.map_err(|error| support::map_platform_error(tool, &error))
-    }
-    fn send_key(
-        &self,
-        task_id: &str,
-        window: &ResolvedWindow,
-        key: &str,
-        modifiers: Vec<KeyModifier>,
-        tool: &str,
-    ) -> Result<(), ToolBusError> {
-        let lease_key = window_lease_key(&self.app_id, window.id(), tool)?;
-        self.input_leases.run(task_id, lease_key, tool, || {
-            let chord = KeyChord::new(key.to_owned(), modifiers);
-            let result = support::poll_immediate(
-                self.platform
-                    .key_action(&chord, &KeyTarget::Window(window.clone())),
-                tool,
-                "key_action",
-            )?;
-            result.map_err(|error| support::map_platform_error(tool, &error))
-        })
-    }
-    fn drag(
-        &self,
-        task_id: &str,
-        window: &ResolvedWindow,
-        coordinate_space: &CoordinateSpace,
-        points: DragRequest,
-        tool: &str,
-    ) -> Result<(), ToolBusError> {
-        let start = normalized_point(points.start, coordinate_space, tool)?;
-        let drop_at = normalized_point(points.end, coordinate_space, tool)?;
-        let action = PointerAction::DragTo {
-            drop_at,
-            drop_coordinate_space: coordinate_space.clone(),
-        };
-        let lease_key = window_lease_key(&self.app_id, window.id(), tool)?;
-        self.input_leases.run(task_id, lease_key, tool, || {
-            let result = support::poll_immediate(
-                self.platform
-                    .pointer_action(coordinate_space, start, &action),
-                tool,
-                "pointer_action",
-            )?;
-            result.map_err(|error| support::map_platform_error(tool, &error))
-        })
-    }
-
-    fn capture_window(
-        &self,
-        window: &ResolvedWindow,
-        tool: &str,
-    ) -> Result<ImageRef, ToolBusError> {
-        let result = support::poll_immediate(
-            self.platform.capture(window, &CaptureOptions::new(true)),
-            tool,
-            "capture",
-        )?;
-        let image = result.map_err(|error| support::map_platform_error(tool, &error))?;
-        BlobId::parse(image.blob_id()).map_err(|error| ToolBusError::EnvelopeAssembly {
-            tool: tool.to_owned(),
-            reason: format!("capture returned an invalid content address: {error}"),
-        })?;
-        Ok(image)
-    }
-
-    fn reset_selection(&self) -> Result<(), ToolBusError> {
-        *self
-            .selection
-            .lock()
-            .map_err(|_| unavailable("paint selection state"))? = PaintSelectionState::default();
-        Ok(())
-    }
-
-    fn selection_tool(&self) -> Result<Option<String>, ToolBusError> {
-        Ok(self
-            .selection
-            .lock()
-            .map_err(|_| unavailable("paint selection state"))?
-            .tool
-            .clone())
-    }
-
-    fn selection_color(&self) -> Result<Option<String>, ToolBusError> {
-        Ok(self
-            .selection
-            .lock()
-            .map_err(|_| unavailable("paint selection state"))?
-            .color
-            .clone())
-    }
-
-    fn selection_layer_id(&self) -> Result<Option<String>, ToolBusError> {
-        Ok(self
-            .selection
-            .lock()
-            .map_err(|_| unavailable("paint selection state"))?
-            .layer
-            .as_ref()
-            .map(|layer| layer.id.clone()))
-    }
-
-    fn next_document_generation(&self) -> Result<u64, ToolBusError> {
-        let mut generation = self
-            .document_generation
-            .lock()
-            .map_err(|_| unavailable("paint document generation state"))?;
-        let next = generation
-            .checked_add(1)
-            .ok_or_else(|| ToolBusError::EnvelopeAssembly {
-                tool: TOOL_DOCUMENT_NEW.to_owned(),
-                reason: "document generation reached u64::MAX".to_owned(),
-            })?;
-        *generation = next;
-        drop(generation);
-        Ok(next)
-    }
-
-    fn resolved_point(
-        &self,
-        canvas: CanvasPoint,
-        slot: ResolvedPointSlot,
-        tool: &str,
-    ) -> Result<PhysicalPointPx, ToolBusError> {
-        let state = self
-            .selection
-            .lock()
-            .map_err(|_| unavailable("paint selection state"))?;
-        let point = match slot {
-            ResolvedPointSlot::Start => state.start_point.as_ref(),
-            ResolvedPointSlot::End => state.end_point.as_ref(),
-        }
-        .ok_or_else(|| {
-            verify_failed(format!(
-                "{tool}: canvas point ({}, {}) was not resolved by a prior step",
-                canvas.horizontal, canvas.vertical
-            ))
-        })?;
-        if point.canvas.horizontal != canvas.horizontal || point.canvas.vertical != canvas.vertical
-        {
-            return Err(verify_failed(format!(
-                "{tool}: resolved {} point ({}, {}) does not match draw arguments ({}, {})",
-                slot.label(),
-                point.canvas.horizontal,
-                point.canvas.vertical,
-                canvas.horizontal,
-                canvas.vertical
-            )));
-        }
-        let resolved = point.screen;
-        drop(state);
-        Ok(resolved)
-    }
-
-    fn verified_active_layer(
-        &self,
-        request: &DrawRequest,
-    ) -> Result<PaintLayerSelection, ToolBusError> {
-        let state = self
-            .selection
-            .lock()
-            .map_err(|_| unavailable("paint selection state"))?;
-        if state.tool.as_deref() != Some(request.expected_tool.as_str()) {
-            return Err(verify_failed(format!(
-                "{TOOL_CANVAS_DRAW_RECTANGLE}: active tool is {:?}, expected `{}`",
-                state.tool, request.expected_tool
-            )));
-        }
-        if state.color.as_deref() != Some(request.expected_color.as_str()) {
-            return Err(verify_failed(format!(
-                "{TOOL_CANVAS_DRAW_RECTANGLE}: active color is {:?}, expected `{}`",
-                state.color, request.expected_color
-            )));
-        }
-        let layer = state.layer.clone().ok_or_else(|| {
-            verify_failed(format!(
-                "{TOOL_CANVAS_DRAW_RECTANGLE}: active layer is unavailable"
-            ))
-        })?;
-        if layer.id != request.expected_layer_id {
-            return Err(verify_failed(format!(
-                "{TOOL_CANVAS_DRAW_RECTANGLE}: active layer is not `{}`",
-                request.expected_layer_id
-            )));
-        }
-        drop(state);
-        Ok(layer)
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-enum ResolvedPointSlot {
-    Start,
-    End,
-}
-
-impl ResolvedPointSlot {
-    const fn label(self) -> &'static str {
-        match self {
-            Self::Start => "start",
-            Self::End => "end",
-        }
-    }
-}
-
-fn palette_index(red: u8, green: u8, blue: u8) -> Option<u32> {
-    PAINT_PALETTE
-        .iter()
-        .find_map(|&(rgb, index)| (rgb == (red, green, blue)).then_some(index))
-}
-
-fn paint_layer_contract(layer_id: &str) -> Option<(u32, &'static str)> {
-    match layer_id {
-        "layer-1" => Some((0, "Layer 1")),
-        _ => None,
     }
 }
 
