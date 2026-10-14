@@ -147,8 +147,8 @@ cargo deny check
 
 - 主 PR：**#388**；merge hash：**4e9bce6**；pull_request run `38580201376`：
   **11/11 SUCCESS**；合并前 base=main、mergeable=MERGEABLE、mergeStateStatus=CLEAN。
-- 偏差计数校正：主 PR 记录时写 11 次 bash 误用；合并与回填期间又发生 13 次（含
+- 偏差计数校正：主 PR 记录时写 11 次 bash 误用；合并、回填与清理期间又发生 16 次（含
   `Start-Sleep` / `$env:` / 多行非 ASCII 替换脚本在默认 bash 下失败），故诚实口径为
-  **24 次**。其中一次 bash 展开在仓库根留下 4 个 0 字节非 ASCII 文件，已逐个核对为
+  **27 次**。其中一次 bash 展开在仓库根留下 4 个 0 字节非 ASCII 文件，已逐个核对为
   工作区内未跟踪文件后用 `[IO.File]::Delete` 清除；所有失败均立即以 PowerShell 重跑，
   无未跑即报通过。
