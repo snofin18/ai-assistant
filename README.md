@@ -4,7 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
-> 状态：**TASK-290 Done（PL-010：LEDGER `pending` 口径；docs-only；PR #388 / merge `4e9bce6`）**；**TASK-289 Done**（verify fingerprint 公开契约覆盖率；`fingerprint.rs` 83.55% → 96.71%、crate 90.82% → 92.04%；新增 3 个公开 API 契约测试；生产源码零改动；PR #384 / merge `8d4534a`）；**TASK-288 Done**（verify 视觉公开契约覆盖率；`visual/assert.rs` 81.44% → 89.36%、crate 88.51% → 90.82%；生产源码零改动；PR #382 / merge `d45c1eb`）；**TASK-287 Done**（拆分 `paint_handlers.rs`：UIA / 输入原语与选中态 / 几何辅助抽到 `paint_handler_actions.rs` / `paint_handler_selection.rs`，主文件 900 → 578 行；纯搬移、行为零变更；`hygiene/file-too-long` 对该文件告警清零；PR #378 / merge `226b86d`）；**TASK-286 Done**（core planner 模型输出解析契约覆盖率；`planner.rs` 80.00% → 93.25%、`assistant-core` crate 90.04% → 92.09%；新增 17 个跨平台契约测试；生产源码零改动；PR #371 / merge `b718aa4`）；**TASK-285 Done**（policy 规则模型校验契约覆盖率；`model.rs` 83.64% → 100.00%、policy crate 92.25% → 95.03%；PR #369 / merge `93173a3`）；**TASK-284 Done**（`StorageBlobSink` 公共契约覆盖率；`blob_sink.rs` 54.39% → 100.00%、crate 76.56% → 76.86%；PR #367 / merge `bff4c12`）；**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）进行中**。
+> 状态：**TASK-291 Done（audit 错误公开契约覆盖率；error.rs 52.27% → 100.00%、crate 90.44% → 95.87%；生产源码零改动；PR #392 / merge `60947ff`）**；**TASK-290 Done（PL-010：LEDGER `pending` 口径；docs-only；PR #388 / merge `4e9bce6`）**；**TASK-289 Done**（verify fingerprint 公开契约覆盖率；`fingerprint.rs` 83.55% → 96.71%、crate 90.82% → 92.04%；新增 3 个公开 API 契约测试；生产源码零改动；PR #384 / merge `8d4534a`）；**TASK-288 Done**（verify 视觉公开契约覆盖率；`visual/assert.rs` 81.44% → 89.36%、crate 88.51% → 90.82%；生产源码零改动；PR #382 / merge `d45c1eb`）；**TASK-287 Done**（拆分 `paint_handlers.rs`：UIA / 输入原语与选中态 / 几何辅助抽到 `paint_handler_actions.rs` / `paint_handler_selection.rs`，主文件 900 → 578 行；纯搬移、行为零变更；`hygiene/file-too-long` 对该文件告警清零；PR #378 / merge `226b86d`）；**TASK-286 Done**（core planner 模型输出解析契约覆盖率；`planner.rs` 80.00% → 93.25%、`assistant-core` crate 90.04% → 92.09%；新增 17 个跨平台契约测试；生产源码零改动；PR #371 / merge `b718aa4`）；**TASK-285 Done**（policy 规则模型校验契约覆盖率；`model.rs` 83.64% → 100.00%、policy crate 92.25% → 95.03%；PR #369 / merge `93173a3`）；**TASK-284 Done**（`StorageBlobSink` 公共契约覆盖率；`blob_sink.rs` 54.39% → 100.00%、crate 76.56% → 76.86%；PR #367 / merge `bff4c12`）；**阶段 1（三试点闭环：Notepad → Paint → Edge/Chrome）进行中**。
 > **TASK-041 Done（拆分 A + B）**：ADR-0073 冻结「像素遮挡归平台层 / `NeverPersist` 不保留 `ImageRef` / 滚动清理有界」，`crates/capture` + `crates/dlp/src/redact` 零依赖纯逻辑（15 专项测试）；ADR-0076 落地 Windows GDI `PrintWindow` 单窗口截图 + UIA `IsPassword` 像素遮挡 + `ImageBlobSink` 注入（平台层算内容地址、binary `StorageBlobSink` 用 `crates/storage` 落盘并核对地址，未注入 → 显式 `Fatal`），`DRIFT-041-2` / `PL-112` 闭环；真机截图与真机 blob 落盘由 **TASK-246** 取证。
 > 状态：**TASK-052 Done（ADR-0082 指令来源归因；阶段 1 进行中）**：core 新增 `InstructionOrigin` / `InstructionAttribution` 纯模型，固定四类 token 并按来源校验父目标 / 来源引用；`app_content` 只作高风险信号，UI 继续默认拒绝并需显式覆盖；零 protocol / DB schema 变更。
 > **TASK-230 Done**：storage `0005` 新增 `conversations` + `conversation_messages` 与会话 / 消息树公开记录 API；真实关闭并重开 SQLite 后逐字段一致，缺失会话、非法父子关系和 revision 跳号显式失败，`PL-092` 闭环。
@@ -84,6 +84,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-14 TASK-291 Done（audit 错误公开契约覆盖率）**：`AuditError` 公开 Display / `Error::source` / 两个 `From` 转换与 JSON 变体均有契约断言；`error.rs` 行覆盖率 52.27% → 100.00%，`assistant-audit` crate 90.44% → 95.87%；生产源码零改动；PR #392 / merge `60947ff`。
+
 **2026-10-14 TASK-290 Done（PL-010：LEDGER `pending` 口径）**：`gov §9.2` 明确提交前可用 `pending` 占位，真实 commit / PR / merge hash 只能追加新行回填，不得改写旧行；`docs/PARKING_LOT.md` 原 PL-010 行保持不变并追加闭环行；零产品代码改动；PR #388 / merge `4e9bce6`。
 
 **2026-10-14 TASK-289 Done（verify fingerprint 公开契约覆盖率）**：新增 3 个公开 API 契约测试，覆盖 `FingerprintField` canonical names / `ALL` / ignore metadata / modal true；`fingerprint.rs` 行覆盖率 83.55% → 96.71%，`assistant-verify` crate 90.82% → 92.04%；生产源码零改动；PR #384 / merge `8d4534a`。
@@ -279,6 +281,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-14 TASK-291 Done（audit 错误公开契约覆盖率）**：在现有公开契约测试中补齐 `AuditError` 的 JSON reason code、五种 Display、`Error::source`、`From<rusqlite::Error>` / `From<serde_json::Error>` 与可重试 / 不可重试 SQLite 分类；`error.rs` 行覆盖率 52.27% → 100.00%，crate 90.44% → 95.87%，workspace 80.43% → 80.47%；生产源码零改动；全 workspace / xtask / deny / replay / UI 门禁全绿；PR #392 / merge `60947ff`。
+
 **2026-10-14 TASK-290 Done（PL-010：LEDGER `pending` 口径）**：把仓库已实际使用多轮的 `pending` 写法补进 `gov §9.2` 模板，明确“提交前占位、取得哈希后只追加回填行”；PL-010 闭环，docs-only，零产品代码改动；PR #388 / merge `4e9bce6`。
 
 **2026-10-14 TASK-289 Done（verify fingerprint 公开契约覆盖率）**：新增 3 个公开 API 契约测试，覆盖 `FingerprintField` canonical names / `ALL` / ignore metadata / modal true；`fingerprint.rs` 行覆盖率 83.55% → 96.71%，`assistant-verify` crate 90.82% → 92.04%；生产源码零改动；PR #384 / merge `8d4534a`。

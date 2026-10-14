@@ -1,6 +1,6 @@
 # TASK-291　audit 错误公开契约覆盖率补强（章程 §2 P2）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**治理/质量**（跨阶段）　批次：**治理池**　依赖：无（`assistant-audit` 与 `AuditError` 已就位）　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031）；分界线以上正文只读，`- 状态：` 行按 ADR-0083 例外。
 
@@ -70,6 +70,7 @@ cargo run -p xtask -- codegen --check; cargo run -p xtask -- check-migrations; c
 - `LEDGER.md`（Review 行）
 - `plans/stage-1-pilots.md`（新增 TASK-291 条目）
 - `docs/automations/2026-10-14-round-6.md`
+- `PLAN.md` / `README.md`（merge-hash 回填）
 
 ### 3. 验收输出摘要
 
@@ -101,8 +102,8 @@ cargo run -p xtask -- codegen --check; cargo run -p xtask -- check-migrations; c
 - 生产逻辑零改动、测试只调用公开 API、无新依赖、测试文件使用现有 229 行文件：满足。
 - `error.rs` 52.27% → 100.00%（≥85%）；crate 95.87%（≥85%）：满足。
 - crate 覆盖率命令、crate 测试、全 workspace 门禁、deny、UI、回放：满足。
-- `LEDGER.md` / `plans/stage-1-pilots.md` 已同批写入 Review 留痕；`PLAN.md` /
-  `README.md` 的 Done 状态按流程在 merge-hash 回填提交同批更新。
+- `LEDGER.md` / `plans/stage-1-pilots.md` 已写入 Review 留痕；merge `60947ff`
+  （PR #392）后由独立 docs-only 提交同批更新 Done、`PLAN.md` 与 `README.md`。
 
 ### 5. 偏差
 
@@ -111,8 +112,8 @@ cargo run -p xtask -- codegen --check; cargo run -p xtask -- check-migrations; c
 - `pnpm` 首次在仓库根执行，因根目录无 `package.json` 得到
   `ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND`；随后在正确的 `apps/desktop-ui` 目录重跑，
   lint / typecheck / test 全绿。
-- 至少 6 次 `exec_command` 误用默认 bash，均为读取 / 解析命令：
-  `Get-Content` / `cargo` 不存在或 PowerShell 语法被 bash 误解析；均已立即以
+- 至少 12 次 `exec_command` 误用默认 bash，均为读取 / 解析 / git 命令：
+  `Get-Content` / `cargo` / PowerShell cmdlet 不存在或语法被 bash 误解析；均已立即以
   `shell: "powershell"` 重跑，没有仓库垃圾文件或未跑即报通过。
 
 ### 6. 更合理做法
@@ -123,7 +124,7 @@ cargo run -p xtask -- codegen --check; cargo run -p xtask -- check-migrations; c
 
 ### 7. 遗留问题
 
-- 无产品遗留；PR、CI 与 merge hash 在回填提交补齐。
+- 无产品遗留；PR #392、CI run `38600729795` 与 merge `60947ff` 已在回填提交补齐。
 
 ### 8. 新增长期记忆
 
