@@ -1,6 +1,6 @@
 # TASK-289　verify fingerprint 公开契约覆盖率补强（章程 §2 P2）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**治理/质量**（跨阶段）　批次：**治理池**　依赖：无（`assistant-verify` 与 ADR-0074 已就位）　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031）；分界线以上正文只读，`- 状态：` 行按 ADR-0083 例外。
 
@@ -100,17 +100,18 @@ cargo run -p xtask -- codegen --check; cargo run -p xtask -- check-migrations; c
 - 生产逻辑零改动、测试只用公开 API、无新依赖、测试文件 78 行：满足。
 - `fingerprint.rs` 83.55% → 96.71%（≥85%）；crate 92.04%（≥85%）：满足。
 - crate 覆盖率命令、crate 测试、全 workspace 门禁、deny、双平台 clippy：满足。
-- `LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md`：本轮主 PR 先记
-  Review；合并 hash 回填后同批改 Done。
+- `LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md`：本批同批改
+  Done；merge `8d4534a`（PR #384）。
 
 ### 5. 偏差
 
 - 默认建议目标 `crates/core/src/store.rs` 实测 80.33%，但 12 个未覆盖行全部是私有
   `Mutex` 中毒错误闭包；公开 API 测试不可达。按“不要追不可达行”改为同一 P2 白名单内
   的 `crates/verify/src/fingerprint.rs`，未改生产源码。
-- 本轮有 5 次 `exec_command` 误用默认 bash，其中 3 次仅产生 `cargo` / `Get-Content`
-  not found，1 次是行号脚本的 shell 语法错误，1 次是最终交叉 clippy 重跑前误用；均已
-  立即以 `shell: "powershell"` 重跑，没有产生仓库垃圾文件或未跑即报通过的命令。
+- 本轮有 11 次 `exec_command` 误用默认 bash：多为 `cargo` / `Get-Content` / `gh` /
+  `rg` not found，另有行号脚本 shell 语法错误、CLI 输出解析语法错误，以及一次 `git
+  switch` 虽意外成功但违反硬要求；均已立即以 `shell: "powershell"` 重跑，没有产生仓库
+  垃圾文件或未跑即报通过的命令。
 - 另有 1 次 PowerShell 变量插值 ParserError，立即修正；无仓库副作用。
 
 ### 6. 更合理做法
