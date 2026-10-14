@@ -101,7 +101,9 @@
 
 | **0090** | `0090-charter-p6-pitfall-landing.md` | **Accepted** | 章程 §2 P6 的 `PITFALL(...)` 落点由 `MEMORY.md` §5 改为 `docs/memory/pitfalls.md`（跨应用）/ `docs/memory/apps/<app>.md` §6（应用专属），write scope 去掉 `MEMORY.md`；与 ADR-0021 分层 + AGENTS.md §5.2 对齐（人类 2026-10-14 裁决） |
 
-**下一个可用编号：0091**（= §1 与 §2 已用最大号 **0090** + 1；由 `cargo run -p xtask -- adr-index`
+| **0091** | `0091-exact-name-and-role-selector.md` | **Accepted** | `SelectorKind` 加法式新增 `ExactNameAndRole`（`SelectorValue::ExactNameAndRole { name, role }`）：UIA `AndCondition(NameProperty, ControlTypePropertyId)`、逐字符相等、非本地化 role 词表、`locale_dependent` 最低分兜底、0/多命中 fail-closed；解决形状库容器与其 `DropDownButton` 同名导致的 `TargetAmbiguous`（TASK-256 `DRIFT-256-3`；人类 2026-10-14「按A做」授权） |
+
+**下一个可用编号：0092**（= §1 与 §2 已用最大号 **0091** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由

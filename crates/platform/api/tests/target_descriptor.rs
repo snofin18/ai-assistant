@@ -95,6 +95,37 @@ fn test_exact_name_candidate_uses_text_and_is_localized_fallback() {
 }
 
 #[test]
+fn test_exact_name_and_role_candidate_pairs_name_with_non_localized_role() {
+    // ADR-0091: real Paint has two accessible elements named exactly `形状`
+    // (the gallery container and its own DropDownButton), so the shape target
+    // must pair the exact name with the non-localized role.
+    let candidate = ok_or_fail(
+        SelectorCandidate::new(
+            "shape-gallery-container",
+            SelectorKind::ExactNameAndRole,
+            SelectorValue::ExactNameAndRole {
+                name: "形状".to_string(),
+                role: "Group".to_string(),
+            },
+            0.22,
+            true,
+        ),
+        "ExactNameAndRole 测试候选必须合法",
+    );
+
+    assert_eq!(candidate.kind(), SelectorKind::ExactNameAndRole);
+    assert!(candidate.is_locale_dependent());
+    assert_eq!(
+        candidate.value(),
+        &SelectorValue::ExactNameAndRole {
+            name: "形状".to_string(),
+            role: "Group".to_string(),
+        }
+    );
+    assert!((candidate.effective_score("zh-CN", "en-US") - 0.11).abs() < 1e-9);
+}
+
+#[test]
 fn test_policy_rejects_zero_timeout_and_bad_threshold() {
     assert!(
         ResolutionPolicy::new(
