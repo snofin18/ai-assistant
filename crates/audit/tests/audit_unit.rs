@@ -160,4 +160,57 @@ fn test_audit_error_reason_codes_and_categories() {
     assert_eq!(busy.reason_code(), "sqlite");
     assert_eq!(busy.error_category(), ErrorCategory::Transient);
     assert!(!busy.requires_human());
+
+    let Err(json_error) = serde_json::from_str::<serde_json::Value>("{") else {
+        panic!("非法 JSON 必须报错");
+    };
+    let json = AuditError::from(json_error);
+    assert_eq!(json.reason_code(), "json");
+    assert_eq!(json.error_category(), ErrorCategory::Fatal);
+    assert!(json.requires_human());
+    assert!(std::error::Error::source(&json).is_some());
+}
+
+/// 公开错误表面必须完整显示每个变体的上下文，并保留底层原因链。
+#[test]
+fn test_audit_error_display_and_source_cover_public_conversions() {
+    let sqlite_inner = rusqlite::Error::InvalidQuery;
+    let sqlite = AuditError::from(sqlite_inner);
+    assert_eq!(sqlite.to_string(), "SQLite 报错：Query is not read-only");
+    assert_eq!(sqlite.error_category(), ErrorCategory::Fatal);
+    assert!(std::error::Error::source(&sqlite).is_some());
+
+    let Err(json_inner) = serde_json::from_str::<serde_json::Value>("{") else {
+        panic!("非法 JSON 必须报错");
+    };
+    let json_display = json_inner.to_string();
+    let json = AuditError::from(json_inner);
+    assert_eq!(
+        json.to_string(),
+        format!("审计事件 JSON 报错：{json_display}")
+    );
+    assert!(std::error::Error::source(&json).is_some());
+
+    let invalid = AuditError::InvalidArgument {
+        field: "max_events",
+        detail: "0".to_owned(),
+    };
+    assert_eq!(invalid.to_string(), "参数 max_events 非法：0");
+    assert!(std::error::Error::source(&invalid).is_none());
+
+    let unsupported = AuditError::UnsupportedDurability {
+        mode: "separate_db_full",
+        detail: "未落地".to_owned(),
+    };
+    assert_eq!(
+        unsupported.to_string(),
+        "durability=separate_db_full 尚未落地：未落地"
+    );
+    assert!(std::error::Error::source(&unsupported).is_none());
+
+    let broken = AuditError::ChainBroken {
+        detail: "断裂".to_owned(),
+    };
+    assert_eq!(broken.to_string(), "审计 hash chain 断裂：断裂");
+    assert!(std::error::Error::source(&broken).is_none());
 }
