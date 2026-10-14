@@ -1,6 +1,6 @@
 # TASK-256　Paint 真机契约校准：selector 与 handler read-back 对齐实测树
 
-- 状态：**Review**
+- 状态：**Blocked（DRIFT-256-3：需 `ExactNameAndRole` 候选的 ADR 裁决）**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：043、044、106　预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -177,6 +177,26 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 **2026-10-09 TASK-257 合并后恢复**：ADR-0086 已进入 `main`，本卡已取回 WIP，
 恢复 handler / fake / eval 校准；当前状态改为 **Review**，等待真实 Paint 交互验收。
+
+**2026-10-14 DRIFT-256-3（漂移触发器 ③ + ⑨）**：真机验收在 `select_rectangle_tool` 失败 ——
+`TargetAmbiguous: RoleAndParent: parent candidate `shape-gallery-exact-name-fallback` matched 2 elements`。
+
+- **现象（一手，2026-10-14 真机 UIA 探针；raw 树 154 节点）**：真实 Paint 11.2605.81.0 里
+  **有 2 个 `Name` 精确等于 `形状` 的可及元素**：
+  ① `NamedContainerAutomationPeer` / `ControlType.Group` / `AutomationId` 空（形状库容器，父为 `ScrollViewer`）；
+  ② `Microsoft.UI.Xaml.Controls.DropDownButton` / `ControlType.Button` / `AutomationId=CollapsedButton`
+  （容器内的折叠 / 展开按钮）。另有 1 个 `TextBlock` / `AutomationId=Label` 的 `形状`，但它
+  `IsControlElement=false`、`IsContentElement=false`，不在可及视图内。
+- **影响**：`ExactName`（ADR-0086）锚点不唯一 → `RoleAndParent` 的父候选歧义 → `TargetAmbiguous`
+  （fail-closed 是对的，但形状库定位不了）。现有 `SelectorKind` **没有**「精确名 + role / class」组合：
+  `ClassAndRole`（class + role，无 name）无法把 `NamedContainerAutomationPeer/Group` 的**形状**容器与
+  **颜色**容器分开；`ExactName` 又与容器自身的 `DropDownButton` 撞名。
+- **已停工作**：不改 selector / handler / 平台层，不提交 WIP，不用 fake 结果冒充真机。
+- **建议（需人类裁决）**：立 **ADR-0091** 做最小候选扩展，二选一 ——
+  A. 新增 `SelectorKind::ExactNameAndRole` + `SelectorValue::ExactNameAndRole { name, role }`
+  （加法式；`locale_dependent=true`、最低分兜底、0 / 多命中 fail-closed）；
+  B. 给 `SelectorValue::ClassAndRole` 增加可选 `name` 字段（改动既有公共形状，风险更大）。
+  倾向 **A**：落地后把 `shape-gallery-*` 的父候选换成 `ExactNameAndRole(name=形状, role=group)`，其余链不动。
 
 ### 6. 更合理做法
 
