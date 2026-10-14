@@ -1,6 +1,6 @@
 # TASK-288　verify 视觉公开契约覆盖率补强（章程 §2 P2）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**治理/质量**（跨阶段）　批次：**治理池**　依赖：无（`assistant-verify` 与 ADR-0074 已就位）　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031）；分界线以上正文只读，`- 状态：` 行按 ADR-0083 例外。
 
@@ -99,7 +99,7 @@ cargo run -p xtask -- codegen --check; cargo run -p xtask -- check-migrations; c
 - `visual/assert.rs` 81.44% → 89.36%（≥85%）；crate 90.82%（≥85%）：满足。
 - crate 覆盖率命令、crate 测试、全 workspace 门禁、deny、双平台 clippy：满足。
 - `LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md`：待本批状态同步；
-  PR / CI / merge hash 见后续回填。
+  PR #382；pull_request CI = 11/11 SUCCESS；merge `d45c1eb`。
 
 ### 5. 偏差
 
