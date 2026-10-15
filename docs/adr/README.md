@@ -105,7 +105,9 @@
 
 | **0092** | `0092-display-provider-device-pixels-and-pointer-confinement.md` | **Accepted** | 加法式新增独立 trait `DisplayProvider`（显示器目录）+ `WindowProvider::window_geometry` + `UiAutomationProvider::element_geometry`；几何统一以**设备像素 + `DisplayId` + `scale`** 表达、换算只在平台实现侧做一次；热路径**禁止**枚举显示器、目录必须可缓存（有界 TTL + 显式失效）；合成指针必须落在**已解析目标窗口矩形内**（越界 `ToolInvalidArgs`，禁止 clamp）；Wayland 的 `window-geometry` 进 `degradations`（人类 2026-10-15 裁决：设备像素 + 独立 trait；TASK-256 `DRIFT-256-6`） |
 
-**下一个可用编号：0093**（= §1 与 §2 已用最大号 **0092** + 1；由 `cargo run -p xtask -- adr-index`
+| **0093** | `0093-erratum-adr-0092-geometry-shape.md` | **Accepted** | **勘误 ADR-0092 的接口形状**：撤销独立 trait `DisplayProvider`（显示器目录复用既有 `SessionState.displays()`）、不重声明既有 `DisplayInfo`、几何查询直接回 `{ bounds: ElementBounds, space: CoordinateSpace }`（`origin_display` = 显示器、`scale` = 缩放，不再新造 scale 表示）；ADR-0092 其余条款（设备像素口径、热路径禁枚举 + 调用上限、越界禁 clamp、Wayland 降级）**不变**（卡2 开工读现状时发现同名冲突；漂移触发器 ⑫） |
+
+**下一个可用编号：0094**（= §1 与 §2 已用最大号 **0093** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由
