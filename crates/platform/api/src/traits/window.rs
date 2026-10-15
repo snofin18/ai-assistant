@@ -254,6 +254,25 @@ pub trait WindowProvider: Send + Sync {
         window: &ResolvedWindow,
     ) -> impl Future<Output = PlatformResult<WindowState>> + Send;
 
+    /// 窗口的几何视图：设备像素矩形 + 它所属的坐标空间（ADR-0092 细则 3 / ADR-0093 细则 3）。
+    ///
+    /// 产品侧用途：dock 主窗口据此贴到目标窗口旁；指针侧用途：合成点击前用它做
+    /// 「点必须落在窗口矩形内」的判定（ADR-0092 细则 8，越界 `ToolInvalidArgs`，**禁止 clamp**）。
+    ///
+    /// # Errors
+    /// 句柄失效 → `TargetNotFound`；最小化 / 零尺寸窗口 → `TargetUnresponsive`；
+    /// 该平台没实现本方法 → `CapabilityMissing`（默认实现即此；Wayland 属此列 —— 协议不允许
+    /// 枚举与定位他人窗口，见 ADR-0092 细则 7）。
+    fn window_geometry(
+        &self,
+        _window: &ResolvedWindow,
+    ) -> impl Future<Output = PlatformResult<crate::geometry_view::WindowGeometry>> + Send {
+        std::future::ready(Err(crate::error::PlatformError::new(
+            crate::ErrorCode::CapabilityMissing,
+            "window_geometry is not implemented on this platform",
+        )))
+    }
+
     /// 把窗口带到前台（**受策略约束**：`NeverSteal` 时不得抢焦点）。
     ///
     /// # Errors

@@ -511,6 +511,24 @@ pub trait UiAutomationProvider: Send + Sync {
         element: &ResolvedElement,
     ) -> impl Future<Output = PlatformResult<ElementBounds>> + Send;
 
+    /// 元素的几何视图：设备像素矩形 + 它所属的坐标空间（ADR-0092 细则 3 / ADR-0093 细则 3）。
+    ///
+    /// `space` 直接可喂给 `pointer_action`，因此点击工具栏控件这类操作**一次查询**就够，
+    /// 不需要再去问显示器目录（热路径纪律，ADR-0092 细则 5）。
+    ///
+    /// # Errors
+    /// 句柄失效 / 矩形不可读 → `TargetNotFound` / `TargetUnresponsive`；
+    /// 该平台没实现本方法 → `CapabilityMissing`（默认实现即此，**绝不返回空矩形假装可用**）。
+    fn element_geometry(
+        &self,
+        _element: &ResolvedElement,
+    ) -> impl Future<Output = PlatformResult<crate::geometry_view::ElementGeometry>> + Send {
+        std::future::ready(Err(crate::error::PlatformError::new(
+            crate::ErrorCode::CapabilityMissing,
+            "element_geometry is not implemented on this platform",
+        )))
+    }
+
     /// 在 `scope` 窗口内等待元素进入期望状态（**ADR-0043**）。
     ///
     /// # Errors

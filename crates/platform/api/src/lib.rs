@@ -41,6 +41,7 @@ mod capability;
 mod error;
 mod fingerprint;
 mod geometry;
+mod geometry_view;
 mod handle;
 mod matrix;
 mod target;
@@ -51,6 +52,7 @@ pub use capability::{ApprovalRequirement, CapabilityEntry, ResourceAccess, RiskL
 pub use error::{PlatformError, PlatformResult};
 pub use fingerprint::Fingerprint;
 pub use geometry::{CoordinateSpace, CoordinateSpaceKind, NormalizedPoint, PhysicalPoint};
+pub use geometry_view::{ElementGeometry, WindowGeometry};
 pub use handle::{LocalHandleId, ResolvedElement, ResolvedWindow};
 pub use matrix::{
     CapabilityMatrix, CapabilityMatrixError, ChannelAvailability, ChannelState, Degradation,
