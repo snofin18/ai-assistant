@@ -317,33 +317,125 @@ fn window_geometry(
             window.display_label()
         )));
     }
-    if win32::is_minimized(hwnd) {
+    // 判定规则**只在 seam 里写一次**；这里只负责把 Win32 的事实取出来。
+    let minimized = win32::is_minimized(hwnd);
+    let rect = win32::window_rect(hwnd).map(|rect| (rect.left, rect.top, rect.right, rect.bottom));
+    let monitor = crate::coordinates::monitor_for_window(hwnd)?;
+    window_geometry_from_parts(window.display_label(), minimized, rect, &monitor)
+}
+
+/// **纯函数 seam**：把「窗口事实 + 显示器记录」变成几何视图（不碰 Win32，因此可单测）。
+///
+/// 为什么单独抽出来：三个负向分支（最小化 / 矩形不可读 / 零尺寸）若必须靠真实 HWND 才能验，
+/// 就只能写成真机 `#[ignore]` 用例 —— 也就是**平时 CI 跑不到**。抽成纯函数后它们进了
+/// `cargo test` 的常规路径，坏掉会真的红。
+///
+/// # Errors
+/// - `minimized` → `TargetUnresponsive`（最小化窗口的矩形在 Win32 里"有效但不可用"，常在 -32000 附近）；
+/// - `rect` 为 `None` → `TargetUnresponsive`（矩形不可读）；
+/// - 矩形非正面积 → `TargetUnresponsive`（零尺寸 / 退化矩形）；
+/// - 显示器记录不可用（设备名为空、DPI 非法）→ 由 `coordinate_space_for_monitor` 显式失败，
+///   **不**退回主屏、**不**用 96 兜底。
+fn window_geometry_from_parts(
+    display_label: &str,
+    minimized: bool,
+    rect: Option<(i32, i32, i32, i32)>,
+    monitor: &crate::coordinates::MonitorRecord,
+) -> PlatformResult<assistant_platform_api::WindowGeometry> {
+    if minimized {
         return Err(error::target_unresponsive(format!(
-            "window `{}` is minimized; its rectangle is not usable for synthetic input",
-            window.display_label()
+            "window `{display_label}` is minimized; its rectangle is not usable for synthetic input"
         )));
     }
-    let Some(rect) = win32::window_rect(hwnd) else {
+    let Some((left, top, right, bottom)) = rect else {
         return Err(error::target_unresponsive(format!(
-            "window `{}` has no readable rectangle",
-            window.display_label()
+            "window `{display_label}` has no readable rectangle"
         )));
     };
-    if rect.right <= rect.left || rect.bottom <= rect.top {
+    if right <= left || bottom <= top {
         return Err(error::target_unresponsive(format!(
-            "window `{}` has a degenerate rectangle ({}, {})-({}, {})",
-            window.display_label(),
-            rect.left,
-            rect.top,
-            rect.right,
-            rect.bottom
+            "window `{display_label}` has a degenerate rectangle ({left}, {top})-({right}, {bottom})"
         )));
     }
-    let bounds =
-        assistant_platform_api::ElementBounds::new(rect.left, rect.top, rect.right, rect.bottom)?;
-    let monitor = crate::coordinates::monitor_for_window(hwnd)?;
-    let space = crate::coordinates::coordinate_space_for_monitor(&monitor)?;
+    let bounds = assistant_platform_api::ElementBounds::new(left, top, right, bottom)?;
+    let space = crate::coordinates::coordinate_space_for_monitor(monitor)?;
     Ok(assistant_platform_api::WindowGeometry::new(bounds, space))
+}
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic
+)]
+mod window_geometry_tests {
+    use super::*;
+    use crate::coordinates::MonitorRecord;
+    use assistant_platform_api::CoordinateSpaceKind;
+
+    /// 一台**合法**显示器（设备名非空、DPI 96 = 100%）。
+    fn primary_monitor() -> MonitorRecord {
+        MonitorRecord::new(r"\\.\DISPLAY1".to_string(), 0, 0, 1920, 1080, 96)
+    }
+
+    #[test]
+    fn test_window_geometry_rejects_minimized_window() {
+        let error =
+            window_geometry_from_parts("w", true, Some((0, 0, 100, 100)), &primary_monitor())
+                .expect_err("minimized window must fail closed");
+        assert!(error.message().contains("minimized"), "{}", error.message());
+    }
+
+    #[test]
+    fn test_window_geometry_rejects_unreadable_rectangle() {
+        let error = window_geometry_from_parts("w", false, None, &primary_monitor())
+            .expect_err("missing rectangle must fail closed");
+        assert!(
+            error.message().contains("no readable rectangle"),
+            "{}",
+            error.message()
+        );
+    }
+
+    #[test]
+    fn test_window_geometry_rejects_degenerate_rectangle() {
+        // 零宽度与零高度各一次：右 / 下边界都是**开区间**，相等即退化。
+        for rect in [(10, 10, 10, 40), (10, 10, 40, 10)] {
+            let error = window_geometry_from_parts("w", false, Some(rect), &primary_monitor())
+                .expect_err("degenerate rectangle must fail closed");
+            assert!(
+                error.message().contains("degenerate rectangle"),
+                "{}",
+                error.message()
+            );
+        }
+    }
+
+    #[test]
+    fn test_window_geometry_rejects_empty_display_name() {
+        // 「未知显示器」的纯函数等价物：设备名空 → CoordinateSpace::new 拒绝，
+        // 绝不允许退化成"没有归属也能点"。
+        let unknown = MonitorRecord::new(String::new(), 0, 0, 1920, 1080, 96);
+        assert!(
+            window_geometry_from_parts("w", false, Some((10, 10, 40, 40)), &unknown).is_err(),
+            "an empty display name must not produce a usable coordinate space"
+        );
+    }
+
+    #[test]
+    fn test_window_geometry_reports_device_pixel_bounds_and_physical_space() {
+        let geometry =
+            window_geometry_from_parts("w", false, Some((10, 20, 110, 220)), &primary_monitor())
+                .expect("a readable rectangle on a real display must succeed");
+        assert_eq!(geometry.bounds().left(), 10);
+        assert_eq!(geometry.bounds().top(), 20);
+        assert_eq!(geometry.bounds().right(), 110);
+        assert_eq!(geometry.bounds().bottom(), 220);
+        assert_eq!(geometry.space().kind(), CoordinateSpaceKind::PhysicalPixels);
+        assert_eq!(geometry.space().origin_display(), r"\\.\DISPLAY1");
+        assert!((geometry.space().scale() - 1.0).abs() < f64::EPSILON);
+    }
 }
 
 /// 把窗口带到前台（**受策略约束**）。

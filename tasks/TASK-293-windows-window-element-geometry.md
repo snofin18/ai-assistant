@@ -70,9 +70,9 @@
 - [x] 两个查询实现，O(1) 归属，未调用 `enumerate_monitors`
 - [x] 句柄失效 → `TargetNotFound`（`is_window` 检查）；最小化 / 矩形不可读 / 零尺寸 → `TargetUnresponsive`
 - [x] 几何与 `element_bounds` 同源
-- [ ] **负向用例尚未落地** —— 这三个分支都需要真实 HWND（`&ResolvedWindow` 无法在纯单测里构造），
-      要么写成真机 `#[ignore]` 用例，要么先在 `window/mod.rs` 抽一个「矩形 + 显示器 → 几何」的纯函数 seam。
-      这是本卡**唯一未达成项**，下一卡第一件事。
+- [x] 负向用例已落地：`window_geometry_from_parts`（纯函数 seam）承载全部判定规则，
+      5 条用例进 `cargo test` 常规路径（最小化 / 矩形不可读 / 零尺寸 ×2 / 空显示器名 / 正例取证），
+      实测 `cargo test -p assistant-platform-windows --lib` = **109 passed / 0 failed / 4 ignored**。
 - [x] `LEDGER.md` 追加一行
 
 ### 5. 偏差
@@ -87,7 +87,8 @@ none。
 
 ### 7. 遗留问题
 
-- 负向用例（见 §4 未达成项）→ 下一卡或 TASK-294 的前置。
+- 负向用例已落地（见 §4）；`element_geometry` 侧的等价 seam 暂未抽（它的唯一输入是
+  `tree::element_bounds` 的结果 + 中心点，规则只有"取中心"，暂无可单测的分支）。
 - `get 混合 DPI / 多屏真机` 尚未取证：本实现按「元素/窗口属于单块显示器」假设，跨屏窗口以
   矩形中心归属（ADR-0093「重新评估触发条件」里已写明何时该升级为 `DisplayRegion`）。
 
