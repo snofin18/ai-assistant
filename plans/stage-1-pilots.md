@@ -385,6 +385,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-288 Done**（verify 视觉公开契约覆盖率；`visual/assert.rs` 81.44% → 89.36%、crate 88.51% → 90.82%；生产源码零改动；PR #382 / merge `d45c1eb`） | 治理池 | `tasks/TASK-288-verify-visual-contract-coverage.md` | Done（公开 API 契约测试；生产源码零改动；PR #382 / merge `d45c1eb`） |
 | **TASK-290 Done** | 治理池 | `tasks/TASK-290-gov-ledger-pending-commit-convention.md` | Done（PL-010 闭环：`gov §9.2` 明确 `pending` commit 占位与追加式回填；docs-only；零产品代码改动；PR #388 / merge `4e9bce6`） |
 | **TASK-291 Done** | 治理池 | `tasks/TASK-291-audit-error-contract-coverage.md` | Done（`AuditError` 公开 Display / source / From 契约；`error.rs` 52.27% → 100.00%、crate 90.44% → 95.87%；生产源码零改动；PR #392 / merge `60947ff`） |
+| **TASK-298 Review** | 治理池 | `tasks/TASK-298-replay-provider-contract-coverage.md` | Review（replay 提供者公开契约：ADR-0091 `ExactNameAndRole` 回放同语义 + `wait_for` / 句柄不匹配 / 深度上限 / kind-value 回退 / 非法描述符 / 整窗指纹；`provider.rs` 85.19% → 95.27%、crate 87.28% → 92.95%；生产源码零改动；PR / merge hash 待回填） |
 | **TASK-268 Done** | 治理池 | `tasks/TASK-268-storage-coverage-hardening.md` | Done（`assistant-storage` 独立行覆盖率 78.43% → 88.97%；9 个公共契约测试；生产源码零改动；PR #314 / merge `076fe2d`） |
 | TASK-048 | 1c | `tasks/TASK-048-cdp-provider-connect-dom-nav-download.md` | Ready（批次表占位派单前补全） |
 | TASK-049 | 1c | `tasks/TASK-049-browser-profile-no-copy-user-profile.md` | Ready（批次表占位派单前补全） |
