@@ -241,3 +241,26 @@ TASK-044 write scope 内**（`DRIFT-044-2`），需另立拥有 `selectors/**` �
 - 工具 / 图层 / 任意颜色有 L2 或稳定 aid 路径；**形状与固定色块没有**。
 - 形状库与调色板容器的消歧需要新候选：**ADR-0086**（`SelectorKind::ExactName`，UIA 精确相等，
   零依赖、本地化兜底），落地卡 **TASK-257**。
+
+## 12. 形状项：没有任何可用 UIA pattern，只能走 L4 合成点击（TASK-256 / TASK-294）
+
+**2026-10-15 真机一手证据（`DRIFT-256-5`，Paint 11.2605.81.0 / zh-CN）**：形状库展开后，
+`Button|矩形` 在全树**唯一**（新锚点 `exact_name_and_role {name: 矩形, role: Button}` 正确），
+但它**没有任何可用的 UIA pattern** 能改状态：
+
+| 元素 | 实测 pattern | 结果 |
+|---|---|---|
+| `Button\|矩形` | `Toggle,ScrollItem` | `TogglePattern.Toggle()` **两向空操作**（`Off→Off`、`On→On`） |
+| `Button\|矩形` | 无 `InvokePattern` | `invoke` 返回 `CapabilityMissing` |
+| `ListItem\|矩形` | `ScrollItem,VirtualizedItem` | **无** `SelectionItemPattern` |
+
+→ 形状项只能靠**真实鼠标点击**选中。`paint.tool.select` 因此从
+`invoke_action(toggle)`（空操作）切到 **L4 合成点击**（TASK-294 的
+`click_element_center`）：取 `element_geometry` + `window_geometry` 各一次 → 断言元素中心落在
+窗口矩形内（半开区间，越界 `ToolInvalidArgs`、**禁 clamp**，ADR-0092 细则 8）→ 在窗口独占租约内
+`pointer_action(Click)`。这条通道是产品主线（点击 / 连续点击 / 拖拽），不是权宜。
+
+**教训：fake 通过 ≠ 真机通过。** 旧 handler 走 `invoke_action(toggle)` 在 fake 上成立、在真机上
+是空操作；现在 fake **不再**为 `(rectangle_tool_id, "toggle")` 背书，改用「点落在矩形工具矩形内」
+的 `Click` 才把工具置为 `rectangle`，并用调用计数断言（1×`element_geometry` + 1×`window_geometry`
++ 1×`pointer_action`）把 ADR-0092 细则 5 变成机器判据。
