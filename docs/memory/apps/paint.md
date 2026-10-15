@@ -303,3 +303,23 @@ TASK-044 write scope 内**（`DRIFT-044-2`），需另立拥有 `selectors/**` �
 
 **仍缺的一条**：`paint.tool.select` **没有后置条件** —— 它只回写本地 selection，不校验工具真的变了，
 所以「点没点中」在测试里无法证伪（这正是 §12 里「fake 通过 ≠ 真机通过」的另一面）。
+
+### 12.3 调色板色块只存在于 control view —— 与 ADR-0087 冲突（2026-10-15 实测）
+
+T3.1 真机链路卡在 `paint.color.select_foreground`：`TargetNotFound: select: child index 3 is out of
+range for this element`。只读探针（临时，未入库）用与 handler **完全相同**的链解析
+`foreground_color_button`（`exact_name_and_role{颜色, Group}` → `role_and_parent{role: List}`），
+拿到 `List`（240×72 @ `(888,240)`），然后：
+
+| `child_at` 用的 walker | `select(ByIndex(0..5))` |
+|---|---|
+| `ContentViewWalker`（现行实现，ADR-0087） | **全部** `TargetNotFound: child index N is out of range` |
+| `ControlViewWalker`（临时改一行验证） | **全部成功** |
+
+→ **调色板的色块是 control 元素、但不是 content 元素**：该 `List` 在 content view 里是 0 个子项。
+ADR-0087 的「形状库 / 调色板两类列表都走 `ContentViewWalker`」这条对调色板**不成立**（形状库路径
+现在也不再经过 `Selection::ByIndex`，而是 selector + 合成点击）。
+
+处置：这是改 ADR 已决事项（漂移触发器 ④ / ⑧），**已停工作**并记录，等裁决。候选修法（需 ADR 勘误）：
+`child_at` 用「**content view → control view** 有序回退」，取不到再显式 `TargetNotFound`（仍 fail-closed、
+不改公共 API、`ensure_realized` 与 `Selection::ByIndex` 语义保留）。
