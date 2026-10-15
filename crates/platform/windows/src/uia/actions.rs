@@ -25,9 +25,9 @@ use windows::Win32::UI::Accessibility::{
     ExpandCollapseState_PartiallyExpanded, IUIAutomationElement,
     IUIAutomationExpandCollapsePattern, IUIAutomationInvokePattern, IUIAutomationScrollItemPattern,
     IUIAutomationScrollPattern, IUIAutomationSelectionItemPattern, IUIAutomationTogglePattern,
-    TreeScope_Descendants, UIA_AutomationIdPropertyId, UIA_ExpandCollapsePatternId,
-    UIA_InvokePatternId, UIA_ScrollItemPatternId, UIA_ScrollPatternId, UIA_SelectionItemPatternId,
-    UIA_TogglePatternId,
+    IUIAutomationTreeWalker, TreeScope_Descendants, UIA_AutomationIdPropertyId,
+    UIA_ExpandCollapsePatternId, UIA_InvokePatternId, UIA_ScrollItemPatternId, UIA_ScrollPatternId,
+    UIA_SelectionItemPatternId, UIA_TogglePatternId,
 };
 use windows::core::HRESULT;
 
@@ -274,35 +274,55 @@ fn ensure_realized(element: &IUIAutomationElement) {
     }
 }
 
-/// 取第 `index` 个 content view 子节点（0 起）。
+/// 取第 `index` 个子节点（0 起），按**视图**有序回退（ADR-0094，勘误 ADR-0087 的单一视图口径）。
+///
+/// 顺序固定：先 **content view**（逻辑子项，保持 ADR-0087 的语义）—— 它能给出第 `index` 项时
+/// **绝不**看 control view；只有在 content view 给不出该项时才取 **control view**（可交互控件）；
+/// 两个视图都取不到 → `TargetNotFound`，**绝不**退回"猜 index 的第一个元素"或猜坐标。
+///
+/// 为什么必须回退（真机一手证据，`DRIFT-296-1`）：Paint 的**形状库子项是 content 元素**，而
+/// **调色板色块是 control 元素但不是 content 元素**（该 `List` 在 content view 下 0 个子项，
+/// control view 下 `ByIndex(0..5)` 全部命中）—— 任何单一视图都必然漏掉其中一类。
 fn child_at(element: &IUIAutomationElement, index: u32) -> PlatformResult<IUIAutomationElement> {
     com::with_automation(|automation| {
-        // SAFETY: 只读地取 content view walker。ADR-0087 要求虚拟化列表按
-        // content view 的逻辑子项取 index；若 provider 不暴露虚拟化项，调用
-        // 仍以 `TargetNotFound` fail closed，绝不退回猜 index 的第一个元素。
-        let walker = unsafe { automation.ContentViewWalker() }
+        // SAFETY: 只读地取 view walker；`walk_step_for_actions` 复用同一套
+        // 「`Err(HRESULT(0))` = 没有更多子项」约定。
+        let content = unsafe { automation.ContentViewWalker() }
             .map_err(|failure| error::error_from_hresult(failure.code().0, "ContentViewWalker"))?;
-        // SAFETY: 只读遍历。
-        let mut current = walk_step_for_actions(
-            unsafe { walker.GetFirstChildElement(element) },
-            "select: GetFirstChildElement",
-        )?;
-        let mut remaining = index;
-        while let Some(child) = current {
-            if remaining == 0 {
-                return Ok(child);
-            }
-            remaining = remaining.saturating_sub(1);
-            // SAFETY: 只读遍历。
-            current = walk_step_for_actions(
-                unsafe { walker.GetNextSiblingElement(&child) },
-                "select: GetNextSiblingElement",
-            )?;
+        if let Some(found) = nth_child(&content, element, index, "select: content view")? {
+            return Ok(found);
         }
-        Err(error::target_not_found(format!(
-            "select: child index {index} is out of range for this element"
-        )))
+        // SAFETY: 同上的只读 walker。
+        let control = unsafe { automation.ControlViewWalker() }
+            .map_err(|failure| error::error_from_hresult(failure.code().0, "ControlViewWalker"))?;
+        nth_child(&control, element, index, "select: control view")?.ok_or_else(|| {
+            error::target_not_found(format!(
+                "select: child index {index} is out of range in both the content view and the control view for this element"
+            ))
+        })
     })
+}
+
+/// 在指定 walker 下取第 `index` 个子节点；不足 `index + 1` 个 → `Ok(None)`（由调用方决定回退）。
+fn nth_child(
+    walker: &IUIAutomationTreeWalker,
+    element: &IUIAutomationElement,
+    index: u32,
+    context: &str,
+) -> PlatformResult<Option<IUIAutomationElement>> {
+    // SAFETY: 只读遍历。
+    let mut current =
+        walk_step_for_actions(unsafe { walker.GetFirstChildElement(element) }, context)?;
+    let mut remaining = index;
+    while let Some(child) = current {
+        if remaining == 0 {
+            return Ok(Some(child));
+        }
+        remaining = remaining.saturating_sub(1);
+        // SAFETY: 只读遍历。
+        current = walk_step_for_actions(unsafe { walker.GetNextSiblingElement(&child) }, context)?;
+    }
+    Ok(None)
 }
 
 /// 在子树里按 **`AutomationId`**（非本地化，ADR-0022 D4）找唯一后代。
