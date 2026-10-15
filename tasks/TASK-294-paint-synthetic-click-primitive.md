@@ -155,6 +155,14 @@ none。
   始终是 Chrome（PID `10596`）。用例在 30 s 内未等到 Paint 前台 → 显式失败
   （`Error: "timed out waiting for a human to bring Paint to the foreground"`），
   **未发送任何输入**（测试在 wait 阶段就返回，符合 fail-closed 设计）。需人类手动点一下 Paint 再重跑。
+- **2026-10-15 真机尝试第 2 次（前台 + 工具选择通过，后续步骤失败）**：人类把 Paint 置前台后重跑 ——
+  **前台等待通过**，`new_document` 与 `select_rectangle_tool` **均通过**：`DRIFT-256-5` 里那个
+  `invoke_action(toggle) postcondition failed: ToggleState stayed at 0` **不再出现**，证明本卡的
+  L4 合成点击 `click_element_center` 在真机 Paint 上真的把工具切到了矩形（ADR-0092 细则 5 的调用上限也
+  被 fake 计数断言锁住）。用例随后在**下一步** `select_foreground_color` 失败：
+  `TargetNotFound: select: child index 3 is out of range for this element` —— 那是
+  `foreground_color_button`（调色板 `List`）的 `Selection::ByIndex(3)` 问题，**属 TASK-256 的
+  调色板 read-back 校准，不在本卡 write scope**（已记入 `LEDGER.md`，建议另开 DRIFT / 卡）。
 - 混合 DPI / 多屏的真机归属（`element_geometry` 的中心点归属）仍按 TASK-293 的说明由后续真机验收覆盖。
 
 ### 8. 新增长期记忆
