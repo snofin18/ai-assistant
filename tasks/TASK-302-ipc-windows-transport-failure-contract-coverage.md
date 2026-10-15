@@ -131,6 +131,8 @@ cargo deny check -> advisories / bans / licenses / sources ok；EXIT 0
   `cmd.exe` + WSL 执行。所有门禁均真实重跑。
 - 两处命令调用误把 shell 设为 WSL bash 后执行 `cargo`，得到
   `cargo: command not found`；立即改用 `cmd.exe` 重跑，未产生文件写入或无效证据。
+- 首轮 PR CI 的 `commitlint` 因主提交标题冒号后缺空格失败；已修正提交消息并
+  `--force-with-lease` 推送同一分支，随后重新等待全部 CI。
 - 初版 `recv` 复用测试让服务端在发送后立刻 `close`，`DisconnectNamedPipe` 会丢弃
   尚未读走的缓冲消息，导致客户端读到 Win32 233；修正测试先等待客户端 ack 再关闭
   服务端。未改生产源码，也没有放宽断言。
