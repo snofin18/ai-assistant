@@ -81,7 +81,6 @@ const LAYERS_PANEL_ID: u64 = 104;
 const LAYER_ITEM_ID: u64 = 105;
 const STATUS_BAR_ID: u64 = 106;
 const CANVAS_ID: u64 = 107;
-const LAYERS_TOGGLE_ID: u64 = 108;
 const SHAPES_TOGGLE_ID: u64 = 109;
 
 #[derive(Clone)]
@@ -215,7 +214,6 @@ impl UiAutomationProvider for PaintFakePlatform {
                     | "color-gallery-exact-name-and-role-fallback"
                     | "color-gallery-role-parent"
                     | "layers-container-name-fallback"
-                    | "layers-toggle-role-parent"
                     | "layers-list-automation-id"
                     | "status-bar-canvas-size-automation-id"
                     | "canvas-image-automation-id"
@@ -244,12 +242,15 @@ impl UiAutomationProvider for PaintFakePlatform {
                 FOREGROUND_COLOR_ID
             }
             "layers-container-name-fallback" => LAYERS_PANEL_ID,
-            "layers-toggle-role-parent" => LAYERS_TOGGLE_ID,
             "layers-list-automation-id" => {
-                let mut state = self.state.lock().expect("paint fake state");
-                // The real panel is opened by Alt+L; the fixture accepts either
-                // handler sequence and exposes the measured list once requested.
-                state.layers_expanded = true;
+                // 真机上 `layersList` 只在图层面板展开时存在；折叠时解析不到（handler 会发
+                // `Alt+L` 再轮询重解）。fixture 必须同形，否则这条路径不会被测到。
+                if !self.state.lock().expect("paint fake state").layers_expanded {
+                    return ready(Err(platform_error(
+                        ErrorCode::TargetNotFound,
+                        "the layers panel is collapsed; layersList is not materialized yet",
+                    )));
+                }
                 LAYER_ITEM_ID
             }
             "status-bar-canvas-size-automation-id" => STATUS_BAR_ID,
@@ -358,16 +359,13 @@ impl UiAutomationProvider for PaintFakePlatform {
             (SHAPES_TOGGLE_ID, "invoke") => {
                 state.shapes_expanded = true;
             }
-            (LAYERS_TOGGLE_ID, _) => {
-                state.layers_expanded = !state.layers_expanded;
-            }
             _ => {
                 // 真机实测（DRIFT-256-5）：形状项 `Button|矩形` 的 `TogglePattern.Toggle()` 是
                 // 空操作，因此 fixture **不再**为 `(RECTANGLE_TOOL_ID, "toggle")` 背书；选矩形
                 // 工具只能走 `pointer_action(Click)`（见 `pointer_action`）。
                 return ready(Err(platform_error(
                     ErrorCode::CapabilityMissing,
-                    "fixture only supports the shape gallery toggle and the layer toggle",
+                    "fixture only supports the shape gallery toggle",
                 )));
             }
         }
@@ -471,10 +469,10 @@ impl UiAutomationProvider for PaintFakePlatform {
                 ready(Ok(()))
             }
             "L" => {
-                // 对应 `paint.document.new` 之后追加的 `Alt+L`：展开图层面板，
-                // 真实机上这一步会改变结构树 fingerprint；fake 只需翻 `layers_expanded`。
+                // `Alt+L` 在真机上是图层面板的**开关**（见 probe-evidence.json 的 `layers_panel`），
+                // 因此 fixture 也按开关语义翻 `layers_expanded`（不是单向"打开"）。
                 let mut state = self.state.lock().expect("paint fake state");
-                state.layers_expanded = true;
+                state.layers_expanded = !state.layers_expanded;
                 state.revision = state.revision.saturating_add(1);
                 drop(state);
                 ready(Ok(()))
@@ -554,7 +552,7 @@ fn fixture_element_bounds(id: u64) -> PlatformResult<ElementBounds> {
         TOOLBAR_ID => ElementBounds::new(10, 10, 300, 50),
         RECTANGLE_TOOL_ID | FOREGROUND_COLOR_ID => ElementBounds::new(20, 20, 80, 60),
         LAYERS_PANEL_ID | LAYER_ITEM_ID => ElementBounds::new(160, 20, 280, 200),
-        LAYERS_TOGGLE_ID | SHAPES_TOGGLE_ID => ElementBounds::new(200, 20, 240, 60),
+        SHAPES_TOGGLE_ID => ElementBounds::new(200, 20, 240, 60),
         STATUS_BAR_ID => ElementBounds::new(0, 180, 320, 200),
         _ => ElementBounds::new(0, 0, 1, 1),
     }

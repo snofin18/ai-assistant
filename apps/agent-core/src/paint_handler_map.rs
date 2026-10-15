@@ -126,10 +126,10 @@ where
 {
     fn call(
         &self,
-        _call: &CallContext,
+        call: &CallContext,
         arguments: &Map<String, Value>,
     ) -> Result<ToolOutput, ToolBusError> {
-        self.context.select_layer_output(arguments)
+        self.context.select_layer_output(call.task_id(), arguments)
     }
 }
 

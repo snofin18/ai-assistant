@@ -216,28 +216,6 @@
       ]
     },
     {
-      "id": "layers_toggle",
-      "scope": "element",
-      "probe_status": "observed",
-      "candidates": [
-        {
-          "id": "layers-toggle-container-name-fallback",
-          "kind": "name_regex",
-          "value": {"text": "层"},
-          "score": 0.2,
-          "locale_dependent": true,
-          "fallback_only": true
-        },
-        {
-          "id": "layers-toggle-role-parent",
-          "kind": "role_and_parent",
-          "value": {"role_and_parent": {"role": "Button", "parent_id": "layers-toggle-container-name-fallback"}},
-          "score": 0.64,
-          "locale_dependent": false
-        }
-      ]
-    },
-    {
       "id": "layer_item",
       "scope": "element",
       "probe_status": "observed",

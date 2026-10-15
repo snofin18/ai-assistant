@@ -30,15 +30,15 @@ use std::time::Duration;
 
 use super::paint_handler_support::normalized_point;
 use super::{
-    DragRequest, PaintHandlerContext, PhysicalPointPx, TARGET_LAYER_ITEM, TARGET_LAYERS_TOGGLE,
-    TARGET_RECTANGLE_TOOL, TARGET_SHAPES_TOGGLE,
+    DragRequest, PaintHandlerContext, PhysicalPointPx, TARGET_LAYER_ITEM, TARGET_RECTANGLE_TOOL,
+    TARGET_SHAPES_TOGGLE,
 };
 
-/// 形状库展开后的有界重解次数与间隔（实测形状项**异步物化**，见 `docs/memory/apps/paint.md` §11）。
+/// 展开 / 折叠后的**有界重解**次数与间隔（形状库异步物化、图层面板展开，见 `docs/memory/apps/paint.md` §11）。
 ///
 /// 上限 = 20 × 50 ms = 1 s：既给 Paint 留物化时间，也是**硬上限**（ADR-0063 同族：不许无限轮询）。
-const SHAPES_GALLERY_ATTEMPTS: usize = 20;
-const SHAPES_GALLERY_INTERVAL_MS: u64 = 50;
+const GALLERY_ATTEMPTS: usize = 20;
+const GALLERY_INTERVAL_MS: u64 = 50;
 
 impl<P> PaintHandlerContext<P>
 where
@@ -87,21 +87,53 @@ where
         result.map_err(|error| support::map_platform_error(tool, &error))
     }
 
+    /// 解析图层面板列表（`layersList`）；折叠时用 **`Alt+L`** 展开，再**有界轮询**重解。
+    ///
+    /// 为什么用 L2 快捷键而不是解析面板的 toggle 按钮：实测（`eval/tasks/paint/t3.1/probe-evidence.json`
+    /// 的 `layers_panel`）「`Alt+L` 开合图层面板，**不需要**解析本地化的 toggle 按钮」；而那个父候选
+    /// `name_regex "层"` 在真机上有 **4** 个命中（`TargetAmbiguous`），解析它必然失败。
+    ///
+    /// `Alt+L` 是**开关**，所以只在 `layersList` 缺失时才发键（状态感知）——面板已展开时**一个键都不发**；
+    /// 发键后 1 s 内仍解析不到 → fail-closed（不猜、不无限等）。
     pub(super) fn resolve_layer_list(
         &self,
+        task_id: &str,
         window: &ResolvedWindow,
         tool: &str,
-    ) -> Result<(ResolvedElement, bool), ToolBusError> {
+    ) -> Result<ResolvedElement, ToolBusError> {
         match self.resolve_element(TARGET_LAYER_ITEM, window, tool) {
-            Ok(layer_list) => Ok((layer_list, false)),
-            Err(ToolBusError::UnknownTool { .. }) => {
-                let toggle = self.resolve_element(TARGET_LAYERS_TOGGLE, window, tool)?;
-                self.invoke_element(&toggle, "toggle", tool)?;
-                let layer_list = self.resolve_element(TARGET_LAYER_ITEM, window, tool)?;
-                Ok((layer_list, true))
-            }
-            Err(error) => Err(error),
+            Ok(layer_list) => return Ok(layer_list),
+            Err(ToolBusError::UnknownTool { .. }) => {}
+            Err(error) => return Err(error),
         }
+        self.send_key(task_id, window, "L", vec![KeyModifier::Alt], tool)?;
+        self.poll_for_element(TARGET_LAYER_ITEM, window, tool)
+    }
+
+    /// 在 `GALLERY_ATTEMPTS × GALLERY_INTERVAL_MS`（= 1 s 硬上限）内反复重解 `target`；
+    /// 超时上抛**最后一次**错误，绝不返回"近似"结果。
+    ///
+    /// 形状库（异步物化）与图层面板（`Alt+L` 展开）共用同一段有界轮询 —— 一处实现，避免两套行为漂移。
+    fn poll_for_element(
+        &self,
+        target: &str,
+        window: &ResolvedWindow,
+        tool: &str,
+    ) -> Result<ResolvedElement, ToolBusError> {
+        let mut last_error = None;
+        for _attempt in 0..GALLERY_ATTEMPTS {
+            match self.resolve_element(target, window, tool) {
+                Ok(element) => return Ok(element),
+                Err(error) => last_error = Some(error),
+            }
+            std::thread::sleep(Duration::from_millis(GALLERY_INTERVAL_MS));
+        }
+        Err(last_error.unwrap_or_else(|| {
+            support::invalid_arguments(
+                tool,
+                format!("`{target}` did not materialize within the bounded poll window"),
+            )
+        }))
     }
 
     /// 解析形状库里的目标形状项；折叠时先展开再**有界轮询**重解。
@@ -126,17 +158,7 @@ where
         }
         let toggle = self.resolve_element(TARGET_SHAPES_TOGGLE, window, tool)?;
         self.invoke_element(&toggle, "invoke", tool)?;
-        let mut last_error = None;
-        for _attempt in 0..SHAPES_GALLERY_ATTEMPTS {
-            match self.resolve_element(TARGET_RECTANGLE_TOOL, window, tool) {
-                Ok(item) => return Ok(item),
-                Err(error) => last_error = Some(error),
-            }
-            std::thread::sleep(Duration::from_millis(SHAPES_GALLERY_INTERVAL_MS));
-        }
-        Err(last_error.unwrap_or_else(|| {
-            support::invalid_arguments(tool, "shape gallery did not materialize after expanding")
-        }))
+        self.poll_for_element(TARGET_RECTANGLE_TOOL, window, tool)
     }
 
     pub(super) fn element_bounds(
