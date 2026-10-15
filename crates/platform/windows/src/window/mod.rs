@@ -95,6 +95,13 @@ impl WindowProvider for WindowsPlatform {
         poll_fn(move |_context| Poll::Ready(window_state(window)))
     }
 
+    fn window_geometry(
+        &self,
+        window: &ResolvedWindow,
+    ) -> impl Future<Output = PlatformResult<assistant_platform_api::WindowGeometry>> + Send {
+        poll_fn(move |_context| Poll::Ready(window_geometry(window)))
+    }
+
     fn bring_to_front(
         &self,
         window: &ResolvedWindow,
@@ -289,6 +296,54 @@ fn window_state(window: &ResolvedWindow) -> PlatformResult<WindowState> {
         win32::foreground_hwnd() == Some(hwnd),
         win32::is_occluded(hwnd),
     ))
+}
+
+/// 窗口几何视图：设备像素矩形 + 它所属的坐标空间（ADR-0092 细则 3 / ADR-0093 细则 3）。
+///
+/// 归属查询走 `MonitorFromWindow`（**不枚举显示器**）—— 这是 ADR-0092 细则 5 的开销纪律在
+/// Windows 上的落地方式：单次 O(1) 归属 + `GetDpiForMonitor`，与「枚举全部显示器再逐个比对」
+/// 相比省掉了整张显示器列表的构造与分配。
+///
+/// # Errors
+/// 句柄已失效或窗口已关闭 → `TargetNotFound`；最小化 / 矩形不可读 / 零尺寸 → `TargetUnresponsive`；
+/// `GetMonitorInfoW` / `GetDpiForMonitor` 失败 → 由 `coordinates` 侧映射（`Fatal`，不用 96 兜底）。
+fn window_geometry(
+    window: &ResolvedWindow,
+) -> PlatformResult<assistant_platform_api::WindowGeometry> {
+    let hwnd = handles::hwnd_from_window_handle(window.id())?;
+    if !win32::is_window(hwnd) {
+        return Err(error::target_not_found(format!(
+            "window `{}` no longer exists",
+            window.display_label()
+        )));
+    }
+    if win32::is_minimized(hwnd) {
+        return Err(error::target_unresponsive(format!(
+            "window `{}` is minimized; its rectangle is not usable for synthetic input",
+            window.display_label()
+        )));
+    }
+    let Some(rect) = win32::window_rect(hwnd) else {
+        return Err(error::target_unresponsive(format!(
+            "window `{}` has no readable rectangle",
+            window.display_label()
+        )));
+    };
+    if rect.right <= rect.left || rect.bottom <= rect.top {
+        return Err(error::target_unresponsive(format!(
+            "window `{}` has a degenerate rectangle ({}, {})-({}, {})",
+            window.display_label(),
+            rect.left,
+            rect.top,
+            rect.right,
+            rect.bottom
+        )));
+    }
+    let bounds =
+        assistant_platform_api::ElementBounds::new(rect.left, rect.top, rect.right, rect.bottom)?;
+    let monitor = crate::coordinates::monitor_for_window(hwnd)?;
+    let space = crate::coordinates::coordinate_space_for_monitor(&monitor)?;
+    Ok(assistant_platform_api::WindowGeometry::new(bounds, space))
 }
 
 /// 把窗口带到前台（**受策略约束**）。

@@ -69,6 +69,26 @@ use crate::window::WindowsPlatform;
 // 为什么不用 `async fn`：这些函数体没有 `.await`，clippy 的 `unused_async_trait_impl`（nursery，
 // 本 workspace 为 warn → `-D warnings` 下即错误）要求去掉 `async`；而本 crate 禁止 `#[allow]`。
 // 用 `poll_fn` 而不是 `std::future::ready(..)`：前者把工作留在**第一次 poll**，与 `async fn` 的
+/// 元素几何视图：设备像素矩形 + 它所属的坐标空间（ADR-0092 细则 3 / ADR-0093 细则 3）。
+///
+/// 归属查询走 `MonitorFromPoint(元素中心)`（**不枚举显示器**，ADR-0092 细则 5）。
+/// 矩形本身仍由 `tree::element_bounds` 负责，因此「`element_geometry().bounds` 必须等于
+/// `element_bounds()`」这条不变量是**结构上**成立的，不是两处各算一遍。
+///
+/// # Errors
+/// 句柄失效 / 矩形不可读 → 由 `tree::element_bounds` 映射（`TargetNotFound` / `TargetUnresponsive`）；
+/// 该点不属于任何显示器 → `TargetNotFound`（`MonitorFromPoint` 的空句柄）。
+fn element_geometry(
+    element: &ResolvedElement,
+) -> PlatformResult<assistant_platform_api::ElementGeometry> {
+    let bounds = tree::element_bounds(element)?;
+    let center_x = bounds.left().saturating_add(bounds.right()) / 2;
+    let center_y = bounds.top().saturating_add(bounds.bottom()) / 2;
+    let monitor = crate::coordinates::monitor_for_physical_point(center_x, center_y)?;
+    let space = crate::coordinates::coordinate_space_for_monitor(&monitor)?;
+    Ok(assistant_platform_api::ElementGeometry::new(bounds, space))
+}
+
 // 语义一致 —— 构造 future 不产生副作用，drop 掉未 poll 的 future 不会触发任何 UIA 调用。
 impl UiAutomationProvider for WindowsPlatform {
     fn snapshot_tree(
@@ -92,6 +112,13 @@ impl UiAutomationProvider for WindowsPlatform {
         element: &ResolvedElement,
     ) -> impl Future<Output = PlatformResult<ElementBounds>> + Send {
         poll_fn(move |_context| Poll::Ready(tree::element_bounds(element)))
+    }
+
+    fn element_geometry(
+        &self,
+        element: &ResolvedElement,
+    ) -> impl Future<Output = PlatformResult<assistant_platform_api::ElementGeometry>> + Send {
+        poll_fn(move |_context| Poll::Ready(element_geometry(element)))
     }
 
     fn wait_for(
