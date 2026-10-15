@@ -1,6 +1,6 @@
 # TASK-256　Paint 真机契约校准：selector 与 handler read-back 对齐实测树
 
-- 状态：**Blocked（DRIFT-256-3：需 `ExactNameAndRole` 候选的 ADR 裁决）**
+- 状态：**Review（ADR-0091 已落地进 adapter / handler；等待真机验收）**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：043、044、106　预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -220,6 +220,23 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - **建议（需人类裁决）**：另立 **拆文件卡**（拆分 `paint_handlers.rs`，例如按工具 / 颜色 / 图层
   拆分子模块），完成后再恢复 TASK-256 的 adapter / handler 落地与真机验收。TASK-256 保持 **Blocked**。
 
+**2026-10-15：`DRIFT-256-4` 闭环 + ADR-0091 落地进 adapter / handler（fake 已验证，真机待验）**：
+
+- 前置：**TASK-287**（PR #378 / merge `226b86d`）把 `paint_handlers.rs` 900 → 578 行，`DRIFT-256-4` 的
+  「900 行硬上限」阻塞解除；**ADR-0091**（PR #376 / merge `611a067`）提供 `ExactNameAndRole` 候选。
+- 本轮落地（write scope 内）：`adapters/com.microsoft.paint/selectors/targets.json` 把形状项锚点换成
+  `exact_name_and_role {name: 矩形, role: Button}`（**不再**用会撞名的容器名 `形状`，也不再靠
+  `role_and_parent(List)` + 本地化容器名）；新增 `shapes_gallery_toggle`（`automation_id = CollapsedButton`）；
+  调色板父候选同步换成 `exact_name_and_role {name: 颜色, role: Group}`。
+- 原因（实测链条，见 `docs/memory/apps/paint.md` §11 与 `DRIFT-256-3`）：容器与它自己的 `DropDownButton`
+  同名 `形状`；而**展开后树里会出现第二个 `形状` Group（flyout）** —— 所以「容器名 + role」本身也不是稳定锚点，
+  稳定的锚点是**形状项自己的 `矩形` Button**。折叠时形状项未物化 → handler 先用 `CollapsedButton`
+  `invoke_action(invoke)` 展开，再**有界轮询**（20 × 50 ms = 1 s 硬上限）重解形状项，最后对它
+  `invoke_action(toggle)`（平台层带「ToggleState 必须翻转」的强后置条件）。
+- 与旧契约的差别：旧 handler 走 `select(ByIndex(3))`，只在 fake 上成立（真机形状项**没有**
+  `SelectionItemPattern`）；fake 已同步改成「不展开就 `TargetNotFound`」且**不再**为形状项提供 `select`，
+  使这条路径真的被测到。
+
 ### 6. 更合理做法
 
 先复用已合并的 ExactName 契约，再把真实控件可提供的 `SelectionItemPattern::IsSelected`
@@ -235,6 +252,13 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - `paint_handlers.rs` 当前 900 行，仍有 600 行软建议 warning；若继续增长，需另立拆文件卡，不在本卡 write scope 内静默扩模块。
 - **2026-10-10 审计纠偏**：未提交 WIP 曾把 ADR-0087 写成“改用 `ContentViewWalker`”，却同时加入未授权的 `Selection::ByName` + `ItemContainerPattern` 路径，生产 handler 仍调用 `Selection::ByIndex`，三方互相矛盾。已删除该未授权路径、恢复被误改的 Paint fake 与 selector 回退，把 `actions::child_at` 对齐到 ADR-0087 的 `ContentViewWalker`，恢复 `ensure_realized` 的 `ScrollIntoView` 尝试，并把 `RECTANGLE_GALLERY_INDEX` 真正从 4 改回 3；真实 Paint 唯一命中和虚拟化行为仍以本卡后续真机验收为准。
 - TASK-256 尚未达到 Done，不能解锁 TASK-044 的十次运行声明。
+- **2026-10-15 验收输出（本机实跑）**：`cargo fmt --all --check` exit 0；`cargo clippy --all-targets -- -D warnings`
+  exit 0；`cargo test --workspace` exit 0；`cargo test -p assistant-agent-core --test production_paint`
+  → **4 passed / 0 failed / 1 ignored**（新增的「折叠 → 展开 → 有界轮询重解 → toggle」路径已被 fake 覆盖）；
+  `python adapters/com.microsoft.paint/tests/validate_adapter_pack.py` → PASSED（targets 17 → 18）；
+  `python eval/tasks/paint/t3.1/validate.py` → PASSED。
+- **仍未达成**：真机 `#[ignore]` 用例（`test_paint_t3_1_runs_on_real_paint`）尚未重跑 —— 它需要在场人工把
+  Paint 11.2605.81.0 置于前台（我方不抢焦点）。在它通过前，本卡不得判 Done，TASK-044 的十次运行也不得开始。
 
 ### 8. 新增长期记忆
 
