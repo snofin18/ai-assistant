@@ -1,6 +1,6 @@
 # TASK-300　storage blob store 公开错误/边界契约覆盖率补强（章程 §2 P2）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**治理/质量**　批次：**治理池**　依赖：无　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031）；分界线以上正文只读，`- 状态：` 行按 ADR-0083 例外。
 
@@ -76,10 +76,11 @@ verify-schemas 5 0E；codegen 0 drift；check-migrations 5/5
 ```
 ### 4. DoD 逐条核对
 - 生产源码零改动、公开 API、无新依赖、测试文件 234 行；覆盖率 / 门禁全绿：**满足**。
-- 主 PR、CI 11/11、merge hash 与 Done 回填：**待推送后完成**。
+- 主 PR #419、pull_request CI run `38752157048` = 11/11 SUCCESS、merge `6e5d8fe`；
+  post-merge main push run `38753906552` = success：**满足**。
 ### 5. 偏差
 - 无范围 / ADR / 契约偏差；无 PowerShell 挂起。
-- 两次只读查询误用默认 bash（exit 127），随即改用 PowerShell 重跑；未影响证据。
+- 六次只读查询 / 门禁查询误用默认 bash（exit 127、语法错误或命令不兼容），随即改用 PowerShell 重跑；未影响证据。
 - 开发中修正两次测试自身问题（`Clock` 导入、Debug 断言过强）后才提交。
 - 不追不可达的删文件竞态、无父路径、zstd 失败与 SHA-256 碰撞分支。
 ### 6. 更合理做法
