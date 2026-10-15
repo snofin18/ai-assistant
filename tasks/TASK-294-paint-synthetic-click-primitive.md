@@ -149,6 +149,12 @@ none。
 - **真机 ignored 用例（`test_paint_t3_1_runs_on_real_paint`）尚未跑** —— 它需要人类把
   Paint 11.2605.81.0 置于前台（测试只等 30 s、不抢焦点）。跑通才算 `DRIFT-256-5` 闭环；
   在它通过前 TASK-256 仍停在 Review、TASK-044 的十次运行也不得开始。
+- **2026-10-15 真机尝试 1 次（失败，未发输入）**：Paint 已在运行（PID `7980` / HWND `6884838`、
+  class `MSPaintApp`、标题「无标题 - 画图」），但测试进程与 agent 的 shell **都无法把 Paint 置前台**
+  —— `SetForegroundWindow`（经 `AttachThreadInput`）被 Windows 前台锁拒绝，`GetForegroundWindow`
+  始终是 Chrome（PID `10596`）。用例在 30 s 内未等到 Paint 前台 → 显式失败
+  （`Error: "timed out waiting for a human to bring Paint to the foreground"`），
+  **未发送任何输入**（测试在 wait 阶段就返回，符合 fail-closed 设计）。需人类手动点一下 Paint 再重跑。
 - 混合 DPI / 多屏的真机归属（`element_geometry` 的中心点归属）仍按 TASK-293 的说明由后续真机验收覆盖。
 
 ### 8. 新增长期记忆
