@@ -1,6 +1,6 @@
 # TASK-256　Paint 真机契约校准：selector 与 handler read-back 对齐实测树
 
-- 状态：**Blocked（DRIFT-256-3：需 `ExactNameAndRole` 候选的 ADR 裁决）**
+- 状态：**Review（ADR-0091 已落地进 adapter / handler；等待真机验收）**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：043、044、106　预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -220,6 +220,73 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - **建议（需人类裁决）**：另立 **拆文件卡**（拆分 `paint_handlers.rs`，例如按工具 / 颜色 / 图层
   拆分子模块），完成后再恢复 TASK-256 的 adapter / handler 落地与真机验收。TASK-256 保持 **Blocked**。
 
+**2026-10-15：`DRIFT-256-4` 闭环 + ADR-0091 落地进 adapter / handler（fake 已验证，真机待验）**：
+
+- 前置：**TASK-287**（PR #378 / merge `226b86d`）把 `paint_handlers.rs` 900 → 578 行，`DRIFT-256-4` 的
+  「900 行硬上限」阻塞解除；**ADR-0091**（PR #376 / merge `611a067`）提供 `ExactNameAndRole` 候选。
+- 本轮落地（write scope 内）：`adapters/com.microsoft.paint/selectors/targets.json` 把形状项锚点换成
+  `exact_name_and_role {name: 矩形, role: Button}`（**不再**用会撞名的容器名 `形状`，也不再靠
+  `role_and_parent(List)` + 本地化容器名）；新增 `shapes_gallery_toggle`（`automation_id = CollapsedButton`）；
+  调色板父候选同步换成 `exact_name_and_role {name: 颜色, role: Group}`。
+- 原因（实测链条，见 `docs/memory/apps/paint.md` §11 与 `DRIFT-256-3`）：容器与它自己的 `DropDownButton`
+  同名 `形状`；而**展开后树里会出现第二个 `形状` Group（flyout）** —— 所以「容器名 + role」本身也不是稳定锚点，
+  稳定的锚点是**形状项自己的 `矩形` Button**。折叠时形状项未物化 → handler 先用 `CollapsedButton`
+  `invoke_action(invoke)` 展开，再**有界轮询**（20 × 50 ms = 1 s 硬上限）重解形状项，最后对它
+  `invoke_action(toggle)`（平台层带「ToggleState 必须翻转」的强后置条件）。
+- 与旧契约的差别：旧 handler 走 `select(ByIndex(3))`，只在 fake 上成立（真机形状项**没有**
+  `SelectionItemPattern`）；fake 已同步改成「不展开就 `TargetNotFound`」且**不再**为形状项提供 `select`，
+  使这条路径真的被测到。
+
+**2026-10-15 真机复跑结论（`DRIFT-256-5`，漂移触发器 ⑧：假设与实测矛盾）**
+
+- **现象（一手，Paint 11.2605.81.0 / zh-CN，测完当场探针）**：`select_rectangle_tool` 现在**过了 selector**，
+  失败在动作层 —— `invoke_action(toggle) postcondition failed: ToggleState stayed at 0 after Toggle()`。
+  现场活树探针（180 个节点）显示：
+  - 形状库**展开态**：`Group|形状` + `List` + 23 个 `ListItem|直线/曲线/椭圆/矩形…`，每项下有
+    **一个** `Button|<形状名>`，pattern 只有 `Toggle,ScrollItem`。`Button|矩形` **全树唯一** —— 所以
+    `exact_name_and_role{矩形, Button}` 锚点是对的（`DRIFT-256-3` 的歧义确实消除）。
+  - 同时存在**第二个** `Group|形状`（flyout）与折叠态的 `Button|形状|CollapsedButton` —— 印证
+    「容器名 + role 也不是稳定锚点」的判断。
+  - **结论性事实**：对该 `Button|矩形` 调 `TogglePattern.Toggle()` 是**空操作** ——
+    实测 `Off → Toggle() → Off`（测试那次）与 `On → Toggle() → On`（当场探针）两个方向都不翻转；
+    `ListItem|矩形` 只有 `ScrollItem,VirtualizedItem`（**无** `SelectionItemPattern`），
+    `Button|矩形` 只有 `Toggle,ScrollItem`（**无** `InvokePattern`）。
+- **影响**：T3.1 的「选矩形工具」在本 build 上**没有任何可用的 UIA pattern** 能改状态；卡面
+  「形状项是 Button + `TogglePattern`，点击应作用在 Button + `toggle`」的假设被实测推翻。可选出路
+  （**需人类裁决**，本卡不自行选）：
+  - **A**：handler 改走 **L4 合成点击** —— 用 `element_bounds(形状项)` 取矩形，再 `pointer_action`
+    点中心；后置条件可用画布元素 `aid=image` 的 `Name`（实测形如 `在画布上使用 矩形 工具`）回读。
+  - **B**：改平台层 `uia::actions::toggle` 的后置条件（有界轮询 / 允许状态不变），属
+    `crates/platform/windows`，**超出本卡 write scope** → 需要另立 ADR / 卡。
+- **已停工作**：不自行选 A / B，不改平台层，不放宽 `ToggleState` 后置条件；本卡停在 **Review**。
+- 附：fake 已按「先展开才物化」建模并覆盖新路径（4 passed），但 fake 无法证伪 Toggle 语义 ——
+  又一条「fake 通过 ≠ 真机通过」的实例。
+
+**2026-10-15 选 A（合成点击）时暴露的地基缺口（`DRIFT-256-6`，漂移触发器 ③/⑫：要改公共接口）**
+
+- 人类 2026-10-15 裁决：**走 A**（用合成点击选形状项），理由 = 后续本来就需要鼠标点击 / 连续点击 /
+  拖拽这条通道，现在就该把它做起来。方向已定，**但落地撞到一个 API 缺口**：
+- **缺口**：`UiAutomationProvider::pointer_action(coordinate_space, point, action)` 要求
+  `CoordinateSpace { kind: PhysicalPixels, scale, origin_display }`，而 Windows 侧
+  `coordinates::monitor_for_coordinate_space` 会**按 `origin_display` 去找一枚真实枚举到的显示器**
+  并校验 scale；找不到就 `TargetNotFound`、kind 不是 `PhysicalPixels` 就 `ToolInvalidArgs`。
+  可是 `WindowProvider` 只暴露 `list_windows / resolve_window / window_state / bring_to_front / capture`，
+  `WindowState` 只有 `minimized / foreground / occluded` —— **没有任何 API 能告诉 handler
+  「这个元素 / 窗口属于哪块显示器」**，`element_bounds` 也只给物理像素矩形。
+- **影响**：handler 无法为「点工具栏上的元素」构造一个合法的坐标空间；这不是写错代码，是
+  平台抽象层缺一个只读查询。**改 `crates/platform/api` 属公共接口变更** → 按铁律 10 / 漂移触发器 ③
+  必须先有 ADR，**不在本卡 write scope 内**，本卡不自行改。
+- **两条候选出路（需人类裁决，本卡不自行选）**：
+  - **A1（adapter 侧，本卡 write scope 内）**：给 `paint.tool.select` 的工具体**加法式**加一个可选
+    `coordinate_space` 入参（`adapters/com.microsoft.paint/tools/tools.json` + T3.1 任务包），
+    handler 用它构造点击 —— 复用 draw 步骤已经在用的那个坐标空间，零平台改动。
+    代价：.select 步骤的调用方必须提供该参数（缺省时 fail-closed，不猜）。
+  - **A2（平台侧，需 ADR）**：在 `platform/api` 暴露「元素 / 窗口所属显示器」，例如
+    `WindowProvider::window_display(&ResolvedWindow) -> DisplayId`；之后 handler 可以自行构造
+    正确坐标空间，点击原语对任意元素都可复用。代价：公共接口变更，要走 ADR + 另一张卡。
+- **已停工作**：不擅自加公共 API、不把 scale/origin 猜一个值硬塞进去（那会在多屏 / 缩放机上静默点偏，
+  正是 ADR-0067 要防的事）；本卡代码维持现状（`toggle` 路径 + `DRIFT-256-5`），停在 **Review**。
+
 ### 6. 更合理做法
 
 先复用已合并的 ExactName 契约，再把真实控件可提供的 `SelectionItemPattern::IsSelected`
@@ -235,6 +302,13 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - `paint_handlers.rs` 当前 900 行，仍有 600 行软建议 warning；若继续增长，需另立拆文件卡，不在本卡 write scope 内静默扩模块。
 - **2026-10-10 审计纠偏**：未提交 WIP 曾把 ADR-0087 写成“改用 `ContentViewWalker`”，却同时加入未授权的 `Selection::ByName` + `ItemContainerPattern` 路径，生产 handler 仍调用 `Selection::ByIndex`，三方互相矛盾。已删除该未授权路径、恢复被误改的 Paint fake 与 selector 回退，把 `actions::child_at` 对齐到 ADR-0087 的 `ContentViewWalker`，恢复 `ensure_realized` 的 `ScrollIntoView` 尝试，并把 `RECTANGLE_GALLERY_INDEX` 真正从 4 改回 3；真实 Paint 唯一命中和虚拟化行为仍以本卡后续真机验收为准。
 - TASK-256 尚未达到 Done，不能解锁 TASK-044 的十次运行声明。
+- **2026-10-15 验收输出（本机实跑）**：`cargo fmt --all --check` exit 0；`cargo clippy --all-targets -- -D warnings`
+  exit 0；`cargo test --workspace` exit 0；`cargo test -p assistant-agent-core --test production_paint`
+  → **4 passed / 0 failed / 1 ignored**（新增的「折叠 → 展开 → 有界轮询重解 → toggle」路径已被 fake 覆盖）；
+  `python adapters/com.microsoft.paint/tests/validate_adapter_pack.py` → PASSED（targets 17 → 18）；
+  `python eval/tasks/paint/t3.1/validate.py` → PASSED。
+- **仍未达成**：真机 `#[ignore]` 用例（`test_paint_t3_1_runs_on_real_paint`）尚未重跑 —— 它需要在场人工把
+  Paint 11.2605.81.0 置于前台（我方不抢焦点）。在它通过前，本卡不得判 Done，TASK-044 的十次运行也不得开始。
 
 ### 8. 新增长期记忆
 

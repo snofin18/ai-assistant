@@ -81,6 +81,7 @@ const LAYER_ITEM_ID: u64 = 105;
 const STATUS_BAR_ID: u64 = 106;
 const CANVAS_ID: u64 = 107;
 const LAYERS_TOGGLE_ID: u64 = 108;
+const SHAPES_TOGGLE_ID: u64 = 109;
 
 #[derive(Clone)]
 struct PaintFakePlatform {
@@ -94,6 +95,7 @@ struct PaintFakeState {
     foreground_rgb: String,
     layer_id: String,
     layer_name: String,
+    shapes_expanded: bool,
     layers_expanded: bool,
     drawn: bool,
     pointer_actions: usize,
@@ -109,6 +111,7 @@ impl PaintFakePlatform {
                 foreground_rgb: "0,0,0".to_owned(),
                 layer_id: "layer-0".to_owned(),
                 layer_name: "Layer 0".to_owned(),
+                shapes_expanded: false,
                 layers_expanded: false,
                 drawn: false,
                 pointer_actions: 0,
@@ -185,9 +188,9 @@ impl UiAutomationProvider for PaintFakePlatform {
             matches!(
                 candidate.id(),
                 "toolbar-command-bar"
-                    | "shape-gallery-exact-name-fallback"
-                    | "shape-gallery-role-parent"
-                    | "color-gallery-exact-name-fallback"
+                    | "shapes-gallery-toggle-automation-id"
+                    | "rectangle-item-exact-name-and-role"
+                    | "color-gallery-exact-name-and-role-fallback"
                     | "color-gallery-role-parent"
                     | "layers-container-name-fallback"
                     | "layers-toggle-role-parent"
@@ -203,8 +206,19 @@ impl UiAutomationProvider for PaintFakePlatform {
         };
         let id = match candidate.id() {
             "toolbar-command-bar" => TOOLBAR_ID,
-            "shape-gallery-exact-name-fallback" | "shape-gallery-role-parent" => RECTANGLE_TOOL_ID,
-            "color-gallery-exact-name-fallback" | "color-gallery-role-parent" => {
+            "shapes-gallery-toggle-automation-id" => SHAPES_TOGGLE_ID,
+            // 实测（2026-10-14 探针）：形状库折叠时形状项尚未物化 —— fixture 必须
+            // 与真机同形，否则 handler 的「先展开、再有界轮询重解」路径不会被测到。
+            "rectangle-item-exact-name-and-role" => {
+                if !self.state.lock().expect("paint fake state").shapes_expanded {
+                    return ready(Err(platform_error(
+                        ErrorCode::TargetNotFound,
+                        "shape gallery is collapsed; the rectangle item is not materialized yet",
+                    )));
+                }
+                RECTANGLE_TOOL_ID
+            }
+            "color-gallery-exact-name-and-role-fallback" | "color-gallery-role-parent" => {
                 FOREGROUND_COLOR_ID
             }
             "layers-container-name-fallback" => LAYERS_PANEL_ID,
@@ -237,7 +251,7 @@ impl UiAutomationProvider for PaintFakePlatform {
             TOOLBAR_ID => ElementBounds::new(10, 10, 300, 50),
             RECTANGLE_TOOL_ID | FOREGROUND_COLOR_ID => ElementBounds::new(20, 20, 80, 60),
             LAYERS_PANEL_ID | LAYER_ITEM_ID => ElementBounds::new(160, 20, 280, 200),
-            LAYERS_TOGGLE_ID => ElementBounds::new(200, 20, 240, 60),
+            LAYERS_TOGGLE_ID | SHAPES_TOGGLE_ID => ElementBounds::new(200, 20, 240, 60),
             STATUS_BAR_ID => ElementBounds::new(0, 180, 320, 200),
             _ => ElementBounds::new(0, 0, 1, 1),
         };
@@ -310,18 +324,22 @@ impl UiAutomationProvider for PaintFakePlatform {
     fn invoke_action(
         &self,
         element: &ResolvedElement,
-        _action: &str,
+        action: &str,
     ) -> impl Future<Output = PlatformResult<()>> + Send {
         let mut state = self.state.lock().expect("paint fake state");
-        match element.id().value() {
-            RECTANGLE_TOOL_ID => "rectangle".clone_into(&mut state.tool),
-            LAYERS_TOGGLE_ID => {
+        match (element.id().value(), action) {
+            (SHAPES_TOGGLE_ID, "invoke") => {
+                state.shapes_expanded = true;
+            }
+            (RECTANGLE_TOOL_ID, "toggle") => "rectangle".clone_into(&mut state.tool),
+            (LAYERS_TOGGLE_ID, _) => {
                 state.layers_expanded = !state.layers_expanded;
             }
             _ => {
                 return ready(Err(platform_error(
                     ErrorCode::CapabilityMissing,
-                    "fixture only supports the rectangle tool and layer toggle",
+                    "fixture only supports the shape gallery toggle, the rectangle item \
+                     toggle and the layer toggle",
                 )));
             }
         }
@@ -337,9 +355,8 @@ impl UiAutomationProvider for PaintFakePlatform {
     ) -> impl Future<Output = PlatformResult<()>> + Send {
         let mut state = self.state.lock().expect("paint fake state");
         match (element.id().value(), selection) {
-            (RECTANGLE_TOOL_ID, Selection::ByIndex(index)) if *index == 3 => {
-                "rectangle".clone_into(&mut state.tool);
-            }
+            // 实测：形状项是 `GridViewItem` + 子 `ToggleButton`，没有 `SelectionItemPattern`；
+            // fixture 不再为形状项提供 `select`（旧契约只被 fake 验证过，见 apps/paint.md §9.2）。
             (FOREGROUND_COLOR_ID, Selection::ByIndex(index)) => match *index {
                 3 => "237,28,36".clone_into(&mut state.foreground_rgb),
                 _ => {

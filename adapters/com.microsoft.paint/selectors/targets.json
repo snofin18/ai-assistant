@@ -134,18 +134,25 @@
       "probe_status": "observed",
       "candidates": [
         {
-          "id": "shape-gallery-exact-name-fallback",
-          "kind": "exact_name",
-          "value": {"text": "形状"},
-          "score": 0.22,
+          "id": "rectangle-item-exact-name-and-role",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "矩形", "role": "Button"}},
+          "score": 0.46,
           "locale_dependent": true,
           "fallback_only": true
-        },
+        }
+      ]
+    },
+    {
+      "id": "shapes_gallery_toggle",
+      "scope": "element",
+      "probe_status": "observed",
+      "candidates": [
         {
-          "id": "shape-gallery-role-parent",
-          "kind": "role_and_parent",
-          "value": {"role_and_parent": {"role": "List", "parent_id": "shape-gallery-exact-name-fallback"}},
-          "score": 0.68,
+          "id": "shapes-gallery-toggle-automation-id",
+          "kind": "automation_id",
+          "value": {"text": "CollapsedButton"},
+          "score": 0.8,
           "locale_dependent": false
         }
       ]
@@ -177,17 +184,17 @@
       "probe_status": "observed",
       "candidates": [
         {
-          "id": "color-gallery-exact-name-fallback",
-          "kind": "exact_name",
-          "value": {"text": "颜色"},
-          "score": 0.22,
+          "id": "color-gallery-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "颜色", "role": "Group"}},
+          "score": 0.3,
           "locale_dependent": true,
           "fallback_only": true
         },
         {
           "id": "color-gallery-role-parent",
           "kind": "role_and_parent",
-          "value": {"role_and_parent": {"role": "List", "parent_id": "color-gallery-exact-name-fallback"}},
+          "value": {"role_and_parent": {"role": "List", "parent_id": "color-gallery-exact-name-and-role-fallback"}},
           "score": 0.66,
           "locale_dependent": false
         }

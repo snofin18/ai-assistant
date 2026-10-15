@@ -26,9 +26,19 @@ use assistant_platform_api::{
 };
 use assistant_storage::BlobId;
 use assistant_tool_bus::ToolBusError;
+use std::time::Duration;
 
 use super::paint_handler_support::normalized_point;
-use super::{DragRequest, PaintHandlerContext, TARGET_LAYER_ITEM, TARGET_LAYERS_TOGGLE};
+use super::{
+    DragRequest, PaintHandlerContext, TARGET_LAYER_ITEM, TARGET_LAYERS_TOGGLE,
+    TARGET_RECTANGLE_TOOL, TARGET_SHAPES_TOGGLE,
+};
+
+/// 形状库展开后的有界重解次数与间隔（实测形状项**异步物化**，见 `docs/memory/apps/paint.md` §11）。
+///
+/// 上限 = 20 × 50 ms = 1 s：既给 Paint 留物化时间，也是**硬上限**（ADR-0063 同族：不许无限轮询）。
+const SHAPES_GALLERY_ATTEMPTS: usize = 20;
+const SHAPES_GALLERY_INTERVAL_MS: u64 = 50;
 
 impl<P> PaintHandlerContext<P>
 where
@@ -92,6 +102,41 @@ where
             }
             Err(error) => Err(error),
         }
+    }
+
+    /// 解析形状库里的目标形状项；折叠时先展开再**有界轮询**重解。
+    ///
+    /// 实测（2026-10-14 真机探针）：形状库折叠时形状项**还没物化**，直接解析只会
+    /// `TargetNotFound`；容器内那个 `AutomationId=CollapsedButton` 的按钮用
+    /// `InvokePattern` 能展开（同一元素上的 `ExpandCollapsePattern::Expand()` 在真机上失败），
+    /// 展开后 `GridView` 是**异步**填充的，所以要按固定次数 × 间隔重解，而不是解一次就算。
+    ///
+    /// 错误语义：折叠判定只接受 `ToolBusError::UnknownTool`（= 平台 `TargetNotFound`
+    /// 经 `handler_support::map_platform_error` 映射后的形态）；其它错误直接上抛，
+    /// 免得把真正的管线故障当成"还没展开"。1 s 内仍没物化 → fail-closed。
+    pub(super) fn wait_for_shape_item(
+        &self,
+        window: &ResolvedWindow,
+        tool: &str,
+    ) -> Result<ResolvedElement, ToolBusError> {
+        match self.resolve_element(TARGET_RECTANGLE_TOOL, window, tool) {
+            Ok(item) => return Ok(item),
+            Err(ToolBusError::UnknownTool { .. }) => {}
+            Err(error) => return Err(error),
+        }
+        let toggle = self.resolve_element(TARGET_SHAPES_TOGGLE, window, tool)?;
+        self.invoke_element(&toggle, "invoke", tool)?;
+        let mut last_error = None;
+        for _attempt in 0..SHAPES_GALLERY_ATTEMPTS {
+            match self.resolve_element(TARGET_RECTANGLE_TOOL, window, tool) {
+                Ok(item) => return Ok(item),
+                Err(error) => last_error = Some(error),
+            }
+            std::thread::sleep(Duration::from_millis(SHAPES_GALLERY_INTERVAL_MS));
+        }
+        Err(last_error.unwrap_or_else(|| {
+            support::invalid_arguments(tool, "shape gallery did not materialize after expanding")
+        }))
     }
 
     pub(super) fn element_bounds(

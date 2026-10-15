@@ -88,7 +88,14 @@ def main() -> int:
                   f"selector target {target_id}: bad score on {candidate_id}")
             check(kind != "runtime_id",
                   f"selector target {target_id}: runtime_id must not be declarative")
-            if kind in {"a11y_path", "title_regex", "name_regex", "exact_name", "visual_anchor"}:
+            if kind in {
+                "a11y_path",
+                "title_regex",
+                "name_regex",
+                "exact_name",
+                "exact_name_and_role",
+                "visual_anchor",
+            }:
                 check(candidate.get("locale_dependent") is True,
                       f"selector target {target_id}: {kind} must be locale-dependent")
                 if probe_status == "observed":
@@ -102,22 +109,38 @@ def main() -> int:
                 check(parent_id in candidate_ids,
                       f"selector target {target_id}: unknown parent id {parent_id}")
 
-    exact_name_targets = {
-        "rectangle_tool_button": ("shape-gallery-exact-name-fallback", "形状"),
-        "foreground_color_button": ("color-gallery-exact-name-fallback", "颜色"),
+    # ADR-0091: the shape item and the colour palette container both carry a localized
+    # accessible name, so they are pinned as name + non-localized role pairs. The role
+    # half is what removes the "container and its own DropDownButton share the name"
+    # ambiguity that plain `exact_name` could not (DRIFT-256-3).
+    localized_fallbacks = {
+        "rectangle_tool_button": (
+            "rectangle-item-exact-name-and-role",
+            "矩形",
+            "Button",
+        ),
+        "foreground_color_button": (
+            "color-gallery-exact-name-and-role-fallback",
+            "颜色",
+            "Group",
+        ),
     }
     targets_by_id = {target.get("id"): target for target in targets}
-    for target_id, (candidate_id, expected_name) in exact_name_targets.items():
+    for target_id, (candidate_id, expected_name, expected_role) in localized_fallbacks.items():
         target = targets_by_id.get(target_id, {})
         candidates = {candidate.get("id"): candidate for candidate in target.get("candidates", [])}
-        exact_name = candidates.get(candidate_id, {})
-        check(exact_name.get("kind") == "exact_name",
-              f"selector target {target_id}: {candidate_id} must use exact_name")
-        check(exact_name.get("value", {}).get("text") == expected_name,
-              f"selector target {target_id}: {candidate_id} must use exact text {expected_name!r}")
-        check(exact_name.get("locale_dependent") is True,
+        candidate = candidates.get(candidate_id, {})
+        check(candidate.get("kind") == "exact_name_and_role",
+              f"selector target {target_id}: {candidate_id} must use exact_name_and_role")
+        value = candidate.get("value", {}).get("exact_name_and_role", {})
+        check(value.get("name") == expected_name,
+              f"selector target {target_id}: {candidate_id} must use exact name {expected_name!r}")
+        check(value.get("role") == expected_role,
+              f"selector target {target_id}: {candidate_id} must use non-localized role "
+              f"{expected_role!r}")
+        check(candidate.get("locale_dependent") is True,
               f"selector target {target_id}: {candidate_id} must be locale-dependent")
-        check(exact_name.get("fallback_only") is True,
+        check(candidate.get("fallback_only") is True,
               f"selector target {target_id}: {candidate_id} must be fallback-only")
 
     tools = tools_document.get("tools", [])

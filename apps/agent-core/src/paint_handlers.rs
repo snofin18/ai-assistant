@@ -66,7 +66,7 @@ const TARGET_LAYERS_TOGGLE: &str = "layers_toggle";
 const TARGET_LAYER_ITEM: &str = "layer_item";
 const TARGET_STATUS_BAR: &str = "status_bar";
 const TARGET_CANVAS: &str = "canvas";
-const RECTANGLE_GALLERY_INDEX: u32 = 3; // ContentViewWalker：矩形 content-view index
+const TARGET_SHAPES_TOGGLE: &str = "shapes_gallery_toggle";
 /// Measured Windows 11 Paint 11.2605.81.0 palette order and RGB values.
 ///
 /// The palette exposes no `AutomationId` and only localized display names, so the
@@ -243,12 +243,12 @@ where
         arguments: &Map<String, Value>,
     ) -> Result<ToolOutput, ToolBusError> {
         let tool_name = required_string(arguments, "tool", TOOL_TOOL_SELECT)?;
-        let target = tool_target(tool_name).ok_or_else(|| {
-            support::invalid_arguments(
+        if tool_target(tool_name).is_none() {
+            return Err(support::invalid_arguments(
                 TOOL_TOOL_SELECT,
                 format!("tool `{tool_name}` has no declared Paint target"),
-            )
-        })?;
+            ));
+        }
         if tool_name != "rectangle" {
             return Err(support::invalid_arguments(
                 TOOL_TOOL_SELECT,
@@ -259,17 +259,17 @@ where
             ));
         }
         let window = self.resolve_window(TARGET_MAIN_WINDOW, TOOL_TOOL_SELECT)?;
-        let gallery = self.resolve_element(target, &window, TOOL_TOOL_SELECT)?;
+        let shape_item = self.wait_for_shape_item(&window, TOOL_TOOL_SELECT)?;
         let previous_tool = self
             .selection_tool()?
             .unwrap_or_else(|| "unknown".to_owned());
         let before = self.fingerprint_event(&window, TOOL_TOOL_SELECT)?;
         let started = Instant::now();
-        self.select_element(
-            &gallery,
-            &Selection::ByIndex(RECTANGLE_GALLERY_INDEX),
-            TOOL_TOOL_SELECT,
-        )?;
+        // 实测（`docs/memory/apps/paint.md` §9.2 / §11）：形状项是 `GridViewItem` + 子
+        // `ToggleButton`，**没有** `SelectionItemPattern`，只有 `TogglePattern` —— 所以走
+        // `invoke_action(toggle)`（平台层带「ToggleState 必须翻转」的强后置条件），
+        // 而不是 `select`（那条契约只在 fake 上成立）。
+        self.invoke_element(&shape_item, "toggle", TOOL_TOOL_SELECT)?;
         self.selection
             .lock()
             .map_err(|_| unavailable("paint selection state"))?
