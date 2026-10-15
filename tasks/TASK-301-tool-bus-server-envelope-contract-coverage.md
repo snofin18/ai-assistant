@@ -1,6 +1,6 @@
 # TASK-301　tool-bus server 失败/证据信封契约覆盖率补强（章程 §2 P2）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**治理/质量**（跨阶段）　批次：**治理池**　依赖：无（`ToolBus` / `ToolOutput` / `ToolBusError` 已在 main）　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031）；分界线以上正文只读，`- 状态：` 行按 ADR-0083 例外。
 
@@ -114,7 +114,7 @@ cargo deny check -> advisories / bans / licenses / sources ok；EXIT 0
 - 专项覆盖率、crate tests、fmt、clippy、workspace tests、双目标 clippy、arch、replay、
   xtask 硬门禁、deny：**满足**。
 - `LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md` 已同批同步为
-  Review；PR / CI / merge hash / Done 待主 PR 与独立 docs-only 回填。
+  Done；主 PR #421 / merge `81673be`，CI run `38772505379` = 11/11 SUCCESS。
 
 ### 5. 偏差
 
@@ -132,7 +132,7 @@ cargo deny check -> advisories / bans / licenses / sources ok；EXIT 0
 
 ### 7. 遗留问题
 
-- 主 PR / CI / merge hash / Done 回填待完成；无产品代码遗留。
+- 主 PR #421、CI `38772505379`、merge `81673be` 与 Done 回填均已完成；无产品代码遗留。
 - `server.rs` 剩余 14 行不可达兜底不追；若未来引入外部 MCP server 或公开注入面，
   应另开卡评估这些分支的测试策略，不在本卡扩范围。
 
