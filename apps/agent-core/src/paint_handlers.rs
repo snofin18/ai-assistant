@@ -240,6 +240,7 @@ where
     }
     fn select_tool_output(
         &self,
+        task_id: &str,
         arguments: &Map<String, Value>,
     ) -> Result<ToolOutput, ToolBusError> {
         let tool_name = required_string(arguments, "tool", TOOL_TOOL_SELECT)?;
@@ -265,11 +266,11 @@ where
             .unwrap_or_else(|| "unknown".to_owned());
         let before = self.fingerprint_event(&window, TOOL_TOOL_SELECT)?;
         let started = Instant::now();
-        // 实测（`docs/memory/apps/paint.md` §9.2 / §11）：形状项是 `GridViewItem` + 子
-        // `ToggleButton`，**没有** `SelectionItemPattern`，只有 `TogglePattern` —— 所以走
-        // `invoke_action(toggle)`（平台层带「ToggleState 必须翻转」的强后置条件），
-        // 而不是 `select`（那条契约只在 fake 上成立）。
-        self.invoke_element(&shape_item, "toggle", TOOL_TOOL_SELECT)?;
+        // 实测（`docs/memory/apps/paint.md` §11 / `DRIFT-256-5`）：形状项是 `Button|矩形`，
+        // 全树唯一，但 `TogglePattern.Toggle()` 两向都是**空操作**，且它**无** `InvokePattern` /
+        // `SelectionItemPattern` —— 没有任何可用 UIA pattern 能改状态。所以走 L4 合成点击
+        // （`click_element_center`：取几何 → 窗口内断言 → 租约内 `Click`），这是产品主线通道。
+        self.click_element_center(task_id, &window, &shape_item, TOOL_TOOL_SELECT)?;
         self.selection
             .lock()
             .map_err(|_| unavailable("paint selection state"))?

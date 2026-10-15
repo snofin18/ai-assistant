@@ -20,9 +20,9 @@
 use crate::handler_support as support;
 use crate::target_lease::window_lease_key;
 use assistant_platform_api::{
-    CaptureOptions, CoordinateSpace, ElementBounds, Fingerprint, FingerprintScope, ImageRef,
-    KeyChord, KeyModifier, KeyTarget, PointerAction, ResolvedElement, ResolvedWindow, Selection,
-    UiAutomationProvider, WindowProvider,
+    CaptureOptions, CoordinateSpace, ElementBounds, ElementGeometry, Fingerprint, FingerprintScope,
+    ImageRef, KeyChord, KeyModifier, KeyTarget, PointerAction, ResolvedElement, ResolvedWindow,
+    Selection, UiAutomationProvider, WindowGeometry, WindowProvider,
 };
 use assistant_storage::BlobId;
 use assistant_tool_bus::ToolBusError;
@@ -30,7 +30,7 @@ use std::time::Duration;
 
 use super::paint_handler_support::normalized_point;
 use super::{
-    DragRequest, PaintHandlerContext, TARGET_LAYER_ITEM, TARGET_LAYERS_TOGGLE,
+    DragRequest, PaintHandlerContext, PhysicalPointPx, TARGET_LAYER_ITEM, TARGET_LAYERS_TOGGLE,
     TARGET_RECTANGLE_TOOL, TARGET_SHAPES_TOGGLE,
 };
 
@@ -152,6 +152,40 @@ where
         result.map_err(|error| support::map_platform_error(tool, &error))
     }
 
+    /// 窗口几何视图（设备像素矩形 + 所属坐标空间），一次查询（ADR-0092 细则 3 / ADR-0093）。
+    ///
+    /// 用途：合成点击前做「点必须落在窗口矩形内」的判定（ADR-0092 细则 8）。平台没实现本查询
+    /// → `CapabilityMissing`，由 `map_platform_error` 映射后上抛，**不得**退回空矩形。
+    pub(super) fn window_geometry(
+        &self,
+        window: &ResolvedWindow,
+        tool: &str,
+    ) -> Result<WindowGeometry, ToolBusError> {
+        let result = support::poll_immediate(
+            self.platform.window_geometry(window),
+            tool,
+            "window_geometry",
+        )?;
+        result.map_err(|error| support::map_platform_error(tool, &error))
+    }
+
+    /// 元素几何视图（设备像素矩形 + 所属坐标空间），一次查询（ADR-0092 细则 3 / ADR-0093）。
+    ///
+    /// `space` 直接可喂给 `pointer_action`，因此点击工具栏控件**一次查询**就够，不必再问显示器目录
+    /// （热路径纪律，ADR-0092 细则 5）。平台没实现 → `CapabilityMissing`，显式失败。
+    pub(super) fn element_geometry(
+        &self,
+        element: &ResolvedElement,
+        tool: &str,
+    ) -> Result<ElementGeometry, ToolBusError> {
+        let result = support::poll_immediate(
+            self.platform.element_geometry(element),
+            tool,
+            "element_geometry",
+        )?;
+        result.map_err(|error| support::map_platform_error(tool, &error))
+    }
+
     pub(super) fn read_element_text(
         &self,
         element: &ResolvedElement,
@@ -240,6 +274,67 @@ where
             let result = support::poll_immediate(
                 self.platform
                     .pointer_action(coordinate_space, start, &action),
+                tool,
+                "pointer_action",
+            )?;
+            result.map_err(|error| support::map_platform_error(tool, &error))
+        })
+    }
+
+    /// 在元素中心发一次 L4 合成点击（形状项这类真机无可用 UIA pattern 的元素唯一可用的通道）。
+    ///
+    /// 为什么走合成点击（`DRIFT-256-5`）：Paint 11.2605.81.0 的形状项 `Button|矩形` 全树唯一，
+    /// 但 `TogglePattern.Toggle()` 两向都是**空操作**，且 `Button|矩形` 无 `InvokePattern`、
+    /// `ListItem|矩形` 无 `SelectionItemPattern` —— 没有任何可用 pattern，只有真实鼠标点击能选中。
+    ///
+    /// 步骤（ADR-0092 细则 5 的调用上限 = 1 次元素几何 + 1 次 `pointer_action`）：
+    /// 1. 取元素几何（设备像素矩形 + 所属坐标空间）；
+    /// 2. 取窗口几何，断言元素中心落在窗口矩形内 —— **半开区间** `[left, right) × [top, bottom)`，
+    ///    越界 → `ToolInvalidArgs`，**禁止 clamp / 悄悄挪点**（ADR-0092 细则 8 / 铁律 9）；
+    /// 3. 用元素几何自带的 `space` 归一化中心点，在窗口独占租约内发一次 `PointerAction::Click`。
+    ///
+    /// 中心点用 `left + width / 2` 而不是 `(left + right) / 2`：前者不引入 `i32` 溢出（ADR-0092
+    /// 的指针约束正是为极端坐标准备的），且保证落在 `[left, right)` 内。
+    pub(super) fn click_element_center(
+        &self,
+        task_id: &str,
+        window: &ResolvedWindow,
+        element: &ResolvedElement,
+        tool: &str,
+    ) -> Result<(), ToolBusError> {
+        let element_geometry = self.element_geometry(element, tool)?;
+        let window_geometry = self.window_geometry(window, tool)?;
+        let bounds = element_geometry.bounds();
+        let center = PhysicalPointPx {
+            horizontal_px: bounds.left() + bounds.width() / 2,
+            vertical_px: bounds.top() + bounds.height() / 2,
+        };
+        let window_bounds = window_geometry.bounds();
+        if center.horizontal_px < window_bounds.left()
+            || center.horizontal_px >= window_bounds.right()
+            || center.vertical_px < window_bounds.top()
+            || center.vertical_px >= window_bounds.bottom()
+        {
+            return Err(support::invalid_arguments(
+                tool,
+                format!(
+                    "element center ({}, {}) falls outside window bounds ({}, {})-({}, {})",
+                    center.horizontal_px,
+                    center.vertical_px,
+                    window_bounds.left(),
+                    window_bounds.top(),
+                    window_bounds.right(),
+                    window_bounds.bottom()
+                ),
+            ));
+        }
+        let space = element_geometry.space();
+        let point = normalized_point(center, space, tool)?;
+        let lease_key = window_lease_key(&self.app_id, window.id(), tool)?;
+        self.input_leases.run(task_id, lease_key, tool, || {
+            let result = support::poll_immediate(
+                self.platform
+                    .pointer_action(space, point, &PointerAction::Click),
                 tool,
                 "pointer_action",
             )?;

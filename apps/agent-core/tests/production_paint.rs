@@ -19,11 +19,12 @@ use assistant_agent_core::{
 };
 use assistant_hitl::ApprovalScope;
 use assistant_platform_api::{
-    CaptureOptions, CoordinateSpace, ElementBounds, ElementQuery, ElementState, ErrorCode,
-    Fingerprint, FingerprintScope, FocusPolicy, ImageBlobSink, ImageRef, KeyChord, KeyTarget,
-    NormalizedPoint, PlatformError, PlatformResult, PointerAction, ResolvedElement, ResolvedWindow,
-    ScrollTarget, Selection, SelectorChain, TextEditOp, Timeout, TreeOptions, TreeSnapshot,
-    UiAutomationProvider, WindowFilter, WindowInfo, WindowProvider, WindowState,
+    CaptureOptions, CoordinateSpace, CoordinateSpaceKind, ElementBounds, ElementGeometry,
+    ElementQuery, ElementState, ErrorCode, Fingerprint, FingerprintScope, FocusPolicy,
+    ImageBlobSink, ImageRef, KeyChord, KeyTarget, NormalizedPoint, PlatformError, PlatformResult,
+    PointerAction, ResolvedElement, ResolvedWindow, ScrollTarget, Selection, SelectorChain,
+    TextEditOp, Timeout, TreeOptions, TreeSnapshot, UiAutomationProvider, WindowFilter,
+    WindowGeometry, WindowInfo, WindowProvider, WindowState,
 };
 use assistant_platform_windows::WindowsPlatform;
 use assistant_storage::{BlobId, Clock, SystemClock};
@@ -99,6 +100,9 @@ struct PaintFakeState {
     layers_expanded: bool,
     drawn: bool,
     pointer_actions: usize,
+    rectangle_tool_clicks: usize,
+    element_geometry_calls: usize,
+    window_geometry_calls: usize,
     capture_calls: usize,
 }
 
@@ -115,6 +119,9 @@ impl PaintFakePlatform {
                 layers_expanded: false,
                 drawn: false,
                 pointer_actions: 0,
+                rectangle_tool_clicks: 0,
+                element_geometry_calls: 0,
+                window_geometry_calls: 0,
                 capture_calls: 0,
             })),
             blob_sink,
@@ -167,6 +174,21 @@ impl WindowProvider for PaintFakePlatform {
         _options: &CaptureOptions,
     ) -> impl Future<Output = PlatformResult<ImageRef>> + Send {
         ready(capture_fixture(self.blob_sink.as_ref(), &self.state))
+    }
+
+    fn window_geometry(
+        &self,
+        _window: &ResolvedWindow,
+    ) -> impl Future<Output = PlatformResult<WindowGeometry>> + Send {
+        {
+            let mut state = self.state.lock().expect("paint fake state");
+            state.window_geometry_calls = state.window_geometry_calls.saturating_add(1);
+        }
+        // The window rectangle must enclose every fixture element rectangle
+        // (min left=0, top=10, right=320, bottom=200) so the click primitive's
+        // "center inside the window" assertion holds for the calibrated targets.
+        let bounds = ElementBounds::new(0, 0, 400, 240);
+        ready(bounds.map(|bounds| WindowGeometry::new(bounds, fixture_space())))
     }
 }
 
@@ -246,16 +268,21 @@ impl UiAutomationProvider for PaintFakePlatform {
         &self,
         element: &ResolvedElement,
     ) -> impl Future<Output = PlatformResult<ElementBounds>> + Send {
-        let bounds = match element.id().value() {
-            CANVAS_ID => ElementBounds::new(40, 50, 140, 150),
-            TOOLBAR_ID => ElementBounds::new(10, 10, 300, 50),
-            RECTANGLE_TOOL_ID | FOREGROUND_COLOR_ID => ElementBounds::new(20, 20, 80, 60),
-            LAYERS_PANEL_ID | LAYER_ITEM_ID => ElementBounds::new(160, 20, 280, 200),
-            LAYERS_TOGGLE_ID | SHAPES_TOGGLE_ID => ElementBounds::new(200, 20, 240, 60),
-            STATUS_BAR_ID => ElementBounds::new(0, 180, 320, 200),
-            _ => ElementBounds::new(0, 0, 1, 1),
-        };
-        ready(bounds)
+        ready(fixture_element_bounds(element.id().value()))
+    }
+
+    fn element_geometry(
+        &self,
+        element: &ResolvedElement,
+    ) -> impl Future<Output = PlatformResult<ElementGeometry>> + Send {
+        {
+            let mut state = self.state.lock().expect("paint fake state");
+            state.element_geometry_calls = state.element_geometry_calls.saturating_add(1);
+        }
+        // ADR-0093 细则 4：`element_geometry().bounds` 必须与 `element_bounds()` 同源，
+        // 因此两条查询共用 `fixture_element_bounds`，不是各算一遍。
+        let bounds = fixture_element_bounds(element.id().value());
+        ready(bounds.map(|bounds| ElementGeometry::new(bounds, fixture_space())))
     }
 
     fn wait_for(
@@ -331,15 +358,16 @@ impl UiAutomationProvider for PaintFakePlatform {
             (SHAPES_TOGGLE_ID, "invoke") => {
                 state.shapes_expanded = true;
             }
-            (RECTANGLE_TOOL_ID, "toggle") => "rectangle".clone_into(&mut state.tool),
             (LAYERS_TOGGLE_ID, _) => {
                 state.layers_expanded = !state.layers_expanded;
             }
             _ => {
+                // 真机实测（DRIFT-256-5）：形状项 `Button|矩形` 的 `TogglePattern.Toggle()` 是
+                // 空操作，因此 fixture **不再**为 `(RECTANGLE_TOOL_ID, "toggle")` 背书；选矩形
+                // 工具只能走 `pointer_action(Click)`（见 `pointer_action`）。
                 return ready(Err(platform_error(
                     ErrorCode::CapabilityMissing,
-                    "fixture only supports the shape gallery toggle, the rectangle item \
-                     toggle and the layer toggle",
+                    "fixture only supports the shape gallery toggle and the layer toggle",
                 )));
             }
         }
@@ -399,14 +427,27 @@ impl UiAutomationProvider for PaintFakePlatform {
 
     fn pointer_action(
         &self,
-        _coordinate_space: &CoordinateSpace,
-        _point: NormalizedPoint,
-        _action: &PointerAction,
+        coordinate_space: &CoordinateSpace,
+        point: NormalizedPoint,
+        action: &PointerAction,
     ) -> impl Future<Output = PlatformResult<()>> + Send {
         let mut state = self.state.lock().expect("paint fake state");
         state.pointer_actions = state.pointer_actions.saturating_add(1);
-        state.drawn = true;
         state.revision = state.revision.saturating_add(1);
+        match action {
+            // 选矩形工具走 L4 合成点击：只有落在矩形工具矩形内的 `Click` 才改工具状态
+            // （真机上形状项没有任何可用 UIA pattern，见 DRIFT-256-5）。
+            PointerAction::Click => {
+                if click_lands_in_element(point, coordinate_space, RECTANGLE_TOOL_ID) {
+                    state.rectangle_tool_clicks = state.rectangle_tool_clicks.saturating_add(1);
+                    "rectangle".clone_into(&mut state.tool);
+                }
+            }
+            PointerAction::DragTo { .. } => {
+                state.drawn = true;
+            }
+            _ => {}
+        }
         drop(state);
         ready(Ok(()))
     }
@@ -504,6 +545,49 @@ fn element(id: u64) -> ResolvedElement {
     )
 }
 
+/// Single source of truth for every fixture element rectangle, shared by
+/// `element_bounds` and `element_geometry` so ADR-0093 细则 4's
+/// "`element_geometry().bounds == element_bounds()`" holds structurally.
+fn fixture_element_bounds(id: u64) -> PlatformResult<ElementBounds> {
+    match id {
+        CANVAS_ID => ElementBounds::new(40, 50, 140, 150),
+        TOOLBAR_ID => ElementBounds::new(10, 10, 300, 50),
+        RECTANGLE_TOOL_ID | FOREGROUND_COLOR_ID => ElementBounds::new(20, 20, 80, 60),
+        LAYERS_PANEL_ID | LAYER_ITEM_ID => ElementBounds::new(160, 20, 280, 200),
+        LAYERS_TOGGLE_ID | SHAPES_TOGGLE_ID => ElementBounds::new(200, 20, 240, 60),
+        STATUS_BAR_ID => ElementBounds::new(0, 180, 320, 200),
+        _ => ElementBounds::new(0, 0, 1, 1),
+    }
+}
+
+/// Fixture coordinate space: device pixels, no scaling, non-empty display name.
+fn fixture_space() -> CoordinateSpace {
+    CoordinateSpace::new(CoordinateSpaceKind::PhysicalPixels, 1.0, "\\\\.\\DISPLAY1")
+        .expect("fixture coordinate space")
+}
+
+/// Whether a synthetic point lands inside an element rectangle on the fixture.
+///
+/// The click primitive normalizes the physical center by `space.scale`, so the
+/// physical point is `logical * scale`; comparing in `f64` against `f64::from`
+/// bounds avoids a lossy cast (the crate denies `cast_possible_truncation`).
+fn click_lands_in_element(
+    point: NormalizedPoint,
+    coordinate_space: &CoordinateSpace,
+    element_id: u64,
+) -> bool {
+    let Ok(bounds) = fixture_element_bounds(element_id) else {
+        return false;
+    };
+    let scale = coordinate_space.scale();
+    let horizontal = point.x_logical() * scale;
+    let vertical = point.y_logical() * scale;
+    horizontal >= f64::from(bounds.left())
+        && horizontal < f64::from(bounds.right())
+        && vertical >= f64::from(bounds.top())
+        && vertical < f64::from(bounds.bottom())
+}
+
 fn platform_error(code: ErrorCode, message: impl Into<String>) -> PlatformError {
     PlatformError::new(code, message)
 }
@@ -595,8 +679,20 @@ async fn test_paint_t3_1_runs_to_completed_on_the_fake_platform()
     );
     {
         let state = platform.state.lock().expect("paint fake state");
-        assert!(state.drawn);
-        assert_eq!(state.pointer_actions, 1);
+        assert!(state.drawn, "draw_rectangle's drag must have run");
+        assert_eq!(
+            state.tool, "rectangle",
+            "paint.tool.select must have selected the rectangle tool via synthetic click"
+        );
+        // ADR-0092 细则 5 machine check: one `click_element_center` =
+        // 1x element_geometry + 1x window_geometry + 1x pointer_action(Click).
+        // The run executes exactly one `paint.tool.select`, and the two geometry
+        // queries are used only by the click primitive.
+        assert_eq!(state.element_geometry_calls, 1);
+        assert_eq!(state.window_geometry_calls, 1);
+        assert_eq!(state.rectangle_tool_clicks, 1);
+        // One Click (tool select) + one DragTo (draw rectangle).
+        assert_eq!(state.pointer_actions, 2);
         assert!(state.capture_calls >= 3);
         drop(state);
     }
