@@ -262,6 +262,31 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - 附：fake 已按「先展开才物化」建模并覆盖新路径（4 passed），但 fake 无法证伪 Toggle 语义 ——
   又一条「fake 通过 ≠ 真机通过」的实例。
 
+**2026-10-15 选 A（合成点击）时暴露的地基缺口（`DRIFT-256-6`，漂移触发器 ③/⑫：要改公共接口）**
+
+- 人类 2026-10-15 裁决：**走 A**（用合成点击选形状项），理由 = 后续本来就需要鼠标点击 / 连续点击 /
+  拖拽这条通道，现在就该把它做起来。方向已定，**但落地撞到一个 API 缺口**：
+- **缺口**：`UiAutomationProvider::pointer_action(coordinate_space, point, action)` 要求
+  `CoordinateSpace { kind: PhysicalPixels, scale, origin_display }`，而 Windows 侧
+  `coordinates::monitor_for_coordinate_space` 会**按 `origin_display` 去找一枚真实枚举到的显示器**
+  并校验 scale；找不到就 `TargetNotFound`、kind 不是 `PhysicalPixels` 就 `ToolInvalidArgs`。
+  可是 `WindowProvider` 只暴露 `list_windows / resolve_window / window_state / bring_to_front / capture`，
+  `WindowState` 只有 `minimized / foreground / occluded` —— **没有任何 API 能告诉 handler
+  「这个元素 / 窗口属于哪块显示器」**，`element_bounds` 也只给物理像素矩形。
+- **影响**：handler 无法为「点工具栏上的元素」构造一个合法的坐标空间；这不是写错代码，是
+  平台抽象层缺一个只读查询。**改 `crates/platform/api` 属公共接口变更** → 按铁律 10 / 漂移触发器 ③
+  必须先有 ADR，**不在本卡 write scope 内**，本卡不自行改。
+- **两条候选出路（需人类裁决，本卡不自行选）**：
+  - **A1（adapter 侧，本卡 write scope 内）**：给 `paint.tool.select` 的工具体**加法式**加一个可选
+    `coordinate_space` 入参（`adapters/com.microsoft.paint/tools/tools.json` + T3.1 任务包），
+    handler 用它构造点击 —— 复用 draw 步骤已经在用的那个坐标空间，零平台改动。
+    代价：.select 步骤的调用方必须提供该参数（缺省时 fail-closed，不猜）。
+  - **A2（平台侧，需 ADR）**：在 `platform/api` 暴露「元素 / 窗口所属显示器」，例如
+    `WindowProvider::window_display(&ResolvedWindow) -> DisplayId`；之后 handler 可以自行构造
+    正确坐标空间，点击原语对任意元素都可复用。代价：公共接口变更，要走 ADR + 另一张卡。
+- **已停工作**：不擅自加公共 API、不把 scale/origin 猜一个值硬塞进去（那会在多屏 / 缩放机上静默点偏，
+  正是 ADR-0067 要防的事）；本卡代码维持现状（`toggle` 路径 + `DRIFT-256-5`），停在 **Review**。
+
 ### 6. 更合理做法
 
 先复用已合并的 ExactName 契约，再把真实控件可提供的 `SelectionItemPattern::IsSelected`
