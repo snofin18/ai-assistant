@@ -103,7 +103,9 @@
 
 | **0091** | `0091-exact-name-and-role-selector.md` | **Accepted** | `SelectorKind` 加法式新增 `ExactNameAndRole`（`SelectorValue::ExactNameAndRole { name, role }`）：UIA `AndCondition(NameProperty, ControlTypePropertyId)`、逐字符相等、非本地化 role 词表、`locale_dependent` 最低分兜底、0/多命中 fail-closed；解决形状库容器与其 `DropDownButton` 同名导致的 `TargetAmbiguous`（TASK-256 `DRIFT-256-3`；人类 2026-10-14「按A做」授权） |
 
-**下一个可用编号：0092**（= §1 与 §2 已用最大号 **0091** + 1；由 `cargo run -p xtask -- adr-index`
+| **0092** | `0092-display-provider-device-pixels-and-pointer-confinement.md` | **Accepted** | 加法式新增独立 trait `DisplayProvider`（显示器目录）+ `WindowProvider::window_geometry` + `UiAutomationProvider::element_geometry`；几何统一以**设备像素 + `DisplayId` + `scale`** 表达、换算只在平台实现侧做一次；热路径**禁止**枚举显示器、目录必须可缓存（有界 TTL + 显式失效）；合成指针必须落在**已解析目标窗口矩形内**（越界 `ToolInvalidArgs`，禁止 clamp）；Wayland 的 `window-geometry` 进 `degradations`（人类 2026-10-15 裁决：设备像素 + 独立 trait；TASK-256 `DRIFT-256-6`） |
+
+**下一个可用编号：0093**（= §1 与 §2 已用最大号 **0092** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由
