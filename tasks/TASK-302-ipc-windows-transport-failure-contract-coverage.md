@@ -1,6 +1,6 @@
 # TASK-302　IPC Windows 传输失败 / 超时公开契约覆盖率补强（章程 §2 P2）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**治理/质量**（跨阶段）　批次：**治理池**　依赖：无（`assistant-ipc` Windows NamedPipe 传输已在 main）　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031）；分界线以上正文只读，`- 状态：` 行按 ADR-0083 例外。
 
@@ -122,7 +122,7 @@ cargo deny check -> advisories / bans / licenses / sources ok；EXIT 0
 - 专项覆盖率、crate tests、fmt、clippy、workspace tests、双目标 clippy、arch、
   replay、xtask 硬门禁、deny：**满足**。
 - `LEDGER.md` Review 行与 round / report 已同批落主 PR；Done 与 PLAN / README /
-  plans 状态按既有流程在 merge hash 回填 PR 中同步：**待回填**。
+  plans 状态按既有流程在 merge hash 回填 PR 中同步：**满足**。
 
 ### 5. 偏差
 
@@ -147,7 +147,7 @@ cargo deny check -> advisories / bans / licenses / sources ok；EXIT 0
 
 ### 7. 遗留问题
 
-- 主 PR / CI / merge hash 与 Done 回填待完成。
+- 主 PR #423 / CI `38792724568` / merge `c26a620`；post-merge main push run `38795033470` = success；Done 回填已完成。
 - `windows_peer.rs` 的 Win32 失败与缓冲区边界需真实受控环境或后续注入面；不在本卡扩范围。
 
 ### 8. 新增长期记忆
