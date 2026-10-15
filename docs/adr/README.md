@@ -107,7 +107,9 @@
 
 | **0093** | `0093-erratum-adr-0092-geometry-shape.md` | **Accepted** | **勘误 ADR-0092 的接口形状**：撤销独立 trait `DisplayProvider`（显示器目录复用既有 `SessionState.displays()`）、不重声明既有 `DisplayInfo`、几何查询直接回 `{ bounds: ElementBounds, space: CoordinateSpace }`（`origin_display` = 显示器、`scale` = 缩放，不再新造 scale 表示）；ADR-0092 其余条款（设备像素口径、热路径禁枚举 + 调用上限、越界禁 clamp、Wayland 降级）**不变**（卡2 开工读现状时发现同名冲突；漂移触发器 ⑫） |
 
-**下一个可用编号：0094**（= §1 与 §2 已用最大号 **0093** + 1；由 `cargo run -p xtask -- adr-index`
+| **0094** | `0094-child-at-view-fallback.md` | **Accepted** | **勘误 ADR-0087 的「单一 `ContentViewWalker`」口径**：`child_at` 改为按视图**有序回退**（content view 取第 n 项 → 给不出时再取 control view → 两者都取不到才 `TargetNotFound`）；顺序固定、不扩公共 API、`ensure_realized` 与 ADR-0087 其余条款不变。真机一手证据：调色板色块是 control 元素但**不是** content 元素（content view 0 子项），单一视图必然失能（`DRIFT-296-1`；人类 2026-10-15「按这个做」授权） |
+
+**下一个可用编号：0095**（= §1 与 §2 已用最大号 **0094** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由
