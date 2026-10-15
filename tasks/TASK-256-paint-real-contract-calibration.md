@@ -237,6 +237,31 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
   `SelectionItemPattern`）；fake 已同步改成「不展开就 `TargetNotFound`」且**不再**为形状项提供 `select`，
   使这条路径真的被测到。
 
+**2026-10-15 真机复跑结论（`DRIFT-256-5`，漂移触发器 ⑧：假设与实测矛盾）**
+
+- **现象（一手，Paint 11.2605.81.0 / zh-CN，测完当场探针）**：`select_rectangle_tool` 现在**过了 selector**，
+  失败在动作层 —— `invoke_action(toggle) postcondition failed: ToggleState stayed at 0 after Toggle()`。
+  现场活树探针（180 个节点）显示：
+  - 形状库**展开态**：`Group|形状` + `List` + 23 个 `ListItem|直线/曲线/椭圆/矩形…`，每项下有
+    **一个** `Button|<形状名>`，pattern 只有 `Toggle,ScrollItem`。`Button|矩形` **全树唯一** —— 所以
+    `exact_name_and_role{矩形, Button}` 锚点是对的（`DRIFT-256-3` 的歧义确实消除）。
+  - 同时存在**第二个** `Group|形状`（flyout）与折叠态的 `Button|形状|CollapsedButton` —— 印证
+    「容器名 + role 也不是稳定锚点」的判断。
+  - **结论性事实**：对该 `Button|矩形` 调 `TogglePattern.Toggle()` 是**空操作** ——
+    实测 `Off → Toggle() → Off`（测试那次）与 `On → Toggle() → On`（当场探针）两个方向都不翻转；
+    `ListItem|矩形` 只有 `ScrollItem,VirtualizedItem`（**无** `SelectionItemPattern`），
+    `Button|矩形` 只有 `Toggle,ScrollItem`（**无** `InvokePattern`）。
+- **影响**：T3.1 的「选矩形工具」在本 build 上**没有任何可用的 UIA pattern** 能改状态；卡面
+  「形状项是 Button + `TogglePattern`，点击应作用在 Button + `toggle`」的假设被实测推翻。可选出路
+  （**需人类裁决**，本卡不自行选）：
+  - **A**：handler 改走 **L4 合成点击** —— 用 `element_bounds(形状项)` 取矩形，再 `pointer_action`
+    点中心；后置条件可用画布元素 `aid=image` 的 `Name`（实测形如 `在画布上使用 矩形 工具`）回读。
+  - **B**：改平台层 `uia::actions::toggle` 的后置条件（有界轮询 / 允许状态不变），属
+    `crates/platform/windows`，**超出本卡 write scope** → 需要另立 ADR / 卡。
+- **已停工作**：不自行选 A / B，不改平台层，不放宽 `ToggleState` 后置条件；本卡停在 **Review**。
+- 附：fake 已按「先展开才物化」建模并覆盖新路径（4 passed），但 fake 无法证伪 Toggle 语义 ——
+  又一条「fake 通过 ≠ 真机通过」的实例。
+
 ### 6. 更合理做法
 
 先复用已合并的 ExactName 契约，再把真实控件可提供的 `SelectionItemPattern::IsSelected`
