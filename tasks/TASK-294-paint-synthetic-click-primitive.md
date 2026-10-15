@@ -163,6 +163,17 @@ none。
   `TargetNotFound: select: child index 3 is out of range for this element` —— 那是
   `foreground_color_button`（调色板 `List`）的 `Selection::ByIndex(3)` 问题，**属 TASK-256 的
   调色板 read-back 校准，不在本卡 write scope**（已记入 `LEDGER.md`，建议另开 DRIFT / 卡）。
+- **2026-10-15 真机尝试第 3 次（加静默窗口后复跑）**：人类反馈「切到前台时鼠标动作可能仍在继续、
+  会干扰合成鼠标」，于是给真机用例加了两处守卫（见本次 commit）：
+  ① 前台确认后固定 **2 s** 静默窗口（`REAL_RUN_FOREGROUND_SETTLE`）才允许发输入；
+  ② 静默结束与**首次输入前**各做一次前台复核（`require_real_paint_foreground`），丢了前台就
+  fail-closed 报错、**不向任何窗口发输入**。复跑实测：前台门 + 静默 + 两处复核全部通过、
+  `new_document` 与 `select_rectangle_tool` 通过、**无鼠标干扰失败**；仍停在同一个
+  `select_foreground_color` 的 `child index 3 is out of range`（调色板 blocker 未变，属 TASK-256）。
+  另外，因加完守卫后 `production_paint.rs` 触到 `hygiene/file-too-long` 的 **900 行硬上限**，
+  把真机 harness（该常量 + 3 个 helper + ignored 用例）抽到
+  `apps/agent-core/tests/support/paint_real_run.rs`（经 `#[path]` 编入同一 test binary，主文件回到
+  **823 行**）；抽取是纯搬移，行为零变更。
 - 混合 DPI / 多屏的真机归属（`element_geometry` 的中心点归属）仍按 TASK-293 的说明由后续真机验收覆盖。
 
 ### 8. 新增长期记忆
