@@ -62,7 +62,6 @@ pub const TOOL_CANVAS_CAPTURE_PIXELS: &str = "paint.canvas.capture_pixels";
 const TARGET_MAIN_WINDOW: &str = "main_window";
 const TARGET_RECTANGLE_TOOL: &str = "rectangle_tool_button";
 const TARGET_FOREGROUND_COLOR: &str = "foreground_color_button";
-const TARGET_LAYERS_TOGGLE: &str = "layers_toggle";
 const TARGET_LAYER_ITEM: &str = "layer_item";
 const TARGET_STATUS_BAR: &str = "status_bar";
 const TARGET_CANVAS: &str = "canvas";
@@ -331,6 +330,7 @@ where
     }
     fn select_layer_output(
         &self,
+        task_id: &str,
         arguments: &Map<String, Value>,
     ) -> Result<ToolOutput, ToolBusError> {
         let layer_id = required_string(arguments, "layer_id", TOOL_LAYER_SELECT)?;
@@ -354,7 +354,7 @@ where
         let previous_layer_id = self
             .selection_layer_id()?
             .unwrap_or_else(|| "unknown".to_owned());
-        let (layer_list, expanded_by_us) = self.resolve_layer_list(&window, TOOL_LAYER_SELECT)?;
+        let layer_list = self.resolve_layer_list(task_id, &window, TOOL_LAYER_SELECT)?;
         let before = self.fingerprint_event(&window, TOOL_LAYER_SELECT)?;
         let started = Instant::now();
         self.select_element(
@@ -362,10 +362,6 @@ where
             &Selection::ByIndex(layer_index),
             TOOL_LAYER_SELECT,
         )?;
-        if expanded_by_us {
-            let toggle = self.resolve_element(TARGET_LAYERS_TOGGLE, &window, TOOL_LAYER_SELECT)?;
-            self.invoke_element(&toggle, "toggle", TOOL_LAYER_SELECT)?;
-        }
         self.selection
             .lock()
             .map_err(|_| unavailable("paint selection state"))?

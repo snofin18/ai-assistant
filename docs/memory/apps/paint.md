@@ -323,3 +323,13 @@ ADR-0087 的「形状库 / 调色板两类列表都走 `ContentViewWalker`」这
 处置：这是改 ADR 已决事项（漂移触发器 ④ / ⑧），**已停工作**并记录，等裁决。候选修法（需 ADR 勘误）：
 `child_at` 用「**content view → control view** 有序回退」，取不到再显式 `TargetNotFound`（仍 fail-closed、
 不改公共 API、`ensure_realized` 与 `Selection::ByIndex` 语义保留）。
+
+### 12.4 图层面板：`Alt+L` 是开关，且它的本地化父候选有 4 个命中（2026-10-15 实测）
+
+§11.4 的结论「`Alt+L` 开合图层面板、**不需要**解析本地化的『层』按钮」在真机上再次被证实，
+并补一条量化事实：**`name_regex "层"` 命中 4 个元素**（`TargetAmbiguous`），所以任何以它为父候选的
+`RoleAndParent` 链都必然失败 —— 这正是 T3.1 卡在 `paint.layer.select` 的原因。
+
+落定：图层面板走「先解析 `layersList`（aid）→ **缺失才**发 `Alt+L` → 20 × 50 ms 有界轮询重解 →
+仍缺失则显式失败」；**不再**解析那个歧义 toggle，也**不再**在选完层之后盲发一次开关键把面板收回去
+（面板保持展开是无害终态）。形状库（异步物化）与图层面板共用同一段有界轮询。
