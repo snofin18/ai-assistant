@@ -135,10 +135,12 @@ codegen --check 0 drift / 0E；check-migrations 0E/0W
 
 - 选靶阶段先核查 `crates/ipc/src/frame.rs`（84.43%），`--show-missing-lines` 显示其未覆盖行
   全部是长度校验后不可达的转换 / 切片防御分支，故主动改靶到 `handler.rs`（75.38%）。
-- 环境纪律偏差 18 次：17 次 `exec_command` 误用了默认 bash（均为只读探查或单条门禁命令，
-  报错后立即改用 PowerShell 重跑，没有任何失败命令被写成通过），另有 1 次 PowerShell
-  文件长度探查因 `foreach` 后直接接管道触发 `An empty pipe element is not allowed`，
-  修正表达式后重跑成功。所有最终门禁结果均来自 PowerShell 下的真实执行。
+- 环境纪律偏差最终计数 38 次：37 次 `exec_command` 误用了默认 bash（均为只读探查、门禁、
+  CI 查询或提交命令；报错后立即改用 PowerShell 重跑，没有任何失败命令被写成通过），
+  另有 1 次 PowerShell 文件长度探查因 `foreach` 后直接接管道触发
+  `An empty pipe element is not allowed`，修正表达式后重跑成功。早期主 PR 合并时记录为
+   18 次（17 + 1）；CI / 回填 / 清理阶段的后续误用使最终计数增至 38，本 docs-only
+  更正 PR 按实修正。所有最终门禁结果均来自 PowerShell 下的真实执行。
 
 ### 6. 更合理做法
 
