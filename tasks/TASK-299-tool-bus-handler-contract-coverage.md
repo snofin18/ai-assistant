@@ -1,6 +1,6 @@
 # TASK-299　tool-bus handler 公开契约覆盖率补强（章程 §2 P2）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**治理/质量**（跨阶段）　批次：**治理池**　依赖：无（`CallContext` / `ToolHandler` / `ToolOutput` 已在 main）　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031）；分界线以上正文只读，`- 状态：` 行按 ADR-0083 例外。
 
@@ -71,6 +71,8 @@ schema/DB/IPC；真实 GUI / 网络 / 凭据　【验收】见上；【依赖】
 
 - `crates/tool-bus/tests/handler_contract.rs`（新增 7 个公开 API 契约测试）
 - `tasks/TASK-299-tool-bus-handler-contract-coverage.md`
+- `LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md`
+- `docs/automations/2026-10-15-round-2.md`
 
 ### 3. 验收输出摘要
 
@@ -124,8 +126,10 @@ codegen --check 0 drift / 0E；check-migrations 0E/0W
 - `handler.rs` 75.38% → 100.00%（≥95%）；crate 89.91% → 91.15%（≥90%）：**满足**。
 - `cargo llvm-cov ... --fail-under-lines 85` 与 `cargo test -p assistant-tool-bus` 全绿：**满足**。
 - `fmt` / `clippy -D warnings` / `test --workspace` / xtask 硬门禁 / `cargo deny check`：**满足**。
-- `LEDGER.md` / `plans/stage-1-pilots.md` 已写入 Review 留痕；`PLAN.md` / `README.md` 与
-  Done 状态、merge hash 由合并后的 docs-only 回填 PR 同批更新（ADR-0039 / ADR-0041）。
+- 主 PR #416 的 pull_request CI run `38729623187` = 11/11 SUCCESS，merge `6f8ea6d`；
+  post-merge main push CI run `38730851981` = success。
+- `LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md` 已在 docs-only
+  回填 PR 同批更新，Done 状态与 merge hash 一致（ADR-0039 / ADR-0041）。
 
 ### 5. 偏差
 
@@ -145,7 +149,8 @@ codegen --check 0 drift / 0E；check-migrations 0E/0W
 
 ### 7. 遗留问题
 
-- 无产品遗留。主 PR 见 round 文件与 `LEDGER.md`；merge hash 由 docs-only 回填 PR 落地。
+- 无产品遗留。主 PR #416 / merge `6f8ea6d`、post-merge main CI
+  `38730851981` 已写入 round 文件、本卡与 `LEDGER.md`。
 - 非产品遗留：`bus.rs`（75.82%）与 `server.rs`（83.58%）仍有低覆盖行，但逐行核查后
   主要是私有解析 / 序列化防御分支；若后续要收口，应先证明其可通过公开 API 或注入替身到达。
 
