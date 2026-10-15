@@ -362,6 +362,73 @@ fn window_geometry_from_parts(
     Ok(assistant_platform_api::WindowGeometry::new(bounds, space))
 }
 
+/// 把窗口带到前台（**受策略约束**）。
+///
+/// # Errors
+/// - `NeverSteal` / `RequireUserConsent` → `PolicyDenied`（本层不征求用户同意）
+/// - 句柄失效 → `TargetNotFound`
+/// - 系统拒绝前台请求（`SetForegroundWindow` 被静默忽略）→ `TargetUnresponsive`
+fn bring_to_front(window: &ResolvedWindow, policy: FocusPolicy) -> PlatformResult<()> {
+    match policy {
+        FocusPolicy::AllowSteal => {}
+        FocusPolicy::NeverSteal => {
+            return Err(PlatformError::new(
+                ErrorCode::PolicyDenied,
+                "focus policy is NeverSteal: this layer must not steal focus",
+            ));
+        }
+        FocusPolicy::RequireUserConsent => {
+            return Err(PlatformError::new(
+                ErrorCode::PolicyDenied,
+                "focus policy is RequireUserConsent: consent acquisition belongs to the policy \
+                 engine (TASK-021), which this provider layer cannot perform",
+            ));
+        }
+        _ => {
+            return Err(PlatformError::new(
+                ErrorCode::PolicyDenied,
+                "unknown focus policy: refusing to steal focus (fail closed)",
+            ));
+        }
+    }
+    let hwnd = handles::hwnd_from_window_handle(window.id())?;
+    if !win32::is_window(hwnd) {
+        return Err(error::target_not_found(format!(
+            "window `{}` no longer exists",
+            window.display_label()
+        )));
+    }
+    if win32::bring_to_front(hwnd) {
+        return Ok(());
+    }
+    Err(error::target_unresponsive(format!(
+        "SetForegroundWindow did not make `{}` the foreground window (Windows foreground lock)",
+        window.display_label()
+    )))
+}
+
+/// 截取一个已解析窗口（真实平台路径在 `capture` 子模块）。
+///
+/// 不接收屏幕坐标 / 全屏参数；只接受调用方已经解析出的 `ResolvedWindow`。
+fn capture(
+    window: &ResolvedWindow,
+    options: CaptureOptions,
+    blob_sink: Option<&dyn ImageBlobSink>,
+) -> PlatformResult<ImageRef> {
+    capture::capture_window(window, options, blob_sink)
+}
+
+/// 编译期断言：本类型必须满足两个 trait 的 `Send + Sync` 约束（否则 async 方法无法编译）。
+const _: () = {
+    // STUB(TASK-282): compile-time assertion function intentionally has no runtime body.
+    const fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<WindowsPlatform>();
+};
+
+/// 几何视图的判定规则单测。
+///
+/// 刻意放在文件**末尾**：`clippy::items_after_test_module` 要求测试模块之后不能再有 item，
+/// 所以测试模块必须是本文件的最后一个 item。
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
@@ -437,66 +504,3 @@ mod window_geometry_tests {
         assert!((geometry.space().scale() - 1.0).abs() < f64::EPSILON);
     }
 }
-
-/// 把窗口带到前台（**受策略约束**）。
-///
-/// # Errors
-/// - `NeverSteal` / `RequireUserConsent` → `PolicyDenied`（本层不征求用户同意）
-/// - 句柄失效 → `TargetNotFound`
-/// - 系统拒绝前台请求（`SetForegroundWindow` 被静默忽略）→ `TargetUnresponsive`
-fn bring_to_front(window: &ResolvedWindow, policy: FocusPolicy) -> PlatformResult<()> {
-    match policy {
-        FocusPolicy::AllowSteal => {}
-        FocusPolicy::NeverSteal => {
-            return Err(PlatformError::new(
-                ErrorCode::PolicyDenied,
-                "focus policy is NeverSteal: this layer must not steal focus",
-            ));
-        }
-        FocusPolicy::RequireUserConsent => {
-            return Err(PlatformError::new(
-                ErrorCode::PolicyDenied,
-                "focus policy is RequireUserConsent: consent acquisition belongs to the policy \
-                 engine (TASK-021), which this provider layer cannot perform",
-            ));
-        }
-        _ => {
-            return Err(PlatformError::new(
-                ErrorCode::PolicyDenied,
-                "unknown focus policy: refusing to steal focus (fail closed)",
-            ));
-        }
-    }
-    let hwnd = handles::hwnd_from_window_handle(window.id())?;
-    if !win32::is_window(hwnd) {
-        return Err(error::target_not_found(format!(
-            "window `{}` no longer exists",
-            window.display_label()
-        )));
-    }
-    if win32::bring_to_front(hwnd) {
-        return Ok(());
-    }
-    Err(error::target_unresponsive(format!(
-        "SetForegroundWindow did not make `{}` the foreground window (Windows foreground lock)",
-        window.display_label()
-    )))
-}
-
-/// 截取一个已解析窗口（真实平台路径在 `capture` 子模块）。
-///
-/// 不接收屏幕坐标 / 全屏参数；只接受调用方已经解析出的 `ResolvedWindow`。
-fn capture(
-    window: &ResolvedWindow,
-    options: CaptureOptions,
-    blob_sink: Option<&dyn ImageBlobSink>,
-) -> PlatformResult<ImageRef> {
-    capture::capture_window(window, options, blob_sink)
-}
-
-/// 编译期断言：本类型必须满足两个 trait 的 `Send + Sync` 约束（否则 async 方法无法编译）。
-const _: () = {
-    // STUB(TASK-282): compile-time assertion function intentionally has no runtime body.
-    const fn assert_send_sync<T: Send + Sync>() {}
-    assert_send_sync::<WindowsPlatform>();
-};
