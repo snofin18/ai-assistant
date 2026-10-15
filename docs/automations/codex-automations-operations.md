@@ -202,6 +202,17 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 > 判据仍是 `automations.next_run_at`（epoch ms → +08），不看 UI 文案、也不看 `status`。
 > 本条的「已确认」范围仅限 `FREQ=DAILY;COUNT=1` + `BYHOUR`/`BYMINUTE`；带 `BYMONTHDAY` 等其它 BY* 的形状仍未复测。
 
+> **2026-10-15 建立记录（人类指令：5 个槽位，首个 17:00，2.5 h 间隔）**：按同一形态建 5 个一次性 automation
+> `ai-assistant-task-round-2026{1015-1700,1015-1930,1015-2200,1016-0030,1016-0300}`。
+> `rrule` 逐字（本地墙钟直写，**未做时区换算**）：`FREQ=DAILY;COUNT=1;BYHOUR=<17|19|22|0|3>;BYMINUTE=<0|30|0|30|0>`。
+> 建后读 `%USERPROFILE%\.codex\sqlite\codex-dev.db` 的 `automations.next_run_at`（epoch ms → +08）依次为
+> **2026-10-15 17:00 / 19:30 / 22:00 + 2026-10-16 00:30 / 03:00**，相邻间隔均 2.5 h；`status=ACTIVE`、
+> `kind=cron`、`execution_environment=local`、`model=deepseek-v4.1-flash`、`reasoning_effort=high`、
+> `project_id=5b628eec-9ca4-4768-8891-c7744a9dab5e`、`notification_policy=failed_runs_only`。
+> prompt 与上一批同格式；**建后硬核对已做**：5 份 `automation.toml` 的 prompt 均含 `.automation.lock` 获取/跳过/陈旧接管/释放、
+> 运行日归属（00:00-07:59 归前一天）、`git fetch` + `git ls-tree` 轮次序号与 `N_auto` 闸门（>5 只补报告）、轮次文件禁止覆盖、
+> 阶段报告触发、先落地再自删、仓库外持久日志路径与事件清单、`shell: "powershell"` 环境硬要求、真机 GUI 禁区、`checks>=11` 合并门禁。
+
 #### 4.1.b 完成后自删（第二重保护）—— 让 run 自己删掉自己
 
 > **背景（2026-09-26 当日复核）**：应用**没有**内置的「跑完即删」开关。asar 解包（`%LOCALAPPDATA%\Temp\asar_engine`，35 个文件）
