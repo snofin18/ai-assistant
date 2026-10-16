@@ -91,3 +91,49 @@ pub use window::WindowsPlatform;
 
 #[cfg(not(windows))]
 pub use unsupported::WindowsPlatform;
+
+/// 声明本进程为 **Per-Monitor-V2 DPI 感知**（ADR-0092 细则 3）。
+///
+/// 为什么必须由**宿主**显式调用：DPI 感知是**进程级**状态，且必须在任何窗口创建 / DPI 查询
+/// **之前**设置；库无法替宿主决定，也无法事后补上。
+///
+/// 不声明的后果有两条（一手证据见 `docs/memory/apps/paint.md` §12.5）：
+/// 1. **坐标口径**：`GetDpiForMonitor` / UIA 都按 96 DPI 上报，`CoordinateSpace.scale` 恒为 1.0；
+/// 2. **截图被截掉 3/4**：`GetWindowRect` 返回**虚拟化**尺寸，而 `PrintWindow` 按**物理**尺寸渲染
+///    → `capture` 只拿到窗口左上角一块（缩放显示器上尤其明显）。
+///
+/// # Returns
+/// - `Ok(true)`：本次成功设为 Per-Monitor-V2；
+/// - `Ok(false)`：进程**已经**处于某个 DPI 感知模式（宿主 manifest 已声明 / 重复调用）——
+///   保持现状即正确，**不是**失败；
+///
+/// # Errors
+/// `SetProcessDpiAwarenessContext` 返回非 `ERROR_ACCESS_DENIED` 的系统失败（含 API 不可用）→
+/// `CapabilityMissing`（调用方应显式处理，不得静默降级）。
+#[cfg(windows)]
+pub fn enable_per_monitor_v2_dpi_awareness() -> assistant_platform_api::PlatformResult<bool> {
+    use windows::Win32::Foundation::E_ACCESSDENIED;
+    use windows::Win32::UI::HiDpi::{
+        DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext,
+    };
+
+    // SAFETY: 只设置进程级 DPI 感知状态；不转移所有权、不读写缓冲区。
+    match unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) } {
+        Ok(()) => Ok(true),
+        // 已经设置过（含 manifest 声明）→ 保持现状。
+        Err(failure) if failure.code() == E_ACCESSDENIED => Ok(false),
+        Err(failure) => Err(assistant_platform_api::PlatformError::new(
+            assistant_platform_api::ErrorCode::CapabilityMissing,
+            format!("SetProcessDpiAwarenessContext(PerMonitorV2) failed: {failure}"),
+        )),
+    }
+}
+
+/// 非 Windows：没有 DPI 感知需要声明（保持调用方代码平台中立）。
+///
+/// # Errors
+/// 恒不失败（返回 `Ok(false)`）；保留 `Result` 只为与 Windows 侧同签名。
+#[cfg(not(windows))]
+pub fn enable_per_monitor_v2_dpi_awareness() -> assistant_platform_api::PlatformResult<bool> {
+    Ok(false)
+}
