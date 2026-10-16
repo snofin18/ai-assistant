@@ -292,6 +292,54 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 > **与 `#### 4.1.b` 自删的顺序**：自删仍是**整个 run 的最后一步**；`.automation.lock` 的**释放**排在自删**之前**（先放锁，再自删）。
 > **`[未验证]`**：把「自删」与「放锁」都放在最后一步是否会被中途失败打断 —— 失败时留下条目 + 残留锁正是「需要人工看一眼」的信号（与 §4.1.b 同一口径）。
 
+#### 4.1.d PowerShell 挂起：持续跟踪与排查（2026-10-16 建立）
+
+**背景**：自动化多次报告「PowerShell 探针 > 90 s 零输出」（round 3 的 `gh pr view` / `git fetch` /
+`git ls-tree`；round 4 / 5 同为探针挂起），历史 profile 注释里也记过一次「ConsoleHost 卡在 banner、
+无 `PS>`」。挂起**条件触发**：2026-10-16 的复现尝试（12 × `git status` + 12 × `git ls-tree` +
+`gh pr view`，各带 20 s 超时）**未复现**（最大 793 ms、0 超时）。
+
+**持续跟踪（本次落地）**：`tools/ps-watch.ps1`
+
+- 每 3 s 采样所有 `pwsh` / `powershell` 进程（PID / 启动时间 / 总 CPU / 线程 / 句柄 / 工作集），逐条追加
+  JSONL 到 `%USERPROFILE%\.codex\ps-watch\<yyyy-MM-dd>.jsonl`（**仓库外**，任务自删/重启后仍在）。
+- 同一 PID 的总 CPU 连续 20 次采样（≈60 s）不前进 → 追加 `stall` 事件，带**命令行**、线程数与每线程
+  `ThreadState/WaitReason` —— 这是下一次挂起的**第一手证据**。
+- 常驻启动（分离 + 隐藏）：`Start-Process pwsh -WindowStyle Hidden -ArgumentList '-NoProfile','-NonInteractive','-File','%USERPROFILE%\.codex\tools\ps-watch.ps1'`。
+  agent 每次 `exec_command(shell: "powershell")` 都会拉起 pwsh 进程，因此**每次使用都被采样跟踪**。
+
+**2026-10-16 取证快照** `[实测·探针]`：
+
+- agent 的 `powershell` 壳是 **Codex 自带运行时** `…\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\powershell\pwsh.exe`（PS **7.6.5** Core），**不是**系统安装的 PowerShell；`powershell.exe` 仍是 5.1。
+- `PSModulePath` 含一个**空条目**（`…\powershell\Modules;;C:\Program Files\WindowsPowerShell\Modules;…`）：
+  同一台机器上 `Get-Module -ListAvailable` 由 654 ms 变 **861 ms**（+32%）—— **能解释慢，不足以解释挂起**。
+- 用户 profile（`Documents\PowerShell\Microsoft.PowerShell_profile.ps1`）只设 UTF-8 编码 + 定义三个代理函数，**无阻塞调用**；
+  冷启动实测 NoProfile 185–215 ms、带 profile 222–243 ms。
+- Store 版 PowerShell **已卸载**（`Get-AppxPackage Microsoft.PowerShell*` 为空）→ 之前怀疑的 WindowsApps 模块路径污染**不是现状**。
+- Defender 实时保护 **开**；排除项需管理员，**未取证**。
+- 环境里**没有** `GIT_TERMINAL_PROMPT` / `GCM_INTERACTION`；`git` 走本机代理 `http://127.0.0.1:10808`，
+  而当日实测该代理**会出现 TLS 握手超时**（`gh` 与 `git ls-remote` 都撞到过）。
+
+**待验怀疑（按可能性排序，全部 `[未验证]`）**：
+
+1. **网络/代理阻塞**：`git fetch|push`、`gh *` 经 10808 时上游卡住 → 零输出长时间挂起（当日已实测到 TLS 超时）。
+   **缓解**：网络类命令前设 `$env:GIT_TERMINAL_PROMPT='0'` + `$env:GCM_INTERACTION='never'`（避免落到**阻塞式凭据提示**），
+   并给网络命令加显式超时（`Start-Process … -PassThru` + `WaitForExit(ms)`）。
+2. **控制台编码 / PSReadLine 渲染**：就是 profile 注释记录过的历史形态（GB2312 + CJK 历史）。当前 profile 已设 UTF-8；再遇先看 `[Console]::OutputEncoding`。
+3. **签名 / CRL 校验**：模块或脚本签名验证触网取 CRL，网络被拦时按 TCP 超时等待 —— `stall` 事件里的 `WaitReason` 可作线索。
+4. **文件系统 / Defender 实时扫描**：仓库与 `.cache` 的排除项未取证。
+5. **空 `PSModulePath` 条目**：只解释 ~200 ms，**不解释**挂起。
+
+**下一次挂起时的动作**：① 先**不要 kill**；② 在另一个（未挂起的）壳里 `Get-Content %USERPROFILE%\.codex\ps-watch\<date>.jsonl -Tail 40`
+看 `stall` 事件的 `command_line` 与 `thread_states`；③ 必要时 `Get-Process -Id <pid> | Select-Object -ExpandProperty Threads | Select-Object Id,ThreadState,WaitReason`；
+④ 结论写进当轮 round 文件的偏差段，并把新事实回填本小节。
+
+**JSONL 取证口径（2026-10-16 补）**：仓库外日志**每行一个 JSON 对象**，**不得**把整行再转义一层。
+反例：`ai-assistant-task-round-20261016-0300.jsonl` 曾写成 `{\"ts\":\"…\"}`（整行引号被转义），裸
+`ConvertFrom-Json` 直接失败；已按「整行 `\"` → `"` 后解析」归一化，原始字节保留为
+`…-0300.jsonl.original-double-escaped.bak`。写日志用 `ConvertTo-Json -Compress` 直接 `Add-Content`，
+**不要**经过会转义引号的 shell 层。
+
 ### 4.2 建立（in-chat / `kind = "heartbeat"`）
 
 **走 UI / 自然语言** `[官方]`：在既有 chat 里说明「按什么节奏回到这个 chat 做什么」。官方对 in-chat 的 prompt 有额外要求：必须**耐久** —— 写清每次运行做什么、怎么判断有没有值得报告的事、什么时候该停下或问人 `[官方]`。这条与章程「仅失败时通知」直接相关（§6 第 6 行）。
