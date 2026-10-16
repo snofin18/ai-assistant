@@ -35,7 +35,7 @@
 | `decisions.md` | 297 | 106 | 索引 → `docs/adr/NNNN-*.md` |
 | `open.md` | 57 | 26 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
 | `apps/notepad.md` | 343 | 0 | 接记事本时**全量读**；8 个固定小节 |
-| `apps/paint.md` | 335 | 0 | Read fully when working on Paint; 8 fixed sections plus TASK-044 real UIA probe, TASK-106 runtime assembly evidence, the TASK-256 real-machine KeyTip / palette / shape probe, the TASK-294 synthetic-click channel, the human/synthetic-mouse contention note, the shape-flyout-popup / DPI-virtualization facts, the palette control-view finding (DRIFT-296-1), and the layers-panel Alt+L / ambiguous-anchor facts; selectors provisional before real-machine calibration |
+| `apps/paint.md` | 368 | 0 | Read fully when working on Paint; 8 fixed sections plus TASK-044 real UIA probe, TASK-106 runtime assembly evidence, the TASK-256 real-machine KeyTip / palette / shape probe, the TASK-294 synthetic-click channel, the human/synthetic-mouse contention note, the shape-flyout-popup / DPI-virtualization facts, the palette control-view finding (DRIFT-296-1), the layers-panel Alt+L / ambiguous-anchor facts, and the DPI-scaled capture-truncation correction; selectors provisional before real-machine calibration |
 | win32-input-research.md | 193 | 0 | 接 Notepad Adapter + 任何 Win32 输入操作时**全量读**（SendInput / keybd_event / SendKeys / AttachThreadInput / BlockInput / SetForegroundWindow / WindowPattern.Close / UIPI / 推荐 pipeline） |
 
 
