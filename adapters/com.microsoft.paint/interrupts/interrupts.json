@@ -25,6 +25,26 @@
       ]
     },
     {
+      "id": "unsaved-canvas-dialog-winui-popup",
+      "match": {
+        "class_name": "Microsoft.UI.Content.PopupWindowSiteBridge"
+      },
+      "classification": "unsaved_changes_three_way",
+      "buttons": {
+        "save": ["保存", "Save"],
+        "discard": ["不保存", "Don't Save", "Do not save"],
+        "cancel": ["取消", "Cancel"]
+      },
+      "default_action": "cancel",
+      "forbidden_defaults": ["save", "discard"],
+      "requires_human": true,
+      "resume_after": "user_decision",
+      "notes": [
+        "Paint 11.2605.81.0 renders the unsaved-changes dialog in a WinUI PopupWindowSiteBridge; it is not exposed in the UIA tree.",
+        "Do not default to Save or Don't Save: only a human may choose whether to persist or discard the prior canvas."
+      ]
+    },
+    {
       "id": "save-as-dialog",
       "match": {
         "class_name": "#32770",

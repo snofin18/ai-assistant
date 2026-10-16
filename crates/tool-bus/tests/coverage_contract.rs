@@ -302,6 +302,7 @@ fn test_error_envelope_and_error_code_mapping() {
         (ToolBusError::FingerprintSerialization { reason: t() }, ErrorCode::Fatal),
         (ToolBusError::Transport { reason: t() }, ErrorCode::Transient),
         (ToolBusError::Mcp { code: -32601, message: t() }, ErrorCode::CapabilityMissing),
+        (ToolBusError::Mcp { code: -32010, message: t() }, ErrorCode::UserInteraction),
         (ToolBusError::Mcp { code: -32000, message: t() }, ErrorCode::Transient),
     ];
     for (error, expected) in cases {

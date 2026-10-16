@@ -366,3 +366,32 @@ ADR-0087 的「形状库 / 调色板两类列表都走 `ContentViewWalker`」这
 **对 harness 的影响**：TASK-303 的 `zoom_ratio = 渲染宽 / 画布宽` 得到 0.5 —— 在**当前（不感知 DPI 的）
 进程坐标系**里这是**自洽且正确**的换算（物理 418 px 在该空间里就是 209 px），所以真机那次画出了正确的
 40×40。一旦进程改为 PMv2 感知，同一公式会自动变成 1.0，**公式无需改**。
+
+### 12.6 未保存三态框是 UIA 不可见的 WinUI 弹层（2026-10-16 实测，TASK-306）
+
+人类保留未保存的红色矩形并复跑 T3.1 时，Paint 弹出：
+
+```text
+是否要保存?
+"无标题"中有未保存的更改。
+保存 / 不保存 / 取消
+```
+
+**通道事实**：
+
+- `PrintWindow(PW_RENDERFULLCONTENT)` 能抓到完整窗口与这个框；
+- UIA **ControlView 与 RawView 都看不到它**（只看到主窗口工具栏 / 画布 / 图层面板）；
+- `EnumThreadWindows` 能看到同一 Paint 线程上的顶层窗口
+  `class=Microsoft.UI.Content.PopupWindowSiteBridge`、`title=主机弹出窗口`；
+- `WindowState.occluded` 现在把目标线程上的该类弹层（以及经典 `#32770`）保守视为遮挡；
+  真实只读探针在框打开时得到 `occluded=true`。
+
+**为什么这直接影响 T3.1 的结论**：`paint.document.new` 盲发 `Ctrl+N` 后，保存框留在前台；
+旧红色矩形仍在画布上，而 `visual_assert` 的 `changed_ratio_within` 只要求
+`changed_ratio <= 0.08`，**两张完全相同的图也会 Satisfied**。因此那一轮“视觉断言通过 + 指纹不变”
+不是矛盾，而是：**本轮没有有效写入新内容，旧矩形让视觉断言误过，`state_changed` 正确报警**。
+`crates/verify/tests/visual_postcondition_contract.rs` 已用契约测试固定“相同图可 Satisfied”。
+
+**处置**：TASK-306 让平台层把该弹层纳入 `WindowState.occluded`，并让 `paint.document.new`
+在发 `Ctrl+N` 前、以及 `Ctrl+N` 后有界窗口内发现弹层时立即以 `ErrorCode::UserInteraction`
+fail-closed；不再继续 `Alt+L` / 工具 / 拖拽。TASK-305 的 A 方案（删除 `state_changed`）已撤回。

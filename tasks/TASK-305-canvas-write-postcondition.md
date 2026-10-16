@@ -159,3 +159,26 @@ cargo test -p assistant-agent-core --test production_paint -- --ignored --nocapt
 **附带事实（与上一轮的保存对话框有关）**：本次复跑（人类**重启 Paint**后）**没有再弹保存对话框** ——
 与「上一轮那次对话框来自**上一轮遗留的未保存矩形** + 本轮 `Ctrl+N`」的判断一致。画布证据：2× 整窗
 截图中画布上有红色矩形，状态栏 `40 × 40像素`（= (10,10)→(50,50)）与 `100%` 缩放。
+
+---
+
+**2026-10-16 晚 · 第二次更正：A 方案撤回（TASK-306 真机只读探针）**
+
+**A（删除 `state_changed`）作废，不得执行。** TASK-306 的真机取证把上一段“抖动”解释纠正为
+**未保存保存框导致的 no-op**：
+
+1. `PrintWindow` 抓到了保存框，文案为
+   `是否要保存? / "无标题"中有未保存的更改。 / 保存 / 不保存 / 取消`；
+2. 该框不在 UIA ControlView / RawView 中，但它是 Paint 线程上的
+   `Microsoft.UI.Content.PopupWindowSiteBridge` 顶层窗口；`EnumThreadWindows` 可见；
+3. `WindowState.occluded` 在弹层存在时为真；T3.1 真机 harness 未在 `Ctrl+N` 前处理这个前置条件，
+   因此旧红色矩形仍在画布上；
+4. `visual_assert` 的 `changed_ratio_within` 是**上界**（`changed_ratio <= 0.08`），
+   `crates/verify/tests/visual_postcondition_contract.rs` 明确证明**两张完全相同的图也 Satisfied**；
+   所以它不能证明“本轮真的写入了新内容”；
+5. 唯一在这次 no-op 中报警的是 `state_changed`（`before == after`）。删掉它会让
+   “保存框挡住绘制、旧矩形冒充新结果”的路径变成绿色通过。
+
+**修正后的结论**：`state_changed` 不是“抖动”，至少在保留未保存画布的那次复跑中它检测到了真实问题。
+后续若要处理自绘表面的写入证明，应先修 TASK-306 的弹层 fail-closed，再评估是否需要
+“最小像素变化”这类**下界**断言；不得用删掉唯一变化信号的方式收口。

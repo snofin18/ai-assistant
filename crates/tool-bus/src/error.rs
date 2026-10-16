@@ -17,6 +17,10 @@ pub type ToolBusResult<T> = Result<T, ToolBusError>;
 /// 能力缺失（不可重试）」这条判断有唯一出处。
 const MCP_METHOD_NOT_FOUND: i32 = -32601;
 
+/// 二进制层约定：工具需要人类先处理现场（例如 Paint 未保存三态框）时使用的
+/// MCP 错误码。它映射到既有的 [`ErrorCode::UserInteraction`]，不新增枚举。
+const MCP_USER_INTERACTION: i32 = -32_010;
+
 /// 工具通道的错误分类。
 ///
 /// 分类口径（为什么这样分，而不是一律 `Fatal`）：
@@ -209,6 +213,8 @@ impl ToolBusError {
             Self::Mcp { code, .. } => {
                 if *code == MCP_METHOD_NOT_FOUND {
                     ErrorCode::CapabilityMissing
+                } else if *code == MCP_USER_INTERACTION {
+                    ErrorCode::UserInteraction
                 } else {
                     ErrorCode::Transient
                 }

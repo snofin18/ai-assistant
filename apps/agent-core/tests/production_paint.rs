@@ -4,6 +4,7 @@
 #![allow(
     clippy::expect_used,
     clippy::panic,
+    clippy::struct_excessive_bools,
     clippy::too_many_lines,
     clippy::unwrap_used
 )]
@@ -98,6 +99,7 @@ struct PaintFakeState {
     shapes_expanded: bool,
     layers_expanded: bool,
     drawn: bool,
+    modal_popup: bool,
     pointer_actions: usize,
     rectangle_tool_clicks: usize,
     element_geometry_calls: usize,
@@ -117,6 +119,7 @@ impl PaintFakePlatform {
                 shapes_expanded: false,
                 layers_expanded: false,
                 drawn: false,
+                modal_popup: false,
                 pointer_actions: 0,
                 rectangle_tool_clicks: 0,
                 element_geometry_calls: 0,
@@ -156,7 +159,8 @@ impl WindowProvider for PaintFakePlatform {
         &self,
         _window: &ResolvedWindow,
     ) -> impl Future<Output = PlatformResult<WindowState>> + Send {
-        ready(Ok(WindowState::new(false, true, false)))
+        let modal_popup = self.state.lock().expect("paint fake state").modal_popup;
+        ready(Ok(WindowState::new(false, true, modal_popup)))
     }
 
     fn bring_to_front(
@@ -849,3 +853,9 @@ fn copy_paint_adapter(destination: &Path) -> Result<(), std::io::Error> {
 // but is compiled into this same test binary; it reuses the helpers above through `super::*`.
 #[path = "support/paint_real_run.rs"]
 mod paint_real_run;
+
+// Modal-popup fail-closed coverage lives in its own support file for the same
+// reason as the real-machine acceptance above: keep this test binary under the
+// 900-line hygiene hard limit while reusing the fake platform through `super::*`.
+#[path = "support/paint_modal_popup.rs"]
+mod paint_modal_popup;

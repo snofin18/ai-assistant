@@ -22,9 +22,9 @@ use windows::Win32::System::Threading::{
     OpenProcess, PROCESS_NAME_FORMAT, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GA_ROOT, GetAncestor, GetClassNameW, GetForegroundWindow, GetWindowRect,
-    GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindow,
-    IsWindowVisible, SW_RESTORE, SetForegroundWindow, ShowWindow, WindowFromPoint,
+    EnumThreadWindows, EnumWindows, GA_ROOT, GetAncestor, GetClassNameW, GetForegroundWindow,
+    GetWindowRect, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsIconic,
+    IsWindow, IsWindowVisible, SW_RESTORE, SetForegroundWindow, ShowWindow, WindowFromPoint,
 };
 use windows::core::{BOOL, PWSTR};
 
@@ -231,6 +231,56 @@ pub fn is_occluded(hwnd: HWND) -> bool {
     root != hwnd
 }
 
+/// 目标线程是否有一个把交互挡住的 `WinUI` / 经典弹层。
+///
+/// 2026-10-16 真机实测（Paint 11.2605.81.0 / zh-CN）：未保存画布的
+/// `Ctrl+N` 三态框不是 UIA 元素，也不是可见顶层窗口；它是 Paint 线程上的
+/// `Microsoft.UI.Content.PopupWindowSiteBridge` 顶层窗口。UIA `ControlView` /
+/// `RawView` 都看不到它，`EnumThreadWindows` 可以看到。这里只做一次有界枚举，
+/// 命中即返回，不缓存、不保留句柄。
+#[must_use]
+pub fn has_blocking_popup(hwnd: HWND) -> bool {
+    // SAFETY: 只读查询；`None` 表示调用方不需要 PID，只取线程 id。
+    let thread_id = unsafe { GetWindowThreadProcessId(hwnd, None) };
+    if thread_id == 0 {
+        return false;
+    }
+    let mut found = false;
+    let sink = LPARAM(std::ptr::addr_of_mut!(found) as isize);
+    // SAFETY: `sink` 指向本栈帧上的 `found`，`EnumThreadWindows` 同步调用回调；
+    // 回调只读窗口类名，并在命中时把 `found` 置真。
+    let enumerated = unsafe { EnumThreadWindows(thread_id, Some(collect_blocking_popup), sink) };
+    // `EnumThreadWindows` 用 `BOOL` 表示“是否正常枚举结束”，不是 `Result`。
+    // 回调命中弹层会主动返回 FALSE 提前停止，因此 `found` 为真时优先返回真；
+    // 未命中且枚举失败时按“可能有弹层”保守 fail-closed。
+    found || !enumerated.as_bool()
+}
+
+/// `WinUI` 弹层与经典 Win32 对话框的类名；大小写按 Win32 返回值逐字比较。
+fn is_blocking_popup_class(class_name: &str) -> bool {
+    matches!(
+        class_name,
+        "Microsoft.UI.Content.PopupWindowSiteBridge" | "#32770"
+    )
+}
+
+/// `EnumThreadWindows` 回调：命中阻塞弹层时停止枚举。
+///
+/// SAFETY: `lparam` 必须指向一个在整个枚举期间存活的 `bool`；`has_blocking_popup`
+/// 保证了这一点。返回 `FALSE` 停止枚举，返回 `TRUE` 继续。
+unsafe extern "system" fn collect_blocking_popup(hwnd: HWND, lparam: LPARAM) -> BOOL {
+    let found = lparam.0 as *mut bool;
+    if found.is_null() {
+        return BOOL(1);
+    }
+    if is_blocking_popup_class(&window_class_name(hwnd)) {
+        // SAFETY: 见函数级 SAFETY 说明（调用方保证指针有效且独占）。
+        unsafe { *found = true };
+        return BOOL(0);
+    }
+    BOOL(1)
+}
+
 /// 窗口矩形的中心坐标（用 `i64` 中间量避免 `left + right` 溢出）。
 fn rect_center(low: i32, high: i32) -> Option<i32> {
     let sum = i64::from(low) + i64::from(high);
@@ -262,4 +312,25 @@ pub fn bring_to_front(hwnd: HWND) -> bool {
     // **必须回读**：`SetForegroundWindow` 在"调用进程不是前台进程"时会被系统拒绝，
     // 单看返回值会把拒绝当成成功（静默失败）。因此要求"系统接受 **且** 回读命中"。
     accepted && foreground_hwnd() == Some(hwnd)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_blocking_popup_class;
+
+    #[test]
+    fn test_is_blocking_popup_class_matches_measured_winui_and_classic_dialogs() {
+        assert!(is_blocking_popup_class(
+            "Microsoft.UI.Content.PopupWindowSiteBridge"
+        ));
+        assert!(is_blocking_popup_class("#32770"));
+    }
+
+    #[test]
+    fn test_is_blocking_popup_class_rejects_normal_windows() {
+        assert!(!is_blocking_popup_class("MSPaintApp"));
+        assert!(!is_blocking_popup_class(
+            "Microsoft.UI.Content.DesktopChildSiteBridge"
+        ));
+    }
 }
