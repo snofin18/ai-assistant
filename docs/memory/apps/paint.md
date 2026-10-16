@@ -397,4 +397,4 @@ ADR-0087 的「形状库 / 调色板两类列表都走 `ContentViewWalker`」这
 fail-closed；不再继续 `Alt+L` / 工具 / 拖拽。TASK-305 的 A 方案（删除 `state_changed`）已撤回。
 
 ### 12.7 已有画布续画 T3.2（2026-10-16 实测，TASK-307）
-T3.2 任务包共 9 步、不含 `paint.document.new`；`draw_rectangle` 用 before/after capture 的 content address 做下界，相同即 `VerifyFailed`。真机已有未保存画布复跑 `1 passed / 8.72 s`，无保存框；content-address 只证明整窗有像素变化，目标区域仍由 `visual_assert` 负责。
+T3.2 任务包共 9 步、不含 `paint.document.new`；`draw_rectangle` 用 before/after capture 的 content address 做下界，相同即 `VerifyFailed`。生产入口默认 `--document-mode existing` → T3.2，只有显式 `new` 才选 T3.1；真机已有未保存画布复跑 `1 passed / 8.72 s`，无保存框。
