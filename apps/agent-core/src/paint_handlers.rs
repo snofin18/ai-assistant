@@ -66,6 +66,8 @@ const TARGET_LAYER_ITEM: &str = "layer_item";
 const TARGET_STATUS_BAR: &str = "status_bar";
 const TARGET_CANVAS: &str = "canvas";
 const TARGET_SHAPES_TOGGLE: &str = "shapes_gallery_toggle";
+/// MCP code agreed with `assistant-tool-bus`; maps to `ErrorCode::UserInteraction`.
+const MCP_USER_INTERACTION: i32 = -32_010;
 /// Measured Windows 11 Paint 11.2605.81.0 palette order and RGB values.
 ///
 /// The palette exposes no `AutomationId` and only localized display names, so the
@@ -196,6 +198,11 @@ where
             ));
         }
         let window = self.resolve_window(TARGET_MAIN_WINDOW, TOOL_DOCUMENT_NEW)?;
+        // 人类可能保留了未保存画布。此时 Paint 的保存三态框是一个不可见顶层
+        // `PopupWindowSiteBridge`：先查一次，绝不在已阻塞的窗口上继续发输入。
+        if self.window_state(&window, TOOL_DOCUMENT_NEW)?.occluded() {
+            return Err(blocked_by_popup(TOOL_DOCUMENT_NEW));
+        }
         let before = self.fingerprint_event(&window, TOOL_DOCUMENT_NEW)?;
         let started = Instant::now();
         self.send_key(
@@ -205,6 +212,11 @@ where
             vec![KeyModifier::Control],
             TOOL_DOCUMENT_NEW,
         )?;
+        // `SendInput` 返回 ≠ 弹层已经创建；在有界窗口内确认没有出现三态框。
+        // 检测到就停在 `Ctrl+N` 之后，不再发 `Alt+L` 或任何其它输入。
+        if self.wait_for_blocking_popup(&window, TOOL_DOCUMENT_NEW)? {
+            return Err(blocked_by_popup(TOOL_DOCUMENT_NEW));
+        }
         // 新建文档后结构树不会变化，而 `paint.t3.1.new-canvas-rectangle-color-screenshot`
         // 的步骤级后置条件要求 fingerprint 变化。Paint 11 在 `Ctrl+N` 之后没有可见的树节点
         // 变化，所以顺手 `Alt+L` 打开图层面板，结构树里多出 layersList 节点，fingerprint
@@ -536,6 +548,20 @@ where
             "previous_fingerprint": fingerprint.as_str(),
             "elapsed_ms": 0,
         }))
+    }
+}
+
+/// Fail-closed error for an open Paint popup / modal surface.
+///
+/// This is intentionally `UserInteraction`: the call must not retry until a human
+/// resolves the Save changes dialog (or any other blocking target-owned popup).
+fn blocked_by_popup(tool: &str) -> ToolBusError {
+    ToolBusError::Mcp {
+        code: MCP_USER_INTERACTION,
+        message: format!(
+            "{tool}: Paint has an open modal/popup surface (for example the unsaved-changes \
+             dialog); resolve it before retrying"
+        ),
     }
 }
 

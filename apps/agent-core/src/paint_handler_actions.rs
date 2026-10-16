@@ -22,7 +22,7 @@ use crate::target_lease::window_lease_key;
 use assistant_platform_api::{
     CaptureOptions, CoordinateSpace, ElementBounds, ElementGeometry, Fingerprint, FingerprintScope,
     ImageRef, KeyChord, KeyModifier, KeyTarget, PointerAction, ResolvedElement, ResolvedWindow,
-    Selection, UiAutomationProvider, WindowGeometry, WindowProvider,
+    Selection, UiAutomationProvider, WindowGeometry, WindowProvider, WindowState,
 };
 use assistant_storage::BlobId;
 use assistant_tool_bus::ToolBusError;
@@ -39,6 +39,14 @@ use super::{
 /// 上限 = 20 × 50 ms = 1 s：既给 Paint 留物化时间，也是**硬上限**（ADR-0063 同族：不许无限轮询）。
 const GALLERY_ATTEMPTS: usize = 20;
 const GALLERY_INTERVAL_MS: u64 = 50;
+
+/// `Ctrl+N` 之后等待 Paint 线程弹层的最长时间：20 × 50 ms = 1 s 硬上限。
+///
+/// Paint 的未保存三态框是异步 `WinUI` 弹层；`SendInput` 返回不等于弹层已经创建。
+/// 这里只轮询 `window_state`（平台侧一次有界 `EnumThreadWindows`），
+/// 发现弹层立即 fail-closed。
+const POPUP_WAIT_ATTEMPTS: usize = 20;
+const POPUP_WAIT_INTERVAL_MS: u64 = 50;
 
 impl<P> PaintHandlerContext<P>
 where
@@ -189,6 +197,35 @@ where
             "window_geometry",
         )?;
         result.map_err(|error| support::map_platform_error(tool, &error))
+    }
+
+    /// 窗口状态视图；`occluded` 同时覆盖中心点遮挡与目标线程上的阻塞弹层。
+    pub(super) fn window_state(
+        &self,
+        window: &ResolvedWindow,
+        tool: &str,
+    ) -> Result<WindowState, ToolBusError> {
+        let result =
+            support::poll_immediate(self.platform.window_state(window), tool, "window_state")?;
+        result.map_err(|error| support::map_platform_error(tool, &error))
+    }
+
+    /// 在 1 s 硬上限内轮询目标窗口是否出现阻塞弹层。
+    ///
+    /// 语义：`true` = 已发现弹层，调用方必须立即 fail-closed；`false` = 有界窗口内
+    /// 没有发现弹层，允许继续。该函数不发送任何输入。
+    pub(super) fn wait_for_blocking_popup(
+        &self,
+        window: &ResolvedWindow,
+        tool: &str,
+    ) -> Result<bool, ToolBusError> {
+        for _attempt in 0..POPUP_WAIT_ATTEMPTS {
+            if self.window_state(window, tool)?.occluded() {
+                return Ok(true);
+            }
+            std::thread::sleep(Duration::from_millis(POPUP_WAIT_INTERVAL_MS));
+        }
+        Ok(false)
     }
 
     /// 元素几何视图（设备像素矩形 + 所属坐标空间），一次查询（ADR-0092 细则 3 / ADR-0093）。

@@ -279,7 +279,7 @@ fn describe(candidate: &SelectorCandidate) -> String {
     )
 }
 
-/// 查询窗口状态（最小化 / 前台 / 遮挡）。
+/// 查询窗口状态（最小化 / 前台 / 遮挡或阻塞弹层）。
 ///
 /// # Errors
 /// 句柄已失效（窗口已关闭）→ `TargetNotFound`（trait 文档明确要求）。
@@ -294,7 +294,10 @@ fn window_state(window: &ResolvedWindow) -> PlatformResult<WindowState> {
     Ok(WindowState::new(
         win32::is_minimized(hwnd),
         win32::foreground_hwnd() == Some(hwnd),
-        win32::is_occluded(hwnd),
+        // 遮挡判定除中心点采样外，还要纳入目标线程上的 WinUI / 经典弹层：
+        // Paint 的未保存三态框是 `Microsoft.UI.Content.PopupWindowSiteBridge`，
+        // 它不对 UIA 暴露，也不满足 `IsWindowVisible`，但会挡住后续交互。
+        win32::is_occluded(hwnd) || win32::has_blocking_popup(hwnd),
     ))
 }
 
