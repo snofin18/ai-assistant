@@ -51,10 +51,22 @@ async fn read_real_canvas_inputs(
     }
 
     let zoom_ratio = f64::from(render_width) / f64::from(width_px);
+    // The synthetic-input coordinate space must be measured too: on this 200% display the real
+    // scale is 2, and a hard-coded 1.0 is rejected by `pointer_action`'s explicit-space check
+    // (ADR-0067) — which is exactly the fail-closed behaviour we want.
+    let monitor_id: &'static str = Box::leak(
+        geometry
+            .space()
+            .origin_display()
+            .to_owned()
+            .into_boxed_str(),
+    );
     Ok(PaintCanvasInputs {
         width_px,
         height_px,
         zoom_ratio,
+        monitor_id,
+        monitor_scale: geometry.space().scale(),
     })
 }
 
