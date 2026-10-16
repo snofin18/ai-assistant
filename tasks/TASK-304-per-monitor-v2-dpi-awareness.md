@@ -88,7 +88,12 @@ cargo test -p assistant-agent-core --test production_paint -- --ignored --nocapt
   - `CANVAS bounds=(1415,968)-(1833,1042) 418x74 scale=2`
   - **`CAPTURE size=2137x1096 window_geometry=2137x1096 scale=2`** ← 截图不再被裁
 - 修复前对照（同一窗口）：`scale=1`、`WINDOW 1069x548`、`CANVAS 209x37`、`capture` 只拿到左上角一块。
-- `cargo fmt --all --check` / `cargo test -p assistant-agent-core --test production_paint` 见 §7。
+- `cargo fmt --all --check`：exit 0；`cargo clippy --all-targets -- -D warnings`（宿主 Windows）：exit 0；
+  `cargo test --workspace`：exit 0；`cargo test -p assistant-agent-core --test production_paint`：
+  **4 passed / 0 failed / 1 ignored**；`hygiene` / `check-ledger` / `card-check` / `docscan` / `refscan` /
+  `memory-counts` 全 PASSED。
+- **非宿主 clippy**（`--target x86_64-unknown-linux-gnu` / `aarch64-apple-darwin`，ADR-0045）：**首跑红** ——
+  非 Windows 分支被 pedantic 判为 `this could be a `const fn``，改 `pub const fn` 后两目标均 `Finished` ✅。
 
 ### 4. DoD 逐条核对
 
@@ -101,6 +106,8 @@ cargo test -p assistant-agent-core --test production_paint -- --ignored --nocapt
 ### 5. 偏差
 
 none（本条就是 ADR-0092 细则 3 的实现；此前只声明未落地属**实现缺口**，非本卡引入）。
+过程中的一处自纠：非宿主 clippy 首跑报 `const fn` 建议（CI 上 ubuntu/macOS 红），已按提示改为
+`pub const fn`（非 Windows 存根），三平台 clippy 全绿；未放宽任何判据。
 
 ### 6. 更合理做法
 
