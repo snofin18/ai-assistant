@@ -590,7 +590,33 @@ fn platform_error(code: ErrorCode, message: impl Into<String>) -> PlatformError 
     PlatformError::new(code, message)
 }
 
+/// The canvas parameters the acceptance harness injects for the T3.1 task package.
+///
+/// The package declares them as caller-supplied inputs and requires (precondition) that
+/// "zoom ratio and viewport offsets match the canvas state at resolve time", so the real-machine
+/// run must inject the values it measured on the live document instead of fixture constants.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct PaintCanvasInputs {
+    width_px: u32,
+    height_px: u32,
+    zoom_ratio: f64,
+}
+
+impl PaintCanvasInputs {
+    /// Fixture constants used by the fake platform (100 x 100 at zoom 1.0).
+    const FAKE: Self = Self {
+        width_px: 100,
+        height_px: 100,
+        zoom_ratio: 1.0,
+    };
+}
+
 fn paint_config(data_root: &Path) -> ProductionConfig {
+    paint_config_with_canvas(data_root, PaintCanvasInputs::FAKE)
+}
+
+/// Same as [`paint_config`], but the canvas size / zoom come from the caller.
+fn paint_config_with_canvas(data_root: &Path, canvas: PaintCanvasInputs) -> ProductionConfig {
     let adapter_root = workspace_root().join("adapters/com.microsoft.paint");
     let task_package_path = adapter_root
         .join("tasks")
@@ -602,8 +628,8 @@ fn paint_config(data_root: &Path) -> ProductionConfig {
     )
     .with_allowed_peer("C:\\fixture\\paint-peer.exe");
     let inputs = serde_json::json!({
-        "input.canvas_width": 100,
-        "input.canvas_height": 100,
+        "input.canvas_width": canvas.width_px,
+        "input.canvas_height": canvas.height_px,
         "input.rectangle_start": {"x": 10, "y": 10},
         "input.rectangle_start.x": 10,
         "input.rectangle_start.y": 10,
@@ -615,7 +641,7 @@ fn paint_config(data_root: &Path) -> ProductionConfig {
         "input.foreground_blue": 36,
         "input.layer_id": "layer-1",
         "input.expected_layer_name": "Layer 1",
-        "input.zoom_ratio": 1.0,
+        "input.zoom_ratio": canvas.zoom_ratio,
         "input.viewport_offset_x_px": 0,
         "input.viewport_offset_y_px": 0,
         "input.coordinate_space": {
