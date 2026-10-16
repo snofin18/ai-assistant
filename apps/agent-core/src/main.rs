@@ -186,8 +186,8 @@ async fn main() -> ExitCode {
     }
     let _ = report_error(
         "usage: assistant-agent-core [--self-check | --production \
-         --task-package <path> --ui-peer <path> [--task-inputs <path>] [--adapter-root <path>] \
-         [--adapter-kind notepad|paint] [--data-root <path>] [--ui-pipe <name>] \
+         [--task-package <path>] --ui-peer <path> [--task-inputs <path>] [--adapter-root <path>] \
+         [--adapter-kind notepad|paint] [--document-mode existing|new] [--data-root <path>] [--ui-pipe <name>] \
          [--ui-token-env <name>] [--serve-ui]]",
     );
     ExitCode::from(2)
@@ -198,6 +198,12 @@ struct ProductionOptions {
     serve_ui: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PaintDocumentMode {
+    Existing,
+    New,
+}
+
 fn parse_production_options(arguments: &[String]) -> Result<ProductionOptions, String> {
     let mut adapter_kind = AdapterKind::Notepad;
     let mut adapter_root = None;
@@ -206,6 +212,7 @@ fn parse_production_options(arguments: &[String]) -> Result<ProductionOptions, S
         std::process::id()
     ));
     let mut task_package_path = None;
+    let mut paint_document_mode = PaintDocumentMode::Existing;
     let mut task_inputs_path = None;
     let mut ui_pipe = "assistant-agent-core-ui".to_owned();
     let mut ui_token_environment_variable = "ASSISTANT_AGENT_CORE_UI_TOKEN".to_owned();
@@ -222,6 +229,10 @@ fn parse_production_options(arguments: &[String]) -> Result<ProductionOptions, S
             }
             "--data-root" => {
                 data_root = PathBuf::from(next_value(&mut iterator, argument)?);
+            }
+            "--document-mode" => {
+                paint_document_mode =
+                    parse_paint_document_mode(&next_value(&mut iterator, argument)?)?;
             }
             "--task-package" => {
                 task_package_path = Some(PathBuf::from(next_value(&mut iterator, argument)?));
@@ -244,8 +255,16 @@ fn parse_production_options(arguments: &[String]) -> Result<ProductionOptions, S
             _ => return Err(format!("unknown production argument `{argument}`")),
         }
     }
-    let task_package_path =
-        task_package_path.ok_or_else(|| "missing --task-package <path>".to_owned())?;
+    let adapter_root = adapter_root.unwrap_or_else(|| default_adapter_root(adapter_kind));
+    let task_package_path = match task_package_path {
+        Some(path) => path,
+        None => match adapter_kind {
+            AdapterKind::Paint => default_paint_task_package(&adapter_root, paint_document_mode),
+            AdapterKind::Notepad => {
+                return Err("missing --task-package <path> for notepad".to_owned());
+            }
+        },
+    };
     let task_inputs = match task_inputs_path {
         Some(path) => read_task_inputs(&path)?,
         None => Map::new(),
@@ -257,13 +276,30 @@ fn parse_production_options(arguments: &[String]) -> Result<ProductionOptions, S
         Duration::from_secs(10),
     )
     .with_allowed_peer(ui_peer);
-    let adapter_root = adapter_root.unwrap_or_else(|| default_adapter_root(adapter_kind));
     Ok(ProductionOptions {
         config: ProductionConfig::new(data_root, adapter_root, task_package_path, ui_config)
             .with_adapter_kind(adapter_kind)
             .with_task_inputs(task_inputs),
         serve_ui,
     })
+}
+
+fn parse_paint_document_mode(value: &str) -> Result<PaintDocumentMode, String> {
+    match value {
+        "existing" => Ok(PaintDocumentMode::Existing),
+        "new" => Ok(PaintDocumentMode::New),
+        other => Err(format!(
+            "unknown document mode `{other}`; expected `existing` or `new`"
+        )),
+    }
+}
+
+fn default_paint_task_package(adapter_root: &Path, document_mode: PaintDocumentMode) -> PathBuf {
+    let task_file = match document_mode {
+        PaintDocumentMode::Existing => "t3.2.continue-existing-canvas-rectangle.json",
+        PaintDocumentMode::New => "t3.1.new-canvas-rectangle-color-screenshot.json",
+    };
+    adapter_root.join("tasks").join(task_file)
 }
 
 fn parse_adapter_kind(value: &str) -> Result<AdapterKind, String> {
@@ -465,8 +501,79 @@ mod tests {
     use assistant_model_gateway::{CancellationToken, CompletionStream, DurationMs, ModelProvider};
 
     use super::{
-        EmptyReader, EmptyRetriever, NoopCompressor, NoopProvider, NoopStream, run_self_check,
+        AdapterKind, EmptyReader, EmptyRetriever, NoopCompressor, NoopProvider, NoopStream,
+        parse_production_options, run_self_check,
     };
+
+    fn parse_paint(arguments: &[&str]) -> Result<super::ProductionOptions, String> {
+        let arguments = arguments
+            .iter()
+            .map(|value| (*value).to_owned())
+            .collect::<Vec<_>>();
+        parse_production_options(&arguments)
+    }
+
+    #[test]
+    fn test_paint_document_mode_defaults_to_existing_package()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let options = parse_paint(&["--adapter-kind", "paint", "--ui-peer", "C:\\peer.exe"])?;
+        assert_eq!(options.config.adapter_kind(), AdapterKind::Paint);
+        assert!(
+            options
+                .config
+                .task_package_path
+                .ends_with("t3.2.continue-existing-canvas-rectangle.json")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_paint_document_mode_new_selects_new_canvas_package()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let options = parse_paint(&[
+            "--adapter-kind",
+            "paint",
+            "--document-mode",
+            "new",
+            "--ui-peer",
+            "C:\\peer.exe",
+        ])?;
+        assert!(
+            options
+                .config
+                .task_package_path
+                .ends_with("t3.1.new-canvas-rectangle-color-screenshot.json")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_explicit_task_package_overrides_document_mode() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let options = parse_paint(&[
+            "--adapter-kind",
+            "paint",
+            "--document-mode",
+            "new",
+            "--task-package",
+            "C:\\override.json",
+            "--ui-peer",
+            "C:\\peer.exe",
+        ])?;
+        assert_eq!(
+            options.config.task_package_path,
+            Path::new("C:\\override.json")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_notepad_still_requires_an_explicit_task_package() {
+        let error = parse_paint(&["--adapter-kind", "notepad", "--ui-peer", "C:\\peer.exe"])
+            .err()
+            .unwrap_or_default();
+        assert!(error.contains("missing --task-package"));
+    }
 
     #[cfg(windows)]
     #[tokio::test]

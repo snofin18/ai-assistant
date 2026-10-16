@@ -35,3 +35,9 @@ The handler additionally requires the pre-write and post-write capture content
 addresses to differ. `changed_ratio_within` is an upper bound and can pass on
 identical images, so T3.2 uses the content address as the explicit
 "something actually changed" lower bound.
+
+## Production selection
+
+The production entry point defaults Paint to **T3.2** (`--document-mode existing`).
+It selects **T3.1** only when the caller explicitly passes `--document-mode new`,
+and an explicit `--task-package <path>` still overrides both modes.
