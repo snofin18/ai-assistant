@@ -138,3 +138,16 @@ none（本卡是 T3.1 真机链路在 TASK-294/296/297 之后暴露的**下一�
 
 - `PaintCanvasInputs::FAKE` 必须与 `PaintFakePlatform` 的 fixture（100×100、zoom 1.0）保持一致，否则 fake 路径会漂移。
 - 探测只读 `element_geometry` + `read_text`，不新增产品调用面；请确认这不违反 TASK-294 的「合成点击调用上限」口径（该上限只约束 pointer 热路径）。
+
+---
+
+**2026-10-16 续（TASK-304 落地后的真机复跑）**：PMv2 让 `resolve_*` 通过（zoom 自动变 1.0），
+下一步在 `draw_rectangle` 暴露出**同一类缺陷的另一处实例** —— 注入的 `coordinate_space` 仍是硬编码
+`scale: 1.0`，而真机是 **scale 2**，被 `pointer_action` 按 ADR-0067 的显式坐标空间校验**正确拒绝**：
+`coordinate space: display \\.\DISPLAY1 has scale 2, not 1`。修法与本卡同源：`read_real_canvas_inputs`
+改为从画布元素的 `element_geometry().space()` 取 `origin_display()` 与 `scale()` 一并注入
+（fake 路径仍走 `PaintCanvasInputs::FAKE`，行为零变更）。
+
+修完后真机链路**跑到了最后一步**：`draw_rectangle` 的前 3 条运行时断言（含 **`visual_assert` 像素断言**）
+**全部 Satisfied** —— 像素证据首次真实成立（TASK-304 的 PMv2 修复之功）；只剩运行时附加的
+`state_changed{within_ms:2000}` 失败，那是**另一张卡**的契约问题（TASK-305 / `DRIFT-305-1`），不在本卡范围。

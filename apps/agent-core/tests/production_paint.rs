@@ -600,6 +600,8 @@ struct PaintCanvasInputs {
     width_px: u32,
     height_px: u32,
     zoom_ratio: f64,
+    monitor_id: &'static str,
+    monitor_scale: f64,
 }
 
 impl PaintCanvasInputs {
@@ -608,6 +610,8 @@ impl PaintCanvasInputs {
         width_px: 100,
         height_px: 100,
         zoom_ratio: 1.0,
+        monitor_id: "\\\\.\\DISPLAY1",
+        monitor_scale: 1.0,
     };
 }
 
@@ -646,8 +650,8 @@ fn paint_config_with_canvas(data_root: &Path, canvas: PaintCanvasInputs) -> Prod
         "input.viewport_offset_y_px": 0,
         "input.coordinate_space": {
             "kind": "physical_pixels",
-            "monitor_id": "\\\\.\\DISPLAY1",
-            "scale": 1.0
+            "monitor_id": canvas.monitor_id,
+            "scale": canvas.monitor_scale
         },
         "input.tolerance_px": 2
     })
