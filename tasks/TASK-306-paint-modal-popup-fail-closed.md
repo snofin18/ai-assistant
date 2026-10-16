@@ -1,6 +1,6 @@
 # TASK-306　Paint 模态弹层检测与 `paint.document.new` fail-closed
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**1b**　批次：治理池　依赖：TASK-303、TASK-304、TASK-256
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -135,6 +135,7 @@ cargo test -p assistant-agent-core --test production_paint
   `cargo test -p assistant-agent-core --test production_paint -- --ignored --nocapture test_paint_t3_1_runs_on_real_paint`
   → `1 passed / 0 failed / 9.90 s`，`TaskStatus::Completed`。新 Paint 前台时预检没有误报弹层，
   T3.1 全链路继续完成。
+- 合并：PR #431 / merge `2bcbdb2`；pull_request CI 22/22 SUCCESS（含 macOS / Ubuntu / Windows check）。
 
 ### 4. DoD 逐条核对
 
