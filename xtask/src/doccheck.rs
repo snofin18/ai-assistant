@@ -255,3 +255,11 @@ fn render(report: &Report, output: &mut dyn Write) -> Result<u8, String> {
         EXIT_OK
     })
 }
+
+// 私有单测用 `#[path]` 外置（与 `adr_index` / `adr_registry` / `guard` / `write_channel` 同款）：
+// 本文件的判定入口只有三个（两个子命令 + 派生计数），但边界用例数量大，内联会让
+// `hygiene/file-too-long` 从 0 变成 1 条新告警。外置后 `mod tests` 仍是本模块的私有子模块，
+// `use super::*` 照旧能访问私有项。
+#[cfg(test)]
+#[path = "doccheck_tests.rs"]
+mod tests;
