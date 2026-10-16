@@ -144,7 +144,7 @@ cargo run -p xtask -- check-migrations
 
 ### 5. 偏差
 
-- 6 次命令误用 `shell: "bash"`，均在读取 / 搜索 / 门禁批次阶段失败且未改动仓库：1 次 PowerShell 语法进入 bash、1 次 bash 缺 `rg`、1 次 `Select-String` 进入 bash、1 次 `Get-Content` 进入 bash、1 次 xtask 门禁批次进入 bash、1 次 `gh run list` 进入 bash。随后均以 `shell: "powershell"` 重跑成功。
+- 8 次命令误用 `shell: "bash"`，均在读取 / 搜索 / 门禁批次阶段失败且未改动仓库：2 次 `rg`（1 次 PowerShell 语法进入 bash、1 次 bash 缺 `rg`）、2 次 `Select-String` 进入 bash、2 次 `Get-Content` 进入 bash、1 次 xtask 门禁批次进入 bash、1 次 `gh run list` 进入 bash。随后均以 `shell: "powershell"` 重跑成功。
 - `card-check` 首跑对本卡记录区给出 2 条 title-warning；原因是记录区标题与 gov §3.4 的固定 9 节名称不完全一致，已在本提交内修正。
 
 ### 6. 更合理做法
