@@ -1,6 +1,6 @@
 # TASK-308　Paint 任务包选择：默认续画，显式才新建
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**1b**　批次：Paint 真机链路　依赖：TASK-307
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -92,6 +92,7 @@ cargo test --workspace
 - `cargo clippy --all-targets -- -D warnings` → exit 0（仅既存 unknown-lint 警告）。
 - `python adapters/com.microsoft.paint/tests/validate_adapter_pack.py` → PASSED。
 - `xtask hygiene / check-ledger / card-check / docscan / memory-counts` → PASSED。
+- 合并：PR #435 / merge `9c8fd09`；pull_request CI 22 checks 全绿（21 success + 1 skipping）。
 
 ### 4. DoD 逐条核对
 
