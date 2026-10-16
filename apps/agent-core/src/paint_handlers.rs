@@ -499,6 +499,16 @@ where
                 "{TOOL_CANVAS_DRAW_RECTANGLE}: capture dimensions changed during the drag"
             )));
         }
+        // `visual_assert` 的 `changed_ratio_within` 是上界：旧内容已满足目标区域时，
+        // 完全相同的前后图也会 Satisfied。这里用 content-addressed blob id 做下界检查：
+        // 两次整窗截图完全相同 = 本轮没有真实像素变化，必须显式失败。
+        if before_capture.blob_id() == after_capture.blob_id() {
+            return Err(verify_failed(format!(
+                "{TOOL_CANVAS_DRAW_RECTANGLE}: drag produced no pixel change \
+                 (before == after == {})",
+                after_capture.blob_id()
+            )));
+        }
         let after = self.fingerprint_event(&window, TOOL_CANVAS_DRAW_RECTANGLE)?;
         Ok(ToolOutput::json(json!({
             "selected_tool": request.expected_tool,

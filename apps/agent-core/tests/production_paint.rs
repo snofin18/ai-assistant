@@ -100,6 +100,7 @@ struct PaintFakeState {
     layers_expanded: bool,
     drawn: bool,
     modal_popup: bool,
+    canvas_revision: u32,
     pointer_actions: usize,
     rectangle_tool_clicks: usize,
     element_geometry_calls: usize,
@@ -120,6 +121,7 @@ impl PaintFakePlatform {
                 layers_expanded: false,
                 drawn: false,
                 modal_popup: false,
+                canvas_revision: 0,
                 pointer_actions: 0,
                 rectangle_tool_clicks: 0,
                 element_geometry_calls: 0,
@@ -447,6 +449,7 @@ impl UiAutomationProvider for PaintFakePlatform {
             }
             PointerAction::DragTo { .. } => {
                 state.drawn = true;
+                state.canvas_revision = state.canvas_revision.saturating_add(1);
             }
             _ => {}
         }
@@ -510,18 +513,19 @@ fn capture_fixture(
     let mut state = state.lock().expect("paint fake state");
     state.capture_calls = state.capture_calls.saturating_add(1);
     let drawn = state.drawn;
+    let canvas_revision = state.canvas_revision;
     drop(state);
     let width = 4_u32;
     let height = 4_u32;
     let mut pixels = vec![0_u8; usize::try_from(width * height * 4).expect("small fixture")];
     if drawn {
-        let Some(pixel) = pixels.get_mut(0..4) else {
-            return Err(platform_error(
-                ErrorCode::Fatal,
-                "fixture pixel buffer is unexpectedly small",
-            ));
-        };
-        pixel.copy_from_slice(&[36, 28, 237, 255]);
+        let marker_count = usize::try_from(canvas_revision.max(1))
+            .unwrap_or(usize::MAX)
+            .min(4);
+        let (chunks, _remainder) = pixels.as_chunks_mut::<4>();
+        for pixel in chunks.iter_mut().take(marker_count) {
+            pixel.copy_from_slice(&[36, 28, 237, 255]);
+        }
     }
     let content_address = BlobId::of_content(&pixels);
     blob_sink.store_bgra(width, height, content_address.as_str(), &pixels)?;
@@ -625,10 +629,35 @@ fn paint_config(data_root: &Path) -> ProductionConfig {
 
 /// Same as [`paint_config`], but the canvas size / zoom come from the caller.
 fn paint_config_with_canvas(data_root: &Path, canvas: PaintCanvasInputs) -> ProductionConfig {
+    paint_config_for_task(
+        data_root,
+        "t3.1.new-canvas-rectangle-color-screenshot.json",
+        canvas,
+        (10, 10),
+        (50, 50),
+    )
+}
+
+/// Continue-on-existing-canvas package with a rectangle in a different region.
+fn paint_continue_config(data_root: &Path, canvas: PaintCanvasInputs) -> ProductionConfig {
+    paint_config_for_task(
+        data_root,
+        "t3.2.continue-existing-canvas-rectangle.json",
+        canvas,
+        (60, 10),
+        (90, 40),
+    )
+}
+
+fn paint_config_for_task(
+    data_root: &Path,
+    task_package_file: &str,
+    canvas: PaintCanvasInputs,
+    rectangle_start: (i32, i32),
+    rectangle_end: (i32, i32),
+) -> ProductionConfig {
     let adapter_root = workspace_root().join("adapters/com.microsoft.paint");
-    let task_package_path = adapter_root
-        .join("tasks")
-        .join("t3.1.new-canvas-rectangle-color-screenshot.json");
+    let task_package_path = adapter_root.join("tasks").join(task_package_file);
     let ui_config = UiServerConfig::new(
         "assistant-agent-core-paint-test",
         "ASSISTANT_AGENT_CORE_PAINT_TEST_TOKEN",
@@ -638,12 +667,12 @@ fn paint_config_with_canvas(data_root: &Path, canvas: PaintCanvasInputs) -> Prod
     let inputs = serde_json::json!({
         "input.canvas_width": canvas.width_px,
         "input.canvas_height": canvas.height_px,
-        "input.rectangle_start": {"x": 10, "y": 10},
-        "input.rectangle_start.x": 10,
-        "input.rectangle_start.y": 10,
-        "input.rectangle_end": {"x": 50, "y": 50},
-        "input.rectangle_end.x": 50,
-        "input.rectangle_end.y": 50,
+        "input.rectangle_start": {"x": rectangle_start.0, "y": rectangle_start.1},
+        "input.rectangle_start.x": rectangle_start.0,
+        "input.rectangle_start.y": rectangle_start.1,
+        "input.rectangle_end": {"x": rectangle_end.0, "y": rectangle_end.1},
+        "input.rectangle_end.x": rectangle_end.0,
+        "input.rectangle_end.y": rectangle_end.1,
         "input.foreground_red": 237,
         "input.foreground_green": 28,
         "input.foreground_blue": 36,
@@ -859,3 +888,6 @@ mod paint_real_run;
 // 900-line hygiene hard limit while reusing the fake platform through `super::*`.
 #[path = "support/paint_modal_popup.rs"]
 mod paint_modal_popup;
+
+#[path = "support/paint_continue_existing.rs"]
+mod paint_continue_existing;

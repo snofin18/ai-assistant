@@ -18,3 +18,20 @@ The package declares `tolerance_px <= 2` and `silent_failure_rate = 0`. It
 does not claim that those metrics were measured. The real ten-run evaluation
 and coordinate error measurement remain open until a real Paint GUI run is
 performed.
+
+## T3.2
+
+`t3.2.continue-existing-canvas-rectangle.json` describes:
+
+1. use the already-open document; it never calls `paint.document.new`;
+2. select the rectangle tool and foreground color;
+3. verify the active layer;
+4. capture a pre-write pixel snapshot;
+5. resolve both canvas points through the current zoom and scroll transform;
+6. draw one rectangle;
+7. capture post-write pixels for visual verification.
+
+The handler additionally requires the pre-write and post-write capture content
+addresses to differ. `changed_ratio_within` is an upper bound and can pass on
+identical images, so T3.2 uses the content address as the explicit
+"something actually changed" lower bound.

@@ -263,3 +263,58 @@ async fn test_paint_t3_1_runs_on_real_paint() -> Result<(), Box<dyn std::error::
     host.shutdown().await?;
     Ok(())
 }
+
+/// TASK-307: continue on the already-open Paint document without calling `paint.document.new`.
+#[tokio::test]
+#[ignore = "TASK-307: requires an interactive Paint window with an existing unsaved canvas and human observer"]
+async fn test_paint_t3_2_continues_existing_canvas() -> Result<(), Box<dyn std::error::Error>> {
+    assistant_platform_windows::enable_per_monitor_v2_dpi_awareness()?;
+    let directory = TestDirectory::new("production-paint-real-t3-2")?;
+    let blob_sink = StorageBlobSink::new();
+    let sink_handle = blob_sink.clone();
+    let platform = WindowsPlatform::new().with_blob_sink(blob_sink.leak());
+    let paint_window = wait_for_real_paint_foreground(&platform).await?;
+    settle_then_require_foreground(&platform, &paint_window, REAL_RUN_FOREGROUND_SETTLE).await?;
+    assert_capture_size_matches_window(&platform, &paint_window).await?;
+    let canvas = read_real_canvas_inputs(&platform, &paint_window).await?;
+    let host = assemble_production_host(
+        paint_continue_config(&directory.path, canvas),
+        platform,
+        Arc::new(SystemClock),
+    )
+    .await?;
+    assert!(sink_handle.attach(&host.database_handle()));
+
+    let now_ms = SystemClock.now_unix_ms();
+    let approvals = host.approvals();
+    for step_id in [
+        "select_rectangle_tool",
+        "select_foreground_color",
+        "select_layer",
+        "draw_rectangle",
+    ] {
+        approvals.grant(&GrantRequest {
+            task_id: host.task_id().as_str(),
+            step_id,
+            scope: ApprovalScope::Once,
+            now_ms,
+            ttl_ms: 60_000,
+            uses: 1,
+        })?;
+    }
+
+    let plan = host.plan_task()?;
+    assert_eq!(plan.steps.len(), 9);
+    assert!(
+        !plan
+            .steps
+            .iter()
+            .any(|step| step.id.as_str() == "new_document"),
+        "T3.2 must never create a new document"
+    );
+    require_real_paint_foreground(&platform, &paint_window).await?;
+    let run = host.execute_plan(plan, now_ms).await?;
+    assert_eq!(run.final_snapshot.status, TaskStatus::Completed);
+    host.shutdown().await?;
+    Ok(())
+}
