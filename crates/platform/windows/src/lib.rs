@@ -134,6 +134,6 @@ pub fn enable_per_monitor_v2_dpi_awareness() -> assistant_platform_api::Platform
 /// # Errors
 /// 恒不失败（返回 `Ok(false)`）；保留 `Result` 只为与 Windows 侧同签名。
 #[cfg(not(windows))]
-pub fn enable_per_monitor_v2_dpi_awareness() -> assistant_platform_api::PlatformResult<bool> {
+pub const fn enable_per_monitor_v2_dpi_awareness() -> assistant_platform_api::PlatformResult<bool> {
     Ok(false)
 }
