@@ -109,7 +109,15 @@ python adapters/com.microsoft.paint/tests/validate_adapter_pack.py
 
 ### 4. DoD 逐条核对
 
-（待填）
+- [x] 探针脚本对 §13 六个 flyout 逐个取证，输出已粘进 `docs/memory/apps/paint.md` §13.8–§13.16
+      （含原始 name / aid / ControlType / patterns）。**但用的是 UIA pattern 展开，不是合成点击** ——
+      实测证明画笔 / 形状 / 轮廓 / 填充 / 大小全部支持 `ExpandCollapse` 或 `Toggle`，L4 通道不必要。
+- [ ] selector pack 候选升为实测：**未做**（下一段工作）
+- [ ] `paint.tool.select` 放行已取证工具：**未做**
+- [ ] 真机端到端路径：**未做**
+- [ ] 归档拆分：**未做**（`apps/paint.md` 现 709 行，仍超 ADR-0021 阈值）
+- [x] 静态验收：见 §3；`LEDGER.md` 追加行见本次提交
+- [x] 无 Out of scope 文件被修改（本次只动探针脚本 + 记忆 + 本卡）
 
 ### 5. 偏差
 
@@ -121,7 +129,16 @@ python adapters/com.microsoft.paint/tests/validate_adapter_pack.py
 
 ### 7. 遗留问题
 
-（待填）
+- **本卡尚未 Done**，本次只落地「探针取证 + 记忆落档」这一段，PR 按 WIP 提交，卡保持 `InProgress`。
+- 剩余三段：① selector pack 按 §13 实测结论校准；② `paint.tool.select` 扩到画笔 / 形状 / 轮廓 /
+  填充 / 大小 / 颜色；③ 至少一条真机端到端路径并贴原始输出。
+- **ADR-0021 归档拆分仍未做**：`docs/memory/apps/paint.md` 已 709 行（阈值 400），
+  `memory-counts` 稳定报 `memory/archive-threshold` WARN（0 error，verdict PASSED）。
+  计划：把 §9–§11 整体移入 `docs/memory/archive/paint-early-probes.md`，原处留指针，
+  再登记 MEMORY.md 归档索引 + LEDGER。
+- **两条被推翻的旧结论**已写进 §13.9 / §13.16：§11.2/§12 的「形状项没有可用 UIA pattern、
+  只能走 L4 合成点击」不成立（内层 `Button` 有 `Toggle`）；§13.14 的「`1 像素` 没有 MenuItem」
+  也不成立（aid 是 `Size1`，只是 name 被写成 `大小`）。
 
 ### 8. 新增长期记忆
 
