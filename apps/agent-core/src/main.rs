@@ -131,6 +131,13 @@ impl ModelProvider for NoopProvider {
 
 #[tokio::main]
 async fn main() -> ExitCode {
+    // ADR-0092 细则 3：进程级 DPI 感知必须在任何窗口创建 / DPI 查询**之前**声明。
+    // 不声明会让坐标口径与窗口截图一起被 DPI 虚拟化（截图会只拿到窗口左上角一块，
+    // 见 docs/memory/apps/paint.md §12.5）。
+    if let Err(error) = assistant_platform_windows::enable_per_monitor_v2_dpi_awareness() {
+        report_error(&format!("per-monitor-v2 DPI awareness: {error}"));
+        return ExitCode::FAILURE;
+    }
     let arguments = std::env::args().skip(1).collect::<Vec<_>>();
     if arguments.is_empty()
         || (arguments.len() == 1

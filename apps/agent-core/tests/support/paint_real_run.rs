@@ -83,6 +83,59 @@ fn parse_canvas_pixel_size(text: &str) -> Option<(u32, u32)> {
     (width > 0 && height > 0).then_some((width, height))
 }
 
+/// Recording-only blob sink: verifies the *size* of `capture`'s image without touching storage.
+///
+/// Deliberately不落盘 —— 这里要证的是尺寸：DPI 感知缺失时 `capture` 按**虚拟化**尺寸分配缓冲，
+/// 只拿到窗口左上角一块（`docs/memory/apps/paint.md` §12.5）。
+#[derive(Debug, Default)]
+struct RecordingBlobSink {
+    last: Mutex<Option<(u32, u32)>>,
+}
+
+impl ImageBlobSink for RecordingBlobSink {
+    fn store_bgra(
+        &self,
+        width: u32,
+        height: u32,
+        _content_address: &str,
+        _bgra: &[u8],
+    ) -> PlatformResult<()> {
+        *self.last.lock().expect("recording sink") = Some((width, height));
+        Ok(())
+    }
+}
+
+/// Assert that `capture`'s image size equals `window_geometry`'s rectangle (ADR-0092 rule 3,
+/// capture side). A mismatch means DPI awareness is not in effect and the capture is clipped.
+async fn assert_capture_size_matches_window(
+    platform: &WindowsPlatform,
+    window: &ResolvedWindow,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let geometry = platform.window_geometry(window).await?;
+    let bounds = geometry.bounds();
+    let expected_width = u32::try_from(bounds.width())?;
+    let expected_height = u32::try_from(bounds.height())?;
+
+    let sink: &'static RecordingBlobSink = Box::leak(Box::new(RecordingBlobSink::default()));
+    let capturing = WindowsPlatform::new().with_blob_sink(sink);
+    let image = capturing
+        .capture(window, &CaptureOptions::new(false))
+        .await?;
+
+    if (image.width(), image.height()) != (expected_width, expected_height) {
+        return Err(format!(
+            "capture returned {}x{} but the window geometry is {}x{} — per-monitor-v2 DPI \
+             awareness is not in effect (see docs/memory/apps/paint.md §12.5)",
+            image.width(),
+            image.height(),
+            expected_width,
+            expected_height
+        )
+        .into());
+    }
+    Ok(())
+}
+
 /// Quiet window between "Paint became the foreground window" and the first synthetic input.
 ///
 /// The human brings Paint forward with the mouse; their pointer (and the click that raised the
@@ -143,6 +196,10 @@ async fn wait_for_real_paint_foreground(
 #[tokio::test]
 #[ignore = "TASK-256: requires an interactive Paint 11.2605.81.0 window and human observer"]
 async fn test_paint_t3_1_runs_on_real_paint() -> Result<(), Box<dyn std::error::Error>> {
+    // ADR-0092 rule 3: process-wide DPI awareness must be declared before *any* window / DPI
+    // query. An integration-test binary has no application manifest, so it must be called here,
+    // at the very top of the test body.
+    assistant_platform_windows::enable_per_monitor_v2_dpi_awareness()?;
     let directory = TestDirectory::new("production-paint-real-t3-1")?;
     let blob_sink = StorageBlobSink::new();
     let sink_handle = blob_sink.clone();
@@ -151,6 +208,8 @@ async fn test_paint_t3_1_runs_on_real_paint() -> Result<(), Box<dyn std::error::
     // Let the human's mouse settle after they raised Paint, then re-check the foreground before the
     // plan is allowed to send any synthetic pointer input.
     settle_then_require_foreground(&platform, &paint_window, REAL_RUN_FOREGROUND_SETTLE).await?;
+    // Capture-side self-check for ADR-0092 rule 3: the image must span the whole window.
+    assert_capture_size_matches_window(&platform, &paint_window).await?;
     // The task package requires the injected zoom / offsets to match the canvas state at resolve
     // time, so measure the live document instead of reusing the fake platform's fixture constants.
     let canvas = read_real_canvas_inputs(&platform, &paint_window).await?;
