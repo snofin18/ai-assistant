@@ -6,6 +6,83 @@
 
 use super::*;
 
+use assistant_platform_api::{SelectorCandidate, SelectorKind, SelectorValue};
+
+/// Read the live document's canvas parameters.
+///
+/// The T3.1 task package declares `canvas_width` / `canvas_height` / `zoom_ratio` as **caller
+/// inputs** and states the precondition "zoom ratio and viewport offsets match the canvas state at
+/// resolve time". The fixture constants (100x100 at zoom 1.0) make the mapped end point fall
+/// outside the real render (`paint.canvas.resolve_point` then fails closed with `InvalidArguments`),
+/// so the real run must inject what it actually measured:
+///
+/// - rendered width from the `canvas` element (`automation_id = image`);
+/// - document pixel size parsed from `CanvasSizeTextBlock` (e.g. `418 x 74像素`);
+/// - `zoom_ratio = rendered_width / document_width`.
+///
+/// Viewport offsets stay 0: a freshly created document is not scrolled. The declared rectangle
+/// points (10,10)-(50,50) are kept, so a canvas smaller than 51 px on either axis fails loudly here
+/// instead of silently drawing at a clamped point.
+async fn read_real_canvas_inputs(
+    platform: &WindowsPlatform,
+    window: &ResolvedWindow,
+) -> Result<PaintCanvasInputs, Box<dyn std::error::Error>> {
+    let canvas_chain = assisted_selector_chain("canvas-aid", "image");
+    let canvas = platform.resolve_element(window, &canvas_chain).await?;
+    let geometry = platform.element_geometry(&canvas).await?;
+    let render_width = geometry.bounds().width();
+    if render_width <= 0 {
+        return Err("Paint canvas has a non-positive rendered width".into());
+    }
+
+    let size_chain = assisted_selector_chain("canvas-size-aid", "CanvasSizeTextBlock");
+    let size_element = platform.resolve_element(window, &size_chain).await?;
+    let text = platform.read_text(&size_element).await?;
+    let (width_px, height_px) = parse_canvas_pixel_size(&text).ok_or_else(|| {
+        format!("CanvasSizeTextBlock did not expose two positive integers: {text:?}")
+    })?;
+
+    if width_px <= 50 || height_px <= 50 {
+        return Err(format!(
+            "Paint canvas {width_px}x{height_px} is too small for the declared rectangle points \
+             (10,10)-(50,50)"
+        )
+        .into());
+    }
+
+    let zoom_ratio = f64::from(render_width) / f64::from(width_px);
+    Ok(PaintCanvasInputs {
+        width_px,
+        height_px,
+        zoom_ratio,
+    })
+}
+
+/// Single-candidate automation-id chain (same shape the adapter declares for these targets).
+fn assisted_selector_chain(id: &str, automation_id: &str) -> SelectorChain {
+    SelectorChain::new(vec![
+        SelectorCandidate::new(
+            id,
+            SelectorKind::AutomationId,
+            SelectorValue::Text(automation_id.to_owned()),
+            1.0,
+            false,
+        )
+        .expect("automation-id candidate"),
+    ])
+}
+
+/// `"418 x 74像素"` -> `(418, 74)` (same rule the handler uses: first two positive integers).
+fn parse_canvas_pixel_size(text: &str) -> Option<(u32, u32)> {
+    let mut numbers = text
+        .split(|character: char| !character.is_ascii_digit())
+        .filter(|part| !part.is_empty())
+        .filter_map(|part| part.parse::<u32>().ok());
+    let width = numbers.next()?;
+    let height = numbers.next()?;
+    (width > 0 && height > 0).then_some((width, height))
+}
+
 /// Quiet window between "Paint became the foreground window" and the first synthetic input.
 ///
 /// The human brings Paint forward with the mouse; their pointer (and the click that raised the
@@ -74,8 +151,11 @@ async fn test_paint_t3_1_runs_on_real_paint() -> Result<(), Box<dyn std::error::
     // Let the human's mouse settle after they raised Paint, then re-check the foreground before the
     // plan is allowed to send any synthetic pointer input.
     settle_then_require_foreground(&platform, &paint_window, REAL_RUN_FOREGROUND_SETTLE).await?;
+    // The task package requires the injected zoom / offsets to match the canvas state at resolve
+    // time, so measure the live document instead of reusing the fake platform's fixture constants.
+    let canvas = read_real_canvas_inputs(&platform, &paint_window).await?;
     let host = assemble_production_host(
-        paint_config(&directory.path),
+        paint_config_with_canvas(&directory.path, canvas),
         platform,
         Arc::new(SystemClock),
     )
