@@ -398,3 +398,312 @@ fail-closed；不再继续 `Alt+L` / 工具 / 拖拽。TASK-305 的 A 方案（�
 
 ### 12.7 已有画布续画 T3.2（2026-10-16 实测，TASK-307）
 T3.2 任务包共 9 步、不含 `paint.document.new`；`draw_rectangle` 用 before/after capture 的 content address 做下界，相同即 `VerifyFailed`。生产入口默认 `--document-mode existing` → T3.2，只有显式 `new` 才选 T3.1；真机已有未保存画布复跑 `1 passed / 8.72 s`，无保存框。
+
+## 13. 画笔 / 形状 / 颜色 工具集清单（人类截图，2026-10-16）
+
+> 来源：人类提供的本机 Paint 界面截图，用于「完整画笔 / 形状 / 颜色工具集」的对照。
+> 名称按截图中文字**逐条抄录**：不改名、不翻译、不补全。截图未覆盖的部分一律标「未覆盖」。
+> 本节只记**有哪些项、叫什么**；每项的 UIA 形状（name / aid / control type / pattern）
+> 仍须真机探针取证，未取证前不得当事实用。
+
+### 13.1 画笔下拉（`BrushesSplitButton` 展开后的笔型列表）
+
+截图自上而下共 **9** 项，每项右侧为该笔型的笔画预览：
+
+| # | 名称 | 截图当时状态 |
+|---|---|---|
+| 1 | 画笔 | 选中（行左侧蓝色竖条） |
+| 2 | 毛笔 | 悬停高亮（灰底） |
+| 3 | 书写笔 | — |
+| 4 | 喷枪 | — |
+| 5 | 油画笔 | — |
+| 6 | 蜡笔 | — |
+| 7 | 记号笔 | — |
+| 8 | 普通铅笔 | — |
+| 9 | 水彩画笔 | — |
+
+**边界**：截图下沿紧贴最后一项，列表是否可滚动、其下是否还有未截到的笔型 —— **未覆盖 / 未确认**。
+
+**命名提醒（两组同名，必须消歧）**：
+
+1. 清单第 1 项「画笔」与工具栏 `BrushesSplitButton` 同名（工具栏那个 name 也是 `画笔`）。
+   只按 name 选会同时命中工具栏按钮与本 flyout 项 —— 必须叠加层级 / aid / 是否在 flyout 内区分。
+2. 清单第 8 项「普通铅笔」与工具栏「铅笔」不是同一个控件（工具栏 `ToggleButton`
+   aid = `PencilTool`、KeyTip `Alt+T,P`，见 §11.1）。
+
+**待探针确认**（尚未真机取证）：每项的 name / aid / ControlType、是否 `IsKeyboardFocusable`、
+有无可用 UIA pattern、以及 flyout 项与 `BrushesSplitButton` 的层级关系。
+
+### 13.2 形状库（形状画廊，23 项，8 / 8 / 7 三行）
+
+图库**只有图标、没有文字标签**；下表名称由人类提供，是 **Paint 的标准中文名称**
+（2026-10-16 确认，替代此前按图标形状的推断）。按截图从上到下、从左到右：
+
+| 行 | 顺序（左 → 右） |
+|---|---|
+| 1 | 直线 / 曲线 / 椭圆 / 矩形 / 圆角矩形 / 多边形 / 三角形 / 直角三角形 |
+| 2 | 菱形 / 五边形 / 六边形 / 向右键 / 向左键 / 向上箭头 / 向下箭头 / 四角星 |
+| 3 | 五角星 / 六角星 / 圆角矩形标注 / 椭圆形标注 / 云形标注 / 心形 / 闪电 |
+
+截图当时 `椭圆` 带蓝色选中框。图库是否可滚动、是否还有第 4 行 —— **未覆盖**。
+
+**仍未取证**：以上是**标准中文名称**，**不等于 UIA name**。目前唯一有真机 name 证据的仍是 `矩形`
+（TASK-256 记到 `Button` / name `矩形`，见 §12）；其余 22 项的真实 name / aid / pattern 仍需真机探针，
+取名时**不得**直接用本表反推 selector。
+
+### 13.3 形状轮廓（轮廓按钮展开）
+
+自上而下共 **7** 项（2026-10-16 清晰截图确认；此前基于模糊截图的暂读作废）：
+
+| # | 名称 | 截图当时状态 |
+|---|---|---|
+| 1 | 无边框 | — |
+| 2 | 实心边框 | — |
+| 3 | 蜡笔 | — |
+| 4 | 记号笔 | 选中（行左侧蓝色竖条） |
+| 5 | 油画笔 | — |
+| 6 | 普通铅笔 | — |
+| 7 | 水彩画笔 | — |
+
+列表是否可滚动、`水彩画笔` 之下是否还有项 —— 仍**未覆盖**（两版截图都止于 `水彩画笔`）。
+
+### 13.4 形状填充（填充按钮展开）
+
+自上而下共 **7** 项（2026-10-16 清晰截图确认；此前基于模糊截图的暂读作废）：
+
+| # | 名称 | 截图当时状态 |
+|---|---|---|
+| 1 | 无填充 | — |
+| 2 | 纯色填充 | — |
+| 3 | 蜡笔 | — |
+| 4 | 记号笔 | — |
+| 5 | 油画笔 | 选中（行左侧蓝色竖条） |
+| 6 | 普通铅笔 | — |
+| 7 | 水彩画笔 | — |
+
+列表下沿同样**未覆盖**。
+
+### 13.5 大小（大小按钮展开）
+
+自上而下：`1 像素` / `3 像素` / `5 像素`（截图当时选中）/ `8 像素`。
+是否还有更大的尺寸 —— **未覆盖**。
+
+### 13.6 同名冲突（写 selector 必须先消歧）
+
+`蜡笔` / `记号笔` / `油画笔` / `普通铅笔` / `水彩画笔` 这 5 个名字在**三个 flyout 里都会出现**：
+画笔下拉（§13.1，另含 `画笔` / `毛笔` / `书写笔` / `喷枪`）、形状轮廓（§13.3）、形状填充（§13.4）。
+只按 name 选会跨 flyout 误命中。正确顺序是**先锚定 flyout**（§13.1 的 `BrushesSplitButton`、
+§13.3 的轮廓按钮、§13.4 的填充按钮），再在 flyout 内按 name 选。
+
+### 13.7 颜色面板（调色板展开）
+
+布局与语义（2026-10-16 人类逐项说明确认；此前「底部空心圆含义未确认」的记法作废）：
+
+- **左侧上下两个大圆 = 两个「当前要用的颜色」槽位**，点其中一个即把它设为当前激活槽。
+  选色是**两步**流程：先点左边大圆之一 → 再点右侧某个颜色，该大圆就变成那个颜色。
+  （截图里上方大圆 = 黑、带蓝色选中环，下方大圆 = 白。按 Paint 默认值**推断**上方 = `颜色 1`、
+  下方 = `颜色 2`（KeyTip `Alt+1` / `Alt+2`，见 §11.1），**未逐项确认**。）
+- **右侧带 `+` 的彩虹大圆 = 「编辑颜色」入口**：点进去可配出任意颜色，并与下面 10 个小圆联动。
+- **下方 10 个小圆 = 自定义颜色槽位**：自定义颜色被选中后会**依次存入**这 10 个备用；
+  之后再点其中某个，左侧「当前激活的大圆」就切换成该自定义颜色。
+  **没填入过颜色的槽位是不可选（disabled）状态**，只有存过自定义色的槽位才能点。
+
+固定色块（**2 行 × 10**）的**顺序与 §11.3 的真机实测 RGB 逐色一致**（本截图 = 第二次独立确认）：
+
+| 行 | 顺序（左 → 右） |
+|---|---|
+| 1 | 黑色 / 灰色 / 深红色 / 红色 / 橙色 / 黄色 / 绿色 / 青绿 / 靛蓝色 / 紫色 |
+| 2 | 白色 / 浅灰 / 褐色 / 玫瑰红 / 金色 / 浅黄色 / 酸橙色 / 淡青绿色 / 蓝灰色 / 淡紫色 |
+
+**对自动化有两条影响**：
+
+1. 选色不必逐点点色块：固定色走 §11.3 的 20 色表，任意 RGB 走「编辑颜色」（`Alt+E,C` →
+   `HexTextBox` / `RedTextBox` / `GreenTextBox` / `BlueTextBox`）。
+2. **下面 10 个自定义槽位装的是用户内容，颜色不固定**，不得当稳定 selector 目标，
+   也不得假定它们初始为空、为白或可预测 —— 读回与断言都必须容忍任意颜色。
+
+### 13.8 真机 UIA 探针实测（2026-10-16，TASK-309 ControlView）
+
+探针：`eval/tasks/paint/probe-toolset.ps1`（**只读**，ControlView BFS，封顶 900 元素 / 25 s）。
+一次完整 dump：`seen=91 emitted=91 truncated=False elapsed_ms=177`；
+窗口 `name="无标题 - 画图" class=MSPaintApp proc=mspaint`。
+
+**工具栏实测（name / AutomationId / UIA ControlType）**：
+
+| name | AutomationId | ControlType |
+|---|---|---|
+| 选择 | — | RadioButton |
+| 裁剪 | `CropButton` | Button |
+| 删除背景 | — | Button |
+| 旋转 | `RotateDropdown` | Button |
+| 翻转 | `Flip` | Button |
+| 重设大小和倾斜 | — | Button |
+| 铅笔 | `PencilTool` | Button |
+| 填充 | — | Button |
+| 文本 | — | Button |
+| 橡皮擦 | `EraserTool` | Button |
+| 颜色选取器 | — | Button |
+| 放大镜 | — | Button |
+| 画笔 | `BrushesSplitButton` | **RadioButton** |
+| 形状 | `CollapsedButton` | Button |
+| `颜色 1: 黑色` | — | RadioButton |
+| `颜色 2: 白色` | — | RadioButton |
+| 编辑颜色 | — | Button |
+| Copilot | `CopilotDropDownButton` | Button |
+| 大小 | — | Slider |
+| 不透明度 | — | Slider |
+| 工具栏选项 | `OptionsButton` | Button |
+
+**修正 §11.1**：那张表里写的 `ToggleButton`（铅笔 / 填充 / 文本）与 `SplitButton`（画笔）是
+**XAML 类名**；UIA `ControlType` 实测分别是 `Button` 与 `RadioButton`。按 ControlType 找控件会漏命中，
+必须用 `AutomationId`。
+
+**`颜色 1` / `颜色 2` 可直接读回**：两个 RadioButton 的 name 形如 `颜色 1: 黑色` / `颜色 2: 白色`，
+当前颜色就编码在 name 里 —— 这是现成的读回路径，不必截图取色。
+
+**固定调色板实测 UIA name**（`List` 下 20 个 `ListItem`，aid 全空、全部 `focusable=true`）：
+
+| 行 | UIA name |
+|---|---|
+| 1 | 黑色 / 灰色 / 深红色 / 红色 / 橙色 / 黄色 / 绿色 / 青绿 / 靛蓝色 / 紫色 |
+| 2 | 白色 / 浅灰 / 褐色 / 玫瑰红 / 金色 / 浅黄色 / 酸橙色 / 淡青绿色 / 蓝灰色 / 淡紫色 |
+
+**修正 §13.7**：该节两行色名里第 1 行的 `青蓝` / `蓝` 实测为 `青绿` / `靛蓝色`；第 2 行我目测的
+`棕 / 粉 / 橙黄 / 米 / 黄绿 / 浅青 / 蓝灰 / 淡紫` 实测为
+`褐色 / 玫瑰红 / 金色 / 浅黄色 / 酸橙色 / 淡青绿色 / 蓝灰色 / 淡紫色` —— **以本节为准**。
+
+**仍需探针**：形状画廊 23 项、画笔 flyout 9 项、轮廓 / 填充 flyout 各 7 项。这些元素只在对应
+flyout 展开时才进树，本轮只读探测（不点击）拿不到。
+
+### 13.9 形状库 + 三个 flyout 按钮实测（2026-10-16，TASK-309，UIA pattern 展开）
+
+**展开方式（重要）**：`形状`（aid `CollapsedButton`）支持 **`ExpandCollapsePattern`** —— 直接
+`Expand()` 就能打开形状库，**不需要键鼠、不需要合成点击**；`Collapse()` 收回。
+`形状轮廓` / `形状填充` / `大小` 三个按钮同样支持 `Invoke + ExpandCollapse`。
+
+展开后新增的三个按钮：
+
+| name | aid | ControlType | patterns |
+|---|---|---|---|
+| 形状轮廓 | — | Button | Invoke + ExpandCollapse |
+| 形状填充 | — | Button | Invoke + ExpandCollapse |
+| 大小 | — | Button | Invoke + ExpandCollapse |
+
+**形状 23 项**（每项是**两层**：外层 `ListItem` + 内层 `Button`）：
+
+| 行 | 顺序（左 → 右） |
+|---|---|
+| 1 | 直线 / 曲线 / 椭圆 / 矩形 / 圆角矩形 / 多边形 / 三角形 / 直角三角形 |
+| 2 | 菱形 / 五边形 / 六边形 / 向右键 / 向左键 / 向上箭头 / 向下箭头 / 四角星 |
+| 3 | 五角星 / 六角星 / 圆角矩形标注 / 椭圆形标注 / 云形标注 / 心形 / 闪电 |
+
+与人类给的标准中文名称**逐项一致**（含 `向右键` / `向左键` 这种不对称命名）。
+
+**修正 §11.2（结论性）**：那里写「形状项全部 `IsKeyboardFocusable=false`」—— **只对 ListItem 外层成立**。
+内层 Button 实测 `focusable=true` 且 `patterns=[Toggle,ScrollItem]`。因此 §12 的
+「形状项没有任何可用 UIA pattern，只能走 L4 合成点击」**不成立**：23 项都能用 `TogglePattern`
+程序化选中，合成点击不再是必需通道。
+
+**选择器**：23 项 aid **全空**，只有本地化 name —— 必须用 `ExactNameAndRole`（ADR-0091）+
+容器（形状库 List）消歧；`矩形` 同时也是工具栏外的唯一同名点，注意别与其它同名项混。
+
+### 13.10 画笔 flyout（`BrushesSplitButton` 展开，UIA pattern）
+
+`ExpandCollapsePattern.Expand()` 展开后新增一个 **`Menu`**（rect 1407,558,486,840），
+其下 **9 个 `MenuItem`**：aid 全空、`focusable=true`、`patterns=[Invoke,Toggle]`，name 就是笔型名。
+
+| # | name | ControlType | patterns |
+|---|---|---|---|
+| 1 | 画笔 | MenuItem | Invoke + Toggle |
+| 2 | 毛笔 | MenuItem | Invoke + Toggle |
+| 3 | 书写笔 | MenuItem | Invoke + Toggle |
+| 4 | 喷枪 | MenuItem | Invoke + Toggle |
+| 5 | 油画笔 | MenuItem | Invoke + Toggle |
+| 6 | 蜡笔 | MenuItem | Invoke + Toggle |
+| 7 | 记号笔 | MenuItem | Invoke + Toggle |
+| 8 | 普通铅笔 | MenuItem | Invoke + Toggle |
+| 9 | 水彩画笔 | MenuItem | Invoke + Toggle |
+
+与 §13.1 的截图清单**逐项一致**（顺序也一致）。每项另有一个 `Text`（aid `TextBlock`）承载显示文字，
+**选择要打 MenuItem，不要打 Text**。
+
+### 13.11 形状轮廓 flyout（展开形状库后再展开「形状轮廓」按钮）
+
+两级 pattern 展开：先 `CollapsedButton` 展开形状库，再按 name `形状轮廓` 展开其 flyout。
+展开后新增 **7 个 `MenuItem`**：aid 全空、`focusable=true`、`patterns=[Invoke,Toggle]`。
+
+`无边框` / `实心边框` / `蜡笔` / `记号笔` / `油画笔` / `普通铅笔` / `水彩画笔`
+
+与 §13.3 的截图清单**逐项一致**，且**证实人类说法**：最上面一项确实是 `无边框`。
+
+### 13.12 形状填充 flyout（同两级展开）
+
+**7 个 `MenuItem`**：aid 全空、`focusable=true`、`patterns=[Invoke,Toggle]`。
+
+`无填充` / `纯色填充` / `蜡笔` / `记号笔` / `油画笔` / `普通铅笔` / `水彩画笔`
+
+与 §13.4 逐项一致，并**证实人类说法**：最上面一项是 `无填充`。
+
+### 13.13 形状工具的三个按钮：**必须先选中形状**（2026-10-16 人类说明 + 实测证实）
+
+「形状轮廓」/「形状填充」/「大小」三个按钮**在没选中形状时是 disabled**。实测差异很干净：
+
+| 状态 | 三个按钮的 `focusable` | 展开 `大小` 后 |
+|---|---|---|
+| 未选中形状 | **`false`** | 展开成功但**条目为空**（见 13.15） |
+| 选中形状后 | **`true`** | 正常列出尺寸（见 13.14） |
+
+→ **自动化必须先选中一个形状再碰这三个按钮**；`focusable=false` 可直接当「不可用」的判据，
+不必盲点。这也解释了 13.15 那次为什么探到空的：那次是「没选形状」的合法状态，不是通道缺陷。
+
+### 13.14 `大小` flyout（选中形状后）：条目带稳定 aid
+
+选中形状后再两级展开（`CollapsedButton` → name `大小`），拿到：
+
+| name | AutomationId | ControlType | patterns |
+|---|---|---|---|
+| `1 像素` | **`Size1`** | MenuItem | Invoke + Toggle |
+| `3 像素` | **`Size3`** | MenuItem | Invoke + Toggle |
+| `5 像素` | **`Size5`** | MenuItem | Invoke + Toggle |
+| `8 像素` | **`Size8`** | MenuItem | Invoke + Toggle |
+
+`Size3` / `Size5` / `Size8` 是**本项目在 Paint 里看到的第一批稳定 aid 枚举项**（形状项 aid 全空）。
+
+**四档的 aid 是齐的**：`Size1` / `Size3` / `Size5` / `Size8`，全部 `focusable=true`、
+`patterns=[Invoke,Toggle]`。**但它们不能靠 name 选** —— 见 §13.16。
+
+### 13.16 ⚠️ `Size1` 的 name 是「大小」，不是「1 像素」（2026-10-16 实测）
+
+`大小` flyout 的 4 个 MenuItem 里，**第一项的 name 是 `大小`**（沿用了分组标题），
+不是 `1 像素`；每项下面另有一个 `Text`（aid `TextBlock`）才承载显示文字。
+
+| name | aid | ControlType |
+|---|---|---|
+| **`大小`** ← 陷阱 | `Size1` | MenuItem |
+| `3 像素` | `Size3` | MenuItem |
+| `5 像素` | `Size5` | MenuItem |
+| `8 像素` | `Size8` | MenuItem |
+
+**两个后果**：
+
+1. **按 name 找 `1 像素` 会失败**（`name="1 像素"` 只命中它的 `Text` 子节点，而 Text 不可操作）；
+   必须用 **`aid=Size1`**。
+2. `name="大小"` 同时命中**尺寸按钮本身**、**画笔的大小 Slider** 和这个 MenuItem —— 三重歧义。
+   尺寸选择**一律走 aid**，不要走 name。
+
+> 本条推翻了 §13.14 早前「`1 像素` 没有 MenuItem」的记法：当时是按「像素」筛 name 才漏掉的，
+> 与「当前生效值另行渲染」无关。人类把值改到非第一位后复测，结论不变 —— 与选中状态无关。
+
+### 13.15 `大小` flyout：未选中形状时条目为空（原因见 13.13）
+
+同两级展开（`CollapsedButton` → name `大小`）。`ExpandCollapsePattern.Expand()` 成功
+（`state=Expanded`），但**展开后 ControlView 里没有任何「N 像素」条目**：
+
+- `type=MenuItem` 全树只有 3 项（`文件` / `编辑` / `查看`），不含尺寸；
+- 完整无过滤遍历 `seen=174 emitted=174 truncated=False`，唯一匹配 `像素` 的是画布尺寸文本
+  `418 × 74像素`（aid `CanvasSizeTextBlock`）；
+- 坐标带 `x∈1780~1999` 只捞到 `大小` 按钮本身。
+
+→ **§13.5 的 4 档（1 / 3 / 5 / 8 像素）目前没有 L3 通道**。与 §11.2 / §12.3 同族：
+该 flyout 的条目只存在于合成层。要选尺寸得走键盘或 L4 合成点击，或另找 RawView / 非 ControlView 路径。
+**未取证的尺寸值不得猜测放行**。
