@@ -1,6 +1,6 @@
 # TASK-307　Paint 已有画布续画与“真实像素变化”下界
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**1b**　批次：Paint 真机链路　依赖：TASK-306
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -103,6 +103,7 @@ cargo test -p assistant-agent-core --test production_paint -- --ignored --nocapt
 - 真机 T3.2（人类置前台，已有未保存画布）：
   `cargo test -p assistant-agent-core --test production_paint -- --ignored --nocapture test_paint_t3_2_continues_existing_canvas`
   → `1 passed / 0 failed / 8.72 s`、`TaskStatus::Completed`；没有 `Ctrl+N`，没有保存框。
+- 合并：PR #433 / merge `a075f1f`；pull_request CI 22 checks 全绿（21 success + 1 skipping）。
 - `cargo test --workspace` → `469 passed / 0 failed`。
 - `cargo fmt --all --check` → exit 0。
 - `cargo clippy --all-targets -- -D warnings` → exit 0（仅既存 unknown-lint 警告）。
