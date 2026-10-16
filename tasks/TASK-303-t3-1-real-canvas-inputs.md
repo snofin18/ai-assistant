@@ -87,12 +87,13 @@ cargo test -p assistant-agent-core --test production_paint -- --ignored --nocapt
 
 - `cargo fmt --all --check`：exit 0。
 - `cargo test -p assistant-agent-core --test production_paint`：**4 passed / 0 failed / 1 ignored**（fake 路径行为不变）。
-- **真机**：见 §7（本轮两次触发都未等到人类把 Paint 置前台，30 s 超时、**未发送输入**）。
+- **真机（第 3 次触发，人类在场）**：`cargo test -p assistant-agent-core --test production_paint -- --ignored --nocapture test_paint_t3_1_runs_on_real_paint`
+  → **`1 passed; 0 failed; 0 ignored`（11.11 s）** —— T3.1 全链路首次在真机跑通。
 
 ### 4. DoD 逐条核对
 
 - [x] `paint_config_with_canvas` + 只读探测落地；`paint_config` 以 `PaintCanvasInputs::FAKE` 委托 → fake 路径零行为变更
-- [x] 静态验收全绿（真机 E2E 见 §7，仍未跑）
+- [x] 静态验收全绿 + **真机 E2E 通过**（见 §7）
 - [x] `LEDGER.md` 追加一行
 - [x] 无 Out of scope 文件被修改
 
@@ -108,9 +109,17 @@ none（本卡是 T3.1 真机链路在 TASK-294/296/297 之后暴露的**下一�
 
 ### 7. 遗留问题
 
-- **真机 E2E 仍未通过**：两次触发都在前台等待阶段 30 s 超时（未发送任何输入），需人类在场重跑。
+- **真机 E2E 已通过**（2026-10-16 第 3 次触发，人类在场）：`new_document` → `select_rectangle_tool` →
+  `select_foreground_color` → `select_layer` → `resolve_start` / `resolve_end` → `draw_rectangle` →
+  `capture_*` 全部 Committed，最终 `TaskStatus::Completed`，耗时 11.11 s。前两次触发都在前台等待阶段
+  30 s 超时（未发输入）。**T3.1 真机链路至此打通**（DRIFT-256-5/6 的动作层与坐标层问题均已闭环）。
+- **⚠ 像素级验证仍未取证**：本次通过证明的是**流程**跑通，不是画布像素被验证。整窗 `PrintWindow` 截图里
+  只在工具栏找到测试选的前景色 `#ed1c24`，**画布区域是空白** —— 画布是独立合成层，窗口截图抓不到
+  （与 `docs/memory/apps/paint.md` §11.5 同族）。T3.1 的 `rectangle_visual_assert` 因此在本轮**没有真正的
+  像素证据**；要给视觉后置条件取证，需要走能抓到合成层的通道（另行裁决）。
 - **时序假设**：探测发生在 plan 之前，而 `Ctrl+N` 在 plan 内执行。本次实测「探测时文档」与「新建后文档」同为 418×74；若将来两者不一致，`resolve_*` 会显式失败（fail-closed），不会静默点偏。若要彻底消除该假设，需要让 plan 支持「先跑 new_document、再探测、再注入」的两阶段执行。
 - viewport offset 固定 0（新建文档未滚动）；滚动场景（T3.2/T3.3）需单独建模。
+- 真机十次运行（TASK-044 的 `DRIFT-044-1` / `PL-113`）仍未开始；本轮只跑通 1 次。
 
 ### 8. 新增长期记忆
 
