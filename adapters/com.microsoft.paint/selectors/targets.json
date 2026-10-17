@@ -68,42 +68,44 @@
     {
       "id": "pencil_tool_button",
       "scope": "element",
-      "probe_status": "required",
+      "probe_status": "observed",
       "candidates": [
         {
-          "id": "pencil-button-class-role",
-          "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.AppBarButton", "role": "Button"}},
-          "score": 0.5,
+          "id": "pencil-button-automation-id",
+          "kind": "automation_id",
+          "value": {"text": "PencilTool"},
+          "score": 0.94,
           "locale_dependent": false
         },
         {
-          "id": "pencil-button-name-fallback",
-          "kind": "name_regex",
-          "value": {"text": "Pencil"},
-          "score": 0.28,
-          "locale_dependent": true
+          "id": "pencil-button-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "铅笔", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
         }
       ]
     },
     {
       "id": "brush_tool_button",
       "scope": "element",
-      "probe_status": "required",
+      "probe_status": "observed",
       "candidates": [
         {
-          "id": "brush-button-class-role",
-          "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.AppBarButton", "role": "Button"}},
-          "score": 0.5,
+          "id": "brush-button-automation-id",
+          "kind": "automation_id",
+          "value": {"text": "BrushesSplitButton"},
+          "score": 0.94,
           "locale_dependent": false
         },
         {
-          "id": "brush-button-name-fallback",
-          "kind": "name_regex",
-          "value": {"text": "Brush"},
-          "score": 0.28,
-          "locale_dependent": true
+          "id": "brush-button-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "画笔", "role": "RadioButton"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
         }
       ]
     },
@@ -160,21 +162,22 @@
     {
       "id": "eraser_tool_button",
       "scope": "element",
-      "probe_status": "required",
+      "probe_status": "observed",
       "candidates": [
         {
-          "id": "eraser-button-class-role",
-          "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.AppBarButton", "role": "Button"}},
-          "score": 0.5,
+          "id": "eraser-button-automation-id",
+          "kind": "automation_id",
+          "value": {"text": "EraserTool"},
+          "score": 0.94,
           "locale_dependent": false
         },
         {
-          "id": "eraser-button-name-fallback",
-          "kind": "name_regex",
-          "value": {"text": "Eraser"},
-          "score": 0.28,
-          "locale_dependent": true
+          "id": "eraser-button-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "橡皮擦", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
         }
       ]
     },
