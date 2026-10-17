@@ -69,16 +69,18 @@
 | `guard_testkit.rs` | 内存锁存储替身（仅 `cfg(test)`） | 否 |
 | `write_channel.rs` | `xtask write` 的唯一通道、占用探测与有界重试（ADR-0066） | **是**（显式目标 + `target/locks/`） |
 | `write_channel_tests.rs` | `write_channel` 的成功 / 超时 / fail-closed 与 Windows 句柄专项测试 | 仅 Windows 专项 |
-| `adr_index_tests.rs` / `guard_tests.rs` / `guard_runner_tests.rs` | 对应模块的私有单测，用 `#[path]` 外置（gov §5.4 的 600 行硬上限） | 否 |
+| `*_tests.rs`（按模块外置） | 对应模块的私有单测，用 `#[path]` 外置；现行清单见 `xtask/src/**` 的声明，阈值见 ADR-0033 | 否 |
 | `main.rs` | 分派、读文件内容、呈现、退出码 | 是（只读） |
 
 `rustscan` 存在的理由：直接对原始文本做子串匹配会误判 —— `let url = "http://x";`
 里的 `//` 不是注释，字符串里的 `TODO` 字样也不是待办。抹平字面量与注释之后，
 剩下的才是「真正的代码」。
 
-**测试外置**：`adr_index` / `guard` / `guard_runner` 的 `#[cfg(test)] mod tests` 用 `#[path]`
-指向同名 `*_tests.rs`。外置**不改变可见性语义** —— 那些文件里的 `mod tests` 仍是父模块的
-私有子模块，因此 `use super::*;` 照常能访问私有项。
+**测试外置**：需要把私有单测从被测模块中拆出时，按既有约定让 `#[cfg(test)] mod tests`
+用 `#[path]` 指向同名 `*_tests.rs`；当前使用范围以 `xtask/src/**` 里的 `#[path]` 声明为
+唯一事实源，本文不再手抄模块数量或名单。外置**不改变可见性语义** —— 那些文件里的
+`mod tests` 仍是父模块的私有子模块，因此 `use super::*;` 照常能访问私有项。
+单文件行数的写作规范与 CI 门禁阈值以 ADR-0033 为准。
 
 ## 退出码
 
