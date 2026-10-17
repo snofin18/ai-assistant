@@ -223,7 +223,8 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 > **实测复发率**：2026-10-17 的 08:20 轮自记 3 次；同日人类会话单轮又复发 4 次以上。
 > 说明**只写「环境硬要求」不足以约束**，所以本条的写法升格为：
 >
-> - **每一条** `exec_command` 都必须显式带 `shell: "powershell"`，**不存在**「这条很简单所以省掉」的例外；
+> - **Windows 下默认、优先使用 PowerShell** —— 本机 `exec_command` 的默认值恰好相反（bash），所以这是"必须显式覆盖反向默认"的场景，而不是可选偏好；
+- **每一条** `exec_command` 都必须显式带 `shell: "powershell"`，**不存在**「这条很简单所以省掉」的例外；
 > - 多行脚本 / here-string / 管道一律同此，不得依赖默认值；
 > - 开工时**先做一次能力探测**（例如 `$PSVersionTable` 或 `Get-Command cargo`），
 >   让壳选错这件事在第一分钟就可见，而不是在收尾时才发现某段从未执行；
