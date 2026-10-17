@@ -6,7 +6,25 @@ all-features = true
 version = 2
 db-path = "target/deny-db"
 yanked = "deny"
-ignore = []
+# 限期豁免（跟踪项：docs/PARKING_LOT.md PL-115）。
+#
+# RUSTSEC-2026-0370 / 0371 / 0372 是 **unmaintained（无人维护）** 公告，不是漏洞：
+# zbus_names / zvariant / zvariant_derive 已并入 zbus 6.0.0。它们由
+# assistant-secrets -> keyring 4.2.0 -> zbus-secret-service-keyring-store 1.0.1
+# -> secret-service 5.2.0 -> zbus 5.19.0 这条 **Linux 钥匙串链路**引入。
+# 上游 secret-service 最新版（5.2.0，2026-08-29 发布）仍钉 `zbus = "^5"`，
+# 所以公告里的 `Solution: No safe upgrade is available!` 属实 —— 靠升级依赖无法消除。
+#
+# 复审触发条件（任一命中即必须重新评估并删除对应 ignore）：
+#   (a) secret-service 任一新版本改为 `zbus ^6`；
+#   (b) keyring 的 Linux 后端换成不再依赖 zbus 的实现；
+#   (c) 本仓改动 Linux 凭据存储方案（需 ADR）；
+#   (d) 兜底到期日 2026-12-31。
+ignore = [
+  { id = "RUSTSEC-2026-0370", reason = "zvariant 5.15.0 unmaintained; no upstream upgrade path because secret-service 5.2.0 still pins zbus ^5; tracked as PL-115" },
+  { id = "RUSTSEC-2026-0371", reason = "zbus_names 4.3.4 unmaintained; same keyring/secret-service chain and same reason; tracked as PL-115" },
+  { id = "RUSTSEC-2026-0372", reason = "zvariant_derive 5.15.0 unmaintained; same keyring/secret-service chain and same reason; tracked as PL-115" },
+]
 
 [licenses]
 version = 2
