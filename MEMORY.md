@@ -35,7 +35,7 @@
 | `decisions.md` | 297 | 106 | 索引 → `docs/adr/NNNN-*.md` |
 | `open.md` | 57 | 26 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
 | `apps/notepad.md` | 343 | 0 | 接记事本时**全量读**；8 个固定小节 |
-| `apps/paint.md` | 709 | 0 | Read fully when working on Paint; 8 fixed sections plus TASK-044 real UIA probe, TASK-106 runtime assembly evidence, the TASK-256 real-machine KeyTip / palette / shape probe, the TASK-294 synthetic-click channel, the human/synthetic-mouse contention note, the shape-flyout-popup / DPI-virtualization facts, the palette control-view finding (DRIFT-296-1), the layers-panel Alt+L / ambiguous-anchor facts, the DPI-scaled capture-truncation correction, the TASK-306 WinUI unsaved-dialog fail-closed evidence, the TASK-307 T3.2 existing-canvas content-address lower bound, the human-provided brush / shape / color toolset inventory and the TASK-309 ControlView + ExpandCollapse probe tables (§13; §11.2/§12 shape-pattern conclusion superseded by §13.9; outline/fill/size need a selected shape, sizes are Size1/Size3/Size5/Size8 by aid because Size1 is named 大小); selectors provisional before real-machine calibration |
+| `apps/paint.md` | 299 | 0 | Read fully when working on Paint; 8 fixed sections plus the current TASK-309 ControlView + ExpandCollapse probe tables (§13.8–§13.16; §11.2/§12 shape-pattern conclusion superseded by §13.9; outline/fill/size need a selected shape, sizes are Size1/Size3/Size5/Size8 by aid because Size1 is named 大小). Early TASK-044 / TASK-106 / TASK-256 / TASK-294 probe and runtime notes plus the static toolset inventory are archived in `docs/memory/archive/paint-early-probes.md`; selectors remain provisional before real-machine calibration. |
 | win32-input-research.md | 193 | 0 | 接 Notepad Adapter + 任何 Win32 输入操作时**全量读**（SendInput / keybd_event / SendKeys / AttachThreadInput / BlockInput / SetForegroundWindow / WindowPattern.Close / UIPI / 推荐 pipeline） |
 
 
@@ -122,5 +122,6 @@ git         ：main 与 origin 同步（**哈希不写进本快照** —— 它�
 
 ## §7 归档索引
 
-（**暂无**。`docs/memory/` 下还没有任何文件超过 400 行。归档规则见 `docs/memory/archive/README.md`：
-按**体积**触发、按**主题**拆分、拆出后原处留指针 + 本表登记一行 + `LEDGER.md` 追加一行。）
+| 归档文件 | 来源 | 主题 | 登记说明 |
+|---|---|---|---|
+| `docs/memory/archive/paint-early-probes.md` | `docs/memory/apps/paint.md` | Paint 早期探针、运行时装配、KeyTip 实测与静态工具集清单 | 2026-10-17 TASK-309：将 §9–§12 与 §13.1–§13.7 按主题迁出，主档案由 709 行降至 299 行；原处保留指针。归档规则见 `docs/memory/archive/README.md`。 |

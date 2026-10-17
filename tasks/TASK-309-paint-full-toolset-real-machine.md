@@ -100,6 +100,12 @@ python adapters/com.microsoft.paint/tests/validate_adapter_pack.py
   `eraser_tool_button` / `brush_tool_button` 由 `required` 升 `observed`，主候选改为实测
   `automation_id`（`PencilTool` / `EraserTool` / `BrushesSplitButton`，score 0.94），
   另附本地化 `exact_name_and_role` 作为 `fallback_only`。`observed` 目标数 8 → 11。
+- `docs/memory/archive/paint-early-probes.md`：新增归档件，逐字接收 `paint.md` §9–§12 与
+  §13.1–§13.7（429 行），并在头部标明来源与现行档案入口。
+- `docs/memory/apps/paint.md`：删除已迁出的早期探针 / 运行时装配 / KeyTip / 静态工具集清单，
+  原处保留 §9–§12 与 §13.1–§13.7 的指针；主档案 709 → 299 行，继续保留 §13.8–§13.16 的真机探针表。
+- `MEMORY.md`：规模表把 `apps/paint.md` 更新为 299 行，§7 归档索引登记首条 L3 归档；读法改为
+  “现行探针表 + 归档入口”，不再手抄已迁出的旧探针摘要。
 - 本卡。
 
 ### 3. 验收输出摘要
@@ -109,7 +115,17 @@ python adapters/com.microsoft.paint/tests/validate_adapter_pack.py
   `name="无标题 - 画图" class=MSPaintApp proc=mspaint`。原始表见 `docs/memory/apps/paint.md` §13.8。
 - 探针**一次就修正了两条既有记录**：§11.1 的 `ToggleButton` / `SplitButton` 是 XAML 类名，
   UIA ControlType 实测为 `Button` / `RadioButton`；§13.7 的调色板色名与真机 UIA name 不符，已改。
-- 待补：handler / selector 验收、真机端到端、归档拆分。
+- 归档拆分验收：`docs/memory/apps/paint.md` = **299 行**（ADR-0021 阈值 400），
+  `docs/memory/archive/paint-early-probes.md` = **429 行**；迁移内容由原文切片生成，未改写条目。
+  机器计数见 §3 的命令输出。
+- 待补：`paint.tool.select` handler 扩展、真机端到端；本轮未碰真实 GUI。
+- 静态验收：`cargo fmt --all --check` exit 0；`cargo clippy --all-targets -- -D warnings`
+  exit 0；`cargo test -p assistant-agent-core` 176 passed / 0 failed / 11 ignored；
+  `cargo test --workspace` exit 0；`cargo test -p assistant-core arch::` 10 passed；
+  `python adapters/com.microsoft.paint/tests/validate_adapter_pack.py` PASSED；
+  `verify-schemas` / `codegen --check` / `hygiene` / `memory-counts` / `adr-index` /
+  `check-comments` / `refscan` / `docscan` / `card-check` / `check-ledger` /
+  `check-migrations` 全 PASSED；`cargo deny check` advisories / bans / licenses / sources 全 ok。
 
 ### 4. DoD 逐条核对
 
@@ -122,17 +138,25 @@ python adapters/com.microsoft.paint/tests/validate_adapter_pack.py
   `observed` 目标的本地化候选必须 `fallback_only`，不能当主选择器；后四者本轮未取证。
 - [ ] `paint.tool.select` 放行已取证工具：**未做**
 - [ ] 真机端到端路径：**未做**
-- [ ] 归档拆分：**未做**（`apps/paint.md` 现 709 行，仍超 ADR-0021 阈值）
+- [x] 归档拆分：**完成**（`apps/paint.md` 709 → 299 行；新增 `docs/memory/archive/paint-early-probes.md`
+  429 行；`MEMORY.md` §7 归档索引已登记；`memory-counts` 不再报该文件阈值告警）
 - [x] 静态验收：见 §3；`LEDGER.md` 追加行见本次提交
 - [x] 无 Out of scope 文件被修改（本次只动探针脚本 + 记忆 + 本卡）
 
 ### 5. 偏差
 
-（待填）
+- **归档范围按最优解自决扩大**：卡面第 4 条写“把 §9–§11 整体移入”，但 §9–§11 仅 145 行；
+  只移这些后 `apps/paint.md` 仍约 564 行，不满足同一 DoD 的“回到 ADR-0021 阈值内”。
+  因此本轮按同一主题继续迁出 §12（形状项 pattern / DPI / 弹层 / 图层面板实测）与
+  §13.1–§13.7（人类提供的静态工具集清单），保留 §13.8–§13.16 的现行真机探针表。
+  迁移过程只做逐字节切片移动，未改写归档条目；原处留指针，`MEMORY.md` §7 登记。
 
 ### 6. 更合理做法
 
-（待填）
+- 归档拆分应一次性按“主档案保留现行可操作事实、历史/静态清单进 archive”的口径做，而不是只按
+  卡面写死的三个章节号；否则会出现“迁移完成但文件仍超阈值”的假闭环。
+- `docs/memory/archive/README.md` 仍写“当前为空”，该文件不在本卡 write scope；本轮在 §7 留待
+  下一张治理卡或 Orchestrator 归档维护时同步。
 
 ### 7. 遗留问题
 
@@ -150,14 +174,21 @@ python adapters/com.microsoft.paint/tests/validate_adapter_pack.py
   `memory-counts` 稳定报 `memory/archive-threshold` WARN（0 error，verdict PASSED）。
   计划：把 §9–§11 整体移入 `docs/memory/archive/paint-early-probes.md`，原处留指针，
   再登记 MEMORY.md 归档索引 + LEDGER。
+- **归档拆分已在本轮完成**：`apps/paint.md` = 299 行，`archive/paint-early-probes.md` = 429 行；
+  `MEMORY.md` 规模表和 §7 归档索引已同步。剩余告警只剩 `archive/README.md` 的“当前为空”旧句，
+  该文件不在本卡 write scope，未改。
 - **两条被推翻的旧结论**已写进 §13.9 / §13.16：§11.2/§12 的「形状项没有可用 UIA pattern、
   只能走 L4 合成点击」不成立（内层 `Button` 有 `Toggle`）；§13.14 的「`1 像素` 没有 MenuItem」
   也不成立（aid 是 `Size1`，只是 name 被写成 `大小`）。
 
 ### 8. 新增长期记忆
 
-（待填）
+- 无新增 `FACT` / `PITFALL` / `REJECTED`；本次只是把既有 Paint 条目从主档案迁移到 L3 归档，
+  内容未改写，归档事实写入 `MEMORY.md` §7 与 `LEDGER.md`。
 
 ### 9. 给审阅者的关注点
 
-（待填）
+- 重点核对 `paint.md` 1–8 固定小节与 §13.8–§13.16 是否完整保留，以及归档件是否只包含
+  §9–§12 / §13.1–§13.7 的原文切片，没有在迁移中丢条目或悄悄改写。
+- `docs/memory/archive/README.md` 的“当前为空”已知陈旧，属跨 scope 遗留；本卡未越界修改。
+- 本卡仍未完成 handler 扩展与真机端到端，PR 是 WIP，不应按 Done 合并。
