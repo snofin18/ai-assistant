@@ -143,6 +143,32 @@ def main() -> int:
         check(candidate.get("fallback_only") is True,
               f"selector target {target_id}: {candidate_id} must be fallback-only")
 
+    # TASK-309 real-machine probe (docs/memory/apps/paint.md §13.14 / §13.16): the four
+    # shape-size menu items are the only Paint targets measured to carry a stable
+    # AutomationId, so they must stay pinned to `automation_id` values. The first item is
+    # named `大小` (the flyout's own title), so a name-based candidate would be wrong here.
+    measured_size_options = {
+        "size_1px_option": ("size-1px-option-automation-id", "Size1"),
+        "size_3px_option": ("size-3px-option-automation-id", "Size3"),
+        "size_5px_option": ("size-5px-option-automation-id", "Size5"),
+        "size_8px_option": ("size-8px-option-automation-id", "Size8"),
+    }
+    for target_id, (candidate_id, expected_aid) in measured_size_options.items():
+        target = targets_by_id.get(target_id, {})
+        check(target.get("probe_status") == "observed",
+              f"selector target {target_id}: must stay observed after the real-machine probe")
+        candidates = {candidate.get("id"): candidate for candidate in target.get("candidates", [])}
+        candidate = candidates.get(candidate_id, {})
+        check(candidate.get("kind") == "automation_id",
+              f"selector target {target_id}: {candidate_id} must use automation_id")
+        check(candidate.get("value", {}).get("text") == expected_aid,
+              f"selector target {target_id}: {candidate_id} must use AutomationId "
+              f"{expected_aid!r}")
+        check(candidate.get("locale_dependent") is False,
+              f"selector target {target_id}: {candidate_id} must not be locale-dependent")
+        check(candidate.get("fallback_only") is not True,
+              f"selector target {target_id}: {candidate_id} must not be fallback-only")
+
     tools = tools_document.get("tools", [])
     check(isinstance(tools, list) and tools, "tools/tools.json: tools missing")
     tool_names: set[str] = set()

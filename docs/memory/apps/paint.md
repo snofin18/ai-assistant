@@ -32,7 +32,7 @@
 - 工具栏、工具按钮、颜色按钮、图层面板、状态栏预计可由 UIA 覆盖。
 - 画布是单一自绘表面，预计只能读取 bounds，不能读取像素内容或子控件动作。
 - selector 候选链见 `adapters/com.microsoft.paint/selectors/targets.json`。
-- 所有 selector 目标均标记 `probe_status=required`。
+- selector 目标 15 / 21 已升 `observed`（2026-10-18 TASK-309：窗口 / 工具按钮 / 形状库 / 尺寸四档 / 颜色 / 图层 / 状态栏 / 画布），其余仍 `required`。
 
 ## 4. 画布坐标与像素约定
 
@@ -71,7 +71,7 @@ dpi_scale
 5. 图层选择决定绘制落在哪一层；虚拟化列表只实例化可见项。
 6. AI 功能可能联网且耗时不可预测；Adapter 将其列为不支持并转 `NeedsHuman`。
 7. Save As 是跨进程 Shell 对话框，禁止静默覆盖已有文件。
-8. 本轮 PowerShell / UIA 探针挂起，selector id 仍是 provisional，不得当作已验证事实。
+8. 2026-10-07 的 PowerShell / UIA 探针曾挂起；2026-10-16 的 ControlView 探针已成功，但 `observed` 只表示 UIA 形状实测，selector 成功率仍未验证。
 
 ## 7. 通道结论
 
@@ -88,7 +88,7 @@ dpi_scale
 
 ## 8. 未测项
 
-- 完整 AutomationId 普查；形状和调色板仍无稳定 AutomationId。
+- 完整 AutomationId 普查；形状项与调色板项仍无稳定 AutomationId（尺寸四档 `Size1`–`Size8` 除外）。
 - 画布 bounds、viewport origin、zoom 与 scroll offset 的精确读取方式。
 - 单点 / drag 命中误差，含混合 DPI 多屏。
 - 工具按钮、颜色按钮、图层行的真实 selector 成功率。
@@ -284,7 +284,7 @@ flyout 展开时才进树，本轮只读探测（不点击）拿不到。
 > 本条推翻了 §13.14 早前「`1 像素` 没有 MenuItem」的记法：当时是按「像素」筛 name 才漏掉的，
 > 与「当前生效值另行渲染」无关。人类把值改到非第一位后复测，结论不变 —— 与选中状态无关。
 
-### 13.15 `大小` flyout：未选中形状时条目为空（原因见 13.13）
+### 13.15 `大小` flyout：未选中形状时条目为空（原因见 13.13；结论已被 13.14 / 13.16 修正）
 
 同两级展开（`CollapsedButton` → name `大小`）。`ExpandCollapsePattern.Expand()` 成功
 （`state=Expanded`），但**展开后 ControlView 里没有任何「N 像素」条目**：
@@ -294,6 +294,6 @@ flyout 展开时才进树，本轮只读探测（不点击）拿不到。
   `418 × 74像素`（aid `CanvasSizeTextBlock`）；
 - 坐标带 `x∈1780~1999` 只捞到 `大小` 按钮本身。
 
-→ **§13.5 的 4 档（1 / 3 / 5 / 8 像素）目前没有 L3 通道**。与 §11.2 / §12.3 同族：
-该 flyout 的条目只存在于合成层。要选尺寸得走键盘或 L4 合成点击，或另找 RawView / 非 ControlView 路径。
-**未取证的尺寸值不得猜测放行**。
+→ **§13.5 的 4 档（1 / 3 / 5 / 8 像素）目前没有 L3 通道**。[superseded:2026-10-18 TASK-309 —— §13.14 / §13.16 已证明选中形状后四档带稳定 aid `Size1`–`Size8`]
+该行推断（「条目只存在于合成层」）已作废：条目缺失是「未选中形状」的合法状态，见 §13.13 / §13.14。
+**未取证的尺寸值不得猜测放行**；已取证的 `Size1`–`Size8` 一律走 aid，不走 name（§13.16）。

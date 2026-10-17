@@ -25,12 +25,15 @@ card.
 
 ## Current Status
 
-The package is **provisional**. The Windows 11 Paint UIA tree was not captured
-in this card, so every selector target carries `probe_status: required`. No
-selector id, coordinate calibration, or visual tolerance in this package is a
-real-machine acceptance claim. TASK-044 must run the first real Paint
-calibration and replace provisional selector evidence before the tools are
-treated as executable.
+The package is **provisional**: the pack-level `probe_status` stays `required`
+and `app_map.json` still reports `selector_ids: provisional`. Individual
+targets are promoted to `probe_status: observed` only after a real-machine UIA
+probe; as of 2026-10-18 that covers 15 of 21 targets (window, toolbar tool
+buttons, shapes gallery toggle, the four shape-size options, foreground colour
+gallery, layers, status bar, and canvas). No coordinate calibration or visual
+tolerance in this package is a real-machine acceptance claim, and `observed`
+means "UIA shape measured", not "selector success rate verified". TASK-044
+still owns the first end-to-end real Paint calibration.
 
 The observed package version on this host is `11.2605.81.0`; the package
 family is `Microsoft.Paint_8wekyb3d8bbwe`.
@@ -80,8 +83,11 @@ unsafe interrupt defaults.
 
 ## Known Gaps
 
-- Real UIA control ids and class names for Paint tools and layers are not yet
-  measured.
+- UIA shape coverage is partial: the fill and colour-picker tools, every shape
+  gallery item, the shape outline / fill / size flyout buttons, and the palette
+  entries still expose no measured `AutomationId`. Only a subset of toolbar
+  tools, the shapes gallery toggle, the four size options, and the layers
+  container carry stable ids.
 - Canvas coordinate error and mixed-DPI behavior are not yet measured.
 - Pixel tolerance values are declared contracts, not calibrated values.
 - The current protocol `ToolSchema` does not yet expose every adapter-level

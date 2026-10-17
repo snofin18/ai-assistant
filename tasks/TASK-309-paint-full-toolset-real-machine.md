@@ -107,6 +107,22 @@ python adapters/com.microsoft.paint/tests/validate_adapter_pack.py
 - `MEMORY.md`：规模表把 `apps/paint.md` 更新为 299 行，§7 归档索引登记首条 L3 归档；读法改为
   “现行探针表 + 归档入口”，不再手抄已迁出的旧探针摘要。
 - 本卡。
+- **第四段（2026-10-18 round-3 automation）**：
+  - `adapters/com.microsoft.paint/selectors/targets.json`：按 §13.14 / §13.16 的实测 aid
+    新增四个 `observed` 目标 `size_1px_option` / `size_3px_option` / `size_5px_option` /
+    `size_8px_option`（`automation_id` = `Size1` / `Size3` / `Size5` / `Size8`，score 0.94，
+    `locale_dependent=false`，无 name 兜底）。适配包目标数 17 → 21、`observed` 11 → 15。
+  - `adapters/com.microsoft.paint/tests/validate_adapter_pack.py`：新增 `measured_size_options`
+    钉桩（目标必须 `observed`、候选必须是 `automation_id`、取值必须等于实测 aid、不得本地化 /
+    兜底）。负向验证：把 `Size8` 改成 `Size9` 后校验器 `exit 1` 并报
+    `must use AutomationId 'Size8'`。
+  - `adapters/com.microsoft.paint/README.md`：`Current Status` 不再声称「每个 selector 目标都是
+    `required`」；改为整包仍 provisional / 逐个目标升 `observed`（15 / 21）、并写明 `observed`
+    只代表 UIA 形状实测而非成功率；`Known Gaps` 首条改写为「覆盖率不完整」的真实缺口清单。
+  - `docs/memory/apps/paint.md`：按行等量改写 5 处与实测冲突的陈述（§3 的
+    「所有 selector 目标 required」、§6 第 8 条「探针挂起、selector 仍 provisional」、§8
+    「形状和调色板仍无稳定 AutomationId」、§13.15 标题与其结论段）—— 行数仍为 **299**，
+    未新增/删除行。
 
 ### 3. 验收输出摘要
 
@@ -126,6 +142,14 @@ python adapters/com.microsoft.paint/tests/validate_adapter_pack.py
   `verify-schemas` / `codegen --check` / `hygiene` / `memory-counts` / `adr-index` /
   `check-comments` / `refscan` / `docscan` / `card-check` / `check-ledger` /
   `check-migrations` 全 PASSED；`cargo deny check` advisories / bans / licenses / sources 全 ok。
+- **第四段（2026-10-18 round-3 automation）**：
+  - `python adapters/com.microsoft.paint/tests/validate_adapter_pack.py` →
+    `PASSED: app_id=com.microsoft.paint targets=21 tools=10 recipes=6 probe_status=required`（exit 0）。
+  - 适配包 JSON 全量解析（`json.loads` 遍历 `*.json`）exit 0。
+  - 钉桩负向用例：临时副本把 `Size8` 改成 `Size9` → 校验器 `negative_exit=1`，报
+    `selector target size_8px_option: size-8px-option-automation-id must use AutomationId 'Size8'`。
+  - `docs/memory/apps/paint.md` = **299 行**（与 `MEMORY.md` 规模表一致，`memory-counts` 无告警）。
+  - 本轮未碰真实 GUI；handler 扩展与真机端到端仍未做（见 §7）。
 
 ### 4. DoD 逐条核对
 
@@ -142,6 +166,9 @@ python adapters/com.microsoft.paint/tests/validate_adapter_pack.py
   429 行；`MEMORY.md` §7 归档索引已登记；`memory-counts` 不再报该文件阈值告警）
 - [x] 静态验收：见 §3；`LEDGER.md` 追加行见本次提交
 - [x] 无 Out of scope 文件被修改（本次只动探针脚本 + 记忆 + 本卡）
+- **第四段（2026-10-18 round-3 automation）**：DoD 第 2 条（selector pack 候选升为实测）继续推进
+  —— 尺寸四档由「未落档」变为 `observed` 且被校验器钉住；第 3 / 4 条（handler 放行与真机端到端）
+  仍**未完成**，本卡继续保持 `InProgress`，PR 仍按 WIP 提交。
 
 ### 5. 偏差
 
@@ -180,6 +207,16 @@ python adapters/com.microsoft.paint/tests/validate_adapter_pack.py
 - **两条被推翻的旧结论**已写进 §13.9 / §13.16：§11.2/§12 的「形状项没有可用 UIA pattern、
   只能走 L4 合成点击」不成立（内层 `Button` 有 `Toggle`）；§13.14 的「`1 像素` 没有 MenuItem」
   也不成立（aid 是 `Size1`，只是 name 被写成 `大小`）。
+- **第四段（2026-10-18 round-3 automation）后仍开放**：
+  - `paint.tool.select` 仍只放行 `rectangle`；`pencil` / `brush` / `eraser` 的 selector 已
+    `observed`，但**交互通道（Invoke / Toggle / 合成点击）没有真机证据**，按「未取证不放行」
+    继续 fail-closed；`fill` / `color_picker` 连非本地化锚点都没有；`ellipse` / `line` 属无 aid
+    的形状项。
+  - 尺寸四档虽已进适配包，但**没有任何已声明的 Tool 暴露尺寸选择**（`paint.tool.select` 的
+    enum 不含尺寸），且 `大小` flyout 按钮本身无 aid（只有本地化 name + role，见 §13.16），
+    所以本轮只落**声明式证据**，不声称运行期可用。
+  - `docs/memory/archive/README.md` 仍写「当前为空」，与已存在的
+    `docs/memory/archive/paint-early-probes.md` 冲突；该文件不在本卡 write scope，未改。
 
 ### 8. 新增长期记忆
 

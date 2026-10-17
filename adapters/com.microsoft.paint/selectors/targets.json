@@ -160,6 +160,62 @@
       ]
     },
     {
+      "id": "size_1px_option",
+      "scope": "element",
+      "probe_status": "observed",
+      "candidates": [
+        {
+          "id": "size-1px-option-automation-id",
+          "kind": "automation_id",
+          "value": {"text": "Size1"},
+          "score": 0.94,
+          "locale_dependent": false
+        }
+      ]
+    },
+    {
+      "id": "size_3px_option",
+      "scope": "element",
+      "probe_status": "observed",
+      "candidates": [
+        {
+          "id": "size-3px-option-automation-id",
+          "kind": "automation_id",
+          "value": {"text": "Size3"},
+          "score": 0.94,
+          "locale_dependent": false
+        }
+      ]
+    },
+    {
+      "id": "size_5px_option",
+      "scope": "element",
+      "probe_status": "observed",
+      "candidates": [
+        {
+          "id": "size-5px-option-automation-id",
+          "kind": "automation_id",
+          "value": {"text": "Size5"},
+          "score": 0.94,
+          "locale_dependent": false
+        }
+      ]
+    },
+    {
+      "id": "size_8px_option",
+      "scope": "element",
+      "probe_status": "observed",
+      "candidates": [
+        {
+          "id": "size-8px-option-automation-id",
+          "kind": "automation_id",
+          "value": {"text": "Size8"},
+          "score": 0.94,
+          "locale_dependent": false
+        }
+      ]
+    },
+    {
       "id": "eraser_tool_button",
       "scope": "element",
       "probe_status": "observed",
