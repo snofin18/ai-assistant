@@ -271,6 +271,7 @@ fn test_resolve_window_rejects_invalid_descriptor() {
         )],
         Vec::new(),
         policy,
+        false,
     );
     assert_error_code(
         poll_once(session.window_provider().resolve_window(&descriptor)),

@@ -343,6 +343,7 @@ fn resolve_notepad_window(platform: WindowsPlatform, path: &Path) -> Option<Reso
         vec![candidate],
         Vec::new(),
         policy,
+        false,
     );
     let window = resolve_window_with_timeout(platform, &descriptor, NOTEPAD_WINDOW_TIMEOUT);
     if window.is_none() {

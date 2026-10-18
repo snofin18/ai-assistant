@@ -364,6 +364,12 @@ pub struct TargetDescriptor {
     element_candidates: Vec<SelectorCandidate>,
     /// 解析策略。
     resolution_policy: ResolutionPolicy,
+    /// 该 target 是否允许**整条链只有 fallback 候选**（ADR-0095 D3）。
+    ///
+    /// 来自适配包 target 的 `allow_fallback_entry`；缺省 `false`。它最终贯通到
+    /// `SelectorChain::with_allow_fallback_entry`。**闸门尚未启用**（见 TASK-313）。
+    #[serde(default)]
+    allow_fallback_entry: bool,
 }
 
 impl TargetDescriptor {
@@ -375,6 +381,7 @@ impl TargetDescriptor {
         window_candidates: Vec<SelectorCandidate>,
         element_candidates: Vec<SelectorCandidate>,
         resolution_policy: ResolutionPolicy,
+        allow_fallback_entry: bool,
     ) -> Self {
         Self {
             descriptor_version,
@@ -382,6 +389,7 @@ impl TargetDescriptor {
             window_candidates,
             element_candidates,
             resolution_policy,
+            allow_fallback_entry,
         }
     }
 
@@ -407,6 +415,12 @@ impl TargetDescriptor {
     #[must_use]
     pub fn element_candidates(&self) -> &[SelectorCandidate] {
         &self.element_candidates
+    }
+
+    /// 是否允许整条链只有 fallback 候选（ADR-0095 D3；来自适配包同名 target 字段）。
+    #[must_use]
+    pub const fn allow_fallback_entry(&self) -> bool {
+        self.allow_fallback_entry
     }
 
     /// 解析策略。

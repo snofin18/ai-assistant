@@ -47,6 +47,7 @@ fn descriptor(
         window_candidates,
         element_candidates,
         policy(),
+        false,
     )
 }
 
@@ -198,6 +199,7 @@ fn test_validate_rejects_blank_app_id() {
         vec![candidate("w1", 0.9, false)],
         vec![],
         policy(),
+        false,
     );
     assert!(broken.validate().is_err());
 }

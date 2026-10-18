@@ -168,6 +168,7 @@ impl NotepadTargetCatalog {
                 window_candidates,
                 element_candidates,
                 policy.clone(),
+                target.allow_fallback_entry,
             );
             descriptors.insert(target.id, descriptor);
         }
@@ -231,6 +232,9 @@ struct DeclaredTarget {
     id: String,
     scope: String,
     candidates: Vec<SelectorCandidate>,
+    /// ADR-0095 D3：整条链只有 fallback 候选时须显式声明；缺省 false。
+    #[serde(default)]
+    allow_fallback_entry: bool,
 }
 
 #[derive(Debug, Deserialize)]

@@ -327,6 +327,7 @@ fn test_selector_candidate_and_target_accessors() {
         vec![primary],
         vec![localized],
         policy,
+        false,
     );
     assert_eq!(descriptor.descriptor_version(), "2.0");
     assert_eq!(descriptor.app_id(), "com.microsoft.notepad");

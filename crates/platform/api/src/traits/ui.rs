@@ -193,19 +193,45 @@ impl ElementBounds {
 pub struct SelectorChain {
     /// 候选列表（调用方须按 `effective_score` 降序传入，§6.3）。
     candidates: Vec<SelectorCandidate>,
+    /// 允许把**整条链只有 fallback 候选**当入口链使用（ADR-0095 D3）。
+    ///
+    /// 缺省 `false`。本字段与 `SelectorCandidate::fallback_only` 是**两个不同层次**的开关：
+    /// 前者是单个候选的组间顺序，后者是"这条链整体就是兜底链"的显式声明。
+    ///
+    /// 注意：ADR-0095 D3 的**闸门尚未启用** —— 本字段当前只做贯通与落盘，
+    /// 解析行为不在本 PR 内改变（见 `docs/adr/0095-*.md` 与 TASK-313 记录区）。
+    allow_fallback_entry: bool,
 }
 
 impl SelectorChain {
     /// 构造选择器链。
     #[must_use]
     pub const fn new(candidates: Vec<SelectorCandidate>) -> Self {
-        Self { candidates }
+        Self {
+            candidates,
+            allow_fallback_entry: false,
+        }
+    }
+
+    /// 声明本链允许**整条链只有 fallback 候选**（ADR-0095 D3）。
+    ///
+    /// 由适配包 target 的 `allow_fallback_entry` 贯通而来；缺省不允许。
+    #[must_use]
+    pub const fn with_allow_fallback_entry(mut self, allow: bool) -> Self {
+        self.allow_fallback_entry = allow;
+        self
     }
 
     /// 候选列表。
     #[must_use]
     pub fn candidates(&self) -> &[SelectorCandidate] {
         &self.candidates
+    }
+
+    /// 是否允许整条链只有 fallback 候选（ADR-0095 D3）。
+    #[must_use]
+    pub const fn allow_fallback_entry(&self) -> bool {
+        self.allow_fallback_entry
     }
 }
 
