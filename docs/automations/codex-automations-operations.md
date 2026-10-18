@@ -322,10 +322,19 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 
 - 每 3 s 采样所有 `pwsh` / `powershell` 进程（PID / 启动时间 / 总 CPU / 线程 / 句柄 / 工作集），逐条追加
   JSONL 到 `%USERPROFILE%\.codex\ps-watch\<yyyy-MM-dd>.jsonl`（**仓库外**，任务自删/重启后仍在）。
-- 同一 PID 的总 CPU 连续 20 次采样（≈60 s）不前进 → 追加 `stall` 事件，带**命令行**、线程数与每线程
-  `ThreadState/WaitReason` —— 这是下一次挂起的**第一手证据**。
+- 同一 PID 的总 CPU 连续 20 次采样（≈60 s）不前进 → **先按命令行分类，再决定记什么**（2026-10-18 修）：
+  命令行含 `Start-Sleep` → 记 `waiting`（主动等待）；否则才记 `stall`，带**命令行**、线程数与每线程
+  `ThreadState/WaitReason`。
+  **为什么必须先分类**：2026-10-16 全天的 13 条 `stall` 事后逐条核对，**13/13 命令行都含 `Start-Sleep`** ——
+  "总 CPU 不前进"对「sleep」和「真挂起」是完全同一个信号，不分流这个计数就没法当证据用。
+  修后实测：人造一个 `Start-Sleep -Seconds 40` 进程，看门狗记 `waiting=3 / stall=0`。
 - 常驻启动（分离 + 隐藏）：`Start-Process pwsh -WindowStyle Hidden -ArgumentList '-NoProfile','-NonInteractive','-File','%USERPROFILE%\.codex\tools\ps-watch.ps1'`。
   agent 每次 `exec_command(shell: "powershell")` 都会拉起 pwsh 进程，因此**每次使用都被采样跟踪**。
+- **开机自启（2026-10-18 落地）**：计划任务 `codex-ps-watch`，`AtLogOn` 触发、隐藏窗口、`ExecutionTimeLimit=0`（不限时长）、
+  `MultipleInstances=IgnoreNew`；执行体用**系统安装的** `C:\Program Files\PowerShell\7\pwsh.exe`
+  而不是 Codex 运行时缓存里的那份（缓存目录会随应用升级变动，任务会静默失效）。
+  脚本部署副本固定在 `%USERPROFILE%\.codex\tools\ps-watch.ps1`（仓库里的 `tools/ps-watch.ps1` 是源，改动后要重新拷贝）。
+  **注意**：重启后不再需要人工拉起；若某天发现日志断档，第一件事是 `Get-ScheduledTask -TaskName codex-ps-watch` 看状态。
 
 **2026-10-16 取证快照** `[实测·探针]`：
 
