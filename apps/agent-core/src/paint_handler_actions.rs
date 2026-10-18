@@ -86,7 +86,8 @@ where
                     reason: error.to_string(),
                 })?;
         let chain =
-            assistant_platform_api::SelectorChain::new(descriptor.element_candidates().to_vec());
+            assistant_platform_api::SelectorChain::new(descriptor.element_candidates().to_vec())
+                .with_allow_fallback_entry(descriptor.allow_fallback_entry());
         let result = support::poll_immediate(
             self.platform.resolve_element(scope, &chain),
             tool,

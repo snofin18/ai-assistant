@@ -328,6 +328,7 @@ mod tests {
             Vec::new(),
             Vec::new(),
             policy,
+            false,
         );
         let code = futures_block_on(WindowProvider::resolve_window(
             &WindowsPlatform::new(),

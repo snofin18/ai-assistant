@@ -134,6 +134,7 @@
       "id": "rectangle_tool_button",
       "scope": "element",
       "probe_status": "observed",
+      "allow_fallback_entry": true,
       "candidates": [
         {
           "id": "rectangle-item-exact-name-and-role",
@@ -263,6 +264,7 @@
       "id": "layers_panel",
       "scope": "element",
       "probe_status": "observed",
+      "allow_fallback_entry": true,
       "candidates": [
         {
           "id": "layers-container-name-fallback",

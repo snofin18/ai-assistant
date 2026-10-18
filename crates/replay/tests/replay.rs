@@ -704,6 +704,7 @@ fn provider_covers_window_filtering_and_fingerprint_scopes() {
             0.0,
         )
         .expect("valid policy"),
+        false,
     );
     assert_error_code(
         poll_once(windows.resolve_window(&wrong_app)),

@@ -162,7 +162,8 @@ fn list_windows(filter: &WindowFilter) -> PlatformResult<Vec<WindowInfo>> {
 fn resolve_window(descriptor: &TargetDescriptor) -> PlatformResult<ResolvedWindow> {
     descriptor.validate()?;
     let policy = descriptor.resolution_policy();
-    let chain = SelectorChain::new(descriptor.window_candidates().to_vec());
+    let chain = SelectorChain::new(descriptor.window_candidates().to_vec())
+        .with_allow_fallback_entry(descriptor.allow_fallback_entry());
     let ranked = selector::rank_candidates(&chain, policy.min_score_to_try());
 
     let records = collect_window_records()?;
