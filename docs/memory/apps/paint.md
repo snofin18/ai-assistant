@@ -344,3 +344,36 @@ flyout 展开时才进树，本轮只读探测（不点击）拿不到。
 **正确形态应是「路径」而不是「名字」**：按总分类限定子项，例如 `工具/铅笔`、`形状/矩形`、`画笔/毛笔`。好处：① 同名不再有歧义（§13.6 记过 `蜡笔` / `记号笔` / `油画笔` / `普通铅笔` / `水彩画笔` 在三个 flyout 里都出现）；② 新增子项不必改全局 enum；③ 每个总分类可以有自己的切换与读回通道（工具 = Toggle、画笔 = flyout MenuItem、形状 = L4 点击……）。
 
 **待裁决**（属改公共 schema，按铁律 10 先 ADR）：把 `paint.tool.select` 从扁平 enum 改成**总分类 + 子项**的寻址模型。
+
+### 13.19 「形状轮廓 / 形状填充」未选中形状时也能展开并枚举（2026-10-19，TASK-318 只读复测）
+
+§13.13 记「三个按钮在未选中形状时 disabled」，并据此推广成「必须先选中形状才能用这两个
+flyout」。**2026-10-19 的只读 ControlView 复测修正了这条推广**：`形状轮廓` / `形状填充`
+两个按钮本身 `focusable=True`，展开后各自列出**全部 7 项**（`MenuItem`、
+`focusable=True`、patterns=`[Invoke,Toggle,ScrollItem,VirtualizedItem]`）：
+
+```text
+PROBE: expanded aid="CollapsedButton" state=Expanded
+PROBE: expanded name="形状轮廓" state=Expanded
+[5] name="无边框"   aid="" type=MenuItem focusable=True
+[5] name="实心边框" aid="" type=MenuItem focusable=True
+[5] name="蜡笔" / "记号笔" / "油画笔" / "普通铅笔" / "水彩画笔"
+
+PROBE: expanded name="形状填充" state=Expanded
+[5] name="无填充"   aid="" type=MenuItem focusable=True
+[5] name="纯色填充" aid="" type=MenuItem focusable=True
+[5] name="蜡笔" / "记号笔" / "油画笔" / "普通铅笔" / "水彩画笔"
+```
+
+**同刻只有一个 flyout 的条目在树里**：先展开轮廓再展开填充后，MenuItem 全表只剩填充的
+7 项（加「文件 / 编辑 / 查看」）—— 打开填充会自动收起轮廓。因此按 `exact_name_and_role`
+解析这两组条目**不存在跨 flyout 歧义**，尽管后 5 项名与画笔组同名（§13.10）。
+
+### 13.20 `大小` flyout：未选中形状时展开后条目为空（2026-10-19 复测）
+
+同一次复测里，`大小` 按钮 `focusable=True` 且展开成功，但**展开后 ControlView 里没有任何
+`MenuItem` 条目**（与 §13.15 一致）。所以 `大小` 与轮廓 / 填充**不是**同一情况：
+
+- 轮廓 / 填充：只靠 `ExpandCollapsePattern.Expand()` 就能枚举，已有可落地契约 → ADR-0097。
+- 大小：条目只在**选中形状后**出现，而选中形状需要真实 GUI 交互 → 继续留在 schema 之外，
+  由 TASK-309 的真机段处理。

@@ -31,7 +31,7 @@ use std::time::Duration;
 use super::paint_handler_support::normalized_point;
 use super::{
     DragRequest, PaintHandlerContext, PhysicalPointPx, TARGET_BRUSH_TOGGLE, TARGET_LAYER_ITEM,
-    TARGET_SHAPES_TOGGLE,
+    TARGET_SHAPE_FILL_TOGGLE, TARGET_SHAPE_OUTLINE_TOGGLE, TARGET_SHAPES_TOGGLE,
 };
 
 /// 展开 / 折叠后的**有界重解**次数与间隔（形状库异步物化、图层面板展开，见 `docs/memory/apps/paint.md` §11）。
@@ -182,12 +182,50 @@ where
         target: &str,
         tool: &str,
     ) -> Result<ResolvedElement, ToolBusError> {
+        self.wait_for_shape_group_flyout_item(window, TARGET_BRUSH_TOGGLE, target, tool)
+    }
+
+    /// 解析「形状」组里第二个 flyout（形状轮廓 / 形状填充）的条目。
+    ///
+    /// 与画笔不同，这两个 flyout 必须先展开形状库才会出现在树里（§13.9 / §13.11 / §13.12），
+    /// 所以是「展开 `CollapsedButton` → 展开目标 flyout → 有界重解」三步。实测这两个
+    /// flyout 在未选中形状时也能展开并枚举全部 7 项（2026-10-19 只读复测），且同刻只会
+    /// 存在一个 flyout 的条目 —— 打开填充会自动收起轮廓（同次实测），所以按 name 解析无歧义。
+    pub(super) fn wait_for_outline_flyout_item(
+        &self,
+        window: &ResolvedWindow,
+        target: &str,
+        tool: &str,
+    ) -> Result<ResolvedElement, ToolBusError> {
+        self.wait_for_shape_group_flyout_item(window, TARGET_SHAPE_OUTLINE_TOGGLE, target, tool)
+    }
+
+    /// 形状组第二个 flyout 的填充风格分支；语义与 `wait_for_outline_flyout_item` 相同。
+    pub(super) fn wait_for_fill_flyout_item(
+        &self,
+        window: &ResolvedWindow,
+        target: &str,
+        tool: &str,
+    ) -> Result<ResolvedElement, ToolBusError> {
+        self.wait_for_shape_group_flyout_item(window, TARGET_SHAPE_FILL_TOGGLE, target, tool)
+    }
+
+    fn wait_for_shape_group_flyout_item(
+        &self,
+        window: &ResolvedWindow,
+        toggle_target: &str,
+        target: &str,
+        tool: &str,
+    ) -> Result<ResolvedElement, ToolBusError> {
         match self.resolve_element(target, window, tool) {
             Ok(item) => return Ok(item),
             Err(ToolBusError::UnknownTool { .. }) => {}
             Err(error) => return Err(error),
         }
-        let toggle = self.resolve_element(TARGET_BRUSH_TOGGLE, window, tool)?;
+        // 形状库必须先展开：第二级 flyout 的按钮在库里，未展开时不在 UIA 树上。
+        let shapes = self.resolve_element(TARGET_SHAPES_TOGGLE, window, tool)?;
+        self.invoke_element(&shapes, "invoke", tool)?;
+        let toggle = self.resolve_element(toggle_target, window, tool)?;
         self.invoke_element(&toggle, "expand", tool)?;
         self.poll_for_element(target, window, tool)
     }

@@ -700,6 +700,262 @@
       ]
     },
     {
+      "id": "shape_outline_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-outline-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "形状轮廓", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_fill_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-fill-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "形状填充", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "outline_style_none",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "outline-style-none-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "无边框", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "outline_style_solid",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "outline-style-solid-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "实心边框", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "outline_style_crayon",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "outline-style-crayon-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "蜡笔", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "outline_style_marker",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "outline-style-marker-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "记号笔", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "outline_style_oil",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "outline-style-oil-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "油画笔", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "outline_style_pencil",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "outline-style-pencil-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "普通铅笔", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "outline_style_watercolor",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "outline-style-watercolor-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "水彩画笔", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "fill_style_none",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "fill-style-none-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "无填充", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "fill_style_solid",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "fill-style-solid-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "纯色填充", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "fill_style_crayon",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "fill-style-crayon-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "蜡笔", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "fill_style_marker",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "fill-style-marker-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "记号笔", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "fill_style_oil",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "fill-style-oil-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "油画笔", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "fill_style_pencil",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "fill-style-pencil-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "普通铅笔", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "fill_style_watercolor",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "fill-style-watercolor-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "水彩画笔", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
       "id": "size_1px_option",
       "scope": "element",
       "probe_status": "observed",
