@@ -109,7 +109,9 @@
 
 | **0094** | `0094-child-at-view-fallback.md` | **Accepted** | **勘误 ADR-0087 的「单一 `ContentViewWalker`」口径**：`child_at` 改为按视图**有序回退**（content view 取第 n 项 → 给不出时再取 control view → 两者都取不到才 `TargetNotFound`）；顺序固定、不扩公共 API、`ensure_realized` 与 ADR-0087 其余条款不变。真机一手证据：调色板色块是 control 元素但**不是** content 元素（content view 0 子项），单一视图必然失能（`DRIFT-296-1`；人类 2026-10-15「按这个做」授权） |
 
-**下一个可用编号：0095**（= §1 与 §2 已用最大号 **0094** + 1；由 `cargo run -p xtask -- adr-index`
+| **0095** | `0095-selector-fallback-only-runtime-semantics.md` | **Accepted** | `fallback_only` 升格为 `SelectorCandidate` 真实字段并定义**链内**语义：先整组尝试非 fallback 候选、全部失败才整组尝试 fallback 候选（**禁止**两组按分数混排）；链内只有 fallback 候选时必须显式 `allow_fallback_entry`，否则以**既有** `TargetNotFound` 失败（不新增 ErrorCode）；组内 `TargetAmbiguous` **不降级**；与 `locale_dependent` 正交；校验器要求这类目标显式声明并同步 paint pack。解决「同一个控件在"打开容器"一步是主通道、在"最终目标"一步才是兜底」的分层表达（人类 2026-10-18「选择升格」授权；TASK-313） |
+
+**下一个可用编号：0096**（= §1 与 §2 已用最大号 **0095** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由
