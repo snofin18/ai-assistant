@@ -111,7 +111,8 @@
 
 | **0095** | `0095-selector-fallback-only-runtime-semantics.md` | **Accepted** | `fallback_only` 升格为 `SelectorCandidate` 真实字段并定义**链内**语义：先整组尝试非 fallback 候选、全部失败才整组尝试 fallback 候选（**禁止**两组按分数混排）；链内只有 fallback 候选时必须显式 `allow_fallback_entry`，否则以**既有** `TargetNotFound` 失败（不新增 ErrorCode）；组内 `TargetAmbiguous` **不降级**；与 `locale_dependent` 正交；校验器要求这类目标显式声明并同步 paint pack。解决「同一个控件在"打开容器"一步是主通道、在"最终目标"一步才是兜底」的分层表达（人类 2026-10-18「选择升格」授权；TASK-313） |
 
-**下一个可用编号：0096**（= §1 与 §2 已用最大号 **0095** + 1；由 `cargo run -p xtask -- adr-index`
+| **0096** | `0096-paint-ribbon-addressing-by-group-with-bounded-path.md` | **Accepted** | Paint 工具栏寻址改为**按总分类拆工具 + 组内有界路径**：一个总分类一个语义工具（工具/形状/画笔/图像/颜色/层），组内用 `path: string[]`（长度 1..=3，逐元素命中本组词汇表，非法即既有 `ToolInvalidArgs`）；**明确否决**全局路径工具（属 AGENTS §7 通用逃生舱）；词汇表按组声明以消同名歧义（§13.6 的 5 个同名项）；通道按组声明（工具 Toggle / 画笔 flyout / 形状 L4 / 颜色 ListItem，均为实测）；**读回不得用会粘住的 `ToggleState`**（实测切回画笔后橡皮擦仍报 On）（人类 2026-10-18「按你的建议做」授权；TASK-317） |
+**下一个可用编号：0097**（= §1 与 §2 已用最大号 **0096** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由
