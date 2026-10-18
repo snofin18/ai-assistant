@@ -112,21 +112,16 @@
     {
       "id": "fill_tool_button",
       "scope": "element",
-      "probe_status": "required",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
       "candidates": [
         {
-          "id": "fill-button-class-role",
-          "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.AppBarButton", "role": "Button"}},
-          "score": 0.5,
-          "locale_dependent": false
-        },
-        {
-          "id": "fill-button-name-fallback",
-          "kind": "name_regex",
-          "value": {"text": "Fill"},
-          "score": 0.28,
-          "locale_dependent": true
+          "id": "fill-button-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "填充", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
         }
       ]
     },
@@ -141,6 +136,550 @@
           "kind": "exact_name_and_role",
           "value": {"exact_name_and_role": {"name": "矩形", "role": "Button"}},
           "score": 0.46,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "text_tool_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "text-tool-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "文本", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_line_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-line-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "直线", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_curve_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-curve-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "曲线", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_ellipse_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-ellipse-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "椭圆", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_rounded_rectangle_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-rounded-rectangle-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "圆角矩形", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_polygon_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-polygon-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "多边形", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_triangle_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-triangle-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "三角形", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_right_triangle_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-right-triangle-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "直角三角形", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_diamond_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-diamond-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "菱形", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_pentagon_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-pentagon-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "五边形", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_hexagon_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-hexagon-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "六边形", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_right_arrow_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-right-arrow-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "向右键", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_left_arrow_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-left-arrow-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "向左键", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_up_arrow_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-up-arrow-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "向上箭头", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_down_arrow_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-down-arrow-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "向下箭头", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_four_point_star_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-four-point-star-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "四角星", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_five_point_star_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-five-point-star-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "五角星", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_six_point_star_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-six-point-star-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "六角星", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_rounded_rectangle_callout_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-rounded-rectangle-callout-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "圆角矩形标注", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_oval_callout_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-oval-callout-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "椭圆形标注", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_cloud_callout_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-cloud-callout-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "云形标注", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_heart_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-heart-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "心形", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "shape_lightning_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-lightning-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "闪电", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "brush_style_brush",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "brush-style-brush-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "画笔", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "brush_style_calligraphy",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "brush-style-calligraphy-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "毛笔", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "brush_style_marker",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "brush-style-marker-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "书写笔", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "brush_style_airbrush",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "brush-style-airbrush-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "喷枪", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "brush_style_oil",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "brush-style-oil-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "油画笔", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "brush_style_crayon",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "brush-style-crayon-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "蜡笔", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "brush_style_highlighter",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "brush-style-highlighter-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "记号笔", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "brush_style_pencil",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "brush-style-pencil-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "普通铅笔", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "brush_style_watercolor",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "brush-style-watercolor-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "水彩画笔", "role": "MenuItem"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "color_picker_tool_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "color-picker-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "颜色选取器", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "magnifier_tool_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "magnifier-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "放大镜", "role": "Button"}},
+          "score": 0.3,
           "locale_dependent": true,
           "fallback_only": true
         }

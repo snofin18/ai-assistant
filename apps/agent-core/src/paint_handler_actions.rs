@@ -30,7 +30,7 @@ use std::time::Duration;
 
 use super::paint_handler_support::normalized_point;
 use super::{
-    DragRequest, PaintHandlerContext, PhysicalPointPx, TARGET_LAYER_ITEM, TARGET_RECTANGLE_TOOL,
+    DragRequest, PaintHandlerContext, PhysicalPointPx, TARGET_BRUSH_TOGGLE, TARGET_LAYER_ITEM,
     TARGET_SHAPES_TOGGLE,
 };
 
@@ -158,16 +158,38 @@ where
     pub(super) fn wait_for_shape_item(
         &self,
         window: &ResolvedWindow,
+        target: &str,
         tool: &str,
     ) -> Result<ResolvedElement, ToolBusError> {
-        match self.resolve_element(TARGET_RECTANGLE_TOOL, window, tool) {
+        match self.resolve_element(target, window, tool) {
             Ok(item) => return Ok(item),
             Err(ToolBusError::UnknownTool { .. }) => {}
             Err(error) => return Err(error),
         }
         let toggle = self.resolve_element(TARGET_SHAPES_TOGGLE, window, tool)?;
         self.invoke_element(&toggle, "invoke", tool)?;
-        self.poll_for_element(TARGET_RECTANGLE_TOOL, window, tool)
+        self.poll_for_element(target, window, tool)
+    }
+
+    /// 解析画笔 flyout 里的目标笔型；折叠时先展开再在有界窗口内重解。
+    ///
+    /// §13.10 实测 `BrushesSplitButton` 支持 `ExpandCollapsePattern.Expand()`；flyout
+    /// 内的 `MenuItem` 在展开前不在树里。找不到只接受 `UnknownTool`（平台 `TargetNotFound`
+    /// 的映射），其它管线错误直接上抛。
+    pub(super) fn wait_for_brush_item(
+        &self,
+        window: &ResolvedWindow,
+        target: &str,
+        tool: &str,
+    ) -> Result<ResolvedElement, ToolBusError> {
+        match self.resolve_element(target, window, tool) {
+            Ok(item) => return Ok(item),
+            Err(ToolBusError::UnknownTool { .. }) => {}
+            Err(error) => return Err(error),
+        }
+        let toggle = self.resolve_element(TARGET_BRUSH_TOGGLE, window, tool)?;
+        self.invoke_element(&toggle, "expand", tool)?;
+        self.poll_for_element(target, window, tool)
     }
 
     pub(super) fn element_bounds(

@@ -25,8 +25,8 @@
     },
     {
       "id": "tool_and_layer_state",
-      "title": "Implicit tool, color, and layer state",
-      "content": "Before drawing, read back the active tool, foreground color, and selected layer. A successful click is not evidence that the intended drawing state is active.",
+      "title": "Implicit tool, brush, color, and layer state",
+      "content": "Tool, brush style, foreground color, and selected layer are implicit state. Tool and brush are separate ribbon groups and must be selected with group-local paths before drawing.",
       "source_reference": "adapters/com.microsoft.paint/tools/tools.json#paint.tool.select",
       "token_estimate": 45
     },

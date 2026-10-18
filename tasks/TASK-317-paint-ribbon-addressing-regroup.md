@@ -69,36 +69,95 @@ cargo run -p xtask -- adr-index
 
 ### 1. 约束回执
 
-（待填）
+- **任务**：TASK-317（Paint 工具栏寻址重构）。
+- **write scope**：ADR-0096 登记、Paint tools / selectors / validator / handler / production 测试与状态文件。
+- **铁律**：1（无静默失败）、3（策略唯一放行点）、9（不扩范围）、10（先 ADR 后 schema）。
+- **禁止**：新增 ErrorCode / envelope / audit-event；选择组与 Copilot 进 schema；真机端到端；L5 视觉兜底。
+- **验收**：`cargo fmt --all --check`、`cargo clippy --all-targets -- -D warnings`、
+  `cargo test -p assistant-agent-core`、`cargo test --workspace`、
+  `python adapters/com.microsoft.paint/tests/validate_adapter_pack.py`、
+  `cargo run -p xtask -- adr-index`。
+- **依赖**：ADR-0096 Accepted（PR #473，merge `fb690c7`）；TASK-309 提供 §13.8–§13.18 真机探针证据。
+- **疑问**：无；图像组 / 选择组 / Copilot 的证据不足，按 ADR 只落已取证范围并保留 WIP。
 
 ### 2. 实际改动文件
 
-（待填）
+- `adapters/com.microsoft.paint/tools/tools.json`：`paint.tool.select` 改为「工具」组局部
+  `path`（长度 1）；新增 `paint.shape.select`（23 个形状名）与 `paint.brush.select`
+  （9 个笔型名）。三者输出均明确 `ui_state_readback=false`，不把粘住的 `ToggleState`
+  冒充读回。
+- `adapters/com.microsoft.paint/selectors/targets.json`：新增已取证的工具按钮、23 个形状项、
+  9 个画笔 `MenuItem` target；全部使用实测本地化 name + UIA role，并显式
+  `allow_fallback_entry=true`。target 总数 21 → 55。
+- `adapters/com.microsoft.paint/tests/validate_adapter_pack.py`：新增 ADR-0096 钉桩 —— 每个
+  已取证组内 target 必须保持 `observed`、`exact_name_and_role`、正确 name / role 与
+  fallback-only；缺项或改错即失败。
+- `adapters/com.microsoft.paint/rollback/recipes.json`：工具 / 形状 / 画笔三组各自声明 L2
+  补偿 recipe；画笔 recipe 明确工具轴与画笔轴正交。
+- `adapters/com.microsoft.paint/tasks/t3.1...json` / `t3.2...json`：矩形选择从
+  `paint.tool.select(tool=rectangle)` 迁到 `paint.shape.select(path=["矩形"])`。
+- `apps/agent-core/src/paint_handler_support.rs`：新增组内词汇表、target 映射与
+  `required_selection_path`；非法枚举 / 空路径 / 超深路径一律 transform 为既有
+  `ToolInvalidArgs`。
+- `apps/agent-core/src/paint_handlers.rs`：拆出工具 / 形状 / 画笔三条选择路径；形状仍走
+  `click_element_center`，画笔先 `expand` 再选 `MenuItem`，工具组走实测的 `toggle`。
+- `apps/agent-core/src/paint_handler_actions.rs`、`paint_handler_map.rs`、
+  `paint_handler_selection.rs`、`paint_registry.rs`、`task_package_render.rs`、
+  `production_paint.rs`：接线、本地选择状态、路径 postcondition 和测试断言同步。
+- `adapters/com.microsoft.paint/app_map.json`、`memory/app_map.v1.json`：命令与记忆路由
+  改为工具 / 形状 / 画笔三组语义。
+- 本卡、`LEDGER.md`。
 
 ### 3. 验收输出摘要
 
-（待填）
+- `python adapters/com.microsoft.paint/tests/validate_adapter_pack.py` →
+  `PASSED: app_id=com.microsoft.paint targets=55 tools=12 recipes=8 probe_status=required`。
+- `python -c "import json,pathlib; ..."` 遍历适配包全部 JSON → `json-ok`。
+- `cargo test -p assistant-agent-core` → 63 lib tests + 6 bin tests + integration suites
+  全绿；Paint production `6 passed / 2 ignored`（两条真机用例仍按原标记忽略）。
+- 新增 2 个 handler 单测：组内词汇表 / 三级上限通过路径，以及跨组词、超深、空路径拒绝。
+- 完整 `cargo fmt --check` / clippy / workspace / xtask 输出见主 PR；merge hash 待回填。
 
 ### 4. DoD 逐条核对
 
-（待填）
+- [x] ADR-0096 落档 Accepted 并登记进 `docs/adr/README.md`（PR #473）。
+- [ ] schema 按总分类拆工具：已落工具 / 形状 / 画笔三组；图像组仍缺实测 selector，保持 WIP。
+- [x] 三组 `path` 均有界（1..=1）且逐元素命中本组词汇表；非法输入 fail-closed。
+- [x] 同名交叉组不再进入同一枚举：形状 / 画笔 / 工具各自持有独立词汇表。
+- [x] 读回不使用粘住的 `ToggleState`；输出显式 `ui_state_readback=false`。
+- [ ] 适配包校验器与 tools / selector 已对齐并通过；图像组工具尚未声明。
+- [ ] 静态验收全绿（至少 `assistant-agent-core` 已绿）；workspace / xtask 待本轮最终提交前复跑。
+- [x] 未修改 Out of scope 文件；未新增 ErrorCode、envelope、audit-event 或依赖。
 
 ### 5. 偏差
 
-（待填）
+- 无越权偏差。实现刻意拆成三组已取证范围：`paint.image.transform` 在 ADR 中是新工具，
+  但当前只有 `图像 → 翻转 → 水平翻转 / 垂直翻转` 的层级描述，没有 ControlView 的 name /
+  role / pattern 原始证据；没有把推断写进 selector pack。
 
 ### 6. 更合理做法
 
-（待填）
+- 形状 / 画笔子项可以在未来由探针输出直接生成 target 表，但目前仓库没有稳定生成器；
+  手写 55 个 target 的重复度较高。建议下一张治理卡在确保证据来源可追溯的前提下引入
+  adapter-pack 代码生成或表驱动校验，减少本轮这类手工 JSON 漂移。
 
 ### 7. 遗留问题
 
-（待填）
+- **TASK-317 保持 `InProgress`**：图像组工具、真实 GUI 的按钮通道验证仍未完成。
+- `paint.tool.select` 的 `toggle`、`paint.brush.select` 的 `expand + invoke` 目前由 ADR-0096
+  §13.8–§13.10 的只读探针 pattern 支撑，尚无真机端到端结果；不得冒充已验证。
+- 选择组 / Copilot 按卡面 Out of scope 未进 schema。
+- 本 PR 的 merge hash、CI run 与 round 记录走后续 docs-only 回填 PR。
 
 ### 8. 新增长期记忆
 
-（待填）
+- 无新增 `FACT` / `PITFALL` / `REJECTED`；ADR-0096 本身已记录 Paint 工具栏树模型与
+  `ToggleState` 粘滞事实。若真实 GUI 验证推翻某组通道，再按规则追加。
 
 ### 9. 给审阅者的关注点
 
-（待填）
+- 重点核对 `selectors/targets.json` 的 23 个形状名 / role 是否与
+  `docs/memory/apps/paint.md` §13.9 逐项一致，9 个画笔名 / role 是否与 §13.10 一致。
+- 重点核对 `required_selection_path` 的 fail-closed 边界：空数组、跨组词、超深数组。
+- `paint.tool.select` 只覆盖工具组；`paint.canvas.draw_rectangle` 的既有 `expected_tool`
+  契约未改，矩形选择由 `paint.shape.select` 负责。

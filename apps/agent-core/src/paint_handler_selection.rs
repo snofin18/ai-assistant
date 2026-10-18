@@ -39,7 +39,25 @@ impl<P> PaintHandlerContext<P> {
             .selection
             .lock()
             .map_err(|_| unavailable("paint selection state"))?
-            .tool
+            .tool_leaf
+            .clone())
+    }
+
+    pub(super) fn selection_shape(&self) -> Result<Option<String>, ToolBusError> {
+        Ok(self
+            .selection
+            .lock()
+            .map_err(|_| unavailable("paint selection state"))?
+            .shape_leaf
+            .clone())
+    }
+
+    pub(super) fn selection_brush(&self) -> Result<Option<String>, ToolBusError> {
+        Ok(self
+            .selection
+            .lock()
+            .map_err(|_| unavailable("paint selection state"))?
+            .brush_leaf
             .clone())
     }
 
