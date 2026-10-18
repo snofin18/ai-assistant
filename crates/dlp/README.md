@@ -40,3 +40,16 @@ implements the redaction rule model.
    can only tighten the resulting level and can never widen it.
 5. `local_only` without available local inference fails explicitly and never
   falls back to a cloud egress destination.
+
+## Known Limitations
+
+- **No pattern matching.** There is no regex engine and no text scanning: the
+  caller must hand over already-classified regions or an explicit word list
+  (`crates/dlp/src/redact.rs`). A regex route was rejected
+  (`docs/memory/rejected.md`, 2026-09-25) and would need its own card.
+- **No pixel access.** Occlusion is returned as normalised rectangles; reading
+  and masking pixels happens in the platform layer.
+- **No policy persistence.** The host supplies the rule set and writes audit
+  records; this crate returns pure decisions and never stores them.
+- **No provider selection.** Whether a local model is available is an input, not
+  something this crate can discover.
