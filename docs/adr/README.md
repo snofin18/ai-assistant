@@ -114,7 +114,10 @@
 | **0096** | `0096-paint-ribbon-addressing-by-group-with-bounded-path.md` | **Accepted** | Paint 工具栏寻址改为**按总分类拆工具 + 组内有界路径**：一个总分类一个语义工具（工具/形状/画笔/图像/颜色/层），组内用 `path: string[]`（长度 1..=3，逐元素命中本组词汇表，非法即既有 `ToolInvalidArgs`）；**明确否决**全局路径工具（属 AGENTS §7 通用逃生舱）；词汇表按组声明以消同名歧义（§13.6 的 5 个同名项）；通道按组声明（工具 Toggle / 画笔 flyout / 形状 L4 / 颜色 ListItem，均为实测）；**读回不得用会粘住的 `ToggleState`**（实测切回画笔后橡皮擦仍报 On）（人类 2026-10-18「按你的建议做」授权；TASK-317） |
 
 | **0097** | `0097-paint-shape-outline-and-fill-group-tools.md` | **Accepted** | ADR-0096 的增量：把 `形状轮廓` / `形状填充` 各拆成一个语义工具（`paint.outline.select` / `paint.fill.select`），沿用组内词汇表 + 有界 `path`（1..=1，非法即既有 `ToolInvalidArgs`）+ 通道按组声明；两条词汇表各自独立（后 5 项与画笔组同名，§13.6）；2026-10-19 只读 ControlView 复测证明两个 flyout **未选中形状时也能展开并枚举全部 7 项**（`focusable=True`、`Invoke+Toggle`），推翻 §13.13 对「展开」这一步的推广；`大小` 组因无非本地化锚点且未选中形状时 flyout 为空（§13.15）**不进 schema**（预授权自动化裁决；TASK-318） |
-**下一个可用编号：0098**（= §1 与 §2 已用最大号 **0097** + 1；由 `cargo run -p xtask -- adr-index`
+
+| **0098** | `0098-paint-shape-size-group-tool.md` | **Accepted** | ADR-0096 / ADR-0097 的增量：把 `大小`（形状笔宽）拆成语义工具 `paint.size.select`，沿用组内词汇表 + 有界 `path`（1..=1，非法即既有 `ToolInvalidArgs`）+ 通道按组声明；与轮廓 / 填充的差别是**条目按 `AutomationId` 解析**（`Size1`/`Size3`/`Size5`/`Size8`，2026-10-19 第一手只读复测：形状组有活动形状时 flyout 枚举出全部 4 项），词汇表用像素宽度而不是显示名（`Size1` 的 UIA name 是 `大小`，与按钮 / 画笔 Slider 三重同名，§13.16）；形状未激活 → flyout 为空 → 既有 `TargetNotFound` fail-closed，本工具**不得**自己点形状；画笔 `尺寸` / `不透明度` Slider 仍不进 schema（预授权自动化裁决；TASK-319） |
+
+**下一个可用编号：0099**（= §1 与 §2 已用最大号 **0098** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由
