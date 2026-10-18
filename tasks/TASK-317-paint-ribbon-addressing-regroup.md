@@ -147,7 +147,9 @@ cargo run -p xtask -- adr-index
 - `paint.tool.select` 的 `toggle`、`paint.brush.select` 的 `expand + invoke` 目前由 ADR-0096
   §13.8–§13.10 的只读探针 pattern 支撑，尚无真机端到端结果；不得冒充已验证。
 - 选择组 / Copilot 按卡面 Out of scope 未进 schema。
-- 本 PR 的 merge hash、CI run 与 round 记录走后续 docs-only 回填 PR。
+- 主 PR：#474；merge hash `fdbd356409c47c7506df95cb808cd4aae13ec17c`；CI = 22 checks
+  （21 success + 1 skip，pending 0）。契约前置 PR：#473，merge `fb690c7`。
+- 本 run 的 round 记录走后续 docs-only 回填 PR；卡保持 `InProgress`，不把图像组缺失写成 Done。
 
 ### 8. 新增长期记忆
 
