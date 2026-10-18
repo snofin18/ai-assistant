@@ -85,6 +85,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-18 TASK-313 Done（ADR-0095：fallback_only 升格为运行时字段）**：把只存在于适配包 JSON 与 Python 校验器的 fallback_only 升格为 SelectorCandidate 真实字段，并定义链内语义 —— 先整组尝试 primary、全失败才整组尝试 fallback（禁止按分数混排）；链内无 primary 候选时须显式 allow_fallback_entry，否则以既有 TargetNotFound 失败；组内歧义不降级；与 locale_dependent 正交。三段 PR #466 / #468 / #469；merge a04aa85。
+
 **2026-10-18 TASK-316 Done（tool-bus `bus.rs` 私有失败边界契约覆盖率补强）**：新增 `crates/tool-bus/src/bus_tests.rs` 7 个私有白盒用例，覆盖 `extract_envelope` 的 structured / malformed / text-fallback / missing 四条路径、`map_service_error` 的 MCP / non-MCP 分支和 `transport_failure` 文本保留；`bus.rs` 75.82% → 95.42%，`assistant-tool-bus` crate 91.59% → 93.19%；生产逻辑 / 公共 API / 依赖 / schema / lint / CI 零改动；PR / CI / merge hash 见 `LEDGER.md`。
 **2026-10-18 TASK-315 Done（阶段 1 DoD 机器可验证项取证收口）**：`plans/stage-1-pilots.md`「阶段 1 DoD」里两条机器可验证条目首次落到可复跑的证据上 —— `cargo llvm-cov --workspace --fail-under-lines 75` 行覆盖 81.18%（43138 行 / 8120 未覆盖）**exit 0**，三个 DoD crate 的**独立**报告为 `assistant-core` 92.09%、`assistant-policy` 95.03%、`assistant-task-engine` 91.58%（全部 ≥ 85%），修正 2026-09-29 集成审计留下的 `WORKSPACE PASS / CRATE NOT PROVEN`；同时按 gov §8.6 核对 23 份 crate / app README 的四节完整性，补齐 `crates/capture` / `crates/dlp` / `crates/replay` 缺失的「已知限制」节。原始输出与逐份核对表见 `docs/audits/stage-1-dod-evidence-2026-10-18.md`；docs-only，产品代码 / 依赖 / schema / lint / CI 零改动；新提 PL-119。
 **2026-10-18 TASK-314 Done（跨阶段治理登记与归档 SSOT 收口）**：`docs/memory/archive/README.md` 的「当前为空」改为指向 `MEMORY.md` §7（唯一落点，PL-116 闭环）；`plans/stage-1-pilots.md` 补 TASK-312 / TASK-314 治理池行（TASK-313 的号不能进计划表 —— `card-check/number-missing-file` 判定「引用无卡文件的号」即 Error）、`LEDGER.md` 补 TASK-313 事实行（PL-117）；PL-114 证据回填；新提 PL-118（300+ 号段池缺口，待裁决）；docs-only，零产品代码改动。
@@ -306,6 +308,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-18 TASK-313 Done（ADR-0095）**：fallback_only 从「作者期注释」变成运行时字段 —— 此前解析器打分排序时既不降权也不跳过它，文档承诺了运行时不兑现的事。现在链内先整组试 primary、全失败才试 fallback；无 primary 的链必须显式声明才能当入口，否则判 TargetNotFound；歧义不降级，且在解析循环层用注入 Find 的测试固定（纯函数层测不出「循环没继续往下试」）；校验器同步加门禁。三段落地 #466 / #468 / #469，merge a04aa85。
+
 **2026-10-18 TASK-316 Done（tool-bus `bus.rs` 私有失败边界契约覆盖率补强）**：新增 7 个私有白盒用例覆盖信封提取、服务错误映射与传输失败映射；`bus.rs` 行覆盖率 75.82% → 95.42%，crate 91.59% → 93.19%；生产逻辑零改动。
 **2026-10-18 TASK-315 Done（阶段 1 DoD 机器可验证项取证收口）**：阶段 1 的两条「有门槛、无证据」条目落地 —— workspace 行覆盖 81.18%（`--fail-under-lines 75` exit 0），`core` / `policy` / `task-engine` 首次各有独立覆盖率报告（92.09% / 95.03% / 91.58%，均 ≥ 85%），推翻 2026-09-29 审计的 `CRATE NOT PROVEN` 记录；另按 gov §8.6 逐份核对 23 份 README，补齐 `crates/capture` / `crates/dlp` / `crates/replay` 的「已知限制」节。取证件：`docs/audits/stage-1-dod-evidence-2026-10-18.md`；新提 PL-119。
 **2026-10-18 TASK-314 Done（跨阶段治理登记与归档 SSOT 收口）**：归档清单不再在 `docs/memory/archive/README.md` 里抄第二份（原文「当前为空」与已存在的 `paint-early-probes.md` 矛盾）——改为指向 `MEMORY.md` §7；补登 TASK-312 的计划行与 TASK-313 的台账事实行（此前 TASK-313 全仓无卡文件、无台账行；它的号也不能进计划表 —— `xtask card-check` 的 `number-missing-file` 会拦）、回填 PL-114 的 PR #447 / merge `39d0835` / CI `38986790658` 证据；docs-only，零产品代码改动。
