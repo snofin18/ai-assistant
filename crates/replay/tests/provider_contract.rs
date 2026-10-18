@@ -57,7 +57,7 @@ fn poll_once<F: Future>(future: F) -> F::Output {
 }
 
 fn candidate(id: &str, kind: SelectorKind, value: SelectorValue) -> SelectorCandidate {
-    SelectorCandidate::new(id, kind, value, 1.0, false).expect("valid selector candidate")
+    SelectorCandidate::new(id, kind, value, 1.0, false, false).expect("valid selector candidate")
 }
 
 fn exact_name_and_role(name: &str, role: &str) -> SelectorCandidate {

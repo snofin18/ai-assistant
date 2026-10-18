@@ -58,6 +58,7 @@ fn candidate(id: &str, score: f64, locale_dependent: bool) -> SelectorCandidate 
             SelectorValue::Text(format!("aid.{id}")),
             score,
             locale_dependent,
+            false,
         ),
         "valid selector candidate",
     )

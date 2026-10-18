@@ -149,7 +149,7 @@ mod tests {
         score: f64,
         locale_dependent: bool,
     ) -> SelectorCandidate {
-        match SelectorCandidate::new("c1", kind, value, score, locale_dependent) {
+        match SelectorCandidate::new("c1", kind, value, score, locale_dependent, false) {
             Ok(candidate) => candidate,
             Err(error) => unreachable!("测试夹具必须合法：{error}"),
         }

@@ -78,15 +78,25 @@ cargo run -p xtask -- adr-index
 
 ### 1. 约束回执
 
-（待填）
+- 任务：TASK-313（fallback_only 升格为运行时字段）。
+- 铁律：1（未命中与歧义分开处理，不猜）、9（不静默扩大范围）、10（契约先行，ADR-0095 已 Accepted）。
+- 禁止：新增 ErrorCode；重写 SelectorKind；Paint handler 扩展；真机端到端。
+- 疑问：D3（allow_fallback_entry）与 D6（校验器 / paint pack）本段未做。本段**不改变"只有 fallback 候选的链"的既有行为**，因此无回归。
 
 ### 2. 实际改动文件
 
-（待填）
+- crates/platform/api/src/target.rs：SelectorCandidate 新增 fallback_only 字段（serde default）+ 构造参数 + is_fallback_only() 访问器。
+- crates/platform/windows/src/selector.rs：rank_candidates 按 ADR-0095 D2 改为**两级顺序**（先分组、组内按有效分降序）+ 两条正反单测。
+- 11 处调用点补参数（**编译期强制**，不用隐式默认掩盖遗漏）。
+- LEDGER.md 追加一行；本卡记录区。
 
 ### 3. 验收输出摘要
 
-（待填）
+- cargo check --workspace --all-targets → **errors=0**
+- cargo test -p assistant-platform-windows --lib selector → **12 passed / 0 failed**（含新增 test_rank_candidates_puts_primary_group_before_fallback_group）
+- cargo clippy --all-targets -- -D warnings → **exit 0**
+- cargo test --workspace → **exit 0**（153 组 test result: ok）
+- cargo fmt --all --check → 首跑 exit 1（新测试格式不符），cargo fmt --all 后复跑绿
 
 ### 4. DoD 逐条核对
 

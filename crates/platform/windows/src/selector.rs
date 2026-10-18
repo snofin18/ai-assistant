@@ -51,9 +51,13 @@ pub fn effective_score(candidate: &SelectorCandidate) -> f64 {
     }
 }
 
-/// 按有效分降序排序，并丢掉低于 `min_score_to_try` 的候选。
+/// 排序并丢掉低于 `min_score_to_try` 的候选。
 ///
-/// 排序是**稳定**的：同分候选保持链内原顺序（不变量 1）。
+/// 顺序分两级（ADR-0095 D2）：**先按 `fallback_only` 分组**（非 fallback 的 primary 组在前），
+/// **组内**再按有效分降序。禁止把两组混成一个按分数排序的列表 —— 否则一个高分 fallback 候选
+/// 会盖住低分 primary 候选，`fallback_only` 就白加了。
+///
+/// 排序是**稳定**的：同组同分候选保持链内原顺序（不变量 1）。
 /// 用 `f64::total_cmp` 而不是 `partial_cmp` / `==`：前者是全序，既不 panic 也不触发 `float_cmp`，
 /// 且 `score` 已在 `SelectorCandidate::new` 校验为有限值（§6.2 不变量 2）。
 #[must_use]
@@ -69,7 +73,12 @@ pub fn rank_candidates<'a>(
             effective_score: effective_score(candidate),
         })
         .collect();
-    ranked.sort_by(|left, right| right.effective_score.total_cmp(&left.effective_score));
+    ranked.sort_by(|left, right| {
+        left.candidate
+            .is_fallback_only()
+            .cmp(&right.candidate.is_fallback_only())
+            .then_with(|| right.effective_score.total_cmp(&left.effective_score))
+    });
     ranked.retain(|entry| entry.effective_score.total_cmp(&min_score_to_try) != Ordering::Less);
     ranked
 }
@@ -155,10 +164,67 @@ mod tests {
             SelectorValue::Text(id.to_string()),
             score,
             locale_dependent,
+            false,
         ) {
             Ok(candidate) => candidate,
             Err(error) => unreachable!("test fixture must be valid: {error}"),
         }
+    }
+
+    /// ADR-0095：`fallback_only = true` 的候选。
+    fn fallback_candidate(id: &str, score: f64) -> SelectorCandidate {
+        match SelectorCandidate::new(
+            id,
+            SelectorKind::AutomationId,
+            SelectorValue::Text(id.to_string()),
+            score,
+            false,
+            true,
+        ) {
+            Ok(candidate) => candidate,
+            Err(error) => unreachable!("test fixture must be valid: {error}"),
+        }
+    }
+
+    /// ADR-0095 D2：fallback 组**整组**排在 primary 组之后，**不按分数混排**。
+    ///
+    /// 这里故意让 fallback 的分数（0.9）远高于 primary（0.3）：若实现退化成「两组按分数
+    /// 合并排序」，fallback 会被排到前面，`fallback_only` 就等于没生效。
+    #[test]
+    fn test_rank_candidates_puts_primary_group_before_fallback_group() {
+        let chain = SelectorChain::new(vec![
+            fallback_candidate("fallback-high", 0.9),
+            candidate("primary-low", 0.3, false),
+        ]);
+        let ranked = rank_candidates(&chain, 0.2);
+        let ids: Vec<&str> = ranked.iter().map(|entry| entry.candidate().id()).collect();
+        assert_eq!(
+            ids,
+            vec!["primary-low", "fallback-high"],
+            "fallback 组必须先让位给 primary 组，即使它的分数更高"
+        );
+    }
+
+    /// ADR-0095 D2：组**内**仍按有效分降序。
+    #[test]
+    fn test_rank_candidates_sorts_within_each_group_by_effective_score() {
+        let chain = SelectorChain::new(vec![
+            candidate("primary-low", 0.3, false),
+            candidate("primary-high", 0.7, false),
+            fallback_candidate("fallback-low", 0.4),
+            fallback_candidate("fallback-high", 0.8),
+        ]);
+        let ranked = rank_candidates(&chain, 0.2);
+        let ids: Vec<&str> = ranked.iter().map(|entry| entry.candidate().id()).collect();
+        assert_eq!(
+            ids,
+            vec![
+                "primary-high",
+                "primary-low",
+                "fallback-high",
+                "fallback-low"
+            ]
+        );
     }
 
     #[test]

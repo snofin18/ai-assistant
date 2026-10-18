@@ -79,6 +79,7 @@ fn assisted_selector_chain(id: &str, automation_id: &str) -> SelectorChain {
             SelectorValue::Text(automation_id.to_owned()),
             1.0,
             false,
+            false,
         )
         .expect("automation-id candidate"),
     ])

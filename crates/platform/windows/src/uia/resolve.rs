@@ -408,7 +408,7 @@ mod tests {
         value: SelectorValue,
         score: f64,
     ) -> SelectorCandidate {
-        match SelectorCandidate::new(id, kind, value, score, false) {
+        match SelectorCandidate::new(id, kind, value, score, false, false) {
             Ok(candidate) => candidate,
             Err(error) => unreachable!("test fixture must be valid: {error}"),
         }

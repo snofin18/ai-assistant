@@ -40,6 +40,7 @@ fn palette_chain() -> SelectorChain {
             },
             0.3,
             true,
+            true,
         )
         .expect("color group candidate"),
         SelectorCandidate::new(
@@ -50,6 +51,7 @@ fn palette_chain() -> SelectorChain {
                 parent_id: "color-group".to_owned(),
             },
             0.66,
+            false,
             false,
         )
         .expect("palette list candidate"),
