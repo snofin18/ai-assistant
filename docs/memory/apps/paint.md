@@ -314,3 +314,33 @@ flyout 展开时才进树，本轮只读探测（不点击）拿不到。
 3. `PencilTool` / `EraserTool` 的 `Toggle()` 实测生效，且二者是**加减配对**：handler 切到橡皮擦时**不应**去动画笔组。
 
 **工具栏截图可见分组**：选择 / 图像（裁剪 / 翻转 / 旋转 / 重设大小和倾斜）/ 工具（铅笔 / 填充 / 文本 / 橡皮擦【截图当时选中】/ 颜色选取器 / 放大镜）/ 画笔（`BrushesSplitButton`）/ 形状。
+
+### 13.18 工具栏是**树**，不是一张扁平清单（2026-10-18 人类说明；纠正 §13.17 那节的扁平读法）
+
+**总分类（8 个）**：选择 / 图像 / 工具 / 画笔 / 形状 / 颜色 / Copilot / 层。
+**子分类**挂在各自总分类下** —— 例如「工具」下：铅笔 / 填充 / 文本 / 橡皮擦 / 颜色选取器 / 放大镜。
+
+这与 §13.8 的实测**完全吻合**：ControlView 里这 8 个总分类就是 `Group`，其下按钮是它的子节点。
+
+```text
+[6] name="选择"    type=Group
+[6] name="图像"    type=Group
+[6] name="工具"    type=Group   <- 子：铅笔(PencilTool) / 填充 / 文本 / 橡皮擦(EraserTool) / 颜色选取器 / 放大镜
+[6] name="画笔"    type=Group   <- 子：BrushesSplitButton（笔型）+ 尺寸 / 不透明度
+[6] name="形状"    type=Group   <- 子：CollapsedButton（画廊）+ 形状轮廓 / 形状填充 / 大小
+[6] name="颜色"    type=Group   <- 子：颜色 1 / 颜色 2 / 20 色 List / 编辑颜色
+[6] name="Copilot" type=Group
+[6] name="层"      type=Group
+```
+
+**对 schema 的影响（关键）**：`paint.tool.select` 现在的扁平 enum
+
+```text
+["pencil","brush","eraser","fill","rectangle","ellipse","line","color_picker"]
+```
+
+把**不同总分类下的子项**混成了一份全局清单：`pencil` / `eraser` / `fill` / `color_picker` 属「工具」，`rectangle` / `ellipse` / `line` 属「形状」，而 `brush` 属「画笔」（且是笔型参数，见 §13.17）。清单还缺了「文本」「放大镜」等真实子项。
+
+**正确形态应是「路径」而不是「名字」**：按总分类限定子项，例如 `工具/铅笔`、`形状/矩形`、`画笔/毛笔`。好处：① 同名不再有歧义（§13.6 记过 `蜡笔` / `记号笔` / `油画笔` / `普通铅笔` / `水彩画笔` 在三个 flyout 里都出现）；② 新增子项不必改全局 enum；③ 每个总分类可以有自己的切换与读回通道（工具 = Toggle、画笔 = flyout MenuItem、形状 = L4 点击……）。
+
+**待裁决**（属改公共 schema，按铁律 10 先 ADR）：把 `paint.tool.select` 从扁平 enum 改成**总分类 + 子项**的寻址模型。
