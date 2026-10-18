@@ -30,7 +30,8 @@ use crate::notepad_targets::NotepadTargetCatalog;
 use crate::paint_handlers::{
     PaintHandlerContext, TOOL_BRUSH_SELECT, TOOL_CANVAS_CAPTURE_PIXELS, TOOL_CANVAS_DRAW_RECTANGLE,
     TOOL_CANVAS_RESOLVE_POINT, TOOL_COLOR_SELECT_FOREGROUND, TOOL_DOCUMENT_NEW, TOOL_FILL_SELECT,
-    TOOL_LAYER_SELECT, TOOL_OUTLINE_SELECT, TOOL_SHAPE_SELECT, TOOL_TOOL_SELECT, build_handler_map,
+    TOOL_LAYER_SELECT, TOOL_OUTLINE_SELECT, TOOL_SHAPE_SELECT, TOOL_SIZE_SELECT, TOOL_TOOL_SELECT,
+    build_handler_map,
 };
 use crate::runtime_host_ops::{ReservedHostOperationError, ReservedHostOperations};
 use crate::target_lease::TargetLeaseGate;
@@ -59,6 +60,7 @@ pub const PAINT_EXPECTED_TOOL_NAMES: &[&str] = &[
     TOOL_BRUSH_SELECT,
     TOOL_OUTLINE_SELECT,
     TOOL_FILL_SELECT,
+    TOOL_SIZE_SELECT,
     TOOL_COLOR_SELECT_FOREGROUND,
     TOOL_LAYER_SELECT,
     TOOL_CANVAS_RESOLVE_POINT,

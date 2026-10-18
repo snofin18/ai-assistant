@@ -327,6 +327,14 @@ def main() -> int:
             "形状填充",
             "Button",
         ),
+        # ADR-0098: the 大小 flyout button shares its accessible name with the
+        # brush size slider and with the Size1 menu item, so the role is part of
+        # the pinned contract, not just the name.
+        "shape_size_button": (
+            "shape-size-exact-name-and-role-fallback",
+            "大小",
+            "Button",
+        ),
         "outline_style_none": (
             "outline-style-none-exact-name-and-role-fallback",
             "无边框",
@@ -463,6 +471,46 @@ def main() -> int:
                 check(any(token in str(postcondition.get("value", ""))
                           for postcondition in postconditions),
                       f"tool {name}: input {input_name} is not read back in a postcondition")
+
+    # ADR-0098: the shape size group is the first ribbon group whose items carry
+    # a stable AutomationId, so the tool vocabulary is pinned to the measured
+    # pixel widths instead of the localized menu label (Size1's UIA name is
+    # "大小", which it shares with the flyout button and the brush size slider).
+    measured_size_vocabulary = {
+        "1 像素": ("size_1px_option", "Size1"),
+        "3 像素": ("size_3px_option", "Size3"),
+        "5 像素": ("size_5px_option", "Size5"),
+        "8 像素": ("size_8px_option", "Size8"),
+    }
+    size_tool = tool_by_name.get("paint.size.select", {})
+    size_path = (
+        size_tool.get("schema", {})
+        .get("input", {})
+        .get("properties", {})
+        .get("path", {})
+    )
+    check(size_path.get("items", {}).get("enum") == list(measured_size_vocabulary),
+          "paint.size.select: path enum must list the four measured pixel widths")
+    check(size_path.get("minItems") == 1 and size_path.get("maxItems") == 1,
+          "paint.size.select: path must be bounded to exactly one element")
+    size_output_properties = (
+        size_tool.get("schema", {}).get("output", {}).get("properties", {})
+    )
+    check(size_output_properties.get("ui_state_readback")
+          == {"type": "boolean", "const": False},
+          "paint.size.select: output must carry ui_state_readback=false")
+    for leaf, (size_target_id, expected_aid) in measured_size_vocabulary.items():
+        size_target = targets_by_id.get(size_target_id, {})
+        check(size_target.get("probe_status") == "observed",
+              f"selector target {size_target_id}: must stay observed after the ribbon probe")
+        size_aids = {
+            candidate.get("value", {}).get("text")
+            for candidate in size_target.get("candidates", [])
+            if candidate.get("kind") == "automation_id"
+        }
+        check(size_aids == {expected_aid},
+              f"selector target {size_target_id}: vocabulary {leaf!r} must anchor to "
+              f"AutomationId {expected_aid!r}")
 
     recipes = rollback.get("recipes", [])
     check(recipes, "rollback/recipes.json: recipes missing")

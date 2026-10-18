@@ -76,6 +76,14 @@ pub(super) const FILL_GROUP_VOCABULARY: &[&str] = &[
     "水彩画笔",
 ];
 
+/// Shape stroke width (`大小`) vocabulary.
+///
+/// ADR-0098: unlike the brush / outline / fill groups this vocabulary is the
+/// measured **pixel width**, not the menu label. `Size1`'s UIA name is `大小`,
+/// which the flyout button and the brush size slider share, so the display name
+/// cannot identify an item; the pixel width plus the pinned `AutomationId` can.
+pub(super) const SIZE_GROUP_VOCABULARY: &[&str] = &["1 像素", "3 像素", "5 像素", "8 像素"];
+
 pub(super) fn tool_target(leaf: &str) -> Option<&'static str> {
     match leaf {
         "铅笔" => Some("pencil_tool_button"),
@@ -173,6 +181,20 @@ pub(super) fn fill_target(leaf: &str) -> Option<&'static str> {
         "油画笔" => Some("fill_style_oil"),
         "普通铅笔" => Some("fill_style_pencil"),
         "水彩画笔" => Some("fill_style_watercolor"),
+        _ => None,
+    }
+}
+
+/// Maps a shape stroke width leaf to its adapter-pack target id.
+///
+/// ADR-0098 D3: every entry here is anchored by the measured `AutomationId`
+/// (`Size1` / `Size3` / `Size5` / `Size8`), never by the localized menu label.
+pub(super) fn size_target(leaf: &str) -> Option<&'static str> {
+    match leaf {
+        "1 像素" => Some("size_1px_option"),
+        "3 像素" => Some("size_3px_option"),
+        "5 像素" => Some("size_5px_option"),
+        "8 像素" => Some("size_8px_option"),
         _ => None,
     }
 }

@@ -10,7 +10,7 @@ use serde_json::{Map, Value};
 use super::{
     PaintHandlerContext, TOOL_BRUSH_SELECT, TOOL_CANVAS_CAPTURE_PIXELS, TOOL_CANVAS_DRAW_RECTANGLE,
     TOOL_CANVAS_RESOLVE_POINT, TOOL_COLOR_SELECT_FOREGROUND, TOOL_DOCUMENT_NEW, TOOL_FILL_SELECT,
-    TOOL_LAYER_SELECT, TOOL_OUTLINE_SELECT, TOOL_SHAPE_SELECT, TOOL_TOOL_SELECT,
+    TOOL_LAYER_SELECT, TOOL_OUTLINE_SELECT, TOOL_SHAPE_SELECT, TOOL_SIZE_SELECT, TOOL_TOOL_SELECT,
 };
 
 pub fn build_handler_map<P>(
@@ -57,6 +57,12 @@ where
         }),
     );
     handlers.insert(
+        TOOL_SIZE_SELECT.to_owned(),
+        Arc::new(SizeSelectHandler {
+            context: Arc::clone(context),
+        }),
+    );
+    handlers.insert(
         TOOL_COLOR_SELECT_FOREGROUND.to_owned(),
         Arc::new(ColorSelectHandler {
             context: Arc::clone(context),
@@ -68,6 +74,20 @@ where
             context: Arc::clone(context),
         }),
     );
+    insert_canvas_handlers(&mut handlers, context);
+    handlers
+}
+
+/// Registers the canvas primitives.
+///
+/// Kept out of `build_handler_map` so that function stays under the 80-line
+/// guide in `gov` section 5.4 as the ribbon groups grow.
+fn insert_canvas_handlers<P>(
+    handlers: &mut BTreeMap<String, Arc<dyn ToolHandler>>,
+    context: &Arc<PaintHandlerContext<P>>,
+) where
+    P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
+{
     handlers.insert(
         TOOL_CANVAS_RESOLVE_POINT.to_owned(),
         Arc::new(ResolvePointHandler {
@@ -86,7 +106,6 @@ where
             context: Arc::clone(context),
         }),
     );
-    handlers
 }
 
 struct DocumentNewHandler<P> {
@@ -205,6 +224,23 @@ where
         arguments: &Map<String, Value>,
     ) -> Result<ToolOutput, ToolBusError> {
         self.context.select_fill_output(arguments)
+    }
+}
+
+struct SizeSelectHandler<P> {
+    context: Arc<PaintHandlerContext<P>>,
+}
+
+impl<P> ToolHandler for SizeSelectHandler<P>
+where
+    P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
+{
+    fn call(
+        &self,
+        _call: &CallContext,
+        arguments: &Map<String, Value>,
+    ) -> Result<ToolOutput, ToolBusError> {
+        self.context.select_size_output(arguments)
     }
 }
 

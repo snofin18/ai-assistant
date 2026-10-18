@@ -28,10 +28,11 @@ card.
 The package is **provisional**: the pack-level `probe_status` stays `required`
 and `app_map.json` still reports `selector_ids: provisional`. Individual
 targets are promoted to `probe_status: observed` only after a real-machine UIA
-probe; as of 2026-10-19 that covers 71 targets (window, toolbar tool buttons,
+probe; as of 2026-10-19 that covers 72 targets (window, toolbar tool buttons,
 shapes gallery toggle, the 23 shape items, the 9 brush styles, the two
-shape-outline / shape-fill flyout buttons with their 2 x 7 items, the four
-shape-size options, foreground colour gallery, layers, status bar, and canvas).
+shape-outline / shape-fill flyout buttons with their 2 x 7 items, the
+shape-size flyout button with its four `AutomationId`-anchored options,
+foreground colour gallery, layers, status bar, and canvas).
 No coordinate calibration or visual tolerance in this package is a real-machine
 acceptance claim, and `observed` means "UIA shape measured", not "selector
 success rate verified". TASK-044 still owns the first end-to-end real Paint
@@ -90,10 +91,12 @@ unsafe interrupt defaults.
   entries still expose no measured `AutomationId`. Only a subset of toolbar
   tools, the shapes gallery toggle, the four size options, and the layers
   container carry stable ids.
-- The `大小` (shape stroke width) flyout still has no usable contract: its
-  button carries only a localized name, and with no shape selected the flyout
-  expands but exposes no items. It therefore stays out of the tool schema
-  (ADR-0097).
+- The `大小` (shape stroke width) flyout is declared as `paint.size.select`
+  (ADR-0098): its button carries only a localized name (`大小`, shared with the
+  brush size slider and with the `Size1` menu item), so it is resolved by
+  `exact_name_and_role` while the four options are resolved by `AutomationId`.
+  The flyout only exposes items while the shape group has an active shape, so
+  the tool fails closed with `TargetNotFound` otherwise.
 - Canvas coordinate error and mixed-DPI behavior are not yet measured.
 - Pixel tolerance values are declared contracts, not calibrated values.
 - The current protocol `ToolSchema` does not yet expose every adapter-level

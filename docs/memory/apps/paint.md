@@ -377,3 +377,24 @@ PROBE: expanded name="形状填充" state=Expanded
 - 轮廓 / 填充：只靠 `ExpandCollapsePattern.Expand()` 就能枚举，已有可落地契约 → ADR-0097。
 - 大小：条目只在**选中形状后**出现，而选中形状需要真实 GUI 交互 → 继续留在 schema 之外，
   由 TASK-309 的真机段处理。
+
+> **2026-10-19 同日更正**：§13.20 末句「选中形状需要真实 GUI 交互」是**错的** ——
+> `paint.shape.select` 本来就是程序化路径（§13.9 实测 `Toggle` 可用）；原结论只对「没有活动形状」那一态成立，见 §13.21。
+
+### 13.21 `大小` flyout 两态：有活动形状时枚举 4 项、全部带稳定 aid（2026-10-19，TASK-319）
+
+§13.15 / §13.20 记的是**无活动形状**那一态（展开成功但条目为空）。2026-10-19 在**形状组已有
+活动形状**（画布 name = `在画布上使用 向下箭头 工具`）的 Paint 11.2605.81.0 上重做只读展开：
+
+```text
+PROBE: expanded aid="CollapsedButton" state=Expanded; expanded name="大小" state=Expanded
+[5] name="大小"   aid="Size1" type=MenuItem focusable=True patterns=[Invoke,Toggle,ScrollItem,VirtualizedItem]
+[5] name="3 像素" aid="Size3" ... [5] name="5 像素" aid="Size5" ... [5] name="8 像素" aid="Size8" ...
+PROBE: seen=180 emitted=18 truncated=False elapsed_ms=559（结束时已恢复折叠）
+```
+
+结论（写入 ADR-0098）：① 4 个条目**有稳定 aid**，必须按 aid 解析；② `大小` 三重歧义
+（按钮 `Button` / 画笔 Slider / `Size1` 条目），按钮按 `name + role` 才能唯一命中；③ 条目
+存在性取决于形状组**是否已有活动形状** —— 无活动形状 → 空 → 既有 `TargetNotFound` fail-closed，
+`paint.size.select` 不代选形状；④ 本次未做真机 `Invoke`，端到端仍属 TASK-309。同一态里画笔组
+的 `尺寸` / `不透明度` Slider 不在树上，继续留在 schema 之外。
