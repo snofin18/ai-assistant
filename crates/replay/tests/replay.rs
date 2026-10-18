@@ -59,7 +59,7 @@ type RecordingMutation = fn(&mut Value);
 type RecordingCase<'a> = (&'a str, RecordingMutation);
 
 fn candidate(id: &str, kind: SelectorKind, value: SelectorValue) -> SelectorCandidate {
-    SelectorCandidate::new(id, kind, value, 1.0, false).expect("valid selector candidate")
+    SelectorCandidate::new(id, kind, value, 1.0, false, false).expect("valid selector candidate")
 }
 
 fn automation_id(value: &str) -> SelectorCandidate {

@@ -317,6 +317,7 @@ fn resolve_notepad_window(platform: WindowsPlatform, path: &Path) -> Option<Reso
         SelectorValue::Text(expected_name),
         1.0,
         false,
+        false,
     ) {
         Ok(candidate) => candidate,
         Err(failure) => {
@@ -365,6 +366,7 @@ fn resolve_notepad_editor(
             role: "Document".to_owned(),
         },
         1.0,
+        false,
         false,
     ) {
         Ok(candidate) => candidate,

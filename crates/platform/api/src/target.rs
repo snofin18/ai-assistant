@@ -111,6 +111,12 @@ pub struct SelectorCandidate {
     score: f64,
     /// 是否本地化相关 —— `true` 时在多语言环境下自动降权（§6.3）。
     locale_dependent: bool,
+    /// 是否**只作兜底**（ADR-0095）。
+    ///
+    /// `true` 时该候选在链内退到 fallback 组：解析先整组尝试非 fallback 候选，**整组失败后**
+    /// 才尝试 fallback 组（组内仍按 `effective_score` 排序）。缺省 `false`，旧 pack 行为不变。
+    #[serde(default)]
+    fallback_only: bool,
     /// 有效期（毫秒）；`None` = 不过期，`Some(0)` = 一次性（如 `RuntimeId`）。
     ttl_ms: Option<u64>,
 }
@@ -127,6 +133,7 @@ impl SelectorCandidate {
         value: SelectorValue,
         score: f64,
         locale_dependent: bool,
+        fallback_only: bool,
     ) -> PlatformResult<Self> {
         let id = id.into();
         if id.trim().is_empty() {
@@ -147,6 +154,7 @@ impl SelectorCandidate {
             value,
             score,
             locale_dependent,
+            fallback_only,
             ttl_ms: None,
         })
     }
@@ -186,6 +194,12 @@ impl SelectorCandidate {
     #[must_use]
     pub const fn is_locale_dependent(&self) -> bool {
         self.locale_dependent
+    }
+
+    /// 是否只作兜底候选（ADR-0095 D2：链内先整组尝试非 fallback 候选）。
+    #[must_use]
+    pub const fn is_fallback_only(&self) -> bool {
+        self.fallback_only
     }
 
     /// 有效期（毫秒）。

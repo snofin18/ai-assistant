@@ -19,6 +19,7 @@ fn candidate(id: &str, score: f64, locale_dependent: bool) -> SelectorCandidate 
             SelectorValue::Text(id.to_string()),
             score,
             locale_dependent,
+            false,
         ),
         "测试用的候选必须合法",
     )
@@ -58,6 +59,7 @@ fn test_candidate_rejects_blank_id_and_bad_score() {
                 SelectorKind::AutomationId,
                 SelectorValue::Text("x".into()),
                 score,
+                false,
                 false
             )
             .is_err(),
@@ -84,6 +86,7 @@ fn test_exact_name_candidate_uses_text_and_is_localized_fallback() {
             SelectorValue::Text("形状".to_string()),
             0.18,
             true,
+            false,
         ),
         "ExactName 测试候选必须合法",
     );
@@ -109,6 +112,7 @@ fn test_exact_name_and_role_candidate_pairs_name_with_non_localized_role() {
             },
             0.22,
             true,
+            false,
         ),
         "ExactNameAndRole 测试候选必须合法",
     );
