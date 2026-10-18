@@ -319,3 +319,7 @@ where
         }),
     }
 }
+
+#[cfg(test)]
+#[path = "bus_tests.rs"]
+mod tests;
