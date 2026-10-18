@@ -127,3 +127,10 @@ cargo run -p xtask -- adr-index
 - 已加 TargetDescriptor.allow_fallback_entry + SelectorChain.allow_fallback_entry（builder / 访问器）+ 装载器贯通 + paint pack 两处显式声明。
 - **闸门未开**：rank_candidates 行为与上一段完全一致，本段是纯贯通，零行为变更。
 - 下一段（PR 3/3）才开 D3 闸门 + 补 D4 显式测试 + validate_adapter_pack.py 规则。
+
+### 附：2026-10-18 收口段（PR 3/3）
+
+- D3 闸门已启用：无 primary 且未声明 → 判空 → 既有 TargetNotFound；两条正反单测固定。
+- D4 在解析循环层加显式测试（不是纯函数层），确认歧义不降级。
+- validate_adapter_pack.py 新增机器门禁：全 fallback 的 target 必须显式声明。
+- ADR-0095 D1–D6 至此全部落地。

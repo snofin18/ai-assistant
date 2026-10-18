@@ -510,6 +510,60 @@ mod tests {
         );
     }
 
+    /// ADR-0095 的 `fallback_only` 候选（本地化无关的稳定 kind，便于注入 `Find`）。
+    fn fallback_only_candidate(id: &str, score: f64) -> SelectorCandidate {
+        match SelectorCandidate::new(
+            id,
+            SelectorKind::AutomationId,
+            SelectorValue::Text(id.to_string()),
+            score,
+            false,
+            true,
+        ) {
+            Ok(candidate) => candidate,
+            Err(error) => unreachable!("test fixture must be valid: {error}"),
+        }
+    }
+
+    /// ADR-0095 D4：**组内歧义不得降级到 fallback 组**。
+    ///
+    /// 主候选命中 2 个 → 立刻 `TargetAmbiguous` 并终止；fallback 候选**一次都不许被查询**。
+    /// 这条必须在**解析循环**层验证 —— 只测纯函数证明不了"循环没有继续往下试"。
+    #[test]
+    fn test_ambiguous_primary_does_not_fall_back_to_fallback_group() {
+        let chain = SelectorChain::new(vec![
+            candidate(
+                "primary-ambiguous",
+                SelectorKind::AutomationId,
+                SelectorValue::Text("Primary".to_string()),
+                0.9,
+            ),
+            fallback_only_candidate("fallback-should-not-run", 0.5),
+        ]);
+        let ranked = selector::rank_candidates(&chain, 0.0);
+        let mut searched: Vec<String> = Vec::new();
+        let outcome = select_candidate(&ranked, |candidate| {
+            searched.push(candidate.id().to_string());
+            if candidate.id() == "primary-ambiguous" {
+                Ok(SearchOutcome::Matches(vec!["a", "b"]))
+            } else {
+                Ok(SearchOutcome::Matches(vec!["fallback-element"]))
+            }
+        });
+        match outcome {
+            Err(error) => assert_eq!(error.code(), ErrorCode::TargetAmbiguous),
+            Ok(selection) => unreachable!(
+                "歧义必须终止，不得降级；却解析到 {}",
+                selection.candidate.id()
+            ),
+        }
+        assert_eq!(
+            searched,
+            vec!["primary-ambiguous".to_string()],
+            "歧义组之后不得再查询 fallback 候选"
+        );
+    }
+
     #[test]
     fn test_chain_with_only_parent_scope_candidates_is_rejected_before_com() {
         // ADR-0070 D3：环形 parent_id 链没有任何可返回目标；必须在碰 COM 之前拒绝。

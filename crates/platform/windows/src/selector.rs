@@ -65,6 +65,18 @@ pub fn rank_candidates<'a>(
     chain: &'a SelectorChain,
     min_score_to_try: f64,
 ) -> Vec<RankedCandidate<'a>> {
+    // ADR-0095 D3：链内**一个 primary 候选都没有**时，必须是显式声明的入口链。
+    // 否则"整条链都是兜底"会被静默当成主选择器用 —— 直接判空（调用方转成既有的
+    // `TargetNotFound`），**不新增 ErrorCode**。判定看链的声明而非过滤后的集合，
+    // 因为这是配置层面的属性。
+    if !chain.allow_fallback_entry()
+        && chain
+            .candidates()
+            .iter()
+            .all(SelectorCandidate::is_fallback_only)
+    {
+        return Vec::new();
+    }
     let mut ranked: Vec<RankedCandidate<'a>> = chain
         .candidates()
         .iter()
@@ -225,6 +237,26 @@ mod tests {
                 "fallback-low"
             ]
         );
+    }
+
+    /// ADR-0095 D3：未声明的全 fallback 链 → 判空（调用方转既有 `TargetNotFound`）。
+    #[test]
+    fn test_rank_candidates_refuses_all_fallback_chain_without_declaration() {
+        let chain = SelectorChain::new(vec![fallback_candidate("only-fallback", 0.9)]);
+        let ranked = rank_candidates(&chain, 0.0);
+        assert!(
+            ranked.is_empty(),
+            "全 fallback 且未声明 allow_fallback_entry 的链必须判空"
+        );
+    }
+
+    /// ADR-0095 D3：显式声明后，全 fallback 链正常参与解析。
+    #[test]
+    fn test_rank_candidates_allows_all_fallback_chain_when_declared() {
+        let chain = SelectorChain::new(vec![fallback_candidate("only-fallback", 0.9)])
+            .with_allow_fallback_entry(true);
+        let ranked = rank_candidates(&chain, 0.0);
+        assert_eq!(ranked.len(), 1, "已声明时该链必须可解析");
     }
 
     #[test]

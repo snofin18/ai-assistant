@@ -73,6 +73,15 @@ def main() -> int:
         probe_status = target.get("probe_status")
         check(probe_status in {"required", "observed"},
               f"selector target {target_id}: unsupported probe_status {probe_status}")
+        # ADR-0095 D3：整条链只有 fallback 候选时，必须是**显式声明**的入口链。
+        # 光靠"全部候选都是兜底"不能当主选择器用，所以这里把声明变成机器门禁。
+        target_candidates = target.get("candidates") or []
+        if target_candidates and all(
+            candidate.get("fallback_only") is True for candidate in target_candidates
+        ):
+            check(target.get("allow_fallback_entry") is True,
+                  f"selector target {target_id}: every candidate is fallback_only, so the target "
+                  f"must declare allow_fallback_entry: true (ADR-0095 D3)")
         candidates = target.get("candidates", [])
         check(candidates, f"selector target {target_id}: candidates missing")
         candidate_ids: set[str] = set()
