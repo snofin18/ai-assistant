@@ -9,8 +9,8 @@ use serde_json::{Map, Value};
 
 use super::{
     PaintHandlerContext, TOOL_BRUSH_SELECT, TOOL_CANVAS_CAPTURE_PIXELS, TOOL_CANVAS_DRAW_RECTANGLE,
-    TOOL_CANVAS_RESOLVE_POINT, TOOL_COLOR_SELECT_FOREGROUND, TOOL_DOCUMENT_NEW, TOOL_LAYER_SELECT,
-    TOOL_SHAPE_SELECT, TOOL_TOOL_SELECT,
+    TOOL_CANVAS_RESOLVE_POINT, TOOL_COLOR_SELECT_FOREGROUND, TOOL_DOCUMENT_NEW, TOOL_FILL_SELECT,
+    TOOL_LAYER_SELECT, TOOL_OUTLINE_SELECT, TOOL_SHAPE_SELECT, TOOL_TOOL_SELECT,
 };
 
 pub fn build_handler_map<P>(
@@ -41,6 +41,18 @@ where
     handlers.insert(
         TOOL_BRUSH_SELECT.to_owned(),
         Arc::new(BrushSelectHandler {
+            context: Arc::clone(context),
+        }),
+    );
+    handlers.insert(
+        TOOL_OUTLINE_SELECT.to_owned(),
+        Arc::new(OutlineSelectHandler {
+            context: Arc::clone(context),
+        }),
+    );
+    handlers.insert(
+        TOOL_FILL_SELECT.to_owned(),
+        Arc::new(FillSelectHandler {
             context: Arc::clone(context),
         }),
     );
@@ -159,6 +171,40 @@ where
         arguments: &Map<String, Value>,
     ) -> Result<ToolOutput, ToolBusError> {
         self.context.select_foreground_color_output(arguments)
+    }
+}
+
+struct OutlineSelectHandler<P> {
+    context: Arc<PaintHandlerContext<P>>,
+}
+
+impl<P> ToolHandler for OutlineSelectHandler<P>
+where
+    P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
+{
+    fn call(
+        &self,
+        _call: &CallContext,
+        arguments: &Map<String, Value>,
+    ) -> Result<ToolOutput, ToolBusError> {
+        self.context.select_outline_output(arguments)
+    }
+}
+
+struct FillSelectHandler<P> {
+    context: Arc<PaintHandlerContext<P>>,
+}
+
+impl<P> ToolHandler for FillSelectHandler<P>
+where
+    P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
+{
+    fn call(
+        &self,
+        _call: &CallContext,
+        arguments: &Map<String, Value>,
+    ) -> Result<ToolOutput, ToolBusError> {
+        self.context.select_fill_output(arguments)
     }
 }
 

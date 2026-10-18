@@ -32,6 +32,8 @@ use std::time::Instant;
 
 #[path = "paint_handler_actions.rs"]
 mod paint_handler_actions;
+#[path = "paint_handler_flyout.rs"]
+mod paint_handler_flyout;
 #[path = "paint_handler_map.rs"]
 mod paint_handler_map;
 #[path = "paint_handler_selection.rs"]
@@ -55,6 +57,10 @@ pub const TOOL_TOOL_SELECT: &str = "paint.tool.select";
 pub const TOOL_SHAPE_SELECT: &str = "paint.shape.select";
 /// `paint.brush.select` tool name.
 pub const TOOL_BRUSH_SELECT: &str = "paint.brush.select";
+/// `paint.outline.select` tool name.
+pub const TOOL_OUTLINE_SELECT: &str = "paint.outline.select";
+/// `paint.fill.select` tool name.
+pub const TOOL_FILL_SELECT: &str = "paint.fill.select";
 /// `paint.color.select_foreground` tool name.
 pub const TOOL_COLOR_SELECT_FOREGROUND: &str = "paint.color.select_foreground";
 /// `paint.layer.select` tool name.
@@ -73,6 +79,8 @@ const TARGET_STATUS_BAR: &str = "status_bar";
 const TARGET_CANVAS: &str = "canvas";
 const TARGET_SHAPES_TOGGLE: &str = "shapes_gallery_toggle";
 const TARGET_BRUSH_TOGGLE: &str = "brush_tool_button";
+const TARGET_SHAPE_OUTLINE_TOGGLE: &str = "shape_outline_button";
+const TARGET_SHAPE_FILL_TOGGLE: &str = "shape_fill_button";
 /// MCP code agreed with `assistant-tool-bus`; maps to `ErrorCode::UserInteraction`.
 const MCP_USER_INTERACTION: i32 = -32_010;
 /// Measured Windows 11 Paint 11.2605.81.0 palette order and RGB values.
@@ -113,11 +121,14 @@ struct PaintSelectionState {
     tool_leaf: Option<String>,
     shape_leaf: Option<String>,
     brush_leaf: Option<String>,
+    outline_leaf: Option<String>,
+    fill_leaf: Option<String>,
     color: Option<String>,
     layer: Option<PaintLayerSelection>,
     start_point: Option<ResolvedCanvasPoint>,
     end_point: Option<ResolvedCanvasPoint>,
 }
+
 #[derive(Debug, Clone)]
 struct ResolvedCanvasPoint {
     canvas: CanvasPoint,
@@ -676,116 +687,5 @@ fn blocked_by_popup(tool: &str) -> ToolBusError {
 
 /// Builds one handler for every T3.1 Paint tool.
 #[cfg(test)]
-mod tests {
-    #![allow(clippy::expect_used, clippy::unwrap_used)]
-
-    use super::paint_handler_support::{
-        BRUSH_GROUP_VOCABULARY, SHAPE_GROUP_VOCABULARY, TOOL_GROUP_VOCABULARY, brush_target,
-        parse_canvas_size, required_selection_path, rounded_i32, shape_target, tool_target,
-    };
-    use super::{paint_layer_contract, palette_index};
-    use assistant_protocol::serde_json::json;
-    #[test]
-    fn test_parse_canvas_size_reads_first_two_integers() {
-        assert_eq!(parse_canvas_size("418 x 74 px"), Some((418, 74)));
-        assert_eq!(parse_canvas_size("canvas 1920 x 1080"), Some((1920, 1080)));
-        assert_eq!(parse_canvas_size("no size"), None);
-    }
-
-    #[test]
-    fn test_rounded_i32_rounds_half_away_from_zero_and_rejects_overflow() {
-        assert_eq!(rounded_i32(1.5, "paint.test", "x").expect("round"), 2);
-        assert_eq!(rounded_i32(-1.5, "paint.test", "x").expect("round"), -2);
-        assert!(rounded_i32(f64::INFINITY, "paint.test", "x").is_err());
-    }
-
-    #[test]
-    fn test_palette_index_uses_measured_rgb_contract() {
-        assert_eq!(palette_index(237, 28, 36), Some(3));
-        assert_eq!(palette_index(34, 177, 76), Some(6));
-        assert_eq!(palette_index(1, 2, 3), None);
-    }
-
-    #[test]
-    fn test_paint_layer_contract_rejects_unmeasured_layer_ids() {
-        assert_eq!(paint_layer_contract("layer-1"), Some((0, "Layer 1")));
-        assert_eq!(paint_layer_contract("layer-0"), None);
-    }
-
-    #[test]
-    fn test_selection_paths_are_group_local_and_bounded() {
-        let tool_arguments = json!({"path": ["铅笔"]});
-        let tool_arguments = tool_arguments.as_object().expect("object");
-        assert_eq!(
-            required_selection_path(
-                tool_arguments,
-                "paint.tool.select",
-                TOOL_GROUP_VOCABULARY,
-                1,
-            )
-            .expect("tool path"),
-            vec!["铅笔"]
-        );
-        assert!(tool_target("铅笔").is_some());
-
-        let shape_arguments = json!({"path": ["矩形"]});
-        assert_eq!(
-            required_selection_path(
-                shape_arguments.as_object().expect("object"),
-                "paint.shape.select",
-                SHAPE_GROUP_VOCABULARY,
-                1,
-            )
-            .expect("shape path"),
-            vec!["矩形"]
-        );
-        assert_eq!(shape_target("矩形"), Some(super::TARGET_RECTANGLE_TOOL));
-
-        let brush_arguments = json!({"path": ["毛笔"]});
-        assert_eq!(
-            required_selection_path(
-                brush_arguments.as_object().expect("object"),
-                "paint.brush.select",
-                BRUSH_GROUP_VOCABULARY,
-                1,
-            )
-            .expect("brush path"),
-            vec!["毛笔"]
-        );
-        assert!(brush_target("毛笔").is_some());
-    }
-
-    #[test]
-    fn test_selection_path_rejects_cross_group_and_over_depth_values() {
-        let cross_group = json!({"path": ["长方形"]});
-        assert!(
-            required_selection_path(
-                cross_group.as_object().expect("object"),
-                "paint.shape.select",
-                SHAPE_GROUP_VOCABULARY,
-                1,
-            )
-            .is_err()
-        );
-        let too_deep = json!({"path": ["形状", "矩形"]});
-        assert!(
-            required_selection_path(
-                too_deep.as_object().expect("object"),
-                "paint.shape.select",
-                SHAPE_GROUP_VOCABULARY,
-                1,
-            )
-            .is_err()
-        );
-        let empty = json!({"path": []});
-        assert!(
-            required_selection_path(
-                empty.as_object().expect("object"),
-                "paint.tool.select",
-                TOOL_GROUP_VOCABULARY,
-                1,
-            )
-            .is_err()
-        );
-    }
-}
+#[path = "paint_handlers_tests.rs"]
+mod tests;

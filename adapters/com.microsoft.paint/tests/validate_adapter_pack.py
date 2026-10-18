@@ -315,6 +315,88 @@ def main() -> int:
             "水彩画笔",
             "MenuItem",
         ),
+        # ADR-0097: the shape-outline / shape-fill flyouts also only expose localized
+        # names, so the two buttons and their 2 x 7 items are pinned the same way.
+        "shape_outline_button": (
+            "shape-outline-exact-name-and-role-fallback",
+            "形状轮廓",
+            "Button",
+        ),
+        "shape_fill_button": (
+            "shape-fill-exact-name-and-role-fallback",
+            "形状填充",
+            "Button",
+        ),
+        "outline_style_none": (
+            "outline-style-none-exact-name-and-role-fallback",
+            "无边框",
+            "MenuItem",
+        ),
+        "outline_style_solid": (
+            "outline-style-solid-exact-name-and-role-fallback",
+            "实心边框",
+            "MenuItem",
+        ),
+        "outline_style_crayon": (
+            "outline-style-crayon-exact-name-and-role-fallback",
+            "蜡笔",
+            "MenuItem",
+        ),
+        "outline_style_marker": (
+            "outline-style-marker-exact-name-and-role-fallback",
+            "记号笔",
+            "MenuItem",
+        ),
+        "outline_style_oil": (
+            "outline-style-oil-exact-name-and-role-fallback",
+            "油画笔",
+            "MenuItem",
+        ),
+        "outline_style_pencil": (
+            "outline-style-pencil-exact-name-and-role-fallback",
+            "普通铅笔",
+            "MenuItem",
+        ),
+        "outline_style_watercolor": (
+            "outline-style-watercolor-exact-name-and-role-fallback",
+            "水彩画笔",
+            "MenuItem",
+        ),
+        "fill_style_none": (
+            "fill-style-none-exact-name-and-role-fallback",
+            "无填充",
+            "MenuItem",
+        ),
+        "fill_style_solid": (
+            "fill-style-solid-exact-name-and-role-fallback",
+            "纯色填充",
+            "MenuItem",
+        ),
+        "fill_style_crayon": (
+            "fill-style-crayon-exact-name-and-role-fallback",
+            "蜡笔",
+            "MenuItem",
+        ),
+        "fill_style_marker": (
+            "fill-style-marker-exact-name-and-role-fallback",
+            "记号笔",
+            "MenuItem",
+        ),
+        "fill_style_oil": (
+            "fill-style-oil-exact-name-and-role-fallback",
+            "油画笔",
+            "MenuItem",
+        ),
+        "fill_style_pencil": (
+            "fill-style-pencil-exact-name-and-role-fallback",
+            "普通铅笔",
+            "MenuItem",
+        ),
+        "fill_style_watercolor": (
+            "fill-style-watercolor-exact-name-and-role-fallback",
+            "水彩画笔",
+            "MenuItem",
+        ),
     }
     for target_id, (candidate_id, expected_name, expected_role) in measured_group_targets.items():
         target = targets_by_id.get(target_id, {})

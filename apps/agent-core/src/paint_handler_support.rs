@@ -56,6 +56,26 @@ pub(super) const BRUSH_GROUP_VOCABULARY: &[&str] = &[
     "水彩画笔",
 ];
 
+pub(super) const OUTLINE_GROUP_VOCABULARY: &[&str] = &[
+    "无边框",
+    "实心边框",
+    "蜡笔",
+    "记号笔",
+    "油画笔",
+    "普通铅笔",
+    "水彩画笔",
+];
+
+pub(super) const FILL_GROUP_VOCABULARY: &[&str] = &[
+    "无填充",
+    "纯色填充",
+    "蜡笔",
+    "记号笔",
+    "油画笔",
+    "普通铅笔",
+    "水彩画笔",
+];
+
 pub(super) fn tool_target(leaf: &str) -> Option<&'static str> {
     match leaf {
         "铅笔" => Some("pencil_tool_button"),
@@ -127,6 +147,32 @@ pub(super) fn brush_target(leaf: &str) -> Option<&'static str> {
         "记号笔" => Some("brush_style_highlighter"),
         "普通铅笔" => Some("brush_style_pencil"),
         "水彩画笔" => Some("brush_style_watercolor"),
+        _ => None,
+    }
+}
+
+pub(super) fn outline_target(leaf: &str) -> Option<&'static str> {
+    match leaf {
+        "无边框" => Some("outline_style_none"),
+        "实心边框" => Some("outline_style_solid"),
+        "蜡笔" => Some("outline_style_crayon"),
+        "记号笔" => Some("outline_style_marker"),
+        "油画笔" => Some("outline_style_oil"),
+        "普通铅笔" => Some("outline_style_pencil"),
+        "水彩画笔" => Some("outline_style_watercolor"),
+        _ => None,
+    }
+}
+
+pub(super) fn fill_target(leaf: &str) -> Option<&'static str> {
+    match leaf {
+        "无填充" => Some("fill_style_none"),
+        "纯色填充" => Some("fill_style_solid"),
+        "蜡笔" => Some("fill_style_crayon"),
+        "记号笔" => Some("fill_style_marker"),
+        "油画笔" => Some("fill_style_oil"),
+        "普通铅笔" => Some("fill_style_pencil"),
+        "水彩画笔" => Some("fill_style_watercolor"),
         _ => None,
     }
 }

@@ -35,7 +35,7 @@
 | `decisions.md` | 297 | 106 | 索引 → `docs/adr/NNNN-*.md` |
 | `open.md` | 57 | 26 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
 | `apps/notepad.md` | 343 | 0 | 接记事本时**全量读**；8 个固定小节 |
-| `apps/paint.md` | 346 | 0 | Read fully when working on Paint; 8 fixed sections plus the current TASK-309 ControlView + ExpandCollapse probe tables (§13.8–§13.16; §11.2/§12 shape-pattern conclusion superseded by §13.9; outline/fill/size need a selected shape, sizes are Size1/Size3/Size5/Size8 by aid because Size1 is named 大小). Early TASK-044 / TASK-106 / TASK-256 / TASK-294 probe and runtime notes plus the static toolset inventory are archived in `docs/memory/archive/paint-early-probes.md`; selectors remain provisional before real-machine calibration. |
+| `apps/paint.md` | 379 | 0 | Read fully when working on Paint; 8 fixed sections plus the current TASK-309 ControlView + ExpandCollapse probe tables (§13.8–§13.20; §11.2/§12 shape-pattern conclusion superseded by §13.9; §13.13's "must select a shape first" is amended by §13.19 for the outline/fill expand case; sizes are Size1/Size3/Size5/Size8 by aid because Size1 is named 大小). Early TASK-044 / TASK-106 / TASK-256 / TASK-294 probe and runtime notes plus the static toolset inventory are archived in `docs/memory/archive/paint-early-probes.md`; selectors remain provisional before real-machine calibration. |
 | win32-input-research.md | 193 | 0 | 接 Notepad Adapter + 任何 Win32 输入操作时**全量读**（SendInput / keybd_event / SendKeys / AttachThreadInput / BlockInput / SetForegroundWindow / WindowPattern.Close / UIPI / 推荐 pipeline） |
 
 
