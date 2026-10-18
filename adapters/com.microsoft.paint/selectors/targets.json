@@ -732,6 +732,22 @@
       ]
     },
     {
+      "id": "shape_size_button",
+      "scope": "element",
+      "probe_status": "observed",
+      "allow_fallback_entry": true,
+      "candidates": [
+        {
+          "id": "shape-size-exact-name-and-role-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "大小", "role": "Button"}},
+          "score": 0.3,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
       "id": "outline_style_none",
       "scope": "element",
       "probe_status": "observed",

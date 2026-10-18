@@ -31,7 +31,8 @@ use std::time::Duration;
 use super::paint_handler_support::normalized_point;
 use super::{
     DragRequest, PaintHandlerContext, PhysicalPointPx, TARGET_BRUSH_TOGGLE, TARGET_LAYER_ITEM,
-    TARGET_SHAPE_FILL_TOGGLE, TARGET_SHAPE_OUTLINE_TOGGLE, TARGET_SHAPES_TOGGLE,
+    TARGET_SHAPE_FILL_TOGGLE, TARGET_SHAPE_OUTLINE_TOGGLE, TARGET_SHAPE_SIZE_TOGGLE,
+    TARGET_SHAPES_TOGGLE,
 };
 
 /// 展开 / 折叠后的**有界重解**次数与间隔（形状库异步物化、图层面板展开，见 `docs/memory/apps/paint.md` §11）。
@@ -208,6 +209,22 @@ where
         tool: &str,
     ) -> Result<ResolvedElement, ToolBusError> {
         self.wait_for_shape_group_flyout_item(window, TARGET_SHAPE_FILL_TOGGLE, target, tool)
+    }
+
+    /// 形状组第三类 flyout（`大小` / 形状笔宽）的条目（ADR-0098 D4）。
+    ///
+    /// 通道与轮廓 / 填充同形（展开形状库 → 展开 `大小` → 有界重解），差别只在于
+    /// **目标条目按 `AutomationId` 解析**（`Size1` / `Size3` / `Size5` / `Size8`），
+    /// 因为 `大小` 按钮与画笔 `大小` Slider、`Size1` 条目三者同名（§13.16）。
+    /// 形状组没有活动形状时该 flyout 展开后为空 → 有界窗口内解不到 → 既有
+    /// `TargetNotFound` fail-closed；本方法**不**替调用方去点一个形状（不施加静默副作用）。
+    pub(super) fn wait_for_size_flyout_item(
+        &self,
+        window: &ResolvedWindow,
+        target: &str,
+        tool: &str,
+    ) -> Result<ResolvedElement, ToolBusError> {
+        self.wait_for_shape_group_flyout_item(window, TARGET_SHAPE_SIZE_TOGGLE, target, tool)
     }
 
     fn wait_for_shape_group_flyout_item(

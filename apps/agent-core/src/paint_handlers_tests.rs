@@ -1,13 +1,22 @@
-// Paint handler unit tests.
-//
-// Kept in a separate file so `paint_handlers.rs` stays under the repository
-// line guides (gov section 5.4); the test module is mounted from that file.
+//! Paint handler unit tests.
+//!
+//! Responsibilities: vocabulary / path-validation contracts for the ribbon
+//! group tools (tool, shape, brush, outline, fill, size).
+//!
+//! Boundaries: pure logic only; no UIA, no platform calls, no real machine.
+//!
+//! Invariants: every group vocabulary stays group-local and bounded, and the
+//! size group maps pixel widths to the measured `AutomationId` anchors.
+//!
+//! Kept in a separate file so `paint_handlers.rs` stays under the repository
+//! line guides (gov section 5.4); the test module is mounted from that file.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
 use super::paint_handler_support::{
     BRUSH_GROUP_VOCABULARY, FILL_GROUP_VOCABULARY, OUTLINE_GROUP_VOCABULARY,
-    SHAPE_GROUP_VOCABULARY, TOOL_GROUP_VOCABULARY, brush_target, fill_target, outline_target,
-    parse_canvas_size, required_selection_path, rounded_i32, shape_target, tool_target,
+    SHAPE_GROUP_VOCABULARY, SIZE_GROUP_VOCABULARY, TOOL_GROUP_VOCABULARY, brush_target,
+    fill_target, outline_target, parse_canvas_size, required_selection_path, rounded_i32,
+    shape_target, size_target, tool_target,
 };
 use super::{paint_layer_contract, palette_index};
 use assistant_protocol::serde_json::json;
@@ -175,4 +184,67 @@ fn test_shape_group_flyout_paths_reject_the_other_groups_terms() {
     );
     assert_eq!(outline_target("无填充"), None);
     assert_eq!(fill_target("无边框"), None);
+}
+
+/// ADR-0098 D3: the `大小` group is anchored by the measured `AutomationId`
+/// (`Size1` / `Size3` / `Size5` / `Size8`), and its vocabulary is the pixel
+/// width, never the localized menu label (`Size1`'s name is `大小`).
+#[test]
+fn test_size_group_vocabulary_maps_pixel_widths_to_measured_automation_ids() {
+    assert_eq!(
+        SIZE_GROUP_VOCABULARY,
+        &["1 像素", "3 像素", "5 像素", "8 像素"]
+    );
+    assert_eq!(size_target("1 像素"), Some("size_1px_option"));
+    assert_eq!(size_target("3 像素"), Some("size_3px_option"));
+    assert_eq!(size_target("5 像素"), Some("size_5px_option"));
+    assert_eq!(size_target("8 像素"), Some("size_8px_option"));
+
+    let arguments = json!({"path": ["5 像素"]});
+    assert_eq!(
+        required_selection_path(
+            arguments.as_object().expect("object"),
+            "paint.size.select",
+            SIZE_GROUP_VOCABULARY,
+            1,
+        )
+        .expect("size path"),
+        vec!["5 像素"]
+    );
+}
+
+/// The shape size vocabulary is group-local: the localized trap (`大小`) and
+/// the neighbouring outline / fill terms must not be accepted, and the size
+/// terms must not leak into the outline / fill groups.
+#[test]
+fn test_size_group_vocabulary_rejects_labels_and_neighbouring_groups() {
+    assert_eq!(size_target("大小"), None);
+    for neighbour in ["无边框", "实心边框", "无填充", "纯色填充", "蜡笔"] {
+        assert_eq!(size_target(neighbour), None, "{neighbour}");
+    }
+    for size in ["1 像素", "3 像素", "5 像素", "8 像素"] {
+        assert_eq!(outline_target(size), None, "{size}");
+        assert_eq!(fill_target(size), None, "{size}");
+    }
+
+    let localized_label = json!({"path": ["大小"]});
+    assert!(
+        required_selection_path(
+            localized_label.as_object().expect("object"),
+            "paint.size.select",
+            SIZE_GROUP_VOCABULARY,
+            1,
+        )
+        .is_err()
+    );
+    let too_deep = json!({"path": ["形状", "8 像素"]});
+    assert!(
+        required_selection_path(
+            too_deep.as_object().expect("object"),
+            "paint.size.select",
+            SIZE_GROUP_VOCABULARY,
+            1,
+        )
+        .is_err()
+    );
 }

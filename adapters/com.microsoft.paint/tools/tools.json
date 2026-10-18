@@ -390,6 +390,67 @@
     {
       "schema": {
         "version": "1.0",
+        "name": "paint.size.select",
+        "description": "Select the shape stroke width (大小) inside the ribbon's 形状 group using its group-local path.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": {
+                "type": "string",
+                "enum": ["1 像素", "3 像素", "5 像素", "8 像素"]
+              }
+            }
+          },
+          "required": ["path"],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "selected_leaf": {"type": "string"},
+            "previous_leaf": {"type": "string"},
+            "selected_path": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": {"type": "string"}
+            },
+            "path_depth": {"type": "integer", "minimum": 1, "maximum": 1},
+            "ui_state_readback": {"type": "boolean", "const": false}
+          },
+          "required": ["selected_leaf", "previous_leaf", "selected_path", "path_depth", "ui_state_readback"],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l2_compensation",
+        "risk_level": "medium",
+        "requires_approval": false,
+        "idempotent": true,
+        "tags": ["paint", "shape", "size", "select"]
+      },
+      "postconditions": [
+        {
+          "kind": "value_equals",
+          "name": "selected_path",
+          "value": "{{path}}",
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "value_in_range",
+          "name": "path_depth",
+          "min": 1,
+          "max": 1,
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
         "name": "paint.color.select_foreground",
         "description": "Set the foreground color and read the active color state back.",
         "input": {

@@ -61,6 +61,8 @@ pub const TOOL_BRUSH_SELECT: &str = "paint.brush.select";
 pub const TOOL_OUTLINE_SELECT: &str = "paint.outline.select";
 /// `paint.fill.select` tool name.
 pub const TOOL_FILL_SELECT: &str = "paint.fill.select";
+/// `paint.size.select` tool name.
+pub const TOOL_SIZE_SELECT: &str = "paint.size.select";
 /// `paint.color.select_foreground` tool name.
 pub const TOOL_COLOR_SELECT_FOREGROUND: &str = "paint.color.select_foreground";
 /// `paint.layer.select` tool name.
@@ -81,6 +83,7 @@ const TARGET_SHAPES_TOGGLE: &str = "shapes_gallery_toggle";
 const TARGET_BRUSH_TOGGLE: &str = "brush_tool_button";
 const TARGET_SHAPE_OUTLINE_TOGGLE: &str = "shape_outline_button";
 const TARGET_SHAPE_FILL_TOGGLE: &str = "shape_fill_button";
+const TARGET_SHAPE_SIZE_TOGGLE: &str = "shape_size_button";
 /// MCP code agreed with `assistant-tool-bus`; maps to `ErrorCode::UserInteraction`.
 const MCP_USER_INTERACTION: i32 = -32_010;
 /// Measured Windows 11 Paint 11.2605.81.0 palette order and RGB values.
@@ -123,6 +126,7 @@ struct PaintSelectionState {
     brush_leaf: Option<String>,
     outline_leaf: Option<String>,
     fill_leaf: Option<String>,
+    size_leaf: Option<String>,
     color: Option<String>,
     layer: Option<PaintLayerSelection>,
     start_point: Option<ResolvedCanvasPoint>,
