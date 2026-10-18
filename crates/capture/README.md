@@ -39,3 +39,20 @@ zero-dependency orchestration is implemented by TASK-041 split A.
   over-limit step counts.
 - Pixel masking, image codecs, and real platform screenshot implementation
   remain outside this crate.
+
+## Known Limitations
+
+- **No image codec or perceptual hash.** Pixel masking, BGRA encoding and
+  pHash / dHash are not implemented here; they need a registered,
+  ADR-approved dependency and their own card.
+- **No platform screenshot.** The only primitive is the injected
+  `WindowProvider::capture`; the Windows implementation lives in
+  `crates/platform/windows`, so this crate is unusable without a provider.
+- **Redaction is applied, not classified.** Rules must already be classified by
+  the caller (`crates/dlp` owns the rule model); an unclassified region is never
+  discovered here.
+- **`ScrollCleanupPlan` is a plan, not a merge.** It validates direction and step
+  bounds; performing the actual image merge needs the codec above.
+- **Retention is a decision, not storage.** `NeverPersist` drops the returned
+  `ImageRef`; blob persistence is injected by the assembly layer
+  (`ImageBlobSink`, ADR-0076).
