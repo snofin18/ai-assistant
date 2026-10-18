@@ -1,6 +1,6 @@
 # TASK-313　`fallback_only` 升格为运行时字段（ADR-0095 落地）
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：1　子阶段：**1b**　批次：Paint 真机链路 / 治理　依赖：TASK-309、TASK-312
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
