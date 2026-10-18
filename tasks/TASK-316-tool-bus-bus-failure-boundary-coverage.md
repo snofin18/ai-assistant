@@ -1,6 +1,6 @@
 # TASK-316　tool-bus `bus.rs` 私有失败边界契约覆盖率补强
 
-- 状态：Review
+- 状态：**Done**
 - 阶段：1　子阶段：1b　批次：跨阶段治理池　依赖：TASK-020 / TASK-299 / TASK-301 已 Done
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -118,6 +118,7 @@ cargo deny check
   `check-comments` 0E/68W，PASSED；`refscan` 0E/0W，scanned_files=946，PASSED；
   `docscan` 0E/264W，PASSED；`check-migrations` scanned=5 registry=5，PASSED；
   `verify-schemas` PASSED；`codegen --check` 0 drift / 0 error，PASSED；`cargo deny check` EXIT 0。
+- PR #462 / merge `7272f2b0f0814b1e4818ea2791effe590e9e2875` / CI run `39094663979` = 11/11 SUCCESS。
 - guard：`LEDGER.md` / `PLAN.md` / `README.md` / `plans/stage-1-pilots.md` acquire / release 成功；
   结束 `guard status` = NONE。
 
@@ -128,7 +129,7 @@ cargo deny check
 - [x] 生产逻辑零改动：仅新增 `#[cfg(test)]` 模块声明与测试文件；未改函数体、公共 API、依赖、schema、lint、CI。
 - [x] `fmt` / `clippy` / tool-bus 测试 / workspace 测试 / 覆盖率专项 / 全部 xtask 门禁 / deny 均通过。
 - [x] 9 节记录填写；`LEDGER.md` 已追加一行。
-- [ ] PR / CI / merge hash：待本 PR 推送与 CI 完成后回填。
+- [x] PR #462 / merge `7272f2b0f0814b1e4818ea2791effe590e9e2875`；pull_request CI run `39094663979` = **11/11 SUCCESS**。
 - [x] 无 Out of scope 文件被修改。
 
 ### 5. 偏差
