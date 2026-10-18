@@ -1,7 +1,7 @@
 //! Paint adapter registry and reserved-operation bridge.
 //!
 //! Responsibilities:
-//! - load `tools.json` and register exactly the seven T3.1 Paint handlers;
+//! - load `tools.json` and register exactly the declared Paint handlers;
 //! - provide the reserved initial-fingerprint operation used by the task package;
 //! - fail explicitly for Notepad-only host operations that Paint does not use.
 //!
@@ -11,7 +11,7 @@
 //!
 //! Invariants:
 //! 1. the mounted Paint set is exactly `PAINT_EXPECTED_TOOL_NAMES`;
-//! 2. future declared Paint tools remain in the adapter catalog but are not mounted;
+//! 2. declared Paint tools outside the selected subset stay unmounted and fail closed;
 //! 3. unsupported host operations return an explicit error rather than a placeholder.
 //!
 //! Related documents: ADR-0084, ADR-0085, and `adapters/com.microsoft.paint/tools/tools.json`.
@@ -28,9 +28,9 @@ use crate::notepad_registry::{
 };
 use crate::notepad_targets::NotepadTargetCatalog;
 use crate::paint_handlers::{
-    PaintHandlerContext, TOOL_CANVAS_CAPTURE_PIXELS, TOOL_CANVAS_DRAW_RECTANGLE,
+    PaintHandlerContext, TOOL_BRUSH_SELECT, TOOL_CANVAS_CAPTURE_PIXELS, TOOL_CANVAS_DRAW_RECTANGLE,
     TOOL_CANVAS_RESOLVE_POINT, TOOL_COLOR_SELECT_FOREGROUND, TOOL_DOCUMENT_NEW, TOOL_LAYER_SELECT,
-    TOOL_TOOL_SELECT, build_handler_map,
+    TOOL_SHAPE_SELECT, TOOL_TOOL_SELECT, build_handler_map,
 };
 use crate::runtime_host_ops::{ReservedHostOperationError, ReservedHostOperations};
 use crate::target_lease::TargetLeaseGate;
@@ -39,6 +39,11 @@ use crate::target_lease::TargetLeaseGate;
 pub const PAINT_REQUIRED_TARGETS: &[&str] = &[
     "main_window",
     "rectangle_tool_button",
+    "pencil_tool_button",
+    "brush_tool_button",
+    "eraser_tool_button",
+    "fill_tool_button",
+    "shapes_gallery_toggle",
     "foreground_color_button",
     "layers_panel",
     "layer_item",
@@ -50,6 +55,8 @@ pub const PAINT_REQUIRED_TARGETS: &[&str] = &[
 pub const PAINT_EXPECTED_TOOL_NAMES: &[&str] = &[
     TOOL_DOCUMENT_NEW,
     TOOL_TOOL_SELECT,
+    TOOL_SHAPE_SELECT,
+    TOOL_BRUSH_SELECT,
     TOOL_COLOR_SELECT_FOREGROUND,
     TOOL_LAYER_SELECT,
     TOOL_CANVAS_RESOLVE_POINT,

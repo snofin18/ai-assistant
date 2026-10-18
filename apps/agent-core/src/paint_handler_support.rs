@@ -15,15 +15,158 @@ use super::{
 };
 use crate::handler_support as support;
 
-pub(super) fn tool_target(tool: &str) -> Option<&'static str> {
-    match tool {
-        "pencil" => Some("pencil_tool_button"),
-        "brush" => Some("brush_tool_button"),
-        "eraser" => Some("eraser_tool_button"),
-        "fill" => Some("fill_tool_button"),
-        "rectangle" => Some(TARGET_RECTANGLE_TOOL),
+pub(super) const TOOL_GROUP_VOCABULARY: &[&str] =
+    &["铅笔", "填充", "文本", "橡皮擦", "颜色选取器", "放大镜"];
+
+pub(super) const SHAPE_GROUP_VOCABULARY: &[&str] = &[
+    "直线",
+    "曲线",
+    "椭圆",
+    "矩形",
+    "圆角矩形",
+    "多边形",
+    "三角形",
+    "直角三角形",
+    "菱形",
+    "五边形",
+    "六边形",
+    "向右键",
+    "向左键",
+    "向上箭头",
+    "向下箭头",
+    "四角星",
+    "五角星",
+    "六角星",
+    "圆角矩形标注",
+    "椭圆形标注",
+    "云形标注",
+    "心形",
+    "闪电",
+];
+
+pub(super) const BRUSH_GROUP_VOCABULARY: &[&str] = &[
+    "画笔",
+    "毛笔",
+    "书写笔",
+    "喷枪",
+    "油画笔",
+    "蜡笔",
+    "记号笔",
+    "普通铅笔",
+    "水彩画笔",
+];
+
+pub(super) fn tool_target(leaf: &str) -> Option<&'static str> {
+    match leaf {
+        "铅笔" => Some("pencil_tool_button"),
+        "填充" => Some("fill_tool_button"),
+        "文本" => Some("text_tool_button"),
+        "橡皮擦" => Some("eraser_tool_button"),
+        "颜色选取器" => Some("color_picker_tool_button"),
+        "放大镜" => Some("magnifier_tool_button"),
         _ => None,
     }
+}
+
+pub(super) fn tool_state_id(leaf: &str) -> Option<&'static str> {
+    match leaf {
+        "铅笔" => Some("pencil"),
+        "填充" => Some("fill"),
+        "文本" => Some("text"),
+        "橡皮擦" => Some("eraser"),
+        "颜色选取器" => Some("color_picker"),
+        "放大镜" => Some("magnifier"),
+        _ => None,
+    }
+}
+
+pub(super) fn shape_target(leaf: &str) -> Option<&'static str> {
+    match leaf {
+        "直线" => Some("shape_line_button"),
+        "曲线" => Some("shape_curve_button"),
+        "椭圆" => Some("shape_ellipse_button"),
+        "矩形" => Some(TARGET_RECTANGLE_TOOL),
+        "圆角矩形" => Some("shape_rounded_rectangle_button"),
+        "多边形" => Some("shape_polygon_button"),
+        "三角形" => Some("shape_triangle_button"),
+        "直角三角形" => Some("shape_right_triangle_button"),
+        "菱形" => Some("shape_diamond_button"),
+        "五边形" => Some("shape_pentagon_button"),
+        "六边形" => Some("shape_hexagon_button"),
+        "向右键" => Some("shape_right_arrow_button"),
+        "向左键" => Some("shape_left_arrow_button"),
+        "向上箭头" => Some("shape_up_arrow_button"),
+        "向下箭头" => Some("shape_down_arrow_button"),
+        "四角星" => Some("shape_four_point_star_button"),
+        "五角星" => Some("shape_five_point_star_button"),
+        "六角星" => Some("shape_six_point_star_button"),
+        "圆角矩形标注" => Some("shape_rounded_rectangle_callout_button"),
+        "椭圆形标注" => Some("shape_oval_callout_button"),
+        "云形标注" => Some("shape_cloud_callout_button"),
+        "心形" => Some("shape_heart_button"),
+        "闪电" => Some("shape_lightning_button"),
+        _ => None,
+    }
+}
+
+pub(super) fn shape_state_id(leaf: &str) -> &str {
+    match leaf {
+        "矩形" => "rectangle",
+        other => other,
+    }
+}
+
+pub(super) fn brush_target(leaf: &str) -> Option<&'static str> {
+    match leaf {
+        "画笔" => Some("brush_style_brush"),
+        "毛笔" => Some("brush_style_calligraphy"),
+        "书写笔" => Some("brush_style_marker"),
+        "喷枪" => Some("brush_style_airbrush"),
+        "油画笔" => Some("brush_style_oil"),
+        "蜡笔" => Some("brush_style_crayon"),
+        "记号笔" => Some("brush_style_highlighter"),
+        "普通铅笔" => Some("brush_style_pencil"),
+        "水彩画笔" => Some("brush_style_watercolor"),
+        _ => None,
+    }
+}
+
+pub(super) fn required_selection_path(
+    arguments: &Map<String, Value>,
+    tool: &str,
+    vocabulary: &[&str],
+    max_depth: usize,
+) -> Result<Vec<String>, ToolBusError> {
+    let values = arguments
+        .get("path")
+        .and_then(Value::as_array)
+        .ok_or_else(|| support::invalid_arguments(tool, "path must be an array"))?;
+    if values.is_empty() {
+        return Err(support::invalid_arguments(
+            tool,
+            "path must contain at least one element",
+        ));
+    }
+    if values.len() > max_depth {
+        return Err(support::invalid_arguments(
+            tool,
+            format!("path must contain at most {max_depth} elements"),
+        ));
+    }
+    let mut path = Vec::with_capacity(values.len());
+    for value in values {
+        let element = value.as_str().ok_or_else(|| {
+            support::invalid_arguments(tool, "every path element must be a string")
+        })?;
+        if !vocabulary.contains(&element) {
+            return Err(support::invalid_arguments(
+                tool,
+                format!("path element `{element}` is not in this group's vocabulary"),
+            ));
+        }
+        path.push(element.to_owned());
+    }
+    Ok(path)
 }
 
 pub(super) fn parse_draw_request(

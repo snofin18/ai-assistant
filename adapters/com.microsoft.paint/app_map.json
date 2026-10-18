@@ -49,9 +49,9 @@
     {
       "intent": "select_brush",
       "shortcut": "B",
-      "tool": "paint.tool.select",
+      "tool": "paint.brush.select",
       "reliable": false,
-      "notes": "Prefer verified UIA selection over shortcut input."
+      "notes": "Brush style is orthogonal to the active tool; prefer verified UIA selection over shortcut input."
     },
     {
       "intent": "select_fill",
@@ -63,9 +63,9 @@
     {
       "intent": "select_rectangle",
       "shortcut": "R",
-      "tool": "paint.tool.select",
+      "tool": "paint.shape.select",
       "reliable": false,
-      "notes": "The shape tool may be inside a split button on newer Paint versions."
+      "notes": "The shape gallery may be collapsed; expand it before selecting a shape path."
     },
     {
       "intent": "select_eraser",
@@ -175,7 +175,7 @@
       "name": "T3.1 new canvas rectangle",
       "steps": [
         "paint.document.new",
-        "paint.tool.select",
+        "paint.shape.select",
         "paint.color.select_foreground",
         "paint.layer.select",
         "paint.canvas.resolve_point",
@@ -220,6 +220,7 @@
     "Canvas coordinates are not screen coordinates; zoom and scroll offsets must be applied for every write.",
     "The canvas is self-drawn and has no actionable child-control tree.",
     "The active drawing tool, color, and layer are implicit state and must be read back.",
+    "Tool and brush style are separate ribbon groups; changing one must not be modeled as changing the other.",
     "Anti-aliasing and alpha blending make exact pixel equality unreliable.",
     "A drag interrupted mid-way can leave a partial stroke.",
     "Layer selection determines where drawing lands; virtualized layer lists may instantiate only visible rows.",

@@ -743,11 +743,11 @@ async fn test_paint_t3_1_runs_to_completed_on_the_fake_platform()
         assert!(state.drawn, "draw_rectangle's drag must have run");
         assert_eq!(
             state.tool, "rectangle",
-            "paint.tool.select must have selected the rectangle tool via synthetic click"
+            "paint.shape.select must have selected the rectangle tool via synthetic click"
         );
         // ADR-0092 细则 5 machine check: one `click_element_center` =
         // 1x element_geometry + 1x window_geometry + 1x pointer_action(Click).
-        // The run executes exactly one `paint.tool.select`, and the two geometry
+        // The run executes exactly one `paint.shape.select`, and the two geometry
         // queries are used only by the click primitive.
         assert_eq!(state.element_geometry_calls, 1);
         assert_eq!(state.window_geometry_calls, 1);

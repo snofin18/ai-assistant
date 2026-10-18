@@ -8,9 +8,9 @@ use assistant_tool_bus::{CallContext, ToolBusError, ToolHandler, ToolOutput};
 use serde_json::{Map, Value};
 
 use super::{
-    PaintHandlerContext, TOOL_CANVAS_CAPTURE_PIXELS, TOOL_CANVAS_DRAW_RECTANGLE,
+    PaintHandlerContext, TOOL_BRUSH_SELECT, TOOL_CANVAS_CAPTURE_PIXELS, TOOL_CANVAS_DRAW_RECTANGLE,
     TOOL_CANVAS_RESOLVE_POINT, TOOL_COLOR_SELECT_FOREGROUND, TOOL_DOCUMENT_NEW, TOOL_LAYER_SELECT,
-    TOOL_TOOL_SELECT,
+    TOOL_SHAPE_SELECT, TOOL_TOOL_SELECT,
 };
 
 pub fn build_handler_map<P>(
@@ -29,6 +29,18 @@ where
     handlers.insert(
         TOOL_TOOL_SELECT.to_owned(),
         Arc::new(ToolSelectHandler {
+            context: Arc::clone(context),
+        }),
+    );
+    handlers.insert(
+        TOOL_SHAPE_SELECT.to_owned(),
+        Arc::new(ShapeSelectHandler {
+            context: Arc::clone(context),
+        }),
+    );
+    handlers.insert(
+        TOOL_BRUSH_SELECT.to_owned(),
+        Arc::new(BrushSelectHandler {
             context: Arc::clone(context),
         }),
     );
@@ -92,10 +104,44 @@ where
 {
     fn call(
         &self,
+        _call: &CallContext,
+        arguments: &Map<String, Value>,
+    ) -> Result<ToolOutput, ToolBusError> {
+        self.context.select_tool_output(arguments)
+    }
+}
+
+struct ShapeSelectHandler<P> {
+    context: Arc<PaintHandlerContext<P>>,
+}
+
+impl<P> ToolHandler for ShapeSelectHandler<P>
+where
+    P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
+{
+    fn call(
+        &self,
         call: &CallContext,
         arguments: &Map<String, Value>,
     ) -> Result<ToolOutput, ToolBusError> {
-        self.context.select_tool_output(call.task_id(), arguments)
+        self.context.select_shape_output(call.task_id(), arguments)
+    }
+}
+
+struct BrushSelectHandler<P> {
+    context: Arc<PaintHandlerContext<P>>,
+}
+
+impl<P> ToolHandler for BrushSelectHandler<P>
+where
+    P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
+{
+    fn call(
+        &self,
+        _call: &CallContext,
+        arguments: &Map<String, Value>,
+    ) -> Result<ToolOutput, ToolBusError> {
+        self.context.select_brush_output(arguments)
     }
 }
 

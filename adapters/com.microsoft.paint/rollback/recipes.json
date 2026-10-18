@@ -54,19 +54,61 @@
       "tool": "paint.tool.select",
       "preconditions": [
         "The previous selected tool was read before the change.",
-        "The requested tool maps to a declared selector target."
+        "The requested tool path is in the 工具 group's declared vocabulary."
       ],
       "anchor_strategy": [
         {
           "level": "L2",
           "mechanism": "compensating_action",
-          "restore": "select_previous_tool_and_read_selected_state_back",
-          "post_verify": "selected_tool_equals_previous_tool"
+          "restore": "select_previous_tool_leaf",
+          "post_verify": "selected_leaf_equals_previous_leaf"
         }
       ],
       "on_rollback_failure": "publish_incident_and_require_human",
       "notes": [
-        "Tool state is not document content and is not covered by Ctrl+Z."
+        "Tool state is not document content and is not covered by Ctrl+Z.",
+        "ToggleState is sticky in Paint 11, so the output reports ui_state_readback=false instead of claiming a UI readback."
+      ]
+    },
+    {
+      "id": "shape-selection-l2",
+      "tool": "paint.shape.select",
+      "preconditions": [
+        "The previous selected shape was read from the local declared path state before the change.",
+        "The requested shape path is in the 形状 group's declared vocabulary."
+      ],
+      "anchor_strategy": [
+        {
+          "level": "L2",
+          "mechanism": "compensating_action",
+          "restore": "select_previous_shape_leaf",
+          "post_verify": "selected_leaf_equals_previous_leaf"
+        }
+      ],
+      "on_rollback_failure": "publish_incident_and_require_human",
+      "notes": [
+        "Shape selection is state, not canvas content.",
+        "The handler clicks the measured shape item because TogglePattern is a no-op for shape items."
+      ]
+    },
+    {
+      "id": "brush-selection-l2",
+      "tool": "paint.brush.select",
+      "preconditions": [
+        "The previous brush style was read from the local declared path state before the change.",
+        "The requested brush path is in the 画笔 group's declared vocabulary."
+      ],
+      "anchor_strategy": [
+        {
+          "level": "L2",
+          "mechanism": "compensating_action",
+          "restore": "select_previous_brush_leaf",
+          "post_verify": "selected_leaf_equals_previous_leaf"
+        }
+      ],
+      "on_rollback_failure": "publish_incident_and_require_human",
+      "notes": [
+        "Brush style is orthogonal to the active tool; changing it must not toggle the tool axis."
       ]
     },
     {

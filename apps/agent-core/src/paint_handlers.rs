@@ -41,14 +41,20 @@ mod paint_handler_support;
 pub use paint_handler_map::build_handler_map;
 use paint_handler_selection::{ResolvedPointSlot, paint_layer_contract, palette_index};
 use paint_handler_support::{
-    bounds_json, canvas_point_to_physical, elapsed_ms, image_descriptor, parse_canvas_size,
+    BRUSH_GROUP_VOCABULARY, SHAPE_GROUP_VOCABULARY, TOOL_GROUP_VOCABULARY, bounds_json,
+    brush_target, canvas_point_to_physical, elapsed_ms, image_descriptor, parse_canvas_size,
     parse_coordinate_space, parse_draw_request, required_i32, required_non_negative_i32,
-    required_positive_f64, required_string, required_u8, tool_target, unavailable, verify_failed,
+    required_positive_f64, required_selection_path, required_string, required_u8, shape_state_id,
+    shape_target, tool_state_id, tool_target, unavailable, verify_failed,
 };
 /// `paint.document.new` tool name.
 pub const TOOL_DOCUMENT_NEW: &str = "paint.document.new";
 /// `paint.tool.select` tool name.
 pub const TOOL_TOOL_SELECT: &str = "paint.tool.select";
+/// `paint.shape.select` tool name.
+pub const TOOL_SHAPE_SELECT: &str = "paint.shape.select";
+/// `paint.brush.select` tool name.
+pub const TOOL_BRUSH_SELECT: &str = "paint.brush.select";
 /// `paint.color.select_foreground` tool name.
 pub const TOOL_COLOR_SELECT_FOREGROUND: &str = "paint.color.select_foreground";
 /// `paint.layer.select` tool name.
@@ -66,6 +72,7 @@ const TARGET_LAYER_ITEM: &str = "layer_item";
 const TARGET_STATUS_BAR: &str = "status_bar";
 const TARGET_CANVAS: &str = "canvas";
 const TARGET_SHAPES_TOGGLE: &str = "shapes_gallery_toggle";
+const TARGET_BRUSH_TOGGLE: &str = "brush_tool_button";
 /// MCP code agreed with `assistant-tool-bus`; maps to `ErrorCode::UserInteraction`.
 const MCP_USER_INTERACTION: i32 = -32_010;
 /// Measured Windows 11 Paint 11.2605.81.0 palette order and RGB values.
@@ -103,6 +110,9 @@ struct PaintLayerSelection {
 #[derive(Debug, Default)]
 struct PaintSelectionState {
     tool: Option<String>,
+    tool_leaf: Option<String>,
+    shape_leaf: Option<String>,
+    brush_leaf: Option<String>,
     color: Option<String>,
     layer: Option<PaintLayerSelection>,
     start_point: Option<ResolvedCanvasPoint>,
@@ -251,45 +261,134 @@ where
     }
     fn select_tool_output(
         &self,
-        task_id: &str,
         arguments: &Map<String, Value>,
     ) -> Result<ToolOutput, ToolBusError> {
-        let tool_name = required_string(arguments, "tool", TOOL_TOOL_SELECT)?;
-        if tool_target(tool_name).is_none() {
-            return Err(support::invalid_arguments(
+        let path = required_selection_path(arguments, TOOL_TOOL_SELECT, TOOL_GROUP_VOCABULARY, 1)?;
+        let leaf = path
+            .first()
+            .ok_or_else(|| support::invalid_arguments(TOOL_TOOL_SELECT, "path must not be empty"))?
+            .as_str();
+        let target = tool_target(leaf).ok_or_else(|| {
+            support::invalid_arguments(
                 TOOL_TOOL_SELECT,
-                format!("tool `{tool_name}` has no declared Paint target"),
-            ));
-        }
-        if tool_name != "rectangle" {
-            return Err(support::invalid_arguments(
+                format!("tool path `{leaf}` has no declared Paint target"),
+            )
+        })?;
+        let state_id = tool_state_id(leaf).ok_or_else(|| {
+            support::invalid_arguments(
                 TOOL_TOOL_SELECT,
-                format!(
-                    "tool `{tool_name}` is not calibrated for the Paint T3.1 runtime; \
-                     only `rectangle` is currently supported"
-                ),
-            ));
-        }
+                format!("tool path `{leaf}` has no declared runtime state id"),
+            )
+        })?;
         let window = self.resolve_window(TARGET_MAIN_WINDOW, TOOL_TOOL_SELECT)?;
-        let shape_item = self.wait_for_shape_item(&window, TOOL_TOOL_SELECT)?;
-        let previous_tool = self
+        let element = self.resolve_element(target, &window, TOOL_TOOL_SELECT)?;
+        let previous_leaf = self
             .selection_tool()?
             .unwrap_or_else(|| "unknown".to_owned());
         let before = self.fingerprint_event(&window, TOOL_TOOL_SELECT)?;
         let started = Instant::now();
-        // 实测（`docs/memory/apps/paint.md` §11 / `DRIFT-256-5`）：形状项是 `Button|矩形`，
-        // 全树唯一，但 `TogglePattern.Toggle()` 两向都是**空操作**，且它**无** `InvokePattern` /
-        // `SelectionItemPattern` —— 没有任何可用 UIA pattern 能改状态。所以走 L4 合成点击
-        // （`click_element_center`：取几何 → 窗口内断言 → 租约内 `Click`），这是产品主线通道。
-        self.click_element_center(task_id, &window, &shape_item, TOOL_TOOL_SELECT)?;
+        self.invoke_element(&element, "toggle", TOOL_TOOL_SELECT)?;
         self.selection
             .lock()
             .map_err(|_| unavailable("paint selection state"))?
-            .tool = Some(tool_name.to_owned());
+            .tool = Some(state_id.to_owned());
+        self.selection
+            .lock()
+            .map_err(|_| unavailable("paint selection state"))?
+            .tool_leaf = Some(leaf.to_owned());
         let after = self.fingerprint_event(&window, TOOL_TOOL_SELECT)?;
         Ok(ToolOutput::json(json!({
-            "selected_tool": tool_name,
-            "previous_tool": previous_tool,
+            "selected_leaf": leaf,
+            "previous_leaf": previous_leaf,
+            "selected_path": path,
+            "path_depth": 1,
+            "ui_state_readback": false,
+            "fingerprint": after.as_str(),
+            "previous_fingerprint": before.as_str(),
+            "elapsed_ms": elapsed_ms(started),
+        })))
+    }
+    fn select_shape_output(
+        &self,
+        task_id: &str,
+        arguments: &Map<String, Value>,
+    ) -> Result<ToolOutput, ToolBusError> {
+        let path =
+            required_selection_path(arguments, TOOL_SHAPE_SELECT, SHAPE_GROUP_VOCABULARY, 1)?;
+        let leaf = path
+            .first()
+            .ok_or_else(|| support::invalid_arguments(TOOL_SHAPE_SELECT, "path must not be empty"))?
+            .as_str();
+        let target = shape_target(leaf).ok_or_else(|| {
+            support::invalid_arguments(
+                TOOL_SHAPE_SELECT,
+                format!("shape path `{leaf}` has no declared Paint target"),
+            )
+        })?;
+        let window = self.resolve_window(TARGET_MAIN_WINDOW, TOOL_SHAPE_SELECT)?;
+        let shape_item = self.wait_for_shape_item(&window, target, TOOL_SHAPE_SELECT)?;
+        let previous_leaf = self
+            .selection_shape()?
+            .unwrap_or_else(|| "unknown".to_owned());
+        let before = self.fingerprint_event(&window, TOOL_SHAPE_SELECT)?;
+        let started = Instant::now();
+        // 实测：形状项没有可用 UIA pattern，只能走 L4 合成点击（DRIFT-256-5）。
+        self.click_element_center(task_id, &window, &shape_item, TOOL_SHAPE_SELECT)?;
+        self.selection
+            .lock()
+            .map_err(|_| unavailable("paint selection state"))?
+            .tool = Some(shape_state_id(leaf).to_owned());
+        self.selection
+            .lock()
+            .map_err(|_| unavailable("paint selection state"))?
+            .shape_leaf = Some(leaf.to_owned());
+        let after = self.fingerprint_event(&window, TOOL_SHAPE_SELECT)?;
+        Ok(ToolOutput::json(json!({
+            "selected_leaf": leaf,
+            "previous_leaf": previous_leaf,
+            "selected_path": path,
+            "path_depth": 1,
+            "ui_state_readback": false,
+            "fingerprint": after.as_str(),
+            "previous_fingerprint": before.as_str(),
+            "elapsed_ms": elapsed_ms(started),
+        })))
+    }
+    fn select_brush_output(
+        &self,
+        arguments: &Map<String, Value>,
+    ) -> Result<ToolOutput, ToolBusError> {
+        let path =
+            required_selection_path(arguments, TOOL_BRUSH_SELECT, BRUSH_GROUP_VOCABULARY, 1)?;
+        let leaf = path
+            .first()
+            .ok_or_else(|| support::invalid_arguments(TOOL_BRUSH_SELECT, "path must not be empty"))?
+            .as_str();
+        let target = brush_target(leaf).ok_or_else(|| {
+            support::invalid_arguments(
+                TOOL_BRUSH_SELECT,
+                format!("brush path `{leaf}` has no declared Paint target"),
+            )
+        })?;
+        let window = self.resolve_window(TARGET_MAIN_WINDOW, TOOL_BRUSH_SELECT)?;
+        let brush_item = self.wait_for_brush_item(&window, target, TOOL_BRUSH_SELECT)?;
+        let previous_leaf = self
+            .selection_brush()?
+            .unwrap_or_else(|| "unknown".to_owned());
+        let before = self.fingerprint_event(&window, TOOL_BRUSH_SELECT)?;
+        let started = Instant::now();
+        self.invoke_element(&brush_item, "invoke", TOOL_BRUSH_SELECT)?;
+        self.selection
+            .lock()
+            .map_err(|_| unavailable("paint selection state"))?
+            .brush_leaf = Some(leaf.to_owned());
+        let after = self.fingerprint_event(&window, TOOL_BRUSH_SELECT)?;
+        Ok(ToolOutput::json(json!({
+            "selected_leaf": leaf,
+            "previous_leaf": previous_leaf,
+            "selected_path": path,
+            "path_depth": 1,
+            "ui_state_readback": false,
             "fingerprint": after.as_str(),
             "previous_fingerprint": before.as_str(),
             "elapsed_ms": elapsed_ms(started),
@@ -580,8 +679,12 @@ fn blocked_by_popup(tool: &str) -> ToolBusError {
 mod tests {
     #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-    use super::paint_handler_support::{parse_canvas_size, rounded_i32};
+    use super::paint_handler_support::{
+        BRUSH_GROUP_VOCABULARY, SHAPE_GROUP_VOCABULARY, TOOL_GROUP_VOCABULARY, brush_target,
+        parse_canvas_size, required_selection_path, rounded_i32, shape_target, tool_target,
+    };
     use super::{paint_layer_contract, palette_index};
+    use assistant_protocol::serde_json::json;
     #[test]
     fn test_parse_canvas_size_reads_first_two_integers() {
         assert_eq!(parse_canvas_size("418 x 74 px"), Some((418, 74)));
@@ -607,5 +710,82 @@ mod tests {
     fn test_paint_layer_contract_rejects_unmeasured_layer_ids() {
         assert_eq!(paint_layer_contract("layer-1"), Some((0, "Layer 1")));
         assert_eq!(paint_layer_contract("layer-0"), None);
+    }
+
+    #[test]
+    fn test_selection_paths_are_group_local_and_bounded() {
+        let tool_arguments = json!({"path": ["铅笔"]});
+        let tool_arguments = tool_arguments.as_object().expect("object");
+        assert_eq!(
+            required_selection_path(
+                tool_arguments,
+                "paint.tool.select",
+                TOOL_GROUP_VOCABULARY,
+                1,
+            )
+            .expect("tool path"),
+            vec!["铅笔"]
+        );
+        assert!(tool_target("铅笔").is_some());
+
+        let shape_arguments = json!({"path": ["矩形"]});
+        assert_eq!(
+            required_selection_path(
+                shape_arguments.as_object().expect("object"),
+                "paint.shape.select",
+                SHAPE_GROUP_VOCABULARY,
+                1,
+            )
+            .expect("shape path"),
+            vec!["矩形"]
+        );
+        assert_eq!(shape_target("矩形"), Some(super::TARGET_RECTANGLE_TOOL));
+
+        let brush_arguments = json!({"path": ["毛笔"]});
+        assert_eq!(
+            required_selection_path(
+                brush_arguments.as_object().expect("object"),
+                "paint.brush.select",
+                BRUSH_GROUP_VOCABULARY,
+                1,
+            )
+            .expect("brush path"),
+            vec!["毛笔"]
+        );
+        assert!(brush_target("毛笔").is_some());
+    }
+
+    #[test]
+    fn test_selection_path_rejects_cross_group_and_over_depth_values() {
+        let cross_group = json!({"path": ["长方形"]});
+        assert!(
+            required_selection_path(
+                cross_group.as_object().expect("object"),
+                "paint.shape.select",
+                SHAPE_GROUP_VOCABULARY,
+                1,
+            )
+            .is_err()
+        );
+        let too_deep = json!({"path": ["形状", "矩形"]});
+        assert!(
+            required_selection_path(
+                too_deep.as_object().expect("object"),
+                "paint.shape.select",
+                SHAPE_GROUP_VOCABULARY,
+                1,
+            )
+            .is_err()
+        );
+        let empty = json!({"path": []});
+        assert!(
+            required_selection_path(
+                empty.as_object().expect("object"),
+                "paint.tool.select",
+                TOOL_GROUP_VOCABULARY,
+                1,
+            )
+            .is_err()
+        );
     }
 }

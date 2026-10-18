@@ -27,6 +27,7 @@
     "canvas_width_px": "integer",
     "canvas_height_px": "integer",
     "selected_tool": "string",
+    "selected_leaf": "string",
     "foreground_rgb": "string",
     "active_layer_id": "string",
     "pre_snapshot_blob_id": "string",
@@ -57,9 +58,9 @@
     {
       "id": "select_rectangle_tool",
       "kind": "tool",
-      "tool": "paint.tool.select",
-      "args": {"tool": "rectangle"},
-      "outputs": ["selected_tool", "previous_tool"]
+      "tool": "paint.shape.select",
+      "args": {"path": ["矩形"]},
+      "outputs": ["selected_leaf", "previous_leaf"]
     },
     {
       "id": "select_foreground_color",
@@ -170,8 +171,8 @@
   ],
   "postconditions": [
     {
-      "id": "selected_tool_is_rectangle",
-      "description": "selected_tool is rectangle after selection and before draw.",
+      "id": "selected_shape_is_rectangle",
+      "description": "selected_leaf is 矩形 after selection and before draw.",
       "error_code": "VerifyFailed"
     },
     {

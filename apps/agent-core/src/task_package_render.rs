@@ -355,11 +355,14 @@ fn paint_selection_assertions(tool: &str, arguments: &Value) -> Option<Vec<Value
                 "within_ms": STATE_CHANGED_WINDOW_MS,
             }),
         ]),
-        "paint.tool.select" => Some(vec![json!({
-            "kind": "value_equals",
-            "name": "selected_tool",
-            "value": arguments.get("tool")?,
-        })]),
+        "paint.tool.select" | "paint.shape.select" | "paint.brush.select" => {
+            let leaf = arguments.get("path")?.as_array()?.last()?.as_str()?;
+            Some(vec![json!({
+                "kind": "value_equals",
+                "name": "selected_leaf",
+                "value": leaf,
+            })])
+        }
         "paint.color.select_foreground" => {
             let red = arguments.get("red")?;
             let green = arguments.get("green")?;

@@ -52,25 +52,38 @@
       "schema": {
         "version": "1.0",
         "name": "paint.tool.select",
-        "description": "Select a Paint tool through UIA and read the selected state back.",
+        "description": "Select one Paint tool inside the ribbon's 工具 group using its group-local path.",
         "input": {
           "type": "object",
           "properties": {
-            "tool": {
-              "type": "string",
-              "enum": ["pencil", "brush", "eraser", "fill", "rectangle", "ellipse", "line", "color_picker"]
+            "path": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": {
+                "type": "string",
+                "enum": ["铅笔", "填充", "文本", "橡皮擦", "颜色选取器", "放大镜"]
+              }
             }
           },
-          "required": ["tool"],
+          "required": ["path"],
           "additionalProperties": false
         },
         "output": {
           "type": "object",
           "properties": {
-            "selected_tool": {"type": "string"},
-            "previous_tool": {"type": "string"}
+            "selected_leaf": {"type": "string"},
+            "previous_leaf": {"type": "string"},
+            "selected_path": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": {"type": "string"}
+            },
+            "path_depth": {"type": "integer", "minimum": 1, "maximum": 1},
+            "ui_state_readback": {"type": "boolean", "const": false}
           },
-          "required": ["selected_tool", "previous_tool"],
+          "required": ["selected_leaf", "previous_leaf", "selected_path", "path_depth", "ui_state_readback"],
           "additionalProperties": false
         },
         "effect": "write",
@@ -83,8 +96,171 @@
       "postconditions": [
         {
           "kind": "value_equals",
-          "name": "selected_tool",
-          "value": "{{tool}}",
+          "name": "selected_path",
+          "value": "{{path}}",
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "value_in_range",
+          "name": "path_depth",
+          "min": 1,
+          "max": 1,
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "paint.shape.select",
+        "description": "Select one shape inside the ribbon's 形状 group using its group-local path.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "直线",
+                  "曲线",
+                  "椭圆",
+                  "矩形",
+                  "圆角矩形",
+                  "多边形",
+                  "三角形",
+                  "直角三角形",
+                  "菱形",
+                  "五边形",
+                  "六边形",
+                  "向右键",
+                  "向左键",
+                  "向上箭头",
+                  "向下箭头",
+                  "四角星",
+                  "五角星",
+                  "六角星",
+                  "圆角矩形标注",
+                  "椭圆形标注",
+                  "云形标注",
+                  "心形",
+                  "闪电"
+                ]
+              }
+            }
+          },
+          "required": ["path"],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "selected_leaf": {"type": "string"},
+            "previous_leaf": {"type": "string"},
+            "selected_path": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": {"type": "string"}
+            },
+            "path_depth": {"type": "integer", "minimum": 1, "maximum": 1},
+            "ui_state_readback": {"type": "boolean", "const": false}
+          },
+          "required": ["selected_leaf", "previous_leaf", "selected_path", "path_depth", "ui_state_readback"],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l2_compensation",
+        "risk_level": "medium",
+        "requires_approval": false,
+        "idempotent": true,
+        "tags": ["paint", "shape", "select"]
+      },
+      "postconditions": [
+        {
+          "kind": "value_equals",
+          "name": "selected_path",
+          "value": "{{path}}",
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "value_in_range",
+          "name": "path_depth",
+          "min": 1,
+          "max": 1,
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "paint.brush.select",
+        "description": "Select one brush style inside the ribbon's 画笔 group using its group-local path.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "画笔",
+                  "毛笔",
+                  "书写笔",
+                  "喷枪",
+                  "油画笔",
+                  "蜡笔",
+                  "记号笔",
+                  "普通铅笔",
+                  "水彩画笔"
+                ]
+              }
+            }
+          },
+          "required": ["path"],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "selected_leaf": {"type": "string"},
+            "previous_leaf": {"type": "string"},
+            "selected_path": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": {"type": "string"}
+            },
+            "path_depth": {"type": "integer", "minimum": 1, "maximum": 1},
+            "ui_state_readback": {"type": "boolean", "const": false}
+          },
+          "required": ["selected_leaf", "previous_leaf", "selected_path", "path_depth", "ui_state_readback"],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l2_compensation",
+        "risk_level": "medium",
+        "requires_approval": false,
+        "idempotent": true,
+        "tags": ["paint", "brush", "select"]
+      },
+      "postconditions": [
+        {
+          "kind": "value_equals",
+          "name": "selected_path",
+          "value": "{{path}}",
+          "error_code": "VerifyFailed"
+        },
+        {
+          "kind": "value_in_range",
+          "name": "path_depth",
+          "min": 1,
+          "max": 1,
           "error_code": "VerifyFailed"
         }
       ]

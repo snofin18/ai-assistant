@@ -178,6 +178,162 @@ def main() -> int:
         check(candidate.get("fallback_only") is not True,
               f"selector target {target_id}: {candidate_id} must not be fallback-only")
 
+    # ADR-0096: ribbon groups have group-local vocabularies. These targets were
+    # observed in the ControlView probe and must stay pinned to measured names.
+    measured_group_targets = {
+        "text_tool_button": ("text-tool-exact-name-and-role-fallback", "文本", "Button"),
+        "color_picker_tool_button": (
+            "color-picker-exact-name-and-role-fallback",
+            "颜色选取器",
+            "Button",
+        ),
+        "magnifier_tool_button": (
+            "magnifier-exact-name-and-role-fallback",
+            "放大镜",
+            "Button",
+        ),
+        "shape_line_button": ("shape-line-exact-name-and-role-fallback", "直线", "Button"),
+        "shape_curve_button": ("shape-curve-exact-name-and-role-fallback", "曲线", "Button"),
+        "shape_ellipse_button": ("shape-ellipse-exact-name-and-role-fallback", "椭圆", "Button"),
+        "shape_rounded_rectangle_button": (
+            "shape-rounded-rectangle-exact-name-and-role-fallback",
+            "圆角矩形",
+            "Button",
+        ),
+        "shape_polygon_button": ("shape-polygon-exact-name-and-role-fallback", "多边形", "Button"),
+        "shape_triangle_button": (
+            "shape-triangle-exact-name-and-role-fallback",
+            "三角形",
+            "Button",
+        ),
+        "shape_right_triangle_button": (
+            "shape-right-triangle-exact-name-and-role-fallback",
+            "直角三角形",
+            "Button",
+        ),
+        "shape_diamond_button": ("shape-diamond-exact-name-and-role-fallback", "菱形", "Button"),
+        "shape_pentagon_button": ("shape-pentagon-exact-name-and-role-fallback", "五边形", "Button"),
+        "shape_hexagon_button": ("shape-hexagon-exact-name-and-role-fallback", "六边形", "Button"),
+        "shape_right_arrow_button": (
+            "shape-right-arrow-exact-name-and-role-fallback",
+            "向右键",
+            "Button",
+        ),
+        "shape_left_arrow_button": (
+            "shape-left-arrow-exact-name-and-role-fallback",
+            "向左键",
+            "Button",
+        ),
+        "shape_up_arrow_button": (
+            "shape-up-arrow-exact-name-and-role-fallback",
+            "向上箭头",
+            "Button",
+        ),
+        "shape_down_arrow_button": (
+            "shape-down-arrow-exact-name-and-role-fallback",
+            "向下箭头",
+            "Button",
+        ),
+        "shape_four_point_star_button": (
+            "shape-four-point-star-exact-name-and-role-fallback",
+            "四角星",
+            "Button",
+        ),
+        "shape_five_point_star_button": (
+            "shape-five-point-star-exact-name-and-role-fallback",
+            "五角星",
+            "Button",
+        ),
+        "shape_six_point_star_button": (
+            "shape-six-point-star-exact-name-and-role-fallback",
+            "六角星",
+            "Button",
+        ),
+        "shape_rounded_rectangle_callout_button": (
+            "shape-rounded-rectangle-callout-exact-name-and-role-fallback",
+            "圆角矩形标注",
+            "Button",
+        ),
+        "shape_oval_callout_button": (
+            "shape-oval-callout-exact-name-and-role-fallback",
+            "椭圆形标注",
+            "Button",
+        ),
+        "shape_cloud_callout_button": (
+            "shape-cloud-callout-exact-name-and-role-fallback",
+            "云形标注",
+            "Button",
+        ),
+        "shape_heart_button": ("shape-heart-exact-name-and-role-fallback", "心形", "Button"),
+        "shape_lightning_button": (
+            "shape-lightning-exact-name-and-role-fallback",
+            "闪电",
+            "Button",
+        ),
+        "brush_style_brush": (
+            "brush-style-brush-exact-name-and-role-fallback",
+            "画笔",
+            "MenuItem",
+        ),
+        "brush_style_calligraphy": (
+            "brush-style-calligraphy-exact-name-and-role-fallback",
+            "毛笔",
+            "MenuItem",
+        ),
+        "brush_style_marker": (
+            "brush-style-marker-exact-name-and-role-fallback",
+            "书写笔",
+            "MenuItem",
+        ),
+        "brush_style_airbrush": (
+            "brush-style-airbrush-exact-name-and-role-fallback",
+            "喷枪",
+            "MenuItem",
+        ),
+        "brush_style_oil": (
+            "brush-style-oil-exact-name-and-role-fallback",
+            "油画笔",
+            "MenuItem",
+        ),
+        "brush_style_crayon": (
+            "brush-style-crayon-exact-name-and-role-fallback",
+            "蜡笔",
+            "MenuItem",
+        ),
+        "brush_style_highlighter": (
+            "brush-style-highlighter-exact-name-and-role-fallback",
+            "记号笔",
+            "MenuItem",
+        ),
+        "brush_style_pencil": (
+            "brush-style-pencil-exact-name-and-role-fallback",
+            "普通铅笔",
+            "MenuItem",
+        ),
+        "brush_style_watercolor": (
+            "brush-style-watercolor-exact-name-and-role-fallback",
+            "水彩画笔",
+            "MenuItem",
+        ),
+    }
+    for target_id, (candidate_id, expected_name, expected_role) in measured_group_targets.items():
+        target = targets_by_id.get(target_id, {})
+        check(target.get("probe_status") == "observed",
+              f"selector target {target_id}: must stay observed after the ribbon probe")
+        check(target.get("allow_fallback_entry") is True,
+              f"selector target {target_id}: localized name-only target must allow fallback entry")
+        candidates = {candidate.get("id"): candidate for candidate in target.get("candidates", [])}
+        candidate = candidates.get(candidate_id, {})
+        check(candidate.get("kind") == "exact_name_and_role",
+              f"selector target {target_id}: {candidate_id} must use exact_name_and_role")
+        value = candidate.get("value", {}).get("exact_name_and_role", {})
+        check(value.get("name") == expected_name,
+              f"selector target {target_id}: {candidate_id} must use exact name {expected_name!r}")
+        check(value.get("role") == expected_role,
+              f"selector target {target_id}: {candidate_id} must use role {expected_role!r}")
+        check(candidate.get("fallback_only") is True,
+              f"selector target {target_id}: {candidate_id} must be fallback-only")
+
     tools = tools_document.get("tools", [])
     check(isinstance(tools, list) and tools, "tools/tools.json: tools missing")
     tool_names: set[str] = set()
