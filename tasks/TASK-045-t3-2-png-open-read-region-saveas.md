@@ -1,6 +1,6 @@
 # TASK-045　T3.2：打开 PNG → 读尺寸与缩放 → 区域标记 → 另存为新文件
 
-- 状态：**Blocked**
+- 状态：**InProgress**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：044　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -8,7 +8,7 @@
 ---
 
 - **依赖**：044　**预估**：M　**难度**：M
-- **write scope**：`adapters/com.microsoft.paint/selectors/**`、`adapters/com.microsoft.paint/tasks/**`、`apps/agent-core/src/paint_handler_actions.rs`、`apps/agent-core/src/paint_handler_map.rs`、`apps/agent-core/src/paint_handler_support.rs`、`apps/agent-core/src/paint_handlers.rs`、`apps/agent-core/src/paint_registry.rs`、`apps/agent-core/tests/production_paint.rs`、`apps/agent-core/tests/support/paint_real_run.rs`、`eval/tasks/paint/t3.2/**`；收尾时按 AGENTS.md 更新本卡记录区、`LEDGER.md`、状态文件和 `docs/memory/apps/paint.md`
+- **write scope**：`adapters/com.microsoft.paint/selectors/**`、`adapters/com.microsoft.paint/tasks/**`、`apps/agent-core/src/paint_handler_actions.rs`、`apps/agent-core/src/paint_handler_map.rs`、`apps/agent-core/src/paint_handler_support.rs`、`apps/agent-core/src/paint_handlers.rs`、`apps/agent-core/src/paint_registry.rs`、`apps/agent-core/src/task_package_render.rs`、`apps/agent-core/tests/task_package.rs`、`apps/agent-core/tests/task_package_contract.rs`、`apps/agent-core/tests/production_paint.rs`、`apps/agent-core/tests/support/paint_real_run.rs`、`eval/tasks/paint/t3.2/**`；收尾时按 AGENTS.md 更新本卡记录区、`LEDGER.md`、状态文件和 `docs/memory/apps/paint.md`
 - **关联**：`plans/stage-1-pilots.md` 批次表 1b、`docs/wbs-overview.md` §6（DoD）、ADR-0067（显式坐标空间）、ADR-0084 / ADR-0085（Paint 运行时装配与元素几何）、ADR-0092（窗口几何 / DPI）、ADR-0096（Paint ribbon 分组寻址）、TASK-106（`paint.file.open` / `paint.file.save_as` 留待后续）、TASK-307（T3.2 续画基线）
 
 **目标**
@@ -104,6 +104,8 @@
 **DoD**
 
 - [ ] `paint.file.open` / `paint.file.save_as` 已在生产 registry 注册，工具 schema 零改动。
+- [ ] `task_package_render.rs` 的 assertion table 只增加这两个已声明工具；断言逐项引用
+      handler 输出，任务包渲染测试覆盖绑定与 `MissingAssertion` 边界。
 - [ ] T3.2 任务包只引用已注册工具；打开、缩放读取、矩形标记、另存四段均有 postcondition。
 - [ ] fixture 生成可重复，静态校验固定 SHA-256、宽高和字节数。
 - [ ] fake platform 正向 + 负向测试全绿；目标静态存在时由 policy 返回 `PolicyDenied`，
@@ -255,9 +257,15 @@ cargo run -p xtask -- check-ledger
   确定性任务包。
 - **建议**：批准把 `apps/agent-core/src/task_package_render.rs` 加入 TASK-045 write scope。
   预计只需为两个工具增加显式、按 handler 输出字段构造的断言，不修改公共 schema 或平台 trait。
+- **Orchestrator 裁决（2026-10-19）**：批准扩权，加入
+  `apps/agent-core/src/task_package_render.rs`、`apps/agent-core/tests/task_package.rs`
+  和 `apps/agent-core/tests/task_package_contract.rs`。只扩展私有的 Paint assertion table：
+  `paint.file.open` 断言 `opened_path`、正数尺寸与缩放；`paint.file.save_as`
+  断言 `target_path` 与 `file_created=true`。不修改公共 schema、trait 或 ADR/spec；
+  恢复实现，状态改为 `InProgress`。
 - **已停止的工作**：未写 selector、handler、task package、fixture、eval、fake 测试或真机
   harness；本轮停在渲染契约复核。
-- **需要人类裁决**：是。
+- **需要人类裁决**：否；Orchestrator 已批准限定文件扩权。
 
 ### 6. 更合理做法
 
@@ -271,8 +279,8 @@ cargo run -p xtask -- check-ledger
 `DRIFT-045-2` 已裁决：文件对话框缺失 / 身份不符按 `TargetNotFound`，
 有界等待耗尽按 `Transient`，不得用其它错误码冒充。
 
-`DRIFT-045-3` 未裁决：T3.2 任务包接入 `paint.file.open` / `paint.file.save_as` 需要
-`task_package_render.rs` assertion table 的新条目；该文件当前不在 write scope。
+`DRIFT-045-3` 已裁决：扩权 `task_package_render.rs` 与两组任务包测试，只为
+`paint.file.open` / `paint.file.save_as` 增加显式 assertion，不修改公共契约。
 
 ### 8. 新增长期记忆
 
