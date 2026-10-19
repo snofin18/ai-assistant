@@ -1,0 +1,253 @@
+{
+  "schema_version": 1,
+  "task_id": "paint.t3_2.open_png_mark_region_save_as",
+  "app_id": "com.microsoft.paint",
+  "title": "Open a PNG, mark a region, and save as a new PNG",
+  "goal": "Open a deterministic PNG, read its canvas size and zoom, draw a 3 px red empty rectangle, and save the document to a new PNG without overwriting an existing target.",
+  "read_only": false,
+  "open_mode": "none",
+  "inputs": {
+    "opened_path": {"type": "string", "required": true},
+    "target_path": {"type": "string", "required": true},
+    "rectangle_start": {"type": "object", "required": true},
+    "rectangle_end": {"type": "object", "required": true},
+    "foreground_red": {"type": "integer", "required": true, "minimum": 0, "maximum": 255},
+    "foreground_green": {"type": "integer", "required": true, "minimum": 0, "maximum": 255},
+    "foreground_blue": {"type": "integer", "required": true, "minimum": 0, "maximum": 255},
+    "layer_id": {"type": "string", "required": true},
+    "expected_layer_name": {"type": "string", "required": true},
+    "viewport_offset_x_px": {"type": "integer", "required": true},
+    "viewport_offset_y_px": {"type": "integer", "required": true},
+    "coordinate_space": {"type": "object", "required": true},
+    "tolerance_px": {"type": "integer", "required": false, "default": 2, "minimum": 0, "maximum": 2}
+  },
+  "outputs": {
+    "opened_path": "string",
+    "canvas_width_px": "integer",
+    "canvas_height_px": "integer",
+    "zoom_ratio": "number",
+    "selected_leaf": "string",
+    "foreground_rgb": "string",
+    "active_layer_id": "string",
+    "pre_snapshot_blob_id": "string",
+    "post_snapshot_blob_id": "string",
+    "start_screen_x_px": "integer",
+    "start_screen_y_px": "integer",
+    "end_screen_x_px": "integer",
+    "end_screen_y_px": "integer",
+    "coordinate_error_px": "integer",
+    "visual_confidence": "number",
+    "target_existed_before": "boolean",
+    "target_path": "string",
+    "file_created": "boolean"
+  },
+  "steps": [
+    {
+      "id": "capture_initial_fingerprint",
+      "kind": "host_service",
+      "operation": "capture_initial_fingerprint",
+      "notes": [
+        "ADR-0065: always runs so later conditional steps have a real initial fingerprint."
+      ]
+    },
+    {
+      "id": "open_png",
+      "kind": "tool",
+      "tool": "paint.file.open",
+      "args": {
+        "path": "$input.opened_path",
+        "discard_unsaved_confirmed": false
+      },
+      "outputs": ["opened_path", "canvas_width_px", "canvas_height_px", "zoom_ratio"]
+    },
+    {
+      "id": "select_rectangle_tool",
+      "kind": "tool",
+      "tool": "paint.shape.select",
+      "args": {"path": ["矩形"]},
+      "outputs": ["selected_leaf", "previous_leaf", "selected_path", "path_depth", "ui_state_readback"]
+    },
+    {
+      "id": "select_shape_outline",
+      "kind": "tool",
+      "tool": "paint.outline.select",
+      "args": {"path": ["实心边框"]},
+      "outputs": ["selected_leaf", "previous_leaf", "selected_path", "path_depth", "ui_state_readback"]
+    },
+    {
+      "id": "select_shape_fill",
+      "kind": "tool",
+      "tool": "paint.fill.select",
+      "args": {"path": ["无填充"]},
+      "outputs": ["selected_leaf", "previous_leaf", "selected_path", "path_depth", "ui_state_readback"]
+    },
+    {
+      "id": "select_shape_size",
+      "kind": "tool",
+      "tool": "paint.size.select",
+      "args": {"path": ["3 像素"]},
+      "outputs": ["selected_leaf", "previous_leaf", "selected_path", "path_depth", "ui_state_readback"]
+    },
+    {
+      "id": "select_foreground_color",
+      "kind": "tool",
+      "tool": "paint.color.select_foreground",
+      "args": {
+        "red": "$input.foreground_red",
+        "green": "$input.foreground_green",
+        "blue": "$input.foreground_blue"
+      },
+      "outputs": ["foreground_rgb", "previous_foreground_rgb"]
+    },
+    {
+      "id": "select_layer",
+      "kind": "tool",
+      "tool": "paint.layer.select",
+      "args": {
+        "layer_id": "$input.layer_id",
+        "expected_layer_name": "$input.expected_layer_name"
+      },
+      "outputs": ["active_layer_id", "active_layer_name", "previous_layer_id"]
+    },
+    {
+      "id": "capture_pre_snapshot",
+      "kind": "tool",
+      "tool": "paint.canvas.capture_pixels",
+      "outputs": ["blob_id", "width_px", "height_px", "content_address"]
+    },
+    {
+      "id": "resolve_start",
+      "kind": "tool",
+      "tool": "paint.canvas.resolve_point",
+      "args": {
+        "canvas_x": "$input.rectangle_start.x",
+        "canvas_y": "$input.rectangle_start.y",
+        "zoom_ratio": "$zoom_ratio",
+        "viewport_offset_x_px": "$input.viewport_offset_x_px",
+        "viewport_offset_y_px": "$input.viewport_offset_y_px",
+        "coordinate_space": "$input.coordinate_space"
+      },
+      "outputs": [
+        "screen_x_px",
+        "screen_y_px",
+        "canvas_bounds_px",
+        "zoom_ratio",
+        "viewport_offset_x_px",
+        "viewport_offset_y_px",
+        "coordinate_space_kind"
+      ]
+    },
+    {
+      "id": "resolve_end",
+      "kind": "tool",
+      "tool": "paint.canvas.resolve_point",
+      "args": {
+        "canvas_x": "$input.rectangle_end.x",
+        "canvas_y": "$input.rectangle_end.y",
+        "zoom_ratio": "$zoom_ratio",
+        "viewport_offset_x_px": "$input.viewport_offset_x_px",
+        "viewport_offset_y_px": "$input.viewport_offset_y_px",
+        "coordinate_space": "$input.coordinate_space"
+      },
+      "outputs": [
+        "screen_x_px",
+        "screen_y_px",
+        "canvas_bounds_px",
+        "zoom_ratio",
+        "viewport_offset_x_px",
+        "viewport_offset_y_px",
+        "coordinate_space_kind"
+      ]
+    },
+    {
+      "id": "draw_rectangle",
+      "kind": "tool",
+      "tool": "paint.canvas.draw_rectangle",
+      "args": {
+        "start": "$input.rectangle_start",
+        "end": "$input.rectangle_end",
+        "coordinate_space": "$input.coordinate_space",
+        "expected_tool": "rectangle",
+        "expected_foreground_rgb": "$foreground_rgb",
+        "expected_layer_id": "$input.layer_id",
+        "pre_snapshot_blob_id": "$pre_snapshot_blob_id"
+      },
+      "outputs": [
+        "selected_tool",
+        "foreground_rgb",
+        "active_layer_id",
+        "pixel_snapshot_blob_id",
+        "undo_steps_recorded"
+      ]
+    },
+    {
+      "id": "capture_post_snapshot",
+      "kind": "tool",
+      "tool": "paint.canvas.capture_pixels",
+      "outputs": ["blob_id", "width_px", "height_px", "content_address"]
+    },
+    {
+      "id": "inspect_target_path",
+      "kind": "host_service",
+      "operation": "inspect_target_path",
+      "args": {
+        "target_path": "$input.target_path"
+      },
+      "outputs": ["target_existed_before", "target_fingerprint"]
+    },
+    {
+      "id": "reject_existing_target",
+      "kind": "hitl",
+      "operation": "request_approval",
+      "when": "target_existed_before",
+      "args": {
+        "risk": "high",
+        "show_diff": false,
+        "scope_options": ["once"],
+        "point_of_no_return": true
+      },
+      "outputs": ["approval_evidence.reject_existing_target"]
+    },
+    {
+      "id": "save_as_new_file",
+      "kind": "tool",
+      "tool": "paint.file.save_as",
+      "when": "!target_existed_before",
+      "args": {
+        "target_path": "$input.target_path",
+        "overwrite_existing": false
+      },
+      "outputs": ["target_path", "file_created"]
+    }
+  ],
+  "preconditions": [
+    "Paint version is within adapter version_range.",
+    "The target window is foreground and not minimized.",
+    "The opened_path exists and is a deterministic PNG fixture.",
+    "The target_path does not exist before the save step.",
+    "The requested layer exists and is visible.",
+    "The coordinate space names a physical monitor and DPI scale."
+  ],
+  "postconditions": [
+    {"id": "opened_path_matches", "description": "opened_path equals the requested fixture path.", "error_code": "VerifyFailed"},
+    {"id": "canvas_dimensions_positive", "description": "Opened canvas width and height are positive.", "error_code": "VerifyFailed"},
+    {"id": "zoom_ratio_positive", "description": "Measured zoom ratio is positive.", "error_code": "VerifyFailed"},
+    {"id": "target_created", "description": "paint.file.save_as reports file_created=true for an absent target.", "error_code": "VerifyFailed"},
+    {"id": "target_non_overwrite", "description": "Existing target paths are rejected before save.", "error_code": "PolicyDenied"}
+  ],
+  "metrics": {
+    "repeat_runs": 10,
+    "minimum_success_rate": 0.75,
+    "silent_failure_rate": 0,
+    "coordinate_error_max_px": 2,
+    "first_selector_hit_rate_min": 0.85,
+    "step_efficiency_max": 1.5,
+    "time_budget_ms": 120000
+  },
+  "evidence_status": {
+    "probe_window_tree": "observed",
+    "real_ten_run_evaluation": "not_run",
+    "coordinate_error_measurement": "not_run",
+    "visual_tolerance_calibration": "declared_not_measured"
+  }
+}

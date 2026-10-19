@@ -1,5 +1,8 @@
 //! Parsing and geometry helpers for the Paint handlers.
 
+use std::fs::File;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use assistant_platform_api::{
@@ -488,10 +491,116 @@ pub(super) fn required_positive_f64(
     Ok(value)
 }
 
+/// Validates and returns an absolute `.png` path for the file-dialog handlers.
+///
+/// `require_existing_file` distinguishes the open contract (source must already
+/// be a regular file) from save-as (the target must not exist yet, while its
+/// parent directory must). The handler repeats the no-overwrite check because
+/// this function intentionally owns only shape validation.
+pub(super) fn required_png_path(
+    arguments: &Map<String, Value>,
+    field: &str,
+    tool: &str,
+    require_existing_file: bool,
+) -> Result<PathBuf, ToolBusError> {
+    let raw = required_string(arguments, field, tool)?;
+    let path = PathBuf::from(raw);
+    if !path.is_absolute() {
+        return Err(support::invalid_arguments(
+            tool,
+            format!("{field} must be an absolute path"),
+        ));
+    }
+    if path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_none_or(|extension| !extension.eq_ignore_ascii_case("png"))
+    {
+        return Err(support::invalid_arguments(
+            tool,
+            format!("{field} must end in `.png`"),
+        ));
+    }
+    if require_existing_file {
+        if !path.is_file() {
+            return Err(support::invalid_arguments(
+                tool,
+                format!("{field} must name an existing regular file"),
+            ));
+        }
+    } else {
+        let parent = path.parent().ok_or_else(|| {
+            support::invalid_arguments(tool, format!("{field} must have a parent directory"))
+        })?;
+        if !parent.is_dir() {
+            return Err(support::invalid_arguments(
+                tool,
+                format!("{field} parent directory does not exist"),
+            ));
+        }
+    }
+    Ok(path)
+}
+
+/// Reads the PNG signature and `IHDR` width / height without a decoder
+/// dependency.
+///
+/// The task schema permits only PNG files, and both open / save-as need a
+/// postcondition that proves the image is structurally present. Reading the
+/// fixed 24-byte prefix is enough to reject non-PNG data and capture the
+/// dimensions without loading the pixel payload into memory.
+pub(super) fn png_dimensions(path: &Path, tool: &str) -> Result<(u32, u32), ToolBusError> {
+    const SIGNATURE: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
+    let mut file = File::open(path).map_err(|error| {
+        support::invalid_arguments(tool, format!("cannot open `{}`: {error}", path.display()))
+    })?;
+    let mut header = [0_u8; 24];
+    file.read_exact(&mut header).map_err(|error| {
+        support::invalid_arguments(tool, format!("cannot read `{}`: {error}", path.display()))
+    })?;
+    if header.get(..8) != Some(SIGNATURE.as_slice())
+        || header.get(8..12) != Some(13_u32.to_be_bytes().as_slice())
+        || header.get(12..16) != Some(b"IHDR".as_slice())
+    {
+        return Err(support::invalid_arguments(
+            tool,
+            format!("`{}` is not a PNG with an IHDR header", path.display()),
+        ));
+    }
+    let width = u32::from_be_bytes(
+        header
+            .get(16..20)
+            .and_then(|bytes| bytes.try_into().ok())
+            .ok_or_else(|| support::invalid_arguments(tool, "PNG width is truncated"))?,
+    );
+    let height = u32::from_be_bytes(
+        header
+            .get(20..24)
+            .and_then(|bytes| bytes.try_into().ok())
+            .ok_or_else(|| support::invalid_arguments(tool, "PNG height is truncated"))?,
+    );
+    if width == 0 || height == 0 {
+        return Err(support::invalid_arguments(
+            tool,
+            "PNG width and height must be positive",
+        ));
+    }
+    Ok((width, height))
+}
+
 pub(super) const fn verify_failed(message: String) -> ToolBusError {
     ToolBusError::Mcp {
         code: -32_004,
         message,
+    }
+}
+
+/// Fail-closed error for a user-driven dialog state (cancel, existing target,
+/// or other action the user must resolve).
+pub(super) fn user_interaction(tool: &str) -> ToolBusError {
+    ToolBusError::Mcp {
+        code: -32_010,
+        message: format!("{tool}: user interaction is required before retrying"),
     }
 }
 

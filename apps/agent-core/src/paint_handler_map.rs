@@ -9,8 +9,9 @@ use serde_json::{Map, Value};
 
 use super::{
     PaintHandlerContext, TOOL_BRUSH_SELECT, TOOL_CANVAS_CAPTURE_PIXELS, TOOL_CANVAS_DRAW_RECTANGLE,
-    TOOL_CANVAS_RESOLVE_POINT, TOOL_COLOR_SELECT_FOREGROUND, TOOL_DOCUMENT_NEW, TOOL_FILL_SELECT,
-    TOOL_LAYER_SELECT, TOOL_OUTLINE_SELECT, TOOL_SHAPE_SELECT, TOOL_SIZE_SELECT, TOOL_TOOL_SELECT,
+    TOOL_CANVAS_RESOLVE_POINT, TOOL_COLOR_SELECT_FOREGROUND, TOOL_DOCUMENT_NEW, TOOL_FILE_OPEN,
+    TOOL_FILE_SAVE_AS, TOOL_FILL_SELECT, TOOL_LAYER_SELECT, TOOL_OUTLINE_SELECT, TOOL_SHAPE_SELECT,
+    TOOL_SIZE_SELECT, TOOL_TOOL_SELECT,
 };
 
 pub fn build_handler_map<P>(
@@ -71,6 +72,18 @@ where
     handlers.insert(
         TOOL_LAYER_SELECT.to_owned(),
         Arc::new(LayerSelectHandler {
+            context: Arc::clone(context),
+        }),
+    );
+    handlers.insert(
+        TOOL_FILE_OPEN.to_owned(),
+        Arc::new(FileOpenHandler {
+            context: Arc::clone(context),
+        }),
+    );
+    handlers.insert(
+        TOOL_FILE_SAVE_AS.to_owned(),
+        Arc::new(FileSaveAsHandler {
             context: Arc::clone(context),
         }),
     );
@@ -298,6 +311,40 @@ where
 
 struct CapturePixelsHandler<P> {
     context: Arc<PaintHandlerContext<P>>,
+}
+
+struct FileOpenHandler<P> {
+    context: Arc<PaintHandlerContext<P>>,
+}
+
+impl<P> ToolHandler for FileOpenHandler<P>
+where
+    P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
+{
+    fn call(
+        &self,
+        call: &CallContext,
+        arguments: &Map<String, Value>,
+    ) -> Result<ToolOutput, ToolBusError> {
+        self.context.file_open_output(call.task_id(), arguments)
+    }
+}
+
+struct FileSaveAsHandler<P> {
+    context: Arc<PaintHandlerContext<P>>,
+}
+
+impl<P> ToolHandler for FileSaveAsHandler<P>
+where
+    P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
+{
+    fn call(
+        &self,
+        call: &CallContext,
+        arguments: &Map<String, Value>,
+    ) -> Result<ToolOutput, ToolBusError> {
+        self.context.file_save_as_output(call.task_id(), arguments)
+    }
 }
 
 impl<P> ToolHandler for CapturePixelsHandler<P>

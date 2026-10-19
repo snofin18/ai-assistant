@@ -265,6 +265,89 @@ fn test_tool_outside_the_assertion_table_is_rejected() {
 }
 
 #[test]
+fn test_paint_t3_2_file_steps_render_with_explicit_assertions() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../adapters/com.microsoft.paint/tasks/t3.2.open-png-mark-region-save-as.json");
+    let bound = inputs(&[
+        ("input.opened_path", json!("C:\\fixture\\source.png")),
+        ("input.target_path", json!("C:\\fixture\\marked-output.png")),
+        ("input.rectangle_start", json!({"x": 64, "y": 48})),
+        ("input.rectangle_end", json!({"x": 1984, "y": 1488})),
+        ("input.rectangle_start.x", json!(64)),
+        ("input.rectangle_start.y", json!(48)),
+        ("input.rectangle_end.x", json!(1984)),
+        ("input.rectangle_end.y", json!(1488)),
+        ("input.foreground_red", json!(237)),
+        ("input.foreground_green", json!(28)),
+        ("input.foreground_blue", json!(36)),
+        ("input.layer_id", json!("layer-1")),
+        ("input.expected_layer_name", json!("Layer 1")),
+        ("input.viewport_offset_x_px", json!(0)),
+        ("input.viewport_offset_y_px", json!(0)),
+        (
+            "input.coordinate_space",
+            json!({"kind": "physical_pixels", "monitor_id": "\\\\.\\DISPLAY1", "scale": 1.0}),
+        ),
+    ]);
+    let provider = TaskPackageProvider::from_package_file_with_inputs(&path, &bound)
+        .expect("T3.2 package renders");
+    let plan: Value = serde_json::from_str(provider.plan_json()).expect("plan json");
+    let steps = plan
+        .get("steps")
+        .and_then(Value::as_array)
+        .expect("plan steps");
+    let tools: Vec<&str> = steps
+        .iter()
+        .filter_map(|step| step.get("tool").and_then(Value::as_str))
+        .collect();
+    assert!(tools.contains(&"paint.file.open"));
+    assert!(tools.contains(&"paint.file.save_as"));
+    let open = steps
+        .iter()
+        .find(|step| step.get("tool").and_then(Value::as_str) == Some("paint.file.open"))
+        .expect("open step");
+    assert!(
+        open.get("postconditions")
+            .and_then(Value::as_array)
+            .is_some_and(|assertions| !assertions.is_empty())
+    );
+    let save = steps
+        .iter()
+        .find(|step| step.get("tool").and_then(Value::as_str) == Some("paint.file.save_as"))
+        .expect("save-as step");
+    assert!(
+        save.get("postconditions")
+            .and_then(Value::as_array)
+            .is_some_and(|assertions| !assertions.is_empty())
+    );
+}
+
+#[test]
+fn test_paint_file_assertions_fail_closed_without_required_arguments() {
+    for (tool, args) in [
+        ("paint.file.open", json!({})),
+        ("paint.file.save_as", json!({})),
+    ] {
+        let package = json!({
+            "task_id": "paint.file.missing-assertion-argument",
+            "steps": [{
+                "id": "file_step",
+                "kind": "tool",
+                "tool": tool,
+                "args": args,
+            }],
+        })
+        .to_string();
+        let error = TaskPackageProvider::from_package_json(&package)
+            .expect_err("missing file assertion arguments must fail closed");
+        assert!(
+            matches!(error, TaskPackageError::MissingAssertion { .. }),
+            "unexpected error for {tool}: {error:?}"
+        );
+    }
+}
+
+#[test]
 fn test_malformed_body_is_rejected() {
     let error = TaskPackageProvider::from_package_json("{not json").expect_err("must fail closed");
     assert!(matches!(error, TaskPackageError::Malformed { .. }));

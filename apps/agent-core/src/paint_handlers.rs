@@ -1,4 +1,4 @@
-//! Production Paint handlers for the T3.1 vertical slice.
+//! Production Paint handlers for the T3.1 / T3.2 vertical slices.
 //!
 //! Responsibilities:
 //! - resolve the adapter's Paint targets inside the main window scope;
@@ -73,6 +73,10 @@ pub const TOOL_CANVAS_RESOLVE_POINT: &str = "paint.canvas.resolve_point";
 pub const TOOL_CANVAS_DRAW_RECTANGLE: &str = "paint.canvas.draw_rectangle";
 /// `paint.canvas.capture_pixels` tool name.
 pub const TOOL_CANVAS_CAPTURE_PIXELS: &str = "paint.canvas.capture_pixels";
+/// `paint.file.open` tool name.
+pub const TOOL_FILE_OPEN: &str = "paint.file.open";
+/// `paint.file.save_as` tool name.
+pub const TOOL_FILE_SAVE_AS: &str = "paint.file.save_as";
 const TARGET_MAIN_WINDOW: &str = "main_window";
 const TARGET_RECTANGLE_TOOL: &str = "rectangle_tool_button";
 const TARGET_FOREGROUND_COLOR: &str = "foreground_color_button";
@@ -84,6 +88,12 @@ const TARGET_BRUSH_TOGGLE: &str = "brush_tool_button";
 const TARGET_SHAPE_OUTLINE_TOGGLE: &str = "shape_outline_button";
 const TARGET_SHAPE_FILL_TOGGLE: &str = "shape_fill_button";
 const TARGET_SHAPE_SIZE_TOGGLE: &str = "shape_size_button";
+const TARGET_FILE_OPEN_DIALOG: &str = "file_open_dialog";
+const TARGET_FILE_OPEN_FILENAME: &str = "file_open_filename";
+const TARGET_FILE_OPEN_OPEN_BUTTON: &str = "file_open_open_button";
+const TARGET_SAVE_AS_DIALOG: &str = "save_as_dialog";
+const TARGET_SAVE_AS_FILENAME: &str = "save_as_filename";
+const TARGET_SAVE_AS_SAVE_BUTTON: &str = "save_as_save_button";
 /// MCP code agreed with `assistant-tool-bus`; maps to `ErrorCode::UserInteraction`.
 const MCP_USER_INTERACTION: i32 = -32_010;
 /// Measured Windows 11 Paint 11.2605.81.0 palette order and RGB values.
@@ -131,6 +141,14 @@ struct PaintSelectionState {
     layer: Option<PaintLayerSelection>,
     start_point: Option<ResolvedCanvasPoint>,
     end_point: Option<ResolvedCanvasPoint>,
+}
+
+#[derive(Debug, Default)]
+struct PaintDocumentState {
+    opened_path: Option<String>,
+    canvas_width_px: Option<u32>,
+    canvas_height_px: Option<u32>,
+    zoom_ratio: Option<f64>,
 }
 
 #[derive(Debug, Clone)]
@@ -184,6 +202,7 @@ pub struct PaintHandlerContext<P> {
     pub(crate) targets: Arc<crate::notepad_targets::NotepadTargetCatalog>,
     pub(crate) input_leases: TargetLeaseGate,
     document_generation: Mutex<u64>,
+    document: Mutex<PaintDocumentState>,
     selection: Mutex<PaintSelectionState>,
 }
 
@@ -204,6 +223,7 @@ where
             targets,
             input_leases,
             document_generation: Mutex::new(0),
+            document: Mutex::new(PaintDocumentState::default()),
             selection: Mutex::new(PaintSelectionState::default()),
         }
     }
@@ -263,6 +283,15 @@ where
                 )
             })?;
         self.reset_selection()?;
+        *self
+            .document
+            .lock()
+            .map_err(|_| unavailable("paint document state"))? = PaintDocumentState {
+            opened_path: None,
+            canvas_width_px: Some(canvas_width_px),
+            canvas_height_px: Some(canvas_height_px),
+            zoom_ratio: None,
+        };
         let generation = self.next_document_generation()?;
         let after = self.fingerprint_event(&window, TOOL_DOCUMENT_NEW)?;
         Ok(ToolOutput::json(json!({
@@ -639,6 +668,22 @@ where
             "previous_fingerprint": before.as_str(),
             "elapsed_ms": elapsed_ms(started),
         })))
+    }
+
+    fn file_open_output(
+        &self,
+        task_id: &str,
+        arguments: &Map<String, Value>,
+    ) -> Result<ToolOutput, ToolBusError> {
+        self.open_file_dialog_output(task_id, arguments)
+    }
+
+    fn file_save_as_output(
+        &self,
+        task_id: &str,
+        arguments: &Map<String, Value>,
+    ) -> Result<ToolOutput, ToolBusError> {
+        self.save_as_dialog_output(task_id, arguments)
     }
     fn capture_pixels_output(&self) -> Result<ToolOutput, ToolBusError> {
         let window = self.resolve_window(TARGET_MAIN_WINDOW, TOOL_CANVAS_CAPTURE_PIXELS)?;

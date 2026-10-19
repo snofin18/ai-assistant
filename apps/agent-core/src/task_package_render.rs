@@ -338,7 +338,9 @@ fn notepad_assertion_table(tool: &str, arguments: &Value) -> Option<Vec<Value>> 
 }
 
 fn paint_assertion_table(tool: &str, arguments: &Value) -> Option<Vec<Value>> {
-    paint_selection_assertions(tool, arguments).or_else(|| paint_canvas_assertions(tool, arguments))
+    paint_selection_assertions(tool, arguments)
+        .or_else(|| paint_canvas_assertions(tool, arguments))
+        .or_else(|| paint_file_assertions(tool, arguments))
 }
 
 fn paint_selection_assertions(tool: &str, arguments: &Value) -> Option<Vec<Value>> {
@@ -397,30 +399,37 @@ fn paint_selection_assertions(tool: &str, arguments: &Value) -> Option<Vec<Value
 
 fn paint_canvas_assertions(tool: &str, arguments: &Value) -> Option<Vec<Value>> {
     match tool {
-        "paint.canvas.resolve_point" => Some(vec![
-            json!({
+        "paint.canvas.resolve_point" => {
+            let mut assertions = vec![json!({
                 "kind": "value_equals",
                 "name": "coordinate_space_kind",
                 "value": "physical_pixels",
-            }),
-            json!({
-                "kind": "value_equals",
-                "name": "zoom_ratio",
-                "value": arguments.get("zoom_ratio")?,
-            }),
-            json!({
+            })];
+            if let Some(zoom_ratio) = arguments.get("zoom_ratio")
+                && !zoom_ratio
+                    .as_str()
+                    .is_some_and(|value| value.starts_with('$'))
+            {
+                assertions.push(json!({
+                    "kind": "value_equals",
+                    "name": "zoom_ratio",
+                    "value": zoom_ratio,
+                }));
+            }
+            assertions.push(json!({
                 "kind": "value_in_range",
                 "name": "screen_x_px",
                 "min": 0,
                 "max": i32::MAX,
-            }),
-            json!({
+            }));
+            assertions.push(json!({
                 "kind": "value_in_range",
                 "name": "screen_y_px",
                 "min": 0,
                 "max": i32::MAX,
-            }),
-        ]),
+            }));
+            Some(assertions)
+        }
         "paint.canvas.draw_rectangle" => Some(vec![
             json!({
                 "kind": "value_equals",
@@ -459,6 +468,55 @@ fn paint_canvas_assertions(tool: &str, arguments: &Value) -> Option<Vec<Value>> 
                 "max": i32::MAX,
             }),
         ]),
+        _ => None,
+    }
+}
+
+fn paint_file_assertions(tool: &str, arguments: &Value) -> Option<Vec<Value>> {
+    match tool {
+        "paint.file.open" => {
+            let opened_path = arguments.get("path")?.as_str()?;
+            Some(vec![
+                json!({
+                    "kind": "value_equals",
+                    "name": "opened_path",
+                    "value": opened_path,
+                }),
+                json!({
+                    "kind": "value_in_range",
+                    "name": "canvas_width_px",
+                    "min": 1.0,
+                    "max": 8192.0,
+                }),
+                json!({
+                    "kind": "value_in_range",
+                    "name": "canvas_height_px",
+                    "min": 1.0,
+                    "max": 8192.0,
+                }),
+                json!({
+                    "kind": "value_in_range",
+                    "name": "zoom_ratio",
+                    "min": 0.000_001,
+                    "max": 64.0,
+                }),
+            ])
+        }
+        "paint.file.save_as" => {
+            let target_path = arguments.get("target_path")?.as_str()?;
+            Some(vec![
+                json!({
+                    "kind": "value_equals",
+                    "name": "target_path",
+                    "value": target_path,
+                }),
+                json!({
+                    "kind": "value_equals",
+                    "name": "file_created",
+                    "value": true,
+                }),
+            ])
+        }
         _ => None,
     }
 }

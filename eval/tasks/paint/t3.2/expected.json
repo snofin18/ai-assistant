@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "task_id": "paint.t3_2.open_png_mark_region_save_as",
+  "fixture": {
+    "width_px": 2048,
+    "height_px": 1536,
+    "bytes": 9439508,
+    "sha256": "a82b130e9beb6a1d8935395b4d95eb27f30748d74f221db057039a8325dfcc8c",
+    "background_rgb": [255, 255, 255],
+    "border_rgb": [0, 162, 232],
+    "diagonal_rgb": [0, 0, 0],
+    "border_px": 4
+  },
+  "mark": {
+    "kind": "rectangle",
+    "outline_rgb": [237, 28, 36],
+    "outline_px": 3,
+    "fill": "none",
+    "start": {"x": 64, "y": 48},
+    "end": {"x": 1984, "y": 1488}
+  },
+  "save_as": {
+    "overwrite_existing": false,
+    "expected_file_name": "marked-output.png",
+    "protected_file_name": "protected-output.png"
+  },
+  "coordinate_error_max_px": 2,
+  "required_zoom_relation": "< 1.0",
+  "real_run_status": "not_run"
+}

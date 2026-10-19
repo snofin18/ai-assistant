@@ -181,23 +181,42 @@ cargo run -p xtask -- check-ledger
 
 ### 2. 实际改动文件
 
-无产品代码改动。仅更新本卡状态与执行记录，并在 `LEDGER.md` 追加阻塞事件。
+- `adapters/com.microsoft.paint/selectors/targets.json`
+- `adapters/com.microsoft.paint/tasks/t3.2.open-png-mark-region-save-as.json`
+- `apps/agent-core/src/paint_handler_actions.rs`
+- `apps/agent-core/src/paint_handler_map.rs`
+- `apps/agent-core/src/paint_handler_support.rs`
+- `apps/agent-core/src/paint_handlers.rs`
+- `apps/agent-core/src/paint_registry.rs`
+- `apps/agent-core/src/task_package_render.rs`
+- `apps/agent-core/tests/support/paint_real_run.rs`
+- `apps/agent-core/tests/task_package.rs`
+- `eval/tasks/paint/t3.2/**`
 
 ### 3. 验收输出摘要
 
-未运行实现或真机验收。契约阻断发生在设计复核阶段：
+WIP 静态与 fake 验收已跑：
 
-- 卡面要求目标已存在或竞态出现时返回 `PolicyDenied`。
-- 目标静态已存在可用任务包前置 `policy` 步骤拒绝，handler 不会被调用。
-- 竞态检查发生在 `paint.file.save_as` handler 打开对话框后、点击 Save 前，
-  因此拒绝发生在 handler 内部。
-- 现有 `ToolBusError::error_code()` 没有 `PolicyDenied` 映射；
-  `Mcp` 仅特判 `-32601`（`CapabilityMissing`）与 `-32010`（`UserInteraction`），
-  其余 MCP code 映射为 `Transient`。
+- `python eval/tasks/paint/t3.2/prepare_fixture.py --check` → 通过；
+  fixture SHA-256=`a82b130e9beb6a1d8935395b4d95eb27f30748d74f221db057039a8325dfcc8c`，
+  bytes=`9439508`，尺寸 `2048 x 1536`。
+- `python eval/tasks/paint/t3.2/validate.py` → PASSED。
+- `python adapters/com.microsoft.paint/tests/validate_adapter_pack.py` →
+  PASSED targets=77 tools=15 recipes=8。
+- `cargo test -p assistant-agent-core --test task_package` → 19 passed / 0 failed。
+- `cargo test -p assistant-agent-core --test production_paint` →
+  9 passed / 0 failed / 4 ignored（新增 T3.2 fake 正例、静态 target 负例、
+  dialog race 负例均通过；真机用 ignored）。
+- `cargo fmt --all --check`、`cargo clippy -p assistant-agent-core --all-targets -- -D warnings`
+  通过（仅既存 `clippy::assert_is_empty` unknown-lint warning）。
 
 ### 4. DoD 逐条核对
 
-- [ ] 全部未满足；实现尚未开始，等待 `DRIFT-045-1` 裁决。
+- [x] `paint.file.open` / `paint.file.save_as` 已加入生产 registry / handler map。
+- [x] T3.2 任务包、fixture / expected / cases / validator 已落地并通过静态检查。
+- [x] fake platform 左例、静态 target 阻断、对话框竞态负例均通过。
+- [ ] 真机单次 / 十次 / 独立坐标误差尚未执行，等待人类提供前台窗口与现场确认。
+- [ ] 真机证据与最终状态同步未完成；因此本卡保持 `InProgress`。
 
 ### 5. 偏差
 
@@ -282,17 +301,15 @@ cargo run -p xtask -- check-ledger
 `DRIFT-045-3` 已裁决：扩权 `task_package_render.rs` 与两组任务包测试，只为
 `paint.file.open` / `paint.file.save_as` 增加显式 assertion，不修改公共契约。
 
+真机项尚未执行：T3.2 ignored 单次、`run-ten.ps1` 十次、`coordinate-error.ps1`
+独立坐标误差。下一轮需在人类将 Paint 置前台后运行；在此之前不得标记 Done。
+
 ### 8. 新增长期记忆
 
 无。契约尚未裁决，暂不把未决方案写入长期事实。
 
 ### 9. 给审阅者的关注点
 
-1. 确认静态目标存在与保存竞态是否需要不同错误码。
-2. 若选择 `PolicyDenied`，需明确修改的是 `ToolBusError` 公共枚举还是仅 MCP code 映射，
-   并补齐 ADR/spec。
-3. 保持“目标字节/大小/mtime 不变”与“竞态时不得点击 Save”两条安全断言不变。
-4. `DRIFT-045-2` 已裁决：文件对话框缺失 / 身份不符按 `TargetNotFound`，
-   等待超时按 `Transient`；不新增公共错误映射。
-5. `DRIFT-045-3`：批准 `task_package_render.rs` 扩权后，断言必须与 handler 输出字段
-   一一对应，不得用 `state_unchanged` 等泛断言掩盖文件创建或打开失败。
+1. 审阅 `paint.file.open` / `paint.file.save_as` 的对话框身份、超时与竞态关闭路径。
+2. 审阅 T3.2 task package 中 `inspect_target_path` 与真机保存前置契约。
+3. 真机项仍全部未跑，`zoom_ratio < 1.0` 与 `<= 2 px` 不得由 fake 成功反推。
