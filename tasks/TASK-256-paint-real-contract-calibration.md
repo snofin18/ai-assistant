@@ -313,6 +313,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - **2026-10-19 关闭**：真机前台验收通过（`1 passed / 0 failed / 11.18 s`）；
   `paint.tool.select` / `paint.color.select_foreground` / `paint.layer.select` /
   `paint.document.new` 的真实路径已不再停在 fake 假设上。
+- 合并证据：PR #485；merge hash `0fb655b`。
 
 ### 8. 新增长期记忆
 
