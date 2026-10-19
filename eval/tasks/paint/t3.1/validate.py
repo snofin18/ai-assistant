@@ -25,6 +25,7 @@ def main() -> None:
     cases = load_json(EVAL_DIR / "cases.json")
     expected = load_json(EVAL_DIR / "expected.json")
     probe = load_json(EVAL_DIR / "probe-evidence.json")
+    ten_run = load_json(EVAL_DIR / "ten-run-summary.json")
 
     assert task["schema_version"] == 1
     assert cases["schema_version"] == 1
@@ -57,7 +58,17 @@ def main() -> None:
     assert cases["repeat_runs"] == 10
     assert cases["primary_case"] in case_ids
     assert set(case_ids) == set(expected["cases"])
-    assert expected["real_run_status"] == "not_run"
+    assert expected["real_run_status"] == (
+        "ten_run_10_of_10_standard_case_coordinate_error_not_measured"
+    )
+    assert cases["evidence_status"] == (
+        "real_ten_run_standard_case_10_of_10_coordinate_error_not_measured"
+    )
+    assert ten_run["requested_runs"] == 10
+    assert ten_run["passed_runs"] == 10
+    assert ten_run["success_rate"] == 1
+    assert ten_run["minimum_success_rate"] == 0.75
+    assert ten_run["coordinate_error_px"] == "not_measured"
 
     for case in cases["cases"]:
         assert case["coordinate_space"]["kind"] == "physical_pixels"

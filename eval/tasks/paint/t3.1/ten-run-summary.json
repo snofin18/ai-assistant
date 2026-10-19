@@ -1,0 +1,20 @@
+{
+  "task_id": "paint.t3_1.new_canvas_rectangle_color_visual",
+  "requested_runs": 10,
+  "passed_runs": 10,
+  "success_rate": 1,
+  "minimum_success_rate": 0.75,
+  "coordinate_error_px": "not_measured",
+  "runs": [
+    {"run": 1, "passed": true, "exit_code": 0, "elapsed_ms": 12810},
+    {"run": 2, "passed": true, "exit_code": 0, "elapsed_ms": 12748},
+    {"run": 3, "passed": true, "exit_code": 0, "elapsed_ms": 12659},
+    {"run": 4, "passed": true, "exit_code": 0, "elapsed_ms": 12657},
+    {"run": 5, "passed": true, "exit_code": 0, "elapsed_ms": 12556},
+    {"run": 6, "passed": true, "exit_code": 0, "elapsed_ms": 12648},
+    {"run": 7, "passed": true, "exit_code": 0, "elapsed_ms": 12717},
+    {"run": 8, "passed": true, "exit_code": 0, "elapsed_ms": 12616},
+    {"run": 9, "passed": true, "exit_code": 0, "elapsed_ms": 12779},
+    {"run": 10, "passed": true, "exit_code": 0, "elapsed_ms": 12622}
+  ]
+}

@@ -1,6 +1,6 @@
 # TASK-044　T3.1：新建画布 → 选矩形工具与颜色 → 指定画布坐标画矩形 → 截图验证形状与颜色
 
-- 状态：**Review**
+- 状态：**Review（真机十次 10/10；坐标误差未测）**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：043　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -91,6 +91,9 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
   消解 PR #275 的 `CONFLICTING` 状态；重基提交 `78bddd7`。
 - 2026-10-08 PR #275 已合并，**merge hash `c7db833`**（base `main`，pull_request 与 push
   两条工作流全部 job pass）。
+- 2026-10-19 真机十次运行：`eval/tasks/paint/t3.1/run-ten.ps1 -AllowClosePaint`
+  → `passed_runs=10 / requested_runs=10 / success_rate=1.0`；每轮都是全新 Paint
+  文档、生产 Plan `test_paint_t3_1_runs_on_real_paint`、前台焦点复核后执行。
 
 2026-10-08 复跑后追加**真机 selector 解析探测**（临时 harness `target/paint_bind`，不入库，
 用仓库自身的 `assistant-platform-windows` 去打真实 Paint 窗口）：
@@ -113,6 +116,8 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - [x] 真实 UIA 探针证据已落 `probe-evidence.json` 与 Paint 应用档案。
 - [ ] 真机连续 10 次成功率 >= 75%（未运行，DRIFT-044-1；2026-10-08 实测被 selector
       未校准阻断 —— DRIFT-044-2）。
+- [x] 真机连续 10 次成功率 >= 75%（2026-10-19：10/10，success_rate=1.0；
+      `target/paint-t3-1-ten-run/summary.json`）。
 - [ ] 真机拖拽坐标误差 <= 2 px（未运行，DRIFT-044-1；同上被阻断）。
 - [x] `cargo fmt --all --check` / `clippy` / `test --workspace` / xtask 全套 —— 2026-10-08 复跑全绿（见 §3）。
 
@@ -172,6 +177,8 @@ TASK-044 write scope 内；本卡把真实 UIA 证据落到评测目录和应用
 ### 7. 遗留问题
 
 - `DRIFT-044-1` / `PL-113`：真机十次运行、拖拽误差、多屏 DPI 与像素容差待人工验收。
+- `DRIFT-044-1` 的成功率部分已推进：真机十次为 10/10；**坐标误差仍是未测项**，
+  当前 runner 不伪造该值，`summary.json` 明确写 `coordinate_error_px="not_measured"`。
 - `DRIFT-044-2`：**先决阻塞** —— Paint selector 包未按真实 UIA 校准（`main_window` 直接
   0 命中），真机十次验收在它修好前跑不起来。需要一张拥有
   `adapters/com.microsoft.paint/selectors/**` 写权限的校准卡。

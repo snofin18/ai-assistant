@@ -1,6 +1,6 @@
 # TASK-256　Paint 真机契约校准：selector 与 handler read-back 对齐实测树
 
-- 状态：**Review（ADR-0091 已落地进 adapter / handler；等待真机验收）**
+- 状态：**Done**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：043、044、106　预估：L　难度：L
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -138,7 +138,8 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 - [x] selector 与 handler fake 契约已按实测 Paint 树对齐，TASK-257 ExactName 未回退。
 - [x] 真实 `#[ignore]` 验收入口已加入并完成编译；实际真机运行待有人在场执行。
-- [ ] 真机 Paint 运行结果尚未采集，不能宣称 TASK-256 Done。
+- [x] 真机 Paint 运行结果已采集：2026-10-19 前台 Paint 11.2605.81.0 执行
+  `test_paint_t3_1_runs_on_real_paint` → `1 passed / 0 failed / 11.18 s`。
 - [x] workspace / Paint fake / handler 单测 / adapter / eval / xtask 门禁全绿。
 - [x] 未改 `crates/**` 公共接口、schema、ErrorCode，未引入依赖。
 
@@ -309,6 +310,9 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
   `python eval/tasks/paint/t3.1/validate.py` → PASSED。
 - **仍未达成**：真机 `#[ignore]` 用例（`test_paint_t3_1_runs_on_real_paint`）尚未重跑 —— 它需要在场人工把
   Paint 11.2605.81.0 置于前台（我方不抢焦点）。在它通过前，本卡不得判 Done，TASK-044 的十次运行也不得开始。
+- **2026-10-19 关闭**：真机前台验收通过（`1 passed / 0 failed / 11.18 s`）；
+  `paint.tool.select` / `paint.color.select_foreground` / `paint.layer.select` /
+  `paint.document.new` 的真实路径已不再停在 fake 假设上。
 
 ### 8. 新增长期记忆
 

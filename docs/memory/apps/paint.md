@@ -417,3 +417,7 @@ PROBE: seen=180 emitted=18 truncated=False elapsed_ms=559（结束时已恢复�
    `ExpandCollapseState` 仍可能是 `Collapsed(0)`；只读探针的 500 ms sleep 会掩盖这一点。
    handler 不能把该瞬时状态当唯一下界，必须以目标 MenuItem 在有界窗口内**物化 / 消失**
    作为真实效果判据；形状组三个 flyout 可用 `Invoke` 后重解，画笔菜单仍用 `expand` 后重解。
+
+2026-10-19 TASK-044 的 T3.1 标准用例真机十次运行结果：**10 passed / 10 runs**
+（`success_rate=1.0`），每轮使用全新 Paint 文档与 production Plan。坐标误差仍未测量，
+证据中的 `coordinate_error_px` 明确为 `not_measured`；不能由成功率反推 2 px 精度。

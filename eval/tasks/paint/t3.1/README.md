@@ -17,9 +17,16 @@ new canvas -> rectangle tool + color -> draw rectangle -> screenshot verify
 - rectangle and palette entries as `GridViewItem` / `ListItem` without stable
   automation ids, so visible names remain fallback-only and locale-dependent.
 
-The ten-run success rate, real drag coordinate error, mixed-DPI behavior, and
-final pixel tolerance are not measured in this directory. They remain open
-until a real Paint GUI acceptance run is executed.
+The ten-run success rate is now measured: on 2026-10-19
+`run-ten.ps1 -AllowClosePaint` executed the real Paint T3.1 acceptance ten
+times, with a fresh Paint process and document per run. The result was
+`10 passed / 10 runs` (`success_rate=1.0`). The runner writes the raw logs and
+`summary.json` under `target/paint-t3-1-ten-run/` by default.
+
+The real drag coordinate error, mixed-DPI behavior, and final pixel tolerance
+are still not measured. The summary deliberately records
+`coordinate_error_px="not_measured"`; this directory does not claim the 2 px
+bound.
 
 `probe-evidence.json` also records a 2026-10-08 selector-resolution probe that
 drove the repository's own `assistant-platform-windows` provider against a live
