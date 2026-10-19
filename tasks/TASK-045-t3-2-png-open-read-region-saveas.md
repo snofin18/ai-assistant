@@ -1,6 +1,6 @@
 # TASK-045　T3.2：打开 PNG → 读尺寸与缩放 → 区域标记 → 另存为新文件
 
-- 状态：**InProgress**
+- 状态：**Blocked**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：044　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -219,9 +219,26 @@ cargo run -p xtask -- check-ledger
   竞态由 handler 取消对话框、不点击 Save，并以既有 `UserInteraction` fail-closed，
   同时保持目标字节 / 大小 / mtime 不变。该裁决不修改 `crates/tool-bus`、公共 `ErrorCode`
   或 ADR/spec；恢复实现，状态改为 `InProgress`。
-- **已停止的工作**：未修改 selector、task package、handler、registry、fake platform、eval
-  或真机 harness；未调用真实 GUI。工作区只保留本 DRIFT 记录与 LEDGER 事件。
-- **需要人类裁决**：否；Orchestrator 已按最小公共契约面裁决。
+
+`DRIFT-045-2`
+
+- **触发器**：#3（公共错误码映射）、#5（超出 write scope）、#8（卡片契约与代码错误语义冲突）。
+- **现象**：卡片要求 `paint.file.open` 在对话框“身份不符”时 fail-closed 为
+  `TargetUnresponsive`。但 `ToolBusError::error_code()` 的可达集合中没有
+  `TargetUnresponsive`：`InvalidArguments -> ToolInvalidArgs`、`UnknownTool /
+  ToolNotMounted -> TargetNotFound`、`Transport` 与未知 MCP code -> `Transient`，
+  `Mcp` 只特判 `CapabilityMissing` 与 `UserInteraction`。
+- **影响**：在对话框已解析、但跨进程身份与 Paint 不一致时，handler 若返回
+  `TargetUnresponsive`，必须修改 `crates/tool-bus` 的公共错误类型或映射行为；
+  这不在本卡 write scope，也会留下未配套 ADR/spec 的公共契约漂移。若改用
+  `TargetNotFound`，则与卡面明确指定的错误码不同，不能静默替换。
+- **建议**：由人类/Orchestrator 裁决：
+  1. 批准 ADR/spec 变更，扩权本卡修改 `ToolBusError` 与 `ErrorCode` 映射；
+  2. 明确把“对话框身份不符”改为既有 `TargetNotFound` 语义（窗口匹配失败）；
+  3. 增加一个能在对话框身份校验阶段表达 `TargetUnresponsive` 的既有运行时路径。
+- **已停止的工作**：本轮仅完成只读复核；未写文件对话框 selector、handler、task package、
+  fixture、eval 或 fake 测试。未调用真实 GUI。
+- **需要人类裁决**：是。
 
 ### 6. 更合理做法
 
@@ -231,6 +248,9 @@ cargo run -p xtask -- check-ledger
 
 `DRIFT-045-1` 已裁决，按“静态 `PolicyDenied` + 对话框竞态 `UserInteraction`”实现。
 不得把竞态负例改写成 `Transient`、点击 Save 或跳过目标不变断言。
+
+`DRIFT-045-2` 未裁决：文件对话框身份不符要求 `TargetUnresponsive`，但该错误码
+当前不可由 handler 产生。实现暂停，等待明确的错误码映射或卡面修正。
 
 ### 8. 新增长期记忆
 
@@ -242,3 +262,5 @@ cargo run -p xtask -- check-ledger
 2. 若选择 `PolicyDenied`，需明确修改的是 `ToolBusError` 公共枚举还是仅 MCP code 映射，
    并补齐 ADR/spec。
 3. 保持“目标字节/大小/mtime 不变”与“竞态时不得点击 Save”两条安全断言不变。
+4. 裁决 `DRIFT-045-2`：文件对话框身份不符是新增公共错误映射，还是按
+   `TargetNotFound` 的既有语义处理。
