@@ -16,8 +16,8 @@ This directory contains declarative task packages for the Paint adapter.
 
 The package declares `tolerance_px <= 2` and `silent_failure_rate = 0`. The
 real T3.1 standard-case ten-run evaluation on 2026-10-19 passed 10/10
-(`success_rate=1.0`); the coordinate-error measurement remains open and is
-recorded as `not_measured`, not inferred from the pass rate.
+(`success_rate=1.0`), and the measured drag end-point error is `0 px` against
+the 2 px bound.
 
 ## T3.2
 

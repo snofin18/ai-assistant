@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "task_id": "paint.t3_1.new_canvas_rectangle_color_visual",
-  "real_run_status": "ten_run_10_of_10_standard_case_coordinate_error_not_measured",
+  "real_run_status": "ten_run_10_of_10_standard_case_coordinate_error_0px",
   "coordinate_error_max_px": 2,
   "visual_tolerance": {
     "field": "pixels",
