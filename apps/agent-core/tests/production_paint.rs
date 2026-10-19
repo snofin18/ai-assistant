@@ -891,3 +891,6 @@ mod paint_modal_popup;
 
 #[path = "support/paint_continue_existing.rs"]
 mod paint_continue_existing;
+
+#[path = "support/paint_full_toolset.rs"]
+mod paint_full_toolset;

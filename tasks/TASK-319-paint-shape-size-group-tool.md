@@ -1,6 +1,6 @@
 # TASK-319　Paint 形状笔宽（大小）按组拆工具（ADR-0098 落地）
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：1　子阶段：**1b**　批次：Paint 真机链路　依赖：TASK-309、TASK-318
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -183,8 +183,8 @@ cargo run -p xtask -- adr-index
 
 ### 7. 遗留问题
 
-- 本卡声明范围（契约 + 声明 + 分发 + 单测 + 钉桩）已全部落地；保持 `InProgress` 的**唯一**原因
-  是真实 GUI 的 `Invoke` 通道尚未在真机上跑过 —— 与 TASK-317 / TASK-318 同一处置口径。
+- **TASK-319 已收口**：本卡声明范围（契约 + 声明 + 分发 + 单测 + 钉桩）已全部落地，
+  且真实 GUI 的 `paint.size.select(["8 像素"])` 已在生产 Plan 中 `Committed`。
 - 真机端到端（选中形状 → 设轮廓 / 填充 / 大小 → 落笔并验证像素）属 **TASK-309 真机段**，
   需要人类在场，本卡不声称完成。
 - 画笔组的 `尺寸` / `不透明度` Slider 在本次探测的那一态里**不在 UIA 树上**（整棵树只有
@@ -192,6 +192,9 @@ cargo run -p xtask -- adr-index
 - `大小` 的前置条件「形状组需有活动形状」是**调用方义务**：`paint.size.select` 不会代选形状；
   形状未激活时以既有 `TargetNotFound` fail-closed（ADR-0098 D4）。
 - 本次只做只读展开与枚举取证，**未**调用新 handler、**未**改变 Paint 状态（探针结束时已恢复折叠）。
+- 2026-10-19 真机会话补充：`paint.size.select(["8 像素"])` 走
+  `CollapsedButton → 大小 → aid=Size8` 并成功执行；选中项后同样等待 MenuItem 从树里消失，
+  以目标物化 / 消失作为异步 ExpandCollapse 的真实效果判据。
 
 ### 8. 新增长期记忆
 

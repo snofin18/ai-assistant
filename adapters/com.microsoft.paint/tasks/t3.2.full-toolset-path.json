@@ -1,0 +1,282 @@
+{
+  "schema_version": 1,
+  "task_id": "paint.t3_2.full_toolset_path_rectangle_visual",
+  "app_id": "com.microsoft.paint",
+  "title": "Continue on the existing canvas, exercise the full ribbon toolset, draw one rectangle, verify visually",
+  "goal": "Select a rectangle, choose outline / fill / size, choose a brush style and foreground color, draw one rectangle on the existing Paint canvas, and verify the result with content-addressed screenshots.",
+  "read_only": false,
+  "open_mode": "none",
+  "inputs": {
+    "canvas_width": {"type": "integer", "required": true, "minimum": 1, "maximum": 8192},
+    "canvas_height": {"type": "integer", "required": true, "minimum": 1, "maximum": 8192},
+    "rectangle_start": {"type": "object", "required": true},
+    "rectangle_end": {"type": "object", "required": true},
+    "foreground_red": {"type": "integer", "required": true, "minimum": 0, "maximum": 255},
+    "foreground_green": {"type": "integer", "required": true, "minimum": 0, "maximum": 255},
+    "foreground_blue": {"type": "integer", "required": true, "minimum": 0, "maximum": 255},
+    "layer_id": {"type": "string", "required": true},
+    "expected_layer_name": {"type": "string", "required": true},
+    "zoom_ratio": {"type": "number", "required": true, "exclusive_minimum": 0},
+    "viewport_offset_x_px": {"type": "integer", "required": true},
+    "viewport_offset_y_px": {"type": "integer", "required": true},
+    "coordinate_space": {"type": "object", "required": true},
+    "tolerance_px": {"type": "integer", "required": false, "default": 2, "minimum": 0, "maximum": 2}
+  },
+  "outputs": {
+    "selected_tool": "string",
+    "selected_leaf": "string",
+    "foreground_rgb": "string",
+    "active_layer_id": "string",
+    "pre_snapshot_blob_id": "string",
+    "post_snapshot_blob_id": "string",
+    "start_screen_x_px": "integer",
+    "start_screen_y_px": "integer",
+    "end_screen_x_px": "integer",
+    "end_screen_y_px": "integer",
+    "coordinate_error_px": "integer",
+    "visual_confidence": "number"
+  },
+  "steps": [
+    {
+      "id": "capture_initial_fingerprint",
+      "kind": "host_service",
+      "operation": "capture_initial_fingerprint",
+      "notes": [
+        "ADR-0065: always runs so later conditional steps have a real initial fingerprint."
+      ]
+    },
+    {
+      "id": "select_rectangle_tool",
+      "kind": "tool",
+      "tool": "paint.shape.select",
+      "args": {"path": ["矩形"]},
+      "outputs": ["selected_leaf", "previous_leaf", "selected_path", "path_depth", "ui_state_readback"]
+    },
+    {
+      "id": "select_shape_outline",
+      "kind": "tool",
+      "tool": "paint.outline.select",
+      "args": {"path": ["实心边框"]},
+      "outputs": ["selected_leaf", "previous_leaf", "selected_path", "path_depth", "ui_state_readback"]
+    },
+    {
+      "id": "select_shape_fill",
+      "kind": "tool",
+      "tool": "paint.fill.select",
+      "args": {"path": ["纯色填充"]},
+      "outputs": ["selected_leaf", "previous_leaf", "selected_path", "path_depth", "ui_state_readback"]
+    },
+    {
+      "id": "select_shape_size",
+      "kind": "tool",
+      "tool": "paint.size.select",
+      "args": {"path": ["8 像素"]},
+      "outputs": ["selected_leaf", "previous_leaf", "selected_path", "path_depth", "ui_state_readback"]
+    },
+    {
+      "id": "select_brush_style",
+      "kind": "tool",
+      "tool": "paint.brush.select",
+      "args": {"path": ["毛笔"]},
+      "outputs": ["selected_leaf", "previous_leaf", "selected_path", "path_depth", "ui_state_readback"]
+    },
+    {
+      "id": "select_rectangle_tool_again",
+      "kind": "tool",
+      "tool": "paint.shape.select",
+      "args": {"path": ["矩形"]},
+      "outputs": ["selected_leaf", "previous_leaf", "selected_path", "path_depth", "ui_state_readback"]
+    },
+    {
+      "id": "select_foreground_color",
+      "kind": "tool",
+      "tool": "paint.color.select_foreground",
+      "args": {
+        "red": "$input.foreground_red",
+        "green": "$input.foreground_green",
+        "blue": "$input.foreground_blue"
+      },
+      "outputs": ["foreground_rgb", "previous_foreground_rgb"]
+    },
+    {
+      "id": "select_layer",
+      "kind": "tool",
+      "tool": "paint.layer.select",
+      "args": {
+        "layer_id": "$input.layer_id",
+        "expected_layer_name": "$input.expected_layer_name"
+      },
+      "outputs": ["active_layer_id", "active_layer_name", "previous_layer_id"]
+    },
+    {
+      "id": "capture_pre_snapshot",
+      "kind": "tool",
+      "tool": "paint.canvas.capture_pixels",
+      "outputs": ["blob_id", "width_px", "height_px", "content_address"]
+    },
+    {
+      "id": "resolve_start",
+      "kind": "tool",
+      "tool": "paint.canvas.resolve_point",
+      "args": {
+        "canvas_x": "$input.rectangle_start.x",
+        "canvas_y": "$input.rectangle_start.y",
+        "zoom_ratio": "$input.zoom_ratio",
+        "viewport_offset_x_px": "$input.viewport_offset_x_px",
+        "viewport_offset_y_px": "$input.viewport_offset_y_px",
+        "coordinate_space": "$input.coordinate_space"
+      },
+      "outputs": [
+        "screen_x_px",
+        "screen_y_px",
+        "canvas_bounds_px",
+        "zoom_ratio",
+        "viewport_offset_x_px",
+        "viewport_offset_y_px",
+        "coordinate_space_kind"
+      ]
+    },
+    {
+      "id": "resolve_end",
+      "kind": "tool",
+      "tool": "paint.canvas.resolve_point",
+      "args": {
+        "canvas_x": "$input.rectangle_end.x",
+        "canvas_y": "$input.rectangle_end.y",
+        "zoom_ratio": "$input.zoom_ratio",
+        "viewport_offset_x_px": "$input.viewport_offset_x_px",
+        "viewport_offset_y_px": "$input.viewport_offset_y_px",
+        "coordinate_space": "$input.coordinate_space"
+      },
+      "outputs": [
+        "screen_x_px",
+        "screen_y_px",
+        "canvas_bounds_px",
+        "zoom_ratio",
+        "viewport_offset_x_px",
+        "viewport_offset_y_px",
+        "coordinate_space_kind"
+      ]
+    },
+    {
+      "id": "draw_rectangle",
+      "kind": "tool",
+      "tool": "paint.canvas.draw_rectangle",
+      "args": {
+        "start": "$input.rectangle_start",
+        "end": "$input.rectangle_end",
+        "coordinate_space": "$input.coordinate_space",
+        "expected_tool": "rectangle",
+        "expected_foreground_rgb": "$foreground_rgb",
+        "expected_layer_id": "$input.layer_id",
+        "pre_snapshot_blob_id": "$pre_snapshot_blob_id"
+      },
+      "outputs": [
+        "selected_tool",
+        "foreground_rgb",
+        "active_layer_id",
+        "pixel_snapshot_blob_id",
+        "undo_steps_recorded"
+      ]
+    },
+    {
+      "id": "capture_post_snapshot",
+      "kind": "tool",
+      "tool": "paint.canvas.capture_pixels",
+      "outputs": ["blob_id", "width_px", "height_px", "content_address"]
+    }
+  ],
+  "preconditions": [
+    "Paint version is within adapter version_range.",
+    "The target window is foreground and not minimized.",
+    "An existing document is open; this package never calls paint.document.new and never replaces the current canvas.",
+    "A usable active shape exists before the outline / fill / size group tools run.",
+    "The requested layer exists and is visible.",
+    "Zoom ratio and viewport offsets match the canvas state at resolve time.",
+    "The coordinate space names a physical monitor and DPI scale."
+  ],
+  "postconditions": [
+    {
+      "id": "selected_shape_is_rectangle",
+      "description": "selected_leaf is 矩形 after selection and before draw.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "outline_selection_recorded",
+      "description": "paint.outline.select records 实心边框 as its selected leaf.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "fill_selection_recorded",
+      "description": "paint.fill.select records 纯色填充 as its selected leaf.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "size_selection_recorded",
+      "description": "paint.size.select records 8 像素 as its selected leaf.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "brush_selection_recorded",
+      "description": "paint.brush.select records 毛笔 as its selected leaf; the real-machine run then explicitly returns to the rectangle tool before drawing.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "color_readback_matches",
+      "description": "foreground_rgb equals the requested red, green, blue tuple.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "active_layer_matches",
+      "description": "active_layer_id equals the requested layer id.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "coordinate_error_within_tolerance",
+      "description": "coordinate_error_px <= tolerance_px and tolerance_px <= 2.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "rectangle_visual_assert",
+      "description": "Post-write canvas pixels satisfy the declared visual tolerance and confidence.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "pixel_change_observed",
+      "description": "The post-write capture content address differs from the pre-write capture content address.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "rollback_snapshot_exists",
+      "description": "pre_snapshot_blob_id exists before drawing and post_snapshot_blob_id exists after drawing.",
+      "error_code": "VerifyFailed"
+    }
+  ],
+  "failure_mapping": [
+    {"condition": "paint_window_not_found", "error_code": "TargetNotFound"},
+    {"condition": "paint_window_not_foreground", "error_code": "TargetUnresponsive"},
+    {"condition": "unsupported_remote_ai_feature", "error_code": "NeedsHuman"},
+    {"condition": "shape_group_flyout_item_not_found", "error_code": "TargetNotFound"},
+    {"condition": "layer_not_found", "error_code": "TargetNotFound"},
+    {"condition": "color_not_read_back", "error_code": "VerifyFailed"},
+    {"condition": "coordinate_calibration_failed", "error_code": "PlatformPermission"},
+    {"condition": "visual_confidence_low", "error_code": "VerifyFailed"},
+    {"condition": "canvas_drag_interrupted", "error_code": "Transient"}
+  ],
+  "metrics": {
+    "repeat_runs": 1,
+    "minimum_success_rate": 1,
+    "silent_failure_rate": 0,
+    "coordinate_error_max_px": 2,
+    "first_selector_hit_rate_min": 0.85,
+    "step_efficiency_max": 1.5,
+    "time_budget_ms": 120000
+  },
+  "evidence_status": {
+    "probe_window_tree": "observed",
+    "real_machine_full_toolset_path": "run_by_task_309_real_machine_acceptance",
+    "real_ten_run_evaluation": "not_run",
+    "coordinate_error_measurement": "not_run",
+    "visual_tolerance_calibration": "declared_not_measured"
+  }
+}

@@ -1,6 +1,6 @@
 # TASK-318　Paint 形状轮廓 / 形状填充按组拆工具（ADR-0097 落地）
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：1　子阶段：**1b**　批次：Paint 真机链路　依赖：TASK-309、TASK-317
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -158,12 +158,16 @@ cargo run -p xtask -- adr-index
 
 ### 7. 遗留问题
 
-- 本卡保持 **InProgress**：轮廓 / 填充只是「声明 + 分发 + 单测」已落地，真实 GUI 的按钮
-  通道仍只有只读 pattern 证据，没有端到端落笔验收。
+- **TASK-318 已收口**：真实 GUI 的轮廓 / 填充选择均已通过生产 Plan 跑到 `Committed`；
+  端到端落笔由 TASK-309 的 full-toolset package 覆盖。
 - `大小`（形状笔宽）仍无契约：按钮只有本地化 name，未选中形状时 flyout 展开为空；需要
   真机段先选中形状才能取证。
 - 图像 / 选择 / Copilot 组仍按 ADR-0096 在 schema 之外。
 - 真机端到端（选中形状后落笔并验证像素）属 TASK-309 真机段，本卡不声称完成。
+- 2026-10-19 真机会话补充：`paint.outline.select(["实心边框"])` 与
+  `paint.fill.select(["纯色填充"])` 均 `Committed`。共享的二级 flyout 路径先解二级按钮，
+  若形状库已展开则复用，避免重复 `invoke` 把它收起；选中项后等待 MenuItem 从树里消失再
+  继续，防止关闭动画污染下一张像素快照。
 
 ### 8. 新增长期记忆
 
