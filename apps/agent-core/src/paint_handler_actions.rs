@@ -28,7 +28,7 @@ use assistant_storage::BlobId;
 use assistant_tool_bus::ToolBusError;
 use std::time::Duration;
 
-use super::paint_handler_support::normalized_point;
+use super::paint_handler_support::{normalized_point, verify_failed};
 use super::{
     DragRequest, PaintHandlerContext, PhysicalPointPx, TARGET_BRUSH_TOGGLE, TARGET_LAYER_ITEM,
     TARGET_SHAPE_FILL_TOGGLE, TARGET_SHAPE_OUTLINE_TOGGLE, TARGET_SHAPE_SIZE_TOGGLE,
@@ -146,6 +146,31 @@ where
         }))
     }
 
+    /// Waits until `target` is no longer present, bounded by the same gallery
+    /// window used for materialization.
+    ///
+    /// Menu-item handlers use this after `Invoke` so the caller's next snapshot
+    /// cannot race the flyout-close animation. A still-present item is a real
+    /// failure, not a reason to sleep longer.
+    pub(super) fn wait_for_element_absent(
+        &self,
+        target: &str,
+        window: &ResolvedWindow,
+        tool: &str,
+    ) -> Result<(), ToolBusError> {
+        for _attempt in 0..GALLERY_ATTEMPTS {
+            match self.resolve_element(target, window, tool) {
+                Err(ToolBusError::UnknownTool { .. }) => return Ok(()),
+                Ok(_) => {}
+                Err(error) => return Err(error),
+            }
+            std::thread::sleep(Duration::from_millis(GALLERY_INTERVAL_MS));
+        }
+        Err(verify_failed(format!(
+            "{tool}: `{target}` remained in the UIA tree after Invoke"
+        )))
+    }
+
     /// 解析形状库里的目标形状项；折叠时先展开再**有界轮询**重解。
     ///
     /// 实测（2026-10-14 真机探针）：形状库折叠时形状项**还没物化**，直接解析只会
@@ -183,7 +208,7 @@ where
         target: &str,
         tool: &str,
     ) -> Result<ResolvedElement, ToolBusError> {
-        self.wait_for_shape_group_flyout_item(window, TARGET_BRUSH_TOGGLE, target, tool)
+        self.wait_for_shape_group_flyout_item(window, TARGET_BRUSH_TOGGLE, "expand", target, tool)
     }
 
     /// 解析「形状」组里第二个 flyout（形状轮廓 / 形状填充）的条目。
@@ -198,7 +223,13 @@ where
         target: &str,
         tool: &str,
     ) -> Result<ResolvedElement, ToolBusError> {
-        self.wait_for_shape_group_flyout_item(window, TARGET_SHAPE_OUTLINE_TOGGLE, target, tool)
+        self.wait_for_shape_group_flyout_item(
+            window,
+            TARGET_SHAPE_OUTLINE_TOGGLE,
+            "invoke",
+            target,
+            tool,
+        )
     }
 
     /// 形状组第二个 flyout 的填充风格分支；语义与 `wait_for_outline_flyout_item` 相同。
@@ -208,7 +239,13 @@ where
         target: &str,
         tool: &str,
     ) -> Result<ResolvedElement, ToolBusError> {
-        self.wait_for_shape_group_flyout_item(window, TARGET_SHAPE_FILL_TOGGLE, target, tool)
+        self.wait_for_shape_group_flyout_item(
+            window,
+            TARGET_SHAPE_FILL_TOGGLE,
+            "invoke",
+            target,
+            tool,
+        )
     }
 
     /// 形状组第三类 flyout（`大小` / 形状笔宽）的条目（ADR-0098 D4）。
@@ -224,13 +261,20 @@ where
         target: &str,
         tool: &str,
     ) -> Result<ResolvedElement, ToolBusError> {
-        self.wait_for_shape_group_flyout_item(window, TARGET_SHAPE_SIZE_TOGGLE, target, tool)
+        self.wait_for_shape_group_flyout_item(
+            window,
+            TARGET_SHAPE_SIZE_TOGGLE,
+            "invoke",
+            target,
+            tool,
+        )
     }
 
     fn wait_for_shape_group_flyout_item(
         &self,
         window: &ResolvedWindow,
         toggle_target: &str,
+        toggle_action: &str,
         target: &str,
         tool: &str,
     ) -> Result<ResolvedElement, ToolBusError> {
@@ -239,11 +283,38 @@ where
             Err(ToolBusError::UnknownTool { .. }) => {}
             Err(error) => return Err(error),
         }
-        // 形状库必须先展开：第二级 flyout 的按钮在库里，未展开时不在 UIA 树上。
-        let shapes = self.resolve_element(TARGET_SHAPES_TOGGLE, window, tool)?;
-        self.invoke_element(&shapes, "invoke", tool)?;
-        let toggle = self.resolve_element(toggle_target, window, tool)?;
-        self.invoke_element(&toggle, "expand", tool)?;
+        // 第二级 flyout 的按钮只在形状库里；但形状库可能已经被上一轮展开。
+        // 直接对已展开的 CollapsedButton 再 `invoke` 会把它收起来，导致下一次
+        // `expand` 撞在折叠状态上（TASK-309 真机路径实测）。因此先解二级按钮：
+        // 解得到说明上一轮留下了展开的形状库，直接复用；解不到才展开形状库。
+        let toggle = match self.resolve_element(toggle_target, window, tool) {
+            Ok(toggle) => toggle,
+            Err(ToolBusError::UnknownTool { .. }) => {
+                let shapes = self.resolve_element(TARGET_SHAPES_TOGGLE, window, tool)?;
+                self.invoke_element(&shapes, "invoke", tool)?;
+                self.poll_for_element(toggle_target, window, tool)?
+            }
+            Err(error) => return Err(error),
+        };
+        // 形状组的三个 flyout 按钮支持 `Invoke + ExpandCollapse`。直接走 `expand` 时，
+        // 平台层在 `Expand()` 返回后立刻读状态，会撞上 WinUI 的异步展开窗口（实测
+        // state 仍为 collapsed）；探针脚本之所以通过，是因为它在读取前固定等了
+        // 500 ms。这里不放宽平台后置条件，改用按钮同样支持的 `Invoke`，再用目标
+        // MenuItem 是否在有界轮询窗口内出现作为真实效果判据。`BrushesSplitButton`
+        // 是例外：它必须走 `expand` 才会打开菜单，因此由调用方显式传入动作。
+        if let Err(error) = self.invoke_element(&toggle, toggle_action, tool) {
+            let expand_state_lag = toggle_action == "expand"
+                && matches!(
+                    &error,
+                    ToolBusError::Mcp { message, .. }
+                        if message.contains(
+                            "invoke_action(expand) postcondition failed: ExpandCollapseState is 0"
+                        )
+                );
+            if !expand_state_lag {
+                return Err(error);
+            }
+        }
         self.poll_for_element(target, window, tool)
     }
 

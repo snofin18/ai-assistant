@@ -1,6 +1,6 @@
 # TASK-309　Paint 完整工具集真机落地（画笔 / 形状 / 轮廓 / 填充 / 大小 / 颜色）
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：1　子阶段：**1b**　批次：Paint 真机链路　依赖：TASK-308
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -169,6 +169,16 @@ python adapters/com.microsoft.paint/tests/validate_adapter_pack.py
 - **第四段（2026-10-18 round-3 automation）**：DoD 第 2 条（selector pack 候选升为实测）继续推进
   —— 尺寸四档由「未落档」变为 `observed` 且被校验器钉住；第 3 / 4 条（handler 放行与真机端到端）
   仍**未完成**，本卡继续保持 `InProgress`，PR 仍按 WIP 提交。
+- **第五段（2026-10-19 真机会话）**：新增
+  `adapters/com.microsoft.paint/tasks/t3.2.full-toolset-path.json` 与
+  `apps/agent-core/tests/support/paint_full_toolset.rs`，在真机 Paint 11.2605.81.0
+  上跑通「矩形 → 实心边框 → 纯色填充 → 8 像素 → 毛笔 → 切回矩形 → 红色 → 图层 → 落笔」。
+  `cargo test -p assistant-agent-core --test production_paint
+  test_paint_t3_2_full_toolset_path_runs_on_real_paint -- --ignored --nocapture`
+  = `1 passed / 0 failed`（13.65 s），14 个步骤全部 `Committed`；before/after 稳定
+  content address = `52946af09ee2385383bd4084f0d4c03f0b4ac88aabc6523d0551d4c5ea45a870`
+  / `a60e7d5cd3eb1e71b751919e148c1111498c53fb58cd30a8f971e6132ac6b219`。
+  画布裁剪图显示 after 在右侧新增了本次 drag 生成的矩形。
 
 ### 5. 偏差
 
@@ -217,11 +227,19 @@ python adapters/com.microsoft.paint/tests/validate_adapter_pack.py
     所以本轮只落**声明式证据**，不声称运行期可用。
   - `docs/memory/archive/README.md` 仍写「当前为空」，与已存在的
     `docs/memory/archive/paint-early-probes.md` 冲突；该文件不在本卡 write scope，未改。
+- **第五段已关闭真机阻塞**：完整 toolset 真机路径通过；新增的
+  `wait_for_element_absent` 保证 flyout 选中项后先等 MenuItem 从 UIA 树消失，
+  避免把关闭动画误当成画布像素变化。图像 / 选择 / Copilot / 层组仍未进 schema，
+  但不再属于本卡的已声明真机路径阻塞。
 
 ### 8. 新增长期记忆
 
 - 无新增 `FACT` / `PITFALL` / `REJECTED`；本次只是把既有 Paint 条目从主档案迁移到 L3 归档，
   内容未改写，归档事实写入 `MEMORY.md` §7 与 `LEDGER.md`。
+- 真机会话新增两条应用级事实并写入 `docs/memory/apps/paint.md` §13.22：
+  ① `paint.brush.select` 会切换活动工具到笔刷，矩形落笔前必须显式重选矩形；
+  ② WinUI flyout 的 `ExpandCollapseState` 有异步窗口，必须以目标 MenuItem 是否物化
+  / 消失为真实效果判据。
 
 ### 9. 给审阅者的关注点
 
@@ -229,3 +247,5 @@ python adapters/com.microsoft.paint/tests/validate_adapter_pack.py
   §9–§12 / §13.1–§13.7 的原文切片，没有在迁移中丢条目或悄悄改写。
 - `docs/memory/archive/README.md` 的“当前为空”已知陈旧，属跨 scope 遗留；本卡未越界修改。
 - 本卡仍未完成 handler 扩展与真机端到端，PR 是 WIP，不应按 Done 合并。
+- 第五段后本卡已收口：新增真机 package / ignored test 可复跑；唯一有意留下的现场是
+  Paint 当前仍为矩形工具、红色前景色，并保留本次画出的矩形与选区，供人类直接目视复核。

@@ -168,6 +168,7 @@ where
         let before = self.fingerprint_event(&window, tool)?;
         let started = Instant::now();
         self.invoke_element(&item, "invoke", tool)?;
+        self.wait_for_element_absent(target, &window, tool)?;
         {
             let mut state = self
                 .selection

@@ -398,3 +398,22 @@ PROBE: seen=180 emitted=18 truncated=False elapsed_ms=559（结束时已恢复�
 存在性取决于形状组**是否已有活动形状** —— 无活动形状 → 空 → 既有 `TargetNotFound` fail-closed，
 `paint.size.select` 不代选形状；④ 本次未做真机 `Invoke`，端到端仍属 TASK-309。同一态里画笔组
 的 `尺寸` / `不透明度` Slider 不在树上，继续留在 schema 之外。
+
+### 13.22 完整工具集真机路径（2026-10-19，TASK-309）
+
+新增 `adapters/com.microsoft.paint/tasks/t3.2.full-toolset-path.json` 与
+`test_paint_t3_2_full_toolset_path_runs_on_real_paint`。真机 Paint 11.2605.81.0
+按「矩形 → 实心边框 → 纯色填充 → 8 像素 → 毛笔 → 切回矩形 → 红色 → 图层 → 落笔」
+跑完 14 步，`1 passed / 0 failed`（13.65 s）；稳定 before/after content address =
+`52946af09ee2385383bd4084f0d4c03f0b4ac88aabc6523d0551d4c5ea45a870` /
+`a60e7d5cd3eb1e71b751919e148c1111498c53fb58cd30a8f971e6132ac6b219`。
+
+两条会直接影响后续实现的真机事实：
+
+1. **画笔选择会切换活动工具**：`paint.brush.select(["毛笔"])` 后画布名变为
+   `在画布上使用 书法笔刷 1 工具`。若后续要画形状，必须先显式重选形状；不能把画笔组
+   当成本次菜单项式的纯参数。
+2. **WinUI flyout 的展开状态有异步窗口**：`ExpandCollapsePattern.Expand()` 返回后立即读
+   `ExpandCollapseState` 仍可能是 `Collapsed(0)`；只读探针的 500 ms sleep 会掩盖这一点。
+   handler 不能把该瞬时状态当唯一下界，必须以目标 MenuItem 在有界窗口内**物化 / 消失**
+   作为真实效果判据；形状组三个 flyout 可用 `Invoke` 后重解，画笔菜单仍用 `expand` 后重解。

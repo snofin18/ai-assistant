@@ -23,7 +23,7 @@ use assistant_platform_api::{SelectorCandidate, SelectorKind, SelectorValue};
 /// Viewport offsets stay 0: a freshly created document is not scrolled. The declared rectangle
 /// points (10,10)-(50,50) are kept, so a canvas smaller than 51 px on either axis fails loudly here
 /// instead of silently drawing at a clamped point.
-async fn read_real_canvas_inputs(
+pub async fn read_real_canvas_inputs(
     platform: &WindowsPlatform,
     window: &ResolvedWindow,
 ) -> Result<PaintCanvasInputs, Box<dyn std::error::Error>> {
@@ -120,7 +120,7 @@ impl ImageBlobSink for RecordingBlobSink {
 
 /// Assert that `capture`'s image size equals `window_geometry`'s rectangle (ADR-0092 rule 3,
 /// capture side). A mismatch means DPI awareness is not in effect and the capture is clipped.
-async fn assert_capture_size_matches_window(
+pub async fn assert_capture_size_matches_window(
     platform: &WindowsPlatform,
     window: &ResolvedWindow,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -156,14 +156,14 @@ async fn assert_capture_size_matches_window(
 /// pointer input and a human's mouse then fight over the same cursor, so give the desktop a fixed
 /// quiet window and re-assert the foreground before sending anything. Kept as a constant so the
 /// wait is visible and tunable.
-const REAL_RUN_FOREGROUND_SETTLE: Duration = Duration::from_secs(2);
+pub const REAL_RUN_FOREGROUND_SETTLE: Duration = Duration::from_secs(2);
 
 /// Fails unless `window` is currently the foreground window.
 ///
 /// Fail-closed on purpose: sending synthetic input to whatever happens to be foreground is exactly
 /// the "focus 错位会打到别的应用上" hazard the platform contract forbids, so a lost foreground
 /// aborts the run instead of driving the wrong window.
-async fn require_real_paint_foreground(
+pub async fn require_real_paint_foreground(
     platform: &WindowsPlatform,
     window: &ResolvedWindow,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -174,7 +174,7 @@ async fn require_real_paint_foreground(
 }
 
 /// Waits `settle`, then requires `window` to still be the foreground window.
-async fn settle_then_require_foreground(
+pub async fn settle_then_require_foreground(
     platform: &WindowsPlatform,
     window: &ResolvedWindow,
     settle: Duration,
@@ -183,7 +183,7 @@ async fn settle_then_require_foreground(
     require_real_paint_foreground(platform, window).await
 }
 
-async fn wait_for_real_paint_foreground(
+pub async fn wait_for_real_paint_foreground(
     platform: &WindowsPlatform,
 ) -> Result<ResolvedWindow, Box<dyn std::error::Error>> {
     let deadline = Instant::now() + Duration::from_secs(30);

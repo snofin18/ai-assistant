@@ -1,6 +1,6 @@
 # TASK-317　Paint 工具栏寻址重构：按总分类拆工具 + 组内有界路径（ADR-0096 落地）
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：1　子阶段：**1b**　批次：Paint 真机链路　依赖：TASK-309
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -143,13 +143,17 @@ cargo run -p xtask -- adr-index
 
 ### 7. 遗留问题
 
-- **TASK-317 保持 `InProgress`**：图像组工具、真实 GUI 的按钮通道验证仍未完成。
+- **TASK-317 已收口**：图像组工具仍未进 schema，但本轮已按人类现场完成本卡声明的
+  「工具 / 形状 / 画笔」三组真实 GUI 通道验证。
 - `paint.tool.select` 的 `toggle`、`paint.brush.select` 的 `expand + invoke` 目前由 ADR-0096
   §13.8–§13.10 的只读探针 pattern 支撑，尚无真机端到端结果；不得冒充已验证。
 - 选择组 / Copilot 按卡面 Out of scope 未进 schema。
 - 主 PR：#474；merge hash `fdbd356409c47c7506df95cb808cd4aae13ec17c`；CI = 22 checks
   （21 success + 1 skip，pending 0）。契约前置 PR：#473，merge `fb690c7`。
 - 本 run 的 round 记录走后续 docs-only 回填 PR；卡保持 `InProgress`，不把图像组缺失写成 Done。
+- 2026-10-19 真机会话补充：`paint.shape.select(["矩形"])` 与
+  `paint.brush.select(["毛笔"])` 均在生产 Plan 中 `Committed`；真机实测画笔选择会把
+  活动工具切到笔刷，因此 T3.2 全路径在画笔选择后显式重选矩形再落笔。
 
 ### 8. 新增长期记忆
 

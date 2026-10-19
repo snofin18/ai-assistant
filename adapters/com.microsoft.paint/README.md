@@ -35,8 +35,10 @@ shape-size flyout button with its four `AutomationId`-anchored options,
 foreground colour gallery, layers, status bar, and canvas).
 No coordinate calibration or visual tolerance in this package is a real-machine
 acceptance claim, and `observed` means "UIA shape measured", not "selector
-success rate verified". TASK-044 still owns the first end-to-end real Paint
-calibration.
+success rate verified". `tasks/t3.2.full-toolset-path.json` now has a real-machine
+production-plan acceptance run (`TASK-309`, `1 passed / 0 failed`) covering shape,
+outline, fill, size, brush style, color, and draw; TASK-044 still owns the
+ten-run success-rate and coordinate calibration evidence.
 
 The observed package version on this host is `11.2605.81.0`; the package
 family is `Microsoft.Paint_8wekyb3d8bbwe`.
