@@ -3,7 +3,7 @@
   "task_id": "paint.t3_1.new_canvas_rectangle_color_visual",
   "repeat_runs": 10,
   "primary_case": "standard_red_rectangle",
-  "evidence_status": "real_ten_run_standard_case_10_of_10_coordinate_error_not_measured",
+  "evidence_status": "real_ten_run_standard_case_10_of_10_coordinate_error_0px",
   "cases": [
     {
       "id": "standard_red_rectangle",

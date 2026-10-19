@@ -1,0 +1,14 @@
+{
+  "task_id": "paint.t3_1.new_canvas_rectangle_color_visual",
+  "configured_end_canvas": {"x": 50, "y": 50},
+  "document_width_px": 418,
+  "document_height_px": 74,
+  "canvas_bounds": {"left": 1408, "top": 809, "width": 418, "height": 74},
+  "zoom_ratio": 1,
+  "expected_physical": {"x": 1458, "y": 859},
+  "observed_cursor": {"x": 1458, "y": 859},
+  "error_px": {"x": 0, "y": 0, "max": 0},
+  "tolerance_px": 2,
+  "passed": true,
+  "test_passed": true
+}

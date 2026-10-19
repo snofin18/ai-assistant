@@ -23,10 +23,12 @@ times, with a fresh Paint process and document per run. The result was
 `10 passed / 10 runs` (`success_rate=1.0`). The runner writes the raw logs and
 `summary.json` under `target/paint-t3-1-ten-run/` by default.
 
-The real drag coordinate error, mixed-DPI behavior, and final pixel tolerance
-are still not measured. The summary deliberately records
-`coordinate_error_px="not_measured"`; this directory does not claim the 2 px
-bound.
+The real drag coordinate error is measured by `coordinate-error.ps1`: after the
+T3.1 test completes, the script reads the physical cursor and computes the
+expected drop point from the live canvas bounds and document size. The measured
+standard-case result is `x=0 px / y=0 px / max=0 px` against the declared 2 px
+bound. Mixed-DPI behavior and final pixel tolerance remain separate open
+measurements.
 
 `probe-evidence.json` also records a 2026-10-08 selector-resolution probe that
 drove the repository's own `assistant-platform-windows` provider against a live

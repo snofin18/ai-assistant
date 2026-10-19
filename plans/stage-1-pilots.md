@@ -28,9 +28,10 @@
 > `Committed`，`1 passed / 0 failed`；新增 `t3.2.full-toolset-path.json` 与 ignored 验收用例，
 > 记录 stable before/after content address 与画布裁剪证据。真机同时确认画笔选择会切换活动
 > 工具、WinUI flyout 展开状态有异步窗口；handler 已改成根据目标 MenuItem 物化 / 消失判效果。
-> **TASK-256 Done / TASK-044 Review（2026-10-19）**：T3.1 真机单次验收
+> **TASK-256 / TASK-044 Done（2026-10-19）**：T3.1 真机单次验收
 > `1 passed / 0 failed / 11.18 s`；新增 `run-ten.ps1` 并用全新 Paint 文档跑十次，
-> **10/10 passed（success_rate=1.0）**。坐标误差仍为 `not_measured`，TASK-044 不判 Done。
+> **10/10 passed（success_rate=1.0）**；`coordinate-error.ps1` 量到拖拽终点
+> **0 px**（判据 2 px）。
 > **TASK-269 Done（2026-10-11）**：assistant-model-gateway 新增 13 个公共契约测试，独立行覆盖率 75.54% → 93.78%；生产源码零改动；PR #316 / merge `fc20a44`；**DRIFT-269-1** 待另卡修复。
 > **TASK-268 Done（2026-10-11）**：`assistant-storage` 新增 9 个公共契约测试，独立行覆盖率 78.43% → 88.97%；生产源码零改动；PR #314 / merge `076fe2d`。
 > **TASK-267 Done（2026-10-11）**：`assistant-ipc` 新增 9 个真实 NamedPipe 契约测试，独立行覆盖率 41.47% → 81.49%；生产源码零改动；PR #312 / merge `5a5aa7f`。
@@ -373,7 +374,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-249 ✅** | 1b bridge | `tasks/TASK-249-visual-observation-source-runtime-wiring.md` | Done（ADR-0079 宿主 blob→BGRA→GrayImage→VisualObservation；运行时 `observe_visual` + 生产 collector；专项 15 passed） |
 | **TASK-043 ✅** | 1b | `tasks/TASK-043-paint-adapter-tools-canvas-coords.md` | Done（declarative Paint Adapter pack；PR #273 / merge `a3bd2e6`；真机校准转 TASK-044，DRIFT-043-1 / PL-113） |
 | **TASK-106 ✅** | 1b | `tasks/TASK-106-paint-runtime-assembly-t3-1.md` | Done（ADR-0085 `element_bounds` + Paint T3.1 7-handler runtime assembly；PR #284 / merge `f5bdfa6`） |
-| **TASK-044 Review** | 1b | `tasks/TASK-044-t3-1-newcanvas-rect-color-screenshot.md` | Ready（批次表占位派单前补全） |
+| **TASK-044 ✅** | 1b | `tasks/TASK-044-t3-1-newcanvas-rect-color-screenshot.md` | Ready（批次表占位派单前补全） |
 | TASK-045 | 1b | `tasks/TASK-045-t3-2-png-open-read-region-saveas.md` | Ready（批次表占位派单前补全） |
 | TASK-046 | 1b | `tasks/TASK-046-t3-3-draw-undo-pixel-snapshot-verify.md` | Ready（批次表占位派单前补全） |
 | TASK-047 | 1b | `tasks/TASK-047-stage-1b-integration-adapter-reuse.md` | Ready（批次表占位派单前补全） |

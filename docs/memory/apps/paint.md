@@ -420,4 +420,7 @@ PROBE: seen=180 emitted=18 truncated=False elapsed_ms=559（结束时已恢复�
 
 2026-10-19 TASK-044 的 T3.1 标准用例真机十次运行结果：**10 passed / 10 runs**
 （`success_rate=1.0`），每轮使用全新 Paint 文档与 production Plan。坐标误差仍未测量，
-证据中的 `coordinate_error_px` 明确为 `not_measured`；不能由成功率反推 2 px 精度。
+随后用 `coordinate-error.ps1` 在同一生产路径上量到拖拽终点期望 `(1458, 859)`、
+实际 `(1458, 859)`，**max error = 0 px**（判据 2 px）；证据为
+`eval/tasks/paint/t3.1/coordinate-error-summary.json`。不能只由成功率反推像素误差，
+但当前误差已有第一手实测值。
