@@ -1,6 +1,6 @@
 # TASK-045　T3.2：打开 PNG → 读尺寸与缩放 → 区域标记 → 另存为新文件
 
-- 状态：**InProgress**
+- 状态：**Blocked**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：044　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -244,6 +244,21 @@ cargo run -p xtask -- check-ledger
   fixture、eval 或 fake 测试。未调用真实 GUI。
 - **需要人类裁决**：否；Orchestrator 已按既有错误码语义裁决。
 
+`DRIFT-045-3`
+
+- **触发器**：#3（确定性 Plan 工具断言表是执行契约的一部分）、#5（超出 write scope）。
+- **现象**：新增的 T3.2 任务包必须包含 `paint.file.open` 与 `paint.file.save_as` 工具步骤；
+  但 `apps/agent-core/src/task_package_render.rs` 的 `assertion_table()` 当前不覆盖这两个
+  工具。`plan_task()` 在渲染阶段会报 `MissingAssertion`，任务包无法变成可执行 Plan。
+- **影响**：本卡 write scope 列出的 Paint handler / registry / tests / eval 文件无法补齐
+  该缺口；必须修改 `task_package_render.rs` 的 assertion table，才能把已声明工具接入
+  确定性任务包。
+- **建议**：批准把 `apps/agent-core/src/task_package_render.rs` 加入 TASK-045 write scope。
+  预计只需为两个工具增加显式、按 handler 输出字段构造的断言，不修改公共 schema 或平台 trait。
+- **已停止的工作**：未写 selector、handler、task package、fixture、eval、fake 测试或真机
+  harness；本轮停在渲染契约复核。
+- **需要人类裁决**：是。
+
 ### 6. 更合理做法
 
 无。当前 blocker 属于公共错误契约缺口，不能在卡内用局部变通替代。
@@ -253,9 +268,11 @@ cargo run -p xtask -- check-ledger
 `DRIFT-045-1` 已裁决，按“静态 `PolicyDenied` + 对话框竞态 `UserInteraction`”实现。
 不得把竞态负例改写成 `Transient`、点击 Save 或跳过目标不变断言。
 
-`DRIFT-045-2` 未裁决：文件对话框身份不符要求 `TargetUnresponsive`，但该错误码
-当前不可由 handler 产生。已裁决为 `TargetNotFound`（缺失 / 身份不符）和
-`Transient`（有界等待超时），不得用其它错误码冒充。
+`DRIFT-045-2` 已裁决：文件对话框缺失 / 身份不符按 `TargetNotFound`，
+有界等待耗尽按 `Transient`，不得用其它错误码冒充。
+
+`DRIFT-045-3` 未裁决：T3.2 任务包接入 `paint.file.open` / `paint.file.save_as` 需要
+`task_package_render.rs` assertion table 的新条目；该文件当前不在 write scope。
 
 ### 8. 新增长期记忆
 
@@ -269,3 +286,5 @@ cargo run -p xtask -- check-ledger
 3. 保持“目标字节/大小/mtime 不变”与“竞态时不得点击 Save”两条安全断言不变。
 4. `DRIFT-045-2` 已裁决：文件对话框缺失 / 身份不符按 `TargetNotFound`，
    等待超时按 `Transient`；不新增公共错误映射。
+5. `DRIFT-045-3`：批准 `task_package_render.rs` 扩权后，断言必须与 handler 输出字段
+   一一对应，不得用 `state_unchanged` 等泛断言掩盖文件创建或打开失败。
