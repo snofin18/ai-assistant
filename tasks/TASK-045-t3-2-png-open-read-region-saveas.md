@@ -1,6 +1,6 @@
 # TASK-045　T3.2：打开 PNG → 读尺寸与缩放 → 区域标记 → 另存为新文件
 
-- 状态：**Blocked**
+- 状态：**InProgress**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：044　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -72,9 +72,12 @@
   再绘制；`paint.canvas.draw_rectangle` 必须继续使用 pre/post capture 的 content address
   下界，发现 no-op 或尺寸变化即 `VerifyFailed`。
 - 另存：`paint.file.save_as` 只接受绝对 `.png` 路径、父目录存在且可写、
-  `overwrite_existing=false`。打开对话框前与点击 Save 前各检查一次目标不存在；已存在或
-  竞态创建返回 `PolicyDenied`，关闭 / 取消对话框，并断言目标字节、大小和 mtime 不变、
-  save handler 未被调用。成功时等待新文件出现，校验 PNG 签名、尺寸
+  `overwrite_existing=false`。任务包在调用工具前使用 `inspect_target_path` host service +
+  policy 前置步骤：目标静态已存在时返回 `PolicyDenied`，且 `paint.file.save_as` handler
+  不被调用。handler 仍做防御性预检，并在填写对话框后、点击 Save 前再次检查；若目标在
+  竞态窗口出现，取消 / 关闭对话框、不得点击 Save，并以现有可表达的 `UserInteraction`
+  fail-closed，断言目标字节、大小和 mtime 不变。此处不改 `crates/tool-bus` 的公共错误
+  映射。成功时等待新文件出现，校验 PNG 签名、尺寸
   `2048 x 1536`、文件非空且可由 fixture 解码器读回；否则 `VerifyFailed`。
 - 坐标验收：除 10 次成功运行外，另用 `coordinate-error.ps1` 读取拖拽起终点并记录期望 /
   实际物理像素，误差判据 `<= 2 px`。不得由成功次数反推像素误差。
@@ -103,8 +106,9 @@
 - [ ] `paint.file.open` / `paint.file.save_as` 已在生产 registry 注册，工具 schema 零改动。
 - [ ] T3.2 任务包只引用已注册工具；打开、缩放读取、矩形标记、另存四段均有 postcondition。
 - [ ] fixture 生成可重复，静态校验固定 SHA-256、宽高和字节数。
-- [ ] fake platform 正向 + 负向测试全绿；目标存在时返回 `PolicyDenied`，目标不变且
-      `paint.file.save_as` 未被调用。
+- [ ] fake platform 正向 + 负向测试全绿；目标静态存在时由 policy 返回 `PolicyDenied`，
+      目标不变且 `paint.file.save_as` 未被调用；对话框阶段竞态返回 `UserInteraction`，
+      未点击 Save 且目标不变。
 - [ ] 真机 ignored 用例在人类前台守护下通过；实际 `zoom_ratio < 1.0`，矩形坐标误差
       `<= 2 px`，输出 PNG 可从磁盘读回且尺寸正确。
 - [ ] 10 次运行证据落 `eval/tasks/paint/t3.2/ten-run-summary.json`；成功率与坐标误差来自
@@ -210,9 +214,14 @@ cargo run -p xtask -- check-ledger
   1. 批准 ADR + spec 变更，扩权本卡修改 `ToolBusError` 与其 `ErrorCode` 映射；
   2. 增加一个能在保存对话框阶段执行 policy 拒绝的既有运行时能力，不扩公共错误面；
   3. 显式修改本卡契约，将竞态错误码改为现有可表达的错误，但不以放宽测试断言实现。
+- **Orchestrator 裁决（2026-10-19）**：采用方案 3。静态目标存在由任务包
+  `inspect_target_path` + policy 返回 `PolicyDenied`，handler 不进入；保存对话框打开后的
+  竞态由 handler 取消对话框、不点击 Save，并以既有 `UserInteraction` fail-closed，
+  同时保持目标字节 / 大小 / mtime 不变。该裁决不修改 `crates/tool-bus`、公共 `ErrorCode`
+  或 ADR/spec；恢复实现，状态改为 `InProgress`。
 - **已停止的工作**：未修改 selector、task package、handler、registry、fake platform、eval
   或真机 harness；未调用真实 GUI。工作区只保留本 DRIFT 记录与 LEDGER 事件。
-- **需要人类裁决**：是。
+- **需要人类裁决**：否；Orchestrator 已按最小公共契约面裁决。
 
 ### 6. 更合理做法
 
@@ -220,8 +229,8 @@ cargo run -p xtask -- check-ledger
 
 ### 7. 遗留问题
 
-等待 `DRIFT-045-1` 裁决后恢复实现。恢复前不得把竞态负例改写成 `Transient`
-或跳过对应断言。
+`DRIFT-045-1` 已裁决，按“静态 `PolicyDenied` + 对话框竞态 `UserInteraction`”实现。
+不得把竞态负例改写成 `Transient`、点击 Save 或跳过目标不变断言。
 
 ### 8. 新增长期记忆
 
