@@ -222,7 +222,7 @@
   },
   "evidence_status": {
     "probe_window_tree": "observed_on_2026-10-07",
-    "real_ten_run_evaluation": "not_run",
+    "real_ten_run_evaluation": "10_of_10_standard_case_on_2026-10-19",
     "coordinate_error_measurement": "not_run",
     "visual_tolerance_calibration": "declared_not_measured"
   }

@@ -14,10 +14,10 @@ This directory contains declarative task packages for the Paint adapter.
 6. draw one rectangle;
 7. capture post-write pixels for visual verification.
 
-The package declares `tolerance_px <= 2` and `silent_failure_rate = 0`. It
-does not claim that those metrics were measured. The real ten-run evaluation
-and coordinate error measurement remain open until a real Paint GUI run is
-performed.
+The package declares `tolerance_px <= 2` and `silent_failure_rate = 0`. The
+real T3.1 standard-case ten-run evaluation on 2026-10-19 passed 10/10
+(`success_rate=1.0`); the coordinate-error measurement remains open and is
+recorded as `not_measured`, not inferred from the pass rate.
 
 ## T3.2
 
