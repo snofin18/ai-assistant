@@ -441,7 +441,7 @@ impl WindowProvider for T3_2FakePlatform {
         if dialog_open {
             windows.push(WindowInfo::new(
                 t3_2_dialog_window(),
-                "explorer.exe".to_owned(),
+                "mspaint.exe".to_owned(),
                 "File dialog".to_owned(),
             ));
         }
@@ -943,7 +943,7 @@ fn t3_2_main_window() -> ResolvedWindow {
 fn t3_2_dialog_window() -> ResolvedWindow {
     ResolvedWindow::new(
         assistant_platform_api::LocalHandleId::new(T3_2_DIALOG_WINDOW_ID),
-        "File dialog".to_owned(),
+        "mspaint.exe [#32770] File dialog".to_owned(),
     )
 }
 
@@ -1051,7 +1051,7 @@ fn t3_2_task_config_with_space(
         .with_task_inputs(inputs)
 }
 
-fn grant_t3_2_steps<P>(host: &assistant_agent_core::ProductionHost<P>)
+fn grant_t3_2_steps<P>(host: &assistant_agent_core::ProductionHost<P>, now_ms: i64)
 where
     P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
 {
@@ -1071,7 +1071,7 @@ where
                 task_id: host.task_id().as_str(),
                 step_id,
                 scope: ApprovalScope::Once,
-                now_ms: FIXED_NOW_MS,
+                now_ms,
                 ttl_ms: 60_000,
                 uses: 1,
             })
@@ -1103,7 +1103,7 @@ async fn test_paint_t3_2_open_mark_save_as_fake_positive() -> Result<(), Box<dyn
     )
     .await?;
     assert!(sink.attach(&host.database_handle()));
-    grant_t3_2_steps(&host);
+    grant_t3_2_steps(&host, FIXED_NOW_MS);
     let plan = host.plan_task()?;
     let run = host.execute_plan(plan, FIXED_NOW_MS).await?;
     assert_eq!(run.final_snapshot.status, TaskStatus::Completed);
@@ -1147,7 +1147,7 @@ async fn test_paint_t3_2_existing_target_is_rejected_before_handler()
     )
     .await?;
     assert!(sink.attach(&host.database_handle()));
-    grant_t3_2_steps(&host);
+    grant_t3_2_steps(&host, FIXED_NOW_MS);
     let plan = host.plan_task()?;
     let run = host.execute_plan(plan, FIXED_NOW_MS).await?;
     assert!(run.is_awaiting_approval());
@@ -1191,7 +1191,7 @@ async fn test_paint_t3_2_race_target_is_rejected_without_save_click()
     )
     .await?;
     assert!(sink.attach(&host.database_handle()));
-    grant_t3_2_steps(&host);
+    grant_t3_2_steps(&host, FIXED_NOW_MS);
     let plan = host.plan_task()?;
     let Err(error) = host.execute_plan(plan, FIXED_NOW_MS).await else {
         panic!("race target must fail closed");
@@ -1244,7 +1244,6 @@ async fn test_paint_t3_2_open_png_mark_region_save_as() -> Result<(), Box<dyn st
     let window_geometry = platform.window_geometry(&paint_window).await?;
     let monitor_id = window_geometry.space().origin_display().to_owned();
     let monitor_scale = window_geometry.space().scale();
-    require_real_paint_foreground(&platform, &paint_window).await?;
     let host = assemble_production_host(
         t3_2_task_config_with_space(
             &directory.path,
@@ -1259,9 +1258,12 @@ async fn test_paint_t3_2_open_png_mark_region_save_as() -> Result<(), Box<dyn st
     .await?;
     assert!(sink_handle.attach(&host.database_handle()));
 
-    grant_t3_2_steps(&host);
+    let now_ms = SystemClock.now_unix_ms();
+    grant_t3_2_steps(&host, now_ms);
     let plan = host.plan_task()?;
-    let run = host.execute_plan(plan, SystemClock.now_unix_ms()).await?;
+    let foreground_probe = WindowsPlatform::new();
+    require_real_paint_foreground(&foreground_probe, &paint_window).await?;
+    let run = host.execute_plan(plan, now_ms).await?;
     assert_eq!(run.final_snapshot.status, TaskStatus::Completed);
     assert!(target.is_file());
     let saved_dimensions = read_png_dimensions(&target)?;

@@ -1,6 +1,6 @@
 # TASK-045　T3.2：打开 PNG → 读尺寸与缩放 → 区域标记 → 另存为新文件
 
-- 状态：**InProgress**
+- 状态：**Blocked**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：044　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -286,6 +286,23 @@ WIP 静态与 fake 验收已跑：
   harness；本轮停在渲染契约复核。
 - **需要人类裁决**：否；Orchestrator 已批准限定文件扩权。
 
+`DRIFT-045-4`
+
+- **触发器**：#3（平台查询通道契约）、#5（超出 write scope）。
+- **现象**：真机 Paint 的“打开”对话框是 `mspaint.exe [#32770]`。用 managed UIA 验证
+  `AND(ClassName=Edit, ControlType=Pane)` 唯一命中内部文件名 Edit；但仓库
+  `WindowsPlatform::resolve_element` 对等价的 `ClassAndRole(Edit, Pane)` 返回
+  `TargetNotFound -> 0 matches`。`AutomationId=1148` 同时命中 ComboBox 外层与内部 Edit，
+  平台按 `OnAmbiguous::ErrorAndAsk` 拒绝猜测。
+- **影响**：T3.2 无法在不修改平台 UIA 搜索或增加平台能力的情况下稳定输入文件路径。
+  当前 selector / task package 已能打开正确的 Paint 文件对话框，但在文件名字段解析处停止。
+- **建议**：另立平台修复卡，修正 `crates/platform/windows/src/uia/search.rs` 的
+  `ClassAndRole` 子元素搜索，或提供 `AutomationId + ClassName` 组合候选；在修复前不得
+  放宽歧义裁决或改断言。
+- **已停止的工作**：真实单次 / 十次 / 坐标误差未完成；open handler 已改为先等待目标文件
+  对话框，避免把正常 `#32770` 误报为阻塞弹层。
+- **需要人类裁决**：是。
+
 ### 6. 更合理做法
 
 无。当前 blocker 属于公共错误契约缺口，不能在卡内用局部变通替代。
@@ -301,6 +318,9 @@ WIP 静态与 fake 验收已跑：
 `DRIFT-045-3` 已裁决：扩权 `task_package_render.rs` 与两组任务包测试，只为
 `paint.file.open` / `paint.file.save_as` 增加显式 assertion，不修改公共契约。
 
+`DRIFT-045-4` 未裁决：真机文件对话框的元素解析需要平台层修复，当前 TASK-045
+write scope 不包含 `crates/platform/windows/**`。
+
 真机项尚未执行：T3.2 ignored 单次、`run-ten.ps1` 十次、`coordinate-error.ps1`
 独立坐标误差。下一轮需在人类将 Paint 置前台后运行；在此之前不得标记 Done。
 
@@ -313,3 +333,5 @@ WIP 静态与 fake 验收已跑：
 1. 审阅 `paint.file.open` / `paint.file.save_as` 的对话框身份、超时与竞态关闭路径。
 2. 审阅 T3.2 task package 中 `inspect_target_path` 与真机保存前置契约。
 3. 真机项仍全部未跑，`zoom_ratio < 1.0` 与 `<= 2 px` 不得由 fake 成功反推。
+4. `DRIFT-045-4`：平台 `ClassAndRole` 对真实 Paint 文件对话框文件名 Edit 的 0 命中，
+   需要平台层修复后才能继续真机输入。

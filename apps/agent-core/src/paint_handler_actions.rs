@@ -31,7 +31,7 @@ use std::time::Duration;
 
 use super::paint_handler_support::{
     normalized_point, parse_canvas_size, png_dimensions, required_png_path, user_interaction,
-    verify_failed,
+    user_interaction_with, verify_failed,
 };
 use super::{
     DragRequest, PaintHandlerContext, PhysicalPointPx, TARGET_BRUSH_TOGGLE, TARGET_CANVAS,
@@ -59,6 +59,12 @@ const FILE_DIALOG_ATTEMPTS: usize = 30;
 const FILE_DIALOG_INTERVAL_MS: u64 = 100;
 const OPEN_CANVAS_ATTEMPTS: usize = 30;
 const SAVE_FILE_ATTEMPTS: usize = 30;
+
+struct FileDialogShortcut<'a> {
+    key: &'a str,
+    modifiers: Vec<KeyModifier>,
+    label: &'a str,
+}
 
 impl<P> PaintHandlerContext<P>
 where
@@ -399,58 +405,41 @@ where
         target: &str,
         tool: &str,
     ) -> Result<ResolvedWindow, ToolBusError> {
+        let main_window = self.resolve_window(TARGET_MAIN_WINDOW, tool)?;
         let mut last_error = String::from("dialog did not appear");
         for _attempt in 0..FILE_DIALOG_ATTEMPTS {
-            match self.resolve_window(target, tool) {
-                Ok(dialog) => {
-                    self.verify_dialog_process_identity(&dialog, tool)?;
-                    return Ok(dialog);
+            let listed = support::poll_immediate(
+                self.platform.list_windows(&WindowFilter::any()),
+                tool,
+                "list_windows",
+            )?
+            .map_err(|error| support::map_platform_error(tool, &error))?;
+            let main_app_id = listed
+                .iter()
+                .find(|info| info.window().id() == main_window.id())
+                .map(|info| info.app_id().to_owned());
+            if let Some(main_app_id) = main_app_id {
+                for info in &listed {
+                    if !info.app_id().eq_ignore_ascii_case(&main_app_id)
+                        || !info.window().display_label().contains("[#32770]")
+                    {
+                        continue;
+                    }
+                    let state = self.window_state(info.window(), tool)?;
+                    if state.foreground() {
+                        return Ok(info.window().clone());
+                    }
+                    last_error = format!(
+                        "matching `{target}` dialog exists but is not foreground: {}",
+                        info.window().display_label()
+                    );
                 }
-                Err(ToolBusError::UnknownTool { tool: message }) => {
-                    last_error = message;
-                }
-                Err(error) => return Err(error),
             }
             std::thread::sleep(Duration::from_millis(FILE_DIALOG_INTERVAL_MS));
         }
         Err(ToolBusError::Transport {
             reason: format!("{tool}: {last_error}"),
         })
-    }
-
-    fn verify_dialog_process_identity(
-        &self,
-        dialog: &ResolvedWindow,
-        tool: &str,
-    ) -> Result<(), ToolBusError> {
-        let main_window = self.resolve_window(TARGET_MAIN_WINDOW, tool)?;
-        let listed = support::poll_immediate(
-            self.platform.list_windows(&WindowFilter::any()),
-            tool,
-            "list_windows",
-        )?
-        .map_err(|error| support::map_platform_error(tool, &error))?;
-        let main_app_id = listed
-            .iter()
-            .find(|info| info.window().id() == main_window.id())
-            .map(|info| info.app_id().to_owned());
-        let dialog_app_id = listed
-            .iter()
-            .find(|info| info.window().id() == dialog.id())
-            .map(|info| info.app_id().to_owned());
-        let (Some(main_app_id), Some(dialog_app_id)) = (main_app_id, dialog_app_id) else {
-            return Err(ToolBusError::UnknownTool {
-                tool: format!("{tool}: file dialog window identity was not observable"),
-            });
-        };
-        if main_app_id.eq_ignore_ascii_case(&dialog_app_id) {
-            return Err(ToolBusError::UnknownTool {
-                tool: format!(
-                    "{tool}: file dialog belongs to `{dialog_app_id}`, same process as Paint"
-                ),
-            });
-        }
-        Ok(())
     }
 
     /// Waits for a dialog target to become unresolvable after `Escape` / Open /
@@ -471,6 +460,32 @@ where
         Err(ToolBusError::Transport {
             reason: format!("{tool}: dialog `{target}` did not close within the bound"),
         })
+    }
+
+    fn open_expected_file_dialog(
+        &self,
+        task_id: &str,
+        window: &ResolvedWindow,
+        dialog_target: &str,
+        shortcut: FileDialogShortcut<'_>,
+        tool: &str,
+    ) -> Result<ResolvedWindow, ToolBusError> {
+        self.send_key(task_id, window, shortcut.key, shortcut.modifiers, tool)?;
+        match self.resolve_file_dialog(dialog_target, tool) {
+            Ok(dialog) => Ok(dialog),
+            Err(error) => {
+                if self.window_state(window, tool)?.occluded() {
+                    return Err(user_interaction_with(
+                        tool,
+                        &format!(
+                            "{} did not produce the file dialog and Paint remains occluded",
+                            shortcut.label
+                        ),
+                    ));
+                }
+                Err(error)
+            }
+        }
     }
 
     pub(super) fn set_element_value(
@@ -529,31 +544,53 @@ where
         let path = required_png_path(arguments, "path", TOOL_FILE_OPEN, true)?;
         let expected = png_dimensions(path.as_path(), TOOL_FILE_OPEN)?;
         let window = self.resolve_window(TARGET_MAIN_WINDOW, TOOL_FILE_OPEN)?;
-        if self.window_state(&window, TOOL_FILE_OPEN)?.occluded() {
-            return Err(user_interaction(TOOL_FILE_OPEN));
+        let window_state = self.window_state(&window, TOOL_FILE_OPEN)?;
+        if window_state.occluded() {
+            return Err(user_interaction_with(
+                TOOL_FILE_OPEN,
+                &format!(
+                    "Paint was already occluded before Ctrl+O \
+                     (minimized={}, foreground={}, occluded={})",
+                    window_state.minimized(),
+                    window_state.foreground(),
+                    window_state.occluded()
+                ),
+            ));
         }
         let before = self.fingerprint_event(&window, TOOL_FILE_OPEN)?;
         let started = std::time::Instant::now();
-        self.send_key(
+        let dialog = self.open_expected_file_dialog(
             task_id,
             &window,
-            "O",
-            vec![KeyModifier::Control],
+            TARGET_FILE_OPEN_DIALOG,
+            FileDialogShortcut {
+                key: "O",
+                modifiers: vec![KeyModifier::Control],
+                label: "Ctrl+O",
+            },
             TOOL_FILE_OPEN,
         )?;
-        if self.wait_for_blocking_popup(&window, TOOL_FILE_OPEN)? {
-            return Err(user_interaction(TOOL_FILE_OPEN));
-        }
-        let dialog = self.resolve_file_dialog(TARGET_FILE_OPEN_DIALOG, TOOL_FILE_OPEN)?;
-        let filename = self.resolve_element(TARGET_FILE_OPEN_FILENAME, &dialog, TOOL_FILE_OPEN)?;
+        let filename = self
+            .resolve_element(TARGET_FILE_OPEN_FILENAME, &dialog, TOOL_FILE_OPEN)
+            .map_err(|error| ToolBusError::UnknownTool {
+                tool: format!(
+                    "{TOOL_FILE_OPEN}: filename lookup in `{}` failed: {error}",
+                    dialog.display_label()
+                ),
+            })?;
         self.set_element_value(&filename, path.to_string_lossy().as_ref(), TOOL_FILE_OPEN)?;
         let open_button =
             self.resolve_element(TARGET_FILE_OPEN_OPEN_BUTTON, &dialog, TOOL_FILE_OPEN)?;
         self.invoke_element(&open_button, "invoke", TOOL_FILE_OPEN)?;
         self.wait_for_window_absent(TARGET_FILE_OPEN_DIALOG, TOOL_FILE_OPEN)?;
-        let (width, height, zoom_ratio) = self
-            .read_open_canvas(expected, TOOL_FILE_OPEN)
-            .map_err(|_| user_interaction(TOOL_FILE_OPEN))?;
+        let (width, height, zoom_ratio) =
+            self.read_open_canvas(expected, TOOL_FILE_OPEN)
+                .map_err(|_| {
+                    user_interaction_with(
+                        TOOL_FILE_OPEN,
+                        "opened document size did not become the fixture size",
+                    )
+                })?;
         {
             let mut document = self
                 .document
@@ -599,17 +636,17 @@ where
         let window = self.resolve_window(TARGET_MAIN_WINDOW, TOOL_FILE_SAVE_AS)?;
         let before = self.fingerprint_event(&window, TOOL_FILE_SAVE_AS)?;
         let started = std::time::Instant::now();
-        self.send_key(
+        let dialog = self.open_expected_file_dialog(
             task_id,
             &window,
-            "S",
-            vec![KeyModifier::Control, KeyModifier::Shift],
+            TARGET_SAVE_AS_DIALOG,
+            FileDialogShortcut {
+                key: "S",
+                modifiers: vec![KeyModifier::Control, KeyModifier::Shift],
+                label: "Ctrl+Shift+S",
+            },
             TOOL_FILE_SAVE_AS,
         )?;
-        if self.wait_for_blocking_popup(&window, TOOL_FILE_SAVE_AS)? {
-            return Err(user_interaction(TOOL_FILE_SAVE_AS));
-        }
-        let dialog = self.resolve_file_dialog(TARGET_SAVE_AS_DIALOG, TOOL_FILE_SAVE_AS)?;
         let filename = self.resolve_element(TARGET_SAVE_AS_FILENAME, &dialog, TOOL_FILE_SAVE_AS)?;
         self.set_element_value(
             &filename,

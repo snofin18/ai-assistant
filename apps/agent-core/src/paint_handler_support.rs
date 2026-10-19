@@ -598,9 +598,14 @@ pub(super) const fn verify_failed(message: String) -> ToolBusError {
 /// Fail-closed error for a user-driven dialog state (cancel, existing target,
 /// or other action the user must resolve).
 pub(super) fn user_interaction(tool: &str) -> ToolBusError {
+    user_interaction_with(tool, "user interaction is required before retrying")
+}
+
+/// Same as [`user_interaction`], with a path-specific reason for diagnosis.
+pub(super) fn user_interaction_with(tool: &str, reason: &str) -> ToolBusError {
     ToolBusError::Mcp {
         code: -32_010,
-        message: format!("{tool}: user interaction is required before retrying"),
+        message: format!("{tool}: {reason}"),
     }
 }
 
