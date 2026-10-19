@@ -249,3 +249,4 @@ python adapters/com.microsoft.paint/tests/validate_adapter_pack.py
 - 本卡仍未完成 handler 扩展与真机端到端，PR 是 WIP，不应按 Done 合并。
 - 第五段后本卡已收口：新增真机 package / ignored test 可复跑；唯一有意留下的现场是
   Paint 当前仍为矩形工具、红色前景色，并保留本次画出的矩形与选区，供人类直接目视复核。
+- 合并证据：PR #483；merge hash `043bc6288a998ce9fa0725bb173144efbe39c447`。

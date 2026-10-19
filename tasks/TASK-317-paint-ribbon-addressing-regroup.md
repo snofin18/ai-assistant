@@ -154,6 +154,7 @@ cargo run -p xtask -- adr-index
 - 2026-10-19 真机会话补充：`paint.shape.select(["矩形"])` 与
   `paint.brush.select(["毛笔"])` 均在生产 Plan 中 `Committed`；真机实测画笔选择会把
   活动工具切到笔刷，因此 T3.2 全路径在画笔选择后显式重选矩形再落笔。
+- 合并证据：PR #483；merge hash `043bc6288a998ce9fa0725bb173144efbe39c447`。
 
 ### 8. 新增长期记忆
 

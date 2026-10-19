@@ -195,6 +195,7 @@ cargo run -p xtask -- adr-index
 - 2026-10-19 真机会话补充：`paint.size.select(["8 像素"])` 走
   `CollapsedButton → 大小 → aid=Size8` 并成功执行；选中项后同样等待 MenuItem 从树里消失，
   以目标物化 / 消失作为异步 ExpandCollapse 的真实效果判据。
+- 合并证据：PR #483；merge hash `043bc6288a998ce9fa0725bb173144efbe39c447`。
 
 ### 8. 新增长期记忆
 

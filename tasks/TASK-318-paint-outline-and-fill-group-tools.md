@@ -168,6 +168,7 @@ cargo run -p xtask -- adr-index
   `paint.fill.select(["纯色填充"])` 均 `Committed`。共享的二级 flyout 路径先解二级按钮，
   若形状库已展开则复用，避免重复 `invoke` 把它收起；选中项后等待 MenuItem 从树里消失再
   继续，防止关闭动画污染下一张像素快照。
+- 合并证据：PR #483；merge hash `043bc6288a998ce9fa0725bb173144efbe39c447`。
 
 ### 8. 新增长期记忆
 
