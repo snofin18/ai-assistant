@@ -184,6 +184,7 @@ TASK-044 write scope 内；本卡把真实 UIA 证据落到评测目录和应用
 - 拖拽误差证据：`eval/tasks/paint/t3.1/coordinate-error.ps1` 与
   `coordinate-error-summary.json`；不是由成功次数反推。
 - 合并证据：PR #485；merge hash `0fb655b`。本卡已收口为 Done。
+- 坐标误差合并证据：PR #487；merge hash `af005c9`（`coordinate-error.ps1` 回填）。
 - `DRIFT-044-2`：**先决阻塞** —— Paint selector 包未按真实 UIA 校准（`main_window` 直接
   0 命中），真机十次验收在它修好前跑不起来。需要一张拥有
   `adapters/com.microsoft.paint/selectors/**` 写权限的校准卡。
