@@ -179,6 +179,7 @@ TASK-044 write scope 内；本卡把真实 UIA 证据落到评测目录和应用
 - `DRIFT-044-1` / `PL-113`：真机十次运行、拖拽误差、多屏 DPI 与像素容差待人工验收。
 - `DRIFT-044-1` 的成功率部分已推进：真机十次为 10/10；**坐标误差仍是未测项**，
   当前 runner 不伪造该值，`summary.json` 明确写 `coordinate_error_px="not_measured"`。
+- 合并证据：PR #485；merge hash `0fb655b`。本卡仍为 Review。
 - `DRIFT-044-2`：**先决阻塞** —— Paint selector 包未按真实 UIA 校准（`main_window` 直接
   0 命中），真机十次验收在它修好前跑不起来。需要一张拥有
   `adapters/com.microsoft.paint/selectors/**` 写权限的校准卡。
