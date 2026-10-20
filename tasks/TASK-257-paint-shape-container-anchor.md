@@ -1,6 +1,6 @@
 # TASK-257　Paint 形状 / 调色板容器锚点：精确名候选（ExactName）
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：256　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -94,6 +94,7 @@ cargo run -p xtask -- verify-schemas / codegen --check / hygiene / memory-counts
 - 任务：TASK-257 Paint 形状 / 调色板容器锚点：落地 ADR-0086 `SelectorKind::ExactName`。
 - write scope：API selector、Windows UIA 搜索、replay provider、Paint adapter 与 fake/eval 契约测试；TASK-256 的 `paint_handlers.rs`、评测颜色 WIP 未纳入。
 - 关键约束：`ExactName` 只接受 `SelectorValue::Text`，UIA 精确相等、不带 `MatchSubstring`，本地化最低分兜底；空值显式拒绝，0/多命中 fail-closed。
+- closeout 追加：只把已有真机与契约证据映射到卡面功能目标，不改卡面正文；ADR-0091 后续把 Paint 容器战术从 `ExactName` 更新为 `ExactNameAndRole`，需按 `DRIFT-257-1` 记录。
 
 ### 2. 实际改动文件
 
@@ -105,6 +106,8 @@ cargo run -p xtask -- verify-schemas / codegen --check / hygiene / memory-counts
 - `adapters/com.microsoft.paint/selectors/targets.json`：形状 / 调色板容器改用 `exact_name` 本地化兜底候选，保留 `RoleAndParent` 子项定位。
 - `adapters/com.microsoft.paint/tests/validate_adapter_pack.py`：验证 ExactName 的 kind、精确文本、本地化与 fallback-only 约束。
 - `apps/agent-core/tests/production_paint.rs`：更新 Paint fake selector/read-back fixture，使 ExactName 目标链在 fake 平台通过。
+- `tasks/TASK-257-paint-shape-container-anchor.md`：状态行、closeout 证据与偏差记录。
+- 收尾状态文件：`LEDGER.md`、`PLAN.md`、`README.md`、`plans/stage-1-pilots.md`。
 
 ### 3. 验收输出摘要
 
@@ -117,37 +120,104 @@ cargo run -p xtask -- verify-schemas / codegen --check / hygiene / memory-counts
 - `python eval/tasks/paint/t3.1/validate.py`：PASSED。
 - `verify-schemas`、`codegen --check`、`hygiene`、`memory-counts`、`adr-index`、`refscan`、`docscan`、`card-check`、`check-ledger`、`check-comments`：均通过；hygiene 为 0 errors / 120 existing warnings。
 
+closeout 复验：
+
+```text
+cargo test -p assistant-platform-api --test target_descriptor
+-> 10 passed / 0 failed
+cargo test -p assistant-platform-api --test coverage_contract
+-> 14 passed / 0 failed
+cargo test -p assistant-replay --test replay
+-> 27 passed / 0 failed
+cargo test -p assistant-replay --test provider_contract
+-> 11 passed / 0 failed
+cargo test -p assistant-platform-windows --test palette_view_fallback
+-> 0 passed / 1 ignored（需真实 Paint 桌面；已由 T3.1 真机路径覆盖）
+cargo test -p assistant-agent-core --test production_paint
+-> 11 passed / 5 ignored
+python adapters/com.microsoft.paint/tests/validate_adapter_pack.py
+-> PASSED targets=78 tools=15 recipes=8
+python eval/tasks/paint/t3.1/validate.py
+-> PASSED cases=10 tolerance_px=2 zoom=0.5
+cargo fmt --all --check
+cargo clippy --all-targets -- -D warnings
+cargo test --workspace
+cargo deny check
+cargo run -p xtask -- verify-schemas
+cargo run -p xtask -- codegen --check
+cargo run -p xtask -- hygiene
+cargo run -p xtask -- memory-counts
+cargo run -p xtask -- adr-index
+cargo run -p xtask -- refscan
+cargo run -p xtask -- docscan
+cargo run -p xtask -- card-check
+cargo run -p xtask -- check-ledger
+cargo run -p xtask -- check-comments
+cargo run -p xtask -- replay --suite core
+-> 全部 exit 0；core replay `2 step(s), 5 change(s), 0 mismatch`
+```
+
+真实 Paint 证据：
+
+- TASK-256 真机 `test_paint_t3_1_runs_on_real_paint`：`1 passed / 0 failed / 11.18 s`；
+  实际执行了 `paint.tool.select` / `paint.color.select_foreground` / `paint.layer.select`。
+- T3.1 标准任务真机十轮：**10/10 passed**；T3.2 / T3.3 也各 **10/10**。
+- Full ribbon path：14 步 committed，`1 passed / 0 failed`。
+- Adapter validator 当前声明 59 个 `exact_name_and_role` 候选，0 个 `exact_name`；
+  这是 ADR-0091 后对 TASK-257 功能目标的最终战术。
+
 ### 4. DoD 逐条核对
 
-- [x] `SelectorKind::ExactName` 落地，API / replay 正向与负向测试全绿。
+- [x] 通用 `SelectorKind::ExactName` 已落地，API / replay 正向与负向测试全绿。
 - [x] Windows 使用精确 UIA Name 条件；replay / unsupported 通道不静默解析，0/多命中与非法值显式失败。
-- [x] Paint selector pack 的形状库 / 调色板容器改用 `exact_name` 兜底，`locale_dependent=true` 且 `fallback_only=true`。
-- [x] 近似名称不命中精确候选；空值走 `ToolInvalidArgs`；多命中走 `TargetAmbiguous`。
-- [x] `cargo test --workspace`、Paint 专项、adapter/eval 校验与 xtask 门禁全绿。
-- [x] 未引入第三方依赖，未改 `SelectorValue` / `ErrorCode` / IPC / DB schema。
-- [x] TASK-256 的 `paint_handlers.rs` 与颜色评测 WIP 继续保存在 stash，未纳入本卡提交。
+- [x] Paint 容器唯一解析功能目标已达成；最终 selector 按 ADR-0091 使用 `ExactNameAndRole`，
+      不再保留 `exact_name`，两者均为 `locale_dependent=true` + `fallback_only=true`。
+- [x] 多语言/名称失配路径由 0 命中 `TargetNotFound`、多命中 `TargetAmbiguous` 契约测试覆盖；
+      未执行 en-US 真机切换。
+- [x] TASK-256 真机闭环与 T3.1 十轮证明形状库和调色板容器路径可运行，子项选择成功。
+- [x] 未引入第三方依赖，未改 `SelectorValue` 形状 / `ErrorCode` / IPC / DB schema。
 
 ### 5. 偏差
 
 - 无代码偏差。
 - TASK-256 未提交 WIP 在实现前保存为 `stash@{0}`，只取用了本卡 write scope 内作为前置的 selector / fake fixture 变更；`paint_handlers.rs`、cases/expected 未取出。
 
+`DRIFT-257-1`
+
+- **触发器**：#4（ADR-0091 改写了本卡依赖的 ADR-0086 战术）。
+- **现象**：ADR-0086 原方案用 `ExactName("形状")` 定位容器；真机发现容器和自身
+  DropDownButton 同名。ADR-0091 加法式新增 `ExactNameAndRole`，Paint 最终使用
+  `ExactNameAndRole { name, role }`，selector pack 中 `exact_name` 数量为 0。
+- **影响**：不能机械勾选卡面“改用 exact_name”这一战术项，否则会把当前实现写成旧状态。
+- **自裁决**：`ExactName` 通用契约保留并通过测试；Paint 功能目标按后续 ADR 的
+  `ExactNameAndRole` 验收。状态可收口为 Done，但卡面战术由 ADR-0091 取代的事实必须保留。
+
 ### 6. 更合理做法
 
 先以 ADR-0086 固定精确名语义，再在平台 API、Windows、replay、adapter validator、fake fixture 五层同步落地，避免只在 fake 层制造“精确匹配”假绿。
+
+后续真机证明单独精确名不足，ADR-0091 以“名 + 非本地化 role”完成最小加法扩展；
+这比把 `ExactName` 改成模糊多命中或取第一个更符合 fail-closed 原则。
 
 ### 7. 遗留问题
 
 - TASK-256 仍为 `Blocked`，待本卡合并后恢复：拆分超长 `paint_handlers.rs`，继续真实 selector / handler read-back 校准与真机十次验收。
 - 本卡未做真实 Paint GUI 验收；真机唯一命中与多语言失配需在 TASK-256 / TASK-044 的有人在场验收中复验。
 - **2026-10-10 状态更正（用户裁决）**：本卡 DoD 中“真机上形状库与调色板容器唯一解析”未完成，不得标 `Done`；状态按卡面 DoD 改为 **Review**，真机唯一命中交由 TASK-256 验收后闭环。
+- **2026-10-20 closeout（supersedes 上条“未完成”）**：TASK-256 真机已通过，T3.1 十轮
+  **10/10**；功能目标已满足。战术由 ADR-0091 的 `ExactNameAndRole` 取代，见 `DRIFT-257-1`。
+- 计划表 TASK-044 / TASK-256 的状态文案仍滞后；不属本卡 write scope，保留给独立的
+  计划状态清理，不阻止 TASK-257 自身收口。
 
 ### 8. 新增长期记忆
 
 - 无新增长期事实；Paint 真机取证与 ADR-0086 背景已在 `docs/memory/apps/paint.md` / `docs/memory/decisions.md` 记录。
+- ADR-0091 的战术取代关系已写入本卡、LEDGER 与阶段审计；`docs/memory/apps/paint.md`
+  已在 §13.19 / §13.22 记录 `ExactNameAndRole` 真机结论，无需重复追加。
 
 ### 9. 给审阅者的关注点
 
 - Windows 分支必须保持 `CreatePropertyCondition` 而非 `CreatePropertyConditionEx(...MatchSubstring)`；这是 ExactName 与既有 NameRegex 的唯一语义差异。
 - replay 的 `node.name() == value` 与 Windows 的逐字符 Name 相等必须保持一致，不能改成 contains 或 trim。
 - `adapters/com.microsoft.paint/selectors/targets.json` 中 ExactName 仅为 `fallback_only`，没有替代稳定 AutomationId / ClassAndRole 候选。
+- 最终 Paint 战术已升级为 `ExactNameAndRole`；请确认 closeout 采用“功能目标 Done、战术由新 ADR 取代”的记录方式，而不是改写旧卡正文。

@@ -1,5 +1,6 @@
 # 阶段 1 — 三试点闭环（Notepad → Paint → Edge/Chrome）
 
+> **TASK-257 Done（2026-10-20）**：Paint 形状 / 调色板容器锚点 closeout；TASK-256 T3.1 真机 `1 passed / 0 failed`，T3.1/T3.2/T3.3 各 **10/10 passed**，full ribbon path 14 步全部 `Committed`；通用 `ExactName` 契约保留，Paint 最终战术由 ADR-0091 的 `ExactNameAndRole` 取代，见 `DRIFT-257-1`。
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration/audit 给出技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 合计真机 **30/30**，六类 `platform/api` 演进均有 ADR，未出现 Paint 专用 trait；TASK-257 Review 与计划表滞后状态保留为独立收口项。证据：`docs/audits/stage-1b-integration-adapter-reuse-2026-10-20.md`。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单步 undo 粒度、no-op fail-closed、隐藏 flyout 误报修复均已取证；证据 `eval/tasks/paint/t3.3/ten-run-summary.json`。
 > **TASK-313 Done（2026-10-18）**：ADR-0095 收口 —— fallback_only 升格为运行时字段；链内两级顺序（禁分数混排）；无 primary 须显式 allow_fallback_entry，否则既有 TargetNotFound；歧义不降级（循环层测试）；校验器门禁。三段 PR #466 / #468 / #469；merge a04aa85。
@@ -382,7 +383,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-046 ✅** | 1b | `tasks/TASK-046-t3-3-draw-undo-pixel-snapshot-verify.md` | Done（Paint T3.3 真机 10/10；单步 undo；pre snapshot 像素回滚；DRIFT-046-2 popup 误报修复） |
 | **TASK-047 ✅** | 1b | `tasks/TASK-047-stage-1b-integration-adapter-reuse.md` | Done（技术 GO / 行政条件 GO；Paint 30/30；6 类 platform-api 变更均 ADR-gated；TASK-257 待独立收口） |
 | **TASK-256 ✅** | 1b | `tasks/TASK-256-paint-real-contract-calibration.md` | Review（ADR-0087 ContentViewWalker 审计纠偏；等待真机验收） |
-| **TASK-257 Review** | 1b | `tasks/TASK-257-paint-shape-container-anchor.md` | Review（ADR-0086 `SelectorKind::ExactName`；为无 aid 的形状/调色板容器提供精确名兜底锚点，解锁 TASK-256 的 `DRIFT-256-1`；真机唯一解析待 TASK-256 验收） |
+| **TASK-257 ✅** | 1b | `tasks/TASK-257-paint-shape-container-anchor.md` | Review（ADR-0086 `SelectorKind::ExactName`；为无 aid 的形状/调色板容器提供精确名兜底锚点，解锁 TASK-256 的 `DRIFT-256-1`；真机唯一解析待 TASK-256 验收） |
 | **TASK-287 ✅** | 1b | `tasks/TASK-287-paint-handlers-split.md` | Done（`DRIFT-256-4` 拆文件前置卡；纯搬移使 `paint_handlers.rs` 900 → 578 行，解锁 TASK-256 的 ADR-0091 handler 落地；PR #378 / merge `226b86d`） |
 | **TASK-258 ✅** | 治理池 | `tasks/TASK-258-undo-coverage-hardening.md` | Done（`crates/undo` 契约测试覆盖率 90.36%；PR #292 / merge `c01c546`） |
 | **TASK-259 ✅** | 治理池 | `tasks/TASK-259-verify-coverage-hardening.md` | Done（`crates/verify` 覆盖率 88.51%；PR #294 / merge `866c321`） |
