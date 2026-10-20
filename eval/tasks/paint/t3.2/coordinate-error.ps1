@@ -122,7 +122,7 @@ function Focus-PaintWindow {
                     $true
                 )
             }
-            [void][PaintCoordinateErrorNative]::ShowWindow($target, 9)
+            [void][PaintCoordinateErrorNative]::ShowWindow($target, 3)
             [void][PaintCoordinateErrorNative]::BringWindowToTop($target)
             [void][PaintCoordinateErrorNative]::SetForegroundWindow($target)
             [void][PaintCoordinateErrorNative]::SetFocus($target)

@@ -1242,6 +1242,20 @@
       ]
     },
     {
+      "id": "zoom_values_combo",
+      "scope": "element",
+      "probe_status": "observed",
+      "candidates": [
+        {
+          "id": "zoom-values-combo-automation-id",
+          "kind": "automation_id",
+          "value": {"text": "ZoomValuesComboBox"},
+          "score": 1.0,
+          "locale_dependent": false
+        }
+      ]
+    },
+    {
       "id": "file_open_filename",
       "scope": "element",
       "probe_status": "required",
@@ -1285,7 +1299,7 @@
           "id": "file-open-filename-edit-edit",
           "kind": "class_and_role",
           "value": {"class_and_role": {"class": "Edit", "role": "Edit"}},
-          "score": 0.6,
+          "score": 1.0,
           "locale_dependent": false
         },
         {
@@ -1363,7 +1377,7 @@
           "id": "save-as-filename-edit-edit",
           "kind": "class_and_role",
           "value": {"class_and_role": {"class": "Edit", "role": "Edit"}},
-          "score": 0.6,
+          "score": 1.0,
           "locale_dependent": false
         },
         {

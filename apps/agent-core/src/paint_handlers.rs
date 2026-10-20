@@ -91,6 +91,7 @@ const TARGET_SHAPE_SIZE_TOGGLE: &str = "shape_size_button";
 const TARGET_FILE_OPEN_DIALOG: &str = "file_open_dialog";
 const TARGET_FILE_OPEN_FILENAME: &str = "file_open_filename";
 const TARGET_FILE_OPEN_OPEN_BUTTON: &str = "file_open_open_button";
+const TARGET_ZOOM_VALUES_COMBO: &str = "zoom_values_combo";
 const TARGET_SAVE_AS_DIALOG: &str = "save_as_dialog";
 const TARGET_SAVE_AS_FILENAME: &str = "save_as_filename";
 const TARGET_SAVE_AS_SAVE_BUTTON: &str = "save_as_save_button";

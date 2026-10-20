@@ -38,8 +38,8 @@ use super::{
     TARGET_FILE_OPEN_DIALOG, TARGET_FILE_OPEN_FILENAME, TARGET_FILE_OPEN_OPEN_BUTTON,
     TARGET_LAYER_ITEM, TARGET_MAIN_WINDOW, TARGET_SAVE_AS_DIALOG, TARGET_SAVE_AS_FILENAME,
     TARGET_SAVE_AS_SAVE_BUTTON, TARGET_SHAPE_FILL_TOGGLE, TARGET_SHAPE_OUTLINE_TOGGLE,
-    TARGET_SHAPE_SIZE_TOGGLE, TARGET_SHAPES_TOGGLE, TARGET_STATUS_BAR, TOOL_FILE_OPEN,
-    TOOL_FILE_SAVE_AS,
+    TARGET_SHAPE_SIZE_TOGGLE, TARGET_SHAPES_TOGGLE, TARGET_STATUS_BAR, TARGET_ZOOM_VALUES_COMBO,
+    TOOL_FILE_OPEN, TOOL_FILE_SAVE_AS,
 };
 
 /// 展开 / 折叠后的**有界重解**次数与间隔（形状库异步物化、图层面板展开，见 `docs/memory/apps/paint.md` §11）。
@@ -583,6 +583,8 @@ where
             self.resolve_element(TARGET_FILE_OPEN_OPEN_BUTTON, &dialog, TOOL_FILE_OPEN)?;
         self.invoke_element(&open_button, "invoke", TOOL_FILE_OPEN)?;
         self.wait_for_window_absent(TARGET_FILE_OPEN_DIALOG, TOOL_FILE_OPEN)?;
+        let zoom_combo = self.resolve_element(TARGET_ZOOM_VALUES_COMBO, &window, TOOL_FILE_OPEN)?;
+        self.set_element_value(&zoom_combo, "50%", TOOL_FILE_OPEN)?;
         let (width, height, zoom_ratio) =
             self.read_open_canvas(expected, TOOL_FILE_OPEN)
                 .map_err(|_| {

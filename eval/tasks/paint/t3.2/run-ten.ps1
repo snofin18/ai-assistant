@@ -115,7 +115,7 @@ function Focus-PaintWindow {
                     $true
                 )
             }
-            [void][PaintTenRunNative]::ShowWindow($target, 9)
+            [void][PaintTenRunNative]::ShowWindow($target, 3)
             [void][PaintTenRunNative]::BringWindowToTop($target)
             [void][PaintTenRunNative]::SetForegroundWindow($target)
             [void][PaintTenRunNative]::SetFocus($target)
