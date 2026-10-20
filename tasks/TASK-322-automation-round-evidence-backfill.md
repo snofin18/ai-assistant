@@ -105,6 +105,8 @@ cargo run -p xtask -- adr-index
 - `cargo run -p xtask -- memory-counts` → PASSED；9 files，0 error，1 existing
   `paint.md` archive-threshold warning。
 - `cargo run -p xtask -- adr-index` → PASSED；87 files，0 error，0 warning。
+- PR #503 合并回填：`base=main`、22 checks（21 success + 1 skipped）、pending 0、
+  `mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`；merge commit `247d9c0`。
 
 ### 4. DoD 逐条核对
 
