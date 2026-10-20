@@ -128,6 +128,9 @@ cargo run -p xtask -- adr-index
 - `cargo run -p xtask -- memory-counts` → PASSED；9 files，0 error，1 existing
   `paint.md` archive-threshold warning。
 - `cargo run -p xtask -- adr-index` → PASSED；87 files，0 error，0 warning。
+- PR #505：base `main`、22 checks = 21 success + 1 skipped、pending 0、
+  `mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`；merge
+  `ab34987eaf67e7a42b2ccd8da53d75a09b438c63`。
 
 ### 4. DoD 逐条核对
 
@@ -142,8 +145,9 @@ cargo run -p xtask -- adr-index
 
 ### 5. 偏差
 
-- 已有 11 条只读命令误用 `shell: "bash"`：其中 9 条是查询命令、
-  1 条是 guard release 循环语法、1 条是 `adr-index`；均未修改仓库内容。
+- 已有 14 条只读命令误用 `shell: "bash"`：其中 9 条是查询命令，
+  另有 guard release / guard acquire 两个循环、`adr-index`、CI 过滤与一次 sleep；
+  均未修改仓库内容。
   每次发现后都以显式 `shell: "powershell"` 重新执行。该问题是本轮操作偏差，
   不是 PowerShell 通道故障。
 - 历史事实与 `PL-117` 原文不完全相同：现有 TASK-313 卡确实存在，
