@@ -333,6 +333,9 @@ const T3_2_LAYER_ID: u64 = 2_108;
 const T3_2_OUTLINE_ID: u64 = 2_109;
 const T3_2_FILL_ID: u64 = 2_110;
 const T3_2_SIZE_ID: u64 = 2_111;
+const T3_2_ZOOM_ID: u64 = 2_112;
+const T3_2_ZOOM_SLIDER_ID: u64 = 2_113;
+const T3_2_ZOOM_OPTION_ID: u64 = 2_114;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FileDialogKind {
@@ -425,6 +428,48 @@ impl T3_2FakePlatform {
         let revision = self.state.lock().expect("t3.2 fake state").revision;
         Fingerprint::parse(format!("sha256:{revision:064x}")).expect("t3.2 fake fingerprint")
     }
+}
+
+fn activate_t3_2_dialog(state: &mut T3_2FakeState) -> PlatformResult<()> {
+    let Some(dialog) = state.dialog else {
+        return Err(platform_error(
+            ErrorCode::TargetNotFound,
+            "T3.2 fake dialog is not open",
+        ));
+    };
+    match dialog {
+        FileDialogKind::Open => {
+            let bytes = state.source_bytes.clone();
+            std::fs::write(&state.source_path, bytes).map_err(|error| {
+                platform_error(
+                    ErrorCode::Fatal,
+                    format!("T3.2 fake open could not materialize the source: {error}"),
+                )
+            })?;
+            state.dialog = None;
+            state.open_invocations = state.open_invocations.saturating_add(1);
+        }
+        FileDialogKind::SaveAs => {
+            if state.dialog_filename.is_empty() {
+                return Err(platform_error(
+                    ErrorCode::ToolInvalidArgs,
+                    "T3.2 fake save has no filename",
+                ));
+            }
+            let target = PathBuf::from(&state.dialog_filename);
+            let bytes = state.source_bytes.clone();
+            std::fs::write(&target, bytes).map_err(|error| {
+                platform_error(
+                    ErrorCode::Fatal,
+                    format!("T3.2 fake save could not write target: {error}"),
+                )
+            })?;
+            state.dialog = None;
+            state.save_invocations = state.save_invocations.saturating_add(1);
+        }
+    }
+    state.dialog_action_invocations = state.dialog_action_invocations.saturating_add(1);
+    Ok(())
 }
 
 impl WindowProvider for T3_2FakePlatform {
@@ -553,6 +598,9 @@ impl UiAutomationProvider for T3_2FakePlatform {
                 || id.contains("layers-list")
                 || id.contains("status-bar-canvas")
                 || id.contains("canvas-image")
+                || id.contains("zoom-values-combo")
+                || id.contains("zoom-slider-control")
+                || id.contains("zoom-50-percent")
                 || id.contains("shape-outline")
                 || id.contains("shape-fill")
                 || id.contains("shape-size")
@@ -603,6 +651,15 @@ impl UiAutomationProvider for T3_2FakePlatform {
         if id.contains("canvas-image") {
             return ready(Ok(t3_2_element(T3_2_CANVAS_ID, T3_2_MAIN_WINDOW_ID)));
         }
+        if id.contains("zoom-values-combo") {
+            return ready(Ok(t3_2_element(T3_2_ZOOM_ID, T3_2_MAIN_WINDOW_ID)));
+        }
+        if id.contains("zoom-slider-control") {
+            return ready(Ok(t3_2_element(T3_2_ZOOM_SLIDER_ID, T3_2_MAIN_WINDOW_ID)));
+        }
+        if id.contains("zoom-50-percent") {
+            return ready(Ok(t3_2_element(T3_2_ZOOM_OPTION_ID, T3_2_MAIN_WINDOW_ID)));
+        }
         if id.contains("outline-style-solid") {
             if !self.state.lock().expect("t3.2 fake state").outline_visible {
                 return ready(Err(platform_error(
@@ -645,7 +702,7 @@ impl UiAutomationProvider for T3_2FakePlatform {
         element: &ResolvedElement,
     ) -> impl Future<Output = PlatformResult<ElementBounds>> + Send {
         let bounds = match element.id().value() {
-            T3_2_CANVAS_ID => ElementBounds::new(100, 100, 500, 500),
+            T3_2_CANVAS_ID => ElementBounds::new(100, 100, 1124, 868),
             T3_2_DIALOG_FILENAME_ID => ElementBounds::new(20, 20, 180, 40),
             T3_2_DIALOG_ACTION_ID => ElementBounds::new(200, 20, 240, 40),
             _ => ElementBounds::new(0, 0, 1, 1),
@@ -658,7 +715,7 @@ impl UiAutomationProvider for T3_2FakePlatform {
         element: &ResolvedElement,
     ) -> impl Future<Output = PlatformResult<ElementGeometry>> + Send {
         let bounds = match element.id().value() {
-            T3_2_CANVAS_ID => ElementBounds::new(100, 100, 500, 500),
+            T3_2_CANVAS_ID => ElementBounds::new(100, 100, 1124, 868),
             T3_2_RECTANGLE_ID => ElementBounds::new(20, 20, 80, 60),
             T3_2_DIALOG_ACTION_ID => ElementBounds::new(200, 20, 240, 40),
             _ => ElementBounds::new(0, 0, 1, 1),
@@ -692,6 +749,7 @@ impl UiAutomationProvider for T3_2FakePlatform {
             T3_2_FOREGROUND_ID => state.foreground_rgb.clone(),
             T3_2_LAYER_ID => state.layer_name.clone(),
             T3_2_STATUS_ID => format!("{} x {} px", state.canvas_width_px, state.canvas_height_px),
+            T3_2_ZOOM_ID => "50%".to_owned(),
             _ => String::new(),
         };
         drop(state);
@@ -720,6 +778,7 @@ impl UiAutomationProvider for T3_2FakePlatform {
             T3_2_FOREGROUND_ID => {
                 value.clone_into(&mut state.foreground_rgb);
             }
+            T3_2_ZOOM_ID | T3_2_ZOOM_SLIDER_ID => {}
             _ => {
                 return ready(Err(platform_error(
                     ErrorCode::CapabilityMissing,
@@ -748,54 +807,26 @@ impl UiAutomationProvider for T3_2FakePlatform {
         element: &ResolvedElement,
         action: &str,
     ) -> impl Future<Output = PlatformResult<()>> + Send {
-        if action != "invoke" {
+        let toggle_zoom_combo =
+            (action == "expand" || action == "collapse") && element.id().value() == T3_2_ZOOM_ID;
+        let focus_dialog_filename =
+            action == "focus" && element.id().value() == T3_2_DIALOG_FILENAME_ID;
+        if action != "invoke" && !toggle_zoom_combo && !focus_dialog_filename {
             return ready(Err(platform_error(
                 ErrorCode::CapabilityMissing,
-                "T3.2 fake only supports invoke",
+                "T3.2 fake does not support this action",
             )));
         }
         let mut state = self.state.lock().expect("t3.2 fake state");
         match element.id().value() {
             T3_2_DIALOG_ACTION_ID => {
-                let Some(dialog) = state.dialog else {
-                    return ready(Err(platform_error(
-                        ErrorCode::TargetNotFound,
-                        "T3.2 fake dialog is not open",
-                    )));
-                };
-                match dialog {
-                    FileDialogKind::Open => {
-                        let bytes = state.source_bytes.clone();
-                        if std::fs::write(&state.source_path, bytes).is_err() {
-                            return ready(Err(platform_error(
-                                ErrorCode::Fatal,
-                                "T3.2 fake open could not materialize the source",
-                            )));
-                        }
-                        state.dialog = None;
-                        state.open_invocations = state.open_invocations.saturating_add(1);
-                    }
-                    FileDialogKind::SaveAs => {
-                        if state.dialog_filename.is_empty() {
-                            return ready(Err(platform_error(
-                                ErrorCode::ToolInvalidArgs,
-                                "T3.2 fake save has no filename",
-                            )));
-                        }
-                        let target = PathBuf::from(&state.dialog_filename);
-                        let bytes = state.source_bytes.clone();
-                        if std::fs::write(&target, bytes).is_err() {
-                            return ready(Err(platform_error(
-                                ErrorCode::Fatal,
-                                "T3.2 fake save could not write target",
-                            )));
-                        }
-                        state.dialog = None;
-                        state.save_invocations = state.save_invocations.saturating_add(1);
-                    }
+                if let Err(error) = activate_t3_2_dialog(&mut state) {
+                    return ready(Err(error));
                 }
-                state.dialog_action_invocations = state.dialog_action_invocations.saturating_add(1);
             }
+            T3_2_DIALOG_FILENAME_ID if action == "focus" => {}
+            T3_2_ZOOM_ID if action == "expand" || action == "collapse" => {}
+            T3_2_ZOOM_OPTION_ID if action == "invoke" => {}
             T3_2_OUTLINE_ID => state.outline_visible = false,
             T3_2_FILL_ID => state.fill_visible = false,
             T3_2_SIZE_ID => state.size_visible = false,
@@ -828,6 +859,7 @@ impl UiAutomationProvider for T3_2FakePlatform {
                 "layer-1".clone_into(&mut state.layer_id);
                 "Layer 1".clone_into(&mut state.layer_name);
             }
+            (T3_2_ZOOM_ID, Selection::ByIndex(12)) => {}
             _ => {
                 return ready(Err(platform_error(
                     ErrorCode::TargetNotFound,
@@ -898,6 +930,15 @@ impl UiAutomationProvider for T3_2FakePlatform {
             }
             ("Escape", []) => {
                 state.dialog = None;
+                state.revision = state.revision.saturating_add(1);
+            }
+            ("Enter", []) => {
+                if let Err(error) = activate_t3_2_dialog(&mut state) {
+                    return ready(Err(error));
+                }
+                state.revision = state.revision.saturating_add(1);
+            }
+            ("Tab" | "P", []) => {
                 state.revision = state.revision.saturating_add(1);
             }
             ("L", modifiers) if modifiers.contains(&KeyModifier::Alt) => {
@@ -1263,7 +1304,17 @@ async fn test_paint_t3_2_open_png_mark_region_save_as() -> Result<(), Box<dyn st
     let plan = host.plan_task()?;
     let foreground_probe = WindowsPlatform::new();
     require_real_paint_foreground(&foreground_probe, &paint_window).await?;
-    let run = host.execute_plan(plan, now_ms).await?;
+    let run = match host.execute_plan(plan, now_ms).await {
+        Ok(run) => run,
+        Err(error) => {
+            if target.is_file() {
+                let evidence =
+                    workspace_root().join("target/paint-t3-2-ten-run/failed-save-target.bin");
+                std::fs::copy(&target, &evidence)?;
+            }
+            return Err(error.into());
+        }
+    };
     assert_eq!(run.final_snapshot.status, TaskStatus::Completed);
     assert!(target.is_file());
     let saved_dimensions = read_png_dimensions(&target)?;

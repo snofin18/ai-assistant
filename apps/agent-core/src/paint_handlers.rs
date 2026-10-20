@@ -90,11 +90,9 @@ const TARGET_SHAPE_FILL_TOGGLE: &str = "shape_fill_button";
 const TARGET_SHAPE_SIZE_TOGGLE: &str = "shape_size_button";
 const TARGET_FILE_OPEN_DIALOG: &str = "file_open_dialog";
 const TARGET_FILE_OPEN_FILENAME: &str = "file_open_filename";
-const TARGET_FILE_OPEN_OPEN_BUTTON: &str = "file_open_open_button";
 const TARGET_ZOOM_VALUES_COMBO: &str = "zoom_values_combo";
 const TARGET_SAVE_AS_DIALOG: &str = "save_as_dialog";
 const TARGET_SAVE_AS_FILENAME: &str = "save_as_filename";
-const TARGET_SAVE_AS_SAVE_BUTTON: &str = "save_as_save_button";
 /// MCP code agreed with `assistant-tool-bus`; maps to `ErrorCode::UserInteraction`.
 const MCP_USER_INTERACTION: i32 = -32_010;
 /// Measured Windows 11 Paint 11.2605.81.0 palette order and RGB values.
@@ -635,6 +633,8 @@ where
             },
             TOOL_CANVAS_DRAW_RECTANGLE,
         )?;
+        let after = self.fingerprint_event(&window, TOOL_CANVAS_DRAW_RECTANGLE)?;
+        let state_changed_elapsed_ms = elapsed_ms(started);
         let after_capture = self.capture_window(&window, TOOL_CANVAS_DRAW_RECTANGLE)?;
         if before_capture.width() != after_capture.width()
             || before_capture.height() != after_capture.height()
@@ -653,7 +653,6 @@ where
                 after_capture.blob_id()
             )));
         }
-        let after = self.fingerprint_event(&window, TOOL_CANVAS_DRAW_RECTANGLE)?;
         Ok(ToolOutput::json(json!({
             "selected_tool": request.expected_tool,
             "foreground_rgb": request.expected_color,
@@ -667,7 +666,8 @@ where
             },
             "fingerprint": after.as_str(),
             "previous_fingerprint": before.as_str(),
-            "elapsed_ms": elapsed_ms(started),
+            "elapsed_ms": state_changed_elapsed_ms,
+            "verification_elapsed_ms": elapsed_ms(started),
         })))
     }
 
@@ -690,7 +690,7 @@ where
         let window = self.resolve_window(TARGET_MAIN_WINDOW, TOOL_CANVAS_CAPTURE_PIXELS)?;
         let before = self.fingerprint_event(&window, TOOL_CANVAS_CAPTURE_PIXELS)?;
         let started = Instant::now();
-        let image = self.capture_window(&window, TOOL_CANVAS_CAPTURE_PIXELS)?;
+        let image = self.wait_for_stable_capture(&window, TOOL_CANVAS_CAPTURE_PIXELS)?;
         let after = self.fingerprint_event(&window, TOOL_CANVAS_CAPTURE_PIXELS)?;
         Ok(ToolOutput::json(json!({
             "blob_id": image.blob_id(),

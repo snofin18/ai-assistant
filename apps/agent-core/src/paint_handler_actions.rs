@@ -35,11 +35,10 @@ use super::paint_handler_support::{
 };
 use super::{
     DragRequest, PaintHandlerContext, PhysicalPointPx, TARGET_BRUSH_TOGGLE, TARGET_CANVAS,
-    TARGET_FILE_OPEN_DIALOG, TARGET_FILE_OPEN_FILENAME, TARGET_FILE_OPEN_OPEN_BUTTON,
-    TARGET_LAYER_ITEM, TARGET_MAIN_WINDOW, TARGET_SAVE_AS_DIALOG, TARGET_SAVE_AS_FILENAME,
-    TARGET_SAVE_AS_SAVE_BUTTON, TARGET_SHAPE_FILL_TOGGLE, TARGET_SHAPE_OUTLINE_TOGGLE,
-    TARGET_SHAPE_SIZE_TOGGLE, TARGET_SHAPES_TOGGLE, TARGET_STATUS_BAR, TARGET_ZOOM_VALUES_COMBO,
-    TOOL_FILE_OPEN, TOOL_FILE_SAVE_AS,
+    TARGET_FILE_OPEN_DIALOG, TARGET_FILE_OPEN_FILENAME, TARGET_LAYER_ITEM, TARGET_MAIN_WINDOW,
+    TARGET_SAVE_AS_DIALOG, TARGET_SAVE_AS_FILENAME, TARGET_SHAPE_FILL_TOGGLE,
+    TARGET_SHAPE_OUTLINE_TOGGLE, TARGET_SHAPE_SIZE_TOGGLE, TARGET_SHAPES_TOGGLE, TARGET_STATUS_BAR,
+    TARGET_ZOOM_VALUES_COMBO, TOOL_FILE_OPEN, TOOL_FILE_SAVE_AS,
 };
 
 /// 展开 / 折叠后的**有界重解**次数与间隔（形状库异步物化、图层面板展开，见 `docs/memory/apps/paint.md` §11）。
@@ -58,6 +57,11 @@ const POPUP_WAIT_INTERVAL_MS: u64 = 50;
 const FILE_DIALOG_ATTEMPTS: usize = 30;
 const FILE_DIALOG_INTERVAL_MS: u64 = 100;
 const OPEN_CANVAS_ATTEMPTS: usize = 30;
+const OPEN_CANVAS_STABLE_CAPTURES: u32 = 4;
+const OPEN_ZOOM_ATTEMPTS: usize = 20;
+const OPEN_ZOOM_PERCENT: u32 = 50;
+const OPEN_ZOOM_RATIO: f64 = OPEN_ZOOM_PERCENT as f64 / 100.0;
+const OPEN_ZOOM_RATIO_TOLERANCE: f64 = 0.01;
 const SAVE_FILE_ATTEMPTS: usize = 30;
 
 struct FileDialogShortcut<'a> {
@@ -505,6 +509,7 @@ where
         tool: &str,
     ) -> Result<(u32, u32, f64), ToolBusError> {
         let window = self.resolve_window(TARGET_MAIN_WINDOW, tool)?;
+        let mut last_observed = "document size did not match the fixture".to_owned();
         for _attempt in 0..OPEN_CANVAS_ATTEMPTS {
             let status = self.resolve_element(TARGET_STATUS_BAR, &window, tool)?;
             let text = self.read_element_text(&status, tool)?;
@@ -514,15 +519,74 @@ where
                 let canvas = self.resolve_element(TARGET_CANVAS, &window, tool)?;
                 let bounds = self.element_bounds(&canvas, tool)?;
                 let zoom_ratio = f64::from(bounds.width()) / f64::from(width);
-                if zoom_ratio.is_finite() && zoom_ratio > 0.0 {
+                let height_ratio = f64::from(bounds.height()) / f64::from(height);
+                let is_expected_zoom = (zoom_ratio - OPEN_ZOOM_RATIO).abs()
+                    <= OPEN_ZOOM_RATIO_TOLERANCE
+                    && (height_ratio - OPEN_ZOOM_RATIO).abs() <= OPEN_ZOOM_RATIO_TOLERANCE;
+                if zoom_ratio.is_finite()
+                    && zoom_ratio > 0.0
+                    && height_ratio.is_finite()
+                    && is_expected_zoom
+                {
+                    self.wait_for_stable_capture(&window, tool)?;
                     return Ok((width, height, zoom_ratio));
                 }
+                last_observed =
+                    format!("zoom ratio {zoom_ratio:.4}, height ratio {height_ratio:.4}");
             }
             std::thread::sleep(Duration::from_millis(FILE_DIALOG_INTERVAL_MS));
         }
         Err(verify_failed(format!(
-            "{tool}: opened document size did not become {}x{}",
-            expected.0, expected.1
+            "{tool}: opened canvas did not settle at {}% for {}x{}; last observed: {last_observed}",
+            OPEN_ZOOM_PERCENT, expected.0, expected.1,
+        )))
+    }
+
+    fn set_open_zoom(&self, window: &ResolvedWindow, tool: &str) -> Result<(), ToolBusError> {
+        let zoom_combo = self.resolve_element(TARGET_ZOOM_VALUES_COMBO, window, tool)?;
+        let mut last_value = String::new();
+        for _attempt in 0..OPEN_ZOOM_ATTEMPTS {
+            self.invoke_element(&zoom_combo, "expand", tool)?;
+            // Direct content-view children start with EditableText at index 0;
+            // the measured 50% ListItem is therefore index 12, not the raw menu offset.
+            self.select_element(&zoom_combo, &Selection::ByIndex(12), tool)?;
+            self.invoke_element(&zoom_combo, "collapse", tool)?;
+            last_value = self.read_element_text(&zoom_combo, tool)?;
+            if last_value.trim() == format!("{OPEN_ZOOM_PERCENT}%") {
+                return Ok(());
+            }
+            std::thread::sleep(Duration::from_millis(FILE_DIALOG_INTERVAL_MS));
+        }
+        Err(verify_failed(format!(
+            "{tool}: zoom did not read back as {OPEN_ZOOM_PERCENT}%; last value was `{last_value}`"
+        )))
+    }
+
+    pub(super) fn wait_for_stable_capture(
+        &self,
+        window: &ResolvedWindow,
+        tool: &str,
+    ) -> Result<ImageRef, ToolBusError> {
+        let mut previous_blob_id = None;
+        let mut stable_capture_count = 0_u32;
+        let mut last_blob_id = String::new();
+        for _attempt in 0..OPEN_CANVAS_ATTEMPTS {
+            let capture = self.capture_window(window, tool)?;
+            capture.blob_id().clone_into(&mut last_blob_id);
+            if previous_blob_id.as_deref() == Some(last_blob_id.as_str()) {
+                stable_capture_count = stable_capture_count.saturating_add(1);
+            } else {
+                previous_blob_id = Some(last_blob_id.clone());
+                stable_capture_count = 1;
+            }
+            if stable_capture_count >= OPEN_CANVAS_STABLE_CAPTURES {
+                return Ok(capture);
+            }
+            std::thread::sleep(Duration::from_millis(FILE_DIALOG_INTERVAL_MS));
+        }
+        Err(verify_failed(format!(
+            "{tool}: window pixels did not stabilize after {OPEN_CANVAS_ATTEMPTS} attempts; \
+             last blob was `{last_blob_id}`"
         )))
     }
 
@@ -579,30 +643,28 @@ where
                 ),
             })?;
         self.set_element_value(&filename, path.to_string_lossy().as_ref(), TOOL_FILE_OPEN)?;
-        let open_button =
-            self.resolve_element(TARGET_FILE_OPEN_OPEN_BUTTON, &dialog, TOOL_FILE_OPEN)?;
-        self.invoke_element(&open_button, "invoke", TOOL_FILE_OPEN)?;
+        self.send_key(task_id, &dialog, "Enter", Vec::new(), TOOL_FILE_OPEN)?;
         self.wait_for_window_absent(TARGET_FILE_OPEN_DIALOG, TOOL_FILE_OPEN)?;
-        let zoom_combo = self.resolve_element(TARGET_ZOOM_VALUES_COMBO, &window, TOOL_FILE_OPEN)?;
-        self.set_element_value(&zoom_combo, "50%", TOOL_FILE_OPEN)?;
+        self.set_open_zoom(&window, TOOL_FILE_OPEN)?;
         let (width, height, zoom_ratio) =
             self.read_open_canvas(expected, TOOL_FILE_OPEN)
-                .map_err(|_| {
+                .map_err(|error| {
                     user_interaction_with(
                         TOOL_FILE_OPEN,
-                        "opened document size did not become the fixture size",
+                        &format!(
+                            "opened document size or zoom did not settle for the fixture: {error}"
+                        ),
                     )
                 })?;
-        {
-            let mut document = self
-                .document
-                .lock()
-                .map_err(|_| super::paint_handler_support::unavailable("paint document state"))?;
-            document.opened_path = Some(path.to_string_lossy().to_string());
-            document.canvas_width_px = Some(width);
-            document.canvas_height_px = Some(height);
-            document.zoom_ratio = Some(zoom_ratio);
-        }
+        let mut document = self
+            .document
+            .lock()
+            .map_err(|_| super::paint_handler_support::unavailable("paint document state"))?;
+        document.opened_path = Some(path.to_string_lossy().to_string());
+        document.canvas_width_px = Some(width);
+        document.canvas_height_px = Some(height);
+        document.zoom_ratio = Some(zoom_ratio);
+        drop(document);
         let after = self.fingerprint_event(&window, TOOL_FILE_OPEN)?;
         Ok(ToolOutput::json(json!({
             "opened_path": path.to_string_lossy(),
@@ -660,16 +722,11 @@ where
             self.wait_for_window_absent(TARGET_SAVE_AS_DIALOG, TOOL_FILE_SAVE_AS)?;
             return Err(user_interaction(TOOL_FILE_SAVE_AS));
         }
-        let save_button =
-            self.resolve_element(TARGET_SAVE_AS_SAVE_BUTTON, &dialog, TOOL_FILE_SAVE_AS)?;
-        self.invoke_element(&save_button, "invoke", TOOL_FILE_SAVE_AS)?;
-        let created = wait_for_file_created(&target, TOOL_FILE_SAVE_AS)?;
-        if !created.exists {
-            return Err(verify_failed(format!(
-                "{TOOL_FILE_SAVE_AS}: target file was not created"
-            )));
-        }
-        let saved = png_dimensions(target.as_path(), TOOL_FILE_SAVE_AS)?;
+        self.invoke_element(&filename, "focus", TOOL_FILE_SAVE_AS)?;
+        self.send_key(task_id, &dialog, "Tab", Vec::new(), TOOL_FILE_SAVE_AS)?;
+        self.send_key(task_id, &dialog, "P", Vec::new(), TOOL_FILE_SAVE_AS)?;
+        self.send_key(task_id, &dialog, "Enter", Vec::new(), TOOL_FILE_SAVE_AS)?;
+        let saved = wait_for_saved_png(&target, TOOL_FILE_SAVE_AS)?;
         if let Some(expected) = expected
             && saved != expected
         {
@@ -888,17 +945,22 @@ where
     }
 }
 
-fn wait_for_file_created(
-    target: &std::path::Path,
-    tool: &str,
-) -> Result<assistant_verify::FileSnapshot, ToolBusError> {
-    let mut snapshot = crate::notepad_files::snapshot_file(target, tool)?;
+fn wait_for_saved_png(target: &std::path::Path, tool: &str) -> Result<(u32, u32), ToolBusError> {
+    let mut last_error = None;
     for _attempt in 0..SAVE_FILE_ATTEMPTS {
-        if snapshot.exists {
-            return Ok(snapshot);
+        if crate::notepad_files::snapshot_file(target, tool)?.exists {
+            match png_dimensions(target, tool) {
+                Ok(dimensions) => return Ok(dimensions),
+                Err(error) => last_error = Some(error),
+            }
         }
         std::thread::sleep(Duration::from_millis(FILE_DIALOG_INTERVAL_MS));
-        snapshot = crate::notepad_files::snapshot_file(target, tool)?;
     }
-    Ok(snapshot)
+    let reason = last_error.map_or_else(
+        || "target file was not created".to_owned(),
+        |error| error.to_string(),
+    );
+    Err(verify_failed(format!(
+        "{tool}: saved target did not become a readable PNG: {reason}"
+    )))
 }

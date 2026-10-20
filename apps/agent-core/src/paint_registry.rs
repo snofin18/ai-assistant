@@ -52,11 +52,9 @@ pub const PAINT_REQUIRED_TARGETS: &[&str] = &[
     "canvas",
     "file_open_dialog",
     "file_open_filename",
-    "file_open_open_button",
     "zoom_values_combo",
     "save_as_dialog",
     "save_as_filename",
-    "save_as_save_button",
 ];
 
 /// Exact model-visible Paint tool set for T3.1.
