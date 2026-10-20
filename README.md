@@ -6,7 +6,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
-> 状态：**阶段 1**；**TASK-008 Done**（Spike G carry-over；Edge / Chrome 专用 profile CDP 连接通过，DOM 各 **20/20**、networkIdle 各 **10/10**、注入指令 **0/40**、profile cookie 跨重启保持；限定 GO，未触碰默认 profile）；**TASK-257 Done**（Paint 形状 / 调色板容器锚点 closeout；TASK-256 T3.1 真机 `1 passed / 0 failed`，T3.1/T3.2/T3.3 各 **10/10**，full ribbon 14 步 `Committed`；通用 `ExactName` 契约保留，最终战术按 ADR-0091 使用 `ExactNameAndRole`；`DRIFT-257-1`；PR / CI / merge hash 见 `LEDGER.md`）；**TASK-316 Done**（tool-bus `bus.rs` 私有失败边界契约覆盖率补强：新增 7 个外置 `#[cfg(test)]` 白盒用例；`bus.rs` 75.82% → 95.42%、crate 91.59% → 93.19%；生产逻辑零改动；PR / CI / merge hash 见 `LEDGER.md`）；**TASK-315 Done**（阶段 1 DoD 机器可验证项取证收口：workspace 行覆盖 81.18% 且 `--fail-under-lines 75` exit 0；`assistant-core` 92.09% / `assistant-policy` 95.03% / `assistant-task-engine` 91.58% —— 三个 DoD crate 首次给出独立报告；补齐 `crates/capture` / `crates/dlp` / `crates/replay` 的「已知限制」节；新提 PL-119；docs-only；PR / CI / merge hash 见 `LEDGER.md`）；**TASK-314 Done**（跨阶段治理登记与归档 SSOT 收口；docs-only；`docs/memory/archive/README.md` 的「当前为空」改为指向 `MEMORY.md` §7，补 TASK-312 治理池行与缺失卡号的台账事实行（PL-117），PL-114 证据回填，新提 PL-116 / PL-117 / PL-118；PR / CI / merge hash 见 `LEDGER.md`）；**TASK-311 Done**（xtask 文档一致性门禁 `memory-counts` / `adr-index` 的 IO 层契约覆盖率补强；新增 `xtask/src/doccheck_tests.rs` 16 个私有白盒用例（按 PL-033 `#[path]` 外置）；`xtask/src/doccheck.rs` 行覆盖率 10.69% → 89.31%；生产源码零改动；PR #442 / merge `601c76c`；CI 22 checks 全绿（21 success + 1 skipping））；**TASK-310 Done**（PL-007 删除冗余 workflow 占位文件；docs-only；PR #438 / merge `500d592`；CI 11/11 SUCCESS）；**TASK-308 Done**（Paint 任务包选择：默认续画、显式才新建；`--adapter-kind paint` 省略 `--task-package` 时默认 T3.2 `continue-existing-canvas-rectangle`，`--document-mode new` 选 T3.1 `new-canvas-rectangle-color-screenshot`，显式 `--task-package` 仍覆盖；新增 4 个参数解析测试；PR #435 / merge `9c8fd09`；CI 22 checks 全绿（21 success + 1 skipping））；**TASK-307 Done**（Paint 已有画布续画；T3.2 任务包 9 步、不调用 `paint.document.new`；`draw_rectangle` 加 content-address 下界；真机已有未保存画布 `1 passed / 8.72 s`；PR #433 / merge `a075f1f`）；**TASK-306 Done**（Paint 模态弹层 fail-closed；平台层 WinUI / `#32770` 弹层纳入 `WindowState.occluded`，`paint.document.new` 命中即 `UserInteraction` fail-closed；真机干净 Paint T3.1 `1 passed / 9.90 s`；PR #431 / merge `2bcbdb2`）；**TASK-302 Done**（IPC Windows NamedPipe 失败 / 超时公开契约覆盖率；`assistant-ipc` crate 85.57% → 87.30%、`windows_io.rs` 71.84% → 79.18%；新增 6 个公开 API 契约测试；生产源码零改动；PR #423 / merge `c26a620`；CI 11/11 SUCCESS）；
+> 状态：**阶段 1**；**TASK-321 Done（2026-10-20）**（Stage 1 状态一致性 docs-only 收口；Stage 1a Done、Stage 1b Paint 标准三套各 10/10，TASK-309 / TASK-317 / TASK-318 / TASK-319 / TASK-320 已完成；Stage 1c Edge/Chrome 尚未完成；本轮 `N_auto=22>5`，仅报告类工作）；后续产品卡 TASK-048 / TASK-049 待人类会话或闸门重置。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -91,6 +91,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-20 TASK-321 Done（Stage 1 status consistency closeout）**：docs-only 对齐 2026-10-19~20 已完成卡与 `plans/stage-1-pilots.md` / `PLAN.md` / `LEDGER.md`；补齐 Paint 1b 完成标记与 TASK-309 / 317 / 318 / 319 / 320 索引行，明确 Stage 1c 尚未完成。审计证据见 `docs/audits/stage-1-status-consistency-2026-10-20.md`。
+
 **2026-10-20 TASK-008 Done（Spike G carry-over）**：在 Windows 11 专用 profile 上实测 Edge `155.0.4283.62` 与 Chrome `155.0.8059.84` 的 CDP `1.3`；DOM 各 **20/20**、load/networkIdle 各 **10/10**、注入指令 **0/40** 执行，点击、表单停在提交前、导航、截图、下载与 profile cookie 跨重启均通过。结论为限定 **GO**：默认用户 profile、真实外部登录和四层反注入产品级闭环不在本 Spike 证明范围。
 
 **2026-10-20 TASK-257 Done（Paint 形状 / 调色板容器锚点 closeout）**：TASK-256 T3.1 真机单次 `1 passed / 0 failed / 11.18 s`，T3.1/T3.2/T3.3 标准用例各 **10/10 passed**，full ribbon path 14 步全部 `Committed`。通用 `SelectorKind::ExactName` 契约与测试保留；Paint 容器最终按 ADR-0091 使用 `ExactNameAndRole`，selector pack 当前 59 个 `exact_name_and_role`、0 个 `exact_name`。卡面旧战术由 `DRIFT-257-1` 记录，不改卡面正文。
@@ -330,6 +332,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-20 TASK-321 Done（Stage 1 status consistency closeout）**：以卡面状态和实际 merge 证据为准，补齐 Stage 1b 的完成标记与最近五张完成卡索引，修正 `PLAN.md` 当前任务/阻塞/下一步和 README 当前状态；不修改排期或任务条目正文，不写产品代码。
+
 **2026-10-20 TASK-008 Done（Spike G CDP + injection）**：补齐阶段 0 遗留的浏览器 Spike；零第三方依赖完成本地专用 profile、CDP 直连、DOM 成功率、网络静默、点击 / 表单 / 导航 / 截图 / 下载、profile 重启和注入靶页实测，形成 `docs/spike-reports/SPIKE-G.md` 的限定 GO 结论。
 
 **2026-10-20 TASK-257 Done（Paint container anchor closeout）**：把 TASK-256 的 T3.1 真机单次、T3.1/T3.2/T3.3 各十轮与 full ribbon 14 步证据映射到 TASK-257 的功能目标；通用 `ExactName` 契约保留，Paint 最终 `ExactNameAndRole` 战术由 ADR-0091 收口，并以 `DRIFT-257-1` 明确旧卡面战术已被取代。
