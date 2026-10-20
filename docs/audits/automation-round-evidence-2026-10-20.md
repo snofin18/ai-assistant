@@ -17,6 +17,7 @@
 | #500 | `docs(governance): close stage 1 status consistency` | `main` | `5e9f45301fce98b10be3fc28197e7572328821bc` | 22 checks（21 success + 1 skipped） |
 | #501 | `docs(automation): backfill TASK-321 merge evidence` | `main` | `66711a4dfc95d621dd2cb4bc37c0ec82a7ccee6c` | 22 checks（21 success + 1 skipped） |
 | #502 | `docs(automation): correct shell deviation count` | `main` | `9e990f6cda5977ff22cd03a81910fd7a00add50e` | 22 checks（21 success + 1 skipped） |
+| #503 | `docs(automation): backfill round evidence` | `main` | `247d9c0822904ca111f6bf53574f2a57e3b44386` | 22 checks（21 success + 1 skipped） |
 
 ## 3. 发现的证据缺口
 
