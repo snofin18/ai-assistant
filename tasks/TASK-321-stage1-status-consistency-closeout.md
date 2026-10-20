@@ -114,9 +114,10 @@ cargo run -p xtask -- adr-index
 
 非漂移执行偏差：
 
-- 5 条只读查询误用 `shell: "bash"`：1 条路径查询 / 2 条 ADR 读取因命令不存在失败，
-  2 条 `git diff` 只读成功。均未改仓库内容；后续全部改用显式
-  `shell: "powershell"`，并记录在本轮 automation 留痕与外部日志。
+- 共 7 条命令误用 `shell: "bash"`：6 条只读查询（1 条路径查询、3 条文档读取与
+  2 条 `git diff`）和 1 条 `git switch`。其中前 4 条因所选 shell 中命令不存在而失败，
+  后续 3 条成功但均未改仓库内容；全部改用显式 `shell: "powershell"`，并记录在本轮
+  automation 留痕与外部日志。
 - `README.md` 第一次写通道调用中，PowerShell 对 `List<string>.InsertRange`
   发生集合类型错误：状态行已写入，两段进展未插入。随后强类型化并断言只插入一次。
 - 通过 PowerShell 原生管道调用 `xtask write` 时，行结束符被重新编码为 CRLF；
