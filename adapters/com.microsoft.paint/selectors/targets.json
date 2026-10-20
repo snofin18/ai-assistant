@@ -1219,6 +1219,197 @@
           "locale_dependent": true
         }
       ]
+    },
+    {
+      "id": "file_open_dialog",
+      "scope": "window",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "file-open-class-role",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "#32770", "role": "Window"}},
+          "score": 0.5,
+          "locale_dependent": false
+        },
+        {
+          "id": "file-open-title-fallback",
+          "kind": "title_regex",
+          "value": {"text": "Open"},
+          "score": 0.25,
+          "locale_dependent": true
+        }
+      ]
+    },
+    {
+      "id": "zoom_values_combo",
+      "scope": "element",
+      "probe_status": "observed",
+      "candidates": [
+        {
+          "id": "zoom-values-combo-automation-id",
+          "kind": "automation_id",
+          "value": {"text": "ZoomValuesComboBox"},
+          "score": 1.0,
+          "locale_dependent": false
+        }
+      ]
+    },
+    {
+      "id": "file_open_filename",
+      "scope": "element",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "file-open-filename-combobox-parent",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "ComboBox", "role": "Pane"}},
+          "score": 0.98,
+          "locale_dependent": false
+        },
+        {
+          "id": "file-open-filename-edit-child",
+          "kind": "role_and_parent",
+          "value": {"role_and_parent": {"role": "Pane", "parent_id": "file-open-filename-combobox-parent"}},
+          "score": 1.0,
+          "locale_dependent": false
+        },
+        {
+          "id": "file-open-filename-id-1148",
+          "kind": "automation_id",
+          "value": {"text": "1148"},
+          "score": 0.9,
+          "locale_dependent": false
+        },
+        {
+          "id": "file-open-filename-id-1001",
+          "kind": "automation_id",
+          "value": {"text": "1001"},
+          "score": 0.9,
+          "locale_dependent": false
+        },
+        {
+          "id": "file-open-filename-control-host",
+          "kind": "automation_id",
+          "value": {"text": "FileNameControlHost"},
+          "score": 0.8,
+          "locale_dependent": false
+        },
+        {
+          "id": "file-open-filename-edit-edit",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Edit", "role": "Edit"}},
+          "score": 1.0,
+          "locale_dependent": false
+        },
+        {
+          "id": "file-open-filename-edit-pane",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Edit", "role": "Pane"}},
+          "score": 0.99,
+          "locale_dependent": false
+        }
+      ]
+    },
+    {
+      "id": "file_open_open_button",
+      "scope": "element",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "file-open-button-id-1",
+          "kind": "automation_id",
+          "value": {"text": "1"},
+          "score": 0.9,
+          "locale_dependent": false
+        },
+        {
+          "id": "file-open-button-name-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "打开", "role": "Button"}},
+          "score": 0.2,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "save_as_filename",
+      "scope": "element",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "save-as-filename-combobox-parent",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "ComboBox", "role": "Pane"}},
+          "score": 0.98,
+          "locale_dependent": false
+        },
+        {
+          "id": "save-as-filename-edit-child",
+          "kind": "role_and_parent",
+          "value": {"role_and_parent": {"role": "Pane", "parent_id": "save-as-filename-combobox-parent"}},
+          "score": 1.0,
+          "locale_dependent": false
+        },
+        {
+          "id": "save-as-filename-id-1148",
+          "kind": "automation_id",
+          "value": {"text": "1148"},
+          "score": 0.9,
+          "locale_dependent": false
+        },
+        {
+          "id": "save-as-filename-id-1001",
+          "kind": "automation_id",
+          "value": {"text": "1001"},
+          "score": 0.9,
+          "locale_dependent": false
+        },
+        {
+          "id": "save-as-filename-control-host",
+          "kind": "automation_id",
+          "value": {"text": "FileNameControlHost"},
+          "score": 0.8,
+          "locale_dependent": false
+        },
+        {
+          "id": "save-as-filename-edit-edit",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Edit", "role": "Edit"}},
+          "score": 1.0,
+          "locale_dependent": false
+        },
+        {
+          "id": "save-as-filename-edit-pane",
+          "kind": "class_and_role",
+          "value": {"class_and_role": {"class": "Edit", "role": "Pane"}},
+          "score": 0.99,
+          "locale_dependent": false
+        }
+      ]
+    },
+    {
+      "id": "save_as_save_button",
+      "scope": "element",
+      "probe_status": "required",
+      "candidates": [
+        {
+          "id": "save-as-button-id-1",
+          "kind": "automation_id",
+          "value": {"text": "1"},
+          "score": 0.9,
+          "locale_dependent": false
+        },
+        {
+          "id": "save-as-button-name-fallback",
+          "kind": "exact_name_and_role",
+          "value": {"exact_name_and_role": {"name": "保存", "role": "Button"}},
+          "score": 0.2,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
     }
   ]
 }

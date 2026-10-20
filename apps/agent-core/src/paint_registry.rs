@@ -16,7 +16,7 @@
 //!
 //! Related documents: ADR-0084, ADR-0085, and `adapters/com.microsoft.paint/tools/tools.json`.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use assistant_platform_api::{UiAutomationProvider, WindowProvider};
@@ -29,9 +29,9 @@ use crate::notepad_registry::{
 use crate::notepad_targets::NotepadTargetCatalog;
 use crate::paint_handlers::{
     PaintHandlerContext, TOOL_BRUSH_SELECT, TOOL_CANVAS_CAPTURE_PIXELS, TOOL_CANVAS_DRAW_RECTANGLE,
-    TOOL_CANVAS_RESOLVE_POINT, TOOL_COLOR_SELECT_FOREGROUND, TOOL_DOCUMENT_NEW, TOOL_FILL_SELECT,
-    TOOL_LAYER_SELECT, TOOL_OUTLINE_SELECT, TOOL_SHAPE_SELECT, TOOL_SIZE_SELECT, TOOL_TOOL_SELECT,
-    build_handler_map,
+    TOOL_CANVAS_RESOLVE_POINT, TOOL_COLOR_SELECT_FOREGROUND, TOOL_DOCUMENT_NEW, TOOL_FILE_OPEN,
+    TOOL_FILE_SAVE_AS, TOOL_FILL_SELECT, TOOL_LAYER_SELECT, TOOL_OUTLINE_SELECT, TOOL_SHAPE_SELECT,
+    TOOL_SIZE_SELECT, TOOL_TOOL_SELECT, build_handler_map,
 };
 use crate::runtime_host_ops::{ReservedHostOperationError, ReservedHostOperations};
 use crate::target_lease::TargetLeaseGate;
@@ -50,6 +50,11 @@ pub const PAINT_REQUIRED_TARGETS: &[&str] = &[
     "layer_item",
     "status_bar",
     "canvas",
+    "file_open_dialog",
+    "file_open_filename",
+    "zoom_values_combo",
+    "save_as_dialog",
+    "save_as_filename",
 ];
 
 /// Exact model-visible Paint tool set for T3.1.
@@ -66,6 +71,8 @@ pub const PAINT_EXPECTED_TOOL_NAMES: &[&str] = &[
     TOOL_CANVAS_RESOLVE_POINT,
     TOOL_CANVAS_DRAW_RECTANGLE,
     TOOL_CANVAS_CAPTURE_PIXELS,
+    TOOL_FILE_OPEN,
+    TOOL_FILE_SAVE_AS,
 ];
 
 /// Registry plus the catalog/operations supplied to the production host.
@@ -115,8 +122,23 @@ impl<P> ReservedHostOperations for PaintReservedHostOperations<P>
 where
     P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
 {
-    fn inspect_target_path(&self, _target_path: &str) -> Result<serde_json::Value, String> {
-        Err("paint host operation `inspect_target_path` is not part of T3.1".to_owned())
+    fn inspect_target_path(&self, target_path: &str) -> Result<serde_json::Value, String> {
+        let path = PathBuf::from(target_path);
+        if !path.is_absolute() {
+            return Err("paint inspect_target_path requires an absolute path".to_owned());
+        }
+        let snapshot = crate::notepad_files::snapshot_file(&path, TOOL_FILE_SAVE_AS)
+            .map_err(|error| error.to_string())?;
+        let target_fingerprint =
+            serde_json::to_value(snapshot).map_err(|error| error.to_string())?;
+        let target_existed_before = target_fingerprint
+            .get("exists")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false);
+        Ok(serde_json::json!({
+            "target_existed_before": target_existed_before,
+            "target_fingerprint": target_fingerprint,
+        }))
     }
 
     fn set_editor_value(&self, _text: &str) -> Result<serde_json::Value, String> {

@@ -33,6 +33,7 @@
 > **10/10 passed（success_rate=1.0）**；`coordinate-error.ps1` 量到拖拽终点
 > **0 px**（判据 2 px）。
 > **TASK-269 Done（2026-10-11）**：assistant-model-gateway 新增 13 个公共契约测试，独立行覆盖率 75.54% → 93.78%；生产源码零改动；PR #316 / merge `fc20a44`；**DRIFT-269-1** 待另卡修复。
+> **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 矩形标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件通过 PNG signature / IHDR 校验。
 > **TASK-268 Done（2026-10-11）**：`assistant-storage` 新增 9 个公共契约测试，独立行覆盖率 78.43% → 88.97%；生产源码零改动；PR #314 / merge `076fe2d`。
 > **TASK-267 Done（2026-10-11）**：`assistant-ipc` 新增 9 个真实 NamedPipe 契约测试，独立行覆盖率 41.47% → 81.49%；生产源码零改动；PR #312 / merge `5a5aa7f`。
 > **TASK-264 ✅（2026-10-11）**：`assistant-tool-bus` 新增 380 行公共契约测试，独立行覆盖率 73.12% → 85.62%；生产源码零改动；PR #306 / merge `f9058dc`。
@@ -375,7 +376,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-043 ✅** | 1b | `tasks/TASK-043-paint-adapter-tools-canvas-coords.md` | Done（declarative Paint Adapter pack；PR #273 / merge `a3bd2e6`；真机校准转 TASK-044，DRIFT-043-1 / PL-113） |
 | **TASK-106 ✅** | 1b | `tasks/TASK-106-paint-runtime-assembly-t3-1.md` | Done（ADR-0085 `element_bounds` + Paint T3.1 7-handler runtime assembly；PR #284 / merge `f5bdfa6`） |
 | **TASK-044 ✅** | 1b | `tasks/TASK-044-t3-1-newcanvas-rect-color-screenshot.md` | Ready（批次表占位派单前补全） |
-| TASK-045 | 1b | `tasks/TASK-045-t3-2-png-open-read-region-saveas.md` | Ready（批次表占位派单前补全） |
+| **TASK-045 ✅** | 1b | `tasks/TASK-045-t3-2-png-open-read-region-saveas.md` | Done（真实 Paint T3.2 10/10；zoom 0.5；坐标误差 0 px；PNG 另存；DRIFT-045-4 由 TASK-320 闭环） |
 | TASK-046 | 1b | `tasks/TASK-046-t3-3-draw-undo-pixel-snapshot-verify.md` | Ready（批次表占位派单前补全） |
 | TASK-047 | 1b | `tasks/TASK-047-stage-1b-integration-adapter-reuse.md` | Ready（批次表占位派单前补全） |
 | **TASK-256 ✅** | 1b | `tasks/TASK-256-paint-real-contract-calibration.md` | Review（ADR-0087 ContentViewWalker 审计纠偏；等待真机验收） |

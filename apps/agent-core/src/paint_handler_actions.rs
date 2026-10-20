@@ -22,17 +22,23 @@ use crate::target_lease::window_lease_key;
 use assistant_platform_api::{
     CaptureOptions, CoordinateSpace, ElementBounds, ElementGeometry, Fingerprint, FingerprintScope,
     ImageRef, KeyChord, KeyModifier, KeyTarget, PointerAction, ResolvedElement, ResolvedWindow,
-    Selection, UiAutomationProvider, WindowGeometry, WindowProvider, WindowState,
+    Selection, UiAutomationProvider, WindowFilter, WindowGeometry, WindowProvider, WindowState,
 };
 use assistant_storage::BlobId;
-use assistant_tool_bus::ToolBusError;
+use assistant_tool_bus::{ToolBusError, ToolOutput};
+use serde_json::{Map, Value, json};
 use std::time::Duration;
 
-use super::paint_handler_support::{normalized_point, verify_failed};
+use super::paint_handler_support::{
+    normalized_point, png_dimensions, required_png_path, user_interaction, user_interaction_with,
+    verify_failed,
+};
 use super::{
-    DragRequest, PaintHandlerContext, PhysicalPointPx, TARGET_BRUSH_TOGGLE, TARGET_LAYER_ITEM,
-    TARGET_SHAPE_FILL_TOGGLE, TARGET_SHAPE_OUTLINE_TOGGLE, TARGET_SHAPE_SIZE_TOGGLE,
-    TARGET_SHAPES_TOGGLE,
+    DragRequest, PaintHandlerContext, PhysicalPointPx, TARGET_BRUSH_TOGGLE,
+    TARGET_FILE_OPEN_DIALOG, TARGET_FILE_OPEN_FILENAME, TARGET_LAYER_ITEM, TARGET_MAIN_WINDOW,
+    TARGET_SAVE_AS_DIALOG, TARGET_SAVE_AS_FILENAME, TARGET_SHAPE_FILL_TOGGLE,
+    TARGET_SHAPE_OUTLINE_TOGGLE, TARGET_SHAPE_SIZE_TOGGLE, TARGET_SHAPES_TOGGLE, TOOL_FILE_OPEN,
+    TOOL_FILE_SAVE_AS,
 };
 
 /// 展开 / 折叠后的**有界重解**次数与间隔（形状库异步物化、图层面板展开，见 `docs/memory/apps/paint.md` §11）。
@@ -48,6 +54,21 @@ const GALLERY_INTERVAL_MS: u64 = 50;
 /// 发现弹层立即 fail-closed。
 const POPUP_WAIT_ATTEMPTS: usize = 20;
 const POPUP_WAIT_INTERVAL_MS: u64 = 50;
+const FILE_DIALOG_ATTEMPTS: usize = 30;
+pub(super) const FILE_DIALOG_INTERVAL_MS: u64 = 100;
+pub(super) const OPEN_CANVAS_ATTEMPTS: usize = 30;
+pub(super) const OPEN_CANVAS_STABLE_CAPTURES: u32 = 4;
+pub(super) const OPEN_ZOOM_ATTEMPTS: usize = 20;
+pub(super) const OPEN_ZOOM_PERCENT: u32 = 50;
+pub(super) const OPEN_ZOOM_RATIO: f64 = OPEN_ZOOM_PERCENT as f64 / 100.0;
+pub(super) const OPEN_ZOOM_RATIO_TOLERANCE: f64 = 0.01;
+pub(super) const SAVE_FILE_ATTEMPTS: usize = 30;
+
+struct FileDialogShortcut<'a> {
+    key: &'a str,
+    modifiers: Vec<KeyModifier>,
+    label: &'a str,
+}
 
 impl<P> PaintHandlerContext<P>
 where
@@ -377,6 +398,274 @@ where
         Ok(false)
     }
 
+    /// Resolves one file-dialog window and verifies that it belongs to a
+    /// different process than the Paint window.
+    ///
+    /// The selector itself is class-based (`#32770` + `Window`), so the
+    /// process check is the second half of the identity contract. A timeout is
+    /// `Transient`; a missing or same-process dialog is `TargetNotFound`.
+    pub(super) fn resolve_file_dialog(
+        &self,
+        target: &str,
+        tool: &str,
+    ) -> Result<ResolvedWindow, ToolBusError> {
+        let main_window = self.resolve_window(TARGET_MAIN_WINDOW, tool)?;
+        let mut last_error = String::from("dialog did not appear");
+        for _attempt in 0..FILE_DIALOG_ATTEMPTS {
+            let listed = support::poll_immediate(
+                self.platform.list_windows(&WindowFilter::any()),
+                tool,
+                "list_windows",
+            )?
+            .map_err(|error| support::map_platform_error(tool, &error))?;
+            let main_app_id = listed
+                .iter()
+                .find(|info| info.window().id() == main_window.id())
+                .map(|info| info.app_id().to_owned());
+            if let Some(main_app_id) = main_app_id {
+                for info in &listed {
+                    if !info.app_id().eq_ignore_ascii_case(&main_app_id)
+                        || !info.window().display_label().contains("[#32770]")
+                    {
+                        continue;
+                    }
+                    let state = self.window_state(info.window(), tool)?;
+                    if state.foreground() {
+                        return Ok(info.window().clone());
+                    }
+                    last_error = format!(
+                        "matching `{target}` dialog exists but is not foreground: {}",
+                        info.window().display_label()
+                    );
+                }
+            }
+            std::thread::sleep(Duration::from_millis(FILE_DIALOG_INTERVAL_MS));
+        }
+        Err(ToolBusError::Transport {
+            reason: format!("{tool}: {last_error}"),
+        })
+    }
+
+    /// Waits for a dialog target to become unresolvable after `Escape` / Open /
+    /// Save. A still-present target after the bounded wait is `Transient`.
+    pub(super) fn wait_for_window_absent(
+        &self,
+        target: &str,
+        tool: &str,
+    ) -> Result<(), ToolBusError> {
+        for _attempt in 0..FILE_DIALOG_ATTEMPTS {
+            match self.resolve_window(target, tool) {
+                Err(ToolBusError::UnknownTool { .. }) => return Ok(()),
+                Ok(_) => {}
+                Err(error) => return Err(error),
+            }
+            std::thread::sleep(Duration::from_millis(FILE_DIALOG_INTERVAL_MS));
+        }
+        Err(ToolBusError::Transport {
+            reason: format!("{tool}: dialog `{target}` did not close within the bound"),
+        })
+    }
+
+    fn open_expected_file_dialog(
+        &self,
+        task_id: &str,
+        window: &ResolvedWindow,
+        dialog_target: &str,
+        shortcut: FileDialogShortcut<'_>,
+        tool: &str,
+    ) -> Result<ResolvedWindow, ToolBusError> {
+        self.send_key(task_id, window, shortcut.key, shortcut.modifiers, tool)?;
+        match self.resolve_file_dialog(dialog_target, tool) {
+            Ok(dialog) => Ok(dialog),
+            Err(error) => {
+                if self.window_state(window, tool)?.occluded() {
+                    return Err(user_interaction_with(
+                        tool,
+                        &format!(
+                            "{} did not produce the file dialog and Paint remains occluded",
+                            shortcut.label
+                        ),
+                    ));
+                }
+                Err(error)
+            }
+        }
+    }
+
+    pub(super) fn set_element_value(
+        &self,
+        element: &ResolvedElement,
+        value: &str,
+        tool: &str,
+    ) -> Result<(), ToolBusError> {
+        let result =
+            support::poll_immediate(self.platform.set_value(element, value), tool, "set_value")?;
+        result.map_err(|error| support::map_platform_error(tool, &error))
+    }
+
+    pub(super) fn open_file_dialog_output(
+        &self,
+        task_id: &str,
+        arguments: &Map<String, Value>,
+    ) -> Result<ToolOutput, ToolBusError> {
+        if arguments
+            .get("discard_unsaved_confirmed")
+            .and_then(Value::as_bool)
+            != Some(false)
+        {
+            return Err(support::invalid_arguments(
+                TOOL_FILE_OPEN,
+                "discard_unsaved_confirmed must be false",
+            ));
+        }
+        let path = required_png_path(arguments, "path", TOOL_FILE_OPEN, true)?;
+        let expected = png_dimensions(path.as_path(), TOOL_FILE_OPEN)?;
+        let window = self.resolve_window(TARGET_MAIN_WINDOW, TOOL_FILE_OPEN)?;
+        let window_state = self.window_state(&window, TOOL_FILE_OPEN)?;
+        if window_state.occluded() {
+            return Err(user_interaction_with(
+                TOOL_FILE_OPEN,
+                &format!(
+                    "Paint was already occluded before Ctrl+O \
+                     (minimized={}, foreground={}, occluded={})",
+                    window_state.minimized(),
+                    window_state.foreground(),
+                    window_state.occluded()
+                ),
+            ));
+        }
+        let before = self.fingerprint_event(&window, TOOL_FILE_OPEN)?;
+        let started = std::time::Instant::now();
+        let dialog = self.open_expected_file_dialog(
+            task_id,
+            &window,
+            TARGET_FILE_OPEN_DIALOG,
+            FileDialogShortcut {
+                key: "O",
+                modifiers: vec![KeyModifier::Control],
+                label: "Ctrl+O",
+            },
+            TOOL_FILE_OPEN,
+        )?;
+        let filename = self
+            .resolve_element(TARGET_FILE_OPEN_FILENAME, &dialog, TOOL_FILE_OPEN)
+            .map_err(|error| ToolBusError::UnknownTool {
+                tool: format!(
+                    "{TOOL_FILE_OPEN}: filename lookup in `{}` failed: {error}",
+                    dialog.display_label()
+                ),
+            })?;
+        self.set_element_value(&filename, path.to_string_lossy().as_ref(), TOOL_FILE_OPEN)?;
+        self.send_key(task_id, &dialog, "Enter", Vec::new(), TOOL_FILE_OPEN)?;
+        self.wait_for_window_absent(TARGET_FILE_OPEN_DIALOG, TOOL_FILE_OPEN)?;
+        self.set_open_zoom(&window, TOOL_FILE_OPEN)?;
+        let (width, height, zoom_ratio) =
+            self.read_open_canvas(expected, TOOL_FILE_OPEN)
+                .map_err(|error| {
+                    user_interaction_with(
+                        TOOL_FILE_OPEN,
+                        &format!(
+                            "opened document size or zoom did not settle for the fixture: {error}"
+                        ),
+                    )
+                })?;
+        let mut document = self
+            .document
+            .lock()
+            .map_err(|_| super::paint_handler_support::unavailable("paint document state"))?;
+        document.opened_path = Some(path.to_string_lossy().to_string());
+        document.canvas_width_px = Some(width);
+        document.canvas_height_px = Some(height);
+        document.zoom_ratio = Some(zoom_ratio);
+        drop(document);
+        let after = self.fingerprint_event(&window, TOOL_FILE_OPEN)?;
+        Ok(ToolOutput::json(json!({
+            "opened_path": path.to_string_lossy(),
+            "canvas_width_px": width,
+            "canvas_height_px": height,
+            "zoom_ratio": zoom_ratio,
+            "fingerprint": after.as_str(),
+            "previous_fingerprint": before.as_str(),
+            "elapsed_ms": super::paint_handler_support::elapsed_ms(started),
+        })))
+    }
+
+    pub(super) fn save_as_dialog_output(
+        &self,
+        task_id: &str,
+        arguments: &Map<String, Value>,
+    ) -> Result<ToolOutput, ToolBusError> {
+        if arguments.get("overwrite_existing").and_then(Value::as_bool) != Some(false) {
+            return Err(support::invalid_arguments(
+                TOOL_FILE_SAVE_AS,
+                "overwrite_existing must be false",
+            ));
+        }
+        let target = required_png_path(arguments, "target_path", TOOL_FILE_SAVE_AS, false)?;
+        if crate::notepad_files::snapshot_file(&target, TOOL_FILE_SAVE_AS)?.exists {
+            return Err(user_interaction(TOOL_FILE_SAVE_AS));
+        }
+        let expected = self
+            .document
+            .lock()
+            .map_err(|_| super::paint_handler_support::unavailable("paint document state"))
+            .map(|document| document.canvas_width_px.zip(document.canvas_height_px))?;
+        let window = self.resolve_window(TARGET_MAIN_WINDOW, TOOL_FILE_SAVE_AS)?;
+        let before = self.fingerprint_event(&window, TOOL_FILE_SAVE_AS)?;
+        let started = std::time::Instant::now();
+        let dialog = self.open_expected_file_dialog(
+            task_id,
+            &window,
+            TARGET_SAVE_AS_DIALOG,
+            FileDialogShortcut {
+                key: "S",
+                modifiers: vec![KeyModifier::Control, KeyModifier::Shift],
+                label: "Ctrl+Shift+S",
+            },
+            TOOL_FILE_SAVE_AS,
+        )?;
+        let filename = self.resolve_element(TARGET_SAVE_AS_FILENAME, &dialog, TOOL_FILE_SAVE_AS)?;
+        self.set_element_value(
+            &filename,
+            target.to_string_lossy().as_ref(),
+            TOOL_FILE_SAVE_AS,
+        )?;
+        if crate::notepad_files::snapshot_file(&target, TOOL_FILE_SAVE_AS)?.exists {
+            self.send_key(task_id, &dialog, "Escape", Vec::new(), TOOL_FILE_SAVE_AS)?;
+            self.wait_for_window_absent(TARGET_SAVE_AS_DIALOG, TOOL_FILE_SAVE_AS)?;
+            return Err(user_interaction(TOOL_FILE_SAVE_AS));
+        }
+        self.invoke_element(&filename, "focus", TOOL_FILE_SAVE_AS)?;
+        self.send_key(task_id, &dialog, "Tab", Vec::new(), TOOL_FILE_SAVE_AS)?;
+        self.send_key(task_id, &dialog, "P", Vec::new(), TOOL_FILE_SAVE_AS)?;
+        self.send_key(task_id, &dialog, "Enter", Vec::new(), TOOL_FILE_SAVE_AS)?;
+        let saved = wait_for_saved_png(&target, TOOL_FILE_SAVE_AS)?;
+        if let Some(expected) = expected
+            && saved != expected
+        {
+            return Err(verify_failed(format!(
+                "{TOOL_FILE_SAVE_AS}: saved dimensions {saved:?} do not match document \
+                 {expected:?}"
+            )));
+        }
+        self.wait_for_window_absent(TARGET_SAVE_AS_DIALOG, TOOL_FILE_SAVE_AS)?;
+        {
+            let mut document = self
+                .document
+                .lock()
+                .map_err(|_| super::paint_handler_support::unavailable("paint document state"))?;
+            document.opened_path = Some(target.to_string_lossy().to_string());
+        }
+        let after = self.fingerprint_event(&window, TOOL_FILE_SAVE_AS)?;
+        Ok(ToolOutput::json(json!({
+            "target_path": target.to_string_lossy(),
+            "file_created": true,
+            "fingerprint": after.as_str(),
+            "previous_fingerprint": before.as_str(),
+            "elapsed_ms": super::paint_handler_support::elapsed_ms(started),
+        })))
+    }
+
     /// 元素几何视图（设备像素矩形 + 所属坐标空间），一次查询（ADR-0092 细则 3 / ADR-0093）。
     ///
     /// `space` 直接可喂给 `pointer_action`，因此点击工具栏控件**一次查询**就够，不必再问显示器目录
@@ -567,4 +856,24 @@ where
         })?;
         Ok(image)
     }
+}
+
+fn wait_for_saved_png(target: &std::path::Path, tool: &str) -> Result<(u32, u32), ToolBusError> {
+    let mut last_error = None;
+    for _attempt in 0..SAVE_FILE_ATTEMPTS {
+        if crate::notepad_files::snapshot_file(target, tool)?.exists {
+            match png_dimensions(target, tool) {
+                Ok(dimensions) => return Ok(dimensions),
+                Err(error) => last_error = Some(error),
+            }
+        }
+        std::thread::sleep(Duration::from_millis(FILE_DIALOG_INTERVAL_MS));
+    }
+    let reason = last_error.map_or_else(
+        || "target file was not created".to_owned(),
+        |error| error.to_string(),
+    );
+    Err(verify_failed(format!(
+        "{tool}: saved target did not become a readable PNG: {reason}"
+    )))
 }

@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "task_id": "paint.t3_2.open_png_mark_region_save_as",
+  "repeat_runs": 10,
+  "primary_case": "standard_open_mark_save_as",
+  "cases": [
+    {
+      "id": "standard_open_mark_save_as",
+      "opened_fixture": "fixture.png",
+      "target": "marked-output.png",
+      "rectangle_start": {"x": 64, "y": 48},
+      "rectangle_end": {"x": 1984, "y": 1488},
+      "foreground_red": 237,
+      "foreground_green": 28,
+      "foreground_blue": 36,
+      "outline": "实心边框",
+      "fill": "无填充",
+      "size": "3 像素",
+      "zoom_relation": "actual < 1.0"
+    },
+    {
+      "id": "target_already_exists",
+      "outcome": "PolicyDenied",
+      "target": "protected-output.png",
+      "handler_invoked": false
+    },
+    {
+      "id": "target_created_in_dialog_race",
+      "outcome": "UserInteraction",
+      "save_clicked": false,
+      "target_unchanged": true
+    },
+    {
+      "id": "open_dialog_missing",
+      "outcome": "TargetNotFound"
+    },
+    {
+      "id": "dialog_foreground_lost",
+      "outcome": "UserInteraction"
+    },
+    {
+      "id": "cancelled_open_dialog",
+      "outcome": "UserInteraction"
+    },
+    {
+      "id": "save_dialog_missing",
+      "outcome": "TargetNotFound"
+    },
+    {
+      "id": "bounded_wait_expired",
+      "outcome": "Transient"
+    },
+    {
+      "id": "missing_blob_sink",
+      "outcome": "VerifyFailed"
+    },
+    {
+      "id": "no_pixel_change",
+      "outcome": "VerifyFailed"
+    }
+  ]
+}

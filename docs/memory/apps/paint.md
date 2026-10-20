@@ -424,3 +424,26 @@ PROBE: seen=180 emitted=18 truncated=False elapsed_ms=559（结束时已恢复�
 实际 `(1458, 859)`，**max error = 0 px**（判据 2 px）；证据为
 `eval/tasks/paint/t3.1/coordinate-error-summary.json`。不能只由成功率反推像素误差，
 但当前误差已有第一手实测值。
+
+### 13.23 T3.2 文件打开 / 缩放 / PNG 另存真机坑（2026-10-20，TASK-045）
+
+真机 Paint 11.2605.81.0 的 T3.2 最终 10/10 通过，实际 `zoom_ratio=0.5`，拖拽终点
+误差 0 px。以下是实现和后续适配必须保留的事实：
+
+1. **经典 `#32770` 文件对话框中的文件名 Edit 依赖 TASK-320 的平台修复**：
+   `ClassAndRole(Edit, Pane)` 不能直接依赖 provider 的 `AND` 条件；TASK-320 改为
+   class-only 搜索后按 `CurrentControlType` 本地过滤，歧义仍由中央 resolver fail-closed。
+2. **缩放 combo 的 `Selection::ByIndex` 是直接子项索引，包含前置 Edit**：
+   测量顺序为 `Edit(0), 1000%(1), ..., 75%(11), 50%(12), 25%(13), LightDismiss(14)`。
+   误用 index 11 会得到 75%；必须选 index 12，并以 combo 文本读回 `50%`。
+3. **固定 sleep 不够，pre snapshot 前必须等连续稳定截图**：展开 / 选中 / 折叠与形状控件
+   操作都有异步动画窗口；500 ms 后整窗像素仍可能变化。`capture_pixels` 需有界等待连续
+   4 帧相同 content address，再输出 pre-snapshot blob。
+4. **Paint Save As 默认文件类型不是 PNG，即使文件名以 `.png` 结尾**：真实保存结果可能
+   是 HEIF (`00 00 00 20 66 74 79 70 6D 69 66 31` / `ftypmif1`)。Save As 对话框的
+   文件类型 combo 是 native ComboBox，UIA 只暴露 `FileTypeControlHost` 包装层；已验证
+   文件类型列表 PNG 是 index 7。当前实现按稳定键盘路径：聚焦文件名 Edit，`Tab` 到类型
+   combo，输入 `P`，再 `Enter`，最后以磁盘 PNG signature + IHDR 作为强后置条件。
+5. **`state_changed` 的 elapsed 不应包含后续慢速截图**：拖拽后先读 after fingerprint，
+   以该时刻计算 `elapsed_ms`，再执行像素 capture；否则 2 s 门禁会被全窗截图耗时污染。
+   取证耗时另行输出为 `verification_elapsed_ms`。

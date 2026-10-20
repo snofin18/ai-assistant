@@ -878,14 +878,17 @@ fn copy_paint_adapter(destination: &Path) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-// Real-machine acceptance lives in its own file (keeping this one under the 900-line hygiene limit)
-// but is compiled into this same test binary; it reuses the helpers above through `super::*`.
+// Real-machine acceptance is split out to keep this file under the 900-line hard limit.
 #[path = "support/paint_real_run.rs"]
 mod paint_real_run;
+#[path = "support/paint_real_run_fake.rs"]
+mod paint_real_run_fake;
+#[path = "support/paint_real_run_t3_2.rs"]
+mod paint_real_run_t3_2;
+#[path = "support/paint_real_run_t3_2_support.rs"]
+mod paint_real_run_t3_2_support;
 
-// Modal-popup fail-closed coverage lives in its own support file for the same
-// reason as the real-machine acceptance above: keep this test binary under the
-// 900-line hygiene hard limit while reusing the fake platform through `super::*`.
+// Modal-popup coverage is split for the same hard-limit reason.
 #[path = "support/paint_modal_popup.rs"]
 mod paint_modal_popup;
 
