@@ -1,6 +1,7 @@
 # 阶段 0 — Spike 技术验证（详细计划）
 
 > 周期 2~3 周　状态：**当前阶段**　上位文件：`PLAN.md`　依据：架构 v2.2 §20.1、feasibility v1.1 §3.0
+> **TASK-008 Spike G carry-over Done（2026-10-20）**：Edge / Chrome 专用 profile CDP 均通过；DOM 各 20/20、networkIdle 各 10/10、注入指令 0/40 执行、profile cookie 跨重启保持。限定 GO 与边界见 `docs/spike-reports/SPIKE-G.md`。
 >
 > **阶段 0 的唯一目的是"用最小成本证伪关键假设"，不是产出代码。**
 > 所有 Spike 卡产出 `docs/spike-reports/SPIKE-<X>.md`，**不允许写产品代码**（一次性验证脚本放 `spikes/` 且永不进入 `crates/`）。
