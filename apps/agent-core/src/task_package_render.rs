@@ -468,8 +468,26 @@ fn paint_canvas_assertions(tool: &str, arguments: &Value) -> Option<Vec<Value>> 
                 "max": i32::MAX,
             }),
         ]),
+        "paint.canvas.rollback_last_write" => paint_rollback_assertions(arguments),
         _ => None,
     }
+}
+
+fn paint_rollback_assertions(arguments: &Value) -> Option<Vec<Value>> {
+    Some(vec![
+        json!({
+            "kind": "value_equals",
+            "name": "undo_steps_completed",
+            "value": arguments.get("expected_undo_steps")?,
+        }),
+        json!({
+            "kind": "visual_assert",
+            "field": "pixels",
+            "op": "mean_abs_diff_within",
+            "max_mean_abs_diff": 2,
+            "confidence_min": 0.9,
+        }),
+    ])
 }
 
 fn paint_file_assertions(tool: &str, arguments: &Value) -> Option<Vec<Value>> {

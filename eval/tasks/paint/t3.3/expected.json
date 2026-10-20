@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "task_id": "paint.t3_3.draw_undo_pixel_snapshot_verify",
+  "fixture": {
+    "width_px": 2048,
+    "height_px": 1536,
+    "sha256": "a82b130e9beb6a1d8935395b4d95eb27f30748d74f221db057039a8325dfcc8c",
+    "bytes": 9439508
+  },
+  "draw": {
+    "kind": "rectangle",
+    "outline_rgb": [237, 28, 36],
+    "outline_px": 3,
+    "fill": "none",
+    "start": {"x": 64, "y": 48},
+    "end": {"x": 1984, "y": 1488}
+  },
+  "rollback": {
+    "expected_undo_steps": 1,
+    "visual_metric": "mean_abs_diff_within",
+    "max_mean_abs_diff": 2,
+    "confidence_min": 0.9
+  },
+  "minimum_success_rate": 0.95,
+  "silent_failure_rate": 0,
+  "real_run_status": "passed_10_of_10",
+  "undo_granularity": "one_step_observed_10_of_10"
+}

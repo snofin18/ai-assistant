@@ -323,6 +323,61 @@ fn test_paint_t3_2_file_steps_render_with_explicit_assertions() {
 }
 
 #[test]
+fn test_paint_t3_3_rollback_renders_value_and_visual_assertions() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../adapters/com.microsoft.paint/tasks/t3.3.open-png-draw-rollback.json");
+    let bound = inputs(&[
+        ("input.opened_path", json!("C:\\fixture\\source.png")),
+        ("input.rectangle_start", json!({"x": 64, "y": 48})),
+        ("input.rectangle_end", json!({"x": 1984, "y": 1488})),
+        ("input.rectangle_start.x", json!(64)),
+        ("input.rectangle_start.y", json!(48)),
+        ("input.rectangle_end.x", json!(1984)),
+        ("input.rectangle_end.y", json!(1488)),
+        ("input.foreground_red", json!(237)),
+        ("input.foreground_green", json!(28)),
+        ("input.foreground_blue", json!(36)),
+        ("input.layer_id", json!("layer-1")),
+        ("input.expected_layer_name", json!("Layer 1")),
+        ("input.viewport_offset_x_px", json!(0)),
+        ("input.viewport_offset_y_px", json!(0)),
+        (
+            "input.coordinate_space",
+            json!({"kind": "physical_pixels", "monitor_id": "\\\\.\\DISPLAY1", "scale": 1.0}),
+        ),
+        ("input.expected_undo_steps", json!(1)),
+    ]);
+    let provider = TaskPackageProvider::from_package_file_with_inputs(&path, &bound)
+        .expect("T3.3 package renders");
+    let plan: Value = serde_json::from_str(provider.plan_json()).expect("plan json");
+    let rollback = plan
+        .get("steps")
+        .and_then(Value::as_array)
+        .and_then(|steps| {
+            steps.iter().find(|step| {
+                step.get("tool").and_then(Value::as_str) == Some("paint.canvas.rollback_last_write")
+            })
+        })
+        .expect("rollback step");
+    let postconditions = rollback
+        .get("postconditions")
+        .and_then(Value::as_array)
+        .expect("rollback postconditions");
+    assert_eq!(postconditions.len(), 2);
+    assert!(postconditions.iter().any(|assertion| {
+        assertion.get("kind").and_then(Value::as_str) == Some("value_equals")
+            && assertion.get("name").and_then(Value::as_str) == Some("undo_steps_completed")
+            && assertion.get("value").and_then(Value::as_u64) == Some(1)
+    }));
+    assert!(postconditions.iter().any(|assertion| {
+        assertion.get("kind").and_then(Value::as_str) == Some("visual_assert")
+            && assertion.get("op").and_then(Value::as_str) == Some("mean_abs_diff_within")
+            && assertion.get("max_mean_abs_diff").and_then(Value::as_u64) == Some(2)
+            && assertion.get("confidence_min").and_then(Value::as_f64) == Some(0.9)
+    }));
+}
+
+#[test]
 fn test_paint_file_assertions_fail_closed_without_required_arguments() {
     for (tool, args) in [
         ("paint.file.open", json!({})),

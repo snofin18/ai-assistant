@@ -9,9 +9,9 @@ use serde_json::{Map, Value};
 
 use super::{
     PaintHandlerContext, TOOL_BRUSH_SELECT, TOOL_CANVAS_CAPTURE_PIXELS, TOOL_CANVAS_DRAW_RECTANGLE,
-    TOOL_CANVAS_RESOLVE_POINT, TOOL_COLOR_SELECT_FOREGROUND, TOOL_DOCUMENT_NEW, TOOL_FILE_OPEN,
-    TOOL_FILE_SAVE_AS, TOOL_FILL_SELECT, TOOL_LAYER_SELECT, TOOL_OUTLINE_SELECT, TOOL_SHAPE_SELECT,
-    TOOL_SIZE_SELECT, TOOL_TOOL_SELECT,
+    TOOL_CANVAS_RESOLVE_POINT, TOOL_CANVAS_ROLLBACK_LAST_WRITE, TOOL_COLOR_SELECT_FOREGROUND,
+    TOOL_DOCUMENT_NEW, TOOL_FILE_OPEN, TOOL_FILE_SAVE_AS, TOOL_FILL_SELECT, TOOL_LAYER_SELECT,
+    TOOL_OUTLINE_SELECT, TOOL_SHAPE_SELECT, TOOL_SIZE_SELECT, TOOL_TOOL_SELECT,
 };
 
 pub fn build_handler_map<P>(
@@ -116,6 +116,12 @@ fn insert_canvas_handlers<P>(
     handlers.insert(
         TOOL_CANVAS_CAPTURE_PIXELS.to_owned(),
         Arc::new(CapturePixelsHandler {
+            context: Arc::clone(context),
+        }),
+    );
+    handlers.insert(
+        TOOL_CANVAS_ROLLBACK_LAST_WRITE.to_owned(),
+        Arc::new(RollbackLastWriteHandler {
             context: Arc::clone(context),
         }),
     );
@@ -315,6 +321,24 @@ struct CapturePixelsHandler<P> {
 
 struct FileOpenHandler<P> {
     context: Arc<PaintHandlerContext<P>>,
+}
+
+struct RollbackLastWriteHandler<P> {
+    context: Arc<PaintHandlerContext<P>>,
+}
+
+impl<P> ToolHandler for RollbackLastWriteHandler<P>
+where
+    P: WindowProvider + UiAutomationProvider + Send + Sync + 'static,
+{
+    fn call(
+        &self,
+        call: &CallContext,
+        arguments: &Map<String, Value>,
+    ) -> Result<ToolOutput, ToolBusError> {
+        self.context
+            .rollback_last_write_output(call.task_id(), arguments)
+    }
 }
 
 impl<P> ToolHandler for FileOpenHandler<P>

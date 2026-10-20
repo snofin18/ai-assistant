@@ -57,6 +57,10 @@ dpi_scale
 像素验证不得使用逐像素相等。必须使用 `pixels` 容差或 pHash / dHash 的
 `hamming_within`，并且给出 `confidence_min`。
 
+2026-10-20 TASK-046 真机：一次矩形 drag 在 Paint 11.2605.81.0 上由**一次** `Ctrl+Z`
+完整撤销；T3.3 使用真实 pre snapshot 作 reference，`expected_undo_steps=1`、
+`mean_abs_diff <= 2`、`confidence >= 0.9`，十次真机全部通过。
+
 ## 5. 性能实测
 
 **未测**。Paint 全窗口树遍历、工具按钮定位、画布 bounds 读取、一次 drag
@@ -72,6 +76,9 @@ dpi_scale
 6. AI 功能可能联网且耗时不可预测；Adapter 将其列为不支持并转 `NeedsHuman`。
 7. Save As 是跨进程 Shell 对话框，禁止静默覆盖已有文件。
 8. 2026-10-07 的 PowerShell / UIA 探针曾挂起；2026-10-16 的 ControlView 探针已成功，但 `observed` 只表示 UIA 形状实测，selector 成功率仍未验证。
+9. `Microsoft.UI.Content.PopupWindowSiteBridge` 不只属于未保存模态框；形状 / 轮廓 / 填充 /
+   尺寸 flyout 也使用它，关闭后句柄仍可能留在 Paint 线程上并保持 `visible=false`。阻塞判据
+   必须是“popup 可见，或主窗口已禁用（证明隐藏 popup 仍在模态阻塞）”。
 
 ## 7. 通道结论
 
@@ -92,7 +99,8 @@ dpi_scale
 - 画布 bounds、viewport origin、zoom 与 scroll offset 的精确读取方式。
 - 单点 / drag 命中误差，含混合 DPI 多屏。
 - 工具按钮、颜色按钮、图层行的真实 selector 成功率。
-- `Ctrl+Z` 的 undo 粒度、合并行为与深度。
+- ~~`Ctrl+Z` 的 undo 粒度、合并行为与深度。~~ `[supersedes:2026-10-20]` 单次矩形 drag 的
+  1 步撤销已由 TASK-046 真机十次验证；其他动作类型与多步撤销深度仍未测。
 - 像素快照大小、截图耗时、树遍历耗时。
 - 保存 / 另存为 / 未保存对话框与覆盖确认的真实按钮身份。
 - TASK-044 的真实 Paint 校准结果。
@@ -447,3 +455,25 @@ PROBE: seen=180 emitted=18 truncated=False elapsed_ms=559（结束时已恢复�
 5. **`state_changed` 的 elapsed 不应包含后续慢速截图**：拖拽后先读 after fingerprint，
    以该时刻计算 `elapsed_ms`，再执行像素 capture；否则 2 s 门禁会被全窗截图耗时污染。
    取证耗时另行输出为 `verification_elapsed_ms`。
+
+### 13.24 T3.3 绘制 → 撤销 → pre snapshot 像素验证（2026-10-20，TASK-046）
+
+Paint 11.2605.81.0 真机十次 **10/10 passed**，平均约 60.8 s/轮。任务包流程：
+
+```text
+open PNG -> capture pre snapshot -> rectangle drag -> Ctrl+Z -> stable capture
+```
+
+关键事实：
+
+1. 标准矩形 drag 的 undo 粒度实测为 **1 步**；`undo_steps_completed` 由 task-package
+   `value_equals` 对 `expected_undo_steps` 做强校验。
+2. visual observation 的 reference 必须是 `pre_snapshot_blob_id` 对应的真实首图；
+   撤销后整窗截图要求 `mean_abs_diff <= 2` 且 `confidence >= 0.9`。
+3. 当前画面若已经等于 pre snapshot，工具在发 `Ctrl+Z` 前显式 `VerifyFailed`；发键后像素
+   完全不变同样 `VerifyFailed`，不存在“空撤销成功”。
+4. 发 `Ctrl+Z` 前先对已解析的 Paint 窗口置前并回读；仍不满足 foreground + unoccluded
+   才 `UserInteraction`。platform 的 `key_action` 还会独立再做一次前台确认。
+5. Paint 线程会保留多个已关闭的 `PopupWindowSiteBridge`。旧“只要类名存在就算遮挡”
+   会误报；现行判据是“popup 可见，或 owner 被禁用时的隐藏模态 popup”。该修复同时保留
+   未保存三态框的 fail-closed。

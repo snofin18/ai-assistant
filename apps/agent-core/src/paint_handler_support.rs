@@ -445,6 +445,31 @@ pub(super) fn required_u8(
         .map_err(|_| support::invalid_arguments(tool, format!("{field} must be in 0..=255")))
 }
 
+/// Parses the bounded undo-step count from the rollback tool.
+pub(super) fn required_undo_steps(
+    arguments: &Map<String, Value>,
+    field: &str,
+    tool: &str,
+) -> Result<u32, ToolBusError> {
+    let value = arguments
+        .get(field)
+        .and_then(Value::as_u64)
+        .ok_or_else(|| support::invalid_arguments(tool, format!("{field} must be an integer")))?;
+    let steps = u32::try_from(value).map_err(|_| {
+        support::invalid_arguments(
+            tool,
+            format!("{field} exceeds the supported undo-step range"),
+        )
+    })?;
+    if !(1..=64).contains(&steps) {
+        return Err(support::invalid_arguments(
+            tool,
+            format!("{field} must be between 1 and 64"),
+        ));
+    }
+    Ok(steps)
+}
+
 pub(super) fn required_non_negative_i32(
     arguments: &Map<String, Value>,
     field: &str,
