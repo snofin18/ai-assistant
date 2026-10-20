@@ -32,6 +32,8 @@ use std::time::Instant;
 
 #[path = "paint_handler_actions.rs"]
 mod paint_handler_actions;
+#[path = "paint_handler_actions_file_io.rs"]
+mod paint_handler_actions_file_io;
 #[path = "paint_handler_flyout.rs"]
 mod paint_handler_flyout;
 #[path = "paint_handler_map.rs"]

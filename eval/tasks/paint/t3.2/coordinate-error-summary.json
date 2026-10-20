@@ -1,0 +1,14 @@
+{
+  "task_id": "paint.t3_2.open_png_mark_region_save_as",
+  "configured_end_canvas": {"x": 1984, "y": 1488},
+  "document_width_px": 2048,
+  "document_height_px": 1536,
+  "canvas_bounds": {"left": 956, "top": 702, "width": 1024, "height": 768},
+  "zoom_ratio": 0.5,
+  "expected_physical": {"x": 1948, "y": 1446},
+  "observed_cursor": {"x": 1948, "y": 1446},
+  "error_px": {"x": 0, "y": 0, "max": 0},
+  "tolerance_px": 2,
+  "passed": true,
+  "test_passed": true
+}

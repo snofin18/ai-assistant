@@ -1,0 +1,20 @@
+{
+  "task_id": "paint.t3_2.open_png_mark_region_save_as",
+  "requested_runs": 10,
+  "passed_runs": 10,
+  "success_rate": 1,
+  "minimum_success_rate": 0.75,
+  "coordinate_error_px": "not_measured",
+  "runs": [
+    {"run": 1, "passed": true, "exit_code": 0, "elapsed_ms": 50356},
+    {"run": 2, "passed": true, "exit_code": 0, "elapsed_ms": 50158},
+    {"run": 3, "passed": true, "exit_code": 0, "elapsed_ms": 50172},
+    {"run": 4, "passed": true, "exit_code": 0, "elapsed_ms": 50108},
+    {"run": 5, "passed": true, "exit_code": 0, "elapsed_ms": 50121},
+    {"run": 6, "passed": true, "exit_code": 0, "elapsed_ms": 49795},
+    {"run": 7, "passed": true, "exit_code": 0, "elapsed_ms": 50181},
+    {"run": 8, "passed": true, "exit_code": 0, "elapsed_ms": 49769},
+    {"run": 9, "passed": true, "exit_code": 0, "elapsed_ms": 53147},
+    {"run": 10, "passed": true, "exit_code": 0, "elapsed_ms": 50500}
+  ]
+}

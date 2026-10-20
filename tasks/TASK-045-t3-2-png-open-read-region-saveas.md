@@ -1,6 +1,6 @@
 # TASK-045　T3.2：打开 PNG → 读尺寸与缩放 → 区域标记 → 另存为新文件
 
-- 状态：**Blocked**
+- 状态：**Done**
 - 阶段：1　子阶段：**1b**　批次：**1b**　依赖：044　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -184,18 +184,24 @@ cargo run -p xtask -- check-ledger
 - `adapters/com.microsoft.paint/selectors/targets.json`
 - `adapters/com.microsoft.paint/tasks/t3.2.open-png-mark-region-save-as.json`
 - `apps/agent-core/src/paint_handler_actions.rs`
+- `apps/agent-core/src/paint_handler_actions_file_io.rs`
 - `apps/agent-core/src/paint_handler_map.rs`
 - `apps/agent-core/src/paint_handler_support.rs`
 - `apps/agent-core/src/paint_handlers.rs`
 - `apps/agent-core/src/paint_registry.rs`
+- `apps/agent-core/src/notepad_registry.rs`（仅 subset 测试期望）
 - `apps/agent-core/src/task_package_render.rs`
 - `apps/agent-core/tests/support/paint_real_run.rs`
+- `apps/agent-core/tests/support/paint_real_run_fake.rs`
+- `apps/agent-core/tests/support/paint_real_run_t3_2.rs`
+- `apps/agent-core/tests/support/paint_real_run_t3_2_support.rs`
+- `apps/agent-core/tests/production_paint.rs`
 - `apps/agent-core/tests/task_package.rs`
 - `eval/tasks/paint/t3.2/**`
 
 ### 3. 验收输出摘要
 
-WIP 静态与 fake 验收已跑：
+静态、fake 与最终真机验收均已跑：
 
 - `python eval/tasks/paint/t3.2/prepare_fixture.py --check` → 通过；
   fixture SHA-256=`a82b130e9beb6a1d8935395b4d95eb27f30748d74f221db057039a8325dfcc8c`，
@@ -209,14 +215,27 @@ WIP 静态与 fake 验收已跑：
   dialog race 负例均通过；真机用 ignored）。
 - `cargo fmt --all --check`、`cargo clippy -p assistant-agent-core --all-targets -- -D warnings`
   通过（仅既存 `clippy::assert_is_empty` unknown-lint warning）。
+- 最终 workspace 全量：`cargo test --workspace` = **485 passed / 0 failed**（另有
+  ignored 真机项）；`cargo clippy --all-targets -- -D warnings` exit 0。
+- 最终 xtask：`verify-schemas` / `codegen --check` / `hygiene` / `memory-counts` /
+  `adr-index` / `refscan` / `docscan` / `card-check` / `check-ledger` /
+  `check-comments` 全部 PASSED；`hygiene` 0 error；`cargo deny check` OK。
+- `powershell -NoProfile -File eval/tasks/paint/t3.2/run-ten.ps1 -AllowClosePaint`
+  → **10/10 passed**，单轮 `49.769–53.147 s`；证据
+  `eval/tasks/paint/t3.2/ten-run-summary.json`。
+- `powershell -NoProfile -File eval/tasks/paint/t3.2/coordinate-error.ps1 -AllowClosePaint`
+  → `zoom_ratio=0.5`，期望 / 实际 `(1948,1446)`，max error **0 px**（判据 2 px）；
+  证据 `eval/tasks/paint/t3.2/coordinate-error-summary.json`。
+- 保存文件真实文件头为 PNG signature；此前默认保存 HEIF (`ftypmif1`) 的失败已作为
+  `PITFALL(app=paint)` 记入 `docs/memory/apps/paint.md` §13.23。
 
 ### 4. DoD 逐条核对
 
 - [x] `paint.file.open` / `paint.file.save_as` 已加入生产 registry / handler map。
 - [x] T3.2 任务包、fixture / expected / cases / validator 已落地并通过静态检查。
 - [x] fake platform 左例、静态 target 阻断、对话框竞态负例均通过。
-- [ ] 真机单次 / 十次 / 独立坐标误差尚未执行，等待人类提供前台窗口与现场确认。
-- [ ] 真机证据与最终状态同步未完成；因此本卡保持 `InProgress`。
+- [x] 真机单次 / 十次 / 独立坐标误差全部通过；最终 rebase 后复跑十次仍为 10/10。
+- [x] 真机证据、状态同步、应用记忆与 LEDGER 已落盘。
 
 ### 5. 偏差
 
@@ -301,11 +320,38 @@ WIP 静态与 fake 验收已跑：
   放宽歧义裁决或改断言。
 - **已停止的工作**：真实单次 / 十次 / 坐标误差未完成；open handler 已改为先等待目标文件
   对话框，避免把正常 `#32770` 误报为阻塞弹层。
-- **需要人类裁决**：是。
+- **裁决（2026-10-20）**：TASK-320 Done（PR #489 / merge `235b171`）将
+  `ClassAndRole` 改为 class-only 搜索 + `CurrentControlType` 本地过滤；真实 Paint
+  文件名 Edit 唯一解析，TASK-045 真机链路继续通过。本漂移关闭。
+
+`DRIFT-045-5`
+
+- **触发器**：#5（`apps/agent-core/src/notepad_registry.rs` 不在 write scope）。
+- **现象**：全量 workspace tests 的 Paint subset 契约测试仍断言
+  `paint.file.save_as` 未挂载，与 TASK-045 明确要求注册 `paint.file.open` /
+  `paint.file.save_as` 冲突。
+- **影响**：生产 registry 行为正确，但测试期望停留在 TASK-045 之前。
+- **建议与自裁决**：仅更新该单元测试的“不支持工具”样本为仍保持 unmounted 的
+  `paint.canvas.rollback_last_write`，不改生产 registry、不放宽 subset 断言。
+  TASK-045 是引入这两个已声明工具的直接原因，限定修改可接受。
+- **落地**：该测试改为断言 `paint.canvas.rollback_last_write` 未挂载；全量 workspace
+  485 passed，`file.open` / `file.save_as` 的 subset 注册契约保持覆盖。
+
+`DRIFT-045-6`
+
+- **触发器**：#2（新增私有模块文件）/ #5（机械拆分超出原单文件 write scope）。
+- **现象**：TASK-045 完成后 `paint_handler_actions.rs` 966 行、
+  `paint_real_run.rs` 1345 行，均超过 `hygiene` 的 900 行硬上限。
+- **影响**：不拆分则硬门禁失败；继续塞入现有文件也不可接受。
+- **建议与自裁决**：只做职责拆分，不改变生产行为或测试语义：
+  文件打开 / 缩放 settle 方法移至 `paint_handler_actions_file_io.rs`；
+  T3.2 fake / support / real test 分别拆为 3 个 support 文件。所有文件均低于
+  900 行，`hygiene` 0 error；测试名与断言保持原样。
 
 ### 6. 更合理做法
 
-无。当前 blocker 属于公共错误契约缺口，不能在卡内用局部变通替代。
+平台缺口由 TASK-320 独立修复是正确分层；TASK-045 内不修改平台 trait / search，
+只用已观察到的 combo 直接子项索引和读回后置条件完成缩放选择。
 
 ### 7. 遗留问题
 
@@ -318,20 +364,26 @@ WIP 静态与 fake 验收已跑：
 `DRIFT-045-3` 已裁决：扩权 `task_package_render.rs` 与两组任务包测试，只为
 `paint.file.open` / `paint.file.save_as` 增加显式 assertion，不修改公共契约。
 
-`DRIFT-045-4` 未裁决：真机文件对话框的元素解析需要平台层修复，当前 TASK-045
-write scope 不包含 `crates/platform/windows/**`。
+`DRIFT-045-4` 已由 TASK-320 平台修复关闭（PR #489 / merge `235b171`）。
 
-真机项尚未执行：T3.2 ignored 单次、`run-ten.ps1` 十次、`coordinate-error.ps1`
-独立坐标误差。下一轮需在人类将 Paint 置前台后运行；在此之前不得标记 Done。
+`DRIFT-045-5` 已按自裁决落地：只更新 subset 测试的不支持工具样本，生产 registry 不变。
+
+为守住 900 行硬上限，TASK-045 相关实现机械拆分为
+`paint_handler_actions_file_io.rs` 与 3 个 `paint_real_run*` support 模块；测试名、
+断言与生产行为不变，`hygiene` 0 error。
+
+最终真机项已全部执行：T3.2 ignored 单次、`run-ten.ps1` 十次、`coordinate-error.ps1`
+独立坐标误差；最终 rebase 后复跑仍为 10/10，保存文件为可读取 PNG。
 
 ### 8. 新增长期记忆
 
-无。契约尚未裁决，暂不把未决方案写入长期事实。
+新增 `docs/memory/apps/paint.md` §13.23：common dialog 缩放 combo 的直接子项 0 基偏移、
+50% 索引 12、稳定截图要求、Save As 默认 HEIF 坑与 `Tab + P` 选择 PNG。
 
 ### 9. 给审阅者的关注点
 
 1. 审阅 `paint.file.open` / `paint.file.save_as` 的对话框身份、超时与竞态关闭路径。
 2. 审阅 T3.2 task package 中 `inspect_target_path` 与真机保存前置契约。
-3. 真机项仍全部未跑，`zoom_ratio < 1.0` 与 `<= 2 px` 不得由 fake 成功反推。
-4. `DRIFT-045-4`：平台 `ClassAndRole` 对真实 Paint 文件对话框文件名 Edit 的 0 命中，
-   需要平台层修复后才能继续真机输入。
+3. 真机证据为 10/10、`zoom_ratio=0.5`、坐标误差 0 px；保存文件真实为 PNG。
+4. `DRIFT-045-4` 已由 TASK-320 关闭；review 重点转为 Save As 文件类型选择与
+   失败时不覆盖目标的防御检查。

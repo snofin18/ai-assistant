@@ -867,7 +867,7 @@ mod tests {
             assert!(names.contains(expected), "{expected} must be mounted");
         }
         assert!(
-            !names.contains("paint.file.save_as"),
+            !names.contains("paint.canvas.rollback_last_write"),
             "declared-but-out-of-scope Paint tools must not be mounted"
         );
     }

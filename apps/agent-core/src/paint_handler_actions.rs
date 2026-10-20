@@ -30,15 +30,15 @@ use serde_json::{Map, Value, json};
 use std::time::Duration;
 
 use super::paint_handler_support::{
-    normalized_point, parse_canvas_size, png_dimensions, required_png_path, user_interaction,
-    user_interaction_with, verify_failed,
+    normalized_point, png_dimensions, required_png_path, user_interaction, user_interaction_with,
+    verify_failed,
 };
 use super::{
-    DragRequest, PaintHandlerContext, PhysicalPointPx, TARGET_BRUSH_TOGGLE, TARGET_CANVAS,
+    DragRequest, PaintHandlerContext, PhysicalPointPx, TARGET_BRUSH_TOGGLE,
     TARGET_FILE_OPEN_DIALOG, TARGET_FILE_OPEN_FILENAME, TARGET_LAYER_ITEM, TARGET_MAIN_WINDOW,
     TARGET_SAVE_AS_DIALOG, TARGET_SAVE_AS_FILENAME, TARGET_SHAPE_FILL_TOGGLE,
-    TARGET_SHAPE_OUTLINE_TOGGLE, TARGET_SHAPE_SIZE_TOGGLE, TARGET_SHAPES_TOGGLE, TARGET_STATUS_BAR,
-    TARGET_ZOOM_VALUES_COMBO, TOOL_FILE_OPEN, TOOL_FILE_SAVE_AS,
+    TARGET_SHAPE_OUTLINE_TOGGLE, TARGET_SHAPE_SIZE_TOGGLE, TARGET_SHAPES_TOGGLE, TOOL_FILE_OPEN,
+    TOOL_FILE_SAVE_AS,
 };
 
 /// 展开 / 折叠后的**有界重解**次数与间隔（形状库异步物化、图层面板展开，见 `docs/memory/apps/paint.md` §11）。
@@ -55,14 +55,14 @@ const GALLERY_INTERVAL_MS: u64 = 50;
 const POPUP_WAIT_ATTEMPTS: usize = 20;
 const POPUP_WAIT_INTERVAL_MS: u64 = 50;
 const FILE_DIALOG_ATTEMPTS: usize = 30;
-const FILE_DIALOG_INTERVAL_MS: u64 = 100;
-const OPEN_CANVAS_ATTEMPTS: usize = 30;
-const OPEN_CANVAS_STABLE_CAPTURES: u32 = 4;
-const OPEN_ZOOM_ATTEMPTS: usize = 20;
-const OPEN_ZOOM_PERCENT: u32 = 50;
-const OPEN_ZOOM_RATIO: f64 = OPEN_ZOOM_PERCENT as f64 / 100.0;
-const OPEN_ZOOM_RATIO_TOLERANCE: f64 = 0.01;
-const SAVE_FILE_ATTEMPTS: usize = 30;
+pub(super) const FILE_DIALOG_INTERVAL_MS: u64 = 100;
+pub(super) const OPEN_CANVAS_ATTEMPTS: usize = 30;
+pub(super) const OPEN_CANVAS_STABLE_CAPTURES: u32 = 4;
+pub(super) const OPEN_ZOOM_ATTEMPTS: usize = 20;
+pub(super) const OPEN_ZOOM_PERCENT: u32 = 50;
+pub(super) const OPEN_ZOOM_RATIO: f64 = OPEN_ZOOM_PERCENT as f64 / 100.0;
+pub(super) const OPEN_ZOOM_RATIO_TOLERANCE: f64 = 0.01;
+pub(super) const SAVE_FILE_ATTEMPTS: usize = 30;
 
 struct FileDialogShortcut<'a> {
     key: &'a str,
@@ -501,93 +501,6 @@ where
         let result =
             support::poll_immediate(self.platform.set_value(element, value), tool, "set_value")?;
         result.map_err(|error| support::map_platform_error(tool, &error))
-    }
-
-    fn read_open_canvas(
-        &self,
-        expected: (u32, u32),
-        tool: &str,
-    ) -> Result<(u32, u32, f64), ToolBusError> {
-        let window = self.resolve_window(TARGET_MAIN_WINDOW, tool)?;
-        let mut last_observed = "document size did not match the fixture".to_owned();
-        for _attempt in 0..OPEN_CANVAS_ATTEMPTS {
-            let status = self.resolve_element(TARGET_STATUS_BAR, &window, tool)?;
-            let text = self.read_element_text(&status, tool)?;
-            if let Some((width, height)) = parse_canvas_size(&text)
-                && (width, height) == expected
-            {
-                let canvas = self.resolve_element(TARGET_CANVAS, &window, tool)?;
-                let bounds = self.element_bounds(&canvas, tool)?;
-                let zoom_ratio = f64::from(bounds.width()) / f64::from(width);
-                let height_ratio = f64::from(bounds.height()) / f64::from(height);
-                let is_expected_zoom = (zoom_ratio - OPEN_ZOOM_RATIO).abs()
-                    <= OPEN_ZOOM_RATIO_TOLERANCE
-                    && (height_ratio - OPEN_ZOOM_RATIO).abs() <= OPEN_ZOOM_RATIO_TOLERANCE;
-                if zoom_ratio.is_finite()
-                    && zoom_ratio > 0.0
-                    && height_ratio.is_finite()
-                    && is_expected_zoom
-                {
-                    self.wait_for_stable_capture(&window, tool)?;
-                    return Ok((width, height, zoom_ratio));
-                }
-                last_observed =
-                    format!("zoom ratio {zoom_ratio:.4}, height ratio {height_ratio:.4}");
-            }
-            std::thread::sleep(Duration::from_millis(FILE_DIALOG_INTERVAL_MS));
-        }
-        Err(verify_failed(format!(
-            "{tool}: opened canvas did not settle at {}% for {}x{}; last observed: {last_observed}",
-            OPEN_ZOOM_PERCENT, expected.0, expected.1,
-        )))
-    }
-
-    fn set_open_zoom(&self, window: &ResolvedWindow, tool: &str) -> Result<(), ToolBusError> {
-        let zoom_combo = self.resolve_element(TARGET_ZOOM_VALUES_COMBO, window, tool)?;
-        let mut last_value = String::new();
-        for _attempt in 0..OPEN_ZOOM_ATTEMPTS {
-            self.invoke_element(&zoom_combo, "expand", tool)?;
-            // Direct content-view children start with EditableText at index 0;
-            // the measured 50% ListItem is therefore index 12, not the raw menu offset.
-            self.select_element(&zoom_combo, &Selection::ByIndex(12), tool)?;
-            self.invoke_element(&zoom_combo, "collapse", tool)?;
-            last_value = self.read_element_text(&zoom_combo, tool)?;
-            if last_value.trim() == format!("{OPEN_ZOOM_PERCENT}%") {
-                return Ok(());
-            }
-            std::thread::sleep(Duration::from_millis(FILE_DIALOG_INTERVAL_MS));
-        }
-        Err(verify_failed(format!(
-            "{tool}: zoom did not read back as {OPEN_ZOOM_PERCENT}%; last value was `{last_value}`"
-        )))
-    }
-
-    pub(super) fn wait_for_stable_capture(
-        &self,
-        window: &ResolvedWindow,
-        tool: &str,
-    ) -> Result<ImageRef, ToolBusError> {
-        let mut previous_blob_id = None;
-        let mut stable_capture_count = 0_u32;
-        let mut last_blob_id = String::new();
-        for _attempt in 0..OPEN_CANVAS_ATTEMPTS {
-            let capture = self.capture_window(window, tool)?;
-            capture.blob_id().clone_into(&mut last_blob_id);
-            if previous_blob_id.as_deref() == Some(last_blob_id.as_str()) {
-                stable_capture_count = stable_capture_count.saturating_add(1);
-            } else {
-                previous_blob_id = Some(last_blob_id.clone());
-                stable_capture_count = 1;
-            }
-            if stable_capture_count >= OPEN_CANVAS_STABLE_CAPTURES {
-                return Ok(capture);
-            }
-            std::thread::sleep(Duration::from_millis(FILE_DIALOG_INTERVAL_MS));
-        }
-        Err(verify_failed(format!(
-            "{tool}: window pixels did not stabilize after {OPEN_CANVAS_ATTEMPTS} attempts; \
-             last blob was `{last_blob_id}`"
-        )))
     }
 
     pub(super) fn open_file_dialog_output(
