@@ -132,6 +132,9 @@ cargo run -p xtask -- adr-index
 - `cargo run -p xtask -- memory-counts` → PASSED；9 files，0 error，1 existing
   archive-threshold warning。
 - `cargo run -p xtask -- adr-index` → PASSED；87 files，0 error，0 warning。
+- PR #507：base `main`，22 checks = 21 success + 1 skipped，pending 0，
+  `mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`；merge
+  `863ef36a4778009d4bdde77866feb060f6cfd1e8`。
 
 ### 4. DoD 逐条核对
 
