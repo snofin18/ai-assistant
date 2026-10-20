@@ -196,6 +196,7 @@ fn class_and_role_search(
     // `resolve.rs`, so this does not silently pick among duplicates.
     let mut matching = Vec::with_capacity(elements.len());
     for element in elements {
+        // SAFETY: read-only UIA property access on a COM interface owned by this STA thread.
         let actual = unsafe { element.CurrentControlType() }
             .map_err(|failure| error::error_from_hresult(failure.code().0, "CurrentControlType"))?;
         if actual == control_type {
