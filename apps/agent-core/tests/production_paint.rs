@@ -766,10 +766,15 @@ async fn test_paint_missing_tool_fails_closed_at_assembly() -> Result<(), Box<dy
 {
     let directory = TestDirectory::new("production-paint-missing-tool")?;
     let adapter_root = directory.path.join("adapter");
-    copy_paint_adapter(&adapter_root)?;
+    paint_adapter_copy::copy_paint_adapter(&adapter_root)?;
     let tools_path = adapter_root.join("tools").join("tools.json");
     let body = std::fs::read_to_string(&tools_path)?;
     let mut tools: Value = serde_json::from_str(&body)?;
+    let declared_count = tools
+        .get("tools")
+        .and_then(Value::as_array)
+        .expect("tools array")
+        .len();
     tools
         .get_mut("tools")
         .and_then(Value::as_array_mut)
@@ -787,7 +792,13 @@ async fn test_paint_missing_tool_fails_closed_at_assembly() -> Result<(), Box<dy
         Ok(_host) => panic!("missing Paint tool must fail assembly"),
         Err(error) => error,
     };
-    assert!(error.to_string().contains("missing production tools"));
+    assert!(
+        error.to_string().contains(&format!(
+            "expected {declared_count} declared tools, found {}",
+            declared_count - 1
+        )),
+        "unexpected assembly error: {error}"
+    );
     Ok(())
 }
 
@@ -796,7 +807,7 @@ async fn test_paint_missing_target_fails_closed_at_assembly()
 -> Result<(), Box<dyn std::error::Error>> {
     let directory = TestDirectory::new("production-paint-missing-target")?;
     let adapter_root = directory.path.join("adapter");
-    copy_paint_adapter(&adapter_root)?;
+    paint_adapter_copy::copy_paint_adapter(&adapter_root)?;
     let targets_path = adapter_root.join("selectors").join("targets.json");
     let body = std::fs::read_to_string(&targets_path)?;
     let mut targets: Value = serde_json::from_str(&body)?;
@@ -863,22 +874,9 @@ async fn test_paint_missing_blob_sink_fails_closed_at_capture()
     Ok(())
 }
 
-fn copy_paint_adapter(destination: &Path) -> Result<(), std::io::Error> {
-    let source = workspace_root().join("adapters/com.microsoft.paint");
-    std::fs::create_dir_all(destination.join("selectors"))?;
-    std::fs::create_dir_all(destination.join("tools"))?;
-    std::fs::copy(
-        source.join("selectors").join("targets.json"),
-        destination.join("selectors").join("targets.json"),
-    )?;
-    std::fs::copy(
-        source.join("tools").join("tools.json"),
-        destination.join("tools").join("tools.json"),
-    )?;
-    Ok(())
-}
-
 // Real-machine acceptance is split out to keep this file under the 900-line hard limit.
+#[path = "support/paint_adapter_copy.rs"]
+mod paint_adapter_copy;
 #[path = "support/paint_real_run.rs"]
 mod paint_real_run;
 #[path = "support/paint_real_run_fake.rs"]
@@ -887,6 +885,8 @@ mod paint_real_run_fake;
 mod paint_real_run_t3_2;
 #[path = "support/paint_real_run_t3_2_support.rs"]
 mod paint_real_run_t3_2_support;
+#[path = "support/paint_real_run_t3_3.rs"]
+mod paint_real_run_t3_3;
 
 // Modal-popup coverage is split for the same hard-limit reason.
 #[path = "support/paint_modal_popup.rs"]

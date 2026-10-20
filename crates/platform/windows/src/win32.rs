@@ -22,9 +22,10 @@ use windows::Win32::System::Threading::{
     OpenProcess, PROCESS_NAME_FORMAT, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumThreadWindows, EnumWindows, GA_ROOT, GetAncestor, GetClassNameW, GetForegroundWindow,
-    GetWindowRect, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsIconic,
-    IsWindow, IsWindowVisible, SW_RESTORE, SetForegroundWindow, ShowWindow, WindowFromPoint,
+    EnumThreadWindows, EnumWindows, GA_ROOT, GWL_STYLE, GetAncestor, GetClassNameW,
+    GetForegroundWindow, GetWindowLongW, GetWindowRect, GetWindowTextLengthW, GetWindowTextW,
+    GetWindowThreadProcessId, IsIconic, IsWindow, IsWindowVisible, SW_RESTORE, SetForegroundWindow,
+    ShowWindow, WS_DISABLED, WindowFromPoint,
 };
 use windows::core::{BOOL, PWSTR};
 
@@ -238,6 +239,12 @@ pub fn is_occluded(hwnd: HWND) -> bool {
 /// `Microsoft.UI.Content.PopupWindowSiteBridge` 顶层窗口。UIA `ControlView` /
 /// `RawView` 都看不到它，`EnumThreadWindows` 可以看到。这里只做一次有界枚举，
 /// 命中即返回，不缓存、不保留句柄。
+///
+/// 2026-10-20 TASK-046 真机补充：普通形状 / 轮廓 / 填充 / 尺寸 flyout 也使用同类
+/// `PopupWindowSiteBridge`，关闭后句柄仍留在 Paint 线程上并保持 `visible=false`。
+/// 因此不能只按类名命中；判定必须是：
+/// - popup 当前可见；或
+/// - 主窗口已被禁用，说明存在一个不可见但仍在阻塞交互的模态框。
 #[must_use]
 pub fn has_blocking_popup(hwnd: HWND) -> bool {
     // SAFETY: 只读查询；`None` 表示调用方不需要 PID，只取线程 id。
@@ -245,15 +252,18 @@ pub fn has_blocking_popup(hwnd: HWND) -> bool {
     if thread_id == 0 {
         return false;
     }
-    let mut found = false;
-    let sink = LPARAM(std::ptr::addr_of_mut!(found) as isize);
-    // SAFETY: `sink` 指向本栈帧上的 `found`，`EnumThreadWindows` 同步调用回调；
-    // 回调只读窗口类名，并在命中时把 `found` 置真。
+    let mut probe = BlockingPopupProbe {
+        found: false,
+        owner_enabled: is_window_enabled(hwnd),
+    };
+    let sink = LPARAM(std::ptr::addr_of_mut!(probe) as isize);
+    // SAFETY: `sink` 指向本栈帧上的 `probe`，`EnumThreadWindows` 同步调用回调；
+    // 回调只读窗口类名 / 可见性和 owner 状态，并在命中时把 `probe.found` 置真。
     let enumerated = unsafe { EnumThreadWindows(thread_id, Some(collect_blocking_popup), sink) };
     // `EnumThreadWindows` 用 `BOOL` 表示“是否正常枚举结束”，不是 `Result`。
-    // 回调命中弹层会主动返回 FALSE 提前停止，因此 `found` 为真时优先返回真；
+    // 回调命中弹层会主动返回 FALSE 提前停止，因此 `probe.found` 为真时优先返回真；
     // 未命中且枚举失败时按“可能有弹层”保守 fail-closed。
-    found || !enumerated.as_bool()
+    probe.found || !enumerated.as_bool()
 }
 
 /// `WinUI` 弹层与经典 Win32 对话框的类名；大小写按 Win32 返回值逐字比较。
@@ -264,18 +274,42 @@ fn is_blocking_popup_class(class_name: &str) -> bool {
     )
 }
 
+/// A popup only blocks interaction when it is visible or its disabled owner
+/// proves that the otherwise-invisible popup is modal.
+#[derive(Debug)]
+struct BlockingPopupProbe {
+    found: bool,
+    owner_enabled: bool,
+}
+
+fn is_blocking_popup_window(class_name: &str, is_visible: bool, owner_enabled: bool) -> bool {
+    is_blocking_popup_class(class_name) && (is_visible || !owner_enabled)
+}
+
+/// Reads whether a window currently accepts user input.
+fn is_window_enabled(hwnd: HWND) -> bool {
+    // SAFETY: read-only query for a live top-level window. `GWL_STYLE` is
+    // available on every window, and `WS_DISABLED` is a positive `i32` bit.
+    let style = unsafe { GetWindowLongW(hwnd, GWL_STYLE) };
+    i32::try_from(WS_DISABLED.0).is_ok_and(|disabled_mask| style & disabled_mask == 0)
+}
+
 /// `EnumThreadWindows` 回调：命中阻塞弹层时停止枚举。
 ///
-/// SAFETY: `lparam` 必须指向一个在整个枚举期间存活的 `bool`；`has_blocking_popup`
+/// SAFETY: `lparam` 必须指向一个在整个枚举期间存活的 probe；`has_blocking_popup`
 /// 保证了这一点。返回 `FALSE` 停止枚举，返回 `TRUE` 继续。
 unsafe extern "system" fn collect_blocking_popup(hwnd: HWND, lparam: LPARAM) -> BOOL {
-    let found = lparam.0 as *mut bool;
-    if found.is_null() {
+    let probe = lparam.0 as *mut BlockingPopupProbe;
+    if probe.is_null() {
         return BOOL(1);
     }
-    if is_blocking_popup_class(&window_class_name(hwnd)) {
+    // SAFETY: see the function-level contract.
+    let probe = unsafe { &mut *probe };
+    // SAFETY: read-only query for a window returned by EnumThreadWindows.
+    let is_visible = unsafe { IsWindowVisible(hwnd).as_bool() };
+    if is_blocking_popup_window(&window_class_name(hwnd), is_visible, probe.owner_enabled) {
         // SAFETY: 见函数级 SAFETY 说明（调用方保证指针有效且独占）。
-        unsafe { *found = true };
+        probe.found = true;
         return BOOL(0);
     }
     BOOL(1)
@@ -316,7 +350,7 @@ pub fn bring_to_front(hwnd: HWND) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::is_blocking_popup_class;
+    use super::{is_blocking_popup_class, is_blocking_popup_window};
 
     #[test]
     fn test_is_blocking_popup_class_matches_measured_winui_and_classic_dialogs() {
@@ -331,6 +365,33 @@ mod tests {
         assert!(!is_blocking_popup_class("MSPaintApp"));
         assert!(!is_blocking_popup_class(
             "Microsoft.UI.Content.DesktopChildSiteBridge"
+        ));
+    }
+
+    #[test]
+    fn test_invisible_stale_winui_flyout_does_not_block_enabled_owner() {
+        assert!(!is_blocking_popup_window(
+            "Microsoft.UI.Content.PopupWindowSiteBridge",
+            false,
+            true
+        ));
+    }
+
+    #[test]
+    fn test_visible_winui_flyout_blocks_interaction() {
+        assert!(is_blocking_popup_window(
+            "Microsoft.UI.Content.PopupWindowSiteBridge",
+            true,
+            true
+        ));
+    }
+
+    #[test]
+    fn test_invisible_modal_popup_blocks_disabled_owner() {
+        assert!(is_blocking_popup_window(
+            "Microsoft.UI.Content.PopupWindowSiteBridge",
+            false,
+            false
         ));
     }
 }

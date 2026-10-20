@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "task_id": "paint.t3_3.draw_undo_pixel_snapshot_verify",
+  "repeat_runs": 10,
+  "primary_case": "standard_draw_undo_returns_to_pre_snapshot",
+  "cases": [
+    {
+      "id": "standard_draw_undo_returns_to_pre_snapshot",
+      "opened_fixture": "fixture.png",
+      "rectangle_start": {"x": 64, "y": 48},
+      "rectangle_end": {"x": 1984, "y": 1488},
+      "outline": "实心边框",
+      "fill": "无填充",
+      "size": "3 像素",
+      "expected_undo_steps": 1,
+      "outcome": "Completed",
+      "pixels_return_to_pre_snapshot": true
+    },
+    {
+      "id": "foreground_lost_before_undo",
+      "outcome": "UserInteraction",
+      "undo_key_sent": false
+    },
+    {
+      "id": "current_pixels_already_match_pre_snapshot",
+      "outcome": "VerifyFailed",
+      "undo_key_sent": false
+    },
+    {
+      "id": "noop_undo",
+      "outcome": "VerifyFailed",
+      "silent_success": false
+    },
+    {
+      "id": "undo_does_not_restore_pre_snapshot",
+      "outcome": "VerifyFailed",
+      "visual_assertion": "mean_abs_diff_within"
+    },
+    {
+      "id": "undo_steps_do_not_match_contract",
+      "outcome": "VerifyFailed",
+      "assertion": "value_equals"
+    },
+    {
+      "id": "invalid_expected_undo_steps",
+      "outcome": "ToolInvalidArgs",
+      "accepted_range": [1, 64]
+    },
+    {
+      "id": "missing_pre_snapshot_blob_id",
+      "outcome": "ToolInvalidArgs"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-//! Production Paint handlers for the T3.1 / T3.2 vertical slices.
+//! Production Paint handlers for the T3.1 / T3.2 / T3.3 vertical slices.
 //!
 //! Responsibilities:
 //! - resolve the adapter's Paint targets inside the main window scope;
@@ -22,9 +22,11 @@
 use crate::handler_support as support;
 use crate::target_lease::TargetLeaseGate;
 use assistant_platform_api::{
-    CoordinateSpace, ElementBounds, KeyModifier, Selection, UiAutomationProvider, WindowProvider,
+    CoordinateSpace, ElementBounds, ImageRef, KeyModifier, Selection, UiAutomationProvider,
+    WindowProvider,
 };
 use assistant_protocol::serde_json;
+use assistant_storage::BlobId;
 use assistant_tool_bus::{ToolBusError, ToolOutput};
 use serde_json::{Map, Value, json};
 use std::sync::{Arc, Mutex};
@@ -48,8 +50,9 @@ use paint_handler_support::{
     BRUSH_GROUP_VOCABULARY, SHAPE_GROUP_VOCABULARY, TOOL_GROUP_VOCABULARY, bounds_json,
     brush_target, canvas_point_to_physical, elapsed_ms, image_descriptor, parse_canvas_size,
     parse_coordinate_space, parse_draw_request, required_i32, required_non_negative_i32,
-    required_positive_f64, required_selection_path, required_string, required_u8, shape_state_id,
-    shape_target, tool_state_id, tool_target, unavailable, verify_failed,
+    required_positive_f64, required_selection_path, required_string, required_u8,
+    required_undo_steps, shape_state_id, shape_target, tool_state_id, tool_target, unavailable,
+    user_interaction_with, verify_failed,
 };
 /// `paint.document.new` tool name.
 pub const TOOL_DOCUMENT_NEW: &str = "paint.document.new";
@@ -73,6 +76,8 @@ pub const TOOL_LAYER_SELECT: &str = "paint.layer.select";
 pub const TOOL_CANVAS_RESOLVE_POINT: &str = "paint.canvas.resolve_point";
 /// `paint.canvas.draw_rectangle` tool name.
 pub const TOOL_CANVAS_DRAW_RECTANGLE: &str = "paint.canvas.draw_rectangle";
+/// `paint.canvas.rollback_last_write` tool name.
+pub const TOOL_CANVAS_ROLLBACK_LAST_WRITE: &str = "paint.canvas.rollback_last_write";
 /// `paint.canvas.capture_pixels` tool name.
 pub const TOOL_CANVAS_CAPTURE_PIXELS: &str = "paint.canvas.capture_pixels";
 /// `paint.file.open` tool name.
@@ -699,6 +704,85 @@ where
             "width_px": image.width(),
             "height_px": image.height(),
             "content_address": image.blob_id(),
+            "fingerprint": after.as_str(),
+            "previous_fingerprint": before.as_str(),
+            "elapsed_ms": elapsed_ms(started),
+        })))
+    }
+
+    fn rollback_last_write_output(
+        &self,
+        task_id: &str,
+        arguments: &Map<String, Value>,
+    ) -> Result<ToolOutput, ToolBusError> {
+        let pre_snapshot_blob_id = required_string(
+            arguments,
+            "pre_snapshot_blob_id",
+            TOOL_CANVAS_ROLLBACK_LAST_WRITE,
+        )?;
+        BlobId::parse(pre_snapshot_blob_id).map_err(|error| {
+            support::invalid_arguments(
+                TOOL_CANVAS_ROLLBACK_LAST_WRITE,
+                format!("pre_snapshot_blob_id is invalid: {error}"),
+            )
+        })?;
+        let expected_steps = required_undo_steps(
+            arguments,
+            "expected_undo_steps",
+            TOOL_CANVAS_ROLLBACK_LAST_WRITE,
+        )?;
+        let window = self.resolve_window(TARGET_MAIN_WINDOW, TOOL_CANVAS_ROLLBACK_LAST_WRITE)?;
+        self.bring_window_to_front(&window, TOOL_CANVAS_ROLLBACK_LAST_WRITE)?;
+        let window_state = self.window_state(&window, TOOL_CANVAS_ROLLBACK_LAST_WRITE)?;
+        if !window_state.foreground() || window_state.occluded() {
+            return Err(user_interaction_with(
+                TOOL_CANVAS_ROLLBACK_LAST_WRITE,
+                &format!(
+                    "Paint must be foreground and unoccluded before Ctrl+Z \
+                     (minimized={}, foreground={}, occluded={})",
+                    window_state.minimized(),
+                    window_state.foreground(),
+                    window_state.occluded()
+                ),
+            ));
+        }
+        let before_undo = self.wait_for_stable_capture(&window, TOOL_CANVAS_ROLLBACK_LAST_WRITE)?;
+        if before_undo.blob_id() == pre_snapshot_blob_id {
+            return Err(verify_failed(format!(
+                "{TOOL_CANVAS_ROLLBACK_LAST_WRITE}: current pixels already match the pre snapshot"
+            )));
+        }
+        let before = self.fingerprint_event(&window, TOOL_CANVAS_ROLLBACK_LAST_WRITE)?;
+        let started = Instant::now();
+        for _ in 0..expected_steps {
+            self.send_key(
+                task_id,
+                &window,
+                "Z",
+                vec![KeyModifier::Control],
+                TOOL_CANVAS_ROLLBACK_LAST_WRITE,
+            )?;
+        }
+        let after_undo = self.wait_for_stable_capture(&window, TOOL_CANVAS_ROLLBACK_LAST_WRITE)?;
+        if after_undo.blob_id() == before_undo.blob_id() {
+            return Err(verify_failed(format!(
+                "{TOOL_CANVAS_ROLLBACK_LAST_WRITE}: Ctrl+Z produced no pixel change"
+            )));
+        }
+        let after = self.fingerprint_event(&window, TOOL_CANVAS_ROLLBACK_LAST_WRITE)?;
+        let reference = ImageRef::new(
+            pre_snapshot_blob_id.to_owned(),
+            after_undo.width(),
+            after_undo.height(),
+        );
+        Ok(ToolOutput::json(json!({
+            "undo_steps_completed": expected_steps,
+            "pixel_snapshot_blob_id": after_undo.blob_id(),
+            "visual_observation": {
+                "reference": image_descriptor(&reference),
+                "observed": image_descriptor(&after_undo),
+                "confidence": 1.0,
+            },
             "fingerprint": after.as_str(),
             "previous_fingerprint": before.as_str(),
             "elapsed_ms": elapsed_ms(started),

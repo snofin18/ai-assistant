@@ -4,6 +4,7 @@
 Photoshop…）：模型负责理解与规划，所有动作都通过**注册的工具**执行，
 全过程可审计、可撤销、可回放。**默认拒绝**，不可逆动作必须人工确认。
 
+> **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
 > 状态：**阶段 1**；**TASK-316 Done**（tool-bus `bus.rs` 私有失败边界契约覆盖率补强：新增 7 个外置 `#[cfg(test)]` 白盒用例；`bus.rs` 75.82% → 95.42%、crate 91.59% → 93.19%；生产逻辑零改动；PR / CI / merge hash 见 `LEDGER.md`）；**TASK-315 Done**（阶段 1 DoD 机器可验证项取证收口：workspace 行覆盖 81.18% 且 `--fail-under-lines 75` exit 0；`assistant-core` 92.09% / `assistant-policy` 95.03% / `assistant-task-engine` 91.58% —— 三个 DoD crate 首次给出独立报告；补齐 `crates/capture` / `crates/dlp` / `crates/replay` 的「已知限制」节；新提 PL-119；docs-only；PR / CI / merge hash 见 `LEDGER.md`）；**TASK-314 Done**（跨阶段治理登记与归档 SSOT 收口；docs-only；`docs/memory/archive/README.md` 的「当前为空」改为指向 `MEMORY.md` §7，补 TASK-312 治理池行与缺失卡号的台账事实行（PL-117），PL-114 证据回填，新提 PL-116 / PL-117 / PL-118；PR / CI / merge hash 见 `LEDGER.md`）；**TASK-311 Done**（xtask 文档一致性门禁 `memory-counts` / `adr-index` 的 IO 层契约覆盖率补强；新增 `xtask/src/doccheck_tests.rs` 16 个私有白盒用例（按 PL-033 `#[path]` 外置）；`xtask/src/doccheck.rs` 行覆盖率 10.69% → 89.31%；生产源码零改动；PR #442 / merge `601c76c`；CI 22 checks 全绿（21 success + 1 skipping））；**TASK-310 Done**（PL-007 删除冗余 workflow 占位文件；docs-only；PR #438 / merge `500d592`；CI 11/11 SUCCESS）；**TASK-308 Done**（Paint 任务包选择：默认续画、显式才新建；`--adapter-kind paint` 省略 `--task-package` 时默认 T3.2 `continue-existing-canvas-rectangle`，`--document-mode new` 选 T3.1 `new-canvas-rectangle-color-screenshot`，显式 `--task-package` 仍覆盖；新增 4 个参数解析测试；PR #435 / merge `9c8fd09`；CI 22 checks 全绿（21 success + 1 skipping））；**TASK-307 Done**（Paint 已有画布续画；T3.2 任务包 9 步、不调用 `paint.document.new`；`draw_rectangle` 加 content-address 下界；真机已有未保存画布 `1 passed / 8.72 s`；PR #433 / merge `a075f1f`）；**TASK-306 Done**（Paint 模态弹层 fail-closed；平台层 WinUI / `#32770` 弹层纳入 `WindowState.occluded`，`paint.document.new` 命中即 `UserInteraction` fail-closed；真机干净 Paint T3.1 `1 passed / 9.90 s`；PR #431 / merge `2bcbdb2`）；**TASK-302 Done**（IPC Windows NamedPipe 失败 / 超时公开契约覆盖率；`assistant-ipc` crate 85.57% → 87.30%、`windows_io.rs` 71.84% → 79.18%；新增 6 个公开 API 契约测试；生产源码零改动；PR #423 / merge `c26a620`；CI 11/11 SUCCESS）；
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
@@ -89,6 +90,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-20 TASK-046 Done（Paint T3.3 绘制 → 撤销 → pre snapshot 像素验证）**：真实 Paint 11.2605.81.0 十次运行 **10/10 passed**，平均 60.801 s/轮；单次矩形 drag 实测 **1 个 undo step**，每轮均通过 `mean_abs_diff_within(max=2, confidence_min=0.9)`。no-op undo 负例显式 `VerifyFailed`。真机还确认 `PopupWindowSiteBridge` 会保留已关闭 flyout 句柄，平台判据已改为“可见 popup 或 disabled owner 下的隐藏模态 popup”。
+
 **2026-10-20 TASK-045 Done（Paint T3.2：打开 PNG、区域标记、另存 PNG）**：真实 Paint 11.2605.81.0 十次运行 **10/10 passed**；文档尺寸 `2048 x 1536`、`zoom_ratio=0.5`，拖拽终点期望 / 实际 `(1948,1446)`、误差 **0 px**。另存默认类型实际是 HEIF，handler 通过聚焦文件名、Tab 到文件类型、输入 P 选择 PNG，并以 PNG signature / IHDR 强校验。`DRIFT-045-4` 已由 TASK-320 平台修复关闭。
 
 **2026-10-20 TASK-320 Done（Windows UIA ClassAndRole 子元素搜索）**：把 provider `AND(ClassName, ControlType)` 改为 class-only 搜索 + `CurrentControlType` 本地过滤，保持 `OnAmbiguous::ErrorAndAsk` 和 selector 公共形状不变；真实 Paint 文件对话框成功输入文件名并继续完成 T3.2 打开 / 绘制 / PNG 另存，十次运行 **10/10 passed**，独立拖拽终点误差 **0 px**。
@@ -320,6 +323,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-20 TASK-046 Done（Paint T3.3 draw / undo / pixel rollback）**：新增 `t3.3.open-png-draw-rollback.json`、draw/undo ignored 真机用例与十轮 runner；真实结果为 **10/10 passed**，单步 undo 与 pre snapshot 像素回滚均通过。修复 `has_blocking_popup()` 的 stale flyout 误报，同时保留不可见模态框在 owner disabled 时的阻塞识别。
+
 **2026-10-19 TASK-309 / 317 / 318 / 319 Done（Paint full toolset real-machine E2E）**：`t3.2.full-toolset-path.json` 在生产 Plan 中依次执行 shape → outline → fill → size → brush → reselect rectangle → color → draw，14 步全部 `Committed`；ignored 真机用例 `1 passed / 0 failed`。稳定 before/after content address 与画布裁剪图作为证据保留；手头的人类现场保持矩形工具 / 红色前景色并保留新画矩形，便于目视复核。
 
 **2026-10-19 TASK-256 / TASK-044 Done（T3.1 real-machine ten-run + coordinate error）**：T3.1 ignored 用例单次验收通过；`run-ten.ps1` 的稳定复跑结果为 **10/10 passed（success_rate=1.0）**；`coordinate-error.ps1` 进一步用 `GetCursorPos` 量到拖拽终点误差 **0 px**。

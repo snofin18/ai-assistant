@@ -1,0 +1,223 @@
+{
+  "schema_version": 1,
+  "task_id": "paint.t3_3.draw_undo_pixel_snapshot_verify",
+  "app_id": "com.microsoft.paint",
+  "title": "Draw a rectangle, undo it, and verify pixels return to the pre-write snapshot",
+  "goal": "Open a deterministic PNG, draw one red outline rectangle, invoke Paint's explicit Ctrl+Z undo path, and verify the resulting pixels match the pre-write snapshot.",
+  "read_only": false,
+  "open_mode": "none",
+  "inputs": {
+    "opened_path": {"type": "string", "required": true},
+    "rectangle_start": {"type": "object", "required": true},
+    "rectangle_end": {"type": "object", "required": true},
+    "foreground_red": {"type": "integer", "required": true, "minimum": 0, "maximum": 255},
+    "foreground_green": {"type": "integer", "required": true, "minimum": 0, "maximum": 255},
+    "foreground_blue": {"type": "integer", "required": true, "minimum": 0, "maximum": 255},
+    "layer_id": {"type": "string", "required": true},
+    "expected_layer_name": {"type": "string", "required": true},
+    "viewport_offset_x_px": {"type": "integer", "required": true},
+    "viewport_offset_y_px": {"type": "integer", "required": true},
+    "coordinate_space": {"type": "object", "required": true},
+    "expected_undo_steps": {"type": "integer", "required": true, "minimum": 1, "maximum": 2, "default": 1}
+  },
+  "outputs": {
+    "opened_path": "string",
+    "canvas_width_px": "integer",
+    "canvas_height_px": "integer",
+    "zoom_ratio": "number",
+    "selected_leaf": "string",
+    "foreground_rgb": "string",
+    "active_layer_id": "string",
+    "pre_snapshot_blob_id": "string",
+    "start_screen_x_px": "integer",
+    "start_screen_y_px": "integer",
+    "end_screen_x_px": "integer",
+    "end_screen_y_px": "integer",
+    "undo_steps_completed": "integer",
+    "pixel_snapshot_blob_id": "string"
+  },
+  "steps": [
+    {
+      "id": "capture_initial_fingerprint",
+      "kind": "host_service",
+      "operation": "capture_initial_fingerprint",
+      "notes": [
+        "Always runs so later conditional steps have a real initial fingerprint."
+      ]
+    },
+    {
+      "id": "open_png",
+      "kind": "tool",
+      "tool": "paint.file.open",
+      "args": {
+        "path": "$input.opened_path",
+        "discard_unsaved_confirmed": false
+      },
+      "outputs": ["opened_path", "canvas_width_px", "canvas_height_px", "zoom_ratio"]
+    },
+    {
+      "id": "select_rectangle_tool",
+      "kind": "tool",
+      "tool": "paint.shape.select",
+      "args": {"path": ["矩形"]},
+      "outputs": ["selected_leaf", "previous_leaf", "selected_path", "path_depth", "ui_state_readback"]
+    },
+    {
+      "id": "select_shape_outline",
+      "kind": "tool",
+      "tool": "paint.outline.select",
+      "args": {"path": ["实心边框"]},
+      "outputs": ["selected_leaf", "previous_leaf", "selected_path", "path_depth", "ui_state_readback"]
+    },
+    {
+      "id": "select_shape_fill",
+      "kind": "tool",
+      "tool": "paint.fill.select",
+      "args": {"path": ["无填充"]},
+      "outputs": ["selected_leaf", "previous_leaf", "selected_path", "path_depth", "ui_state_readback"]
+    },
+    {
+      "id": "select_shape_size",
+      "kind": "tool",
+      "tool": "paint.size.select",
+      "args": {"path": ["3 像素"]},
+      "outputs": ["selected_leaf", "previous_leaf", "selected_path", "path_depth", "ui_state_readback"]
+    },
+    {
+      "id": "select_foreground_color",
+      "kind": "tool",
+      "tool": "paint.color.select_foreground",
+      "args": {
+        "red": "$input.foreground_red",
+        "green": "$input.foreground_green",
+        "blue": "$input.foreground_blue"
+      },
+      "outputs": ["foreground_rgb", "previous_foreground_rgb"]
+    },
+    {
+      "id": "select_layer",
+      "kind": "tool",
+      "tool": "paint.layer.select",
+      "args": {
+        "layer_id": "$input.layer_id",
+        "expected_layer_name": "$input.expected_layer_name"
+      },
+      "outputs": ["active_layer_id", "active_layer_name", "previous_layer_id"]
+    },
+    {
+      "id": "capture_pre_snapshot",
+      "kind": "tool",
+      "tool": "paint.canvas.capture_pixels",
+      "outputs": ["blob_id", "width_px", "height_px", "content_address"]
+    },
+    {
+      "id": "resolve_start",
+      "kind": "tool",
+      "tool": "paint.canvas.resolve_point",
+      "args": {
+        "canvas_x": "$input.rectangle_start.x",
+        "canvas_y": "$input.rectangle_start.y",
+        "zoom_ratio": "$zoom_ratio",
+        "viewport_offset_x_px": "$input.viewport_offset_x_px",
+        "viewport_offset_y_px": "$input.viewport_offset_y_px",
+        "coordinate_space": "$input.coordinate_space"
+      },
+      "outputs": [
+        "screen_x_px",
+        "screen_y_px",
+        "canvas_bounds_px",
+        "zoom_ratio",
+        "viewport_offset_x_px",
+        "viewport_offset_y_px",
+        "coordinate_space_kind"
+      ]
+    },
+    {
+      "id": "resolve_end",
+      "kind": "tool",
+      "tool": "paint.canvas.resolve_point",
+      "args": {
+        "canvas_x": "$input.rectangle_end.x",
+        "canvas_y": "$input.rectangle_end.y",
+        "zoom_ratio": "$zoom_ratio",
+        "viewport_offset_x_px": "$input.viewport_offset_x_px",
+        "viewport_offset_y_px": "$input.viewport_offset_y_px",
+        "coordinate_space": "$input.coordinate_space"
+      },
+      "outputs": [
+        "screen_x_px",
+        "screen_y_px",
+        "canvas_bounds_px",
+        "zoom_ratio",
+        "viewport_offset_x_px",
+        "viewport_offset_y_px",
+        "coordinate_space_kind"
+      ]
+    },
+    {
+      "id": "draw_rectangle",
+      "kind": "tool",
+      "tool": "paint.canvas.draw_rectangle",
+      "args": {
+        "start": "$input.rectangle_start",
+        "end": "$input.rectangle_end",
+        "coordinate_space": "$input.coordinate_space",
+        "expected_tool": "rectangle",
+        "expected_foreground_rgb": "$foreground_rgb",
+        "expected_layer_id": "$input.layer_id",
+        "pre_snapshot_blob_id": "$pre_snapshot_blob_id"
+      },
+      "outputs": [
+        "selected_tool",
+        "foreground_rgb",
+        "active_layer_id",
+        "pixel_snapshot_blob_id",
+        "undo_steps_recorded"
+      ]
+    },
+    {
+      "id": "rollback_last_write",
+      "kind": "tool",
+      "tool": "paint.canvas.rollback_last_write",
+      "args": {
+        "pre_snapshot_blob_id": "$pre_snapshot_blob_id",
+        "expected_undo_steps": "$input.expected_undo_steps"
+      },
+      "outputs": ["undo_steps_completed", "pixel_snapshot_blob_id"]
+    }
+  ],
+  "preconditions": [
+    "Paint is foreground, unoccluded, and at the adapter-supported version.",
+    "The opened_path exists and is the deterministic T3.2 PNG fixture.",
+    "The canvas coordinate space and viewport offsets are measured from the live document.",
+    "A pre-write content-addressed pixel snapshot exists before the drag.",
+    "The expected undo step count comes from the adapter's explicit L0 Ctrl+Z capability."
+  ],
+  "postconditions": [
+    {
+      "id": "undo_steps_completed",
+      "description": "The rollback tool completed the declared expected_undo_steps.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "pixels_return_to_pre_snapshot",
+      "description": "The post-undo pixels match the pre-write snapshot within the declared visual tolerance.",
+      "error_code": "VerifyFailed"
+    }
+  ],
+  "metrics": {
+    "repeat_runs": 10,
+    "minimum_success_rate": 0.9,
+    "silent_failure_rate": 0,
+    "undo_success_rate_min": 0.95,
+    "first_selector_hit_rate_min": 0.85,
+    "step_efficiency_max": 2.0,
+    "time_budget_ms": 120000
+  },
+  "evidence_status": {
+    "probe_window_tree": "observed",
+    "real_ten_run_evaluation": "passed_10_of_10",
+    "undo_granularity": "one_step_observed_10_of_10",
+    "visual_tolerance_calibration": "verified_with_declared_tolerance_10_of_10"
+  }
+}

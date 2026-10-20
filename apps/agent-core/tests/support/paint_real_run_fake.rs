@@ -26,7 +26,7 @@ enum FileDialogKind {
     SaveAs,
 }
 
-struct T3_2FakeState {
+pub struct T3_2FakeState {
     revision: u64,
     canvas_revision: u32,
     tool: String,
@@ -51,16 +51,17 @@ struct T3_2FakeState {
     outline_visible: bool,
     fill_visible: bool,
     size_visible: bool,
+    ignore_undo: bool,
 }
 
 #[derive(Clone)]
-struct T3_2FakePlatform {
+pub struct T3_2FakePlatform {
     state: Arc<Mutex<T3_2FakeState>>,
     blob_sink: Option<Arc<dyn ImageBlobSink>>,
 }
 
 impl T3_2FakePlatform {
-    fn new(
+    pub fn new(
         source_path: PathBuf,
         target_path: PathBuf,
         source_bytes: Vec<u8>,
@@ -94,6 +95,7 @@ impl T3_2FakePlatform {
                 outline_visible: true,
                 fill_visible: true,
                 size_visible: true,
+                ignore_undo: false,
             })),
             blob_sink,
         }
@@ -105,6 +107,15 @@ impl T3_2FakePlatform {
             .expect("t3.2 fake state")
             .race_create_on_set_value = true;
         self
+    }
+
+    pub fn with_ignored_undo(self) -> Self {
+        self.state.lock().expect("t3.2 fake state").ignore_undo = true;
+        self
+    }
+
+    pub fn is_drawn(&self) -> bool {
+        self.state.lock().expect("t3.2 fake state").drawn
     }
 
     fn fingerprint(&self) -> Fingerprint {
@@ -626,6 +637,13 @@ impl UiAutomationProvider for T3_2FakePlatform {
             }
             ("L", modifiers) if modifiers.contains(&KeyModifier::Alt) => {
                 state.layers_expanded = !state.layers_expanded;
+                state.revision = state.revision.saturating_add(1);
+            }
+            ("Z", modifiers) if modifiers.contains(&KeyModifier::Control) => {
+                if !state.ignore_undo && state.drawn {
+                    state.drawn = false;
+                    state.canvas_revision = state.canvas_revision.saturating_add(1);
+                }
                 state.revision = state.revision.saturating_add(1);
             }
             ("N", modifiers) if modifiers.contains(&KeyModifier::Control) => {

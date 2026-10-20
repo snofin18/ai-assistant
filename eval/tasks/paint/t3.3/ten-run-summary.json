@@ -1,0 +1,25 @@
+{
+  "task_id": "paint.t3_3.draw_undo_pixel_snapshot_verify",
+  "requested_runs": 10,
+  "passed_runs": 10,
+  "success_rate": 1,
+  "minimum_success_rate": 0.95,
+  "undo_success_rate": 1,
+  "expected_undo_steps": 1,
+  "undo_step_assertion_passed_runs": 10,
+  "pixel_rollback_assertion_passed_runs": 10,
+  "silent_failure_rate": 0,
+  "average_elapsed_ms": 60801,
+  "runs": [
+    {"run": 1, "passed": true, "exit_code": 0, "elapsed_ms": 59186},
+    {"run": 2, "passed": true, "exit_code": 0, "elapsed_ms": 60935},
+    {"run": 3, "passed": true, "exit_code": 0, "elapsed_ms": 59973},
+    {"run": 4, "passed": true, "exit_code": 0, "elapsed_ms": 59971},
+    {"run": 5, "passed": true, "exit_code": 0, "elapsed_ms": 60436},
+    {"run": 6, "passed": true, "exit_code": 0, "elapsed_ms": 62509},
+    {"run": 7, "passed": true, "exit_code": 0, "elapsed_ms": 62169},
+    {"run": 8, "passed": true, "exit_code": 0, "elapsed_ms": 62763},
+    {"run": 9, "passed": true, "exit_code": 0, "elapsed_ms": 59429},
+    {"run": 10, "passed": true, "exit_code": 0, "elapsed_ms": 60643}
+  ]
+}

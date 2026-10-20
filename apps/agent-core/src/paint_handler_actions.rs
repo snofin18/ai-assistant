@@ -21,8 +21,9 @@ use crate::handler_support as support;
 use crate::target_lease::window_lease_key;
 use assistant_platform_api::{
     CaptureOptions, CoordinateSpace, ElementBounds, ElementGeometry, Fingerprint, FingerprintScope,
-    ImageRef, KeyChord, KeyModifier, KeyTarget, PointerAction, ResolvedElement, ResolvedWindow,
-    Selection, UiAutomationProvider, WindowFilter, WindowGeometry, WindowProvider, WindowState,
+    FocusPolicy, ImageRef, KeyChord, KeyModifier, KeyTarget, PointerAction, ResolvedElement,
+    ResolvedWindow, Selection, UiAutomationProvider, WindowFilter, WindowGeometry, WindowProvider,
+    WindowState,
 };
 use assistant_storage::BlobId;
 use assistant_tool_bus::{ToolBusError, ToolOutput};
@@ -377,6 +378,25 @@ where
     ) -> Result<WindowState, ToolBusError> {
         let result =
             support::poll_immediate(self.platform.window_state(window), tool, "window_state")?;
+        result.map_err(|error| support::map_platform_error(tool, &error))
+    }
+
+    /// Brings the already-resolved target forward before a guarded input.
+    ///
+    /// The platform's `key_action` still performs its own foreground read-back.
+    /// This call clears a transient console overlay before the stricter
+    /// foreground-plus-unoccluded contract is evaluated.
+    pub(super) fn bring_window_to_front(
+        &self,
+        window: &ResolvedWindow,
+        tool: &str,
+    ) -> Result<(), ToolBusError> {
+        let result = support::poll_immediate(
+            self.platform
+                .bring_to_front(window, FocusPolicy::AllowSteal),
+            tool,
+            "bring_to_front",
+        )?;
         result.map_err(|error| support::map_platform_error(tool, &error))
     }
 

@@ -862,13 +862,15 @@ mod tests {
         let names = schemas
             .iter()
             .map(|schema| schema.name.as_str())
+            .filter(|name| name.starts_with("paint."))
             .collect::<std::collections::BTreeSet<_>>();
-        for expected in PAINT_EXPECTED_TOOL_NAMES {
-            assert!(names.contains(expected), "{expected} must be mounted");
-        }
-        assert!(
-            !names.contains("paint.canvas.rollback_last_write"),
-            "declared-but-out-of-scope Paint tools must not be mounted"
+        let expected = PAINT_EXPECTED_TOOL_NAMES
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(
+            names, expected,
+            "Paint must mount exactly its declared subset"
         );
     }
 }

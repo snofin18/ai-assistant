@@ -36,6 +36,28 @@ addresses to differ. `changed_ratio_within` is an upper bound and can pass on
 identical images, so T3.2 uses the content address as the explicit
 "something actually changed" lower bound.
 
+## T3.3
+
+`t3.3.open-png-draw-rollback.json` describes:
+
+1. open the deterministic T3.2 PNG fixture without discarding unsaved work;
+2. select the rectangle tool, red foreground, `实心边框`, `无填充`, and `3 像素`;
+3. capture a content-addressed pre-write pixel snapshot;
+4. draw one rectangle;
+5. bring the resolved Paint window forward, require it to be foreground and
+   unoccluded, send the adapter-declared `Ctrl+Z`, and compare post-undo pixels
+   with the real pre-write snapshot.
+
+The real-machine ten-run evaluation on 2026-10-20 passed `10/10`
+(`success_rate=1.0`). Every run completed the declared one undo step and passed
+`mean_abs_diff_within(max=2, confidence_min=0.9)`. A no-op undo is a
+`VerifyFailed`, never a successful rollback.
+
+Paint keeps closed `Microsoft.UI.Content.PopupWindowSiteBridge` flyout handles
+on its UI thread. The Windows popup probe therefore treats only a visible
+popup or an invisible popup whose owner is disabled as blocking. This preserves
+the unsaved-dialog guard without treating stale flyout handles as blockers.
+
 ## Production selection
 
 The production entry point defaults Paint to **T3.2** (`--document-mode existing`).
