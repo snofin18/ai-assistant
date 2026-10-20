@@ -25,7 +25,7 @@
 > **TASK-271 Done（2026-10-11）**：`assistant-dlp` 新增 7 个公共契约测试，独立行覆盖率 83.59% → 98.89%；生产源码零改动；PR #320 / merge `8a5ad5f`。
 
 > **TASK-290 Done（2026-10-14）**：PL-010 闭环 —— `gov §9.2` 的 LEDGER 模板新增 `pending` 占位与追加式回填规则；原开放行不改，PARKING_LOT 追加闭环节点；docs-only，零产品代码改动；PR #388 / merge `4e9bce6`。
-> 周期 10~12 周　状态：**进行中（2026-10-20 round 4：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30，TASK-044 / 045 / 046 / 047 / 256 / 257 / 292 / 293 / 294 / 296 / 297 / 303 / 304 Done；TASK-324 依据真实 merged PR 与真机证据收口 7 张滞后的治理卡状态并补计划索引；Stage 1c 尚未完成，下一步卡为 TASK-048 / TASK-049；本轮 `N_auto = 25 > 5`，只做 docs-only，不写业务代码）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> 周期 10~12 周　状态：**进行中（2026-10-20 round 5：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-321 / 322 / 323 / 324 / 325 完成运行日五轮治理收口；PR #500~#509 均 merged、base=main、22 checks = 21 success + 1 skipped、pending 0；Stage 1c 尚未完成，下一步卡为 TASK-048 / TASK-049；本轮 `N_auto = 26 > 5`，只做 docs-only，不写业务代码）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
 > **TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）**：Paint 全工具集真机路径
 > 通过 —— shape / outline / fill / size / brush / color / draw 的 14 步生产 Plan 全部
 > `Committed`，`1 passed / 0 failed`；新增 `t3.2.full-toolset-path.json` 与 ignored 验收用例，
@@ -403,6 +403,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-303 ✅** | 治理池 | `tasks/TASK-303-t3-1-real-canvas-inputs.md` | Done（实测画布与坐标空间注入；PR #426 / #429；T3.1 真机与十次运行通过） |
 | **TASK-304 ✅** | 治理池 | `tasks/TASK-304-per-monitor-v2-dpi-awareness.md` | Done（PMv2 DPI 感知；PR #428 / merge `2c9fad7`；11/11 success；截图尺寸自检通过） |
 | **TASK-324 ✅** | 治理池 | `tasks/TASK-324-completed-governance-card-status-reconciliation.md` | Done（7 张已完成治理卡状态与计划索引对账；真实 PR / CI / 真机证据留痕；docs-only） |
+| **TASK-325 ✅** | 治理池 | `tasks/TASK-325-automation-run-day-report.md` | Done（2026-10-20 自动化五轮证据审计与最终报告；PR #500~#509 全部 merged、22 checks、pending 0；docs-only） |
 | **TASK-258 ✅** | 治理池 | `tasks/TASK-258-undo-coverage-hardening.md` | Done（`crates/undo` 契约测试覆盖率 90.36%；PR #292 / merge `c01c546`） |
 | **TASK-259 ✅** | 治理池 | `tasks/TASK-259-verify-coverage-hardening.md` | Done（`crates/verify` 覆盖率 88.51%；PR #294 / merge `866c321`） |
 | **TASK-260 ✅** | 治理池 | `tasks/TASK-260-task-engine-coverage-hardening.md` | Done（`crates/task-engine` 契约覆盖率 90.40%；PR #296 / merge `57416d6`） |
