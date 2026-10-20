@@ -147,3 +147,14 @@ cargo run -p xtask -- adr-index
 2. `N_auto=22 > 5`，本卡必须是 docs-only；请重点检查没有产品代码、schema、ADR、
    spec 或依赖变化。
 3. Stage 1 仍未完成：本卡只收口到 Stage 1b，不宣称 Stage 1c 或阶段 DoD 已完成。
+
+## 追加证据（2026-10-20 round 2；只追加，不改写原记录）
+
+- PR #501 `docs(automation): backfill TASK-321 merge evidence`
+  - merge commit：`66711a4dfc95d621dd2cb4bc37c0ec82a7ccee6c`
+  - 在 `LEDGER.md` 追加 PR #500 / merge `5e9f453` 的回填行，并补充 round 1
+    合并后证据。
+- PR #502 `docs(automation): correct shell deviation count`
+  - merge commit：`9e990f6cda5977ff22cd03a81910fd7a00add50e`
+  - 将本卡与 round 1 的 shell 偏差计数从 3 更正为 7；本卡状态仍为 **Done**。
+- 本节不改变卡片正文、DoD 或原验收结论，只补记完成后实际发生的 docs-only 回填。

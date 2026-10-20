@@ -6,7 +6,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
-> 状态：**阶段 1**；**TASK-321 Done（2026-10-20）**（Stage 1 状态一致性 docs-only 收口；Stage 1a Done、Stage 1b Paint 标准三套各 10/10，TASK-309 / TASK-317 / TASK-318 / TASK-319 / TASK-320 已完成；Stage 1c Edge/Chrome 尚未完成；本轮 `N_auto=22>5`，仅报告类工作）；后续产品卡 TASK-048 / TASK-049 待人类会话或闸门重置。
+> 状态：**阶段 1**；**TASK-322 Done（2026-10-20）**（round 1 后续 PR #501/#502 证据追加；Stage 1a Done、Stage 1b Paint 标准三套各 10/10，TASK-309 / TASK-317 / TASK-318 / TASK-319 / TASK-320 已完成；Stage 1c Edge/Chrome 尚未完成；本轮 `N_auto=23>5`，仅报告类工作）；后续产品卡 TASK-048 / TASK-049 待人类会话或闸门重置。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -91,6 +91,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-20 TASK-322 Done（automation round evidence backfill）**：以追加方式把 round 1 的 PR #501 / #502 合并证据补入轮次文件与 TASK-321 执行记录，新增自动化证据审计；不改历史原文、不写产品代码。
+
 **2026-10-20 TASK-321 Done（Stage 1 status consistency closeout）**：docs-only 对齐 2026-10-19~20 已完成卡与 `plans/stage-1-pilots.md` / `PLAN.md` / `LEDGER.md`；补齐 Paint 1b 完成标记与 TASK-309 / 317 / 318 / 319 / 320 索引行，明确 Stage 1c 尚未完成。审计证据见 `docs/audits/stage-1-status-consistency-2026-10-20.md`。
 
 **2026-10-20 TASK-008 Done（Spike G carry-over）**：在 Windows 11 专用 profile 上实测 Edge `155.0.4283.62` 与 Chrome `155.0.8059.84` 的 CDP `1.3`；DOM 各 **20/20**、load/networkIdle 各 **10/10**、注入指令 **0/40** 执行，点击、表单停在提交前、导航、截图、下载与 profile cookie 跨重启均通过。结论为限定 **GO**：默认用户 profile、真实外部登录和四层反注入产品级闭环不在本 Spike 证明范围。
@@ -332,6 +334,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-20 TASK-322 Done（automation round evidence backfill）**：补齐 round 1 在 PR #500 之后的 PR #501 / #502 回填与更正证据，并记录本轮再次出现的 4 条只读 shell 偏差；只改任务记录区、轮次 / 审计 / 状态文件，不改产品代码或契约。
+
 **2026-10-20 TASK-321 Done（Stage 1 status consistency closeout）**：以卡面状态和实际 merge 证据为准，补齐 Stage 1b 的完成标记与最近五张完成卡索引，修正 `PLAN.md` 当前任务/阻塞/下一步和 README 当前状态；不修改排期或任务条目正文，不写产品代码。
 
 **2026-10-20 TASK-008 Done（Spike G CDP + injection）**：补齐阶段 0 遗留的浏览器 Spike；零第三方依赖完成本地专用 profile、CDP 直连、DOM 成功率、网络静默、点击 / 表单 / 导航 / 截图 / 下载、profile 重启和注入靶页实测，形成 `docs/spike-reports/SPIKE-G.md` 的限定 GO 结论。
