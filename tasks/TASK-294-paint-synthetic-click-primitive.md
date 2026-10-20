@@ -1,6 +1,6 @@
 # TASK-294　Paint 合成点击通道：`click_element_center` 与 TASK-256 切到 L4
 
-- 状态：Review
+- 状态：Done
 - 阶段：1　子阶段：**1b**　批次：治理池　依赖：TASK-292、TASK-293、ADR-0092、ADR-0093
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -186,3 +186,9 @@ none。
   或四舍五入到边界内即违反 ADR-0092 细则 8。
 - 调用计数断言把 ADR-0092 细则 5 变成机器判据：`element_geometry` / `window_geometry` 各恰一次，
   且矩形工具的 `Click` 恰一次；`DragTo` 走 draw 路径不计入该点击计数。
+
+### 2026-10-20 TASK-324 收口补充
+
+- PR #404 已合并到 `main`，merge commit = `259ade0a7819997d46aab1ac19d2736967c440f0`。
+- GitHub CI rollup = 11 checks / 11 success / pending 0；后续 TASK-303 真机 E2E 已证明合成点击生效。
+- TASK-324 仅依据既有真实证据把状态从 `Review` 更新为 `Done`，未改正文或产品代码。

@@ -1,6 +1,6 @@
 # TASK-296　调色板选择路径：`child_at` 按视图有序回退（ADR-0094）
 
-- 状态：Review
+- 状态：Done
 - 阶段：1　子阶段：**1b**　批次：治理池　依赖：TASK-256、ADR-0087、ADR-0094
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -136,3 +136,9 @@ cargo run -p xtask -- hygiene / check-ledger / card-check / docscan / adr-index 
   content view 独占，且已不再经 `Selection::ByIndex`）。
 - 真机用例会**改变前景色**（选中第 4 个色块），这是刻意的：它是唯一能证明「回退真的命中色块」
   的通道（该色块无 AutomationId、无稳定 id）。
+
+### 2026-10-20 TASK-324 收口补充
+
+- PR #411 已合并到 `main`，merge commit = `211f2c8ca300a04b96bcf917e37cd3745f873d00`。
+- GitHub CI rollup = 11 checks / 11 success / pending 0；真机 palette fallback 已通过。
+- TASK-324 仅依据既有真实证据把状态从 `Review` 更新为 `Done`，未改正文或产品代码。

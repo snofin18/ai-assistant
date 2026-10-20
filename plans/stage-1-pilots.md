@@ -25,7 +25,7 @@
 > **TASK-271 Done（2026-10-11）**：`assistant-dlp` 新增 7 个公共契约测试，独立行覆盖率 83.59% → 98.89%；生产源码零改动；PR #320 / merge `8a5ad5f`。
 
 > **TASK-290 Done（2026-10-14）**：PL-010 闭环 —— `gov §9.2` 的 LEDGER 模板新增 `pending` 占位与追加式回填规则；原开放行不改，PARKING_LOT 追加闭环节点；docs-only，零产品代码改动；PR #388 / merge `4e9bce6`。
-> 周期 10~12 周　状态：**进行中（2026-10-20 round 3：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30，TASK-309 / TASK-317 / TASK-318 / TASK-319 真机全工具集路径与 TASK-320 `#32770` UIA 修复已收口；TASK-044 / TASK-045 / TASK-046 / TASK-047 / TASK-256 / TASK-257 Done；Stage 1c 尚未完成，下一步卡为 TASK-048 / TASK-049。TASK-323 依据真实 PR 元数据闭环 TASK-313 同号历史留痕；本轮 `N_auto = 24 > 5`，只做 docs-only 状态与证据收口，不写业务代码）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> 周期 10~12 周　状态：**进行中（2026-10-20 round 4：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30，TASK-044 / 045 / 046 / 047 / 256 / 257 / 292 / 293 / 294 / 296 / 297 / 303 / 304 Done；TASK-324 依据真实 merged PR 与真机证据收口 7 张滞后的治理卡状态并补计划索引；Stage 1c 尚未完成，下一步卡为 TASK-048 / TASK-049；本轮 `N_auto = 25 > 5`，只做 docs-only，不写业务代码）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
 > **TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）**：Paint 全工具集真机路径
 > 通过 —— shape / outline / fill / size / brush / color / draw 的 14 步生产 Plan 全部
 > `Committed`，`1 passed / 0 failed`；新增 `t3.2.full-toolset-path.json` 与 ignored 验收用例，
@@ -395,6 +395,14 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-322 ✅** | 治理池 | `tasks/TASK-322-automation-round-evidence-backfill.md` | Done（round 1 后续 PR #501/#502 证据追加；只改 TASK-321 记录区与状态 / 报告类文件，不写产品代码） |
 | **TASK-313 ✅** | 1b / 治理池 | `tasks/TASK-313-selector-fallback-only-promotion.md` | Done（ADR-0095 的 selector 正式卡；同号另含 PR #453 `deny.toml` 历史工作，已由 TASK-323 对账并保留边界） |
 | **TASK-323 ✅** | 治理池 | `tasks/TASK-323-task313-history-reconciliation.md` | Done（TASK-313 同号历史对账：补齐现有卡记录，记录 PR #453 / #466 / #468 / #469 证据，闭环 `PL-117`；`PL-115` 仍开放） |
+| **TASK-292 ✅** | 治理池 | `tasks/TASK-292-platform-geometry-view-contract.md` | Done（平台几何契约；PR #402 / merge `d755262`；11/11 success） |
+| **TASK-293 ✅** | 治理池 | `tasks/TASK-293-windows-window-element-geometry.md` | Done（Windows 几何 O(1) 归属与负向 seam；PR #403 / merge `5895179`；11/11 success） |
+| **TASK-294 ✅** | 治理池 | `tasks/TASK-294-paint-synthetic-click-primitive.md` | Done（Paint 合成点击；PR #404 / merge `259ade0`；11/11 success；后续真机 E2E 通过） |
+| **TASK-296 ✅** | 治理池 | `tasks/TASK-296-palette-view-fallback.md` | Done（调色板 control-view 回退；PR #411 / merge `211f2c8`；11/11 success） |
+| **TASK-297 ✅** | 治理池 | `tasks/TASK-297-layer-panel-alt-l.md` | Done（`Alt+L` 图层路径；PR #412 / merge `f81f792`；11/11 success） |
+| **TASK-303 ✅** | 治理池 | `tasks/TASK-303-t3-1-real-canvas-inputs.md` | Done（实测画布与坐标空间注入；PR #426 / #429；T3.1 真机与十次运行通过） |
+| **TASK-304 ✅** | 治理池 | `tasks/TASK-304-per-monitor-v2-dpi-awareness.md` | Done（PMv2 DPI 感知；PR #428 / merge `2c9fad7`；11/11 success；截图尺寸自检通过） |
+| **TASK-324 ✅** | 治理池 | `tasks/TASK-324-completed-governance-card-status-reconciliation.md` | Done（7 张已完成治理卡状态与计划索引对账；真实 PR / CI / 真机证据留痕；docs-only） |
 | **TASK-258 ✅** | 治理池 | `tasks/TASK-258-undo-coverage-hardening.md` | Done（`crates/undo` 契约测试覆盖率 90.36%；PR #292 / merge `c01c546`） |
 | **TASK-259 ✅** | 治理池 | `tasks/TASK-259-verify-coverage-hardening.md` | Done（`crates/verify` 覆盖率 88.51%；PR #294 / merge `866c321`） |
 | **TASK-260 ✅** | 治理池 | `tasks/TASK-260-task-engine-coverage-hardening.md` | Done（`crates/task-engine` 契约覆盖率 90.40%；PR #296 / merge `57416d6`） |

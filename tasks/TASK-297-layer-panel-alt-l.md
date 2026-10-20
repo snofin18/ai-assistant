@@ -1,6 +1,6 @@
 # TASK-297　图层面板：改用 `Alt+L` + 有界轮询，去掉歧义 toggle 锚点
 
-- 状态：Review
+- 状态：Done
 - 阶段：1　子阶段：**1b**　批次：治理池　依赖：TASK-256、TASK-296（调色板修复）、ADR-0087/0094
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -131,3 +131,9 @@ none（本卡是 TASK-256 调色板 blocker 之后**同一真机链路**上的�
 - `Alt+L` 只在 `layersList` 缺失时发 —— 请确认这是「状态感知」而不是「盲发开关」（旧实现正是盲发）。
 - 适配包 target 数 18 → 17（移除 `layers_toggle`）；`layers_panel` 仍被 `app_map.json` /
   `paint_registry.rs` 引用，故保留。
+
+### 2026-10-20 TASK-324 收口补充
+
+- PR #412 已合并到 `main`，merge commit = `f81f792c83461c34f9247b4a60132f5284cc1c73`。
+- GitHub CI rollup = 11 checks / 11 success / pending 0；后续 TASK-303 真机 E2E 已证明图层面板路径生效。
+- TASK-324 仅依据既有真实证据把状态从 `Review` 更新为 `Done`，未改正文或产品代码。

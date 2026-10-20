@@ -1,6 +1,6 @@
 # TASK-293　`platform/windows` 实现 `window_geometry` / `element_geometry`（O(1) 显示器归属）
 
-- 状态：Review
+- 状态：Done
 - 阶段：1　子阶段：**1b**　批次：治理池　依赖：TASK-292（契约半边已落地）
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。
 
@@ -102,3 +102,9 @@ none。
   `TargetUnresponsive`；请确认这比"照抄一个不可用矩形"更符合调用方预期。
 - 跨显示器窗口按**中心点**归属：简单、可预测，但不是"窗口中点所在屏"之外的任何一种规则；若产品
   将来需要按面积占比归属，应走 ADR 而非就地改。
+
+### 2026-10-20 TASK-324 收口补充
+
+- PR #403 已合并到 `main`，merge commit = `589517965d298941e11b52dc73ade463a8a268b5`。
+- GitHub CI rollup = 11 checks / 11 success / pending 0；负向 seam 用例与实现同批落地。
+- TASK-324 仅依据既有真实证据把状态从 `Review` 更新为 `Done`，未改正文或产品代码。
