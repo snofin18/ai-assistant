@@ -148,9 +148,10 @@ cargo run -p xtask -- adr-index
 
 ### 5. 偏差
 
-- 启动与选卡阶段共 **18 条只读命令误用 `shell: "bash"`**：其中 17 条因命令不存在或语法失败，
-  1 条 `git rev-parse` 成功读到只读哈希但后续 PowerShell cmdlet 失败。
-  均未修改仓库内容，发现后均以显式 `shell: "powershell"` 重跑。
+- 全轮共 **21 条命令误用 `shell: "bash"`**：前 18 条为查询 / 校验，其中 17 条因命令不存在或
+  语法失败，1 条 `git rev-parse` 成功读到只读哈希但后续 PowerShell cmdlet 失败；第 19 条是
+  已授权的分支 `git push`；第 20/21 条是 fetch / sync 尝试，分别因 bash 语法和 TLS 失败。
+  所有 21 条均在发现后以显式 `shell: "powershell"` 重跑，仓库最终内容无越界改动。
 
 ### 6. 更合理做法
 
