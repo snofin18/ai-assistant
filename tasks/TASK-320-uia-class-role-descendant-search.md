@@ -1,6 +1,6 @@
 # TASK-320 Windows UIA ClassAndRole 子元素搜索修复
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：1　子阶段：**1b bridge**　批次：**1b**　依赖：TASK-045（`DRIFT-045-4`）　预估：S　难度：S
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。
 
@@ -86,12 +86,16 @@ cargo run -p xtask -- card-check
   integration 7 + 4 + 1 doc test 全绿。
 - `cargo clippy -p assistant-platform-windows --all-targets -- -D warnings` → exit 0
   （仅既存 `clippy::assert_is_empty` unknown-lint warning）。
+- TASK-045 真机回归 → `run-ten.ps1 -AllowClosePaint` = **10/10 passed**；
+  `coordinate-error.ps1 -AllowClosePaint` = `zoom_ratio=0.5`、拖拽终点误差 **0 px**
+  （判据 2 px）。经典 `#32770` 文件名 Edit 在真实 Paint 文件对话框中唯一解析，
+  T3.2 打开 / 绘制 / PNG 另存全链路通过。
 
 ### 4. DoD 逐条核对
 
 - [x] `ClassAndRole` 改为 class-only 搜索后按 `CurrentControlType` 本地过滤。
 - [x] 现有平台测试与歧义裁决保持通过。
-- [ ] Paint 文件对话框真机验证尚待 TASK-045 回归。
+- [x] Paint 文件对话框真机验证通过，TASK-045 已继续完成 T3.2 全链路。
 
 ### 5. 偏差
 
@@ -104,11 +108,11 @@ AND 属性条件在跨 HWND 子树上返回 0 的差异；歧义仍在统一 `re
 
 ### 7. 遗留问题
 
-真机验证与 TASK-045 回归待完成。
+无。TASK-045 真机 10/10 与独立坐标误差均已通过。
 
 ### 8. 新增长期记忆
 
-TASK-320 验证通过后再追加平台 UIA 事实。
+待 TASK-045 收口时统一追加 Paint / Windows UIA 应用事实，避免本卡重复写公共记忆。
 
 ### 9. 给审阅者的关注点
 
