@@ -1,6 +1,6 @@
 # TASK-304　Per-Monitor-V2 DPI 感知落地（坐标口径 + 截图完整性）
 
-- 状态：Review
+- 状态：Done
 - 阶段：1　子阶段：**1b**　批次：治理池　依赖：ADR-0092（细则 3）、TASK-303
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -134,3 +134,10 @@ none（本条就是 ADR-0092 细则 3 的实现；此前只声明未落地属**�
 - `enable_per_monitor_v2_dpi_awareness()` 的返回值语义：`Ok(false)` = **已经设置过**（manifest 或重复调用），
   不是失败；只有真正系统错误才 `Err`。二进制侧把 `Err` 变成 `ExitCode::FAILURE`，`Ok(false)` 放行。
 - 声明时机是硬要求：必须在任何窗口 / DPI 查询**之前**（库里做不了，只能宿主显式调用）。
+
+### 2026-10-20 TASK-324 收口补充
+
+- PR #428 已合并到 `main`，merge commit = `2c9fad73d3a1504fc5eb9bd30c0cc4cd78965e93`。
+- GitHub CI rollup = 11 checks / 11 success / pending 0；真机探针已证明 `scale=2` 与 capture 尺寸一致。
+- 后续 TASK-303 真机 E2E 已通过，补齐原执行记录中当时尚未复跑的 E2E 证据。
+- TASK-324 仅依据既有真实证据把状态从 `Review` 更新为 `Done`，未改正文或产品代码。

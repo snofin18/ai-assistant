@@ -1,6 +1,6 @@
 # TASK-303　T3.1 真机验收：画布参数按实测注入（尺寸 / 缩放）
 
-- 状态：Review
+- 状态：Done
 - 阶段：1　子阶段：**1b**　批次：治理池　依赖：TASK-256、TASK-294/296/297（真机链路前三步已通）
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -151,3 +151,10 @@ none（本卡是 T3.1 真机链路在 TASK-294/296/297 之后暴露的**下一�
 修完后真机链路**跑到了最后一步**：`draw_rectangle` 的前 3 条运行时断言（含 **`visual_assert` 像素断言**）
 **全部 Satisfied** —— 像素证据首次真实成立（TASK-304 的 PMv2 修复之功）；只剩运行时附加的
 `state_changed{within_ms:2000}` 失败，那是**另一张卡**的契约问题（TASK-305 / `DRIFT-305-1`），不在本卡范围。
+
+### 2026-10-20 TASK-324 收口补充
+
+- PR #426（merge `a271ea2d5db157b580a6fc2621e8d426edb3599f`）与 PR #429
+  （merge `0a87abac88a8aa4b0873f80e264308cd5e85c7d1`）均已合并到 `main`，各 11/11 success / pending 0。
+- T3.1 真机端到端与后续十次运行均已通过，本卡目标完成。
+- TASK-324 仅依据既有真实证据把状态从 `Review` 更新为 `Done`，未改正文或产品代码。

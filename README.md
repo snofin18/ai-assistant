@@ -6,7 +6,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
-> 状态：**阶段 1**；**TASK-323 Done（2026-10-20）**（TASK-313 同号历史对账；保留现有 selector 正式卡，以真实 PR #453 / #466 / #468 / #469 证据闭环 `PL-117`；Stage 1a Done、Stage 1b Paint 标准三套各 10/10；Stage 1c Edge/Chrome 尚未完成；本轮 `N_auto=24>5`，仅报告类工作）；后续产品卡 TASK-048 / TASK-049 待人类会话或闸门重置。
+> 状态：**阶段 1**；**TASK-324 Done（2026-10-20）**（依据真实 merged PR / CI / 真机证据把 TASK-292 / 293 / 294 / 296 / 297 / 303 / 304 从滞后 `Review` 收口为 `Done`，并补齐阶段计划索引；Stage 1a Done、Stage 1b Paint 标准三套各 10/10；Stage 1c Edge/Chrome 尚未完成；本轮 `N_auto=25>5`，仅报告类工作）；后续产品卡 TASK-048 / TASK-049 待人类会话或闸门重置。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -91,6 +91,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-20 TASK-324 Done（completed governance card status reconciliation）**：按 PR #402 / #403 / #404 / #411 / #412 / #426 / #428 / #429 的真实 merged 状态与 11/11 CI，把 7 张已完成但仍停在 `Review` 的治理卡收口为 `Done`；只改状态行与执行记录，不改正文或产品代码。
+
 **2026-10-20 TASK-323 Done（TASK-313 history reconciliation）**：核对 PR #453 与 ADR-0095 三段 PR 的 base、merge、CI 和文件范围，保留现有 TASK-313 selector 卡并在执行记录区标注同号历史；不建第二个同号卡，由 TASK-323 承接对账并关闭 `PL-117` 的可追溯缺口。
 
 **2026-10-20 TASK-322 Done（automation round evidence backfill）**：以追加方式把 round 1 的 PR #501 / #502 合并证据补入轮次文件与 TASK-321 执行记录，新增自动化证据审计；不改历史原文、不写产品代码。
@@ -336,6 +338,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-20 TASK-324 Done（completed governance card status reconciliation）**：TASK-292 / 293 / 294 / 296 / 297 / 303 / 304 的 merged PR 均有 `base=main`、11/11 success、pending 0；结合后续 T3.1 真机与十次验收证据，修正 7 张卡状态、补计划索引并落审计报告。纯 docs-only。
+
 **2026-10-20 TASK-323 Done（TASK-313 history reconciliation）**：把同一 TASK-313 号下的 `deny.toml` 限期豁免与 `fallback_only` 三段工作分开核证，补全现有卡 9 节记录并保留历史异常；只改任务记录、轮次与状态文件，不写产品代码，`PL-115` 仍开放。
 
 **2026-10-20 TASK-322 Done（automation round evidence backfill）**：补齐 round 1 在 PR #500 之后的 PR #501 / #502 回填与更正证据，并记录本轮再次出现的 4 条只读 shell 偏差；只改任务记录区、轮次 / 审计 / 状态文件，不改产品代码或契约。

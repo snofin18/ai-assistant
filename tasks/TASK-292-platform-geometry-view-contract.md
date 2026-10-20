@@ -1,6 +1,6 @@
 # TASK-292　平台几何视图契约：`platform/api` 的 `WindowGeometry` / `ElementGeometry` 与两个查询
 
-- 状态：Review
+- 状态：Done
 - 阶段：1　子阶段：**1b**　批次：治理池　依赖：ADR-0092、ADR-0093、TASK-256（`DRIFT-256-6`）
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -127,3 +127,9 @@ none。ADR-0093 已先行修正 ADR-0092 的接口形状（同名 `DisplayInfo` 
 - 默认实现返回 `CapabilityMissing` 是否会被误用成「静默降级」？调用方（TASK-294）**必须**把它当失败处理，
   不允许退回"猜一个显示器"。
 - `#[non_exhaustive]` + 只读访问器：后续补字段不破坏调用方，请确认构造函数保持 `const fn` 的口径。
+
+### 2026-10-20 TASK-324 收口补充
+
+- PR #402 已合并到 `main`，merge commit = `d755262a7faadb48a12a34cf99e5654c2731db45`。
+- GitHub CI rollup = 11 checks / 11 success / pending 0；原始 LEDGER 已含合并回填。
+- TASK-324 仅依据既有真实证据把状态从 `Review` 更新为 `Done`，未改正文或产品代码。
