@@ -187,14 +187,22 @@ fn class_and_role_search(
     };
     let elements = com::with_automation(|automation| {
         let class_condition = property_condition(automation, UIA_ClassNamePropertyId, class)?;
-        let role_condition =
-            property_condition(automation, UIA_ControlTypePropertyId, control_type.0)?;
-        // SAFETY: 两个条件在调用期间存活，UIA 只引用它们。
-        let condition = unsafe { automation.CreateAndCondition(&class_condition, &role_condition) }
-            .map_err(|failure| error::error_from_hresult(failure.code().0, "CreateAndCondition"))?;
-        collect_matches(scope, &condition)
+        collect_matches(scope, &class_condition)
     })?;
-    Ok(SearchOutcome::Matches(elements))
+    // Win32 common dialogs expose the class condition and CurrentControlType
+    // separately, but an AND property condition can return zero even when the
+    // equivalent managed UIA condition matches one child. Filter the already
+    // bounded class matches in-process; the ambiguity decision remains in
+    // `resolve.rs`, so this does not silently pick among duplicates.
+    let mut matching = Vec::with_capacity(elements.len());
+    for element in elements {
+        let actual = unsafe { element.CurrentControlType() }
+            .map_err(|failure| error::error_from_hresult(failure.code().0, "CurrentControlType"))?;
+        if actual == control_type {
+            matching.push(element);
+        }
+    }
+    Ok(SearchOutcome::Matches(matching))
 }
 
 /// `Name`（**精确相等**）+ `ControlType` 组合搜索（ADR-0091）。
