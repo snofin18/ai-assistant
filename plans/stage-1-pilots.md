@@ -25,7 +25,7 @@
 > **TASK-271 Done（2026-10-11）**：`assistant-dlp` 新增 7 个公共契约测试，独立行覆盖率 83.59% → 98.89%；生产源码零改动；PR #320 / merge `8a5ad5f`。
 
 > **TASK-290 Done（2026-10-14）**：PL-010 闭环 —— `gov §9.2` 的 LEDGER 模板新增 `pending` 占位与追加式回填规则；原开放行不改，PARKING_LOT 追加闭环节点；docs-only，零产品代码改动；PR #388 / merge `4e9bce6`。
-> 周期 10~12 周　状态：**进行中（2026-10-20 状态收口：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30，TASK-309 / TASK-317 / TASK-318 / TASK-319 真机全工具集路径与 TASK-320 `#32770` UIA 修复已收口；TASK-044 / TASK-045 / TASK-046 / TASK-047 / TASK-256 / TASK-257 Done；Stage 1c 尚未完成，下一步卡为 TASK-048 / TASK-049。本轮 `N_auto = 22 > 5`，只做 docs-only 状态同步，不写业务代码）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> 周期 10~12 周　状态：**进行中（2026-10-20 round 2 证据收口：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30，TASK-309 / TASK-317 / TASK-318 / TASK-319 真机全工具集路径与 TASK-320 `#32770` UIA 修复已收口；TASK-044 / TASK-045 / TASK-046 / TASK-047 / TASK-256 / TASK-257 Done；Stage 1c 尚未完成，下一步卡为 TASK-048 / TASK-049。TASK-322 补齐 round 1 的 PR #501/#502 后续证据；本轮 `N_auto = 23 > 5`，只做 docs-only 状态与证据收口，不写业务代码）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
 > **TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）**：Paint 全工具集真机路径
 > 通过 —— shape / outline / fill / size / brush / color / draw 的 14 步生产 Plan 全部
 > `Committed`，`1 passed / 0 failed`；新增 `t3.2.full-toolset-path.json` 与 ignored 验收用例，
@@ -392,6 +392,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-319 ✅** | 1b | `tasks/TASK-319-paint-shape-size-group-tool.md` | Done（`paint.size.select` 与形状大小真机通道；PR #479 / #480 / #483；merge `ff8337d` / `0bed1b1` / `043bc62`） |
 | **TASK-320 ✅** | 1b bridge | `tasks/TASK-320-uia-class-role-descendant-search.md` | Done（`ClassAndRole` class-only 搜索 + 本地类型过滤；PR #489 / merge `235b171`） |
 | **TASK-321 ✅** | 治理池 | `tasks/TASK-321-stage1-status-consistency-closeout.md` | Done（Stage 1 状态一致性 docs-only 收口；补齐完成标记与最近完成卡索引；PR / CI / merge hash 见 `LEDGER.md`） |
+| **TASK-322 ✅** | 治理池 | `tasks/TASK-322-automation-round-evidence-backfill.md` | Done（round 1 后续 PR #501/#502 证据追加；只改 TASK-321 记录区与状态 / 报告类文件，不写产品代码） |
 | **TASK-258 ✅** | 治理池 | `tasks/TASK-258-undo-coverage-hardening.md` | Done（`crates/undo` 契约测试覆盖率 90.36%；PR #292 / merge `c01c546`） |
 | **TASK-259 ✅** | 治理池 | `tasks/TASK-259-verify-coverage-hardening.md` | Done（`crates/verify` 覆盖率 88.51%；PR #294 / merge `866c321`） |
 | **TASK-260 ✅** | 治理池 | `tasks/TASK-260-task-engine-coverage-hardening.md` | Done（`crates/task-engine` 契约覆盖率 90.40%；PR #296 / merge `57416d6`） |
