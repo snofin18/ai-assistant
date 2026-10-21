@@ -25,7 +25,7 @@
 > **TASK-271 Done（2026-10-11）**：`assistant-dlp` 新增 7 个公共契约测试，独立行覆盖率 83.59% → 98.89%；生产源码零改动；PR #320 / merge `8a5ad5f`。
 
 > **TASK-290 Done（2026-10-14）**：PL-010 闭环 —— `gov §9.2` 的 LEDGER 模板新增 `pending` 占位与追加式回填规则；原开放行不改，PARKING_LOT 追加闭环节点；docs-only，零产品代码改动；PR #388 / merge `4e9bce6`。
-> 周期 10~12 周　状态：**进行中（2026-10-20 round 5：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-321 / 322 / 323 / 324 / 325 完成运行日五轮治理收口；PR #500~#509 均 merged、base=main、22 checks = 21 success + 1 skipped、pending 0；Stage 1c 尚未完成，下一步卡为 TASK-048 / TASK-049；本轮 `N_auto = 26 > 5`，只做 docs-only，不写业务代码）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> 周期 10~12 周　状态：**进行中（2026-10-21：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-321 / 322 / 323 / 324 / 325 完成运行日五轮治理收口；PR #500~#509 均 merged、base=main、22 checks = 21 success + 1 skipped、pending 0；TASK-048 Done；Stage 1c 进行中，下一步卡为 TASK-049）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
 > **TASK-326 Done（2026-10-21）**：审计 2026-10-20 五轮 automation 的自删顺序；5/5 已执行且已自删，发现 17:00 轮 PR #502、00:30 轮 PR #509 两次在 self-delete 后才落地，已追加运行日更正与 `docs/audits/automation-sequence-deviation-2026-10-20.md`；当前无残留 automation、锁、open PR。
 > **TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）**：Paint 全工具集真机路径
 > 通过 —— shape / outline / fill / size / brush / color / draw 的 14 步生产 Plan 全部
@@ -434,7 +434,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-300 Done** | 治理池 | `tasks/TASK-300-storage-content-store-contract-coverage.md` | Review（storage blob store 公开契约：Debug / GC 目录冲突 / deep 篡改 / 原子写入失败 / SQLite 失败 / Windows 读锁；`content.rs` 78.26% → 90.97%、crate 88.97% → 91.35%；6 tests；生产源码零改动；PR #419 / merge `6e5d8fe`；CI 11/11 SUCCESS） |
 | **TASK-301 Done** | 治理池 | `tasks/TASK-301-tool-bus-server-envelope-contract-coverage.md` | Done（tool-bus server 公开契约：handler 错误信封 / evidence 往返 / 默认预算截断；server.rs 公开可达 83.58% → 89.55%、crate 91.15% → 91.58%；3 tests；生产源码零改动；PR #421 / merge `81673be`；CI 11/11 SUCCESS） |
 | **TASK-268 Done** | 治理池 | `tasks/TASK-268-storage-coverage-hardening.md` | Done（`assistant-storage` 独立行覆盖率 78.43% → 88.97%；9 个公共契约测试；生产源码零改动；PR #314 / merge `076fe2d`） |
-| TASK-048 | 1c | `tasks/TASK-048-cdp-provider-connect-dom-nav-download.md` | Ready（批次表占位派单前补全） |
+| **TASK-048 ✅** | 1c | `tasks/TASK-048-cdp-provider-connect-dom-nav-download.md` | Done（CDP 专属平台 contract 与 Windows runtime provider） |
 | TASK-049 | 1c | `tasks/TASK-049-browser-profile-no-copy-user-profile.md` | Ready（批次表占位派单前补全） |
 | **TASK-050 ✅** | 1c | `tasks/TASK-050-dlp-three-tier-egress-local-only-redacted-full.md` | Done（ADR 0007；`crates/dlp` 22 专项测试） |
 | **TASK-051 ✅** | 1c | `tasks/TASK-051-taint-tracking-permission-decay.md` | Done（ADR-0080：Tool 置污 / User 清除 / 恢复重算；tainted 确认降级为 Once） |

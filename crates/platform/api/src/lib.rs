@@ -38,6 +38,7 @@
 #![deny(unsafe_code)]
 
 mod capability;
+mod cdp;
 mod error;
 mod fingerprint;
 mod geometry;
@@ -49,6 +50,10 @@ mod traits;
 
 pub use assistant_protocol::ErrorCode;
 pub use capability::{ApprovalRequirement, CapabilityEntry, ResourceAccess, RiskLevel, SideEffect};
+pub use cdp::{
+    CdpConnectOptions, CdpDomSnapshot, CdpLoadCondition, CdpPoint, CdpProvider, CdpScreenshot,
+    CdpSessionSnapshot, CdpTargetIdentity, ResolvedCdpSession, ResolvedCdpTarget,
+};
 pub use error::{PlatformError, PlatformResult};
 pub use fingerprint::Fingerprint;
 pub use geometry::{CoordinateSpace, CoordinateSpaceKind, NormalizedPoint, PhysicalPoint};
