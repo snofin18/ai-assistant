@@ -6,7 +6,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
-> 状态：**阶段 1**；**TASK-325 Done（2026-10-20）**（完成自动化五轮证据审计与运行日最终报告；PR #500~#509 全部 merged、base=main、22 checks = 21 success + 1 skipped、pending 0；Stage 1a Done、Stage 1b Paint 30/30；Stage 1c Edge/Chrome 尚未完成；本轮 `N_auto=26>5`，仅 docs-only）；后续产品卡 TASK-048 / TASK-049 待人类会话或闸门重置。
+> 状态：**阶段 1**；**TASK-326 Done（2026-10-21）**（审计 2026-10-20 五轮 automation；发现 PR #502 / #509 两次 self-delete 后落地，已追加运行日更正；当前 automation=0、锁=0、open PR=0；docs-only）；**TASK-325 Done（2026-10-20）**（自动化五轮证据审计与运行日最终报告）；Stage 1a Done、Stage 1b Paint 30/30；Stage 1c Edge/Chrome 尚未完成，TASK-048 / TASK-049 待人类会话或闸门重置。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -91,6 +91,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-21 TASK-326 Done（automation 自删顺序审计）**：核对 5 份外部 JSONL 与 GitHub merge 时间，确认 5/5 automation 均已执行、自删，且当前无残留任务、锁或 open PR；同时记录两次 self-delete 后落地的更正 PR 与 61 条 shell 偏差，运行日报告已追加更正。
+
 **2026-10-20 TASK-325 Done（automation run-day audit and final report）**：审计 round 1~5 与 PR #500~#509，补齐 #504 / #506 / #508 / #509 回填链、真实 merge、22-check CI 与偏差；落地运行日最终报告，不改产品代码或契约。
 
 **2026-10-20 TASK-324 Done（completed governance card status reconciliation）**：按 PR #402 / #403 / #404 / #411 / #412 / #426 / #428 / #429 的真实 merged 状态与 11/11 CI，把 7 张已完成但仍停在 `Review` 的治理卡收口为 `Done`；只改状态行与执行记录，不改正文或产品代码。
@@ -340,6 +342,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-21 TASK-326 Done（automation sequence deviation audit）**：确认 2026-10-20 五轮 automation 全部执行并自删，补齐两次 self-delete 后落地的 PR #502 / #509 时间线，形成独立审计报告并在运行日报告追加 `[supersedes:2026-10-21]` 更正。
+
 **2026-10-20 TASK-325 Done（automation run-day audit and final report）**：五轮与全部 10 个 PR 均核实为 merged、base=main、22 checks、pending 0；补齐回填 PR merge 链、运行日 diff 统计、shell 偏差与 Stage 1c 遗留，形成最终报告。纯 docs-only。
 
 **2026-10-20 TASK-324 Done（completed governance card status reconciliation）**：TASK-292 / 293 / 294 / 296 / 297 / 303 / 304 的 merged PR 均有 `base=main`、11/11 success、pending 0；结合后续 T3.1 真机与十次验收证据，修正 7 张卡状态、补计划索引并落审计报告。纯 docs-only。
