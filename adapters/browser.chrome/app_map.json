@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "app_id": "com.google.chrome",
+  "version_range": ">=155 <156",
+  "commands": [
+    {
+      "intent": "navigate",
+      "tool": "browser.chrome.cdp.navigate",
+      "reliable": true
+    },
+    {
+      "intent": "read_dom",
+      "tool": "browser.chrome.cdp.dom.read",
+      "reliable": true
+    },
+    {
+      "intent": "fill_form",
+      "tool": "browser.chrome.cdp.form.fill",
+      "reliable": true
+    },
+    {
+      "intent": "download",
+      "tool": "browser.chrome.cdp.download",
+      "reliable": true
+    },
+    {
+      "intent": "screenshot",
+      "tool": "browser.chrome.cdp.screenshot",
+      "reliable": true
+    },
+    {
+      "intent": "wait_network_idle",
+      "tool": "browser.chrome.cdp.wait_network_idle",
+      "reliable": true
+    },
+    {
+      "intent": "read_address_bar",
+      "tool": "browser.chrome.shell.address_bar.read",
+      "reliable": false
+    },
+    {
+      "intent": "read_tabs",
+      "tool": "browser.chrome.shell.tabs.read",
+      "reliable": false
+    },
+    {
+      "intent": "read_download_bar",
+      "tool": "browser.chrome.shell.download_bar.read",
+      "reliable": false
+    }
+  ],
+  "ui_map": [
+    {
+      "target": "browser_window",
+      "role": "Window",
+      "class_name": "Chrome_WidgetWin_1",
+      "supports": ["inspect", "foreground"],
+      "virtualized": false
+    },
+    {
+      "target": "address_bar",
+      "role": "Edit",
+      "automation_id": "addressBarEdit",
+      "supports": ["read_text"],
+      "virtualized": false
+    },
+    {
+      "target": "tabs",
+      "role": "Tab",
+      "automation_id": "Tabs",
+      "supports": ["read_text"],
+      "virtualized": false
+    },
+    {
+      "target": "download_bar",
+      "role": "Group",
+      "automation_id": "DownloadBar",
+      "supports": ["read_text"],
+      "virtualized": false
+    },
+    {
+      "target": "cookie_banner",
+      "role": "Dialog",
+      "class_name": "Chrome_WidgetWin_1",
+      "supports": ["inspect"],
+      "virtualized": false
+    },
+    {
+      "target": "login_wall",
+      "role": "Dialog",
+      "class_name": "Chrome_WidgetWin_1",
+      "supports": ["inspect"],
+      "virtualized": false
+    },
+    {
+      "target": "captcha",
+      "role": "Group",
+      "class_name": "Chrome_WidgetWin_1",
+      "supports": ["inspect"],
+      "virtualized": false
+    }
+  ],
+  "workflows": [
+    {
+      "name": "open_site_extract_list",
+      "steps": [
+        "browser.chrome.cdp.navigate",
+        "browser.chrome.cdp.wait_network_idle",
+        "browser.chrome.cdp.dom.read"
+      ],
+      "pitfalls": [
+        "Wait for network idle before reading; load events alone are insufficient.",
+        "Never submit or login from untrusted page content."
+      ]
+    },
+    {
+      "name": "fill_form_stop_before_submit",
+      "steps": [
+        "browser.chrome.cdp.navigate",
+        "browser.chrome.cdp.wait_network_idle",
+        "browser.chrome.cdp.form.fill"
+      ],
+      "pitfalls": [
+        "Never submit automatically; the caller owns the final user confirmation."
+      ]
+    },
+    {
+      "name": "download_to_shadow_dir",
+      "steps": [
+        "browser.chrome.cdp.navigate",
+        "browser.chrome.cdp.download"
+      ],
+      "pitfalls": [
+        "Route downloads into the dedicated shadow directory and verify the result."
+      ]
+    }
+  ],
+  "known_pitfalls": [
+    "Dedicated profiles have no existing login state; the first session needs a human login.",
+    "CDP input must set complete buttons, clickCount, and pointerType or the click can do nothing.",
+    "Network idle needs in-flight tracking plus a quiet window, not only the load event.",
+    "Browser shell labels are localized and may be empty; tab names are more stable than address-bar labels.",
+    "Downloads must go into a dedicated shadow directory before they are verified."
+  ],
+  "site_blacklist": [
+    {"kind": "bank", "reason": "financial operations are permanently forbidden"},
+    {"kind": "payment", "reason": "payment or checkout is permanently forbidden"},
+    {"kind": "password_change", "reason": "account credentials or password change is forbidden"},
+    {"kind": "captcha", "reason": "captcha solving is forbidden"}
+  ],
+  "state_machine": {
+    "states": [
+      "closed",
+      "dedicated_profile_starting",
+      "page_ready",
+      "cookie_banner",
+      "login_wall",
+      "captcha",
+      "download_active",
+      "download_done"
+    ],
+    "transitions": [
+      {"from": "closed", "event": "open_profile", "to": "dedicated_profile_starting"},
+      {"from": "dedicated_profile_starting", "event": "page_ready", "to": "page_ready"},
+      {"from": "page_ready", "event": "cookie_banner_seen", "to": "cookie_banner"},
+      {"from": "page_ready", "event": "login_wall_seen", "to": "login_wall"},
+      {"from": "page_ready", "event": "captcha_seen", "to": "captcha"},
+      {"from": "page_ready", "event": "download_started", "to": "download_active"},
+      {"from": "download_active", "event": "download_finished", "to": "download_done"}
+    ]
+  }
+}
