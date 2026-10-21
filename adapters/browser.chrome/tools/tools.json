@@ -1,0 +1,323 @@
+{
+  "schema_version": 1,
+  "app_id": "com.google.chrome",
+  "probe_status": "required",
+  "tools": [
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "browser.chrome.cdp.navigate",
+        "description": "Navigate the dedicated-profile page target and wait for the declared load condition.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "url": {"type": "string", "minLength": 1},
+            "load_condition": {"type": "string", "enum": ["load", "network_idle"]}
+          },
+          "required": ["url", "load_condition"],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "ready": {"type": "boolean", "const": true},
+            "load_condition": {"type": "string"}
+          },
+          "required": ["ready", "load_condition"],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l2_compensation",
+        "risk_level": "medium",
+        "requires_approval": false,
+        "idempotent": true,
+        "tags": ["chrome", "cdp", "navigate"]
+      },
+      "postconditions": [
+        {
+          "kind": "state_changed",
+          "fingerprint_scope": "cdp_target",
+          "within_ms": 3000,
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "browser.chrome.cdp.dom.read",
+        "description": "Read a bounded structured fragment of the page DOM.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "selector": {"type": "string", "minLength": 1},
+            "max_nodes": {"type": "integer", "minimum": 1, "maximum": 1000}
+          },
+          "required": ["selector", "max_nodes"],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "dom": {"type": "string"},
+            "node_count": {"type": "integer", "minimum": 0}
+          },
+          "required": ["dom", "node_count"],
+          "additionalProperties": false
+        },
+        "effect": "read",
+        "reversibility": "none_readonly",
+        "risk_level": "low",
+        "requires_approval": false,
+        "idempotent": true,
+        "tags": ["chrome", "cdp", "dom", "read"]
+      },
+      "postconditions": [
+        {
+          "kind": "read_only_no_state_change",
+          "description": "Page state is unchanged and the returned DOM is bounded.",
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "browser.chrome.cdp.form.fill",
+        "description": "Fill declared form fields and always stop before submit.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 100,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "selector": {"type": "string", "minLength": 1},
+                  "value": {"type": "string"}
+                },
+                "required": ["selector", "value"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["fields"],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "filled_fields": {"type": "integer", "minimum": 1},
+            "submitted": {"type": "boolean", "const": false}
+          },
+          "required": ["filled_fields", "submitted"],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l2_compensation",
+        "risk_level": "medium",
+        "requires_approval": true,
+        "idempotent": false,
+        "tags": ["chrome", "cdp", "form", "fill"]
+      },
+      "postconditions": [
+        {
+          "kind": "form_not_submitted",
+          "description": "No submit action is dispatched by this tool.",
+          "error_code": "PolicyDenied"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "browser.chrome.cdp.download",
+        "description": "Start and verify a download routed into the dedicated shadow directory.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "target_directory": {"type": "string", "minLength": 1},
+            "overwrite_existing": {"type": "boolean", "const": false}
+          },
+          "required": ["target_directory", "overwrite_existing"],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "downloaded": {"type": "boolean", "const": true},
+            "target_directory": {"type": "string"}
+          },
+          "required": ["downloaded", "target_directory"],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l1_snapshot",
+        "risk_level": "medium",
+        "requires_approval": true,
+        "idempotent": false,
+        "tags": ["chrome", "cdp", "download"]
+      },
+      "postconditions": [
+        {
+          "kind": "download_directory_unchanged",
+          "name": "target_directory",
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "browser.chrome.cdp.screenshot",
+        "description": "Capture the page target as a PNG blob reference.",
+        "input": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+        "output": {
+          "type": "object",
+          "properties": {
+            "blob_id": {"type": "string", "minLength": 1},
+            "width": {"type": "integer", "minimum": 1},
+            "height": {"type": "integer", "minimum": 1}
+          },
+          "required": ["blob_id", "width", "height"],
+          "additionalProperties": false
+        },
+        "effect": "read",
+        "reversibility": "none_readonly",
+        "risk_level": "low",
+        "requires_approval": false,
+        "idempotent": true,
+        "tags": ["chrome", "cdp", "screenshot"]
+      },
+      "postconditions": [
+        {
+          "kind": "read_only_no_state_change",
+          "description": "The screenshot does not change page state.",
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "browser.chrome.cdp.wait_network_idle",
+        "description": "Wait for a bounded network-idle quiet window after page load.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "quiet_ms": {"type": "integer", "minimum": 1, "maximum": 10000}
+          },
+          "required": ["quiet_ms"],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "idle": {"type": "boolean", "const": true},
+            "quiet_ms": {"type": "integer"}
+          },
+          "required": ["idle", "quiet_ms"],
+          "additionalProperties": false
+        },
+        "effect": "read",
+        "reversibility": "none_readonly",
+        "risk_level": "low",
+        "requires_approval": false,
+        "idempotent": true,
+        "tags": ["chrome", "cdp", "wait", "network_idle"]
+      },
+      "postconditions": [
+        {
+          "kind": "read_only_no_state_change",
+          "description": "Waiting does not alter page state.",
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "browser.chrome.shell.address_bar.read",
+        "description": "Read the address bar text as display-only evidence.",
+        "input": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+        "output": {
+          "type": "object",
+          "properties": {"address": {"type": "string"}},
+          "required": ["address"],
+          "additionalProperties": false
+        },
+        "effect": "read",
+        "reversibility": "none_readonly",
+        "risk_level": "low",
+        "requires_approval": false,
+        "idempotent": true,
+        "tags": ["chrome", "shell", "address_bar", "read"]
+      },
+      "postconditions": [
+        {
+          "kind": "read_only_no_state_change",
+          "description": "Reading does not change the shell.",
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "browser.chrome.shell.tabs.read",
+        "description": "Read browser tab identities without using tab index as identity.",
+        "input": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+        "output": {
+          "type": "object",
+          "properties": {
+            "tabs": {"type": "array", "items": {"type": "string"}}
+          },
+          "required": ["tabs"],
+          "additionalProperties": false
+        },
+        "effect": "read",
+        "reversibility": "none_readonly",
+        "risk_level": "low",
+        "requires_approval": false,
+        "idempotent": true,
+        "tags": ["chrome", "shell", "tabs", "read"]
+      },
+      "postconditions": [
+        {
+          "kind": "read_only_no_state_change",
+          "description": "Reading does not change the shell.",
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
+        "name": "browser.chrome.shell.download_bar.read",
+        "description": "Read download-bar state as display-only evidence.",
+        "input": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+        "output": {
+          "type": "object",
+          "properties": {"download_state": {"type": "string"}},
+          "required": ["download_state"],
+          "additionalProperties": false
+        },
+        "effect": "read",
+        "reversibility": "none_readonly",
+        "risk_level": "low",
+        "requires_approval": false,
+        "idempotent": true,
+        "tags": ["chrome", "shell", "download_bar", "read"]
+      },
+      "postconditions": [
+        {
+          "kind": "read_only_no_state_change",
+          "description": "Reading does not change the shell.",
+          "error_code": "VerifyFailed"
+        }
+      ]
+    }
+  ]
+}

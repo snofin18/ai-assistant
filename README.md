@@ -6,7 +6,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
-> 状态：**阶段 1**；**TASK-048 Done（2026-10-21）**（CDP 专属平台 contract 与 Windows runtime provider）；**TASK-049 Done（2026-10-21）**（专用 browser profile 与 no-copy-user-profile 硬约束）；**TASK-326 Done（2026-10-21）**（审计 2026-10-20 五轮 automation；发现 PR #502 / #509 两次 self-delete 后落地，已追加运行日更正；当前 automation=0、锁=0、open PR=0；docs-only）；Stage 1a Done、Stage 1b Paint 30/30；Stage 1c 进行中。
+> 状态：**阶段 1**；**TASK-055 Done（2026-10-21）**（Edge / Chrome 声明式 adapter pack；站点黑名单与 Cookie / 登录 / 验证码 interrupts）；**TASK-048 / TASK-049 Done（2026-10-21）**（CDP provider contract、Windows runtime provider、专用 browser profile）；Stage 1a Done、Stage 1b Paint 30/30；Stage 1c 进行中，下一张卡为 TASK-056。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -91,7 +91,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
-**2026-10-21 TASK-048 Done（CDP provider contract + runtime provider）**：CDP 专属平台 contract 与 Windows runtime provider 已落地；session / target / DOM / click / screenshot / download / load 与 close 都由独立 provider trait 暴露。Stage 1c 尚未完成，TASK-049 待派单。
+**2026-10-21 TASK-055 Done（Edge / Chrome adapter packs）**：两份声明式 adapter pack 已落地；CDP 工具、外壳 UIA 读取、站点黑名单、Cookie / 登录 / 验证码 interrupts 均有显式契约。Stage 1c 尚未完成，下一张卡为 TASK-056。
 
 **2026-10-20 TASK-325 Done（automation run-day audit and final report）**：审计 round 1~5 与 PR #500~#509，补齐 #504 / #506 / #508 / #509 回填链、真实 merge、22-check CI 与偏差；落地运行日最终报告，不改产品代码或契约。
 
@@ -342,7 +342,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
-**2026-10-21 TASK-048 Done（CDP provider contract + runtime provider）**：CDP 专属平台 contract 与 Windows runtime provider 已落地；session / target / DOM / click / screenshot / download / load 与 close 都由独立 provider trait 暴露。Stage 1c 尚未完成，TASK-049 待派单。
+**2026-10-21 TASK-055 Done（Edge / Chrome adapter packs）**：两份声明式 adapter pack 已落地；CDP 工具、外壳 UIA 读取、站点黑名单、Cookie / 登录 / 验证码 interrupts 均有显式契约。Stage 1c 尚未完成，下一张卡为 TASK-056。
 
 **2026-10-20 TASK-325 Done（automation run-day audit and final report）**：五轮与全部 10 个 PR 均核实为 merged、base=main、22 checks、pending 0；补齐回填 PR merge 链、运行日 diff 统计、shell 偏差与 Stage 1c 遗留，形成最终报告。纯 docs-only。
 

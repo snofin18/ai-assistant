@@ -1,0 +1,51 @@
+schema_version = 1
+
+[adapter]
+app_id = "com.google.chrome"
+display_name = "Google Chrome"
+version_range = ">=155 <156"
+os_version_range = ">=10.0.26100"
+capability_level = "L1_cdp_plus_shell_uia"
+maintainer = "assistant-project"
+min_assistant_version = "0.1.0"
+
+[platforms.windows]
+channel = "cdp_plus_shell_uia"
+requires = [
+  "cdp.connection",
+  "cdp.dom_read",
+  "cdp.dom_write",
+  "cdp.navigate",
+  "cdp.screenshot",
+  "cdp.download",
+  "cdp.network_idle",
+  "uia.address_bar_read",
+  "uia.tabs_read",
+  "uia.download_bar_read",
+]
+elevated_target = false
+requires_dpi_awareness = "per_monitor_v2"
+text_normalization = "lf"
+launch = "dedicated_profile_activate"
+window_discovery = "cdp_page_target_list"
+
+[profile]
+dedicated_user_data_dir = true
+copy_user_profile = false
+first_login_required = true
+download_root = "assistant-downloads"
+
+[health]
+selector_success_threshold = 0.85
+auto_degrade = true
+reverify_trigger = "app_version_change_or_two_consecutive_selector_failures"
+probe_status = "required"
+
+[safety]
+default_interrupt_action = "cancel"
+allow_unattended = false
+requires_foreground_for_keyboard = true
+requires_exclusive_lease_for_dom_write = true
+site_blacklist = "enforced"
+password_input = "never_automated"
+captcha_bypass = "forbidden"

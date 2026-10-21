@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "app_id": "com.google.chrome",
+  "targets": [
+    {
+      "id": "browser_window",
+      "role": "Window",
+      "class_name": "Chrome_WidgetWin_1",
+      "supports": ["inspect", "foreground"],
+      "probe_status": "provisional"
+    },
+    {
+      "id": "address_bar",
+      "role": "Edit",
+      "automation_id": "addressBarEdit",
+      "supports": ["read_text"],
+      "probe_status": "provisional"
+    },
+    {
+      "id": "tabs",
+      "role": "Tab",
+      "automation_id": "Tabs",
+      "supports": ["read_text"],
+      "probe_status": "provisional"
+    },
+    {
+      "id": "download_bar",
+      "role": "Group",
+      "automation_id": "DownloadBar",
+      "supports": ["read_text"],
+      "probe_status": "provisional"
+    },
+    {
+      "id": "cookie_banner",
+      "role": "Dialog",
+      "class_name": "Chrome_WidgetWin_1",
+      "supports": ["inspect"],
+      "probe_status": "provisional"
+    },
+    {
+      "id": "login_wall",
+      "role": "Dialog",
+      "class_name": "Chrome_WidgetWin_1",
+      "supports": ["inspect"],
+      "probe_status": "provisional"
+    },
+    {
+      "id": "captcha",
+      "role": "Group",
+      "class_name": "Chrome_WidgetWin_1",
+      "supports": ["inspect"],
+      "probe_status": "provisional"
+    }
+  ]
+}
