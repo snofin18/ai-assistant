@@ -71,6 +71,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - `adapters/browser.edge/selectors/targets.json`
 - `adapters/browser.edge/tools/tools.json`
 - `adapters/browser.edge/interrupts/interrupts.json`
+- `adapters/browser.edge/tests/validate_adapter_packs.py`
 - `adapters/browser.chrome/adapter.toml`
 - `adapters/browser.chrome/README.md`
 - `adapters/browser.chrome/app_map.json`
@@ -83,7 +84,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - `cargo clippy --all-targets -- -D warnings` → 0 error / warning
 - `cargo test --workspace` → 全绿
 - `cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / card-check / check-ledger / check-comments` → 全部 PASSED
-- JSON / TOML parse → both Edge and Chrome packs parse successfully
+- `python adapters/browser.edge/tests/validate_adapter_packs.py` → `PACK OK browser.edge` / `PACK OK browser.chrome`
 
 ### 4. DoD 逐条核对
 
