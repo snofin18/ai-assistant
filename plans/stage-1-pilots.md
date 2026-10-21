@@ -435,7 +435,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-301 Done** | 治理池 | `tasks/TASK-301-tool-bus-server-envelope-contract-coverage.md` | Done（tool-bus server 公开契约：handler 错误信封 / evidence 往返 / 默认预算截断；server.rs 公开可达 83.58% → 89.55%、crate 91.15% → 91.58%；3 tests；生产源码零改动；PR #421 / merge `81673be`；CI 11/11 SUCCESS） |
 | **TASK-268 Done** | 治理池 | `tasks/TASK-268-storage-coverage-hardening.md` | Done（`assistant-storage` 独立行覆盖率 78.43% → 88.97%；9 个公共契约测试；生产源码零改动；PR #314 / merge `076fe2d`） |
 | **TASK-048 ✅** | 1c | `tasks/TASK-048-cdp-provider-connect-dom-nav-download.md` | Done（CDP 专属平台 contract 与 Windows runtime provider） |
-| TASK-049 | 1c | `tasks/TASK-049-browser-profile-no-copy-user-profile.md` | Ready（批次表占位派单前补全） |
+| **TASK-049 ✅** | 1c | `tasks/TASK-049-browser-profile-no-copy-user-profile.md` | Done（专用 browser profile 与 no-copy-user-profile 硬约束） |
 | **TASK-050 ✅** | 1c | `tasks/TASK-050-dlp-three-tier-egress-local-only-redacted-full.md` | Done（ADR 0007；`crates/dlp` 22 专项测试） |
 | **TASK-051 ✅** | 1c | `tasks/TASK-051-taint-tracking-permission-decay.md` | Done（ADR-0080：Tool 置污 / User 清除 / 恢复重算；tainted 确认降级为 Once） |
 | **TASK-052 ✅** | 1c | `tasks/TASK-052-instruction-origin-attribution-ui.md` | Done（ADR-0082：core 四类 token + 归因元数据校验；UI token / 展示测试；PR / merge hash 待回填） |

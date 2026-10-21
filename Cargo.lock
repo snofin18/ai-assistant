@@ -88,6 +88,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "assistant-browser-profile"
+version = "0.1.0"
+dependencies = [
+ "assistant-protocol",
+]
+
+[[package]]
 name = "assistant-capture"
 version = "0.1.0"
 dependencies = [

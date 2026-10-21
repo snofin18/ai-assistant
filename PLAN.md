@@ -14,8 +14,8 @@ TASK-047     ：**TASK-047 Done（2026-10-20）** —— Stage 1b Paint integrat
 TASK-046     ：**TASK-046 Done（2026-10-20）** —— Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚；真实十次 **10/10 passed**，单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式 `VerifyFailed`；同时修复隐藏 `PopupWindowSiteBridge` flyout 被误判为未保存模态框。证据：`eval/tasks/paint/t3.3/ten-run-summary.json`。
 TASK-323     ：**TASK-323 Done（2026-10-20）** —— TASK-313 同号历史留痕收口：保留现有 selector 正式卡，按 PR #453 / #466 / #468 / #469 的真实 base、merge、CI 与文件范围补全记录；不建第二个同号卡，`PL-117` 由可追溯对账闭环，`PL-115` 限期豁免仍开放。证据：`docs/automations/2026-10-20-round-3.md`。
 更新日期    ：2026-10-21（**TASK-048 Done**：CDP 专属平台 contract 与 Windows runtime provider；**TASK-326 Done**：审计 2026-10-20 五轮 automation 的自删顺序，发现 PR #502 / #509 两次 self-delete 后落地，追加运行日更正；Stage 1a Done、Stage 1b Done；Stage 1c 进行中）
-当前阶段    ：**阶段 1（三试点闭环）进行中**；Stage 1a Done、Stage 1b Done；Stage 1c Edge/Chrome 尚未完成。
-当前任务卡  ：**TASK-048 Done**（CDP 专属平台 contract 与 Windows runtime provider；证据 `crates/platform/windows/src/cdp/runtime.rs`）；下一张产品卡候选 **TASK-049**，须等人类会话派单。
+当前阶段    ：**阶段 1（三试点闭环）进行中**；Stage 1a Done、Stage 1b Done；Stage 1c 进行中。
+当前任务卡  ：**TASK-049 Done**（专用 browser profile 与 no-copy-user-profile 硬约束；证据 `crates/browser-profile/src/profile.rs`）；下一张产品卡候选 **TASK-055**，须等人类会话派单。
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done
 真机收口    ：**TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径 14 步全部 `Committed`，`1 passed / 0 failed`；新增 `adapters/com.microsoft.paint/tasks/t3.2.full-toolset-path.json` 与 `test_paint_t3_2_full_toolset_path_runs_on_real_paint`，stable before/after content address 与画布裁剪证据见 `LEDGER.md` / `docs/memory/apps/paint.md` §13.22；真机确认画笔选择会切换活动工具、WinUI flyout 展开状态有异步窗口。
 TASK-256/044 ：**TASK-256 / TASK-044 Done（2026-10-19）** —— T3.1 真机 ignored 验收 `1 passed / 0 failed / 11.18 s`；`run-ten.ps1 -AllowClosePaint` 真机十次 **10/10 passed（success_rate=1.0）**；`coordinate-error.ps1 -AllowClosePaint` 量到拖拽终点 **0 px**（期望/实际均为 `(1458, 859)`，判据 2 px）。证据：`eval/tasks/paint/t3.1/ten-run-summary.json` / `coordinate-error-summary.json`。
