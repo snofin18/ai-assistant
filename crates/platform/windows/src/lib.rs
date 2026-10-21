@@ -63,6 +63,7 @@ mod error;
 mod selector;
 
 #[cfg(windows)]
+#[cfg(windows)]
 mod com;
 #[cfg(windows)]
 mod handles;
@@ -78,6 +79,7 @@ mod window;
 // `SendInput` / 显示器枚举在各自的 `#[cfg(windows)] mod win32` 子模块里。
 // 公开这两个模块是**有意的**：`send_unicode_text` / `is_ime_open` 是 TASK-018 的交付物，
 // 而本 crate 的零 `#[allow]` 策略不允许用 `#[allow(dead_code)]` 掩盖「暂时没人调用」。
+pub mod cdp;
 pub mod coordinates;
 pub mod input;
 
