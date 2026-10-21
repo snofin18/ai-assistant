@@ -1,0 +1,15 @@
+[package]
+name = "assistant-browser-profile"
+description = "Dedicated browser profile lifecycle and hard no-copy-user-profile boundary."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies.assistant-protocol]
+path = "../protocol"
+version = "0.1.0"
+
+[lints]
+workspace = true
