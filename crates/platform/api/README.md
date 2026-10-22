@@ -46,6 +46,7 @@
 | `tests/geometry.rs` | 坐标校验、`to_physical` 的舍入与 **`i32` 边界**（含越界一格） |
 | `tests/fingerprint.rs` | 指纹形态（前缀 / 长度 / 大小写 / 非 hex） |
 | `tests/handles_not_serializable.rs` | **铁律 8** 的机器校验：扫 `src/handle.rs` 源码，禁止句柄获得序列化能力 |
+| `tests/cdp_contract.rs` | CDP 坐标边界、不透明句柄访问器、身份/snapshot、load 状态、截图元数据与连接参数校验 |
 
 **本 crate 的测试不使用 `expect` / `unwrap` / `panic!`**（`tests/common/mod.rs` 的 `ok_or_fail`
 等价替代）：`[lints]` 继承 workspace 的 `deny`，而 TASK-016 的 Out of scope 禁止 `#[allow]` 放宽 ——
