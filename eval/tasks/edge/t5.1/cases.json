@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "task_id": "edge.t5_1.books_list_to_csv",
+  "fixture_generator": "generate_fixtures.py",
+  "fixture_directory": "fixtures",
+  "repeat_runs": 10,
+  "primary_case": "three_pages_sixty_rows",
+  "expected": {
+    "page_count": 3,
+    "rows_per_page": 20,
+    "total_rows": 60,
+    "encoding": "utf-8",
+    "bom": false,
+    "line_ending": "crlf",
+    "header": [
+      "page_number",
+      "row_number",
+      "title",
+      "price",
+      "currency",
+      "availability",
+      "rating",
+      "product_url"
+    ]
+  },
+  "external_smoke": {
+    "verified_date": "2026-10-22",
+    "base_url": "https://books.toscrape.com",
+    "pages": [
+      "/catalogue/page-1.html",
+      "/catalogue/page-2.html",
+      "/catalogue/page-3.html"
+    ],
+    "repeat_runs": 3,
+    "requires_login": false,
+    "allowed_methods": ["GET"],
+    "contract": "external-smoke-contract.json"
+  },
+  "negative_cases": [
+    "missing_output_file",
+    "utf8_bom",
+    "bare_lf",
+    "wrong_header",
+    "missing_field",
+    "invalid_price",
+    "invalid_rating",
+    "cross_origin_url",
+    "duplicate_product_url",
+    "more_than_sixty_rows"
+  ]
+}

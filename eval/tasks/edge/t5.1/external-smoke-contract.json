@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "task_id": "edge.t5_1.books_list_to_csv",
+  "verified_date": "2026-10-22",
+  "base_url": "https://books.toscrape.com",
+  "allowed_pages": [
+    {
+      "page_number": 1,
+      "url": "https://books.toscrape.com/catalogue/page-1.html",
+      "http_status": 200,
+      "article_count": 20
+    },
+    {
+      "page_number": 2,
+      "url": "https://books.toscrape.com/catalogue/page-2.html",
+      "http_status": 200,
+      "article_count": 20
+    },
+    {
+      "page_number": 3,
+      "url": "https://books.toscrape.com/catalogue/page-3.html",
+      "http_status": 200,
+      "article_count": 20
+    }
+  ],
+  "selectors": {
+    "row": "article.product_pod",
+    "title": "h3 a[title]",
+    "price": ".price_color",
+    "availability": ".instock.availability",
+    "rating": ".star-rating",
+    "relative_product_url": "h3 a[href]"
+  },
+  "normalization": {
+    "price": "strip the currency glyph and emit a decimal string with two fractional digits",
+    "currency": "map the glyph to ISO 4217; this page uses GBP",
+    "availability": "trim whitespace and normalize In stock to in_stock",
+    "rating": "map the star-rating class token One..Five to integer 1..5",
+    "product_url": "resolve href against https://books.toscrape.com and remove fragments"
+  },
+  "first_row_sample": {
+    "title": "A Light in the Attic",
+    "price": "51.77",
+    "currency": "GBP",
+    "availability": "in_stock",
+    "rating": 3,
+    "relative_url": "a-light-in-the-attic_1000/index.html"
+  },
+  "limits": {
+    "allowed_methods": ["GET"],
+    "page_count": 3,
+    "rows_per_page": 20,
+    "total_rows": 60,
+    "requires_login": false,
+    "requires_credentials": false,
+    "external_smoke_repeat_runs": 3
+  },
+  "stop_conditions": [
+    "non_200_response",
+    "redirect_outside_allowed_origin",
+    "login_or_cookie_wall",
+    "captcha_or_risk_control",
+    "article_count_not_20",
+    "selector_shape_mismatch",
+    "row_limit_exceeded"
+  ]
+}
