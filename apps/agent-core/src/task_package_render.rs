@@ -17,6 +17,9 @@ use crate::runtime_dataflow::{
     ConditionExpr, DataflowError, RuntimeDataflowPlan, RuntimeStepBinding, parse_condition,
 };
 
+/// CDP reports navigation accepted before the target fingerprint necessarily settles.
+const BROWSER_NAVIGATE_WINDOW_MS: u64 = 3_000;
+
 pub(super) fn render_plan(
     package: &DeclaredPackage,
     inputs: &serde_json::Map<String, Value>,
@@ -312,7 +315,24 @@ pub(super) fn normalize_task_id(value: &str) -> String {
 fn assertion_table(tool: &str, arguments: &Value) -> Option<Vec<Value>> {
     paint_assertion_table(tool, arguments)
         .or_else(|| notepad_assertion_table(tool, arguments))
+        .or_else(|| browser_assertion_table(tool))
         .or_else(|| reserved_assertion_table(tool))
+}
+
+fn browser_assertion_table(tool: &str) -> Option<Vec<Value>> {
+    let operation = tool
+        .strip_prefix("browser.edge.cdp.")
+        .or_else(|| tool.strip_prefix("browser.chrome.cdp."))?;
+
+    match operation {
+        "navigate" => Some(vec![json!({
+            "kind": "state_changed",
+            "within_ms": BROWSER_NAVIGATE_WINDOW_MS,
+            "fingerprint_scope": "cdp_target",
+        })]),
+        "dom.read" | "wait_network_idle" => Some(vec![json!({ "kind": "state_unchanged" })]),
+        _ => None,
+    }
 }
 
 fn notepad_assertion_table(tool: &str, arguments: &Value) -> Option<Vec<Value>> {

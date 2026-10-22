@@ -17,6 +17,12 @@ fn t1_1_package_path() -> std::path::PathBuf {
         .join("../../adapters/com.microsoft.notepad/tasks/t1.1.open-read-full-text.json")
 }
 
+/// Absolute path to the TASK-056 browser task contract that motivated TASK-107.
+fn t5_1_browser_package_path() -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../adapters/browser.edge/tasks/t5.1.books-list-to-csv.json")
+}
+
 fn t1_1_inputs() -> serde_json::Map<String, Value> {
     inputs(&[
         ("file_size_bytes", json!(10)),
@@ -50,6 +56,139 @@ fn test_t1_1_package_renders_identical_plan_twice() {
         "确定性来源必须对同一任务包产出逐字相同的 Plan JSON"
     );
     assert_eq!(first.model_id().as_str(), TASK_PACKAGE_MODEL_ID);
+}
+
+#[test]
+fn test_browser_cdp_assertion_mappings_cover_edge_and_chrome() {
+    let package = json!({
+        "task_id": "browser.t5_1.assertion_probe",
+        "steps": [
+            {
+                "id": "edge_navigate",
+                "kind": "tool",
+                "tool": "browser.edge.cdp.navigate",
+                "args": {"url": "http://127.0.0.1:8765/page-1.html", "load_condition": "network_idle"}
+            },
+            {
+                "id": "edge_dom",
+                "kind": "tool",
+                "tool": "browser.edge.cdp.dom.read",
+                "args": {"selector": "main", "max_nodes": 1000}
+            },
+            {
+                "id": "edge_idle",
+                "kind": "tool",
+                "tool": "browser.edge.cdp.wait_network_idle",
+                "args": {"quiet_ms": 500}
+            },
+            {
+                "id": "chrome_navigate",
+                "kind": "tool",
+                "tool": "browser.chrome.cdp.navigate",
+                "args": {"url": "http://127.0.0.1:8765/page-1.html", "load_condition": "network_idle"}
+            },
+            {
+                "id": "chrome_dom",
+                "kind": "tool",
+                "tool": "browser.chrome.cdp.dom.read",
+                "args": {"selector": "main", "max_nodes": 1000}
+            },
+            {
+                "id": "chrome_idle",
+                "kind": "tool",
+                "tool": "browser.chrome.cdp.wait_network_idle",
+                "args": {"quiet_ms": 500}
+            }
+        ],
+    })
+    .to_string();
+    let provider =
+        TaskPackageProvider::from_package_json(&package).expect("browser package render");
+    let plan: Value = serde_json::from_str(provider.plan_json()).expect("plan is JSON");
+    let steps = plan
+        .get("steps")
+        .and_then(Value::as_array)
+        .expect("plan has steps");
+    assert_eq!(steps.len(), 6);
+
+    for step in steps {
+        let tool = step.get("tool").and_then(Value::as_str).expect("tool name");
+        let postconditions = step
+            .get("postconditions")
+            .and_then(Value::as_array)
+            .expect("postconditions");
+        assistant_verify::parse_postconditions(postconditions)
+            .expect("browser postconditions must be accepted by verify");
+
+        if tool.ends_with(".navigate") {
+            assert_eq!(
+                postconditions,
+                &vec![json!({
+                    "kind": "state_changed",
+                    "within_ms": 3000,
+                    "fingerprint_scope": "cdp_target",
+                })]
+            );
+        } else {
+            assert_eq!(postconditions, &vec![json!({"kind": "state_unchanged"})]);
+        }
+    }
+}
+
+#[test]
+fn test_t5_1_browser_package_renders_without_missing_assertion() {
+    let provider = TaskPackageProvider::from_package_file(&t5_1_browser_package_path())
+        .expect("TASK-056 browser task contract must render");
+    let plan: Value = serde_json::from_str(provider.plan_json()).expect("plan is JSON");
+    let steps = plan
+        .get("steps")
+        .and_then(Value::as_array)
+        .expect("plan has steps");
+    assert_eq!(steps.len(), 6);
+
+    let tools: Vec<&str> = steps
+        .iter()
+        .filter_map(|step| step.get("tool").and_then(Value::as_str))
+        .collect();
+    assert_eq!(
+        tools,
+        vec![
+            "browser.edge.cdp.navigate",
+            "browser.edge.cdp.dom.read",
+            "browser.edge.cdp.navigate",
+            "browser.edge.cdp.dom.read",
+            "browser.edge.cdp.navigate",
+            "browser.edge.cdp.dom.read",
+        ]
+    );
+
+    for step in steps {
+        let postconditions = step
+            .get("postconditions")
+            .and_then(Value::as_array)
+            .expect("postconditions");
+        assistant_verify::parse_postconditions(postconditions)
+            .expect("rendered browser postconditions must be accepted by verify");
+    }
+}
+
+#[test]
+fn test_unmapped_browser_tool_still_fails_closed() {
+    let package = json!({
+        "task_id": "browser.unknown_assertion",
+        "steps": [{
+            "id": "fill",
+            "kind": "tool",
+            "tool": "browser.edge.cdp.form.fill",
+            "args": {
+                "fields": [{"selector": "#q", "value": "probe"}]
+            }
+        }]
+    })
+    .to_string();
+
+    let error = TaskPackageProvider::from_package_json(&package).expect_err("must fail closed");
+    assert!(matches!(error, TaskPackageError::MissingAssertion { .. }));
 }
 
 #[test]
