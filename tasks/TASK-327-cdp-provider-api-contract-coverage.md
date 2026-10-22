@@ -153,7 +153,7 @@ cargo deny check
 ### 5. 偏差
 
 - 原 17:00 automation 在 2026-10-21 18:14 因 `429 Too Many Requests` 失败，留下未提交 WIP、4 把陈旧 guard 锁和 ACTIVE automation 目录；本次人工接管按最新 `origin/main` 保留 WIP 继续完成。
-- 本次接管恢复共 **14** 条命令误用默认 bash：13 条只读 / 验收命令因 `cargo` / `gh` / PowerShell cmdlet 不可用而失败（exit 127 或语法错误），1 条 `git commit` 在 bash 下成功。所有仓库检查均以显式 `shell: "powershell"` 重跑，未产生错误写入；先前独立审计阶段另有 5 条同类误用。
+- 本次接管恢复共 **15** 条命令误用默认 bash：14 条只读 / 验收命令因 `cargo` / `gh` / PowerShell cmdlet 不可用而失败（exit 127 或语法错误），1 条 `git commit` 在 bash 下成功。所有仓库检查均以显式 `shell: "powershell"` 重跑，未产生错误写入；先前独立审计阶段另有 5 条同类误用。
 - 第一次修复 `assert_serde_contract` 时将其从空的 `const fn` 改为带 `TypeId` 断言的运行函数，消除了新增 `hygiene/bare-stub` warning；没有放宽 lint。
 
 ### 6. 更合理做法
@@ -184,4 +184,4 @@ cargo deny check
 - merge commit：**`4550091dd04ab2ad9945ca200fb4c3e8953e372e`**。
 - 合并时间：2026-10-22 08:56:38 +08（`mergedAt=2026-10-22T00:56:38Z`）。
 - 本节由后续 docs-only evidence backfill 追加；首版记录未在合并前伪造自身 merge hash。
-- **最终偏差计数更正**：已合并 PR #529 正文中的“11 次”是收尾前的旧计数；最终复核为本次接管共 **14** 次（13 fail + 1 commit success），以本卡和本回填 PR 的 LEDGER 行为准。
+- **最终偏差计数更正**：已合并 PR #529 正文中的“11 次”是收尾前的旧计数；最终复核为本次接管共 **15** 次（14 fail + 1 commit success），以本卡和最终 correction PR 的 LEDGER 行为准。
