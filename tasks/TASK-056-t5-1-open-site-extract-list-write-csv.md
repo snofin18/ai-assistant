@@ -95,6 +95,7 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - `python eval/tasks/edge/t5.1/validate_csv.py --input ... --expected ...` → `CSV CONTRACT OK: rows=60`。
 - `python adapters/browser.edge/tests/validate_adapter_packs.py` → `PACK OK browser.edge` / `PACK OK browser.chrome`。
 - 人工授权后只读验证 `books.toscrape.com` 目录页 1~3：HTTP 200、每页 `article.product_pod` = 20，合计 60；首页样本解析为 `A Light in the Attic / £51.77 / In stock / Three`。
+- TASK-107 完成后，`cargo test -p assistant-agent-core --test task_package` → 23/23；T5.1 package 成功渲染 6 个 executable steps，`DRIFT-056-2` 的运行时契约部分已解除。
 - 未启动真实 Edge、未宣称 T5.1 产品路径完成。
 
 ### 4. DoD 逐条核对
@@ -103,7 +104,8 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 
 - [x] 离线 fixture 的字段、CSV schema、负向拒绝与 loopback server 已由 12 个 Python 测试覆盖。
 - [x] 外部站点静态结构已只读复核并锁定，但尚未通过产品 Edge/CDP 路径执行。
-- [ ] 产品 Edge task package 执行：当前被 `MissingAssertion` 阻塞，等待单独批准运行时 assertion 映射。
+- [x] 产品 Edge task package 渲染：TASK-107 已完成 assertion 映射，T5.1 package 可渲染 6 steps。
+- [ ] 产品 Edge task package 真实执行：仍需人在场的 Edge/CDP 会话。
 - [ ] 真实 Edge 10/10：未执行，不能报告成功。
 - [ ] `books.toscrape.com` 3/3 smoke：未执行，不能报告成功。
 - [x] `cargo fmt --all --check` → exit 0；`cargo clippy --all-targets -- -D warnings` → exit 0（仅既有 unknown lint warning）；`cargo test --workspace` → exit 0。
@@ -135,6 +137,9 @@ DRIFT-056-2
 需要人类裁决：是
 ```
 
+- **解除记录（2026-10-22）**：TASK-107 在 `task_package_render.rs` 为 Edge/Chrome `navigate` / `dom.read` / `wait_network_idle` 添加 assertion 映射；T5.1 package 已由契约测试真实加载并渲染 6 steps，`MissingAssertion` 部分关闭。真实 Edge/GUI 执行仍是新的唯一阻塞。
+- 本轮文档复核有 **1** 条只读命令误用默认 bash，`Get-Content` 不存在导致失败且未写仓库，随后以 PowerShell 重跑。
+
 ### 6. 更合理做法
 
 不猜测站点或数据形状；先用明确的离线 fixture 固化字段与 CSV 契约，再进行真实站点验收。
@@ -147,6 +152,7 @@ Stage 1c 的 T5.1 仍未完成，并依赖人类提供目标站点、专用 prof
 
 - 目标与数据契约已由人工批准并落盘，但浏览器 task package 仍需单独批准的 assertion 映射卡。
 - 映射完成后执行：本地 fixture 10/10、真实 Edge、外部 smoke 3/3、专用 profile 与安全停止条件。
+- TASK-107 已完成映射；剩余工作只有真实 Edge/CDP 会话与结果取证。
 
 ### 8. 新增长期记忆
 
@@ -161,3 +167,4 @@ Stage 1c 的 T5.1 仍未完成，并依赖人类提供目标站点、专用 prof
 
 - 本轮新增的是可运行离线 eval WIP，不是 T5.1 Done。
 - 最高风险点是 `DRIFT-056-2`：不要在缺少 browser assertion 映射时把声明式任务包误认为可执行产品路径。
+- 该运行时阻塞已由 TASK-107 解除；下一审阅点转为真实 Edge 执行和 CSV 输出证据。
