@@ -184,3 +184,4 @@ fixtures/apps/notepad-like/test-notepad-like.ps1 -> 13 checks passed
 - 当前离线复核：`cargo fmt --all --check` 通过；`cargo clippy --all-targets -- -D warnings` 退出码 0（仅既有 `clippy::assert_is_empty` unknown lint warning）；`cargo test --workspace` 全绿，其中 `production_root_t1_2` 为 6 passed，覆盖 fallback、快照缺失、覆盖后改动与用户改动 incident；三个 `validate.py` 分别为 10 / 11 / 14 cases OK；notepad-like replay PASSED。
 - DoD 结论：主路径、静默失败、审批与回滚证据均由上述已合并记录覆盖；本卡正文、产品代码、测试断言、schema、ADR、spec 与依赖本轮均未改写，满足 Done 条件。
 - 本轮未启动真实 Notepad 或任何 GUI；只用已合并的真实运行证据完成离线收口，不把历史证据冒充本轮新跑。
+- 收口 PR #543 / merge `f75616e`：pull_request CI 为 22-check rollup（21 success + 1 skipped、pending 0、failed 0），post-merge main push CI run `39774791652` success。
