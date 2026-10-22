@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "task_id": "edge.t5_1.books_list_to_csv",
+  "app_id": "com.microsoft.edge",
+  "title": "Read three deterministic product-list pages and emit normalized rows",
+  "goal": "Open the approved loopback list pages, read bounded DOM fragments, and hand the rows to the eval-only CSV normalizer.",
+  "runtime_status": "blocked_pending_task_package_assertion_mapping",
+  "read_only": true,
+  "inputs": {
+    "page_1_url": {
+      "type": "string",
+      "required": false,
+      "default": "http://127.0.0.1:8765/page-1.html"
+    },
+    "page_2_url": {
+      "type": "string",
+      "required": false,
+      "default": "http://127.0.0.1:8765/page-2.html"
+    },
+    "page_3_url": {
+      "type": "string",
+      "required": false,
+      "default": "http://127.0.0.1:8765/page-3.html"
+    },
+    "selector": {
+      "type": "string",
+      "required": false,
+      "default": "main.product-list"
+    },
+    "max_nodes": {
+      "type": "integer",
+      "required": false,
+      "default": 1000,
+      "maximum": 1000
+    }
+  },
+  "outputs": {
+    "page_1_dom": "string",
+    "page_2_dom": "string",
+    "page_3_dom": "string",
+    "extracted_rows": "array",
+    "csv_path": "string"
+  },
+  "steps": [
+    {
+      "id": "navigate_page_1",
+      "kind": "tool",
+      "tool": "browser.edge.cdp.navigate",
+      "args": {
+        "url": "http://127.0.0.1:8765/page-1.html",
+        "load_condition": "network_idle"
+      },
+      "outputs": ["page_1_ready"]
+    },
+    {
+      "id": "read_page_1",
+      "kind": "tool",
+      "tool": "browser.edge.cdp.dom.read",
+      "args": {
+        "selector": "main.product-list",
+        "max_nodes": 1000
+      },
+      "outputs": ["page_1_dom"]
+    },
+    {
+      "id": "navigate_page_2",
+      "kind": "tool",
+      "tool": "browser.edge.cdp.navigate",
+      "args": {
+        "url": "http://127.0.0.1:8765/page-2.html",
+        "load_condition": "network_idle"
+      },
+      "outputs": ["page_2_ready"]
+    },
+    {
+      "id": "read_page_2",
+      "kind": "tool",
+      "tool": "browser.edge.cdp.dom.read",
+      "args": {
+        "selector": "main.product-list",
+        "max_nodes": 1000
+      },
+      "outputs": ["page_2_dom"]
+    },
+    {
+      "id": "navigate_page_3",
+      "kind": "tool",
+      "tool": "browser.edge.cdp.navigate",
+      "args": {
+        "url": "http://127.0.0.1:8765/page-3.html",
+        "load_condition": "network_idle"
+      },
+      "outputs": ["page_3_ready"]
+    },
+    {
+      "id": "read_page_3",
+      "kind": "tool",
+      "tool": "browser.edge.cdp.dom.read",
+      "args": {
+        "selector": "main.product-list",
+        "max_nodes": 1000
+      },
+      "outputs": ["page_3_dom"]
+    }
+  ],
+  "preconditions": [
+    "Edge is launched with the dedicated profile, never the user's default profile.",
+    "The loopback fixture server is bound to 127.0.0.1:8765.",
+    "The active page target belongs to the dedicated Edge profile.",
+    "The profile contains no copied cookies or credentials."
+  ],
+  "postconditions": [
+    {
+      "id": "bounded_dom",
+      "description": "Each DOM read returns at most 1000 nodes.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "same_origin",
+      "description": "All reads remain on http://127.0.0.1:8765 and never redirect to another origin.",
+      "error_code": "PolicyDenied"
+    },
+    {
+      "id": "rows_complete",
+      "description": "The eval normalizer observes exactly 60 complete rows with no null fields.",
+      "error_code": "VerifyFailed"
+    }
+  ],
+  "failure_mapping": [
+    {
+      "condition": "task_package_assertion_mapping_missing",
+      "error_code": "CapabilityMissing"
+    },
+    {
+      "condition": "unexpected_origin",
+      "error_code": "PolicyDenied"
+    },
+    {
+      "condition": "login_captcha_or_cookie_wall",
+      "error_code": "UserInteraction"
+    },
+    {
+      "condition": "row_limit_exceeded",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "condition": "invalid_row_shape",
+      "error_code": "VerifyFailed"
+    }
+  ],
+  "metrics": {
+    "repeat_runs": 10,
+    "minimum_success_rate": 1.0,
+    "silent_failure_rate": 0,
+    "time_budget_ms": 60000
+  }
+}

@@ -70,13 +70,44 @@ cargo run -p xtask -- hygiene / memory-counts / adr-index / refscan / docscan / 
 - `tasks/TASK-056-t5-1-open-site-extract-list-write-csv.md`
 - `LEDGER.md`
 
+2026-10-22 人工批准推荐方案后，追加 scope 内离线 WIP：
+
+- `adapters/browser.edge/tasks/README.md`
+- `adapters/browser.edge/tasks/t5.1.books-list-to-csv.json`
+- `eval/tasks/edge/t5.1/README.md`
+- `eval/tasks/edge/t5.1/cases.json`
+- `eval/tasks/edge/t5.1/generate_fixtures.py`
+- `eval/tasks/edge/t5.1/serve_fixture.py`
+- `eval/tasks/edge/t5.1/validate_csv.py`
+- `eval/tasks/edge/t5.1/test_t5_1.py`
+- `eval/tasks/edge/t5.1/external-smoke-contract.json`
+- `docs/memory/pitfalls.md`：追加 browser task assertion mapping PITFALL。
+- `MEMORY.md`：同步 pitfalls 行数与条目数。
+
 ### 3. 验收输出摘要
 
 未执行产品/浏览器验收。原因是缺少可执行输入契约且目标要求真实浏览器、网络和人工登录状态；进入实现会命中 gov §4.3 漂移触发器。
 
+2026-10-22 人工批准双层验收方案后：
+
+- `python -m unittest discover -s eval/tasks/edge/t5.1 -p "test_*.py" -v` → **12 tests OK**，覆盖 3 页 × 20 行、UTF-8/CSV quoting、loopback server、严格 header/type/origin、外部 smoke 契约与负向拒绝。
+- `python eval/tasks/edge/t5.1/generate_fixtures.py --output-dir "$env:TEMP\ai-assistant-t5.1-smoke"` → 3 页、60 行；CSV SHA-256 = `4365c928631f5a07b81c08ceac4e204326e495013ae891d807bbf09602015ab3`。
+- `python eval/tasks/edge/t5.1/validate_csv.py --input ... --expected ...` → `CSV CONTRACT OK: rows=60`。
+- `python adapters/browser.edge/tests/validate_adapter_packs.py` → `PACK OK browser.edge` / `PACK OK browser.chrome`。
+- 人工授权后只读验证 `books.toscrape.com` 目录页 1~3：HTTP 200、每页 `article.product_pod` = 20，合计 60；首页样本解析为 `A Light in the Attic / £51.77 / In stock / Three`。
+- 未启动真实 Edge、未宣称 T5.1 产品路径完成。
+
 ### 4. DoD 逐条核对
 
 - 未勾选任何 DoD；卡片所声明的能力没有可验证输入，不能伪造完成。
+
+- [x] 离线 fixture 的字段、CSV schema、负向拒绝与 loopback server 已由 12 个 Python 测试覆盖。
+- [x] 外部站点静态结构已只读复核并锁定，但尚未通过产品 Edge/CDP 路径执行。
+- [ ] 产品 Edge task package 执行：当前被 `MissingAssertion` 阻塞，等待单独批准运行时 assertion 映射。
+- [ ] 真实 Edge 10/10：未执行，不能报告成功。
+- [ ] `books.toscrape.com` 3/3 smoke：未执行，不能报告成功。
+- [x] `cargo fmt --all --check` → exit 0；`cargo clippy --all-targets -- -D warnings` → exit 0（仅既有 unknown lint warning）；`cargo test --workspace` → exit 0。
+- [x] `hygiene` 0E/136W、`memory-counts` 0E/1W、`adr-index` 0E/0W、`refscan` 0E/0W、`docscan` 0E/175W、`card-check` 0E/35W、`check-ledger` 0E/0W、`check-comments` 0E/70W。
 
 ### 5. 偏差
 
@@ -92,19 +123,41 @@ DRIFT-056-1
 
 - 本次启动、文档门禁、PR 状态查询及最终复核共 **13** 条只读命令误用默认 bash：前 11 条因 `cargo` / `gh` / PowerShell cmdlet 不可用而失败（exit 127 或语法错误），第 12 条在最终检索 LEDGER 时因 `rg` / `Select-Object` 不存在而失败，第 13 条在合并后最终复核查询 open PR 时因 `gh` 不存在而失败；均未写入仓库，随后全部以显式 `shell: "powershell"` 重跑。
 
+2026-10-22 人工批准后的实现会话新增 **11** 条默认 shell 误用；其中 10 条只读命令因 `cargo` / `rg` / `Get-Content` / PowerShell cmdlet 不存在而失败，1 条 `git diff --stat` 在 WSL bash 中成功，但均未产生仓库写入。后续均已用显式 PowerShell 重跑。TASK-056 累计记录 **24** 条。
+
+```text
+DRIFT-056-2
+触发器：#5（当前 write scope 不足）+ #8（task-package 契约与运行时能力矛盾）
+现象：browser.edge 的 navigate / dom.read 工具已经注册，但 TaskPackageProvider 的 assertion table 没有覆盖它们；加载本卡 task package 会 fail-closed 为 MissingAssertion。
+影响：离线 fixture、CSV validator 与声明式 task contract 可完成，但无法在 TASK-056 当前 write scope 内证明产品浏览器执行路径。
+我的建议：另开小卡，在 `apps/agent-core/src/task_package_render.rs` 为 browser navigate / dom.read 增加明确 assertion 映射与契约测试；通过后再执行真实 Edge 10/10 和 books.toscrape 3/3。
+已停止的工作：未修改 runtime 代码、公共 API、工具 schema、workflow 或产品测试；未启动真实浏览器。
+需要人类裁决：是
+```
+
 ### 6. 更合理做法
 
 不猜测站点或数据形状；先用明确的离线 fixture 固化字段与 CSV 契约，再进行真实站点验收。
+
+- 将浏览器 task contract、离线 fixture、CSV normalizer/validator 与运行时 assertion 映射拆开，避免用 eval 结果冒充产品执行结果。
 
 ### 7. 遗留问题
 
 Stage 1c 的 T5.1 仍未完成，并依赖人类提供目标站点、专用 profile、登录状态与输出契约。
 
+- 目标与数据契约已由人工批准并落盘，但浏览器 task package 仍需单独批准的 assertion 映射卡。
+- 映射完成后执行：本地 fixture 10/10、真实 Edge、外部 smoke 3/3、专用 profile 与安全停止条件。
+
 ### 8. 新增长期记忆
 
 无；本次仅记录阻塞，没有产生已验证的新事实。
+
+- 新增 PITFALL：browser edge 工具已注册不代表 task package 可执行；assertion table 未覆盖时必须在 package load 阶段 fail-closed。
 
 ### 9. 给审阅者的关注点
 
 - 这是按规则停止，不是实现失败；没有任何产品代码或测试被修改。
 - 请先补齐 TASK-056 正文中的目标站点、CSV schema、fixture 与人工登录流程，再派发给人在场的执行会话。
+
+- 本轮新增的是可运行离线 eval WIP，不是 T5.1 Done。
+- 最高风险点是 `DRIFT-056-2`：不要在缺少 browser assertion 映射时把声明式任务包误认为可执行产品路径。
