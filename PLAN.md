@@ -7,15 +7,16 @@
 ## 当前状态
 
 ```text
+TASK-327     ：**TASK-327 Done（2026-10-22）** —— 接管 2026-10-21 17:00 失联 automation 的离线 WIP；新增 8 个 CDP 公开契约测试，`cdp.rs` 行覆盖 **0.00% → 100.00%**、crate **95.13%**；生产逻辑 / 公共 API / schema / 依赖零改动；清理陈旧 guard 锁与遗留 automation 目录。
 TASK-326     ：**TASK-326 Done（2026-10-21）** —— 审计 2026-10-20 五轮 automation 的自删顺序。5/5 已执行且已自删；发现 17:00 轮 PR #502 于 18:08、00:30 轮 PR #509 于 01:23 在 self-delete 后落地，均违反 ADR-0054；已追加运行日更正与 `docs/audits/automation-sequence-deviation-2026-10-20.md`。当前 automation=0、锁=0、open PR=0、工作树 clean；docs-only。
 TASK-008     ：**TASK-008 Done（2026-10-20）** —— Spike G carry-over：Edge `155.0.4283.62` / Chrome `155.0.8059.84` 在专用 profile 下 CDP `1.3` 均可用；DOM 各 **20/20**、load/networkIdle 各 **10/10**、注入指令 **0/40** 执行、profile cookie 跨重启保持；点击 / 表单停在提交前 / 导航 / 截图 / 下载均通过。限定 **GO**：未触碰默认用户 profile，真实外部登录与四层反注入产品级闭环仍留后续。证据：`docs/spike-reports/SPIKE-G.md`。
 TASK-257     ：**TASK-257 Done（2026-10-20）** —— Paint 形状 / 调色板容器锚点 closeout。TASK-256 T3.1 真机 `1 passed / 0 failed / 11.18 s`；T3.1/T3.2/T3.3 各 **10/10**；full ribbon path 14 步全部 `Committed`。通用 `SelectorKind::ExactName` 契约保留，Paint 最终战术按 ADR-0091 使用 `ExactNameAndRole`；`DRIFT-257-1`。证据见卡、`LEDGER.md` 与 `docs/audits/stage-1b-integration-adapter-reuse-2026-10-20.md`。
 TASK-047     ：**TASK-047 Done（2026-10-20）** —— Stage 1b Paint integration 与 Adapter 复用度审计；技术 **GO**、行政 **条件 GO**。T3.1/T3.2/T3.3 真机合计 **30/30**；六类 `platform/api` 演进均由 ADR-0067/0076/0085/0086/0091/0092+0093 授权；未发现 Paint 专用 trait。TASK-257 Review 与计划表滞后状态保留给独立治理收口。证据：`docs/audits/stage-1b-integration-adapter-reuse-2026-10-20.md`。
 TASK-046     ：**TASK-046 Done（2026-10-20）** —— Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚；真实十次 **10/10 passed**，单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式 `VerifyFailed`；同时修复隐藏 `PopupWindowSiteBridge` flyout 被误判为未保存模态框。证据：`eval/tasks/paint/t3.3/ten-run-summary.json`。
 TASK-323     ：**TASK-323 Done（2026-10-20）** —— TASK-313 同号历史留痕收口：保留现有 selector 正式卡，按 PR #453 / #466 / #468 / #469 的真实 base、merge、CI 与文件范围补全记录；不建第二个同号卡，`PL-117` 由可追溯对账闭环，`PL-115` 限期豁免仍开放。证据：`docs/automations/2026-10-20-round-3.md`。
-更新日期    ：2026-10-21（**TASK-055 Done**：Edge / Chrome 声明式 adapter pack 与站点黑名单 / interrupts；**TASK-048 / TASK-049 Done**：CDP provider contract 与专用 browser profile；**TASK-326 Done**：审计 2026-10-20 五轮 automation 的自删顺序；Stage 1a Done、Stage 1b Done；Stage 1c 进行中）
+更新日期    ：2026-10-22（**TASK-327 Done**：CDP provider API 离线契约覆盖率补强；**TASK-055 Done**：Edge / Chrome 声明式 adapter pack 与站点黑名单 / interrupts；**TASK-048 / TASK-049 Done**：CDP provider contract 与专用 browser profile；Stage 1a Done、Stage 1b Done；Stage 1c 进行中）
 当前阶段    ：**阶段 1（三试点闭环）进行中**；Stage 1a Done、Stage 1b Done；Stage 1c 进行中。
-当前任务卡  ：**TASK-055 Done**（Edge / Chrome adapter pack、站点黑名单与 interrupts；证据 `adapters/browser.edge/**` / `adapters/browser.chrome/**`）；下一张产品卡候选 **TASK-056**。
+当前任务卡  ：**TASK-327 Done**（CDP provider API 离线契约覆盖率补强；`cdp.rs` 行覆盖 100.00%、crate 95.13%；生产逻辑零改动）；下一张产品卡候选 **TASK-056**。
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done
 真机收口    ：**TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径 14 步全部 `Committed`，`1 passed / 0 failed`；新增 `adapters/com.microsoft.paint/tasks/t3.2.full-toolset-path.json` 与 `test_paint_t3_2_full_toolset_path_runs_on_real_paint`，stable before/after content address 与画布裁剪证据见 `LEDGER.md` / `docs/memory/apps/paint.md` §13.22；真机确认画笔选择会切换活动工具、WinUI flyout 展开状态有异步窗口。
 TASK-256/044 ：**TASK-256 / TASK-044 Done（2026-10-19）** —— T3.1 真机 ignored 验收 `1 passed / 0 failed / 11.18 s`；`run-ten.ps1 -AllowClosePaint` 真机十次 **10/10 passed（success_rate=1.0）**；`coordinate-error.ps1 -AllowClosePaint` 量到拖拽终点 **0 px**（期望/实际均为 `(1458, 859)`，判据 2 px）。证据：`eval/tasks/paint/t3.1/ten-run-summary.json` / `coordinate-error-summary.json`。
