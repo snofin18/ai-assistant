@@ -15,14 +15,14 @@ This directory owns declarative Edge benchmark task packages.
 The external smoke target is `https://books.toscrape.com/`, but it is not used
 for the 10-run acceptance baseline.
 
-## Current execution blocker
+## Runtime integration
 
-The browser tools are declared, but the task-package assertion table in
-`apps/agent-core/src/task_package_render.rs` does not yet map
-`browser.edge.cdp.navigate` or `browser.edge.cdp.dom.read`. Loading this task
-through `TaskPackageProvider` therefore fails closed with `MissingAssertion`.
+TASK-107 added deterministic task-package assertions for
+`browser.edge.cdp.navigate`, `browser.edge.cdp.dom.read`, and
+`browser.edge.cdp.wait_network_idle`. The T5.1 package now renders six
+executable steps without `MissingAssertion`, and its rendered postconditions are
+accepted by `assistant_verify`.
 
-Adding that mapping changes runtime behavior outside TASK-056's current write
-scope. The package is committed as a reviewable WIP contract, not as a task
-that can honestly be reported as executable. The blocker is recorded as
-`DRIFT-056-2`.
+This resolves the runtime-contract portion of `DRIFT-056-2`. It does not claim a
+real browser run: TASK-056 remains Blocked until Edge uses the dedicated profile,
+the local fixture passes 10/10, and the approved external smoke passes 3/3.
