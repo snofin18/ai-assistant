@@ -90,7 +90,7 @@ DRIFT-056-1
 需要人类裁决：是
 ```
 
-- 本次启动、文档门禁、PR 状态查询及最终复核共 **12** 条只读命令误用默认 bash：前 11 条因 `cargo` / `gh` / PowerShell cmdlet 不可用而失败（exit 127 或语法错误），第 12 条在最终检索 LEDGER 时因 `rg` / `Select-Object` 不存在而失败；均未写入仓库，随后全部以显式 `shell: "powershell"` 重跑。
+- 本次启动、文档门禁、PR 状态查询及最终复核共 **13** 条只读命令误用默认 bash：前 11 条因 `cargo` / `gh` / PowerShell cmdlet 不可用而失败（exit 127 或语法错误），第 12 条在最终检索 LEDGER 时因 `rg` / `Select-Object` 不存在而失败，第 13 条在合并后最终复核查询 open PR 时因 `gh` 不存在而失败；均未写入仓库，随后全部以显式 `shell: "powershell"` 重跑。
 
 ### 6. 更合理做法
 
