@@ -25,7 +25,7 @@
 > **TASK-271 Done（2026-10-11）**：`assistant-dlp` 新增 7 个公共契约测试，独立行覆盖率 83.59% → 98.89%；生产源码零改动；PR #320 / merge `8a5ad5f`。
 
 > **TASK-290 Done（2026-10-14）**：PL-010 闭环 —— `gov §9.2` 的 LEDGER 模板新增 `pending` 占位与追加式回填规则；原开放行不改，PARKING_LOT 追加闭环节点；docs-only，零产品代码改动；PR #388 / merge `4e9bce6`。
-> 周期 10~12 周　状态：**进行中（2026-10-22：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-321 / 322 / 323 / 324 / 325 完成运行日五轮治理收口；TASK-048 / TASK-049 / TASK-055 / TASK-327 / TASK-107 Done；Stage 1c 进行中，TASK-056 browser assertion 阻塞已解除，下一步执行真实 Edge 与外部 smoke）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> 周期 10~12 周　状态：**进行中（2026-10-22：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-321 / 322 / 323 / 324 / 325 完成运行日五轮治理收口；TASK-048 / TASK-049 / TASK-055 / TASK-327 / TASK-107 Done；TASK-105 由已合并真实 UIA 3×10 与 TASK-218 回滚证据离线收口为 Done；Stage 1c 进行中，TASK-056 browser assertion 阻塞已解除，下一步执行真实 Edge 与外部 smoke）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
 > **TASK-326 Done（2026-10-21）**：审计 2026-10-20 五轮 automation 的自删顺序；5/5 已执行且已自删，发现 17:00 轮 PR #502、00:30 轮 PR #509 两次在 self-delete 后才落地，已追加运行日更正与 `docs/audits/automation-sequence-deviation-2026-10-20.md`；当前无残留 automation、锁、open PR。
 > **TASK-327 Done（2026-10-22）**：人工接管 2026-10-21 17:00 失联 automation 的离线 WIP；新增 8 个 CDP 公开契约测试，`cdp.rs` 行覆盖 0.00% → **100.00%**、crate **95.13%**；生产逻辑 / 公共 API / schema / 依赖零改动；清理由该槽遗留的陈旧 guard 锁与 automation 目录。
 > **TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）**：Paint 全工具集真机路径
@@ -205,7 +205,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-102 ✅** | 运行执行链路契约：Planner → TaskEngine → Policy → ToolBus → Host → Verify → Undo | `docs/adr/0056-*`、`docs/spec/runtime-execution.md`、登记文件 | 029、037、038、039 | M | ADR/spec 明确所有权、取消/超时、错误与审计边界；`VerifyOutcome` 强制接线方案 |
 | **TASK-103 ✅** | 真实任务执行器：Host 分发、上下文装配与 `VerifyOutcome` 接线 | `apps/agent-core/src/**`、`apps/automation-host/src/**`、`crates/task-engine/**`、`crates/ipc/**` | 102 | L | 一个真实 Plan 可执行；Host 分发闭环；缺验证不得成功；断连/超时/拒绝有负向测试 |
 | **TASK-104 ✅** | UI ↔ Core typed IPC 与审批接线 | `apps/desktop-ui/**`、`apps/agent-core/src/**` 的 IPC 适配层 | 102、103 | L | UI 请求可到 Core；审批决策可回传；时间线显示真实验证；非法 IPC fail-closed |
-| TASK-105 | Notepad T1.x 真实运行验收与 10 次证据 | `fixtures/apps/notepad-like/**`、`eval/tasks/notepad/**`、`docs/audits/**` | 103、104 | M | T1.1~T1.3 各 10 次；静默失败 0；审批/撤销/恢复证据落盘 |
+| **TASK-105 ✅** | Notepad T1.x 真实运行验收与 10 次证据 | `fixtures/apps/notepad-like/**`、`eval/tasks/notepad/**`、`docs/audits/**` | 103、104 | M | T1.1~T1.3 各 10 次；静默失败 0；审批/撤销/恢复证据落盘 |
 | **TASK-087 ✅** | CI 硬门禁负向验证与 `check-comments` 落地 | `.github/workflows/**`、`xtask/src/**`、`xtask/README.md`、ADR-0019 登记 | 015、039 | L | fmt/clippy/build canary；`check-comments` 真实现；PL-018 可关闭 |
 | **TASK-210 ✅** | UI 与提交质量门禁：Prettier / ESLint / Vitest / commitlint | `apps/desktop-ui/**`、`.github/workflows/**`、`docs/DEPENDENCIES.md` | 039 | L | 新依赖已登记；UI 与 commit 正负门禁入 CI |
 | **TASK-211 ✅** | 阶段 1a 复验准备与停车位收口 | `docs/PARKING_LOT.md`、`docs/audits/**`、状态同步文件 | 102~105、087、210 | S | PL-018/056/058 证据矩阵；复验清单；不得提前宣称 1a 通过 |
@@ -336,7 +336,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-102 ✅** | A5-REMEDIATION | `tasks/TASK-102-runtime-execution-contract.md` | Ready（1a 执行链路契约） |
 | **TASK-103 ✅** | A5-REMEDIATION | `tasks/TASK-103-runtime-executor-host-dispatch-verifyoutcome.md` | Ready（真实执行器） |
 | **TASK-104 ✅** | A5-REMEDIATION | `tasks/TASK-104-ui-core-ipc-approval-wiring.md` | Ready（UI/IPC/审批接线） |
-| TASK-105 | A5-REMEDIATION | `tasks/TASK-105-notepad-t1-runtime-validation.md` | Ready（T1 真实运行验收） |
+| **TASK-105 ✅** | A5-REMEDIATION | `tasks/TASK-105-notepad-t1-runtime-validation.md` | Ready（T1 真实运行验收） |
 | **TASK-087 ✅** | A5-REMEDIATION | `tasks/TASK-087-ci-negative-verification-and-check-comments.md` | Ready（CI 硬门禁与 check-comments） |
 | **TASK-210 ✅** | A5-REMEDIATION | `tasks/TASK-210-ui-and-commit-quality-gates.md` | Ready（UI/提交质量门禁） |
 | **TASK-212 ✅** | A5-REMEDIATION | `tasks/TASK-212-check-comments-violation-fix.md` | Ready（DRIFT-087-1 的 9 处违规修复） |

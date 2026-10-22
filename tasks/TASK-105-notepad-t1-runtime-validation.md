@@ -1,6 +1,6 @@
 # TASK-105　Notepad T1.x 真实运行验收与 10 次证据
 
-- 状态：**InProgress（T1.1/T1.2/T1.3 真实主路径各 10/10；L0/L1 撤销仍缺）**
+- 状态：**Done（2026-10-22；T1.1/T1.2/T1.3 真实主路径各 10/10；TASK-218 补齐 L0/L1 回滚链）**
 - 阶段：1　子阶段：1a 补救　批次：A5-REMEDIATION　依赖：103、104
 - 预估：M　难度：M
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。
@@ -175,3 +175,12 @@ fixtures/apps/notepad-like/test-notepad-like.ps1 -> 13 checks passed
 - PR #167（codex/task-105-real-uia-runs）CI 11/11 SUCCESS（run 36959134224；windows 6m47s / ubuntu 3m11s / macos 3m5s）。
 - merge commit：ab1450；mergeable=CLEAN，base=main。
 - 本卡保持 **InProgress**：真实主路径 3×10 已合并，L0/L1 物理回滚链由 TASK-218 承接，阶段 1a 仍 NO-GO。
+
+### 11. 2026-10-22 证据收口
+
+- 收口依据：`docs/audits/stage-1a-runtime-validation-2026-10-22-closeout.md`。
+- 主路径证据：PR #167 / merge `eab1450`。T1.1、T1.2、T1.3 各 10 次真实 UIA 运行均为 `10/10`，30 次退出码全部为 0，静默失败为 0；原始结果在 `docs/audits/stage-1a-runtime-validation-2026-10-02-runs.json`。
+- 回滚证据：TASK-218 的 PR #169 / merge `3fbe275`、PR #171 / merge `aa8ba8c`、PR #172 / merge `7b289fd`。完整 L1 恢复在真实 UIA 上通过；L0 未到锚点时 L1 fallback 标注 `used_fallback=true`；快照缺失、整锚点恢复覆盖后改动、用户改动 fail-closed 均有生产入口测试。
+- 当前离线复核：`cargo fmt --all --check` 通过；`cargo clippy --all-targets -- -D warnings` 退出码 0（仅既有 `clippy::assert_is_empty` unknown lint warning）；`cargo test --workspace` 全绿，其中 `production_root_t1_2` 为 6 passed，覆盖 fallback、快照缺失、覆盖后改动与用户改动 incident；三个 `validate.py` 分别为 10 / 11 / 14 cases OK；notepad-like replay PASSED。
+- DoD 结论：主路径、静默失败、审批与回滚证据均由上述已合并记录覆盖；本卡正文、产品代码、测试断言、schema、ADR、spec 与依赖本轮均未改写，满足 Done 条件。
+- 本轮未启动真实 Notepad 或任何 GUI；只用已合并的真实运行证据完成离线收口，不把历史证据冒充本轮新跑。
