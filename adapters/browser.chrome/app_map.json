@@ -5,47 +5,47 @@
   "commands": [
     {
       "intent": "navigate",
-      "tool": "browser.chrome.cdp.navigate",
+      "tool": "chrome.cdp.navigate",
       "reliable": true
     },
     {
       "intent": "read_dom",
-      "tool": "browser.chrome.cdp.dom.read",
+      "tool": "chrome.cdp.dom_read",
       "reliable": true
     },
     {
       "intent": "fill_form",
-      "tool": "browser.chrome.cdp.form.fill",
+      "tool": "chrome.cdp.form_fill",
       "reliable": true
     },
     {
       "intent": "download",
-      "tool": "browser.chrome.cdp.download",
+      "tool": "chrome.cdp.download",
       "reliable": true
     },
     {
       "intent": "screenshot",
-      "tool": "browser.chrome.cdp.screenshot",
+      "tool": "chrome.cdp.screenshot",
       "reliable": true
     },
     {
       "intent": "wait_network_idle",
-      "tool": "browser.chrome.cdp.wait_network_idle",
+      "tool": "chrome.cdp.wait_network_idle",
       "reliable": true
     },
     {
       "intent": "read_address_bar",
-      "tool": "browser.chrome.shell.address_bar.read",
+      "tool": "chrome.shell.address_bar_read",
       "reliable": false
     },
     {
       "intent": "read_tabs",
-      "tool": "browser.chrome.shell.tabs.read",
+      "tool": "chrome.shell.tabs_read",
       "reliable": false
     },
     {
       "intent": "read_download_bar",
-      "tool": "browser.chrome.shell.download_bar.read",
+      "tool": "chrome.shell.download_bar_read",
       "reliable": false
     }
   ],
@@ -104,9 +104,9 @@
     {
       "name": "open_site_extract_list",
       "steps": [
-        "browser.chrome.cdp.navigate",
-        "browser.chrome.cdp.wait_network_idle",
-        "browser.chrome.cdp.dom.read"
+        "chrome.cdp.navigate",
+        "chrome.cdp.wait_network_idle",
+        "chrome.cdp.dom_read"
       ],
       "pitfalls": [
         "Wait for network idle before reading; load events alone are insufficient.",
@@ -116,9 +116,9 @@
     {
       "name": "fill_form_stop_before_submit",
       "steps": [
-        "browser.chrome.cdp.navigate",
-        "browser.chrome.cdp.wait_network_idle",
-        "browser.chrome.cdp.form.fill"
+        "chrome.cdp.navigate",
+        "chrome.cdp.wait_network_idle",
+        "chrome.cdp.form_fill"
       ],
       "pitfalls": [
         "Never submit automatically; the caller owns the final user confirmation."
@@ -127,8 +127,8 @@
     {
       "name": "download_to_shadow_dir",
       "steps": [
-        "browser.chrome.cdp.navigate",
-        "browser.chrome.cdp.download"
+        "chrome.cdp.navigate",
+        "chrome.cdp.download"
       ],
       "pitfalls": [
         "Route downloads into the dedicated shadow directory and verify the result."

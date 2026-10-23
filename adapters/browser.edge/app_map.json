@@ -5,47 +5,47 @@
   "commands": [
     {
       "intent": "navigate",
-      "tool": "browser.edge.cdp.navigate",
+      "tool": "edge.cdp.navigate",
       "reliable": true
     },
     {
       "intent": "read_dom",
-      "tool": "browser.edge.cdp.dom.read",
+      "tool": "edge.cdp.dom_read",
       "reliable": true
     },
     {
       "intent": "fill_form",
-      "tool": "browser.edge.cdp.form.fill",
+      "tool": "edge.cdp.form_fill",
       "reliable": true
     },
     {
       "intent": "download",
-      "tool": "browser.edge.cdp.download",
+      "tool": "edge.cdp.download",
       "reliable": true
     },
     {
       "intent": "screenshot",
-      "tool": "browser.edge.cdp.screenshot",
+      "tool": "edge.cdp.screenshot",
       "reliable": true
     },
     {
       "intent": "wait_network_idle",
-      "tool": "browser.edge.cdp.wait_network_idle",
+      "tool": "edge.cdp.wait_network_idle",
       "reliable": true
     },
     {
       "intent": "read_address_bar",
-      "tool": "browser.edge.shell.address_bar.read",
+      "tool": "edge.shell.address_bar_read",
       "reliable": false
     },
     {
       "intent": "read_tabs",
-      "tool": "browser.edge.shell.tabs.read",
+      "tool": "edge.shell.tabs_read",
       "reliable": false
     },
     {
       "intent": "read_download_bar",
-      "tool": "browser.edge.shell.download_bar.read",
+      "tool": "edge.shell.download_bar_read",
       "reliable": false
     }
   ],
@@ -104,9 +104,9 @@
     {
       "name": "open_site_extract_list",
       "steps": [
-        "browser.edge.cdp.navigate",
-        "browser.edge.cdp.wait_network_idle",
-        "browser.edge.cdp.dom.read"
+        "edge.cdp.navigate",
+        "edge.cdp.wait_network_idle",
+        "edge.cdp.dom_read"
       ],
       "pitfalls": [
         "Wait for network idle before reading; load events alone are insufficient.",
@@ -116,9 +116,9 @@
     {
       "name": "fill_form_stop_before_submit",
       "steps": [
-        "browser.edge.cdp.navigate",
-        "browser.edge.cdp.wait_network_idle",
-        "browser.edge.cdp.form.fill"
+        "edge.cdp.navigate",
+        "edge.cdp.wait_network_idle",
+        "edge.cdp.form_fill"
       ],
       "pitfalls": [
         "Never submit automatically; the caller owns the final user confirmation."
@@ -127,8 +127,8 @@
     {
       "name": "download_to_shadow_dir",
       "steps": [
-        "browser.edge.cdp.navigate",
-        "browser.edge.cdp.download"
+        "edge.cdp.navigate",
+        "edge.cdp.download"
       ],
       "pitfalls": [
         "Route downloads into the dedicated shadow directory and verify the result."

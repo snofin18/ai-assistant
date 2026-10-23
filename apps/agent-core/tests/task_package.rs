@@ -66,37 +66,37 @@ fn test_browser_cdp_assertion_mappings_cover_edge_and_chrome() {
             {
                 "id": "edge_navigate",
                 "kind": "tool",
-                "tool": "browser.edge.cdp.navigate",
+                "tool": "edge.cdp.navigate",
                 "args": {"url": "http://127.0.0.1:8765/page-1.html", "load_condition": "network_idle"}
             },
             {
                 "id": "edge_dom",
                 "kind": "tool",
-                "tool": "browser.edge.cdp.dom.read",
+                "tool": "edge.cdp.dom_read",
                 "args": {"selector": "main", "max_nodes": 1000}
             },
             {
                 "id": "edge_idle",
                 "kind": "tool",
-                "tool": "browser.edge.cdp.wait_network_idle",
+                "tool": "edge.cdp.wait_network_idle",
                 "args": {"quiet_ms": 500}
             },
             {
                 "id": "chrome_navigate",
                 "kind": "tool",
-                "tool": "browser.chrome.cdp.navigate",
+                "tool": "chrome.cdp.navigate",
                 "args": {"url": "http://127.0.0.1:8765/page-1.html", "load_condition": "network_idle"}
             },
             {
                 "id": "chrome_dom",
                 "kind": "tool",
-                "tool": "browser.chrome.cdp.dom.read",
+                "tool": "chrome.cdp.dom_read",
                 "args": {"selector": "main", "max_nodes": 1000}
             },
             {
                 "id": "chrome_idle",
                 "kind": "tool",
-                "tool": "browser.chrome.cdp.wait_network_idle",
+                "tool": "chrome.cdp.wait_network_idle",
                 "args": {"quiet_ms": 500}
             }
         ],
@@ -153,12 +153,12 @@ fn test_t5_1_browser_package_renders_without_missing_assertion() {
     assert_eq!(
         tools,
         vec![
-            "browser.edge.cdp.navigate",
-            "browser.edge.cdp.dom.read",
-            "browser.edge.cdp.navigate",
-            "browser.edge.cdp.dom.read",
-            "browser.edge.cdp.navigate",
-            "browser.edge.cdp.dom.read",
+            "edge.cdp.navigate",
+            "edge.cdp.dom_read",
+            "edge.cdp.navigate",
+            "edge.cdp.dom_read",
+            "edge.cdp.navigate",
+            "edge.cdp.dom_read",
         ]
     );
 
@@ -179,7 +179,7 @@ fn test_unmapped_browser_tool_still_fails_closed() {
         "steps": [{
             "id": "fill",
             "kind": "tool",
-            "tool": "browser.edge.cdp.form.fill",
+            "tool": "edge.cdp.form_fill",
             "args": {
                 "fields": [{"selector": "#q", "value": "probe"}]
             }

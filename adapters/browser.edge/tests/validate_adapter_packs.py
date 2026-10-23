@@ -22,12 +22,12 @@ PACKS = {
     "browser.edge": {
         "path": ADAPTER_ROOT / "browser.edge",
         "app_id": "com.microsoft.edge",
-        "tool_prefix": "browser.edge.",
+        "tool_prefix": "edge.",
     },
     "browser.chrome": {
         "path": ADAPTER_ROOT / "browser.chrome",
         "app_id": "com.google.chrome",
-        "tool_prefix": "browser.chrome.",
+        "tool_prefix": "chrome.",
     },
 }
 
@@ -35,14 +35,14 @@ REQUIRED_BLACKLIST_KINDS = {"bank", "payment", "password_change", "captcha"}
 REQUIRED_INTERRUPTS = {"cookie-banner", "login-wall", "captcha"}
 REQUIRED_TOOLS = {
     "cdp.navigate",
-    "cdp.dom.read",
-    "cdp.form.fill",
+    "cdp.dom_read",
+    "cdp.form_fill",
     "cdp.download",
     "cdp.screenshot",
     "cdp.wait_network_idle",
-    "shell.address_bar.read",
-    "shell.tabs.read",
-    "shell.download_bar.read",
+    "shell.address_bar_read",
+    "shell.tabs_read",
+    "shell.download_bar_read",
 }
 
 
@@ -152,7 +152,7 @@ def validate_pack(name: str, expected_app_id: str, tool_prefix: str, pack_path: 
         f"{name}: every interrupt must default to cancel",
     )
 
-    form_tool = find_tool(tool_entries, tool_prefix + "cdp.form.fill")
+    form_tool = find_tool(tool_entries, tool_prefix + "cdp.form_fill")
     submitted = (
         form_tool.get("schema", {})
         .get("output", {})

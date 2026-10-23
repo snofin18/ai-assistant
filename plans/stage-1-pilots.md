@@ -25,7 +25,7 @@
 > **TASK-271 Done（2026-10-11）**：`assistant-dlp` 新增 7 个公共契约测试，独立行覆盖率 83.59% → 98.89%；生产源码零改动；PR #320 / merge `8a5ad5f`。
 
 > **TASK-290 Done（2026-10-14）**：PL-010 闭环 —— `gov §9.2` 的 LEDGER 模板新增 `pending` 占位与追加式回填规则；原开放行不改，PARKING_LOT 追加闭环节点；docs-only，零产品代码改动；PR #388 / merge `4e9bce6`。
-> 周期 10~12 周　状态：**进行中（2026-10-23：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-321 / 322 / 323 / 324 / 325 完成运行日五轮治理收口；TASK-048 / TASK-049 / TASK-055 / TASK-327 / TASK-107 / TASK-108 / TASK-109 / TASK-110 / TASK-111 Done；TASK-105 由已合并真实 UIA 3×10 与 TASK-218 回滚证据离线收口为 Done；Stage 1c 进行中，TASK-056 browser assertion 阻塞已解除；TASK-110 已补专用 profile launcher、动态 DevToolsActivePort 与进程树回收，TASK-111 已修复 ctutils advisory，下一步是 production browser handlers 与真实 Edge 验收）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> 周期 10~12 周　状态：**进行中（2026-10-23：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-321 / 322 / 323 / 324 / 325 完成运行日五轮治理收口；TASK-048 / TASK-049 / TASK-055 / TASK-327 / TASK-107 / TASK-108 / TASK-109 / TASK-110 / TASK-111 / TASK-112 Done；TASK-105 由已合并真实 UIA 3×10 与 TASK-218 回滚证据离线收口为 Done；Stage 1c 进行中，TASK-056 browser assertion 阻塞已解除；TASK-110 已补专用 profile launcher、TASK-111 已修复 ctutils advisory，TASK-112 已补三段 `edge|chrome.cdp.*` production handlers / ToolBus registry；下一步是 CLI 浏览器生产装配与真实 Edge 验收）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
 > **TASK-326 Done（2026-10-21）**：审计 2026-10-20 五轮 automation 的自删顺序；5/5 已执行且已自删，发现 17:00 轮 PR #502、00:30 轮 PR #509 两次在 self-delete 后才落地，已追加运行日更正与 `docs/audits/automation-sequence-deviation-2026-10-20.md`；当前无残留 automation、锁、open PR。
 > **TASK-327 Done（2026-10-22）**：人工接管 2026-10-21 17:00 失联 automation 的离线 WIP；新增 8 个 CDP 公开契约测试，`cdp.rs` 行覆盖 0.00% → **100.00%**、crate **95.13%**；生产逻辑 / 公共 API / schema / 依赖零改动；清理由该槽遗留的陈旧 guard 锁与 automation 目录。
 > **TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）**：Paint 全工具集真机路径
@@ -415,6 +415,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-109 ✅** | 业务池 | `tasks/TASK-109-real-cdp-loopback-transport.md` | Done（loopback CDP HTTP / RFC 6455；connect / navigate / DOM；零 serde；专项 6/6，JSON 2/2，handle-discipline 7/7） |
 | **TASK-110 ✅** | 业务池 | `tasks/TASK-110-browser-launcher-process-cleanup.md` | Done（专用 profile launcher；动态 DevToolsActivePort；有界进程树回收；专项 7 tested / 1 helper ignored；不启动真实浏览器） |
 | **TASK-111 ✅** | 治理池 | `tasks/TASK-111-ctutils-rustsec-0385.md` | Done（人类批准的最小 Cargo.lock 安全升级；ctutils 0.4.2 → 0.4.4；RUSTSEC-2026-0385 已消除） |
+| **TASK-112 ✅** | 业务池 | `tasks/TASK-112-browser-production-handlers.md` | Done（navigate / dom_read / wait_network_idle handlers；Edge/Chrome ToolBus registry；5/5 + 23/23 + PACK OK；三段命名迁移） |
 | **TASK-258 ✅** | 治理池 | `tasks/TASK-258-undo-coverage-hardening.md` | Done（`crates/undo` 契约测试覆盖率 90.36%；PR #292 / merge `c01c546`） |
 | **TASK-259 ✅** | 治理池 | `tasks/TASK-259-verify-coverage-hardening.md` | Done（`crates/verify` 覆盖率 88.51%；PR #294 / merge `866c321`） |
 | **TASK-260 ✅** | 治理池 | `tasks/TASK-260-task-engine-coverage-hardening.md` | Done（`crates/task-engine` 契约覆盖率 90.40%；PR #296 / merge `57416d6`） |

@@ -6,7 +6,7 @@
     {
       "schema": {
         "version": "1.0",
-        "name": "browser.edge.cdp.navigate",
+        "name": "edge.cdp.navigate",
         "description": "Navigate the dedicated-profile page target and wait for the declared load condition.",
         "input": {
           "type": "object",
@@ -45,7 +45,7 @@
     {
       "schema": {
         "version": "1.0",
-        "name": "browser.edge.cdp.dom.read",
+        "name": "edge.cdp.dom_read",
         "description": "Read a bounded structured fragment of the page DOM.",
         "input": {
           "type": "object",
@@ -83,7 +83,7 @@
     {
       "schema": {
         "version": "1.0",
-        "name": "browser.edge.cdp.form.fill",
+        "name": "edge.cdp.form_fill",
         "description": "Fill declared form fields and always stop before submit.",
         "input": {
           "type": "object",
@@ -133,7 +133,7 @@
     {
       "schema": {
         "version": "1.0",
-        "name": "browser.edge.cdp.download",
+        "name": "edge.cdp.download",
         "description": "Start and verify a download routed into the dedicated shadow directory.",
         "input": {
           "type": "object",
@@ -171,7 +171,7 @@
     {
       "schema": {
         "version": "1.0",
-        "name": "browser.edge.cdp.screenshot",
+        "name": "edge.cdp.screenshot",
         "description": "Capture the page target as a PNG blob reference.",
         "input": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
         "output": {
@@ -202,7 +202,7 @@
     {
       "schema": {
         "version": "1.0",
-        "name": "browser.edge.cdp.wait_network_idle",
+        "name": "edge.cdp.wait_network_idle",
         "description": "Wait for a bounded network-idle quiet window after page load.",
         "input": {
           "type": "object",
@@ -239,7 +239,7 @@
     {
       "schema": {
         "version": "1.0",
-        "name": "browser.edge.shell.address_bar.read",
+        "name": "edge.shell.address_bar_read",
         "description": "Read the address bar text as display-only evidence.",
         "input": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
         "output": {
@@ -266,7 +266,7 @@
     {
       "schema": {
         "version": "1.0",
-        "name": "browser.edge.shell.tabs.read",
+        "name": "edge.shell.tabs_read",
         "description": "Read browser tab identities without using tab index as identity.",
         "input": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
         "output": {
@@ -295,7 +295,7 @@
     {
       "schema": {
         "version": "1.0",
-        "name": "browser.edge.shell.download_bar.read",
+        "name": "edge.shell.download_bar_read",
         "description": "Read download-bar state as display-only evidence.",
         "input": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
         "output": {
