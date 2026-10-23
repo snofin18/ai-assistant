@@ -45,7 +45,7 @@
     {
       "id": "navigate_page_1",
       "kind": "tool",
-      "tool": "browser.edge.cdp.navigate",
+      "tool": "edge.cdp.navigate",
       "args": {
         "url": "http://127.0.0.1:8765/page-1.html",
         "load_condition": "network_idle"
@@ -55,7 +55,7 @@
     {
       "id": "read_page_1",
       "kind": "tool",
-      "tool": "browser.edge.cdp.dom.read",
+      "tool": "edge.cdp.dom_read",
       "args": {
         "selector": "main.product-list",
         "max_nodes": 1000
@@ -65,7 +65,7 @@
     {
       "id": "navigate_page_2",
       "kind": "tool",
-      "tool": "browser.edge.cdp.navigate",
+      "tool": "edge.cdp.navigate",
       "args": {
         "url": "http://127.0.0.1:8765/page-2.html",
         "load_condition": "network_idle"
@@ -75,7 +75,7 @@
     {
       "id": "read_page_2",
       "kind": "tool",
-      "tool": "browser.edge.cdp.dom.read",
+      "tool": "edge.cdp.dom_read",
       "args": {
         "selector": "main.product-list",
         "max_nodes": 1000
@@ -85,7 +85,7 @@
     {
       "id": "navigate_page_3",
       "kind": "tool",
-      "tool": "browser.edge.cdp.navigate",
+      "tool": "edge.cdp.navigate",
       "args": {
         "url": "http://127.0.0.1:8765/page-3.html",
         "load_condition": "network_idle"
@@ -95,7 +95,7 @@
     {
       "id": "read_page_3",
       "kind": "tool",
-      "tool": "browser.edge.cdp.dom.read",
+      "tool": "edge.cdp.dom_read",
       "args": {
         "selector": "main.product-list",
         "max_nodes": 1000

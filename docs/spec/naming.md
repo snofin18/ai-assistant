@@ -141,7 +141,7 @@ ocr  ttl  http  json  sql  fs  vm  px  ms  us  ns
 
 | 对象 | 规则 | 例 |
 |---|---|---|
-| Tool 名 | `<app>.<domain>.<action>`，全小写下划线 | `notepad.replace_text`、`excel.write_named_range` |
+| Tool 名 | `<app>.<domain>.<action>`，全小写下划线 | `notepad.replace_text`、`edge.cdp.navigate`、`chrome.shell.tabs_read` |
 | 权限标识 | `<domain>.<action>` | `document.write`、`window.read` |
 | 能力标识 | `<layer>.<capability>` | `a11y.editable_text`、`input.takeover_detection` |
 | ErrorCode | `PascalCase`，`<Domain>.<Reason>` 或单段 | `Target.NotFound`、`PolicyDenied`、`VerifyFailed` |

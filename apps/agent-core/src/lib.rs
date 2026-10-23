@@ -26,6 +26,8 @@ pub mod adapters;
 mod approval_grants;
 mod assembly;
 mod blob_sink;
+mod browser_handlers;
+pub mod browser_registry;
 mod error;
 pub(crate) mod handler_support;
 pub mod notepad_files;

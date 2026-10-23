@@ -8,7 +8,7 @@ This directory owns declarative Edge benchmark task packages.
 
 1. open the three deterministic loopback pages;
 2. read each bounded product-list DOM fragment through
-   `browser.edge.cdp.dom.read`;
+   `edge.cdp.dom_read`;
 3. leave CSV normalization and serialization to the zero-dependency eval
    harness under `eval/tasks/edge/t5.1/`.
 
@@ -18,8 +18,8 @@ for the 10-run acceptance baseline.
 ## Runtime integration
 
 TASK-107 added deterministic task-package assertions for
-`browser.edge.cdp.navigate`, `browser.edge.cdp.dom.read`, and
-`browser.edge.cdp.wait_network_idle`. The T5.1 package now renders six
+`edge.cdp.navigate`, `edge.cdp.dom_read`, and
+`edge.cdp.wait_network_idle`. The T5.1 package now renders six
 executable steps without `MissingAssertion`, and its rendered postconditions are
 accepted by `assistant_verify`.
 
@@ -27,8 +27,11 @@ This resolves the runtime-contract portion of `DRIFT-056-2`. It does not claim a
 real browser run: TASK-056 remains Blocked until Edge uses the dedicated profile,
 the local fixture passes 10/10, and the approved external smoke passes 3/3.
 
-Package rendering is still not a production execution path. The current
-`RuntimeCdpProvider` returns synthetic `about:blank` / empty DOM results, and no
-production browser-tool handlers are wired into the agent assembly. This is
-recorded as `DRIFT-056-3`; real Edge cannot be claimed until those runtime
-pieces are implemented under a separate card.
+`RuntimeCdpProvider` now uses the real loopback CDP transport, and TASK-112
+provides production handlers for `navigate`, `dom.read`, and
+`wait_network_idle` plus an Edge/Chrome `ToolRegistry` builder. The builder is
+verified through the real in-process `ToolBus` with a scripted CDP runtime.
+
+This is still not real-browser acceptance: form fill, download, screenshot,
+click, browser auto-launch wiring inside the CLI production root, and TASK-056
+10/10 external smoke remain pending.

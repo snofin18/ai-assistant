@@ -321,8 +321,8 @@ fn assertion_table(tool: &str, arguments: &Value) -> Option<Vec<Value>> {
 
 fn browser_assertion_table(tool: &str) -> Option<Vec<Value>> {
     let operation = tool
-        .strip_prefix("browser.edge.cdp.")
-        .or_else(|| tool.strip_prefix("browser.chrome.cdp."))?;
+        .strip_prefix("edge.cdp.")
+        .or_else(|| tool.strip_prefix("chrome.cdp."))?;
 
     match operation {
         "navigate" => Some(vec![json!({
@@ -330,7 +330,7 @@ fn browser_assertion_table(tool: &str) -> Option<Vec<Value>> {
             "within_ms": BROWSER_NAVIGATE_WINDOW_MS,
             "fingerprint_scope": "cdp_target",
         })]),
-        "dom.read" | "wait_network_idle" => Some(vec![json!({ "kind": "state_unchanged" })]),
+        "dom_read" | "wait_network_idle" => Some(vec![json!({ "kind": "state_unchanged" })]),
         _ => None,
     }
 }
