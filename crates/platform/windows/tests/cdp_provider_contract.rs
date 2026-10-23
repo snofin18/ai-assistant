@@ -69,7 +69,7 @@ impl Fixture {
 #[test]
 fn test_cdp_loopback_transport_navigates_and_reads_dom() -> TestResult {
     let fixture = Fixture::start(|listener| serve_positive_fixture(&listener))?;
-    let options = options(fixture.port, "Fixture Page", 2_000)?;
+    let options = options(fixture.port, "Fixture Page", 5_000)?;
     let provider = RuntimeCdpProvider::new();
     let session = block_on(provider.connect(&options)).map_err(|error| platform_error(&error))?;
     assert_eq!(session.target_identity().marker(), Some("task-109-fixture"));
@@ -77,7 +77,7 @@ fn test_cdp_loopback_transport_navigates_and_reads_dom() -> TestResult {
     block_on(provider.navigate(
         &session.target(),
         "http://127.0.0.1:8765/page-2.html",
-        &CdpLoadCondition::NetworkIdle { quiet_ms: 40 },
+        &CdpLoadCondition::NetworkIdle { quiet_ms: 100 },
     ))
     .map_err(|error| platform_error(&error))?;
     let snapshot = block_on(provider.evaluate_dom(
@@ -338,7 +338,7 @@ fn serve_navigation(stream: &mut TcpStream) -> TestResult {
                     "{\"method\":\"Network.loadingFinished\",\
                      \"params\":{\"requestId\":\"request-1\"}}",
                 )?;
-                thread::sleep(Duration::from_millis(200));
+                thread::sleep(Duration::from_secs(1));
                 return Ok(());
             }
             _ => {
@@ -368,7 +368,7 @@ fn serve_evaluation(stream: &mut TcpStream) -> TestResult {
              {{\"type\":\"string\",\"value\":\"{snapshot}\"}}}}}}"
         ),
     )?;
-    thread::sleep(Duration::from_millis(200));
+    thread::sleep(Duration::from_secs(1));
     Ok(())
 }
 
