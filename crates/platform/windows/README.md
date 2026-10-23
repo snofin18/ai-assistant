@@ -137,6 +137,10 @@
 - **非 Windows 后端**：`src/unsupported.rs` 的每个方法都返回 `CapabilityMissing`；
   平台无关的**输入校验**仍会先跑（空候选链 / 无条件 query → `ToolInvalidArgs`），
   因为坏输入在哪个平台都是坏输入。
+- **CDP runtime 当前 fail-closed（TASK-108）**：`RuntimeCdpProvider` 尚未接入真实 CDP
+  HTTP/WebSocket transport 与 production browser handlers；`connect`、导航、DOM、点击、
+  截图、下载目录和关闭全部显式返回 `CapabilityMissing`，不得把该 provider 当作真实浏览器
+  执行证据。
 - **歧义策略收敛为唯一一种（已解决）**：按 **ADR-0044**，`OnAmbiguous` 只保留 `ErrorAndAsk`，
   多命中一律报 `TargetAmbiguous`（fail-closed，铁律 1）；`HighestScore` 已删除（它在候选链模型里
   不可实现：分数属于**候选**，不属于命中元素）。架构 v2 §6.6 其余 3 种策略各有归属层

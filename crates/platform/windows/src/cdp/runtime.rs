@@ -1,11 +1,17 @@
 //! CDP runtime provider.
+//!
+//! The real HTTP/WebSocket transport and production handler assembly are not part
+//! of this module yet. Until they exist, every trait operation fails closed with
+//! `ErrorCode::CapabilityMissing`; returning synthetic page data would turn an
+//! unimplemented browser path into a false success.
 
 use std::collections::BTreeMap;
 use std::future::Future;
 
 use assistant_platform_api::{
     CdpConnectOptions, CdpDomSnapshot, CdpLoadCondition, CdpPoint, CdpProvider, CdpScreenshot,
-    CdpSessionSnapshot, CdpTargetIdentity, ResolvedCdpSession, ResolvedCdpTarget,
+    CdpSessionSnapshot, CdpTargetIdentity, ErrorCode, PlatformError, PlatformResult,
+    ResolvedCdpTarget,
 };
 
 /// Runtime provider state for one CDP target.
@@ -71,19 +77,9 @@ impl RuntimeCdpProvider {
 impl CdpProvider for RuntimeCdpProvider {
     fn connect(
         &self,
-        options: &CdpConnectOptions,
-    ) -> impl Future<Output = assistant_platform_api::PlatformResult<CdpSessionSnapshot>> + Send
-    {
-        let session = ResolvedCdpSession::new(0);
-        let target = ResolvedCdpTarget::new(session, 0);
-        let identity =
-            CdpTargetIdentity::new(options.page_url(), options.page_title().unwrap_or("blank"));
-        let identity = if let Some(marker) = options.page_marker() {
-            identity.with_marker(marker)
-        } else {
-            identity
-        };
-        std::future::ready(Ok(CdpSessionSnapshot::new(session, target, identity)))
+        _options: &CdpConnectOptions,
+    ) -> impl Future<Output = PlatformResult<CdpSessionSnapshot>> + Send {
+        std::future::ready(Err(capability_missing("connect")))
     }
 
     fn navigate(
@@ -91,45 +87,55 @@ impl CdpProvider for RuntimeCdpProvider {
         _target: &ResolvedCdpTarget,
         _url: &str,
         _condition: &CdpLoadCondition,
-    ) -> impl Future<Output = assistant_platform_api::PlatformResult<()>> + Send {
-        std::future::ready(Ok(()))
+    ) -> impl Future<Output = PlatformResult<()>> + Send {
+        std::future::ready(Err(capability_missing("navigate")))
     }
 
     fn evaluate_dom(
         &self,
         _target: &ResolvedCdpTarget,
         _expression: &str,
-    ) -> impl Future<Output = assistant_platform_api::PlatformResult<CdpDomSnapshot>> + Send {
-        std::future::ready(Ok(CdpDomSnapshot::new("about:blank", "blank", None, "")))
+    ) -> impl Future<Output = PlatformResult<CdpDomSnapshot>> + Send {
+        std::future::ready(Err(capability_missing("evaluate_dom")))
     }
 
     fn click(
         &self,
         _target: &ResolvedCdpTarget,
         _point: &CdpPoint,
-    ) -> impl Future<Output = assistant_platform_api::PlatformResult<()>> + Send {
-        std::future::ready(Ok(()))
+    ) -> impl Future<Output = PlatformResult<()>> + Send {
+        std::future::ready(Err(capability_missing("click")))
     }
 
     fn capture_screenshot(
         &self,
         _target: &ResolvedCdpTarget,
-    ) -> impl Future<Output = assistant_platform_api::PlatformResult<CdpScreenshot>> + Send {
-        std::future::ready(Ok(CdpScreenshot::new("blank", 1, 1)))
+    ) -> impl Future<Output = PlatformResult<CdpScreenshot>> + Send {
+        std::future::ready(Err(capability_missing("capture_screenshot")))
     }
 
     fn set_download_directory(
         &self,
         _target: &ResolvedCdpTarget,
         _directory: &str,
-    ) -> impl Future<Output = assistant_platform_api::PlatformResult<()>> + Send {
-        std::future::ready(Ok(()))
+    ) -> impl Future<Output = PlatformResult<()>> + Send {
+        std::future::ready(Err(capability_missing("set_download_directory")))
     }
 
     fn close(
         &self,
         _target: &ResolvedCdpTarget,
-    ) -> impl Future<Output = assistant_platform_api::PlatformResult<()>> + Send {
-        std::future::ready(Ok(()))
+    ) -> impl Future<Output = PlatformResult<()>> + Send {
+        std::future::ready(Err(capability_missing("close")))
     }
+}
+
+fn capability_missing(operation: &str) -> PlatformError {
+    PlatformError::new(
+        ErrorCode::CapabilityMissing,
+        format!(
+            "real CDP {operation} is unavailable until HTTP/WebSocket transport and production \
+             browser handlers are assembled"
+        ),
+    )
 }
