@@ -1,6 +1,9 @@
-//! TASK-048 的 CDP provider 契约回归（`tests/` 层）。
+//! CDP provider 契约回归（`tests/` 层）。
 
-use assistant_platform_api::{CdpConnectOptions, CdpPoint, CdpProvider, PlatformError};
+use assistant_platform_api::{
+    CdpConnectOptions, CdpLoadCondition, CdpPoint, CdpProvider, ErrorCode, PlatformError,
+    ResolvedCdpSession, ResolvedCdpTarget,
+};
 use assistant_platform_windows::cdp::runtime::RuntimeCdpProvider;
 
 #[derive(Debug)]
@@ -31,15 +34,22 @@ fn block_on<T>(future: impl std::future::Future<Output = T>) -> T {
     }
 }
 
-fn connect_session(
-    provider: &RuntimeCdpProvider,
-    options: &CdpConnectOptions,
-) -> Result<assistant_platform_api::CdpSessionSnapshot, TestError> {
-    Ok(block_on(provider.connect(options))?)
+fn assert_capability_missing<T>(result: Result<T, PlatformError>) -> Result<(), TestError> {
+    match result {
+        Ok(_) => Err(TestError(PlatformError::new(
+            ErrorCode::Fatal,
+            "unimplemented CDP operation returned success instead of CapabilityMissing",
+        ))),
+        Err(error) => {
+            assert_eq!(error.code(), ErrorCode::CapabilityMissing);
+            assert!(!error.message().trim().is_empty());
+            Ok(())
+        }
+    }
 }
 
 #[test]
-fn test_cdp_provider_connect_keeps_target_identity() -> Result<(), TestError> {
+fn test_cdp_provider_connect_fails_closed_without_real_transport() -> Result<(), TestError> {
     let options = CdpConnectOptions::new(
         "127.0.0.1",
         9222,
@@ -49,27 +59,33 @@ fn test_cdp_provider_connect_keeps_target_identity() -> Result<(), TestError> {
         200,
     )?;
     let provider = RuntimeCdpProvider::new();
-    let session = connect_session(&provider, &options)?;
-    assert_eq!(session.target_identity().marker(), Some("spike-g"));
+    assert_capability_missing(block_on(provider.connect(&options)))?;
+    assert!(
+        provider.targets().is_empty(),
+        "failed connect must not register a synthetic target"
+    );
     Ok(())
 }
 
 #[test]
-fn test_cdp_provider_click_and_close_are_success_shape() -> Result<(), TestError> {
-    let options = CdpConnectOptions::new(
-        "127.0.0.1",
-        9222,
-        "spike-g://fixture",
-        Some("fixture".to_string()),
-        None,
-        200,
-    )?;
+fn test_cdp_provider_primitives_fail_closed_without_real_transport() -> Result<(), TestError> {
     let provider = RuntimeCdpProvider::new();
-    let session = connect_session(&provider, &options)?;
+    let target = ResolvedCdpTarget::new(ResolvedCdpSession::new(7), 11);
+    let condition = CdpLoadCondition::NetworkIdle { quiet_ms: 500 };
     let point = CdpPoint::new(10, 10);
-    let result = block_on(provider.click(&session.target(), &point));
-    assert!(result.is_ok(), "click must succeed");
-    let result = block_on(provider.close(&session.target()));
-    assert!(result.is_ok(), "close must succeed");
+    assert_capability_missing(block_on(provider.navigate(
+        &target,
+        "https://example.test/",
+        &condition,
+    )))?;
+    assert_capability_missing(block_on(
+        provider.evaluate_dom(&target, "document.documentElement.outerHTML"),
+    ))?;
+    assert_capability_missing(block_on(provider.click(&target, &point)))?;
+    assert_capability_missing(block_on(provider.capture_screenshot(&target)))?;
+    assert_capability_missing(block_on(
+        provider.set_download_directory(&target, r"C:\assistant\downloads"),
+    ))?;
+    assert_capability_missing(block_on(provider.close(&target)))?;
     Ok(())
 }
