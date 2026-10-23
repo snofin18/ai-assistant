@@ -6,7 +6,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
-> 状态：**阶段 1**；**TASK-110 Done（2026-10-23）**（专用浏览器 launcher：动态 `DevToolsActivePort`、默认 user-data 根拒绝、进程树有界回收）；**TASK-109 Done（2026-10-23）**（real CDP loopback transport）；**TASK-108 Done（2026-10-23）**（CDP runtime synthetic success 已改为显式 `CapabilityMissing`）；**TASK-107 Done（2026-10-22）**（browser task-package assertion mapping）；Stage 1a Done、Stage 1b Paint 30/30；Stage 1c 进行中，下一步是 production browser handlers 与 ToolBus 接线，之后才能执行 TASK-056 真实 Edge 验收。
+> 状态：**阶段 1**；**TASK-111 Done（2026-10-23）**（经批准的最小 `ctutils 0.4.4` 锁文件安全修复，RUSTSEC-2026-0385 已消除）；**TASK-110 Done（2026-10-23）**（专用浏览器 launcher：动态 `DevToolsActivePort`、默认 user-data 根拒绝、进程树有界回收）；**TASK-109 Done（2026-10-23）**（real CDP loopback transport）；**TASK-108 Done（2026-10-23）**（CDP runtime synthetic success 已改为显式 `CapabilityMissing`）；Stage 1a Done、Stage 1b Paint 30/30；Stage 1c 进行中，下一步是 production browser handlers 与 ToolBus 接线，之后才能执行 TASK-056 真实 Edge 验收。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -91,6 +91,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-23 TASK-111 Done（ctutils RUSTSEC-2026-0385）**：经人类批准只更新 `Cargo.lock`，将 `ctutils 0.4.2` 升级到 `0.4.4`；advisory、bans、licenses、sources 全部恢复 ok，其他依赖未升级。
+
 **2026-10-23 TASK-110 Done（dedicated browser launcher and process cleanup）**：用专用 profile 根与固定参数启动 Edge/Chrome，动态端口通过有界 `DevToolsActivePort` 读取；拒绝标准用户 `User Data` 根，显式 close / `Drop` 均使用 `taskkill /T /F` + bounded wait reap。未启动真实浏览器，production handlers 仍待后续卡。
 
 **2026-10-22 TASK-105 Done（Notepad T1.x evidence closeout）**：以 PR #167 / merge `eab1450` 的 3×10 真实 UIA 结果，加上 TASK-218 的完整 L1 恢复、L0→L1 fallback 与三类负向 incident 证据，关闭 TASK-105；本轮未重跑 GUI，未改产品代码。
@@ -354,6 +356,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-23 TASK-111 Done（ctutils RUSTSEC-2026-0385）**：main push CI 暴露 `ctutils 0.4.2` 常量时间漏洞；按批准范围执行 `cargo update -p ctutils --precise 0.4.4`，锁文件只改该包版本与 checksum，`cargo deny check` 恢复通过。
+
 **2026-10-23 TASK-110 Done（dedicated browser launcher and process cleanup）**：新增 `BrowserLauncher` / `LaunchedBrowser`，覆盖专用 profile id 单路径组件校验、默认 user-data 根拒绝、固定启动参数、`DevToolsActivePort` 两行格式与大小/端口/path 校验，以及 root + child 进程树终止与 reap。专项 7 tested / 1 helper ignored，handle-discipline 7/7；仍未启动真实 Edge 或注册 production handlers。
 
 **2026-10-22 TASK-105 Done（Notepad T1.x evidence closeout）**：主路径 3×10 与 30 次退出码 0 的证据已合并；TASK-218 补齐真实 L1 回滚、L0 fallback 与快照缺失 / 覆盖后改动 / 用户改动 fail-closed。本轮仅做离线证据审计与状态同步，下一步仍是人在场的 TASK-056 真实 Edge 验收。
