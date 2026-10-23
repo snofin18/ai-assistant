@@ -338,7 +338,7 @@ fn serve_navigation(stream: &mut TcpStream) -> TestResult {
                     "{\"method\":\"Network.loadingFinished\",\
                      \"params\":{\"requestId\":\"request-1\"}}",
                 )?;
-                let _ = read_frame(stream)?;
+                thread::sleep(Duration::from_millis(200));
                 return Ok(());
             }
             _ => {
@@ -368,7 +368,7 @@ fn serve_evaluation(stream: &mut TcpStream) -> TestResult {
              {{\"type\":\"string\",\"value\":\"{snapshot}\"}}}}}}"
         ),
     )?;
-    let _ = read_frame(stream)?;
+    thread::sleep(Duration::from_millis(200));
     Ok(())
 }
 
