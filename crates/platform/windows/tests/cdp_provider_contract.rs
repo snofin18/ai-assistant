@@ -338,6 +338,7 @@ fn serve_navigation(stream: &mut TcpStream) -> TestResult {
                     "{\"method\":\"Network.loadingFinished\",\
                      \"params\":{\"requestId\":\"request-1\"}}",
                 )?;
+                let _ = read_frame(stream)?;
                 return Ok(());
             }
             _ => {
@@ -366,7 +367,9 @@ fn serve_evaluation(stream: &mut TcpStream) -> TestResult {
             "{{\"id\":{id},\"result\":{{\"result\":\
              {{\"type\":\"string\",\"value\":\"{snapshot}\"}}}}}}"
         ),
-    )
+    )?;
+    let _ = read_frame(stream)?;
+    Ok(())
 }
 
 fn accept_until(listener: &TcpListener, timeout: Duration) -> io::Result<TcpStream> {

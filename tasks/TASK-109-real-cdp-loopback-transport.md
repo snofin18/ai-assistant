@@ -135,6 +135,7 @@ cargo deny check
 - `cargo test -p assistant-platform-windows --test cdp_provider_contract` → **6 passed / 0 failed**：
   正向 discovery + WebSocket + navigate + network-idle + DOM；非 loopback、歧义 target、
   坏 WebSocket accept、JSON-RPC error、未完成 network-idle 均显式失败。
+- 正向 transport fixture 单独连续运行 **10/10 passed**，排除 socket 关闭时序偶发失败。
 - `cargo test -p assistant-platform-windows --lib cdp::` → **4 passed / 0 failed**（JSON 2、
   RFC 6455 accept 1、target registry 硬上限 1）。
 - `cargo test -p assistant-platform-windows --test handle_discipline` → **7 passed / 0 failed**，
