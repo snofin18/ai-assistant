@@ -25,7 +25,7 @@
 > **TASK-271 Done（2026-10-11）**：`assistant-dlp` 新增 7 个公共契约测试，独立行覆盖率 83.59% → 98.89%；生产源码零改动；PR #320 / merge `8a5ad5f`。
 
 > **TASK-290 Done（2026-10-14）**：PL-010 闭环 —— `gov §9.2` 的 LEDGER 模板新增 `pending` 占位与追加式回填规则；原开放行不改，PARKING_LOT 追加闭环节点；docs-only，零产品代码改动；PR #388 / merge `4e9bce6`。
-> 周期 10~12 周　状态：**进行中（2026-10-23：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-321 / 322 / 323 / 324 / 325 完成运行日五轮治理收口；TASK-048 / TASK-049 / TASK-055 / TASK-327 / TASK-107 / TASK-108 Done；TASK-105 由已合并真实 UIA 3×10 与 TASK-218 回滚证据离线收口为 Done；Stage 1c 进行中，TASK-056 browser assertion 阻塞已解除；TASK-108 已把未接入真实 transport 的 CDP runtime 改为显式 `CapabilityMissing`，下一步需实现真实 browser runtime 后再执行 Edge 与外部 smoke）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> 周期 10~12 周　状态：**进行中（2026-10-23：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-321 / 322 / 323 / 324 / 325 完成运行日五轮治理收口；TASK-048 / TASK-049 / TASK-055 / TASK-327 / TASK-107 / TASK-108 / TASK-109 Done；TASK-105 由已合并真实 UIA 3×10 与 TASK-218 回滚证据离线收口为 Done；Stage 1c 进行中，TASK-056 browser assertion 阻塞已解除；TASK-109 已接入 loopback CDP discovery / WebSocket / navigate / DOM，下一步仍需专用 profile launcher、production handlers 与真实 Edge 验收）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
 > **TASK-326 Done（2026-10-21）**：审计 2026-10-20 五轮 automation 的自删顺序；5/5 已执行且已自删，发现 17:00 轮 PR #502、00:30 轮 PR #509 两次在 self-delete 后才落地，已追加运行日更正与 `docs/audits/automation-sequence-deviation-2026-10-20.md`；当前无残留 automation、锁、open PR。
 > **TASK-327 Done（2026-10-22）**：人工接管 2026-10-21 17:00 失联 automation 的离线 WIP；新增 8 个 CDP 公开契约测试，`cdp.rs` 行覆盖 0.00% → **100.00%**、crate **95.13%**；生产逻辑 / 公共 API / schema / 依赖零改动；清理由该槽遗留的陈旧 guard 锁与 automation 目录。
 > **TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）**：Paint 全工具集真机路径
@@ -259,6 +259,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 |---|---|---|---|---|---|
 | **048** | CDP provider：连接管理 + DOM 读写 + 点击 + 导航 + 截图 + 下载目录控制 + load/networkIdle 判定 | `crates/platform/windows/src/cdp/**`、`crates/platform/api/src/cdp*` | 016 | L | Spike G 指标复现；**依赖登记进 `docs/DEPENDENCIES.md`** |
 | **108 ✅** | CDP runtime synthetic-success fail-closed | `crates/platform/windows/src/cdp/**`、`crates/platform/windows/tests/cdp_provider_contract.rs`、`crates/platform/windows/README.md` | 048,327 | S | 真实 transport 未接入时所有 CDP trait 方法显式 `CapabilityMissing`；不得返回占位 about:blank / 空 DOM / 空成功 |
+| **109 ✅** | Real CDP loopback transport | `crates/platform/windows/src/cdp/**`、`crates/platform/windows/tests/cdp_provider_contract.rs`、`crates/platform/windows/README.md` | 048,108 | L | loopback HTTP discovery + RFC 6455；connect / navigate / DOM 真实驱动；零 serde；本地 fixture 6/6 |
 | **049** | 专用 profile 管理：自定义 `--user-data-dir` 生命周期 + 独立窗口标识 + **禁止复制用户 profile** 的硬约束 + 首次登录引导 | `crates/browser-profile/**` | 048 | M | 136+ 约束正确处理；代码审查确认无任何 Cookie/凭据复制路径 |
 | **050 ✅** | `dlp`：三档出域策略（`local_only`/`redacted`/`full`）+ 逐应用与逐内容类型覆盖 + 脱敏规则 + endpoint 白名单 + **降级不静默** | `crates/dlp/**` | 014,026 | L | 选 `local_only` 而无本地模型时**明确报错**而非改走云端；策略变更写审计 |
 | **051 ✅** | 污点追踪 + 权限衰减：`untrusted` 内容引入后标记生效，宽授权降级为 `once`，高风险 deny | `crates/policy/src/taint**`、`crates/core/src/session**` | 021,020 | M | v2 §12.4 四层中第 2/3 层生效；污点只能由 SessionManager 清除（**不变量写进 README**） |
@@ -411,6 +412,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-327 ✅** | 治理池 | `tasks/TASK-327-cdp-provider-api-contract-coverage.md` | Done（8 个离线 CDP 公开契约测试；`cdp.rs` 行覆盖 100.00%、crate 95.13%；生产逻辑零改动） |
 | **TASK-107 ✅** | 业务池 | `tasks/TASK-107-browser-task-package-assertion-mapping.md` | Done（Edge/Chrome navigate / dom.read / network-idle assertion mapping；TASK-056 T5.1 package 可渲染；专项 23/23） |
 | **TASK-108 ✅** | 业务池 | `tasks/TASK-108-cdp-runtime-fail-closed.md` | Done（CDP runtime 未接入真实 transport 时全部显式 `CapabilityMissing`；移除 synthetic success；专项 2/2） |
+| **TASK-109 ✅** | 业务池 | `tasks/TASK-109-real-cdp-loopback-transport.md` | Done（loopback CDP HTTP / RFC 6455；connect / navigate / DOM；零 serde；专项 6/6，JSON 2/2，handle-discipline 7/7） |
 | **TASK-258 ✅** | 治理池 | `tasks/TASK-258-undo-coverage-hardening.md` | Done（`crates/undo` 契约测试覆盖率 90.36%；PR #292 / merge `c01c546`） |
 | **TASK-259 ✅** | 治理池 | `tasks/TASK-259-verify-coverage-hardening.md` | Done（`crates/verify` 覆盖率 88.51%；PR #294 / merge `866c321`） |
 | **TASK-260 ✅** | 治理池 | `tasks/TASK-260-task-engine-coverage-hardening.md` | Done（`crates/task-engine` 契约覆盖率 90.40%；PR #296 / merge `57416d6`） |
