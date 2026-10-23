@@ -140,6 +140,18 @@ DRIFT-056-2
 - **解除记录（2026-10-22）**：TASK-107 在 `task_package_render.rs` 为 Edge/Chrome `navigate` / `dom.read` / `wait_network_idle` 添加 assertion 映射；T5.1 package 已由契约测试真实加载并渲染 6 steps，`MissingAssertion` 部分关闭。真实 Edge/GUI 执行仍是新的唯一阻塞。
 - 本轮文档复核有 **1** 条只读命令误用默认 bash，`Get-Content` 不存在导致失败且未写仓库，随后以 PowerShell 重跑。
 
+```text
+DRIFT-056-3
+触发器：#5（当前 write scope 不足）+ #8（contract 与运行时能力矛盾）
+现象：RuntimeCdpProvider 的 connect/navigate/evaluate_dom 仍返回固定 about:blank、空 DOM 与成功占位；production assembly 也未注册 browser.edge.cdp.* tool handlers。
+影响：T5.1 package 现在可以渲染，但真实执行只会得到 synthetic success/blank data，无法证明 Edge 页面提取或 CSV 输出；直接跑 10/10 会构成静默假成功。
+我的建议：另开真实 browser runtime 卡，至少包含 Edge 专用 profile 启动、真实 CDP HTTP/WebSocket transport、navigate/dom.read handlers、production ToolBus 接线和负向测试；之后才执行 TASK-056 的 10/10 与外部 3/3。
+已停止的工作：未启动 Edge、未修改 RuntimeCdpProvider、未注册任何 browser handler、未把 synthetic provider 结果写入 CSV 证据。
+需要人类裁决：是
+```
+
+- TASK-056 真实运行路径探测有 **1** 条只读依赖检索误用默认 bash，`rg` 不存在导致失败且未写仓库；随后改用 PowerShell。
+
 ### 6. 更合理做法
 
 不猜测站点或数据形状；先用明确的离线 fixture 固化字段与 CSV 契约，再进行真实站点验收。
@@ -153,6 +165,7 @@ Stage 1c 的 T5.1 仍未完成，并依赖人类提供目标站点、专用 prof
 - 目标与数据契约已由人工批准并落盘，但浏览器 task package 仍需单独批准的 assertion 映射卡。
 - 映射完成后执行：本地 fixture 10/10、真实 Edge、外部 smoke 3/3、专用 profile 与安全停止条件。
 - TASK-107 已完成映射；剩余工作只有真实 Edge/CDP 会话与结果取证。
+- `DRIFT-056-3` 表明剩余工作不是单纯人工点击，而是缺少真实 browser runtime 与 handler 实现；需先立新卡。
 
 ### 8. 新增长期记忆
 
@@ -168,3 +181,4 @@ Stage 1c 的 T5.1 仍未完成，并依赖人类提供目标站点、专用 prof
 - 本轮新增的是可运行离线 eval WIP，不是 T5.1 Done。
 - 最高风险点是 `DRIFT-056-2`：不要在缺少 browser assertion 映射时把声明式任务包误认为可执行产品路径。
 - 该运行时阻塞已由 TASK-107 解除；下一审阅点转为真实 Edge 执行和 CSV 输出证据。
+- assertion 映射只解除 package 加载；`RuntimeCdpProvider` stub 与缺失 handler 仍阻断了真实执行。
