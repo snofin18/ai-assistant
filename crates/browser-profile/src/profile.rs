@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 
 use crate::error::{BrowserProfileError, BrowserProfileResult};
 
+const MAX_PROFILE_ID_BYTES: usize = 64;
+
 /// Supported CDP browser family.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[non_exhaustive]
@@ -43,9 +45,9 @@ impl BrowserProfile {
     ///
     /// # Errors
     ///
-    /// Returns [`BrowserProfileError::InvalidProfileId`] when `profile_id` is empty or
-    /// contains NUL, and [`BrowserProfileError::InvalidUserDataDir`] when `user_data_dir`
-    /// is empty or contains NUL.
+    /// Returns [`BrowserProfileError::InvalidProfileId`] when `profile_id` is not one
+    /// bounded path component, and [`BrowserProfileError::InvalidUserDataDir`] when
+    /// `user_data_dir` is empty or contains NUL.
     pub fn new(
         profile_id: impl Into<String>,
         kind: BrowserKind,
@@ -118,7 +120,19 @@ impl BrowserProfile {
 }
 
 fn validate_profile_id(profile_id: &str) -> BrowserProfileResult<()> {
-    if profile_id.trim().is_empty() || profile_id.contains('\u{0}') {
+    let is_invalid_component = profile_id == "."
+        || profile_id == ".."
+        || profile_id.ends_with('.')
+        || profile_id.ends_with(' ');
+    let has_invalid_character = profile_id
+        .chars()
+        .any(|character| character == '\u{0}' || character.is_control());
+    if profile_id.trim().is_empty()
+        || profile_id.len() > MAX_PROFILE_ID_BYTES
+        || profile_id.contains(['/', '\\', ':'])
+        || is_invalid_component
+        || has_invalid_character
+    {
         return Err(BrowserProfileError::InvalidProfileId);
     }
     Ok(())
@@ -183,6 +197,34 @@ mod tests {
         assert!(matches!(
             BrowserProfile::new("a", BrowserKind::Edge, ""),
             Err(BrowserProfileError::InvalidUserDataDir)
+        ));
+    }
+
+    #[test]
+    fn test_profile_id_must_be_one_bounded_path_component() {
+        for profile_id in [
+            ".",
+            "..",
+            "../escape",
+            r"..\escape",
+            "C:escape",
+            "a:b",
+            "a/b",
+            "a\\b",
+        ] {
+            assert!(
+                matches!(
+                    BrowserProfile::new(profile_id, BrowserKind::Edge, "profiles/a"),
+                    Err(BrowserProfileError::InvalidProfileId)
+                ),
+                "profile id should be rejected: {profile_id}"
+            );
+        }
+
+        let oversized = "a".repeat(MAX_PROFILE_ID_BYTES + 1);
+        assert!(matches!(
+            BrowserProfile::new(oversized, BrowserKind::Edge, "profiles/a"),
+            Err(BrowserProfileError::InvalidProfileId)
         ));
     }
 }

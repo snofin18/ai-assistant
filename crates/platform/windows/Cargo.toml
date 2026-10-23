@@ -36,5 +36,9 @@ windows = { version = "=0.62.2", features = [
 path = "../api"
 version = "0.1.0"
 
+[target.'cfg(windows)'.dependencies.assistant-browser-profile]
+path = "../../browser-profile"
+version = "0.1.0"
+
 [lints]
 workspace = true

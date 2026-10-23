@@ -25,11 +25,16 @@
 5. **失败分类**（`src/error.rs`）：HRESULT / Win32 错误码 → `assistant_protocol::ErrorCode` 的**纯函数**映射。
 6. **非 Windows 后端**（`src/unsupported.rs`）：macOS / Linux 上仍能编译，每个方法都返回带
    `ErrorCode` 的 `CapabilityMissing`（语义 = 本通道在当前平台不可用）。
+7. **浏览器 launcher**（`src/browser_launcher.rs`，TASK-110）：校验专用 profile 根与
+   Edge/Chrome 可执行文件，以固定参数和动态 `--remote-debugging-port=0` 启动；有界读取并校验
+   `DevToolsActivePort`；显式 close 和 `Drop` 都走 `taskkill /T /F` + bounded wait reap。
 
 ## 边界（不做什么）
 
 - **不做**拖拽租约与坐标校准（多次采样 / 误差矩阵）→ **TASK-040**（本层只做**单次**归一化）。
 - **不做**视觉验证 / OCR / 感知哈希兜底 → **TASK-042**；平台层只负责单窗口截图与像素遮挡。
+- **不复制或读取用户浏览器 profile**：launcher 拒绝标准 Edge/Chrome `User Data` 根；
+  不处理 Cookie、凭据、登录库或真实登录状态。
 - **不做**持久 blob 装配：`capture` 生成遮挡后 BGRA 的内容地址，但 storage sink 尚未接入
   `WindowProvider`；持久化缺口登记为 `DRIFT-041-2`。
 - **不做**权限判定：合成输入**不**自己判能不能发 —— 放行点是策略引擎（TASK-021）+ HITL（TASK-027）。
@@ -140,8 +145,8 @@
 - **CDP runtime 已接入 loopback transport（TASK-109）**：`RuntimeCdpProvider` 通过真实的
   `/json/list` HTTP discovery 与 RFC 6455 WebSocket 实现 `connect`、`navigate`（含
   network-idle 窗口）和 `evaluate_dom`；host 只允许 `127.0.0.1` / `localhost` / `::1`，
-  响应体、target 数、DOM、帧与超时均有硬上限。浏览器 launcher、专用 profile 生命周期、
-  production handlers、click、截图、下载目录与 close 仍未接入；这些操作继续显式
+  响应体、target 数、DOM、帧与超时均有硬上限。TASK-110 另提供专用 profile launcher
+  与进程树回收；production handlers、click、截图、下载目录与 close 仍未接入；这些操作继续显式
   `CapabilityMissing`，不得把 transport 单测当作 TASK-056 真机证据。
 - **歧义策略收敛为唯一一种（已解决）**：按 **ADR-0044**，`OnAmbiguous` 只保留 `ErrorAndAsk`，
   多命中一律报 `TargetAmbiguous`（fail-closed，铁律 1）；`HighestScore` 已删除（它在候选链模型里

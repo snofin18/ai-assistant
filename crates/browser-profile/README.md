@@ -19,4 +19,5 @@
 
 1. A profile always pins its own `--user-data-dir`.
 2. A profile always refuses user-profile copying.
-3. Empty or NUL-containing identifiers are rejected before they become state.
+3. Profile ids must be one bounded path component; empty, control, separator,
+   drive-prefix, and dot-segment ids are rejected before they become state.
