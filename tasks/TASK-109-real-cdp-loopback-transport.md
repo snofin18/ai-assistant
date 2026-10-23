@@ -174,6 +174,10 @@ DRIFT-109-1
 需要人类裁决：否；按更高优先级机器门禁与铁律 8 自决。
 ```
 
+- 本轮有 **1** 条 `git commit` 成功命令误填默认 bash；提交内容未受影响，但违反
+  “exec_command 必须显式 `shell: "powershell"`”的本地执行约束。其余实现、测试与推送命令均
+  使用显式 PowerShell；后续统一按单条 PowerShell 调用执行。
+
 ### 6. 更合理做法
 
 - 在派单前先跑 `assistant-platform-windows` 的 `handle_discipline`，比只查依赖登记表更早
