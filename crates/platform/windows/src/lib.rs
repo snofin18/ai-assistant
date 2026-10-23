@@ -3,12 +3,16 @@
 //! 职责：把 `assistant-platform-api` 定义的两个 trait（`WindowProvider` 5 方法 +
 //! `UiAutomationProvider` 13 方法）落到**真实的 Win32 / UIA3 客户端 COM** 上，
 //! 使 `core` / Host 永远不需要 `use windows::…`（铁律 7）。
-//! 本 crate **只做** `src/window/**`（窗口域）与 `src/uia/**`（元素域）。
+//! 本 crate 负责 `src/window/**`（窗口域）、`src/uia/**`（元素域）、
+//! `src/cdp/**`（浏览器 CDP transport）与 `src/browser_launcher.rs`
+//! （专用 profile 进程生命周期）。
 //!
 //! ## 边界（不做什么）
 //! - **不做**合成输入（`SendInput` / `keybd_event` / `SendKeys`）与 IME → TASK-018
 //! - **不做**坐标归一化 / DPI / 多屏换算 → TASK-018（`src/coordinates/**`）
 //! - **不做**视觉验证 / OCR / 感知哈希兜底 → TASK-042；平台截图与像素遮挡见 ADR-0074
+//! - **不启动生产浏览器**：launcher 只负责专用 profile 与进程树回收，真实 Edge
+//!   验收由 TASK-056 的人类在场会话执行
 //! - **不做**策略判定（放行点是 `crates/policy`，TASK-021）、**不做**租约与淘汰（TASK-025）、
 //!   **不做**撤销（TASK-024）、**不做**后置断言引擎（TASK-023）
 //! - **不缓存**：本 crate 没有 TTL / 淘汰 / 复用逻辑；句柄表只在**线程内**存活
@@ -79,6 +83,8 @@ mod window;
 // `SendInput` / 显示器枚举在各自的 `#[cfg(windows)] mod win32` 子模块里。
 // 公开这两个模块是**有意的**：`send_unicode_text` / `is_ime_open` 是 TASK-018 的交付物，
 // 而本 crate 的零 `#[allow]` 策略不允许用 `#[allow(dead_code)]` 掩盖「暂时没人调用」。
+#[cfg(windows)]
+pub mod browser_launcher;
 pub mod cdp;
 pub mod coordinates;
 pub mod input;

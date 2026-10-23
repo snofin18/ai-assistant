@@ -162,6 +162,7 @@ dependencies = [
 name = "assistant-platform-windows"
 version = "0.1.0"
 dependencies = [
+ "assistant-browser-profile",
  "assistant-platform-api",
  "windows",
 ]
