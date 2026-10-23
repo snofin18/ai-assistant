@@ -26,3 +26,9 @@ accepted by `assistant_verify`.
 This resolves the runtime-contract portion of `DRIFT-056-2`. It does not claim a
 real browser run: TASK-056 remains Blocked until Edge uses the dedicated profile,
 the local fixture passes 10/10, and the approved external smoke passes 3/3.
+
+Package rendering is still not a production execution path. The current
+`RuntimeCdpProvider` returns synthetic `about:blank` / empty DOM results, and no
+production browser-tool handlers are wired into the agent assembly. This is
+recorded as `DRIFT-056-3`; real Edge cannot be claimed until those runtime
+pieces are implemented under a separate card.
