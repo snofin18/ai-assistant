@@ -6,10 +6,11 @@
 
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use assistant_platform_api::{ErrorCode, PlatformError, PlatformResult};
+#[cfg(windows)]
+use windows::Win32::Security::Cryptography::{BCRYPT_USE_SYSTEM_PREFERRED_RNG, BCryptGenRandom};
 
 use super::http::{connect_loopback, parse_websocket_url};
 use super::json::{self, JsonValue};
@@ -17,7 +18,6 @@ use super::json::{self, JsonValue};
 const MAX_HANDSHAKE_BYTES: usize = 16 * 1024;
 const MAX_MESSAGE_BYTES: usize = 4 * 1024 * 1024;
 const WEBSOCKET_GUID: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-static MASK_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 /// A connected loopback CDP WebSocket.
 #[derive(Debug)]
@@ -35,7 +35,7 @@ impl CdpWebSocket {
     ) -> PlatformResult<Self> {
         let endpoint = parse_websocket_url(websocket_url, expected_port)?;
         let mut stream = connect_loopback(&endpoint.host, expected_port, timeout)?;
-        let key = websocket_key();
+        let key = websocket_key()?;
         let request = format!(
             "GET {} HTTP/1.1\r\nHost: {}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\
              Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n",
@@ -227,7 +227,7 @@ impl CdpWebSocket {
                 frame.extend_from_slice(&length.to_be_bytes());
             }
         }
-        let mask = next_mask();
+        let mask = random_mask()?;
         frame.extend_from_slice(&mask);
         for (index, byte) in payload.iter().enumerate() {
             let mask_byte = mask
@@ -366,29 +366,48 @@ fn read_exact_or_deadline(
     Ok(Some(true))
 }
 
-fn websocket_key() -> String {
-    let seed = format!(
-        "{}:{}:{}",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0, |duration| duration.as_nanos()),
-        std::process::id(),
-        MASK_COUNTER.fetch_add(1, Ordering::Relaxed)
-    );
-    let digest = crate::digest::sha256_hex_bytes(seed.as_bytes());
-    let bytes = digest.as_bytes().get(..16).unwrap_or_default();
-    base64_encode(bytes)
+fn websocket_key() -> PlatformResult<String> {
+    let mut key = [0_u8; 16];
+    fill_random(&mut key)?;
+    Ok(base64_encode(&key))
 }
 
-fn next_mask() -> [u8; 4] {
-    let counter = MASK_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let seed = counter
-        .rotate_left(17)
-        .wrapping_add(u64::from(std::process::id()));
-    seed.to_le_bytes().get(..4).map_or([0_u8; 4], |bytes| {
-        let mut mask = [0_u8; 4];
-        mask.copy_from_slice(bytes);
-        mask
+fn random_mask() -> PlatformResult<[u8; 4]> {
+    let mut mask = [0_u8; 4];
+    fill_random(&mut mask)?;
+    Ok(mask)
+}
+
+#[cfg(windows)]
+fn fill_random(buffer: &mut [u8]) -> PlatformResult<()> {
+    // SAFETY: the mutable slice remains valid for the duration of the call and
+    // the system-preferred RNG flag requires no algorithm handle.
+    let status = unsafe { BCryptGenRandom(None, buffer, BCRYPT_USE_SYSTEM_PREFERRED_RNG) };
+    if status.0 >= 0 {
+        Ok(())
+    } else {
+        Err(PlatformError::new(
+            ErrorCode::Fatal,
+            format!("BCryptGenRandom failed with NTSTATUS {:#x}", status.0),
+        ))
+    }
+}
+
+#[cfg(not(windows))]
+fn fill_random(buffer: &mut [u8]) -> PlatformResult<()> {
+    use std::fs::File;
+
+    let mut source = File::open("/dev/urandom").map_err(|error| {
+        PlatformError::new(
+            ErrorCode::Fatal,
+            format!("failed to open the system random source: {error}"),
+        )
+    })?;
+    source.read_exact(buffer).map_err(|error| {
+        PlatformError::new(
+            ErrorCode::Fatal,
+            format!("failed to read the system random source: {error}"),
+        )
     })
 }
 

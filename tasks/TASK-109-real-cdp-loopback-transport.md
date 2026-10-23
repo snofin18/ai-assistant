@@ -116,6 +116,8 @@ cargo deny check
 - `crates/platform/windows/src/cdp/websocket.rs`（新增：RFC 6455 客户端）
 - `crates/platform/windows/src/cdp/runtime.rs`
 - `crates/platform/windows/src/cdp/mod.rs`
+- `crates/platform/windows/Cargo.toml`（已登记 `windows` 依赖新增
+  `Win32_Security_Cryptography` feature，供 `BCryptGenRandom` 使用）
 - `crates/platform/windows/tests/cdp_provider_contract.rs`
 - `crates/platform/windows/README.md`
 - `tasks/TASK-109-real-cdp-loopback-transport.md`
@@ -149,7 +151,8 @@ cargo deny check
 - [x] `connect`、`navigate`、`evaluate_dom` 成功路径，以及超时 / 非 loopback / 坏握手 /
       JSON-RPC error / 网络未 idle 负向路径均有显式断言。
 - [x] 未实现的 click / screenshot / download / close 继续显式 `CapabilityMissing`。
-- [x] 不新增第三方依赖；最终改为 crate 内零依赖有界 JSON 实现。
+- [x] 不新增第三方依赖；最终改为 crate 内零依赖有界 JSON 实现；Windows WebSocket
+      key / mask 使用已登记 `windows` 依赖的 `BCryptGenRandom` feature。
 - [x] 验收命令全绿。
 - [x] 9 节记录填写；LEDGER 追加；`PL-120` 记录部分闭环；FACT / PITFALL 同步。
 - [x] 未修改公共 trait、schema、ErrorCode、adapter pack、workflow 或真实浏览器路径。
