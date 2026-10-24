@@ -4,6 +4,9 @@
 //! dependencies. `--production` assembles the adapter tools, task-package Plan
 //! source, `RuntimeExecutor`, and UI event source for the 1a dry run.
 
+#[cfg(windows)]
+mod browser_runtime;
+
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -184,11 +187,29 @@ async fn main() -> ExitCode {
             }
         };
     }
+    #[cfg(windows)]
+    if arguments
+        .first()
+        .is_some_and(|argument| argument == "--browser-runtime-check")
+    {
+        return browser_runtime::run_cli(&arguments).await;
+    }
+    #[cfg(not(windows))]
+    if arguments
+        .first()
+        .is_some_and(|argument| argument == "--browser-runtime-check")
+    {
+        let _ = report_error("browser runtime is supported only on Windows");
+        return ExitCode::from(2);
+    }
     let _ = report_error(
         "usage: assistant-agent-core [--self-check | --production \
          [--task-package <path>] --ui-peer <path> [--task-inputs <path>] [--adapter-root <path>] \
          [--adapter-kind notepad|paint] [--document-mode existing|new] [--data-root <path>] [--ui-pipe <name>] \
-         [--ui-token-env <name>] [--serve-ui]]",
+         [--ui-token-env <name>] [--serve-ui] | --browser-runtime-check \
+         --browser edge|chrome --browser-executable <path> --browser-profile-root <absolute-path> \
+         [--browser-profile-id <id>] [--browser-adapter-root <path>] \
+         [--browser-session-timeout-ms <100..300000>]]",
     );
     ExitCode::from(2)
 }

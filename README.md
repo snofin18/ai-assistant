@@ -6,7 +6,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
-> 状态：**阶段 1**；**TASK-113 Done（2026-10-23）**（`tokio 1.53.3` 安全修复，RUSTSEC-2026-0386 已消除）；**TASK-112 Done（2026-10-23）**（browser CDP production handlers / ToolBus registry）；**TASK-111 Done（2026-10-23）**（`ctutils 0.4.4` 安全修复）；**TASK-110 Done（2026-10-23）**（专用浏览器 launcher / 进程树回收）；Stage 1a Done、Stage 1b Paint 30/30；Stage 1c 进行中，下一步是 CLI 浏览器生产装配，之后才能执行 TASK-056 真实 Edge 验收。
+> 状态：**阶段 1**；**TASK-114 Done（2026-10-24）**（CLI browser runtime：专用 launcher + 真实 CDP provider + Edge/Chrome registry 生命周期）；**TASK-113 Done（2026-10-23）**（`tokio 1.53.3` 安全修复）；**TASK-112 Done（2026-10-23）**（browser CDP production handlers / ToolBus registry）；Stage 1a Done、Stage 1b Paint 30/30；Stage 1c 进行中，下一步是人在场的 TASK-056 真实 Edge 验收。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -91,6 +91,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-24 TASK-114 Done（CLI browser runtime assembly）**：新增 `--browser-runtime-check` 私有 CLI 模式，使用调用方提供的专用 profile 根启动 Edge/Chrome，连接 launcher 发布的 loopback 动态端口，装配 `navigate` / `dom_read` / `wait_network_idle` 三工具 registry，并在成功或失败路径绑定浏览器进程树回收。测试不启动真实浏览器；click / screenshot / download / close 与 form fill 仍未实现。
+
 **2026-10-23 TASK-113 Done（tokio RUSTSEC-2026-0386）**：经人类批准只更新 `Cargo.lock`，将 `tokio 1.53.1` 升级到 `1.53.3`；Linux `AsyncFd` unsound advisory 消除，其余 tokio 相关依赖版本未变。
 
 **2026-10-23 TASK-112 Done（browser CDP production handlers）**：实现 `edge|chrome.cdp.navigate`、`dom_read`、`wait_network_idle` 和 Edge/Chrome registry builder；三个 handler 经真实 `ToolBus` 路径由 scripted CDP runtime 验证，DOM 输出标记 `app_content` 不可信并按 1000 nodes 截断。未启动真实浏览器。
@@ -360,6 +362,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-24 TASK-114 Done（CLI browser runtime assembly）**：`assistant-agent-core` 新增二进制私有 browser runtime，串联 `BrowserLauncher`、真实 `RuntimeCdpProvider::connect` 与 Edge/Chrome 三工具 registry；参数、profile、timeout 与 registry 形状均 fail-closed，成功路径显式 `close`，错误路径依赖 `LaunchedBrowser` 的既有 bounded process-tree cleanup。专项 5/5、browser registry 5/5、workspace 0 failed；未新增第三方依赖。
+
 **2026-10-23 TASK-113 Done（tokio RUSTSEC-2026-0386）**：main CI 暴露 `tokio 1.53.1` 的 I/O safety unsound advisory；按批准范围执行 `cargo update -p tokio --precise 1.53.3`，锁文件仅改 tokio 版本与 checksum。
 
 **2026-10-23 TASK-112 Done（browser CDP production handlers）**：经 `DRIFT-112-1` 裁决把四段 browser 工具名统一迁移为 `edge.cdp.*` / `chrome.cdp.*` 与 `edge|chrome.shell.*_read`；新增三个 production handlers 和 registry builder，fake runtime 5/5、完整 ToolBus 调用、task-package 23/23、两个 adapter pack 校验全部通过。
