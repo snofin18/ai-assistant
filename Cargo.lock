@@ -47,6 +47,7 @@ name = "assistant-agent-core"
 version = "0.1.0"
 dependencies = [
  "assistant-audit",
+ "assistant-browser-profile",
  "assistant-core",
  "assistant-hitl",
  "assistant-ipc",

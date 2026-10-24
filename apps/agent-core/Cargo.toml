@@ -48,6 +48,12 @@ version = "0.1.0"
 path = "../../crates/platform/api"
 version = "0.1.0"
 
+[dependencies.assistant-browser-profile]
+# TASK-114: the CLI browser runtime selects the dedicated-profile browser kind
+# directly. This is an existing workspace crate, not a new third-party package.
+path = "../../crates/browser-profile"
+version = "0.1.0"
+
 [dependencies.assistant-protocol]
 path = "../../crates/protocol"
 version = "0.1.0"
