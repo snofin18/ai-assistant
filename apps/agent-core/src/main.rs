@@ -4,6 +4,7 @@
 //! dependencies. `--production` assembles the adapter tools, task-package Plan
 //! source, `RuntimeExecutor`, and UI event source for the 1a dry run.
 
+#[cfg(windows)]
 mod browser_runtime;
 
 use std::io::{self, Write};
@@ -186,11 +187,20 @@ async fn main() -> ExitCode {
             }
         };
     }
+    #[cfg(windows)]
     if arguments
         .first()
         .is_some_and(|argument| argument == "--browser-runtime-check")
     {
         return browser_runtime::run_cli(&arguments).await;
+    }
+    #[cfg(not(windows))]
+    if arguments
+        .first()
+        .is_some_and(|argument| argument == "--browser-runtime-check")
+    {
+        let _ = report_error("browser runtime is supported only on Windows");
+        return ExitCode::from(2);
     }
     let _ = report_error(
         "usage: assistant-agent-core [--self-check | --production \

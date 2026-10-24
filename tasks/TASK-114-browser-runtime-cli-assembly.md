@@ -135,7 +135,8 @@ cargo deny check
 
 ### 5. 偏差
 
-- 本轮 `shell_misuse=27`：均为只读命令或一次锁创建命令误填 `shell: "bash"`；bash 缺少 `cargo` / `rg` / PowerShell cmdlet，或在解析阶段失败，均未执行目标写入、未伪造输出。所有实际验收与写入均使用显式 PowerShell 重跑。
+- 本轮 `shell_misuse=28`：均为只读命令或一次锁创建命令误填 `shell: "bash"`；bash 缺少 `cargo` / `rg` / PowerShell cmdlet，或在解析阶段失败，均未执行目标写入、未伪造输出。所有实际验收与写入均使用显式 PowerShell 重跑。
+- 首轮 PR CI 的 Ubuntu/macOS clippy 在 `browser_launcher` 不存在处失败：该类型仅在 `cfg(windows)` 下编译。已把私有 `browser_runtime` 模块同样设为 Windows-only，并让非 Windows 的同名 CLI flag 显式返回不支持；Windows 专项 5/5、host clippy 与 workspace tests 重跑全绿。
 - 无契约冲突、超 write scope、公共 trait/schema/ErrorCode、真实 GUI、外网、登录或凭据操作。
 - `assistant-agent-core` 仅新增对工作区内既有 `assistant-browser-profile` 的直接依赖；无第三方依赖变化。
 
