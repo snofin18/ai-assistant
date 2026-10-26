@@ -24,6 +24,7 @@ struct FakeRuntime {
 
 #[derive(Default)]
 struct FakeState {
+    current_page: usize,
     navigate_calls: Vec<(String, CdpLoadCondition)>,
     dom_calls: Vec<String>,
     idle_calls: Vec<u64>,
@@ -38,13 +39,18 @@ impl BrowserCdpRuntime for FakeRuntime {
         url: &str,
         condition: &CdpLoadCondition,
     ) -> PlatformResult<()> {
-        self.state
-            .lock()
-            .map_err(|_| {
-                PlatformError::new(ErrorCode::Fatal, "fake browser runtime mutex poisoned")
-            })?
+        let mut state = self.state.lock().map_err(|_| {
+            PlatformError::new(ErrorCode::Fatal, "fake browser runtime mutex poisoned")
+        })?;
+        state
             .navigate_calls
             .push((url.to_owned(), condition.clone()));
+        state.current_page = url
+            .rsplit_once("page-")
+            .and_then(|(_, suffix)| suffix.strip_suffix(".html"))
+            .and_then(|page| page.parse::<usize>().ok())
+            .unwrap_or(0);
+        drop(state);
         Ok(())
     }
 
@@ -53,22 +59,43 @@ impl BrowserCdpRuntime for FakeRuntime {
         _target: &ResolvedCdpTarget,
         expression: &str,
     ) -> PlatformResult<CdpDomSnapshot> {
-        let (dom, error) = {
+        let (dom, error, current_page) = {
             let mut state = self.state.lock().map_err(|_| {
                 PlatformError::new(ErrorCode::Fatal, "fake browser runtime mutex poisoned")
             })?;
             state.dom_calls.push(expression.to_owned());
-            (state.dom_response.clone(), state.dom_error)
+            (
+                state.dom_response.clone(),
+                state.dom_error,
+                state.current_page,
+            )
         };
         if let Some(code) = error {
             return Err(PlatformError::new(code, "scripted DOM failure"));
         }
         let dom = dom.unwrap_or_else(|| {
-            json!({"dom": "<main class=\"product-list\"></main>", "node_count": 1}).to_string()
+            if expression.contains("querySelector") {
+                json!({
+                    "dom": format!("<main class=\"product-list\"><article data-page=\"{current_page}\"></article></main>"),
+                    "node_count": 1,
+                })
+                .to_string()
+            } else {
+                String::new()
+            }
         });
+        let url = if current_page == 0 {
+            "about:blank".to_owned()
+        } else {
+            format!("http://127.0.0.1:8765/page-{current_page}.html")
+        };
         Ok(CdpDomSnapshot::new(
-            "http://127.0.0.1:8765/page-1.html",
-            "fixture",
+            &url,
+            if current_page == 0 {
+                "about:blank"
+            } else {
+                "fixture"
+            },
             None,
             dom,
         ))
@@ -185,6 +212,21 @@ async fn call_edge_tools(bus: &ToolBus) -> Result<(), ToolBusError> {
         )
         .await?;
     assert!(navigate.ok);
+    let navigate_data = navigate.data.as_ref().map(|data| &data.0);
+    assert_eq!(
+        navigate_data
+            .and_then(|data| data.get("fingerprint_scope"))
+            .and_then(Value::as_str),
+        Some("cdp_target")
+    );
+    assert_ne!(
+        navigate_data
+            .and_then(|data| data.get("fingerprint"))
+            .and_then(Value::as_str),
+        navigate_data
+            .and_then(|data| data.get("previous_fingerprint"))
+            .and_then(Value::as_str)
+    );
     let dom = bus
         .call_tool(
             "edge.cdp.dom_read",
@@ -193,6 +235,15 @@ async fn call_edge_tools(bus: &ToolBus) -> Result<(), ToolBusError> {
         )
         .await?;
     assert!(dom.ok);
+    let dom_data = dom.data.as_ref().map(|data| &data.0);
+    assert_eq!(
+        dom_data
+            .and_then(|data| data.get("fingerprint"))
+            .and_then(Value::as_str),
+        dom_data
+            .and_then(|data| data.get("previous_fingerprint"))
+            .and_then(Value::as_str)
+    );
     let idle = bus
         .call_tool(
             "edge.cdp.wait_network_idle",

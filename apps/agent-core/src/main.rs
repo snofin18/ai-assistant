@@ -6,6 +6,8 @@
 
 #[cfg(windows)]
 mod browser_runtime;
+#[cfg(windows)]
+mod browser_task_runtime;
 
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -187,20 +189,8 @@ async fn main() -> ExitCode {
             }
         };
     }
-    #[cfg(windows)]
-    if arguments
-        .first()
-        .is_some_and(|argument| argument == "--browser-runtime-check")
-    {
-        return browser_runtime::run_cli(&arguments).await;
-    }
-    #[cfg(not(windows))]
-    if arguments
-        .first()
-        .is_some_and(|argument| argument == "--browser-runtime-check")
-    {
-        let _ = report_error("browser runtime is supported only on Windows");
-        return ExitCode::from(2);
+    if let Some(code) = run_browser_cli(&arguments).await {
+        return code;
     }
     let _ = report_error(
         "usage: assistant-agent-core [--self-check | --production \
@@ -209,9 +199,38 @@ async fn main() -> ExitCode {
          [--ui-token-env <name>] [--serve-ui] | --browser-runtime-check \
          --browser edge|chrome --browser-executable <path> --browser-profile-root <absolute-path> \
          [--browser-profile-id <id>] [--browser-adapter-root <path>] \
+         [--browser-session-timeout-ms <100..300000>] | --browser-task-run \
+         --task-package <path> [--task-inputs <path>] --output <absolute-new-path> \
+         --browser edge|chrome --browser-executable <path> --browser-profile-root <absolute-path> \
+         [--browser-profile-id <id>] [--browser-adapter-root <path>] \
          [--browser-session-timeout-ms <100..300000>]]",
     );
     ExitCode::from(2)
+}
+
+#[cfg(windows)]
+async fn run_browser_cli(arguments: &[String]) -> Option<ExitCode> {
+    match arguments.first().map(String::as_str) {
+        Some("--browser-task-run") => Some(browser_task_runtime::run_cli(arguments).await),
+        Some("--browser-runtime-check") => Some(browser_runtime::run_cli(arguments).await),
+        _ => None,
+    }
+}
+
+#[cfg(not(windows))]
+async fn run_browser_cli(arguments: &[String]) -> Option<ExitCode> {
+    std::future::ready(()).await;
+    match arguments.first().map(String::as_str) {
+        Some("--browser-task-run") => {
+            let _ = report_error("browser task runner is supported only on Windows");
+            Some(ExitCode::from(2))
+        }
+        Some("--browser-runtime-check") => {
+            let _ = report_error("browser runtime is supported only on Windows");
+            Some(ExitCode::from(2))
+        }
+        _ => None,
+    }
 }
 
 struct ProductionOptions {

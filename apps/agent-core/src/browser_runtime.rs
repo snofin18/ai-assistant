@@ -58,6 +58,13 @@ impl BrowserSelection {
         }
     }
 
+    pub(crate) const fn app_id(self) -> &'static str {
+        match self {
+            Self::Edge => "com.microsoft.edge",
+            Self::Chrome => "com.google.chrome",
+        }
+    }
+
     const fn browser_kind(self) -> BrowserKind {
         match self {
             Self::Edge => BrowserKind::Edge,
@@ -276,6 +283,23 @@ impl BrowserRuntime {
             tool_schemas,
             browser: options.browser,
         })
+    }
+
+    /// Consumes the self-check wrapper while retaining the browser lifecycle.
+    pub(crate) fn into_parts(
+        self,
+    ) -> (
+        LaunchedBrowser,
+        ToolRegistry,
+        Vec<ToolSchema>,
+        BrowserSelection,
+    ) {
+        (
+            self.browser_process,
+            self.registry,
+            self.tool_schemas,
+            self.browser,
+        )
     }
 
     /// Closes the browser process tree and returns the deterministic CLI report.
