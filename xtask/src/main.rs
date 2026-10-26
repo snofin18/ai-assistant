@@ -68,6 +68,7 @@
 mod adr_index;
 mod adr_registry;
 mod arch;
+mod automation_rounds;
 mod card_check;
 mod cli;
 mod codegen;
@@ -278,6 +279,9 @@ fn execute(arguments: &[String], output: &mut dyn Write) -> Result<u8, Failure> 
     }
     if command == "check-ledger" {
         return run_check_ledger(&invocation, output);
+    }
+    if command == "automation-rounds" {
+        return run_automation_rounds(&invocation, output);
     }
     if command == "check-migrations" {
         return run_check_migrations(&invocation, output);
@@ -575,6 +579,16 @@ fn run_check_ledger(invocation: &Invocation, output: &mut dyn Write) -> Result<u
     let root = resolve_repo_root(invocation.repo.as_deref())
         .map_err(|error| Failure::from_walk(&error))?;
     ledger_check::run(&root, output).map_err(Failure::Io)
+}
+
+/// 执行 `automation-rounds --run-date YYYY-MM-DD`。
+fn run_automation_rounds(invocation: &Invocation, output: &mut dyn Write) -> Result<u8, Failure> {
+    let run_date = invocation.options.get("run-date").ok_or_else(|| {
+        Failure::Usage("automation-rounds 缺少 `--run-date YYYY-MM-DD`".to_owned())
+    })?;
+    let root = resolve_repo_root(invocation.repo.as_deref())
+        .map_err(|error| Failure::from_walk(&error))?;
+    automation_rounds::run(&root, run_date, output).map_err(Failure::Io)
 }
 
 /// 执行迁移登记表一致性检查（PL-047 的三条判据；SSOT = `docs/storage-design.md` §3.4）。

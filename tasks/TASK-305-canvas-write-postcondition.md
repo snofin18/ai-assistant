@@ -1,6 +1,6 @@
 # TASK-305　画布像素写入的后置条件：不该要求 UIA 指纹变化（DRIFT-305-1）
 
-- 状态：**Blocked**（等待人类裁决断言口径）
+- 状态：**Done**（由 TASK-306 / TASK-307 / TASK-309 的根因修复与真机证据 supersede）
 - 阶段：1　子阶段：**1b**　批次：治理池　依赖：TASK-303、TASK-304
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -182,3 +182,14 @@ cargo test -p assistant-agent-core --test production_paint -- --ignored --nocapt
 **修正后的结论**：`state_changed` 不是“抖动”，至少在保留未保存画布的那次复跑中它检测到了真实问题。
 后续若要处理自绘表面的写入证明，应先修 TASK-306 的弹层 fail-closed，再评估是否需要
 “最小像素变化”这类**下界**断言；不得用删掉唯一变化信号的方式收口。
+
+---
+
+**2026-10-26 · 最终收口（TASK-328）**
+
+- 本卡不再执行 A/B/C 中的任何断言修改；A 已被 TASK-306 的真机只读探针明确撤回。
+- 真正根因由 TASK-306 的模态弹层 fail-closed 修复；TASK-307 / TASK-309 随后已用现行
+  `state_changed` 加视觉证据完成 Paint 真机路径，未删除唯一的变化信号。
+- 因此本卡的治理目标“消除最后一次画布写入失败”已由后续卡闭环，最终状态为 **Done
+  （superseded）**。正文中的 A/B/C 复选框保留为历史，不再代表待办。
+- 若将来要增加“最小像素变化”下界，应另立契约卡并更新 ADR/spec，不在本卡恢复工作。

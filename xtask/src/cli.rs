@@ -49,6 +49,8 @@ pub const USAGE: &str = r#"xtask — 仓库护栏与开发任务工具（只读�
                      `--suite core` 跑 v2 树快照序列 + 树级 diff）
   check-ledger       台账与状态同步的新鲜度检查（ADR-0039 D3：PLAN.md 更新日期 ≥
                      LEDGER.md 末行日期 + README.md 有 `> 状态：` 行且含当前阶段名）
+  automation-rounds  从轮次文件计算最近 human reset、N_auto 与指定运行日下一轮次
+                     （ADR-0089；缺机制字段按 automation fail-closed）
   check-migrations   迁移登记表一致性（PL-047：号段全局唯一 + 与
                      docs/storage-design.md §3.4 逐行一致 + 含迁移的 crate 公开 MIGRATIONS）
   check-comments     命名与注释规范检查（naming §10 的 8 条规则；输出含 rule-coverage 行）
@@ -62,6 +64,7 @@ guard / write 的选项（其它子命令不接受）：
   --timeout <秒>     等待超时，guard 默认 30、write 默认 5；超时即**放弃并通报**（退出码 5）
   --stale-after <秒> 陈旧阈值，默认 900；到期即可接管（接管会打印被接管者的完整锁记录）
   --suite <名称>     replay 的 fixture suite（当前仅 core；与 fixture 路径二选一）
+  --run-date <日期>  automation-rounds 的运行日，格式 YYYY-MM-DD
   --force            人工强制接管 / 强制释放
 
 通用选项：
@@ -81,13 +84,14 @@ guard / write 的选项（其它子命令不接受）：
 const COMMANDS_ACCEPTING_OPERANDS: [&str; 3] = ["guard", "replay", "write"];
 
 /// 需要跟一个值的选项（不含前导 `--` 的名字会作为 `Invocation::options` 的键）。
-const VALUE_OPTIONS: [&str; 6] = [
+const VALUE_OPTIONS: [&str; 7] = [
     "--owner",
     "--task",
     "--intent",
     "--timeout",
     "--stale-after",
     "--suite",
+    "--run-date",
 ];
 
 /// 布尔开关（不含前导 `--` 的名字会进 `Invocation::flags`）。
@@ -344,6 +348,7 @@ mod tests {
             "replay",
             "check-comments",
             "check-ledger",
+            "automation-rounds",
         ] {
             assert!(USAGE.contains(command), "用法说明遗漏子命令 {command}");
         }
@@ -363,6 +368,17 @@ mod tests {
             Some("core")
         );
         assert!(invocation.operands.is_empty());
+    }
+
+    #[test]
+    fn test_parse_args_automation_rounds_run_date() {
+        let invocation = parse_args(&args(&["automation-rounds", "--run-date", "2026-10-26"]))
+            .expect("automation-rounds run-date 应解析成功");
+        assert_eq!(invocation.command.as_deref(), Some("automation-rounds"));
+        assert_eq!(
+            invocation.options.get("run-date").map(String::as_str),
+            Some("2026-10-26")
+        );
     }
 
     // --- 新增（ADR-0028 / ADR-0030）：guard 操作数与选项、新子命令、退出码 5 ---
