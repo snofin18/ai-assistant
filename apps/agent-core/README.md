@@ -19,6 +19,9 @@ TASK-029 的 binary-layer Host 装配库。
 - 提供 UI 命令/事件适配层（`ui_ipc` + `ui_control`）：版本化命令信封、未知字段/
   未知 kind 的 fail-closed 解析、以及把 approve/deny/pause/cancel/takeover 应用到
   真实 task-engine 的处理器。
+- 提供私有 `--browser-task-run`：用专用 profile launcher、真实 CDP provider 与三个
+  browser tools 执行 task-package，把全部已提交步骤输出写到新的、读回校验的 JSON；
+  该模式不写 CSV，也不替代真实 Edge 验收。
 
 ## 边界
 
@@ -44,6 +47,8 @@ TASK-029 的 binary-layer Host 装配库。
    `UserInteraction`）。
 9. UI 事件只从 task snapshot 投影；committed 步骤携带真实 post fingerprint，
    未知状态不映射为成功。
+10. browser task-package runner 只在所有步骤 `Committed` 后创建输出文件；任一工具、
+    policy 或 verify 失败都不得留下成功文件。
 
 ## 已知限制
 
@@ -57,6 +62,8 @@ TASK-029 的 binary-layer Host 装配库。
 - Host 以 `WindowProvider + UiAutomationProvider` 约束的泛型平台注入具体实现；
   `WindowsPlatform` 当前未实现 `PlatformService` trait，因此不把未实现的 trait
   当作已满足的能力。装配入口在非 Windows 目标上显式失败，避免 self-check 假阳性。
+- TASK-329 的 browser runner 只导出步骤输出 JSON；CSV 规范化和真实 Edge 10/10 /
+  外部 smoke 仍由 TASK-056 的后续实现与人类在场会话负责。
 
 ## 相关文档
 

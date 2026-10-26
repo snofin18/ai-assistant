@@ -3,6 +3,7 @@
 //! Responsibilities:
 //! - translate validated tool arguments into calls on the existing CDP runtime;
 //! - keep DOM reads bounded and mark returned page content as untrusted;
+//! - publish target-scoped before/after fingerprints for runtime verification;
 //! - map platform failures through the shared handler error boundary.
 //!
 //! Boundaries:
@@ -13,12 +14,14 @@
 //! Invariants:
 //! 1. a provider future that is unexpectedly pending fails closed;
 //! 2. DOM content is always returned through `app_content` trust metadata;
-//! 3. unimplemented browser tools are never registered by the companion registry.
+//! 3. browser fingerprints always use the `cdp_target` scope;
+//! 4. unimplemented browser tools are never registered by the companion registry.
 
 use std::collections::BTreeMap;
 use std::future::Future;
 use std::sync::Arc;
 use std::task::{Context, Poll, Waker};
+use std::time::Instant;
 
 use assistant_platform_api::{
     CdpDomSnapshot, CdpLoadCondition, CdpProvider, ErrorCode, PlatformError, PlatformResult,
@@ -26,6 +29,7 @@ use assistant_platform_api::{
 };
 use assistant_platform_windows::cdp::runtime::RuntimeCdpProvider;
 use assistant_protocol::serde_json;
+use assistant_storage::BlobId;
 use assistant_tool_bus::{CallContext, SourceDescriptor, ToolBusError, ToolHandler, ToolOutput};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
@@ -51,6 +55,9 @@ const MAX_SELECTOR_BYTES: usize = 4 * 1024;
 const MAX_URL_BYTES: usize = 8 * 1024;
 const MAX_DOM_NODES: u64 = 1_000;
 const MAX_QUIET_MS: u64 = 10_000;
+const CDP_TARGET_FINGERPRINT_SCOPE: &str = "cdp_target";
+const CDP_IDENTITY_EXPRESSION: &str =
+    "JSON.stringify({ url: location.href, title: document.title })";
 
 /// Synchronous boundary used by handlers and tests around the asynchronous CDP trait.
 pub trait BrowserCdpRuntime: Send + Sync {
@@ -219,13 +226,30 @@ where
                 ));
             }
         };
+        let started = Instant::now();
+        let before = self
+            .context
+            .runtime
+            .evaluate_dom(&self.context.target, CDP_IDENTITY_EXPRESSION)
+            .map_err(|error| support::map_platform_error(&self.tool_name, &error))?;
         self.context
             .runtime
             .navigate(&self.context.target, url, &condition)
             .map_err(|error| support::map_platform_error(&self.tool_name, &error))?;
+        let after = self
+            .context
+            .runtime
+            .evaluate_dom(&self.context.target, CDP_IDENTITY_EXPRESSION)
+            .map_err(|error| support::map_platform_error(&self.tool_name, &error))?;
+        let before_fingerprint = identity_fingerprint(&before)?;
+        let after_fingerprint = identity_fingerprint(&after)?;
         Ok(ToolOutput::json(json!({
             "ready": true,
             "load_condition": requested_condition,
+            "fingerprint_scope": CDP_TARGET_FINGERPRINT_SCOPE,
+            "fingerprint": after_fingerprint,
+            "previous_fingerprint": before_fingerprint,
+            "elapsed_ms": elapsed_millis(started.elapsed()),
         })))
     }
 }
@@ -282,11 +306,16 @@ where
                 ),
             });
         }
+        let fingerprint = dom_fingerprint(&snapshot)?;
         Ok(ToolOutput::untrusted(
             SourceDescriptor::app_content(self.context.app_id.clone()).with_target("browser_page"),
             json!({
                 "dom": payload.dom,
                 "node_count": payload.node_count,
+                "fingerprint_scope": CDP_TARGET_FINGERPRINT_SCOPE,
+                "fingerprint": fingerprint,
+                "previous_fingerprint": fingerprint,
+                "elapsed_ms": 0,
             }),
         ))
     }
@@ -362,6 +391,35 @@ fn validate_http_url(url: &str, tool: &str) -> Result<(), ToolBusError> {
         ));
     }
     Ok(())
+}
+
+fn identity_fingerprint(snapshot: &CdpDomSnapshot) -> Result<String, ToolBusError> {
+    fingerprint_value(&json!({
+        "url": snapshot.target_url(),
+        "title": snapshot.target_title(),
+        "marker": snapshot.target_marker(),
+    }))
+}
+
+fn dom_fingerprint(snapshot: &CdpDomSnapshot) -> Result<String, ToolBusError> {
+    fingerprint_value(&json!({
+        "url": snapshot.target_url(),
+        "title": snapshot.target_title(),
+        "marker": snapshot.target_marker(),
+        "dom": snapshot.dom(),
+    }))
+}
+
+fn fingerprint_value(value: &Value) -> Result<String, ToolBusError> {
+    let encoded = serde_json::to_vec(value).map_err(|error| ToolBusError::Mcp {
+        code: -32_000,
+        message: format!("browser fingerprint serialization failed: {error}"),
+    })?;
+    Ok(format!("sha256:{}", BlobId::of_content(&encoded).as_str()))
+}
+
+fn elapsed_millis(elapsed: std::time::Duration) -> u64 {
+    u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX)
 }
 
 fn required_string<'a>(

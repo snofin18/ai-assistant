@@ -556,8 +556,14 @@ impl ObservationCollector for EnvelopeObservationCollector {
         };
         let elapsed_since_previous_ms =
             data.0.get("elapsed_ms").and_then(serde_json::Value::as_u64);
+        let fingerprint_scope = data
+            .0
+            .get("fingerprint_scope")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or(step.tool.as_str())
+            .to_owned();
         let mut observation =
-            Observation::new(step.tool.clone(), envelope.tool.clone(), fingerprint);
+            Observation::new(fingerprint_scope, envelope.tool.clone(), fingerprint);
         observation.text = text;
         observation.previous_fingerprint = previous_fingerprint;
         observation.elapsed_since_previous_ms = elapsed_since_previous_ms;

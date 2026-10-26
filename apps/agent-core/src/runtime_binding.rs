@@ -267,6 +267,12 @@ fn extract_output(tool: &str, output: &str, data: &Map<String, Value>) -> Option
         return Some(value.clone());
     }
     match (tool, output) {
+        ("edge.cdp.navigate" | "chrome.cdp.navigate", output) if output.ends_with("_ready") => {
+            data.get("ready").cloned()
+        }
+        ("edge.cdp.dom_read" | "chrome.cdp.dom_read", output) if output.ends_with("_dom") => {
+            data.get("dom").cloned()
+        }
         ("notepad.file.read_text", "canonical_text_before" | "canonical_text_read_back") => {
             data.get("text").cloned()
         }
