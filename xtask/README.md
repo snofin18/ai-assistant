@@ -7,6 +7,9 @@
 - `hygiene`：仓库卫生检查（gov §5.4 的 **13/13** 项已实现，口径见 ADR-0025；工具仍会在输出里主动声明覆盖范围）
 - `memory-counts`：`MEMORY.md`「各文件当前规模」表 ↔ `docs/memory/` 实测计数是否一致（ADR-0030 D1/D2，**8** 条规则）
 - `adr-index`：`docs/adr/README.md` 编号登记表 ↔ `docs/adr/NNNN-*.md` ↔ `docs/memory/decisions.md` 是否一致（ADR-0030 D3，**11** 条规则）
+- `automation-rounds --run-date YYYY-MM-DD`：从 `docs/automations/*-round-*.md` 的
+  `机制` 字段计算最近 human reset、`N_auto` 与指定运行日下一轮次；缺机制字段按
+  automation fail-closed（ADR-0089）
 - `guard`：文件改写互斥锁（ADR-0028），操作 = `acquire` / `release` / `status` / `reap`
 - `write`：命令行唯一写通道（ADR-0066）：stdin → 目标，复用 guard 锁 + Windows 独占占用探测 + 退避重试
 - `--list-deferred`：打印**未实现**的子命令与规则，含归属任务卡号
@@ -60,6 +63,7 @@
 | `memory_counts.rs` | 记忆规模一致性的 8 条规则 | 否 |
 | `adr_registry.rs` | ADR 登记表 / ADR 文件状态行 / 待建号解析（ADR-0030） | 否 |
 | `adr_index.rs` | ADR 编号一致性的 11 条规则 | 否 |
+| `automation_rounds.rs` | ADR-0089 轮次机制解析、human reset 与下一轮号计算 | **是**（只读） |
 | `doccheck.rs` | `memory-counts` 与 `adr-index` 的 IO 边界 | **是**（只读） |
 | `guard.rs` | 锁记录编解码、slug/摘要派生、`decide_acquire` 判定（ADR-0028） | 否 |
 | `guard_model.rs` | guard 的请求 / 失败 / 三态读锁模型 | 否 |

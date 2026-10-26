@@ -291,7 +291,10 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 
 【收尾 —— 轮次产物 + 阶段报告（章程 §11.3 / §11.4）】
 3. 先按 §11.3 计算运行日：本地 **00:00~07:59 → 归属前一天、08:00~23:59 → 归属当日**；再 `git fetch` 后按
-   `git ls-tree --name-only origin/main -- docs/automations/` 计算**轮次命名序号**，并按 `N_auto` 判断闸门（`N_auto > N`，现行 `N=⌊2000/400⌋=5`）—— 若超限，本 run
+   `git ls-tree --name-only origin/main -- docs/automations/` 计算**轮次命名序号**，并运行
+   `cargo run -p xtask -- automation-rounds --run-date <运行日>`，以命令输出的
+   `n_auto` / `next_round` / `latest_human` / 缺失机制项判断闸门（`N_auto > N`，现行
+   `N=⌊2000/400⌋=5`）；命令 FAILED 时不得手数兜底 —— 若超限，本 run
    **只补/校阶段报告，不写代码**；否则写 docs/automations/<运行日日期>-round-<N>.md
    （该路径已存在则**顺延**，**禁止覆盖**），记：本轮做了什么、依据哪些文件、验收结果、遗留；
 4. 若本轮是运行日最后一次（人类指定，或按轮数 / 最后时刻判定）→ 另写 docs/automations/<运行日日期>-report.md。
@@ -305,8 +308,14 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 ```
 
 > **建后硬核对（2026-09-28 复发修复）**：automation 创建成功后，不得直接等触发。必须立刻读取 `~/.codex/automations/<id>/automation.toml`，逐项确认 prompt 已包含上列固定块：
-> ① `.automation.lock` 的获取、跳过 / 陈旧接管与释放；② 运行日归属规则（00:00~07:59 归前一天、08:00~23:59 归当日）；③ `git fetch` + `git ls-tree --name-only origin/main -- docs/automations/` 计算轮次命名序号，并按 `N_auto`（自最近一次 `机制=human` 轮次以来 `机制=automation` 轮次数）判断 `N_auto > N`（现行 5）时只补报告不写代码；④ 轮次文件禁止覆盖；⑤ 阶段报告触发条件；⑥ 先落地、再自删；⑦ 仓库外持久日志路径与事件清单。
+> ① `.automation.lock` 的获取、跳过 / 陈旧接管与释放；② 运行日归属规则（00:00~07:59 归前一天、08:00~23:59 归当日）；③ `git fetch` + `git ls-tree --name-only origin/main -- docs/automations/` 计算轮次命名序号，并运行 `xtask automation-rounds --run-date <运行日>`；以 `N_auto`（自最近一次显式 `机制=human` 轮次以来 automation 轮次数）判断 `N_auto > N`（现行 5）时只补报告不写代码；命令 FAILED 时先修正缺失机制字段，不能手数兜底；④ 轮次文件禁止覆盖；⑤ 阶段报告触发条件；⑥ 先落地、再自删；⑦ 仓库外持久日志路径与事件清单。
 > **任一项缺失 → 立刻 `mode = "update"` 修正，或删除后重建；不得保留一个缺少固定块的 `ACTIVE` automation。** 反例（2026-09-27 运行日）：round-1 有轮次产物，round-2 / round-3 的 prompt 没带固定块，结果两轮都完成了产品工作却没有轮次记录；2026-09-28 已按 ADR-0054 的留痕原则 docs-only 回填。以后“建完就核对”是唯一可靠的收口点。
+
+> **人工会话 reset 的正式留痕（2026-10-26）**：人类手工任务可以在仓库中产生正常提交，
+> 但仍必须在结束前新增或更新当日 `docs/automations/<运行日>-round-<N>.md`，首部显式写
+> `机制：human（人类会话）`。聊天中的“手工任务已重置”不是可复算事实；`automation-rounds`
+> 只认轮次文件。人工会话没有产生独立轮次文件时，后续 automation 必须继续按最近一个显式
+> human 轮次计数，不能自行假设 reset。
 
 > **与 `#### 4.1.b` 自删的顺序**：自删仍是**整个 run 的最后一步**；`.automation.lock` 的**释放**排在自删**之前**（先放锁，再自删）。
 > **`[未验证]`**：把「自删」与「放锁」都放在最后一步是否会被中途失败打断 —— 失败时留下条目 + 残留锁正是「需要人工看一眼」的信号（与 §4.1.b 同一口径）。
@@ -475,7 +484,7 @@ heartbeat 约定 18:04:23 → 实际 **18:04:24（约 +1 s）**。→ 计划时�
 | # | 章程要求（出处） | 在 automation 机制下怎么表达 | 结论 |
 |---|---|---|---|
 | 1 | 「运行日日期」：00:00–07:59 开始的运行归属上一运行日、08:00–23:59 归属当日（§11.3） | 机制没有「运行日」概念 → 把归属规则写进 prompt，由 agent 自己算日期 | ⚠ 可表达但脆弱：+2 分钟抖动（§5）会把贴近 08:00 的触发推过日界。**建议**计划时刻距 08:00 至少 10 分钟（ADR-0046 D5 起为建议、非硬规定） |
-| 2 | 无人值守轮数上限 `N` 由 §6 派生（现行 5）、每次调度运行 ≤2 轮（§11.3） | 轮次命名序号 = `docs/automations/<运行日日期>-round-*.md` 文件数 + 1；`N_auto` = 自最近一次 `机制=human` 轮次以来 `机制=automation` 轮次数，由 agent 按 `机制` 字段数文件 | ✅ 可表达（章程是文件系统计数；`机制` 字段须写进轮次文件） |
+| 2 | 无人值守轮数上限 `N` 由 §6 派生（现行 5）、每次调度运行 ≤2 轮（§11.3） | 轮次命名序号 = `docs/automations/<运行日日期>-round-*.md` 文件数 + 1；运行 `xtask automation-rounds --run-date <date>` 派生 `N_auto`、最近 human reset 和下一轮号 | ✅ 已机器化（ADR-0089；缺失机制字段按 automation fail-closed） |
 | 3 | `.automation.lock` 互斥（§11.2 / 门禁 G8） | 只能由 prompt 指示 agent 获取与释放 | ❌ **机制缺口**：没有包装脚本的 `try/finally`，agent 中途失败或被 kill 时**锁不会释放**。缓解：保留章程的「3 小时陈旧锁」规则；获取锁优先用 ADR-0028 的 `xtask guard acquire`（自带等待/超时/放弃通报），但 guard 是**文件级**，仓库级互斥仍需 `.automation.lock` |
 | 4 | 只在 `automation/<date>` 分支提交（§0 底线 1） | **local 模式**：要 agent 自己 `git switch -c automation/<date>`（prompt 指令，无强制；官方警告 local 模式会改你正在编辑的文件 `[官方]`）。**worktree 模式**：隔离好，但分支名由 Codex 决定、能否指定 `[未验证]` | ❌ **机制缺口**：无法机器强制分支名。缓解：阶段报告 §① 必须抄 `git log` 的分支与提交清单，人类核对 |
 | 5 | 不合并 main（§0 底线 1） | prompt 禁令 | ❌ 无机器强制。而且官方说组织策略允许时 automation 用 `approval_policy = "never"` `[官方]` → 无人值守时**不会向任何人确认**。缓解：自动化白名单只留文档/测试类可逆工作（章程 §2），沙箱取最窄（官方也是这么建议的 `[官方]`） |

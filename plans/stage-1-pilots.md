@@ -25,7 +25,7 @@
 > **TASK-271 Done（2026-10-11）**：`assistant-dlp` 新增 7 个公共契约测试，独立行覆盖率 83.59% → 98.89%；生产源码零改动；PR #320 / merge `8a5ad5f`。
 
 > **TASK-290 Done（2026-10-14）**：PL-010 闭环 —— `gov §9.2` 的 LEDGER 模板新增 `pending` 占位与追加式回填规则；原开放行不改，PARKING_LOT 追加闭环节点；docs-only，零产品代码改动；PR #388 / merge `4e9bce6`。
-> 周期 10~12 周　状态：**进行中（2026-10-24：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-048 / TASK-049 / TASK-055 / TASK-327 / TASK-107 / TASK-108 / TASK-109 / TASK-110 / TASK-111 / TASK-112 / TASK-113 / TASK-114 Done；Stage 1c 进行中，TASK-056 browser assertion 阻塞已解除；TASK-114 已把专用 launcher、真实 `RuntimeCdpProvider` 与 Edge/Chrome registry 接入 CLI 私有运行模式并绑定进程回收；下一步是人类在场的真实 Edge 验收）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> 周期 10~12 周　状态：**进行中（2026-10-26：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-048 / TASK-049 / TASK-055 / TASK-107 / TASK-108 / TASK-109 / TASK-110 / TASK-111 / TASK-112 / TASK-113 / TASK-114 / TASK-328 Done；Stage 1c 进行中，TASK-056 browser assertion 阻塞已解除；TASK-114 已把专用 launcher、真实 `RuntimeCdpProvider` 与 Edge/Chrome registry 接入 CLI 私有运行模式并绑定进程回收；TASK-328 已机器化 human reset / N_auto 计数，并把真实应用验证限定为人类在场会话；下一步仍是浏览器 task-package 产品装配完成后的真实 Edge 验收）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
 > **TASK-326 Done（2026-10-21）**：审计 2026-10-20 五轮 automation 的自删顺序；5/5 已执行且已自删，发现 17:00 轮 PR #502、00:30 轮 PR #509 两次在 self-delete 后才落地，已追加运行日更正与 `docs/audits/automation-sequence-deviation-2026-10-20.md`；当前无残留 automation、锁、open PR。
 > **TASK-327 Done（2026-10-22）**：人工接管 2026-10-21 17:00 失联 automation 的离线 WIP；新增 8 个 CDP 公开契约测试，`cdp.rs` 行覆盖 0.00% → **100.00%**、crate **95.13%**；生产逻辑 / 公共 API / schema / 依赖零改动；清理由该槽遗留的陈旧 guard 锁与 automation 目录。
 > **TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）**：Paint 全工具集真机路径
@@ -410,6 +410,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-325 ✅** | 治理池 | `tasks/TASK-325-automation-run-day-report.md` | Done（2026-10-20 自动化五轮证据审计与最终报告；PR #500~#509 全部 merged、22 checks、pending 0；docs-only） |
 | **TASK-326 ✅** | 治理池 | `tasks/TASK-326-automation-sequence-deviation-audit.md` | Done（两轮 self-delete 后落地的事后审计；运行日报告追加更正；无产品代码改动） |
 | **TASK-327 ✅** | 治理池 | `tasks/TASK-327-cdp-provider-api-contract-coverage.md` | Done（8 个离线 CDP 公开契约测试；`cdp.rs` 行覆盖 100.00%、crate 95.13%；生产逻辑零改动） |
+| **TASK-328 ✅** | 治理池 | `tasks/TASK-328-governance-round-reset-evidence-and-manual-acceptance.md` | Done（`xtask automation-rounds` 机器化 ADR-0089 计数；human round 重置 `N_auto=0`；round 2 shell 最终值更正为 36；TASK-079 / TASK-305 状态收口；真实应用验证限定人类在场） |
 | **TASK-107 ✅** | 业务池 | `tasks/TASK-107-browser-task-package-assertion-mapping.md` | Done（Edge/Chrome navigate / dom.read / network-idle assertion mapping；TASK-056 T5.1 package 可渲染；专项 23/23） |
 | **TASK-108 ✅** | 业务池 | `tasks/TASK-108-cdp-runtime-fail-closed.md` | Done（CDP runtime 未接入真实 transport 时全部显式 `CapabilityMissing`；移除 synthetic success；专项 2/2） |
 | **TASK-109 ✅** | 业务池 | `tasks/TASK-109-real-cdp-loopback-transport.md` | Done（loopback CDP HTTP / RFC 6455；connect / navigate / DOM；零 serde；专项 6/6，JSON 2/2，handle-discipline 7/7） |

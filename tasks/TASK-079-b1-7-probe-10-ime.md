@@ -1,6 +1,6 @@
 # TASK-079　B1.7 probe-10 IME 两态 PoC
 
-- 状态：**InProgress**
+- 状态：**Blocked**
 - 阶段：0　子任务：TASK-002 B1.7　依赖：TASK-002 B1.1+B1.2+B1.3+B1.4+B1.6（全部 Done）　预估：S（~25 min）　阻塞主线：否
 - write scope：spikes/spike-a-notepad/probe-10-ime.ps1（新建）/ D:\csart\eol-probe\RESULT-10.txt / docs/spike-reports/SPIKE-A.md（§14）/ 本卡 / LEDGER.md
 
@@ -71,3 +71,15 @@ stage-1 Notepad Adapter 写入可选：Rust COM SetValue（推荐，最快）/ P
 1. **20/20 100%** 比原 `DRIFT-002-1` 预期（空操作）更强
 2. **双路径 (VP + SK) 结果一致**——Adapter 选型自由
 3. **stage-1 Notepad Adapter 写入选 Rust COM**（速度 + DirectUI Edit 兼容）
+
+---
+
+**2026-10-26 · 最终状态裁决（TASK-328）**
+
+- 2026-09-23 人类重跑已将 `SK` 路径实测为 `0/10`，综合 `10/20 = 50%`，不满足本卡
+  DoD 第 2/3 条的 `≥90%` 双路径一致要求。
+- 历史执行记录中的“本卡状态仍记 Done”与正文 DoD 冲突。本卡最终状态统一为
+  **Blocked**：探测与数据交付已完成，但目标能力为 NO-GO，不能作为 Done 继续被候选
+  选择逻辑复用。
+- `VP / ValuePattern.SetValue` 路径仍为 100%；后续若需要合成键盘 IME 支持，必须另立卡
+  设计新的可验证路径，而不是把本卡改回 Done。

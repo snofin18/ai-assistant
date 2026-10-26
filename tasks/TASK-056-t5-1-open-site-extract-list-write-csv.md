@@ -182,3 +182,14 @@ Stage 1c 的 T5.1 仍未完成，并依赖人类提供目标站点、专用 prof
 - 最高风险点是 `DRIFT-056-2`：不要在缺少 browser assertion 映射时把声明式任务包误认为可执行产品路径。
 - 该运行时阻塞已由 TASK-107 解除；下一审阅点转为真实 Edge 执行和 CSV 输出证据。
 - assertion 映射只解除 package 加载；`RuntimeCdpProvider` stub 与缺失 handler 仍阻断了真实执行。
+
+---
+
+**2026-10-26 · 真实应用人工验收边界（TASK-328）**
+
+- 本卡的真实 Edge、专用 profile 与外部 `books.toscrape.com` 验收只允许人类在场会话执行；
+  automation 不得自行登录、点击、处理验证码或复用用户 profile。
+- 人工在场本身仍不足以让本卡完成：CLI 尚未装配完整 browser task-package 执行与 CSV 产出。
+  必须先由独立实现卡补齐该产品路径，之后才能按 `external-smoke-contract.json` 做 10/10
+  本地基线、真实 Edge 与外部 3/3 smoke。
+- 本卡状态保持 **Blocked**，不得用离线 fixture、browser runtime 自检或人工点击截图冒充 Done。
