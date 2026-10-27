@@ -27,7 +27,9 @@
    `ErrorCode` 的 `CapabilityMissing`（语义 = 本通道在当前平台不可用）。
 7. **浏览器 launcher**（`src/browser_launcher.rs`，TASK-110）：校验专用 profile 根与
    Edge/Chrome 可执行文件，以固定参数和动态 `--remote-debugging-port=0` 启动；有界读取并校验
-   `DevToolsActivePort`；显式 close 和 `Drop` 都走 `taskkill /T /F` + bounded wait reap。
+   `DevToolsActivePort`。Windows sharing violation 32 / lock violation 33 在 launch deadline
+   内按尚未 ready 重试；NotFound 继续等待，ACL、非法内容与其他 IO 错误仍显式失败。
+   显式 close 和 `Drop` 都走 `taskkill /T /F` + bounded wait reap。
 
 ## 边界（不做什么）
 
@@ -93,6 +95,9 @@
   `E_ACCESSDENIED` → `PlatformPermission`。**不**自动提权、**不**绕过。
 - **无缓存**：每次属性读都是一次跨进程 COM 调用（**未使用** `IUIAutomationCacheRequest`）。
   重复读同一元素会重复付往返代价；缓存 / 淘汰归 TASK-025。
+- **launcher readiness 只容忍 sharing / lock violation**：Windows 错误 32 / 33 代表浏览器仍可能
+  持有 `DevToolsActivePort`，由既有 launch deadline 有界收敛；其他 ACL、非法内容或 IO 错误
+  不重试。该分类不证明真实浏览器完成 T5.1，真实 GUI 验收仍由人类执行。
 - **`invoke` 的后置条件是"弱"的**：`InvokePattern::Invoke()` 的效果是**应用语义**
   （打开对话框、提交表单…），UIA 层没有通用判据 —— 本层只能验证"元素仍可达"。
   应用语义级断言归 **TASK-023**（后置断言引擎）。其余动作

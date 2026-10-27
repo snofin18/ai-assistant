@@ -12,7 +12,7 @@
 //! - does not register production tool handlers or expose browser OS handles.
 
 use std::fs::{self, File};
-use std::io::Read;
+use std::io::{ErrorKind, Read};
 use std::os::windows::process::CommandExt;
 use std::path::{Component, Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -31,6 +31,8 @@ const DEFAULT_LAUNCH_TIMEOUT: Duration = Duration::from_secs(30);
 const TERMINATE_TIMEOUT: Duration = Duration::from_secs(10);
 const PROCESS_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+const WINDOWS_ERROR_SHARING_VIOLATION: i32 = 32;
+const WINDOWS_ERROR_LOCK_VIOLATION: i32 = 33;
 
 /// Configuration for one dedicated browser launch.
 #[derive(Debug, Clone)]
@@ -404,7 +406,8 @@ fn wait_for_active_port(
 fn read_active_port(path: &Path) -> PlatformResult<Option<ActiveDevToolsPort>> {
     let mut file = match File::open(path) {
         Ok(file) => file,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
+        Err(error) if is_retryable_active_port_open_error(&error) => return Ok(None),
         Err(error) => {
             return Err(PlatformError::new(
                 ErrorCode::Fatal,
@@ -436,6 +439,15 @@ fn read_active_port(path: &Path) -> PlatformResult<Option<ActiveDevToolsPort>> {
             )
         })?;
     parse_active_port(&bytes)
+}
+
+// Windows can expose the file before the browser releases its exclusive write
+// or lock. Those two errors are readiness signals, not terminal open failures.
+fn is_retryable_active_port_open_error(error: &std::io::Error) -> bool {
+    matches!(
+        error.raw_os_error(),
+        Some(WINDOWS_ERROR_SHARING_VIOLATION | WINDOWS_ERROR_LOCK_VIOLATION)
+    )
 }
 
 fn parse_active_port(bytes: &[u8]) -> PlatformResult<Option<ActiveDevToolsPort>> {
