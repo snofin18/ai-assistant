@@ -179,6 +179,50 @@ fn test_cdp_transport_rejects_bad_websocket_accept() -> TestResult {
 }
 
 #[test]
+fn test_cdp_transport_accepts_101_reason_phrase_from_edge() -> TestResult {
+    let fixture = Fixture::start(|listener| {
+        serve_discovery(&listener)?;
+        let mut stream = accept_until(&listener, Duration::from_secs(2))?;
+        accept_websocket_with_status_line(
+            &mut stream,
+            "HTTP/1.1 101 WebSocket Protocol Handshake",
+        )?;
+        serve_navigation(&mut stream)
+    })?;
+    let options = options(fixture.port, "Fixture Page", 5_000)?;
+    let provider = RuntimeCdpProvider::new();
+    let session = block_on(provider.connect(&options)).map_err(|error| platform_error(&error))?;
+    block_on(provider.navigate(
+        &session.target(),
+        "http://127.0.0.1:8765/page-2.html",
+        &CdpLoadCondition::NetworkIdle { quiet_ms: 100 },
+    ))
+    .map_err(|error| platform_error(&error))?;
+    fixture.finish()
+}
+
+#[test]
+fn test_cdp_transport_rejects_non_101_websocket_status() -> TestResult {
+    let fixture = Fixture::start(|listener| {
+        serve_discovery(&listener)?;
+        let mut stream = accept_until(&listener, Duration::from_secs(2))?;
+        accept_websocket_with_status_line(&mut stream, "HTTP/1.1 200 OK")
+    })?;
+    let options = options(fixture.port, "Fixture Page", 500)?;
+    let provider = RuntimeCdpProvider::new();
+    let session = block_on(provider.connect(&options)).map_err(|error| platform_error(&error))?;
+    assert_error_code(
+        block_on(provider.navigate(
+            &session.target(),
+            "http://127.0.0.1:8765/page-2.html",
+            &CdpLoadCondition::Load,
+        )),
+        ErrorCode::Transient,
+    )?;
+    fixture.finish()
+}
+
+#[test]
 fn test_cdp_transport_rejects_jsonrpc_error() -> TestResult {
     let fixture = Fixture::start(|listener| {
         serve_discovery(&listener)?;
@@ -436,11 +480,15 @@ fn write_http_json(stream: &mut TcpStream, status: u16, body: &str) -> TestResul
 }
 
 fn accept_websocket(stream: &mut TcpStream) -> TestResult {
+    accept_websocket_with_status_line(stream, "HTTP/1.1 101 Switching Protocols")
+}
+
+fn accept_websocket_with_status_line(stream: &mut TcpStream, status_line: &str) -> TestResult {
     let request = read_headers(stream)?;
     let key = header_value(&request, "sec-websocket-key")?;
     let accept = websocket_accept(&key);
     let response = format!(
-        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n\
+        "{status_line}\r\nUpgrade: websocket\r\n\
          Connection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n"
     );
     stream.write_all(response.as_bytes())?;

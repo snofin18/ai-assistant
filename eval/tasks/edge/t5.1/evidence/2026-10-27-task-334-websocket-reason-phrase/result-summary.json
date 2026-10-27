@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "task_id": "edge.t5_1.books_list_to_csv",
+  "date": "2026-10-27",
+  "edge": {
+    "version": "156.0.4314.42",
+    "profile_id": "task056-local-v3-01"
+  },
+  "websocket_fix": {
+    "status_line": "HTTP/1.1 101 WebSocket Protocol Handshake",
+    "transport_upgrade": "passed",
+    "navigate_page_1": "Committed",
+    "post_fingerprint": "sha256:64af0b490d30828a0507c8c581637f5dc33ceaf304fe77e6ffacf06af3ef8dbf"
+  },
+  "next_boundary": {
+    "step": "read_page_1",
+    "tool": "edge.cdp.dom_read",
+    "error_code": "VerifyFailed",
+    "tool_error_code": "Transient",
+    "message": "MCP error -32000: edge.cdp.dom_read: CDP DOM payload is not the required JSON object: expected value at line 1 column 1",
+    "classification": "separate DOM payload issue outside TASK-334 websocket status parsing scope"
+  },
+  "cleanup": {
+    "fixture_server_pid": 6628,
+    "fixture_server_alive": false,
+    "port_8765_listeners": 0,
+    "dedicated_edge_processes": 0
+  }
+}
