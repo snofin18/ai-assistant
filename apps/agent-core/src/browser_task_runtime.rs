@@ -3,10 +3,10 @@
 //! Responsibilities:
 //! - parse explicit dedicated-profile browser inputs and one task package;
 //! - render the package to a Plan and execute it through the real `ToolBus`;
-//! - export only committed step outputs to a new, read-back-verified JSON file.
+//! - optionally normalize three committed list-page DOM outputs into the T5.1 CSV;
+//! - export only committed results to new, read-back-verified JSON/CSV files.
 //!
 //! Boundaries:
-//! - does not normalize or write CSV;
 //! - does not log in, submit forms, or use the user's normal browser profile;
 //! - does not turn a scripted-runtime test into real Edge acceptance evidence.
 //!
@@ -38,9 +38,12 @@ use serde_json::{Map, Value, json};
 
 use crate::browser_runtime::{BrowserRuntime, BrowserRuntimeError};
 
+#[path = "browser_task_csv.rs"]
+mod browser_task_csv;
 #[path = "browser_task_support.rs"]
 mod browser_task_support;
 
+use browser_task_csv::normalize_t5_1_outputs;
 use browser_task_support::{BrowserTaskError, BrowserTaskOptions, BrowserTaskResult, write_output};
 
 const PLAN_BUDGET_STEPS: u64 = 32;
@@ -122,7 +125,13 @@ async fn run(arguments: &[String]) -> Result<BrowserTaskResult, BrowserTaskError
     let result = execution?;
     shutdown?;
     close?;
-    write_output(&options.output_path, &result)?;
+    let csv = options
+        .csv
+        .as_ref()
+        .map(|csv| normalize_t5_1_outputs(&result.outputs, &csv.origin))
+        .transpose()?;
+    let csv_path = options.csv.as_ref().map(|csv| csv.output_path.as_path());
+    write_output(&options.output_path, &result, csv_path, csv.as_ref())?;
     Ok(result)
 }
 
