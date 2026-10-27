@@ -25,7 +25,7 @@
 > **TASK-271 Done（2026-10-11）**：`assistant-dlp` 新增 7 个公共契约测试，独立行覆盖率 83.59% → 98.89%；生产源码零改动；PR #320 / merge `8a5ad5f`。
 
 > **TASK-290 Done（2026-10-14）**：PL-010 闭环 —— `gov §9.2` 的 LEDGER 模板新增 `pending` 占位与追加式回填规则；原开放行不改，PARKING_LOT 追加闭环节点；docs-only，零产品代码改动；PR #388 / merge `4e9bce6`。
-> 周期 10~12 周　状态：**进行中（2026-10-27：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-048 / TASK-049 / TASK-055 / TASK-107 / TASK-108 / TASK-109 / TASK-110 / TASK-111 / TASK-112 / TASK-113 / TASK-114 / TASK-328 / TASK-329 / TASK-331 Done；Stage 1c 进行中，TASK-056 browser assertion 阻塞已解除；TASK-329 已导出六步 T5.1 步骤输出，TASK-331 已清除 zstd 安全公告并解除后续 DOM→CSV PR 的仓库级 deny 阻塞；下一步完成 CSV 规范化，再做真实 Edge 10/10 与人类在场 smoke）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> 周期 10~12 周　状态：**进行中（2026-10-27：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-048 / TASK-049 / TASK-055 / TASK-107 / TASK-108 / TASK-109 / TASK-110 / TASK-111 / TASK-112 / TASK-113 / TASK-114 / TASK-328 / TASK-329 / TASK-330 / TASK-331 Done；Stage 1c 进行中，TASK-056 browser assertion 阻塞已解除；TASK-330 已把 TASK-329 的三页 DOM 确定性规范化为 60 行 CSV，并与现有 Python validator 逐字节一致；下一步只剩人类在场的真实 Edge 10/10、专用 profile 与外部 smoke）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
 > **TASK-326 Done（2026-10-21）**：审计 2026-10-20 五轮 automation 的自删顺序；5/5 已执行且已自删，发现 17:00 轮 PR #502、00:30 轮 PR #509 两次在 self-delete 后才落地，已追加运行日更正与 `docs/audits/automation-sequence-deviation-2026-10-20.md`；当前无残留 automation、锁、open PR。
 > **TASK-327 Done（2026-10-22）**：人工接管 2026-10-21 17:00 失联 automation 的离线 WIP；新增 8 个 CDP 公开契约测试，`cdp.rs` 行覆盖 0.00% → **100.00%**、crate **95.13%**；生产逻辑 / 公共 API / schema / 依赖零改动；清理由该槽遗留的陈旧 guard 锁与 automation 目录。
 > **TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）**：Paint 全工具集真机路径
@@ -412,6 +412,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-327 ✅** | 治理池 | `tasks/TASK-327-cdp-provider-api-contract-coverage.md` | Done（8 个离线 CDP 公开契约测试；`cdp.rs` 行覆盖 100.00%、crate 95.13%；生产逻辑零改动） |
 | **TASK-328 ✅** | 治理池 | `tasks/TASK-328-governance-round-reset-evidence-and-manual-acceptance.md` | Done（`xtask automation-rounds` 机器化 ADR-0089 计数；human round 重置 `N_auto=0`；round 2 shell 最终值更正为 36；TASK-079 / TASK-305 状态收口；真实应用验证限定人类在场） |
 | **TASK-329 ✅** | 1c 基础设施 | `tasks/TASK-329-browser-task-package-execution-runner.md` | Done（私有 `--browser-task-run`；六步 T5.1 package 脚本化 ToolBus 全部提交；browser `cdp_target` 前后指纹；步骤输出 create-new JSON 并读回；未启动真实浏览器） |
+| **TASK-330 ✅** | 1c 基础设施 | `tasks/TASK-330-browser-task-dom-csv-normalizer.md` | Done（私有 `--csv-output` / `--csv-base-url`；三页 DOM 严格规范化到固定 8 列 60 行 CSV；UTF-8 无 BOM、CRLF；JSON/CSV create-new 与读回；Python fixture 逐字节一致；未启动真实浏览器） |
 | **TASK-331 ✅** | Stage 1c 安全前置 | `tasks/TASK-331-zstd-rustsec-2026-0391-0398-0403-0410.md` | Done（zstd 0.13.3 → 0.14.3、zstd-safe 8.2.0、zstd-sys 2.1.2；清除 RUSTSEC-2026-0391 / 0398 / 0403 / 0410；storage 59 tests、workspace、fmt/clippy 与 cargo deny 全绿） |
 | **TASK-107 ✅** | 业务池 | `tasks/TASK-107-browser-task-package-assertion-mapping.md` | Done（Edge/Chrome navigate / dom.read / network-idle assertion mapping；TASK-056 T5.1 package 可渲染；专项 23/23） |
 | **TASK-108 ✅** | 业务池 | `tasks/TASK-108-cdp-runtime-fail-closed.md` | Done（CDP runtime 未接入真实 transport 时全部显式 `CapabilityMissing`；移除 synthetic success；专项 2/2） |

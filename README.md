@@ -6,7 +6,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
-> 状态：**阶段 1**；**TASK-331 Done（2026-10-27）**（zstd 安全公告修复，解除仓库级 deny 阻塞）；**TASK-329 Done（2026-10-26）**（browser task-package runner、六步提交与步骤输出 JSON）；Stage 1a Done、Stage 1b Paint 30/30；Stage 1c 进行中，TASK-330 DOM → CSV 实现待完成 PR，再做人在场的 TASK-056 真实 Edge 验收。
+> 状态：**阶段 1**；**TASK-330 Done（2026-10-27）**（三页 DOM → 固定 60 行 CSV，Python 契约逐字节一致）；**TASK-331 Done（2026-10-27）**（zstd 安全公告修复）；**TASK-329 Done（2026-10-26）**（browser task-package runner）；Stage 1a Done、Stage 1b Paint 30/30；Stage 1c 剩余人类在场的 TASK-056 真实 Edge 与外部 smoke。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -91,6 +91,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-27 TASK-330 Done（browser DOM → T5.1 CSV）**：私有 `--browser-task-run` 新增成对 `--csv-output` / `--csv-base-url`；全部步骤提交后，把三页 DOM 严格解析为固定 8 列、60 行 CSV，使用 UTF-8 无 BOM、CRLF 与 RFC 4180 quoting，并与现有 Python fixture validator 逐字节一致。JSON/CSV 均 create-new、读回校验；未启动真实浏览器。
+
 **2026-10-27 TASK-331 Done（zstd security advisories）**：将既有 `assistant-storage` 依赖从 `zstd 0.13.3` 升级到 `0.14.3`，lock 同步 `zstd-safe 8.2.0` / `zstd-sys 2.1.2`，清除 RUSTSEC-2026-0391 / 0398 / 0403 / 0410。压缩 API、level 3 口径和 storage 业务代码未改；storage 59 tests、workspace、fmt/clippy 与 `cargo deny check` 全绿。
 
 **2026-10-26 TASK-329 Done（browser task-package runner）**：新增私有 `--browser-task-run`，复用真实 `RuntimeExecutor` / `BindingInvoker` / `ToolBus` 执行 browser task-package。T5.1 六步在脚本化 handlers 上全部 `Committed`；navigate / dom_read 输出 `cdp_target` 前后指纹，`*_ready` / `*_dom` 进入 binding 输出；全部提交后以 `create_new` 写 JSON 并读回逐字节核对。未启动真实浏览器，CSV 与真机验收仍待后续。
@@ -368,6 +370,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-27 TASK-330 Done（browser task DOM to CSV）**：CSV normalizer 专项 11/11、runtime/bundle 专项 6/6；缺页、短页、跨 origin、重复 URL、非法价格、未知 entity/rating 与输出竞争均 fail-closed。Rust actual CSV 经现有 `validate_csv.py` 对 expected 逐字节校验为 60 行；TASK-056 保持 Blocked。
+
 **2026-10-27 TASK-331 Done（zstd advisory remediation）**：新 advisory DB 报出 zstd 四条漏洞后，以独立安全前置卡升级既有依赖；`cargo deny check` 从 advisories 失败恢复为 advisories / bans / licenses / sources 全部 ok，未使用 ignore 或放宽判据。安全 PR 合并后恢复 TASK-330 的 CSV PR 收口。
 
 **2026-10-26 TASK-329 Done（browser task-package execution runner）**：runner 在脚本化六步 T5.1 package 上通过真实 ToolBus 与 task-engine 提交路径，输出 `page_1_dom` 到 `page_3_dom`；输出文件拒绝覆盖并做读回校验。browser registry 专项 5/5、runner 专项 5/5，workspace 全绿；测试不启动真实 Edge，TASK-056 保持 Blocked。

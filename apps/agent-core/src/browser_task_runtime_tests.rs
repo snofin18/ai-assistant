@@ -122,13 +122,23 @@ fn test_browser_task_options_split_runtime_and_task_flags() {
         "assistant-browser-task-options-{}.json",
         std::process::id()
     ));
+    let csv_output = std::env::temp_dir().join(format!(
+        "assistant-browser-task-options-{}.csv",
+        std::process::id()
+    ));
     let _ = std::fs::remove_file(&output);
+    let _ = std::fs::remove_file(&csv_output);
     let expected_output = output.display().to_string();
+    let expected_csv = csv_output.display().to_string();
     let arguments = vec![
         "--task-package".to_owned(),
         "package.json".to_owned(),
         "--output".to_owned(),
         expected_output.clone(),
+        "--csv-output".to_owned(),
+        expected_csv.clone(),
+        "--csv-base-url".to_owned(),
+        "http://127.0.0.1:8765".to_owned(),
         "--browser".to_owned(),
         "edge".to_owned(),
         "--browser-executable".to_owned(),
@@ -139,6 +149,44 @@ fn test_browser_task_options_split_runtime_and_task_flags() {
     let options = BrowserTaskOptions::parse(&arguments).expect("options");
     assert_eq!(options.task_package_path.to_string_lossy(), "package.json");
     assert_eq!(options.output_path.display().to_string(), expected_output);
+    let csv = options.csv.expect("CSV options");
+    assert_eq!(csv.output_path.display().to_string(), expected_csv);
+}
+
+#[test]
+fn test_browser_csv_options_must_be_paired_and_use_http_origin() {
+    let output = std::env::temp_dir().join(format!(
+        "assistant-browser-task-csv-pair-{}.json",
+        std::process::id()
+    ));
+    let csv = std::env::temp_dir().join(format!(
+        "assistant-browser-task-csv-pair-{}.csv",
+        std::process::id()
+    ));
+    let base = vec![
+        "--task-package".to_owned(),
+        "package.json".to_owned(),
+        "--output".to_owned(),
+        output.display().to_string(),
+        "--csv-output".to_owned(),
+        csv.display().to_string(),
+        "--browser".to_owned(),
+        "edge".to_owned(),
+        "--browser-executable".to_owned(),
+        r"C:\Edge\msedge.exe".to_owned(),
+        "--browser-profile-root".to_owned(),
+        r"C:\temp\profiles".to_owned(),
+    ];
+    let error = BrowserTaskOptions::parse(&base).expect_err("CSV base URL is required");
+    assert!(error.to_string().contains("--csv-base-url"));
+
+    let mut invalid = base;
+    invalid.extend([
+        "--csv-base-url".to_owned(),
+        "file:///tmp/example".to_owned(),
+    ]);
+    let error = BrowserTaskOptions::parse(&invalid).expect_err("non-HTTP origin must fail");
+    assert!(error.to_string().contains("--csv-base-url is invalid"));
 }
 
 #[test]
@@ -258,11 +306,79 @@ fn test_output_writer_creates_new_file_and_refuses_overwrite()
             .clone(),
         steps: vec![json!({"id": "navigate_page_1"})],
     };
-    write_output(&output, &result)?;
+    write_output(&output, &result, None, None)?;
     let observed = std::fs::read_to_string(&output)?;
     assert!(observed.contains("\"status\": \"completed\""));
-    assert!(write_output(&output, &result).is_err());
+    assert!(write_output(&output, &result, None, None).is_err());
     std::fs::remove_file(output)?;
+    Ok(())
+}
+
+#[test]
+fn test_output_writer_bundles_json_and_csv() -> Result<(), Box<dyn std::error::Error>> {
+    let json_path = std::env::temp_dir().join(format!(
+        "assistant-browser-task-bundle-{}.json",
+        std::process::id()
+    ));
+    let csv_path = std::env::temp_dir().join(format!(
+        "assistant-browser-task-bundle-{}.csv",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_file(&json_path);
+    let _ = std::fs::remove_file(&csv_path);
+    let result = super::BrowserTaskResult {
+        task_id: "task".to_owned(),
+        outputs: json!({"page_1_ready": true})
+            .as_object()
+            .expect("object")
+            .clone(),
+        steps: vec![json!({"id": "navigate_page_1"})],
+    };
+    let csv = super::browser_task_csv::CsvArtifact {
+        bytes: b"page_number\r\n1\r\n".to_vec(),
+        rows: 1,
+        first_product_url: "http://127.0.0.1:8765/one".to_owned(),
+        last_product_url: "http://127.0.0.1:8765/one".to_owned(),
+        expected_origin: "http://127.0.0.1:8765".to_owned(),
+    };
+    write_output(&json_path, &result, Some(&csv_path), Some(&csv))?;
+    let json_bytes = std::fs::read(&json_path)?;
+    assert!(std::str::from_utf8(&json_bytes)?.contains("\"csv_output\""));
+    assert_eq!(std::fs::read(&csv_path)?, csv.bytes);
+    std::fs::remove_file(json_path)?;
+    std::fs::remove_file(csv_path)?;
+    Ok(())
+}
+
+#[test]
+fn test_output_writer_cleans_json_without_touching_raced_csv()
+-> Result<(), Box<dyn std::error::Error>> {
+    let json_path = std::env::temp_dir().join(format!(
+        "assistant-browser-task-cleanup-{}.json",
+        std::process::id()
+    ));
+    let csv_path = std::env::temp_dir().join(format!(
+        "assistant-browser-task-cleanup-{}.csv",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_file(&json_path);
+    std::fs::write(&csv_path, b"preexisting")?;
+    let result = super::BrowserTaskResult {
+        task_id: "task".to_owned(),
+        outputs: Map::new(),
+        steps: Vec::new(),
+    };
+    let csv = super::browser_task_csv::CsvArtifact {
+        bytes: b"new".to_vec(),
+        rows: 1,
+        first_product_url: "http://127.0.0.1:8765/one".to_owned(),
+        last_product_url: "http://127.0.0.1:8765/one".to_owned(),
+        expected_origin: "http://127.0.0.1:8765".to_owned(),
+    };
+    assert!(write_output(&json_path, &result, Some(&csv_path), Some(&csv)).is_err());
+    assert!(!json_path.exists());
+    assert_eq!(std::fs::read(&csv_path)?, b"preexisting");
+    std::fs::remove_file(csv_path)?;
     Ok(())
 }
 
