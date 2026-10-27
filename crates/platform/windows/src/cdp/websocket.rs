@@ -16,6 +16,7 @@ use super::http::{connect_loopback, parse_websocket_url};
 use super::json::{self, JsonValue};
 
 const MAX_HANDSHAKE_BYTES: usize = 16 * 1024;
+const MAX_STATUS_LINE_BYTES: usize = 1024;
 const MAX_MESSAGE_BYTES: usize = 4 * 1024 * 1024;
 const WEBSOCKET_GUID: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
@@ -269,11 +270,7 @@ fn read_handshake(stream: &mut TcpStream, key: &str) -> PlatformResult<()> {
     let status = lines
         .next()
         .ok_or_else(|| protocol_error("CDP WebSocket handshake is missing its status line"))?;
-    if status != "HTTP/1.1 101 Switching Protocols" {
-        return Err(protocol_error(format!(
-            "CDP WebSocket upgrade returned `{status}`"
-        )));
-    }
+    validate_upgrade_status(status)?;
     let mut upgrade = false;
     let mut connection = false;
     let mut accept = None;
@@ -303,6 +300,37 @@ fn read_handshake(stream: &mut TcpStream, key: &str) -> PlatformResult<()> {
         return Err(protocol_error(
             "CDP WebSocket handshake has an invalid accept digest",
         ));
+    }
+    Ok(())
+}
+
+fn validate_upgrade_status(status: &str) -> PlatformResult<()> {
+    if status.len() > MAX_STATUS_LINE_BYTES {
+        return Err(protocol_error(
+            "CDP WebSocket handshake status line exceeds 1 KiB",
+        ));
+    }
+    let mut fields = status.splitn(3, ' ');
+    let version = fields
+        .next()
+        .ok_or_else(|| protocol_error("CDP WebSocket handshake is missing HTTP version"))?;
+    let status_code = fields
+        .next()
+        .ok_or_else(|| protocol_error("CDP WebSocket handshake is missing status code"))?;
+    if version != "HTTP/1.1" {
+        return Err(protocol_error(format!(
+            "CDP WebSocket handshake uses unsupported HTTP version `{version}`"
+        )));
+    }
+    if status_code.len() != 3 || !status_code.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(protocol_error(format!(
+            "CDP WebSocket handshake has invalid status code `{status_code}`"
+        )));
+    }
+    if status_code != "101" {
+        return Err(protocol_error(format!(
+            "CDP WebSocket upgrade returned status code `{status_code}`"
+        )));
     }
     Ok(())
 }
@@ -549,14 +577,5 @@ fn protocol_error(message: impl Into<String>) -> PlatformError {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_websocket_accept_matches_rfc6455_example() {
-        assert_eq!(
-            websocket_accept("dGhlIHNhbXBsZSBub25jZQ=="),
-            "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
-        );
-    }
-}
+#[path = "websocket_tests.rs"]
+mod tests;
