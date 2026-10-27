@@ -142,10 +142,12 @@
 - **非 Windows 后端**：`src/unsupported.rs` 的每个方法都返回 `CapabilityMissing`；
   平台无关的**输入校验**仍会先跑（空候选链 / 无条件 query → `ToolInvalidArgs`），
   因为坏输入在哪个平台都是坏输入。
-- **CDP runtime 已接入 loopback transport（TASK-109）**：`RuntimeCdpProvider` 通过真实的
-  `/json/list` HTTP discovery 与 RFC 6455 WebSocket 实现 `connect`、`navigate`（含
-  network-idle 窗口）和 `evaluate_dom`；host 只允许 `127.0.0.1` / `localhost` / `::1`，
-  响应体、target 数、DOM、帧与超时均有硬上限。TASK-110 另提供专用 profile launcher
+- **CDP runtime 已接入 loopback transport（TASK-109 / TASK-332）**：
+  `RuntimeCdpProvider` 通过真实的 `/json/list` HTTP discovery 与 RFC 6455 WebSocket
+  实现 `connect`、`navigate`（含 network-idle 窗口）和 `evaluate_dom`；host 只允许
+  `127.0.0.1` / `localhost` / `::1`，响应体、target 数、DOM、帧与超时均有硬上限。
+  响应声明 `Content-Length` 时只读取精确 body，不等待 server 主动关闭连接。
+  TASK-110 另提供专用 profile launcher
   与进程树回收；production handlers、click、截图、下载目录与 close 仍未接入；这些操作继续显式
   `CapabilityMissing`，不得把 transport 单测当作 TASK-056 真机证据。
 - **歧义策略收敛为唯一一种（已解决）**：按 **ADR-0044**，`OnAmbiguous` 只保留 `ErrorAndAsk`，

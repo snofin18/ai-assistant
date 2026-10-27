@@ -13,6 +13,7 @@ use assistant_platform_api::{ErrorCode, PlatformError, PlatformResult};
 use super::json::{self, JsonValue};
 
 const MAX_HTTP_RESPONSE_BYTES: usize = 1024 * 1024;
+const MAX_HTTP_HEADER_BYTES: usize = 64 * 1024;
 const MAX_TARGETS: usize = 64;
 
 /// One page target returned by `/json/list`.
@@ -86,16 +87,8 @@ pub fn discover_pages(host: &str, port: u16, timeout: Duration) -> PlatformResul
         .write_all(request.as_bytes())
         .map_err(|error| io_error(&error))?;
 
-    let mut response = Vec::new();
-    stream
-        .take((MAX_HTTP_RESPONSE_BYTES + 1) as u64)
-        .read_to_end(&mut response)
-        .map_err(|error| io_error(&error))?;
-    if response.len() > MAX_HTTP_RESPONSE_BYTES {
-        return Err(protocol_error("CDP /json/list response exceeds 1 MiB"));
-    }
-    let body = parse_http_response(&response)?;
-    parse_targets(body)
+    let body = read_http_response(&mut stream)?;
+    parse_targets(&body)
 }
 
 /// Parse and validate a page target's WebSocket URL.
@@ -139,12 +132,53 @@ pub fn parse_websocket_url(
     })
 }
 
-fn parse_http_response(response: &[u8]) -> PlatformResult<&[u8]> {
-    let header_end = response
+fn read_http_response(stream: &mut TcpStream) -> PlatformResult<Vec<u8>> {
+    let headers = read_http_headers(stream)?;
+    let content_length = parse_http_headers(&headers)?;
+    let Some(content_length) = content_length else {
+        let mut body = Vec::new();
+        let remaining = MAX_HTTP_RESPONSE_BYTES.saturating_sub(headers.len());
+        stream
+            .take((remaining + 1) as u64)
+            .read_to_end(&mut body)
+            .map_err(|error| io_error(&error))?;
+        if headers.len().saturating_add(body.len()) > MAX_HTTP_RESPONSE_BYTES {
+            return Err(protocol_error("CDP /json/list response exceeds 1 MiB"));
+        }
+        return Ok(body);
+    };
+
+    if headers.len().saturating_add(content_length) > MAX_HTTP_RESPONSE_BYTES {
+        return Err(protocol_error("CDP /json/list response exceeds 1 MiB"));
+    }
+    let mut body = vec![0_u8; content_length];
+    stream
+        .read_exact(&mut body)
+        .map_err(|error| io_error(&error))?;
+    Ok(body)
+}
+
+fn read_http_headers(stream: &mut TcpStream) -> PlatformResult<Vec<u8>> {
+    let mut headers = Vec::new();
+    let mut byte = [0_u8; 1];
+    while headers.len() < MAX_HTTP_HEADER_BYTES {
+        stream
+            .read_exact(&mut byte)
+            .map_err(|error| io_error(&error))?;
+        headers.push(byte[0]);
+        if headers.ends_with(b"\r\n\r\n") {
+            return Ok(headers);
+        }
+    }
+    Err(protocol_error("CDP HTTP response headers exceed 64 KiB"))
+}
+
+fn parse_http_headers(headers: &[u8]) -> PlatformResult<Option<usize>> {
+    let header_end = headers
         .windows(4)
         .position(|window| window == b"\r\n\r\n")
         .ok_or_else(|| protocol_error("CDP HTTP response is missing its header terminator"))?;
-    let headers = response
+    let headers = headers
         .get(..header_end)
         .ok_or_else(|| protocol_error("CDP HTTP response header range is invalid"))?;
     let headers = std::str::from_utf8(headers)
@@ -180,16 +214,7 @@ fn parse_http_response(response: &[u8]) -> PlatformResult<&[u8]> {
         }
     }
 
-    let body = response
-        .get(header_end + 4..)
-        .ok_or_else(|| protocol_error("CDP HTTP response body range is invalid"))?;
-    if let Some(expected) = content_length {
-        let declared = body
-            .get(..expected)
-            .ok_or_else(|| protocol_error("CDP HTTP response body is shorter than declared"))?;
-        return Ok(declared);
-    }
-    Ok(body)
+    Ok(content_length)
 }
 
 fn parse_targets(body: &[u8]) -> PlatformResult<Vec<TargetPage>> {
@@ -209,7 +234,7 @@ fn parse_targets(body: &[u8]) -> PlatformResult<Vec<TargetPage>> {
             continue;
         }
         let url = required_string(entry, "url")?;
-        let title = required_string(entry, "title")?;
+        let title = required_nullable_title(entry, "title")?;
         let websocket_url = required_string(entry, "webSocketDebuggerUrl")?;
         pages.push(TargetPage {
             url,
@@ -225,6 +250,14 @@ fn required_string(value: &JsonValue, field: &str) -> PlatformResult<String> {
         .get(field)
         .and_then(JsonValue::as_str)
         .filter(|text| !text.trim().is_empty())
+        .map(ToString::to_string)
+        .ok_or_else(|| protocol_error(format!("CDP page target is missing `{field}`")))
+}
+
+fn required_nullable_title(value: &JsonValue, field: &str) -> PlatformResult<String> {
+    value
+        .get(field)
+        .and_then(JsonValue::as_str)
         .map(ToString::to_string)
         .ok_or_else(|| protocol_error(format!("CDP page target is missing `{field}`")))
 }
@@ -311,3 +344,7 @@ fn io_error(error: &std::io::Error) -> PlatformError {
 fn protocol_error(message: impl Into<String>) -> PlatformError {
     PlatformError::new(ErrorCode::Transient, message)
 }
+
+#[cfg(test)]
+#[path = "http_tests.rs"]
+mod tests;
