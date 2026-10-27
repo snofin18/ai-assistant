@@ -9,7 +9,7 @@ import io
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import SplitResult, urlsplit
 
 
 HEADER = [
@@ -82,6 +82,7 @@ def _validate_row(
     expected_page: int,
     expected_row: int,
     seen_urls: set[str],
+    expected_origin: str,
 ) -> None:
     if len(row) != len(HEADER):
         raise CsvContractError(
@@ -118,19 +119,44 @@ def _validate_row(
         raise CsvContractError(f"duplicate product_url: {url}")
 
     parsed = urlsplit(url)
-    if (
-        parsed.scheme != "http"
-        or parsed.hostname != "127.0.0.1"
-        or parsed.port != 8765
-        or parsed.fragment
-    ):
+    if not _matches_origin(parsed, expected_origin) or parsed.fragment:
         raise CsvContractError(
-            f"product_url is outside {EXPECTED_ORIGIN} or contains a fragment: {url}"
+            f"product_url is outside {expected_origin} or contains a fragment: {url}"
         )
     seen_urls.add(url)
 
 
-def validate_file(path: Path, expected: Path | None = None) -> ValidationResult:
+def _matches_origin(parsed: SplitResult, expected_origin: str) -> bool:
+    expected = urlsplit(expected_origin)
+    if (
+        expected.scheme not in {"http", "https"}
+        or expected.hostname is None
+        or expected.username is not None
+        or expected.password is not None
+        or expected.path not in {"", "/"}
+        or expected.query
+        or expected.fragment
+    ):
+        raise CsvContractError(f"invalid expected origin: {expected_origin!r}")
+    default_port = 443 if expected.scheme == "https" else 80
+    try:
+        expected_port = expected.port or default_port
+        actual_port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    except ValueError as error:
+        raise CsvContractError(f"invalid URL port: {error}") from error
+    return (
+        parsed.scheme == expected.scheme
+        and parsed.hostname is not None
+        and parsed.hostname.lower() == expected.hostname.lower()
+        and actual_port == expected_port
+    )
+
+
+def validate_file(
+    path: Path,
+    expected: Path | None = None,
+    expected_origin: str = EXPECTED_ORIGIN,
+) -> ValidationResult:
     """Validate one output CSV and optionally compare it byte-for-byte to expected."""
 
     text = _read_strict_bytes(path)
@@ -144,7 +170,7 @@ def validate_file(path: Path, expected: Path | None = None) -> ValidationResult:
     for index, row in enumerate(rows):
         expected_page = index // ROWS_PER_PAGE + 1
         expected_row = index % ROWS_PER_PAGE + 1
-        _validate_row(row, expected_page, expected_row, seen_urls)
+        _validate_row(row, expected_page, expected_row, seen_urls, expected_origin)
 
     if expected is not None:
         try:
@@ -165,13 +191,14 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--expected", type=Path)
+    parser.add_argument("--expected-origin", default=EXPECTED_ORIGIN)
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     try:
-        result = validate_file(args.input.resolve(), args.expected)
+        result = validate_file(args.input.resolve(), args.expected, args.expected_origin)
     except CsvContractError as error:
         print(f"CSV CONTRACT FAILED: {error}")
         return 2
