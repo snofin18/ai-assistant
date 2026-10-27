@@ -13,7 +13,7 @@ publish.workspace = true
 #   zstd:     blob 池压缩（level 3，storage-design.md §3.3 既定口径）
 #   sha2:     内容寻址 SHA-256（blob_id + 完整性校验）
 rusqlite = { version = "0.37", features = ["bundled"] }
-zstd = "0.13"
+zstd = "0.14"
 sha2 = "0.10"
 
 [dependencies.assistant-protocol]
