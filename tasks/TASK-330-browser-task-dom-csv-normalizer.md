@@ -1,6 +1,6 @@
 # TASK-330　Browser task DOM 到 T5.1 CSV 规范化器
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：1　子阶段：**1c**　批次：治理/基础设施　依赖：TASK-329、TASK-107、TASK-112、TASK-114
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031）。分界线以上为正文；以下为执行记录。
 
@@ -89,32 +89,82 @@ cargo deny check
 
 ### 2. 实际改动文件
 
-待填写。
+- `apps/agent-core/src/browser_task_runtime.rs`
+- `apps/agent-core/src/browser_task_support.rs`
+- `apps/agent-core/src/browser_task_csv.rs`（新增）
+- `apps/agent-core/src/browser_task_csv_html.rs`（新增）
+- `apps/agent-core/src/browser_task_csv_page.rs`（新增）
+- `apps/agent-core/src/browser_task_csv_tests.rs`（新增）
+- `apps/agent-core/src/browser_task_runtime_tests.rs`
+- `apps/agent-core/src/main.rs`
+- `apps/agent-core/README.md`
+- `tasks/TASK-330-browser-task-dom-csv-normalizer.md`
+- `docs/memory/facts.md`
+- `docs/memory/pitfalls.md`
+- `MEMORY.md`
+- `plans/stage-1-pilots.md`
+- `PLAN.md`
+- `README.md`
+- `LEDGER.md`
 
 ### 3. 验收输出摘要
 
-待填写。
+- `cargo test -p assistant-agent-core --bin assistant-agent-core browser_task` → 17 passed。
+  其中 CSV 规范化 11 项、runtime / bundle 6 项。
+- Python T5.1 契约测试 → 12 passed。
+- Rust actual CSV 与 Python fixture `expected.csv` 经现有 `validate_csv.py` 逐字节比较 →
+  `CSV CONTRACT OK: rows=60`，首尾 URL 分别为 product-001 / product-060。
+- `cargo fmt --all --check` → exit 0。
+- `cargo clippy --all-targets -- -D warnings` → exit 0，仅既有 unknown-lint warning。
+- `cargo test --workspace` → exit 0。
+- `cargo test -p assistant-core arch::` → 10/10。
+- `verify-schemas` / `codegen --check` → PASSED。
+- `cargo deny check` → advisories / bans / licenses / sources 全部 ok。
+- `hygiene` PASSED（150 warning，低于升级前基线）；`memory-counts` / `adr-index` /
+  `refscan` / `docscan` / `card-check` / `check-ledger` / `check-comments` /
+  `check-migrations` 全部 PASSED。
 
 ### 4. DoD 逐条核对
 
-待填写。
+- [x] 三页 DOM 规范化结果为 header + 60 行，列型与现有 Python validator 一致。
+- [x] fixture 的逗号、双引号、非 ASCII、HTML entity 与绝对 URL 被逐字节匹配。
+- [x] 真实站点常见相对 URL、`product_pod`、`price_color`、`star-rating` 结构有离线测试。
+- [x] 缺页、短页、跨 origin、重复 URL、非法价格、未知 entity / rating 均显式失败。
+- [x] JSON/CSV create-new、读回一致、CSV 竞争失败时仅清理本流程 JSON 有测试。
+- [x] 全量验收通过；TASK-056 保持 Blocked。
 
 ### 5. 偏差
 
-待填写。
+- 收口期间在线 RustSec DB 新报 zstd 四条公告，阻断仓库级 deny；按独立安全前置卡
+  TASK-331 先升级既有 zstd 依赖，TASK-330 rebase 后重新通过 deny。
+- 本会话累计 `shell_misuse=25`，均为只读命令误填 bash，在命令查找 / 解析阶段失败，
+  未执行目标或造成仓库写入。
 
 ### 6. 更合理做法
 
-待填写。
+- 复用 TASK-329 的六步提交和 outputs，新增只读后置 normalizer；没有把 HTML 转成通用
+  表达式或新增第三方 parser。
+- HTML tokenizer、article parser、CSV serializer 分文件，避免用 `allow` 压掉 clippy
+  或 hygiene 告警。
+- 同时写入 JSON 证据与 CSV 产物，CSV 竞争创建失败时只清理本流程已创建的 JSON，
+  不碰其他进程刚创建的文件。
 
 ### 7. 遗留问题
 
-待填写。
+- TASK-056 仍需人类在场执行真实 Edge 10/10、专用 profile 登录确认与
+  `books.toscrape.com` 3/3 smoke。
+- click / form fill / submit / download / screenshot / browser close provider 仍由
+  TASK-056~058 后续卡承接。
 
 ### 8. 新增长期记忆
 
-待填写。
+- FACT：TASK-329 导出的三页 DOM 已可确定性规范化为 TASK-056 CSV，并由现有 Python
+  validator 做 60 行逐字节验收。
+- PITFALL：运行期 DOM 是 bounded outerHTML 字符串，CSV 前必须用严格 tokenizer /
+  article parser；不能把页面内容当表达式执行，也不能跳过坏行。
 
 ### 9. 给审阅者的关注点
 
-待填写。
+- 检查 HTML tokenizer 只接受本次 bounded fragment + 已知 entity，未知结构是否 fail-closed。
+- 检查 JSON/CSV 双文件写入的 create-new 与失败清理顺序。
+- 不得把离线 fixture / 脚本化 ToolBus 结果当成 TASK-056 真实 Edge 证据。
