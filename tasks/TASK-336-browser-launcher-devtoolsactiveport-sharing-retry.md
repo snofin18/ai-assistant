@@ -125,6 +125,10 @@ cargo deny check
 - merge commit `a4777ae2675b42b441f20160fd3be549b48ddc34`；merge 后
   [main CI run 40480883072](https://github.com/snofin18/ai-assistant/actions/runs/40480883072)
   success（10 success + 1 预期 skipped）。
+- report backfill PR #604 → CI `40482833378` 11/11 success，merge
+  `6b8c37b9ec6fa9daac3a114d82d9bc53ae96dc4d`。LEDGER-only PR #605 →
+  CI `40485984575` 11/11 success，merge `4ea978dac2a543abf903b84dd2eee81fde009dd2`，
+  post-merge main CI `40487620784` success。
 
 ### 4. DoD 逐条核对
 
@@ -137,13 +141,13 @@ cargo deny check
 
 ### 5. 偏差
 
-- 当前 automation rollout 有 **21** 次 `exec_command` 误填 `bash`：其中 2 次 exit 0
-  （Git 状态、`git switch`）、16 次 exit 127、1 次 exit 1、2 次 exit 2；未通过 bash
+- 当前 automation rollout 有 **23** 次 `exec_command` 误填 `bash`：其中 3 次 exit 0
+  （Git 状态、2 次 `git switch`）、16 次 exit 127、1 次 exit 1、3 次 exit 2；未通过 bash
   写入产品文件或替代任何成功验收。全部误用已实时写入外部 JSONL。
 - exit 1 的 PR 创建调用把 PowerShell here-string 与反引号交给 bash，在仓库根生成 81 个
   未跟踪文件，且未创建 PR；逐项验证它们均为根目录普通文件后以 `git clean -f`（不带
   `-d` / `-x`）清理，复验未跟踪文件为 0，已跟踪文件未受影响。2 次 exit 2 调用是
-  JSONL 审计/补记命令误由 bash 解析，未产生有效审计结果或仓库写入；另有 1 次
+  JSONL 审计/补记/CI 轮询命令误由 bash 解析，未产生有效审计结果或仓库写入；另有 1 次
   `card-check` 误由 bash 执行，因 cargo 不在 PATH 而 exit 127，随后以 PowerShell 重跑通过。
 - 本卡不执行 TASK-056 真实 Edge 10/10 或外部站点 3/3，因此 TASK-056 仍为 Blocked。
 
