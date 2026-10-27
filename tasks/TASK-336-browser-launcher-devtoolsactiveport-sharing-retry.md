@@ -131,9 +131,12 @@ cargo deny check
 
 ### 5. 偏差
 
-- 当前 automation rollout 有 **16** 次 `exec_command` 误填 `bash`：其中 5 次 exit 0
-  （3 次只读读取、`git switch`、Git 状态）、11 次 exit 127；未通过 bash 写入产品文件或
-  替代任何成功验收。全部误用已实时写入外部 JSONL，后续命令改用显式 PowerShell。
+- 当前 automation rollout 有 **17** 次 `exec_command` 误填 `bash`：其中 5 次 exit 0
+  （3 次只读读取、`git switch`、Git 状态）、11 次 exit 127、1 次 exit 1；未通过 bash
+  写入产品文件或替代任何成功验收。全部误用已实时写入外部 JSONL。
+- exit 1 的 PR 创建调用把 PowerShell here-string 与反引号交给 bash，在仓库根生成 81 个
+  未跟踪文件，且未创建 PR；逐项验证它们均为根目录普通文件后以 `git clean -f`（不带
+  `-d` / `-x`）清理，复验未跟踪文件为 0，已跟踪文件未受影响。
 - 本卡不执行 TASK-056 真实 Edge 10/10 或外部站点 3/3，因此 TASK-056 仍为 Blocked。
 
 ### 6. 更合理做法
