@@ -294,9 +294,11 @@ DRIFT-056-6
 需要人类裁决：是
 ```
 
-- 当前 rollout 最终 shell 审计为 **59** 次误填 bash；此前 TASK-333 记录 52，本次只读失败诊断新增
-  7 次，均未写产品文件。更完整的 52 次分类见 TASK-333；本次新增 7 次均为 PowerShell
+- 当前 rollout 最终 shell 审计为 **60** 次误填 bash；此前 TASK-333 记录 52，本次失败诊断与一次
+  成功 push 新增 8 次，均未写产品文件内容。更完整的 52 次分类见 TASK-333；新增项中
+  7 次为 PowerShell
   cmdlet / `rg` 在 bash 中不可用，未执行目标。
 - 过程更正：最终 58 次计数第一次回填时，`LEDGER.md` guard 已释放；发现后立即重新 acquire，
   再追加 `TASK-056 guard discipline correction`。该次无并发 guard 持有者，未覆盖他人改动。
-- 第二次最终审计又定位到 1 次 bash 语法失败，最终值更正为 **59**；该次仍未执行目标或写仓库。
+- 第二次最终审计又定位到 1 次 bash 语法失败，随后一次 `git push` 也误填 bash；最终值更正为
+  **60**，其中 push exit 0，但未写 product 文件内容。
