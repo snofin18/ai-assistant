@@ -1,0 +1,3 @@
+fixture_server_pid=32436
+status=200
+bytes=11732

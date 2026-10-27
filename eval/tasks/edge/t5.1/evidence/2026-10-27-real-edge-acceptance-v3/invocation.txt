@@ -1,0 +1,14 @@
+PowerShell:
+
+& '.\eval\tasks\edge\t5.1\run_real_edge_acceptance.ps1' `
+  -Mode local `
+  -EvidenceRoot 'eval/tasks/edge/t5.1/evidence/2026-10-27-real-edge-acceptance-v3' `
+  -TaskPackage 'adapters/browser.edge/tasks/t5.1.books-list-to-csv.json' `
+  -CsvBaseUrl 'http://127.0.0.1:8765' `
+  -ExpectedCsv 'eval/tasks/edge/t5.1/fixtures/expected.csv' `
+  -ExpectedOrigin 'http://127.0.0.1:8765' `
+  -Repeat 10 `
+  -Port 8765 `
+  -EdgeExecutable 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe' `
+  -ProfileRoot 'C:\Users\fexfe\AppData\Local\ai-assistant-task-056-edge-profile' `
+  -Binary 'target/debug/assistant-agent-core.exe'

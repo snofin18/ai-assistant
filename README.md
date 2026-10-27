@@ -6,7 +6,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
-> 状态：**阶段 1**；**TASK-333 Done（2026-10-27）**（browser task runner 显式逐 step 人工批准）；**TASK-332 Done（2026-10-27）**（CDP HTTP Content-Length discovery 修复）；**TASK-330 Done（2026-10-27）**（三页 DOM → 固定 60 行 CSV）；**TASK-331 Done（2026-10-27）**（zstd 安全公告修复）；Stage 1a Done、Stage 1b Paint 30/30；Stage 1c 下一步为人类在场的 TASK-056 真实 Edge 10/10 与外部 smoke 3/3。
+> 状态：**阶段 1**；**TASK-333 Done（2026-10-27）**（browser task runner 显式逐 step 人工批准）；**TASK-332 Done（2026-10-27）**（CDP HTTP Content-Length discovery 修复）；**TASK-330 Done（2026-10-27）**（三页 DOM → 固定 60 行 CSV）；**TASK-331 Done（2026-10-27）**（zstd 安全公告修复）；Stage 1a Done、Stage 1b Paint 30/30；Stage 1c 的 TASK-056 已越过 step approval，但被 `DRIFT-056-6`（Edge WebSocket 101 reason phrase）阻塞。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -91,6 +91,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-27 TASK-056 真实 Edge v3 preflight（Blocked）**：step approval 已生效，`navigate_page_1` 进入工具执行；Edge 156 返回合法的 `HTTP/1.1 101 WebSocket Protocol Handshake`，但 transport 精确要求 `HTTP/1.1 101 Switching Protocols`，将升级判为 `Transient`。本地 0/10、外部未开始；原始日志与清理证据在 `eval/tasks/edge/t5.1/evidence/2026-10-27-real-edge-acceptance-v3/`，等待 `DRIFT-056-6` 裁决。
+
 **2026-10-27 TASK-333 Done（browser task runner step approval）**：私有 `--browser-task-run` 新增可重复 `--approve-step <step-id>`；每个批准只绑定一个会被 Policy 要求确认的真实写步骤，并经现有 `ApprovalGrants` 一次性消费。权威 `edge.cdp.navigate = write/medium/L2` 在无批准时仍 `AwaitingApproval`，三个 navigate 全部显式批准后 T5.1 六步提交；未知、只读、无需确认、重复与超量批准均 fail-closed。
 
 **2026-10-27 TASK-332 Done（CDP HTTP Content-Length discovery）**：真实 Edge 156 的 `/json/list` 返回完整 `Content-Length` 后保持连接，旧 `read_to_end()` 会等到读超时。现改为有界 header 读取 + 精确 body 长度读取，保留无长度时的 EOF 兼容与 1 MiB 上限；3 个真实 TCP 回归全部通过，真实 Edge `--browser-runtime-check` 连接后以 3 个 browser tools 正常关闭。
@@ -374,6 +376,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-27 TASK-056 real Edge v3 preflight blocked（DRIFT-056-6）**：显式 step approval 首次让真实 navigate 进入工具执行，但 Edge 156 的合法 WebSocket 101 使用了不同 reason phrase，当前 transport 将其误报为 `Transient`。新增可复现验收脚本、允许显式外部 origin 的 CSV validator 和 14 个 Python 测试；本地成功 0/10、外部未开始，server / Edge 进程均收敛为 0。
+
 **2026-10-27 TASK-333 Done（browser task runner explicit step approval）**：CLI 现在要求逐 step 显式批准 medium write，Plan 批准不再被误当成 step 批准；runner 只消费 Policy 已判定为 `AllowWithConfirmation` 的一次授权。测试直接读取 Edge adapter 的权威 `navigate = write/medium/L2` schema，专项 22/22、workspace、fmt、clippy、arch、schema/codegen 全绿。TASK-056 可恢复真实 Edge 验收。
 
 **2026-10-27 TASK-332 Done（CDP HTTP Content-Length reader）**：修复真实 Edge 保持 `/json/list` 连接导致的 discovery 超时；新增 3 个真实本地 TCP 契约，覆盖 keep-alive + Content-Length、close-delimited 兼容和 `about:blank` 空 title。真实 Edge runtime check 已通过，TASK-056 可恢复真实 10/10 与外部 3/3。

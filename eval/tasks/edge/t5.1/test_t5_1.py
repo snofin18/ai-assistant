@@ -202,6 +202,33 @@ class T51ContractTests(unittest.TestCase):
         with self.assertRaisesRegex(validate_csv.CsvContractError, "outside"):
             validate_csv.validate_file(target)
 
+    def test_accepts_an_explicit_external_origin(self) -> None:
+        target = self._write_variant(
+            lambda raw: raw.replace(
+                b"http://127.0.0.1:8765",
+                b"https://books.toscrape.com",
+            )
+        )
+        result = validate_csv.validate_file(
+            target,
+            expected_origin="https://books.toscrape.com",
+        )
+        self.assertEqual(result.rows, 60)
+        self.assertTrue(result.first_product_url.startswith("https://books.toscrape.com/"))
+
+    def test_rejects_a_different_external_origin(self) -> None:
+        target = self._write_variant(
+            lambda raw: raw.replace(
+                b"http://127.0.0.1:8765",
+                b"https://books.toscrape.com",
+            )
+        )
+        with self.assertRaisesRegex(validate_csv.CsvContractError, "outside"):
+            validate_csv.validate_file(
+                target,
+                expected_origin="https://example.com",
+            )
+
     def test_rejects_missing_output_file(self) -> None:
         with self.assertRaisesRegex(validate_csv.CsvContractError, "does not exist"):
             validate_csv.validate_file(self.fixture_directory / "missing.csv")

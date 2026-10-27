@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "task_id": "edge.t5_1.books_list_to_csv",
+  "date": "2026-10-27",
+  "edge": {
+    "version": "156.0.4314.42",
+    "profile_id": "task056-local-v3-01",
+    "profile_root": "C:\\Users\\fexfe\\AppData\\Local\\ai-assistant-task-056-edge-profile"
+  },
+  "approval_boundary": {
+    "plan_approved": true,
+    "step_approvals": [
+      "navigate_page_1",
+      "navigate_page_2",
+      "navigate_page_3"
+    ],
+    "first_navigate_entered_tool_execution": true
+  },
+  "local_acceptance": {
+    "exit_code": 2,
+    "error_code": "VerifyFailed",
+    "step": "navigate_page_1",
+    "outcome": "ToolFailed",
+    "tool_error_code": "Transient",
+    "message": "MCP error -32000: edge.cdp.navigate: Transient: CDP WebSocket upgrade returned `HTTP/1.1 101 WebSocket Protocol Handshake`",
+    "successful_rounds": 0,
+    "required_rounds": 10,
+    "json_csv_outputs_created": false
+  },
+  "root_cause_boundary": {
+    "file": "crates/platform/windows/src/cdp/websocket.rs",
+    "current_check": "status == \"HTTP/1.1 101 Switching Protocols\"",
+    "observed_status_line": "HTTP/1.1 101 WebSocket Protocol Handshake",
+    "finding": "The status code is 101, but Edge uses a different RFC-permitted reason phrase; exact reason-phrase matching rejects a valid upgrade.",
+    "task_056_write_scope_allows_fix": false
+  },
+  "external_smoke": {
+    "result": "not_started",
+    "reason": "local task stopped on the valid 101 response before navigate completed"
+  },
+  "cleanup": {
+    "fixture_server_pid": 32436,
+    "fixture_server_alive": false,
+    "port_8765_listeners": 0,
+    "dedicated_edge_processes": 0
+  }
+}

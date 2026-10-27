@@ -266,3 +266,39 @@ DRIFT-056-5
 
 - 本轮 `exec_command` 的实际误用累计为 **35** 次（上一轮 27 + 本轮 8），均为只读探查、
   一次测试命令或预检命令误填 bash；命令在查找/解析阶段失败，未执行目标、未写仓库。
+
+---
+
+**2026-10-27 · TASK-333 修复后的真实 Edge 本地验收（DRIFT-056-6）**
+
+- TASK-333 已合并为 `940bd18`。`--browser-task-run` 在本次首个真实运行中显式批准
+  `navigate_page_1` / `navigate_page_2` / `navigate_page_3`，Plan 与 step 审批边界均已越过；
+  `navigate_page_1` 已进入工具执行，不再返回 `AwaitingApproval`。
+- 新失败发生在 CDP WebSocket upgrade：Edge `156.0.4314.42` 返回标准状态码 101 和自定义
+  reason phrase `HTTP/1.1 101 WebSocket Protocol Handshake`；当前 transport 精确要求
+  `HTTP/1.1 101 Switching Protocols`，因此把有效升级判为
+  `Transient: CDP WebSocket upgrade returned ...`。
+- 本地成功轮次 **0/10**；外部 smoke **0/3、未开始**；没有成功 JSON/CSV。重跑命令、
+  runner 日志、server 日志、失败 summary 与清理结果见
+  `eval/tasks/edge/t5.1/evidence/2026-10-27-real-edge-acceptance-v3/`。
+- 失败后 fixture server PID 32436 已停止、8765 无监听、专用 Edge 进程 0。
+  新增的验收脚本与 CSV validator 允许显式外部 origin，但本卡仍未产生外部成功证据。
+
+```text
+DRIFT-056-6
+触发器：#5（当前 write scope 不足）+ #8（真实 Edge 响应与 transport 解析契约矛盾）
+现象：Edge 156 返回 `HTTP/1.1 101 WebSocket Protocol Handshake`；状态码是 101，但 reason phrase 与 `websocket.rs` 的精确字符串 `HTTP/1.1 101 Switching Protocols` 不同，transport 将合法升级判为 Transient。
+影响：TASK-056 的本地 10/10 与外部 3/3 全部阻塞；step approval 已不是阻塞点。
+我的建议：另开最小修复卡，仅改 `crates/platform/windows/src/cdp/websocket.rs`：状态行按 HTTP token 解析 status-code=101，不绑定 reason phrase；保留 Upgrade / Connection / Sec-WebSocket-Accept 校验与有界 header；补切成真实 Edge 风格 101 状态行的本地 TCP 契约测试。修复合并后再恢复 TASK-056。
+已停止的工作：未修改 platform transport、公共 API/schema/依赖或断言；未开始外部 smoke；未伪造成功 JSON/CSV。
+需要人类裁决：是
+```
+
+- 当前 rollout 最终 shell 审计为 **60** 次误填 bash；此前 TASK-333 记录 52，本次失败诊断与一次
+  成功 push 新增 8 次，均未写产品文件内容。更完整的 52 次分类见 TASK-333；新增项中
+  7 次为 PowerShell
+  cmdlet / `rg` 在 bash 中不可用，未执行目标。
+- 过程更正：最终 58 次计数第一次回填时，`LEDGER.md` guard 已释放；发现后立即重新 acquire，
+  再追加 `TASK-056 guard discipline correction`。该次无并发 guard 持有者，未覆盖他人改动。
+- 第二次最终审计又定位到 1 次 bash 语法失败，随后一次 `git push` 也误填 bash；最终值更正为
+  **60**，其中 push exit 0，但未写 product 文件内容。
