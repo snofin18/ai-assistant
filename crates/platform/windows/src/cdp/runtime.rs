@@ -466,9 +466,11 @@ fn evaluate_dom_blocking(
             "CDP DOM expression is empty or exceeds 64 KiB",
         ));
     }
-    let expression_literal = json::encode(&json::string(expression));
+    // The expression is trusted internal JavaScript assembled after handler-side
+    // selector and length validation. Quoting it here would evaluate the source
+    // text as a string instead of executing the DOM read.
     let wrapped = format!(
-        "(() => {{ const value = ({expression_literal}); return JSON.stringify({{ \
+        "(() => {{ const value = ({expression}); return JSON.stringify({{ \
          url: location.href, title: document.title, dom: String(value) }}); }})()"
     );
     let deadline = deadline(record.timeout)?;
@@ -504,7 +506,7 @@ fn evaluate_dom_blocking(
         .ok_or_else(|| {
             PlatformError::new(
                 ErrorCode::VerifyFailed,
-                "CDP Runtime.evaluate did not return an encoded DOM object",
+                "CDP Runtime.evaluate did not return a string expression result",
             )
         })?;
     let snapshot: JsonValue = json::parse(encoded_snapshot.as_bytes()).map_err(|error| {

@@ -302,3 +302,53 @@ DRIFT-056-6
   再追加 `TASK-056 guard discipline correction`。该次无并发 guard 持有者，未覆盖他人改动。
 - 第二次最终审计又定位到 1 次 bash 语法失败，随后一次 `git push` 也误填 bash；最终值更正为
   **60**，其中 push exit 0，但未写 product 文件内容。
+
+---
+
+**2026-10-27 · TASK-334 修复后的真实 Edge 本地验收（DRIFT-056-7）**
+
+- TASK-334 已合并为 `26b9aec`。真实 Edge 的 `HTTP/1.1 101 WebSocket Protocol Handshake`
+  已被接受，`navigate_page_1` 为 `Committed`；本地成功轮次仍为 **0/10**。下一独立步骤
+  `read_page_1 / edge.cdp.dom_read` 返回 `VerifyFailed`，消息为
+  `CDP DOM payload is not the required JSON object: expected value at line 1 column 1`。
+- 只读真实 Edge 156.0.4314.42 探针确认：`RuntimeCdpProvider` 把 DOM expression 先 JSON
+  字符串化，再放入 wrapper 的“可执行”位置，因此 `String(value)` 得到 expression 源码本身
+  （以 `(` 开头），不是内部 DOM JSON。相同探针改为直接插入 expression 后得到
+  `dom_length=11309`、`dom_node_count=121`，证明失败位于 expression 求值语义。
+- 失败和探针后 fixture server、专用 Edge 进程均收敛为 0；未修改默认 profile、Cookie、
+  凭据、Policy、公共 API/schema 或 TASK-056 断言，未宣称 10/10 或外部 smoke 成功。
+
+```text
+DRIFT-056-7
+触发器：#5（当前 write scope 不足）+ #8（真实 CDP 返回值与运行时 expression 契约矛盾）
+现象：evaluate_dom 将调用方 JS expression 作为 JSON 字符串字面量嵌入 wrapper；真实 Edge 返回的 DOM 值是 expression 源码而非 DOM JSON，edge.cdp.dom_read 在 serde_json 首字符处失败。
+影响：TASK-056 的 DOM 读取、后续两页 navigate/read、CSV 与外部 smoke 全部阻塞；TASK-334 first navigate 只能证明 transport 已恢复。
+我的建议：另开 TASK-335，仅修改 crates/platform/windows/src/cdp/runtime.rs 使受控 expression 真正执行；补真实 TCP 契约断言出站 expression 不是字符串字面量，并覆盖 exception、非字符串 value 与非法 snapshot JSON。修复合并后恢复 TASK-056。
+已停止的工作：未放宽 DOM JSON 解析；未修改 apps/agent-core、公共 API/schema/依赖、Policy、CSV 契约或断言；未创建成功 JSON/CSV。
+需要人类裁决：已由 2026-10-27 用户“按建议做”明确授权另开最小卡。
+```
+
+---
+
+**2026-10-27 · TASK-335 修复后的真实 Edge 本地验收（DRIFT-056-8）**
+
+- TASK-335 expression 修复后的真实 Edge 本地运行完成 **9/10**。每轮六步均
+  `committed`，每轮生成 3 个 DOM 输出、60 行 CSV，CSV SHA-256 均为
+  `4365c928631f5a07b81c08ceac4e204326e495013ae891d807bbf09602015ab3`；
+  `read_page_1` 已越过原 JSON expression 阻塞。
+- 第 10 轮未进入 task execution：browser launcher 读取当前专用 profile 的
+  `DevToolsActivePort` 时遇到 Windows `os error 32`（文件被另一个程序使用），
+  当前实现把一次瞬时 sharing/lock violation 直接升级为 `Fatal`。
+- 失败后 fixture server 已停止、8765 无监听、专用 profile 的 Edge 进程为 0；
+  第 1~9 轮 JSON/CSV、validator、manifest、server 与失败 summary 见
+  `eval/tasks/edge/t5.1/evidence/2026-10-27-task-335-cdp-evaluate-expression/`。
+
+```text
+DRIFT-056-8
+触发器：#5（当前 write scope 不足）+ #8（真实 Windows 文件共享时序与读取契约矛盾）
+现象：连续第 10 轮启动专用 Edge 时，DevToolsActivePort 已存在但正被浏览器写入；File::open 返回 os error 32，launcher 立即 Fatal，未在有界 readiness deadline 内重试。
+影响：TASK-056 本地为 9/10 而非 10/10；外部 smoke 不能开始，CSV 即使前 9 轮逐字节一致也不能冒充完整验收。
+我的建议：另开最小卡，仅改 crates/platform/windows/src/browser_launcher.rs 的 readiness 读取：Windows sharing violation（32）与 lock violation（33）按“尚未 ready”处理，在既有 deadline 内重试；NotFound 仍等待，ACL/非法内容/超限仍立即 fail-closed，并补独占打开文件的真实 Windows 回归。
+已停止的工作：未放宽 launcher 错误分类；未修改公共 API/schema/依赖、TASK-056 断言、CSV validator 或其他 browser 工具；未开始外部 smoke。
+需要人类裁决：按当前连续验收授权和“按建议做”建议另开 TASK-336。
+```
