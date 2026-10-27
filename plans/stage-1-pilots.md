@@ -25,7 +25,7 @@
 > **TASK-271 Done（2026-10-11）**：`assistant-dlp` 新增 7 个公共契约测试，独立行覆盖率 83.59% → 98.89%；生产源码零改动；PR #320 / merge `8a5ad5f`。
 
 > **TASK-290 Done（2026-10-14）**：PL-010 闭环 —— `gov §9.2` 的 LEDGER 模板新增 `pending` 占位与追加式回填规则；原开放行不改，PARKING_LOT 追加闭环节点；docs-only，零产品代码改动；PR #388 / merge `4e9bce6`。
-> 周期 10~12 周　状态：**进行中（2026-10-27：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-048 / TASK-049 / TASK-055 / TASK-107 / TASK-108 / TASK-109 / TASK-110 / TASK-111 / TASK-112 / TASK-113 / TASK-114 / TASK-328 / TASK-329 / TASK-330 / TASK-331 / TASK-332 Done；Stage 1c 进行中，CDP discovery 已修复，但 TASK-056 当前阻塞于私有 runner 缺少逐 step 级 human approval（`DRIFT-056-5`））**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> 周期 10~12 周　状态：**进行中（2026-10-27：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-048 / TASK-049 / TASK-055 / TASK-107 / TASK-108 / TASK-109 / TASK-110 / TASK-111 / TASK-112 / TASK-113 / TASK-114 / TASK-328 / TASK-329 / TASK-330 / TASK-331 / TASK-332 / TASK-333 Done；Stage 1c 进行中，私有 runner 已支持显式逐 step 批准，下一步恢复 TASK-056 人类在场的真实 Edge 10/10 与外部 smoke 3/3）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
 > **TASK-326 Done（2026-10-21）**：审计 2026-10-20 五轮 automation 的自删顺序；5/5 已执行且已自删，发现 17:00 轮 PR #502、00:30 轮 PR #509 两次在 self-delete 后才落地，已追加运行日更正与 `docs/audits/automation-sequence-deviation-2026-10-20.md`；当前无残留 automation、锁、open PR。
 > **TASK-327 Done（2026-10-22）**：人工接管 2026-10-21 17:00 失联 automation 的离线 WIP；新增 8 个 CDP 公开契约测试，`cdp.rs` 行覆盖 0.00% → **100.00%**、crate **95.13%**；生产逻辑 / 公共 API / schema / 依赖零改动；清理由该槽遗留的陈旧 guard 锁与 automation 目录。
 > **TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）**：Paint 全工具集真机路径
@@ -415,6 +415,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-330 ✅** | 1c 基础设施 | `tasks/TASK-330-browser-task-dom-csv-normalizer.md` | Done（私有 `--csv-output` / `--csv-base-url`；三页 DOM 严格规范化到固定 8 列 60 行 CSV；UTF-8 无 BOM、CRLF；JSON/CSV create-new 与读回；Python fixture 逐字节一致；未启动真实浏览器） |
 | **TASK-331 ✅** | Stage 1c 安全前置 | `tasks/TASK-331-zstd-rustsec-2026-0391-0398-0403-0410.md` | Done（zstd 0.13.3 → 0.14.3、zstd-safe 8.2.0、zstd-sys 2.1.2；清除 RUSTSEC-2026-0391 / 0398 / 0403 / 0410；storage 59 tests、workspace、fmt/clippy 与 cargo deny 全绿） |
 | **TASK-332 ✅** | Stage 1c 基础设施 | `tasks/TASK-332-cdp-http-content-length-reader.md` | Done（CDP `/json/list` 按有界 `Content-Length` 精确读取，不再等待 EOF；3 个真实 TCP 回归；真实 Edge runtime check 成功） |
+| **TASK-333 ✅** | Stage 1c 基础设施 | `tasks/TASK-333-browser-task-step-approval.md` | Done（私有 runner 支持可重复 `--approve-step`；仅绑定 Policy 要求确认的真实写步骤；`ApprovalGrants` 单次消费；权威 write/medium schema 与负向批准测试全绿） |
 | **TASK-107 ✅** | 业务池 | `tasks/TASK-107-browser-task-package-assertion-mapping.md` | Done（Edge/Chrome navigate / dom.read / network-idle assertion mapping；TASK-056 T5.1 package 可渲染；专项 23/23） |
 | **TASK-108 ✅** | 业务池 | `tasks/TASK-108-cdp-runtime-fail-closed.md` | Done（CDP runtime 未接入真实 transport 时全部显式 `CapabilityMissing`；移除 synthetic success；专项 2/2） |
 | **TASK-109 ✅** | 业务池 | `tasks/TASK-109-real-cdp-loopback-transport.md` | Done（loopback CDP HTTP / RFC 6455；connect / navigate / DOM；零 serde；专项 6/6，JSON 2/2，handle-discipline 7/7） |

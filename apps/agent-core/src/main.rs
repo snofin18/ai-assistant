@@ -202,6 +202,7 @@ async fn main() -> ExitCode {
          [--browser-session-timeout-ms <100..300000>] | --browser-task-run \
          --task-package <path> [--task-inputs <path>] --output <absolute-new-path> \
          [--csv-output <absolute-new-path> --csv-base-url <http-or-https-origin>] \
+         [--approve-step <plan-step-id>]... \
          --browser edge|chrome --browser-executable <path> --browser-profile-root <absolute-path> \
          [--browser-profile-id <id>] [--browser-adapter-root <path>] \
          [--browser-session-timeout-ms <100..300000>]]",

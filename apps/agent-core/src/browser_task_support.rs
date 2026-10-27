@@ -3,6 +3,7 @@
 //! This module deliberately contains no task execution. It owns only the
 //! caller-facing CLI shape and the final create-new/read-back output contract.
 
+use std::collections::BTreeSet;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -32,11 +33,13 @@ pub(super) struct BrowserTaskOptions {
     pub(super) task_inputs_path: Option<PathBuf>,
     pub(super) output_path: PathBuf,
     pub(super) csv: Option<BrowserTaskCsvOptions>,
+    pub(super) approved_step_ids: Vec<String>,
 }
 
 impl BrowserTaskOptions {
     pub(super) fn parse(arguments: &[String]) -> Result<Self, BrowserTaskError> {
         let parsed = parse_arguments(arguments)?;
+        validate_unique_step_approvals(&parsed.approved_step_ids)?;
         let output_path = parsed
             .output_path
             .ok_or_else(|| argument_error("missing --output <path>"))?;
@@ -50,6 +53,7 @@ impl BrowserTaskOptions {
             task_inputs_path: parsed.task_inputs_path,
             output_path,
             csv,
+            approved_step_ids: parsed.approved_step_ids,
         })
     }
 
@@ -84,6 +88,7 @@ struct ParsedArguments {
     runtime: Vec<String>,
     csv_output_path: Option<PathBuf>,
     csv_base_url: Option<String>,
+    approved_step_ids: Vec<String>,
 }
 
 impl ParsedArguments {
@@ -94,6 +99,16 @@ impl ParsedArguments {
         option: &str,
     ) -> Result<bool, BrowserTaskError> {
         if self.consume_path_option(arguments, index, option)? {
+            return Ok(true);
+        }
+        if option == "--approve-step" {
+            let step_id = next_value(arguments, index, option)?;
+            if step_id.trim().is_empty() {
+                return Err(argument_error(
+                    "--approve-step requires a non-empty step id",
+                ));
+            }
+            self.approved_step_ids.push(step_id);
             return Ok(true);
         }
         if option != "--csv-base-url" {
@@ -127,6 +142,18 @@ impl ParsedArguments {
         )?;
         Ok(true)
     }
+}
+
+fn validate_unique_step_approvals(step_ids: &[String]) -> Result<(), BrowserTaskError> {
+    let mut unique = BTreeSet::new();
+    for step_id in step_ids {
+        if !unique.insert(step_id.as_str()) {
+            return Err(argument_error(format!(
+                "--approve-step `{step_id}` was provided more than once"
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn parse_arguments(arguments: &[String]) -> Result<ParsedArguments, BrowserTaskError> {

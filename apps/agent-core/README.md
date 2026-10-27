@@ -21,6 +21,8 @@ TASK-029 的 binary-layer Host 装配库。
   真实 task-engine 的处理器。
 - 提供私有 `--browser-task-run`：用专用 profile launcher、真实 CDP provider 与三个
   browser tools 执行 task-package，把全部已提交步骤输出写到新的、读回校验的 JSON；
+  对每个会被 Policy 要求确认的写步骤，必须重复传入 `--approve-step <step-id>`，单次批准
+  只消费一次且不会扩展成任务级或持久授权；
   显式传入 `--csv-output` + `--csv-base-url` 时，只在这六步全部提交后把 T5.1 三页 DOM
   规范化为固定 60 行 CSV。该模式仍不替代真实 Edge 验收。
 
@@ -52,6 +54,9 @@ TASK-029 的 binary-layer Host 装配库。
     policy、verify 或 DOM/CSV 契约失败都不得留下成功文件。
 11. CSV 只接受三页 DOM、每页 20 行和固定八列契约；UTF-8 无 BOM、CRLF、
     RFC 4180 quoting，并拒绝跨 origin、重复 URL、空字段和未知 HTML entity。
+12. 私有 browser runner 的 step 批准只能绑定一个真实写步骤，并只把 Policy 的
+   `AllowWithConfirmation` 转成该步骤的一次放行；未知、只读、无需确认、重复或超量批准
+   全部在启动执行前失败。
 
 ## 已知限制
 
