@@ -193,3 +193,43 @@ Stage 1c 的 T5.1 仍未完成，并依赖人类提供目标站点、专用 prof
   必须先由独立实现卡补齐该产品路径，之后才能按 `external-smoke-contract.json` 做 10/10
   本地基线、真实 Edge 与外部 3/3 smoke。
 - 本卡状态保持 **Blocked**，不得用离线 fixture、browser runtime 自检或人工点击截图冒充 Done。
+
+---
+
+**2026-10-27 · 真实 Edge / CSV 人工验收预检（DRIFT-056-4）**
+
+- 本轮按人类在场预授权执行，不占 automation `N_auto`。Edge 为
+  `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`，版本
+  `156.0.4314.42`；专用 profile 根为
+  `C:\Users\fexfe\AppData\Local\ai-assistant-task-056-edge-profile`，未读取、复制或复用用户默认 profile。
+- `cargo build -p assistant-agent-core --bin assistant-agent-core` → exit 0；
+  `python -m unittest discover -s eval/tasks/edge/t5.1 -p "test_*.py" -v` → 12/12 OK；
+  fixture 为 3 页 × 20 行，expected CSV SHA-256
+  `4365c928631f5a07b81c08ceac4e204326e495013ae891d807bbf09602015ab3`。
+- fixture server 仅监听 `127.0.0.1:8765`。真实 Edge preflight 在任务执行前失败：
+  runner 报 `CapabilityMissing` / `CDP HTTP transport failed: Windows SocketError 10060`；
+  因此本地 10/10 未开始计数，外部 3/3 smoke 也未开始，未创建任何成功 JSON/CSV。
+- 同轮旁证：runner 仍在等待时，专用 Edge 在 `127.0.0.1:55805` 监听，
+  `/json/version` 返回 HTTP 200、`Edg/156.0.4314.42`、CDP `1.3`；
+  原始 `/json/list` 返回 HTTP 200、`Content-Length: 3098`，但 5 秒内未 EOF。
+- 失败后专用 Edge 进程为 0；fixture server 已停止，PID 31960 不再存在，
+  `127.0.0.1:8765` 无监听。原始日志见
+  `eval/tasks/edge/t5.1/evidence/2026-10-27-real-edge-acceptance/`，
+  摘要见同目录 `diagnostic-summary.json`；同目录 `.gitignore` 仅新增 `fixtures/`，
+  保留既有 `__pycache__/` 与 `*.pyc` 规则。
+- 失败留痕 PR 的本地门禁：`cargo fmt --all --check`、`cargo clippy --all-targets -- -D warnings`、
+  `cargo test --workspace`、`verify-schemas`、`codegen --check`、`cargo deny check`
+  与 8 项 xtask 文档/台账检查全部 exit 0；clippy 仅有既有 unknown lint warning，
+  deny 仅有既有 duplicate / unused-license warning。
+
+```text
+DRIFT-056-4
+触发器：#5（当前 write scope 不足）+ #8（运行时能力与真实应用契约矛盾）
+现象：现有 CDP HTTP discovery 在发送 `GET /json/list` 后使用 `read_to_end()` 等 EOF；真实 Edge 156 返回 `Content-Length: 3098` 后保持连接至少 5 秒不关闭，runner 在 30 秒读超时后报 SocketError 10060。与此同时 PowerShell 对同一专用 profile 的 `/json/version` 返回 HTTP 200。
+影响：TASK-056 的 loopback 真实 Edge 10/10 与外部 smoke 3/3 均无法进入 task execution；现有 TASK-329/330 的脚本化 ToolBus 证据不能替代真实浏览器。
+我的建议：另开最小修复卡，仅改 `crates/platform/windows/src/cdp/http.rs`：解析响应头后按有界 `Content-Length` 精确读取 body，不能依赖服务端 EOF；补一个“发送完整 body 但保持连接”的 loopback 契约测试。修复合并后再恢复 TASK-056 A → B → C → D。
+已停止的工作：未修改 transport、公共 API、schema、依赖或测试断言；未启动外部 smoke；未创建成功 JSON/CSV。
+需要人类裁决：是
+```
+
+- 本轮 `exec_command` 显式 PowerShell 约束仍发生 **26** 次误填 bash：均为只读读取、状态查询、诊断或一次 guard acquire 在命令查找/语法解析阶段失败，未执行目标、未写仓库；guard acquire 失败后改用显式 PowerShell 完成。所有实际构建、fixture、runner、进程清理与文档写入均由显式 PowerShell 执行。
