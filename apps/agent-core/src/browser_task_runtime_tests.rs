@@ -10,10 +10,10 @@
     clippy::indexing_slicing
 )]
 
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 use assistant_agent_core::TaskPackageProvider;
-use assistant_protocol::{RiskLevel, ToolEffect, ToolReversibility};
 use assistant_tool_bus::{
     CallContext, Clock, MountSelection, SystemClock, ToolBus, ToolBusConfig, ToolBusError,
     ToolDefinition, ToolHandler, ToolOutput, ToolRegistry,
@@ -139,6 +139,10 @@ fn test_browser_task_options_split_runtime_and_task_flags() {
         expected_csv.clone(),
         "--csv-base-url".to_owned(),
         "http://127.0.0.1:8765".to_owned(),
+        "--approve-step".to_owned(),
+        "navigate_page_1".to_owned(),
+        "--approve-step".to_owned(),
+        "navigate_page_2".to_owned(),
         "--browser".to_owned(),
         "edge".to_owned(),
         "--browser-executable".to_owned(),
@@ -151,6 +155,10 @@ fn test_browser_task_options_split_runtime_and_task_flags() {
     assert_eq!(options.output_path.display().to_string(), expected_output);
     let csv = options.csv.expect("CSV options");
     assert_eq!(csv.output_path.display().to_string(), expected_csv);
+    assert_eq!(
+        options.approved_step_ids,
+        vec!["navigate_page_1", "navigate_page_2"]
+    );
 }
 
 #[test]
@@ -187,6 +195,33 @@ fn test_browser_csv_options_must_be_paired_and_use_http_origin() {
     ]);
     let error = BrowserTaskOptions::parse(&invalid).expect_err("non-HTTP origin must fail");
     assert!(error.to_string().contains("--csv-base-url is invalid"));
+}
+
+#[test]
+fn test_browser_task_options_reject_duplicate_step_approvals() {
+    let output = std::env::temp_dir().join(format!(
+        "assistant-browser-task-duplicate-approval-{}.json",
+        std::process::id()
+    ));
+    let arguments = vec![
+        "--task-package".to_owned(),
+        "package.json".to_owned(),
+        "--output".to_owned(),
+        output.display().to_string(),
+        "--approve-step".to_owned(),
+        "navigate_page_1".to_owned(),
+        "--approve-step".to_owned(),
+        "navigate_page_1".to_owned(),
+        "--browser".to_owned(),
+        "edge".to_owned(),
+        "--browser-executable".to_owned(),
+        r"C:\Edge\msedge.exe".to_owned(),
+        "--browser-profile-root".to_owned(),
+        r"C:\temp\profiles".to_owned(),
+    ];
+    let error =
+        BrowserTaskOptions::parse(&arguments).expect_err("duplicate step approval must fail");
+    assert!(error.to_string().contains("provided more than once"));
 }
 
 #[test]
@@ -244,6 +279,38 @@ fn test_browser_tool_schemas_exclude_reserved_planner_catalog() {
 }
 
 #[tokio::test]
+async fn test_unapproved_authoritative_write_waits_for_explicit_step_approval() {
+    let error = scripted_run(&[])
+        .await
+        .expect_err("missing navigate approval must stop the runner");
+    assert!(
+        error
+            .to_string()
+            .contains("step `navigate_page_1` ended as AwaitingApproval"),
+        "{error}"
+    );
+}
+
+#[tokio::test]
+async fn test_invalid_step_approvals_fail_closed() {
+    for (approvals, expected) in [
+        (vec!["unknown_step".to_owned()], "not present"),
+        (vec!["read_page_1".to_owned()], "read-only"),
+        (
+            (1..=7)
+                .map(|index| format!("navigate_page_{index}"))
+                .collect(),
+            "exceed the plan step limit",
+        ),
+    ] {
+        let error = scripted_run(&approvals)
+            .await
+            .expect_err("invalid step approval must fail");
+        assert!(error.to_string().contains(expected), "{error}");
+    }
+}
+
+#[tokio::test]
 async fn test_six_step_browser_package_commits_and_exports_declared_outputs()
 -> Result<(), Box<dyn std::error::Error>> {
     let current_page = Arc::new(Mutex::new(0usize));
@@ -260,12 +327,18 @@ async fn test_six_step_browser_package_commits_and_exports_declared_outputs()
     )
     .await?;
     let provider = TaskPackageProvider::from_package_file(&package_path())?;
+    let approvals = vec![
+        "navigate_page_1".to_owned(),
+        "navigate_page_2".to_owned(),
+        "navigate_page_3".to_owned(),
+    ];
     let result = execute_with_bus(
         &bus,
         provider,
         schemas,
         "com.microsoft.edge",
         SystemClock.now_unix_ms(),
+        &approvals,
     )
     .await?;
     bus.shutdown().await?;
@@ -382,71 +455,66 @@ fn test_output_writer_cleans_json_without_touching_raced_csv()
     Ok(())
 }
 
+async fn scripted_run(
+    approvals: &[String],
+) -> Result<super::BrowserTaskResult, super::browser_task_support::BrowserTaskError> {
+    let current_page = Arc::new(Mutex::new(0usize));
+    let (registry, schemas) = scripted_registry(&current_page).map_err(|error| {
+        super::browser_task_support::argument_error(format!("scripted registry: {error}"))
+    })?;
+    let names = schemas
+        .iter()
+        .map(|schema| schema.name.clone())
+        .collect::<Vec<_>>();
+    let (bus, _report) = ToolBus::start(
+        registry,
+        MountSelection::names(names),
+        ToolBusConfig::new("browser-task-approval-test"),
+        Arc::new(SystemClock),
+    )
+    .await
+    .map_err(super::BrowserTaskError::from)?;
+    let provider = TaskPackageProvider::from_package_file(&package_path()).map_err(|error| {
+        super::browser_task_support::argument_error(format!("task provider: {error}"))
+    })?;
+    let result = execute_with_bus(
+        &bus,
+        provider,
+        schemas,
+        "com.microsoft.edge",
+        SystemClock.now_unix_ms(),
+        approvals,
+    )
+    .await;
+    bus.shutdown()
+        .await
+        .map_err(super::BrowserTaskError::from)?;
+    result
+}
+
 fn scripted_registry(
     current_page: &Arc<Mutex<usize>>,
 ) -> Result<(ToolRegistry, Vec<assistant_protocol::ToolSchema>), Box<dyn std::error::Error>> {
     let mut registry = ToolRegistry::new();
-    let mut schemas = Vec::new();
-    for (name, description, input) in [
-        (
-            EDGE_NAVIGATE,
-            "scripted navigation",
-            json!({
-                "type": "object",
-                "properties": {
-                    "url": {"type": "string"},
-                    "load_condition": {"type": "string"},
-                },
-                "required": ["url", "load_condition"],
-            }),
-        ),
-        (
-            EDGE_DOM_READ,
-            "scripted DOM read",
-            json!({
-                "type": "object",
-                "properties": {
-                    "selector": {"type": "string"},
-                    "max_nodes": {"type": "integer"},
-                },
-                "required": ["selector", "max_nodes"],
-            }),
-        ),
-        (
-            EDGE_IDLE,
-            "scripted idle wait",
-            json!({
-                "type": "object",
-                "properties": {"quiet_ms": {"type": "integer"}},
-                "required": ["quiet_ms"],
-            }),
-        ),
-    ] {
+    let schemas = authoritative_browser_schemas()?;
+    for schema in &schemas {
         let definition = ToolDefinition::new(
-            name,
-            description,
-            RiskLevel::Low,
-            ToolEffect::Read,
-            ToolReversibility::L0UndoStack,
-            input.clone(),
-        )?;
-        schemas.push(serde_json::from_value(json!({
-            "name": name,
-            "version": "1.0",
-            "description": description,
-            "input": input,
-            "output": {"type": "object"},
-            "risk_level": "low",
-            "effect": "read",
-            "reversibility": "l0_undo_stack",
-            "requires_approval": false,
-            "tags": [],
-        }))?);
-        let handler: Arc<dyn ToolHandler> = if name == EDGE_NAVIGATE {
+            schema.name.clone(),
+            schema.description.clone(),
+            schema.risk_level,
+            schema.effect,
+            schema.reversibility,
+            schema.input.clone(),
+        )?
+        .with_output_schema(schema.output.clone())?
+        .with_idempotent(schema.idempotent)?
+        .with_requires_approval(schema.requires_approval)?
+        .with_tags(schema.tags.clone());
+        let handler: Arc<dyn ToolHandler> = if schema.name == EDGE_NAVIGATE {
             Arc::new(FakeNavigate {
                 current_page: Arc::clone(current_page),
             })
-        } else if name == EDGE_DOM_READ {
+        } else if schema.name == EDGE_DOM_READ {
             Arc::new(FakeDomRead {
                 current_page: Arc::clone(current_page),
             })
@@ -456,6 +524,43 @@ fn scripted_registry(
         registry.register(definition, handler)?;
     }
     Ok((registry, schemas))
+}
+
+fn authoritative_browser_schemas()
+-> Result<Vec<assistant_protocol::ToolSchema>, Box<dyn std::error::Error>> {
+    let root: Value = serde_json::from_str(&std::fs::read_to_string(tools_path())?)?;
+    let tools = root
+        .get("tools")
+        .and_then(Value::as_array)
+        .ok_or("browser tools.json must contain a tools array")?;
+    let mut schemas = BTreeMap::new();
+    for tool in tools {
+        let mut schema = tool
+            .get("schema")
+            .cloned()
+            .ok_or("browser tool entry must contain a schema")?;
+        let object = schema
+            .as_object_mut()
+            .ok_or("browser tool schema must be an object")?;
+        if object.get("effect").and_then(Value::as_str) == Some("read")
+            && object.get("reversibility").and_then(Value::as_str) == Some("none_readonly")
+        {
+            object.insert(
+                "reversibility".to_owned(),
+                Value::String("l0_undo_stack".to_owned()),
+            );
+        }
+        let schema: assistant_protocol::ToolSchema = serde_json::from_value(schema)?;
+        schemas.insert(schema.name.clone(), schema);
+    }
+    [EDGE_NAVIGATE, EDGE_DOM_READ, EDGE_IDLE]
+        .into_iter()
+        .map(|name| {
+            schemas
+                .remove(name)
+                .ok_or_else(|| format!("authoritative browser schema `{name}` is missing").into())
+        })
+        .collect()
 }
 
 fn fingerprint(value: usize) -> String {
@@ -472,4 +577,9 @@ fn fake_error(reason: impl Into<String>) -> ToolBusError {
 fn package_path() -> std::path::PathBuf {
     std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../adapters/browser.edge/tasks/t5.1.books-list-to-csv.json")
+}
+
+fn tools_path() -> std::path::PathBuf {
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../adapters/browser.edge/tools/tools.json")
 }

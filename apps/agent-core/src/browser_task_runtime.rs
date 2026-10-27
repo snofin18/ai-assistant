@@ -22,13 +22,13 @@ use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
 
 use assistant_agent_core::{
-    BindingInvoker, EnvelopeObservationCollector, RuntimeBindingState, RuntimeExecutionError,
-    RuntimeExecutor, StepExecutionOutcome, StepPolicy, TaskPackageProvider, ToolBusInvoker,
-    ToolInvoker,
+    ApprovalGrants, BindingInvoker, EnvelopeObservationCollector, RuntimeBindingState,
+    RuntimeExecutionError, RuntimeExecutor, StepExecutionOutcome, TaskPackageProvider,
+    ToolBusInvoker, ToolInvoker,
 };
 use assistant_core::{Planner, PlannerRequest};
 use assistant_model_gateway::{CancellationToken, ModelProvider};
-use assistant_policy::{Decision, EgressDestination, EvaluationContext, Reversibility, RuleSet};
+use assistant_policy::RuleSet;
 use assistant_protocol::{ToolEnvelope, ToolSchema};
 use assistant_task_engine::{
     Budget, Plan, PlanId, PlanStep, TaskEngine, TaskEvent, TaskId, TaskSnapshot, TaskStatus,
@@ -38,11 +38,14 @@ use serde_json::{Map, Value, json};
 
 use crate::browser_runtime::{BrowserRuntime, BrowserRuntimeError};
 
+#[path = "browser_task_approval.rs"]
+mod browser_task_approval;
 #[path = "browser_task_csv.rs"]
 mod browser_task_csv;
 #[path = "browser_task_support.rs"]
 mod browser_task_support;
 
+use browser_task_approval::{BrowserTaskPolicy, grant_step_approvals, validate_step_approvals};
 use browser_task_csv::normalize_t5_1_outputs;
 use browser_task_support::{BrowserTaskError, BrowserTaskOptions, BrowserTaskResult, write_output};
 
@@ -50,6 +53,12 @@ const PLAN_BUDGET_STEPS: u64 = 32;
 const PLAN_BUDGET_MS: u64 = 120_000;
 const PLAN_BUDGET_TOKENS: u64 = 100_000;
 const PLAN_BUDGET_COST_USD: f64 = 1.0;
+
+struct BrowserExecution<'arguments> {
+    app_id: &'arguments str,
+    now_ms: i64,
+    approved_step_ids: &'arguments [String],
+}
 
 type BrowserExecutor<'bus> = RuntimeExecutor<
     assistant_task_engine::MemoryCheckpointStore,
@@ -117,6 +126,7 @@ async fn run(arguments: &[String]) -> Result<BrowserTaskResult, BrowserTaskError
         tool_schemas,
         selection.app_id(),
         SystemClock.now_unix_ms(),
+        &options.approved_step_ids,
     )
     .await;
     let shutdown = bus.shutdown().await.map_err(BrowserTaskError::from);
@@ -162,6 +172,7 @@ async fn execute_with_bus(
     tool_schemas: Vec<ToolSchema>,
     app_id: &str,
     now_ms: i64,
+    approved_step_ids: &[String],
 ) -> Result<BrowserTaskResult, BrowserTaskError> {
     let task_id = provider.task_id().clone();
     let provider_arc: Arc<dyn ModelProvider> = Arc::new(provider.clone());
@@ -192,7 +203,18 @@ async fn execute_with_bus(
         .map_err(|error| BrowserTaskError::Planner {
             reason: error.to_string(),
         })?;
-    execute_plan(bus, provider, plan, tool_schemas, app_id, now_ms).await
+    execute_plan(
+        bus,
+        provider,
+        plan,
+        tool_schemas,
+        BrowserExecution {
+            app_id,
+            now_ms,
+            approved_step_ids,
+        },
+    )
+    .await
 }
 
 async fn execute_plan(
@@ -200,8 +222,7 @@ async fn execute_plan(
     provider: TaskPackageProvider,
     plan: Plan,
     tool_schemas: Vec<ToolSchema>,
-    app_id: &str,
-    now_ms: i64,
+    execution: BrowserExecution<'_>,
 ) -> Result<BrowserTaskResult, BrowserTaskError> {
     let task_id = plan.task_id.clone();
     let ordered = plan
@@ -213,14 +234,19 @@ async fn execute_plan(
         .into_iter()
         .map(|schema| (schema.name.clone(), schema))
         .collect::<BTreeMap<_, _>>();
+    let policy = prepare_browser_policy(&task_id, &catalog, &ordered, &execution)?;
     let mut engine = TaskEngine::new(assistant_task_engine::MemoryCheckpointStore::new());
-    engine.create_task(plan, now_ms)?;
+    engine.create_task(plan, execution.now_ms)?;
     engine.apply_task_event(
         &task_id,
         TaskEvent::SubmitForApproval,
-        now_ms.saturating_add(1),
+        execution.now_ms.saturating_add(1),
     )?;
-    engine.apply_task_event(&task_id, TaskEvent::ApprovePlan, now_ms.saturating_add(2))?;
+    engine.apply_task_event(
+        &task_id,
+        TaskEvent::ApprovePlan,
+        execution.now_ms.saturating_add(2),
+    )?;
 
     let envelopes = Arc::new(Mutex::new(BTreeMap::<String, ToolEnvelope>::new()));
     let binding_state = Arc::new(Mutex::new(RuntimeBindingState::new(Map::new())));
@@ -232,11 +258,6 @@ async fn execute_plan(
         Arc::clone(&binding_state),
         Arc::clone(&latest_snapshot),
     );
-    let policy = BrowserTaskPolicy {
-        rules: RuleSet::example_v0(),
-        catalog,
-        target_app: app_id.to_owned(),
-    };
     let executor = RuntimeExecutor::new(engine, policy, binding, EnvelopeObservationCollector);
     let (executor, steps) = drive_steps(
         executor,
@@ -244,7 +265,7 @@ async fn execute_plan(
         &ordered,
         &binding_state,
         &latest_snapshot,
-        now_ms,
+        execution.now_ms,
     )
     .await?;
     let engine = executor.into_engine();
@@ -261,6 +282,26 @@ async fn execute_plan(
         outputs,
         steps,
     })
+}
+
+fn prepare_browser_policy(
+    task_id: &TaskId,
+    catalog: &BTreeMap<String, ToolSchema>,
+    ordered: &[PlanStep],
+    execution: &BrowserExecution<'_>,
+) -> Result<BrowserTaskPolicy, BrowserTaskError> {
+    let approval_grants = Arc::new(ApprovalGrants::new());
+    let policy = BrowserTaskPolicy::new(
+        RuleSet::example_v0(),
+        catalog.clone(),
+        execution.app_id.to_owned(),
+        Arc::clone(&approval_grants),
+        task_id.clone(),
+    );
+    let approved_steps =
+        validate_step_approvals(ordered, execution.approved_step_ids, &policy, catalog)?;
+    grant_step_approvals(&approval_grants, task_id, &approved_steps, execution.now_ms)?;
+    Ok(policy)
 }
 
 async fn drive_steps<'bus>(
@@ -355,54 +396,6 @@ where
                 .insert(step_id, envelope.clone());
             Ok(envelope)
         }
-    }
-}
-
-struct BrowserTaskPolicy {
-    rules: RuleSet,
-    catalog: BTreeMap<String, ToolSchema>,
-    target_app: String,
-}
-
-impl StepPolicy for BrowserTaskPolicy {
-    fn decide(&self, step: &PlanStep) -> Result<Decision, RuntimeExecutionError> {
-        let schema = self
-            .catalog
-            .get(&step.tool)
-            .ok_or_else(|| RuntimeExecutionError::Policy {
-                reason: format!("browser tool `{}` is absent from the catalog", step.tool),
-            })?;
-        self.rules
-            .evaluate(&EvaluationContext {
-                effect: policy_effect(schema.effect),
-                risk_level: schema.risk_level,
-                reversibility: policy_reversibility(schema.reversibility),
-                unattended: false,
-                tainted: false,
-                target_app: self.target_app.clone(),
-                egress: EgressDestination::None,
-            })
-            .map_err(|error| RuntimeExecutionError::Policy {
-                reason: error.to_string(),
-            })
-    }
-}
-
-const fn policy_effect(effect: assistant_protocol::ToolEffect) -> assistant_policy::Effect {
-    match effect {
-        assistant_protocol::ToolEffect::Read => assistant_policy::Effect::Read,
-        _ => assistant_policy::Effect::Write,
-    }
-}
-
-const fn policy_reversibility(
-    reversibility: assistant_protocol::ToolReversibility,
-) -> Reversibility {
-    match reversibility {
-        assistant_protocol::ToolReversibility::L0UndoStack => Reversibility::L0UndoStack,
-        assistant_protocol::ToolReversibility::L1Snapshot => Reversibility::L1Snapshot,
-        assistant_protocol::ToolReversibility::L2Compensation => Reversibility::L2Compensating,
-        _ => Reversibility::L3Irreversible,
     }
 }
 
