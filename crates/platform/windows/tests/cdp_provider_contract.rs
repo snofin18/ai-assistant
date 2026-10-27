@@ -20,6 +20,7 @@ type TestResult = Result<(), Box<dyn Error + Send + Sync>>;
 struct Command {
     id: u64,
     method: String,
+    expression: Option<String>,
 }
 
 fn block_on<T>(future: impl std::future::Future<Output = T>) -> T {
@@ -249,6 +250,109 @@ fn test_cdp_transport_rejects_jsonrpc_error() -> TestResult {
 }
 
 #[test]
+fn test_cdp_transport_rejects_evaluation_exception() -> TestResult {
+    let fixture = Fixture::start(|listener| {
+        serve_discovery(&listener)?;
+        let mut stream = accept_until(&listener, Duration::from_secs(2))?;
+        accept_websocket(&mut stream)?;
+        let command = read_command(&mut stream)?;
+        write_json(
+            &mut stream,
+            &format!(
+                "{{\"id\":{},\"result\":{{\"result\":{{\"type\":\"object\"}},\
+                 \"exceptionDetails\":{{\"text\":\"fixture exception\"}}}}}}",
+                command.id
+            ),
+        )
+    })?;
+    let options = options(fixture.port, "Fixture Page", 500)?;
+    let provider = RuntimeCdpProvider::new();
+    let session = block_on(provider.connect(&options)).map_err(|error| platform_error(&error))?;
+    assert_error_code(
+        block_on(provider.evaluate_dom(&session.target(), "document.body")),
+        ErrorCode::VerifyFailed,
+    )?;
+    fixture.finish()
+}
+
+#[test]
+fn test_cdp_transport_rejects_non_string_evaluation_result() -> TestResult {
+    let fixture = Fixture::start(|listener| {
+        serve_discovery(&listener)?;
+        let mut stream = accept_until(&listener, Duration::from_secs(2))?;
+        accept_websocket(&mut stream)?;
+        let command = read_command(&mut stream)?;
+        write_json(
+            &mut stream,
+            &format!(
+                "{{\"id\":{},\"result\":{{\"result\":\
+                 {{\"type\":\"object\",\"value\":{{\"unexpected\":true}}}}}}}}",
+                command.id
+            ),
+        )
+    })?;
+    let options = options(fixture.port, "Fixture Page", 500)?;
+    let provider = RuntimeCdpProvider::new();
+    let session = block_on(provider.connect(&options)).map_err(|error| platform_error(&error))?;
+    assert_error_code(
+        block_on(provider.evaluate_dom(&session.target(), "document.body")),
+        ErrorCode::VerifyFailed,
+    )?;
+    fixture.finish()
+}
+
+#[test]
+fn test_cdp_transport_rejects_missing_evaluation_result() -> TestResult {
+    let fixture = Fixture::start(|listener| {
+        serve_discovery(&listener)?;
+        let mut stream = accept_until(&listener, Duration::from_secs(2))?;
+        accept_websocket(&mut stream)?;
+        let command = read_command(&mut stream)?;
+        write_json(
+            &mut stream,
+            &format!(
+                "{{\"id\":{},\"result\":{{\"result\":{{\"type\":\"undefined\"}}}}}}",
+                command.id
+            ),
+        )
+    })?;
+    let options = options(fixture.port, "Fixture Page", 500)?;
+    let provider = RuntimeCdpProvider::new();
+    let session = block_on(provider.connect(&options)).map_err(|error| platform_error(&error))?;
+    assert_error_code(
+        block_on(provider.evaluate_dom(&session.target(), "document.body")),
+        ErrorCode::VerifyFailed,
+    )?;
+    fixture.finish()
+}
+
+#[test]
+fn test_cdp_transport_rejects_invalid_dom_snapshot_json() -> TestResult {
+    let fixture = Fixture::start(|listener| {
+        serve_discovery(&listener)?;
+        let mut stream = accept_until(&listener, Duration::from_secs(2))?;
+        accept_websocket(&mut stream)?;
+        let command = read_command(&mut stream)?;
+        write_json(
+            &mut stream,
+            &format!(
+                "{{\"id\":{},\"result\":{{\"result\":\
+                 {{\"type\":\"string\",\"value\":\"not-json\"}}}}}}",
+                command.id
+            ),
+        )
+    })?;
+    let options = options(fixture.port, "Fixture Page", 500)?;
+    let provider = RuntimeCdpProvider::new();
+    let session = block_on(provider.connect(&options)).map_err(|error| platform_error(&error))?;
+    assert_error_code(
+        block_on(provider.evaluate_dom(&session.target(), "document.body")),
+        ErrorCode::VerifyFailed,
+    )?;
+    fixture.finish()
+}
+
+#[test]
 fn test_cdp_transport_rejects_incomplete_network_idle() -> TestResult {
     let fixture = Fixture::start(|listener| {
         serve_discovery(&listener)?;
@@ -401,6 +505,15 @@ fn serve_evaluation(stream: &mut TcpStream) -> TestResult {
             "fixture expected Runtime.evaluate",
         )));
     }
+    let expression = command
+        .expression
+        .as_deref()
+        .ok_or_else(|| io::Error::other("fixture expected Runtime.evaluate expression"))?;
+    if !expression.contains("const value = (document.querySelector('main').outerHTML);") {
+        return Err(Box::new(io::Error::other(
+            "fixture expected DOM expression to execute rather than be quoted",
+        )));
+    }
     let id = command.id;
     let snapshot = "{\\\"url\\\":\\\"http://127.0.0.1:8765/page-2.html\\\",\
                     \\\"title\\\":\\\"Fixture Page\\\",\
@@ -504,9 +617,16 @@ fn read_command(stream: &mut TcpStream) -> io::Result<Command> {
     }
     let text = std::str::from_utf8(&payload)
         .map_err(|error| io::Error::other(format!("fixture client UTF-8: {error}")))?;
+    let method = string_field(text, "method")?;
+    let expression = if method == "Runtime.evaluate" {
+        Some(string_field(text, "expression")?)
+    } else {
+        None
+    };
     Ok(Command {
         id: numeric_field(text, "id")?,
-        method: string_field(text, "method")?,
+        method,
+        expression,
     })
 }
 

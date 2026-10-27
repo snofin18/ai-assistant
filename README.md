@@ -6,7 +6,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
-> 状态：**阶段 1**；**TASK-334 Done（2026-10-27）**（CDP WebSocket 101 reason phrase 修复，真实 Edge first navigate 成功）；**TASK-333 Done（2026-10-27）**（browser task runner 显式逐 step 人工批准）；**TASK-332 Done（2026-10-27）**（CDP HTTP Content-Length discovery 修复）；Stage 1a Done、Stage 1b Paint 30/30；Stage 1c 的 TASK-056 下一步阻塞为 `edge.cdp.dom_read` payload 解析。
+> 状态：**阶段 1**；**TASK-335 Done（2026-10-27）**（CDP DOM expression 实际求值，真实 Edge 本地 9/10 六步提交且 CSV 逐字节一致）；**TASK-334 Done（2026-10-27）**（CDP WebSocket 101 reason phrase 修复）；**TASK-333 Done（2026-10-27）**（browser task runner 显式逐 step 人工批准）；Stage 1a Done、Stage 1b Paint 30/30；Stage 1c 的 TASK-056 下一步阻塞为 `DevToolsActivePort` Windows 共享竞态。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -91,6 +91,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-27 TASK-335 Done（CDP DOM expression execution）**：`evaluate_dom` 现在真正执行 handler 构造的受控 JavaScript expression，不再把源码 JSON 字符串化；CDP exception、缺失/非字符串 value 与非法 snapshot JSON 继续显式 `VerifyFailed`。真实 Edge 156 已完成 9/10 轮，每轮六步提交、3 个 DOM 输出、60 行 CSV，CSV 逐字节一致；第 10 轮暴露独立的 `DevToolsActivePort` Windows 文件共享竞态，TASK-056 保持 Blocked。
+
 **2026-10-27 TASK-334 Done（CDP WebSocket 101 status）**：WebSocket upgrade 不再精确匹配 reason phrase，只解析 `HTTP/1.1` 与三位 status-code 101；`Upgrade`、`Connection`、`Sec-WebSocket-Accept` 与 16 KiB 上限保持不变。真实 Edge 156 返回 `WebSocket Protocol Handshake` 时，`navigate_page_1` 已 `Committed`；下一独立阻塞为 `edge.cdp.dom_read` 将 evaluate 返回值误判为非 JSON object。
 
 **2026-10-27 TASK-056 真实 Edge v3 preflight（Blocked）**：step approval 已生效，`navigate_page_1` 进入工具执行；Edge 156 返回合法的 `HTTP/1.1 101 WebSocket Protocol Handshake`，但 transport 精确要求 `HTTP/1.1 101 Switching Protocols`，将升级判为 `Transient`。本地 0/10、外部未开始；原始日志与清理证据在 `eval/tasks/edge/t5.1/evidence/2026-10-27-real-edge-acceptance-v3/`，等待 `DRIFT-056-6` 裁决。
@@ -378,6 +380,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-27 TASK-335 Done（CDP DOM expression execution）**：expression wrapper 直接执行经过 selector/max_nodes 校验的代码；TCP 契约 12/12 覆盖代码执行、exception、缺失/非字符串 result 与非法 snapshot JSON。真实 Edge 本地 9/10，前 9 轮 `navigate_page_1`~`read_page_3` 全部提交且 60 行 CSV SHA-256 一致；第 10 轮独立记录 `DRIFT-056-8`（`DevToolsActivePort` os error 32）。
+
 **2026-10-27 TASK-334 Done（CDP WebSocket 101 reason phrase）**：状态行按 HTTP version + status-code 解析，101 后允许任意 reason phrase；真实 Edge 风格 TCP 契约 8/8、websocket 单测 4/4、platform suite 136 passed / 5 ignored。真实 Edge 首次 navigate 已提交，证明 `DRIFT-056-6` 解除；DOM read 的下一个独立失败已留证。
 
 **2026-10-27 TASK-056 real Edge v3 preflight blocked（DRIFT-056-6）**：显式 step approval 首次让真实 navigate 进入工具执行，但 Edge 156 的合法 WebSocket 101 使用了不同 reason phrase，当前 transport 将其误报为 `Transient`。新增可复现验收脚本、允许显式外部 origin 的 CSV validator 和 14 个 Python 测试；本地成功 0/10、外部未开始，server / Edge 进程均收敛为 0。

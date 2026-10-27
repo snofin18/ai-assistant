@@ -149,6 +149,8 @@
   响应声明 `Content-Length` 时只读取精确 body，不等待 server 主动关闭连接。
   WebSocket upgrade 的 101 状态行按 HTTP version + status code 解析，不绑定 reason phrase；
   `Upgrade`、`Connection`、`Sec-WebSocket-Accept` 与 16 KiB handshake 上限仍逐项校验。
+  `evaluate_dom` 执行经过 handler 校验的 JavaScript expression，而不是把源码字符串当结果；
+  CDP exception、缺失/非字符串 result value 与非法 snapshot JSON 均显式 `VerifyFailed`。
   TASK-110 另提供专用 profile launcher
   与进程树回收；production handlers、click、截图、下载目录与 close 仍未接入；这些操作继续显式
   `CapabilityMissing`，不得把 transport 单测当作 TASK-056 真机证据。
