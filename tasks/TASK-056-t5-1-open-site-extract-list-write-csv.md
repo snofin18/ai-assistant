@@ -237,3 +237,32 @@ DRIFT-056-4
   `8103cd54557e82c1acf685b78a3daba7a728909f`；合并前 22 条 rollup
   （PR/push 两轮各 11）全部 completed、failed=0、pending=0，base=main、
   `MERGEABLE`、`CLEAN`。post-merge main CI run `40440815444` success。
+
+---
+
+**2026-10-27 · TASK-332 修复后的 TASK-056 恢复尝试（DRIFT-056-5）**
+
+- TASK-332 已合入 `9291b4f`，真实 Edge `--browser-runtime-check` 成功。重新生成 loopback
+  fixture 并启动仅绑定 `127.0.0.1:8765` 的 server 后，真实 Edge task preflight 已越过
+  CDP discovery / target selection。
+- preflight 退出码 2：`browser task [VerifyFailed]: step navigate_page_1 ended as AwaitingApproval`；
+  没有创建成功 JSON/CSV，因此本地 10/10 与外部 3/3 仍未开始。
+- `edge.cdp.navigate` 的权威元数据为 `effect=write`、`risk=medium`、
+  `reversibility=l2_compensation`；Policy 要求 step 级人工确认。当前私有
+  `--browser-task-run` 只批准整个 Plan，没有显式写步骤审批入口。
+- 失败后 fixture server PID 32196 已停止、8765 无监听、专用 Edge 进程 0。
+  原始命令日志与摘要见
+  `eval/tasks/edge/t5.1/evidence/2026-10-27-real-edge-acceptance-v2/`。
+
+```text
+DRIFT-056-5
+触发器：#5（当前 write scope 不足）+ #8（私有 runner 与真实 Policy 审批契约矛盾）
+现象：真实 Edge 已成功连接，TASK-329 runner 在第一个 navigate 上返回 AwaitingApproval；runner 没有消费/记录 step 级确认的 CLI 入口。
+影响：TASK-056 无法执行任何 navigate，本地 10/10、外部 3/3 与 CSV 证据全部阻塞。
+我的建议：另开最小卡，在 apps/agent-core 的私有 browser task runner 增加显式、逐 step-id 的 human approval 选项，并复用 CatalogStepPolicy / ApprovalWindows；未知 step、read step 或重复审批必须 fail-closed；同时用权威 adapter schema（write/medium）补回归，禁止继续用全 read fake schema 掩盖审批缺口。
+已停止的工作：未修改 apps/agent-core、公共 API/schema/依赖、Policy 或 TASK-056 断言；未把 Plan 批准冒充 step 批准。
+需要人类裁决：是
+```
+
+- 本轮 `exec_command` 的实际误用累计为 **35** 次（上一轮 27 + 本轮 8），均为只读探查、
+  一次测试命令或预检命令误填 bash；命令在查找/解析阶段失败，未执行目标、未写仓库。
