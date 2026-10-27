@@ -4,6 +4,7 @@
 //! only by the cleanup test. No test starts a real browser or opens a profile.
 
 use super::*;
+use std::os::windows::fs::OpenOptionsExt;
 
 const HELPER_MODE_ENV: &str = "ASSISTANT_BROWSER_LAUNCHER_HELPER_MODE";
 const HELPER_PID_FILE_ENV: &str = "ASSISTANT_BROWSER_LAUNCHER_HELPER_PID_FILE";
@@ -67,6 +68,49 @@ fn test_active_port_parser_rejects_invalid_or_oversized_contents() {
         assert!(parse_active_port(contents).is_err());
     }
     assert!(parse_active_port(&vec![b'a'; MAX_ACTIVE_PORT_BYTES + 1]).is_err());
+}
+
+#[test]
+fn test_active_port_open_error_retries_only_windows_sharing_violations() {
+    assert!(is_retryable_active_port_open_error(
+        &std::io::Error::from_raw_os_error(WINDOWS_ERROR_SHARING_VIOLATION)
+    ));
+    assert!(is_retryable_active_port_open_error(
+        &std::io::Error::from_raw_os_error(WINDOWS_ERROR_LOCK_VIOLATION)
+    ));
+    for raw_os_error in [2, 5, 87, 123] {
+        assert!(!is_retryable_active_port_open_error(
+            &std::io::Error::from_raw_os_error(raw_os_error)
+        ));
+    }
+}
+
+#[test]
+fn test_active_port_open_with_exclusive_handle_returns_pending() -> PlatformResult<()> {
+    let path = std::env::temp_dir().join(format!(
+        "assistant-devtools-active-port-{}-{}.txt",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|error| {
+                PlatformError::new(ErrorCode::Fatal, format!("read system clock: {error}"))
+            })?
+            .as_nanos()
+    ));
+    fs::write(&path, b"9222\n/devtools/browser/id\n")
+        .map_err(|error| process_error("create active-port fixture", &error))?;
+    let exclusive_handle = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .share_mode(0)
+        .open(&path)
+        .map_err(|error| process_error("open active-port fixture exclusively", &error))?;
+
+    assert_eq!(read_active_port(&path)?, None);
+
+    drop(exclusive_handle);
+    fs::remove_file(&path).map_err(|error| process_error("remove active-port fixture", &error))?;
+    Ok(())
 }
 
 #[test]
