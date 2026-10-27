@@ -232,4 +232,8 @@ DRIFT-056-4
 需要人类裁决：是
 ```
 
-- 本轮 `exec_command` 显式 PowerShell 约束仍发生 **26** 次误填 bash：均为只读读取、状态查询、诊断或一次 guard acquire 在命令查找/语法解析阶段失败，未执行目标、未写仓库；guard acquire 失败后改用显式 PowerShell 完成。所有实际构建、fixture、runner、进程清理与文档写入均由显式 PowerShell 执行。
+- 本轮 `exec_command` 显式 PowerShell 约束仍发生 **27** 次误填 bash：均为只读读取、状态查询、诊断或一次 guard acquire 在命令查找/语法解析阶段失败，未执行目标、未写仓库；guard acquire 失败后改用显式 PowerShell 完成。所有实际构建、fixture、runner、进程清理与文档写入均由显式 PowerShell 执行。
+- 失败留痕 PR #595 已合并，merge commit
+  `8103cd54557e82c1acf685b78a3daba7a728909f`；合并前 22 条 rollup
+  （PR/push 两轮各 11）全部 completed、failed=0、pending=0，base=main、
+  `MERGEABLE`、`CLEAN`。post-merge main CI run `40440815444` success。
