@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "task_id": "edge.t5_1.books_list_to_csv",
+  "date": "2026-10-27",
+  "edge": {
+    "version": "156.0.4314.42",
+    "browser_runtime_check": "passed",
+    "cdp_discovery_fix": "TASK-332 merged as 9291b4f"
+  },
+  "local_preflight": {
+    "exit_code": 2,
+    "error_code": "VerifyFailed",
+    "outcome": "step navigate_page_1 ended as AwaitingApproval",
+    "successful_rounds": 0,
+    "required_rounds": 10,
+    "json_csv_outputs_created": false
+  },
+  "policy_observation": {
+    "tool": "edge.cdp.navigate",
+    "effect": "write",
+    "risk": "medium",
+    "reversibility": "l2_compensation",
+    "task_plan_approved": true,
+    "step_approval_recorded": false
+  },
+  "external_smoke": {
+    "result": "not_started",
+    "reason": "local task stopped before first navigate step executed"
+  },
+  "cleanup": {
+    "fixture_server_pid": 32196,
+    "fixture_server_stopped": true,
+    "port_8765_listener": false,
+    "dedicated_edge_processes": 0
+  }
+}
