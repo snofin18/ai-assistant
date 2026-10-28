@@ -504,7 +504,7 @@ DRIFT-056-12
 - [x] 未使用默认 profile、Cookie、凭据、验证码或风控绕过。
 - [x] 所有测试、文档门禁、schema/codegen、arch、deny 与最终 PR CI 全绿。
 
-- 当前 rollout shell misuse 最终机器审计为 **171** 次；相对上一段新增 8 次，
+- 当前 rollout shell misuse 最终机器审计为 **172** 次；相对上一段新增 9 次，
   均为分支切换、merge、guard/status 和最终状态查询的 shell 参数误填。只读命令
   command-not-found，或 git merge 成功但未产生文件内容改动；均已用 PowerShell
   重跑或继续完成。没有 bash 伪造验收结果，也没有产品代码由 bash heredoc 写入。
