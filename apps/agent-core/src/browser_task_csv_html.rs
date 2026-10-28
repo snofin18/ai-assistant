@@ -23,16 +23,24 @@ pub(super) enum HtmlToken<'a> {
 pub(super) struct HtmlTokenizer<'a> {
     input: &'a str,
     cursor: usize,
+    raw_text_tag: Option<&'static str>,
 }
 
 impl<'a> HtmlTokenizer<'a> {
     pub(super) const fn new(input: &'a str) -> Self {
-        Self { input, cursor: 0 }
+        Self {
+            input,
+            cursor: 0,
+            raw_text_tag: None,
+        }
     }
 
     pub(super) fn next_token(&mut self) -> Result<Option<HtmlToken<'a>>, BrowserCsvError> {
         if self.cursor >= self.input.len() {
             return Ok(None);
+        }
+        if let Some(raw_text_tag) = self.raw_text_tag {
+            return self.consume_raw_text(raw_text_tag).map(Some);
         }
         let remaining = self.input.get(self.cursor..).ok_or_else(|| {
             BrowserCsvError::Malformed("DOM cursor is outside the input".to_owned())
@@ -59,6 +67,32 @@ impl<'a> HtmlTokenizer<'a> {
             .ok_or_else(|| BrowserCsvError::Malformed("DOM text range is invalid".to_owned()))?;
         self.cursor = text_end;
         Ok(HtmlToken::Text(text))
+    }
+
+    fn consume_raw_text(
+        &mut self,
+        raw_text_tag: &'static str,
+    ) -> Result<HtmlToken<'a>, BrowserCsvError> {
+        let remaining = self.input.get(self.cursor..).ok_or_else(|| {
+            BrowserCsvError::Malformed("DOM cursor is outside the input".to_owned())
+        })?;
+        let Some(end_offset) = find_raw_text_end(remaining, raw_text_tag) else {
+            self.cursor = self.input.len();
+            return Ok(HtmlToken::Text(remaining));
+        };
+        if end_offset > 0 {
+            return self.consume_text(end_offset);
+        }
+        let token = self.consume_tag(remaining)?;
+        match &token {
+            HtmlToken::End { name } if name == raw_text_tag => self.raw_text_tag = None,
+            _ => {
+                return Err(BrowserCsvError::Malformed(format!(
+                    "raw-text `{raw_text_tag}` ended with an unexpected token"
+                )));
+            }
+        }
+        Ok(token)
     }
 
     fn skip_comment(&mut self, remaining: &str) -> Result<(), BrowserCsvError> {
@@ -89,6 +123,9 @@ impl<'a> HtmlTokenizer<'a> {
             return Ok(HtmlToken::End { name });
         }
         let (name, attributes, self_closing) = parse_start_tag(body)?;
+        if !self_closing && matches!(name.as_str(), "script" | "style") {
+            self.raw_text_tag = Some(if name == "script" { "script" } else { "style" });
+        }
         Ok(HtmlToken::Start {
             name,
             attributes,
@@ -110,6 +147,26 @@ fn find_tag_end(remaining: &str) -> Result<usize, BrowserCsvError> {
     Err(BrowserCsvError::Malformed(
         "HTML tag is not terminated".to_owned(),
     ))
+}
+
+fn find_raw_text_end(input: &str, tag: &str) -> Option<usize> {
+    let mut search_start = 0usize;
+    while let Some(relative_start) = input.get(search_start..)?.find("</") {
+        let candidate_start = search_start.saturating_add(relative_start);
+        let name_start = candidate_start.saturating_add(2);
+        let after_tag = name_start.saturating_add(tag.len());
+        let name = input.get(name_start..after_tag)?;
+        let boundary = input
+            .get(after_tag..)
+            .and_then(|value| value.chars().next());
+        if name.eq_ignore_ascii_case(tag)
+            && boundary.is_some_and(|character| character == '>' || character.is_ascii_whitespace())
+        {
+            return Some(candidate_start);
+        }
+        search_start = name_start;
+    }
+    None
 }
 
 fn normalized_tag_name(value: &str) -> Result<String, BrowserCsvError> {
