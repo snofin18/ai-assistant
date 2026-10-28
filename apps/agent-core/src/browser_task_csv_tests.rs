@@ -193,6 +193,38 @@ fn test_real_books_rating_requires_known_name() {
     assert!(error.to_string().contains("star-rating name is missing"));
 }
 
+#[test]
+fn test_script_raw_text_ignores_escaped_and_pseudo_closing_tags()
+-> Result<(), Box<dyn std::error::Error>> {
+    let page = real_books_page_with_prefix(
+        r#"<ScRiPt>const escaped = "<\/script>"; const pseudo = "</scriptx>";</SCRIPT>"#,
+    );
+    let origin = CsvOrigin::parse(ORIGIN)?;
+    let rows = parse_page_dom(&page, 1, &origin)?;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows.first().ok_or("row is missing")?.title, "Raw Text Book");
+    Ok(())
+}
+
+#[test]
+fn test_style_raw_text_ignores_markup_and_uses_case_insensitive_close()
+-> Result<(), Box<dyn std::error::Error>> {
+    let page =
+        real_books_page_with_prefix(r#"<STYLE>.x::before { content: "</stylex><div>"; }</StYlE>"#);
+    let origin = CsvOrigin::parse(ORIGIN)?;
+    let rows = parse_page_dom(&page, 1, &origin)?;
+    assert_eq!(rows.len(), 1);
+    Ok(())
+}
+
+#[test]
+fn test_unclosed_script_raw_text_fails_closed() {
+    let page = real_books_page_with_prefix(r#"<script>const escaped = "<\/script>";"#);
+    let origin = CsvOrigin::parse(ORIGIN).expect("origin");
+    let error = parse_page_dom(&page, 1, &origin).expect_err("unclosed script must fail");
+    assert!(error.to_string().contains("DOM contains unclosed elements"));
+}
+
 fn fixture_outputs() -> Map<String, Value> {
     let mut outputs = Map::new();
     for page in 1..=3 {
@@ -248,6 +280,20 @@ fn real_page_with_url(url: &str) -> String {
         r#"
         <article class="product_pod">
           <h3><a href="{url}" title="Book">Book</a></h3>
+          <p class="price_color">&pound;10.00</p>
+          <p class="instock availability">In stock</p>
+          <p class="star-rating One"></p>
+        </article>
+        "#
+    )
+}
+
+fn real_books_page_with_prefix(prefix: &str) -> String {
+    format!(
+        r#"{prefix}
+        <article class="product_pod">
+          <h3><a href="/catalogue/raw-text/index.html"
+            title="Raw Text Book">Raw Text Book</a></h3>
           <p class="price_color">&pound;10.00</p>
           <p class="instock availability">In stock</p>
           <p class="star-rating One"></p>
