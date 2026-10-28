@@ -446,3 +446,31 @@ DRIFT-056-11
   8 次均发生在只读查询或 guard/commit 命令的 shell 参数误填，其中 1 次
   `git commit` 经 bash 成功但文件内容来自已审查暂存区并随后用 PowerShell 重写；
   其余 7 次均在命令解析或查找阶段失败，未执行目标、未写仓库。
+
+---
+
+**2026-10-28 · TASK-339 修复后的外部 smoke（DRIFT-056-12）**
+
+- TASK-339 已通过 PR #623 合并为 `c1dda9c0f61294ee494928b0ec7dbb93be72e739`；
+  PR checks 22/22，post-merge main CI run `40637792717` 全绿。
+- TASK-056 合入 TASK-339 后，外部任务包 `time_budget_ms` 同步为 180000 ms，
+  15 个 eval 契约通过，二进制重建成功。v5 使用全新隔离 profile
+  `C:\Users\fexfe\AppData\Local\ai-assistant-task-056-edge-profile\external-final-v5`。
+- 三页导航预算已不再是阻塞：首轮完成导航与 DOM 读取，但在 CSV 归一化失败：
+  `HTML tag name \/script is invalid`。外部 smoke 仍为 **0/3**，没有成功 CSV。
+- 失败后专用 Edge 进程为 0、8765 无监听。原始 command 与 summary 位于
+  `eval/tasks/edge/t5.1/evidence/2026-10-28-task-056-final-external-v5/`。
+
+```text
+DRIFT-056-12
+触发器：#5（当前 write scope 不足）+ #8（HTML tokenizer 与真实页面脚本文本矛盾）
+现象：真实 books.toscrape.com outerHTML 的脚本字符串包含 `<\/script`；当前 `browser_task_csv_html.rs` tokenizer 在任意 `<` 后按普通标签读取名称，得到 `\/script` 并 fail-closed，虽然页面商品文章本身结构有效。
+影响：TASK-056 的 60 秒导航预算已生效，但外部 smoke 仍为 0/3、没有成功 CSV；不能通过替换页面字符串、局部 DOM 或跳过脚本块掩盖。
+我的建议：另开最小 TASK-340，只改 apps/agent-core/src/browser_task_csv_html.rs 的 raw-text 处理：进入 `<script>` / `<style>` 后按大小写不敏感的精确闭合标签扫描，忽略其内部所有 `<` / `</...` 文本；保留未知 entity、未闭合元素、非法快照和商品字段 fail-closed。补真实 `<\/script`、普通 script/style、大小写闭合与未闭合 raw-text 回归。
+已停止的工作：未修改 HTML tokenizer、CSV parser、公共 schema/API、依赖、Policy 或验收脚本；未用字符串替换或局部 DOM 绕过 3/3。
+需要人类裁决：是。请批准新建 TASK-340。
+```
+
+- 当前 rollout shell misuse 机器审计更新为 **161** 次；本段新增 3 次：1 次只读
+  `Get-Content` command-not-found，1 次 `git add` 暂存和 1 次 `git commit`
+  经 bash 成功，但文件内容均来自已审查变更；随后用 PowerShell 重写同一提交。

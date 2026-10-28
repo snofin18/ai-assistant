@@ -132,6 +132,6 @@
     "repeat_runs": 3,
     "minimum_success_rate": 1.0,
     "silent_failure_rate": 0,
-    "time_budget_ms": 60000
+    "time_budget_ms": 180000
   }
 }

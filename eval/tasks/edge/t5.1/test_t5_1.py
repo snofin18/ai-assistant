@@ -183,6 +183,7 @@ class T51ContractTests(unittest.TestCase):
         self.assertEqual(task["app_id"], "com.microsoft.edge")
         self.assertEqual(task["runtime_status"], "ready_for_real_edge_acceptance")
         self.assertEqual(task["metrics"]["repeat_runs"], 3)
+        self.assertEqual(task["metrics"]["time_budget_ms"], 180000)
         self.assertEqual(navigate_urls, approved_urls)
         self.assertEqual(load_conditions, {"load"})
         self.assertEqual(read_selectors, {"body"})
