@@ -17,9 +17,6 @@ use crate::runtime_dataflow::{
     ConditionExpr, DataflowError, RuntimeDataflowPlan, RuntimeStepBinding, parse_condition,
 };
 
-/// CDP reports navigation accepted before the target fingerprint necessarily settles.
-const BROWSER_NAVIGATE_WINDOW_MS: u64 = 3_000;
-
 pub(super) fn render_plan(
     package: &DeclaredPackage,
     inputs: &serde_json::Map<String, Value>,
@@ -327,7 +324,9 @@ fn browser_assertion_table(tool: &str) -> Option<Vec<Value>> {
     match operation {
         "navigate" => Some(vec![json!({
             "kind": "state_changed",
-            "within_ms": BROWSER_NAVIGATE_WINDOW_MS,
+            // Browser navigation is bounded by the Plan step's execute timeout;
+            // a shorter postcondition window would reject a successful slow page.
+            "within_ms": STEP_EXECUTE_TIMEOUT_MS,
             "fingerprint_scope": "cdp_target",
         })]),
         "dom_read" | "wait_network_idle" => Some(vec![json!({ "kind": "state_unchanged" })]),
