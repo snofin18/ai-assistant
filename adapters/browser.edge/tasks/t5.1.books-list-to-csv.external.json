@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "task_id": "edge.t5_1.books_list_to_csv.external",
+  "app_id": "com.microsoft.edge",
+  "title": "Read the three approved Books to Scrape list pages and emit normalized rows",
+  "goal": "Open the approved external list pages, read bounded DOM fragments, and hand the rows to the eval-only CSV normalizer.",
+  "runtime_status": "ready_for_real_edge_acceptance",
+  "read_only": true,
+  "inputs": {
+    "selector": {
+      "type": "string",
+      "required": false,
+      "default": "body"
+    },
+    "max_nodes": {
+      "type": "integer",
+      "required": false,
+      "default": 1000,
+      "maximum": 1000
+    }
+  },
+  "outputs": {
+    "page_1_dom": "string",
+    "page_2_dom": "string",
+    "page_3_dom": "string",
+    "extracted_rows": "array",
+    "csv_path": "string"
+  },
+  "steps": [
+    {
+      "id": "navigate_page_1",
+      "kind": "tool",
+      "tool": "edge.cdp.navigate",
+      "args": {
+        "url": "https://books.toscrape.com/catalogue/page-1.html",
+        "load_condition": "load"
+      },
+      "outputs": ["page_1_ready"]
+    },
+    {
+      "id": "read_page_1",
+      "kind": "tool",
+      "tool": "edge.cdp.dom_read",
+      "args": {
+        "selector": "body",
+        "max_nodes": 1000
+      },
+      "outputs": ["page_1_dom"]
+    },
+    {
+      "id": "navigate_page_2",
+      "kind": "tool",
+      "tool": "edge.cdp.navigate",
+      "args": {
+        "url": "https://books.toscrape.com/catalogue/page-2.html",
+        "load_condition": "load"
+      },
+      "outputs": ["page_2_ready"]
+    },
+    {
+      "id": "read_page_2",
+      "kind": "tool",
+      "tool": "edge.cdp.dom_read",
+      "args": {
+        "selector": "body",
+        "max_nodes": 1000
+      },
+      "outputs": ["page_2_dom"]
+    },
+    {
+      "id": "navigate_page_3",
+      "kind": "tool",
+      "tool": "edge.cdp.navigate",
+      "args": {
+        "url": "https://books.toscrape.com/catalogue/page-3.html",
+        "load_condition": "load"
+      },
+      "outputs": ["page_3_ready"]
+    },
+    {
+      "id": "read_page_3",
+      "kind": "tool",
+      "tool": "edge.cdp.dom_read",
+      "args": {
+        "selector": "body",
+        "max_nodes": 1000
+      },
+      "outputs": ["page_3_dom"]
+    }
+  ],
+  "preconditions": [
+    "Edge is launched with the dedicated profile, never the user's default profile.",
+    "The active target is one of the three URLs approved in external-smoke-contract.json.",
+    "The site requires no login, cookies, CAPTCHA handling or credentials."
+  ],
+  "postconditions": [
+    {
+      "id": "bounded_dom",
+      "description": "Each DOM read returns at most 1000 nodes.",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "id": "same_origin",
+      "description": "All product links remain on https://books.toscrape.com and never redirect outside the approved origin.",
+      "error_code": "PolicyDenied"
+    },
+    {
+      "id": "rows_complete",
+      "description": "The eval normalizer observes exactly 60 complete rows with no null fields.",
+      "error_code": "VerifyFailed"
+    }
+  ],
+  "failure_mapping": [
+    {
+      "condition": "unexpected_origin_or_redirect",
+      "error_code": "PolicyDenied"
+    },
+    {
+      "condition": "login_captcha_or_cookie_wall",
+      "error_code": "UserInteraction"
+    },
+    {
+      "condition": "row_limit_exceeded",
+      "error_code": "VerifyFailed"
+    },
+    {
+      "condition": "invalid_row_shape",
+      "error_code": "VerifyFailed"
+    }
+  ],
+  "metrics": {
+    "repeat_runs": 3,
+    "minimum_success_rate": 1.0,
+    "silent_failure_rate": 0,
+    "time_budget_ms": 60000
+  }
+}

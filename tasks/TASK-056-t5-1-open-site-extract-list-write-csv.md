@@ -352,3 +352,33 @@ DRIFT-056-8
 已停止的工作：未放宽 launcher 错误分类；未修改公共 API/schema/依赖、TASK-056 断言、CSV validator 或其他 browser 工具；未开始外部 smoke。
 需要人类裁决：按当前连续验收授权和“按建议做”建议另开 TASK-336。
 ```
+
+---
+
+**2026-10-28 · TASK-056 最终真实 Edge 验收**
+
+- 本地真实 Edge `156.0.4314.42` baseline 已完成 **10/10**。每轮专用 profile、
+  全新 JSON/CSV、6 steps 全部 `Committed`、3 个 DOM 输出和 60 行 CSV；
+  10 份 CSV SHA-256 均为
+  `4365c928631f5a07b81c08ceac4e204326e495013ae891d807bbf09602015ab3`。
+  证据根：`eval/tasks/edge/t5.1/evidence/2026-10-28-task-056-final-local/`。
+- 外部三页在线复核均为 HTTP 200、正文各 20 个 `article`，无重定向、登录墙或
+  验证码。新增独立 external task package 后，真实 Edge `navigate_page_1` 与
+  `read_page_1` 已 `Committed`；`navigate_page_2` 的页面也已加载并产生状态变化，
+  但固定 postcondition `state_changed within_ms=3000` 在实测
+  **4514 ms** 时 fail-closed，因此外部 smoke 为 **0/3**。
+- 首次外部尝试使用 `network_idle` 时在 20 秒导航窗口内未达到全网络静默；
+  契约未要求 network-idle，改用 `load` 后页面可加载，随后暴露上述 3 秒断言问题。
+  两次失败证据分别位于
+  `eval/tasks/edge/t5.1/evidence/2026-10-28-task-056-final-external/` 与
+  `eval/tasks/edge/t5.1/evidence/2026-10-28-task-056-final-external-v2/`。
+
+```text
+DRIFT-056-9
+触发器：#5（当前 write scope 不足）+ #8（自动断言与真实外部导航耗时矛盾）
+现象：批准的外部页面已加载并发生状态变化，但 task_package_render 对 edge.cdp.navigate 固定生成 state_changed within_ms=3000；真实导航与 fingerprint 观察耗时 4514 ms，verifier 因此判定 Falsified，尽管 before/after fingerprint 不同。
+影响：TASK-056 本地 baseline 10/10 已完成，但外部 smoke 0/3，CSV 没有生成；不能把外部 smoke 冒充通过。
+我的建议：另开最小 TASK-337，仅改 apps/agent-core/src/task_package_render.rs 的 browser navigate postcondition deadline，使其与 step execute timeout（20000 ms）一致或采用明确批准的等价语义；补 slow navigation within/over deadline 契约测试，保持 dom_read state_unchanged 与所有 schema/public API 不变。不得直接删断言或用 warm-cache 掩盖。
+已停止的工作：未修改 browser handler、公共 schema/API、Policy 或现有断言 deadline；未写外部成功 CSV，未执行第四轮。
+需要人类裁决：是。请批准是否允许新建 TASK-337 调整该 postcondition deadline。
+```

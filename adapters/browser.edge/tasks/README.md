@@ -15,6 +15,14 @@ This directory owns declarative Edge benchmark task packages.
 The external smoke target is `https://books.toscrape.com/`, but it is not used
 for the 10-run acceptance baseline.
 
+`t5.1.books-list-to-csv.external.json` is the separate three-run smoke package.
+It navigates only the three URLs approved in
+`eval/tasks/edge/t5.1/external-smoke-contract.json` and reads bounded `body`
+fragments before handing the same DOM outputs to the eval-only CSV normalizer.
+It waits for the page `load` event rather than whole-page network idle because
+the approved static site references third-party assets that may remain active.
+It does not replace the local 10-run package.
+
 ## Runtime integration
 
 TASK-107 added deterministic task-package assertions for
