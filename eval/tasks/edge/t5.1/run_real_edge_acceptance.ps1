@@ -161,7 +161,7 @@ try {
             "--browser-executable", $edgePath,
             "--browser-profile-root", $profilePath,
             "--browser-profile-id", $profileId,
-            "--browser-session-timeout-ms", "60000"
+            "--browser-session-timeout-ms", "180000"
         )
         $commandOutput = & $binaryPath @arguments 2>&1
         $exitCode = $LASTEXITCODE

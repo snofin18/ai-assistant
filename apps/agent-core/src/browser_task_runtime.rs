@@ -50,7 +50,7 @@ use browser_task_csv::normalize_t5_1_outputs;
 use browser_task_support::{BrowserTaskError, BrowserTaskOptions, BrowserTaskResult, write_output};
 
 const PLAN_BUDGET_STEPS: u64 = 32;
-const PLAN_BUDGET_MS: u64 = 120_000;
+const PLAN_BUDGET_MS: u64 = 180_000;
 const PLAN_BUDGET_TOKENS: u64 = 100_000;
 const PLAN_BUDGET_COST_USD: f64 = 1.0;
 

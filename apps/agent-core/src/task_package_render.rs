@@ -17,6 +17,9 @@ use crate::runtime_dataflow::{
     ConditionExpr, DataflowError, RuntimeDataflowPlan, RuntimeStepBinding, parse_condition,
 };
 
+/// Real external pages can need more than the generic step budget to reach `load`.
+const BROWSER_NAVIGATE_EXECUTE_TIMEOUT_MS: u64 = 60_000;
+
 pub(super) fn render_plan(
     package: &DeclaredPackage,
     inputs: &serde_json::Map<String, Value>,
@@ -108,6 +111,7 @@ fn render_step(
         tool,
         "notepad.file.save_as" | "paint.document.new" | "paint.file.save_as"
     );
+    let execute_timeout_ms = step_execute_timeout_ms(tool);
     Ok(Some(json!({
         "id": step.id,
         "sequence": sequence,
@@ -118,7 +122,7 @@ fn render_step(
         "point_of_no_return": point_of_no_return,
         "timeouts": {
             "resolve_ms": STEP_RESOLVE_TIMEOUT_MS,
-            "execute_ms": STEP_EXECUTE_TIMEOUT_MS,
+            "execute_ms": execute_timeout_ms,
             "verify_ms": STEP_VERIFY_TIMEOUT_MS,
         },
     })))
@@ -326,11 +330,19 @@ fn browser_assertion_table(tool: &str) -> Option<Vec<Value>> {
             "kind": "state_changed",
             // Browser navigation is bounded by the Plan step's execute timeout;
             // a shorter postcondition window would reject a successful slow page.
-            "within_ms": STEP_EXECUTE_TIMEOUT_MS,
+            "within_ms": BROWSER_NAVIGATE_EXECUTE_TIMEOUT_MS,
             "fingerprint_scope": "cdp_target",
         })]),
         "dom_read" | "wait_network_idle" => Some(vec![json!({ "kind": "state_unchanged" })]),
         _ => None,
+    }
+}
+
+fn step_execute_timeout_ms(tool: &str) -> u64 {
+    if matches!(tool, "edge.cdp.navigate" | "chrome.cdp.navigate") {
+        BROWSER_NAVIGATE_EXECUTE_TIMEOUT_MS
+    } else {
+        STEP_EXECUTE_TIMEOUT_MS
     }
 }
 
