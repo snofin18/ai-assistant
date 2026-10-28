@@ -456,8 +456,10 @@ DRIFT-056-11
 - TASK-056 合入 TASK-339 后，外部任务包 `time_budget_ms` 同步为 180000 ms，
   15 个 eval 契约通过，二进制重建成功。v5 使用全新隔离 profile
   `C:\Users\fexfe\AppData\Local\ai-assistant-task-056-edge-profile\external-final-v5`。
-- 三页导航预算已不再是阻塞：首轮完成导航与 DOM 读取，但在 CSV 归一化失败：
-  `HTML tag name \/script is invalid`。外部 smoke 仍为 **0/3**，没有成功 CSV。
+- 三页导航预算已不再是阻塞：六步执行与 3 个 DOM 输出已在内存中 committed；
+  随后在 CSV 归一化调用的 HTML tokenizer `normalize_t5_1_outputs` 失败：
+  `HTML tag name \/script is invalid`。失败早于 `write_output`，因此 v5 没有
+  JSON/CSV 落盘；外部 smoke 仍为 **0/3**，没有成功 CSV。
 - 失败后专用 Edge 进程为 0、8765 无监听。原始 command 与 summary 位于
   `eval/tasks/edge/t5.1/evidence/2026-10-28-task-056-final-external-v5/`。
 
@@ -508,3 +510,13 @@ DRIFT-056-12
   均为分支切换、merge、guard/status 和最终状态查询的 shell 参数误填。只读命令
   command-not-found，或 git merge 成功但未产生文件内容改动；均已用 PowerShell
   重跑或继续完成。没有 bash 伪造验收结果，也没有产品代码由 bash heredoc 写入。
+
+### 合并证据
+
+- PR #621：22 checks / 22 success-or-skipped，pending 0，failed 0。
+- merge commit：`29f16c32cc0788102924981f301826a7f25a8f56`。
+- post-merge main CI run `40648404345`：success。
+- 当前 rollout shell misuse 机器审计更新为 **181** 次；merge evidence 回填新增
+  3 次（guard acquire、PR create 与收口命令），v5 表述复核新增 6 次（5 次
+  command-not-found 只读查询、1 次只读 `git show`），均未写仓库或产品内容，
+  随后用 PowerShell 重跑。
