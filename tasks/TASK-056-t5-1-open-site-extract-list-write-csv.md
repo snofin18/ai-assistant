@@ -382,3 +382,36 @@ DRIFT-056-9
 已停止的工作：未修改 browser handler、公共 schema/API、Policy 或现有断言 deadline；未写外部成功 CSV，未执行第四轮。
 需要人类裁决：是。请批准是否允许新建 TASK-337 调整该 postcondition deadline。
 ```
+
+---
+
+**2026-10-28 · TASK-337 修复后的外部 smoke（DRIFT-056-10）**
+
+- TASK-337 已通过 PR #620 合并为 `5f0b462f85c1dd829dcf798de966c30d417384a4`，
+  post-merge main CI run `40618035174` 全绿（10 success + 1 skipped）。
+- TASK-056 分支合入该修复后，15 个 eval 契约测试通过，二进制重建成功。外部 v3
+  使用同一专用 profile 根下的全新隔离目录
+  `C:\Users\fexfe\AppData\Local\ai-assistant-task-056-edge-profile\external-final-v3`；
+  首轮在 CSV 归一化阶段失败，外部 smoke 仍为 **0/3**，没有成功 CSV。
+- runner 原始错误为
+  `browser task [VerifyFailed]: CSV normalization: DOM input: duplicate product field 'title'`。
+  失败后专用 Edge 进程为 0、8765 无监听；证据位于
+  `eval/tasks/edge/t5.1/evidence/2026-10-28-task-056-final-external-v3/`。
+- 根因：外部商品卡先在 `image_container` 中出现图片链接 `a[href]`，随后在 `h3`
+  中出现标题链接；`browser_task_csv_page.rs` 把 article 内任意带 `href` 的锚点都识别为
+  title 字段，因此第二个标题锚点触发 duplicate title。导航 20 秒 deadline 修复本身已生效。
+
+```text
+DRIFT-056-10
+触发器：#5（当前 write scope 不足）+ #8（DOM 归一化契约与真实外部页面结构矛盾）
+现象：真实 books.toscrape.com 商品卡包含图片链接 `a[href]` 和标题链接 `a[href][title]`；`field_for_tag` 将两者都识别为 title，CSV 归一化 fail-closed 并报告 duplicate product field `title`。
+影响：TASK-056 本地真实 Edge 10/10 已完成，但外部 smoke 0/3、没有成功 CSV；不能宣称 TASK-056 Done。
+我的建议：另开最小 TASK-338，只改 apps/agent-core/src/browser_task_csv_page.rs 的 title 识别：移除仅凭 href 推断 title 的分支，只接受显式 data-field=title、标题 title 属性或 data-product-url 契约；补“图片 href 在标题之前”的真实外部 DOM 形状回归，并保持无 title 时 fail-closed。不得放宽 60 行、字段完整性或重复字段断言。
+已停止的工作：未修改 apps/agent-core、公共 API/schema/依赖/Policy 或 CSV 契约；未写外部成功 JSON/CSV；未用局部 DOM 或 warm-cache 绕过 3/3。
+需要人类裁决：是。请批准新建 TASK-338。
+```
+
+- 2026-10-28 对当前 rollout 重新做机器审计：`exec_command` 参数级误填 bash 共
+  **140** 次。历史记录中的 **60** 是外部验收前的快照，
+  不能继续作为最终值。140 次中既有只读命令成功、失败或 exit 0，也有此前已记录的
+  `git push` exit 0；本轮新增 7 次均未执行目标、未写仓库，并在发生时如实记录。
