@@ -21,14 +21,19 @@ use assistant_tool_bus::{
 use serde_json::{Map, Value, json};
 
 use super::{
-    BrowserTaskOptions, browser_tool_schemas, execute_with_bus, extract_browser_output,
-    write_output,
+    BrowserTaskOptions, PLAN_BUDGET_MS, browser_tool_schemas, execute_with_bus,
+    extract_browser_output, write_output,
 };
 use crate::browser_runtime::BrowserSelection;
 
 const EDGE_NAVIGATE: &str = "edge.cdp.navigate";
 const EDGE_DOM_READ: &str = "edge.cdp.dom_read";
 const EDGE_IDLE: &str = "edge.cdp.wait_network_idle";
+
+#[test]
+fn test_browser_plan_budget_covers_three_cold_navigation_windows() {
+    assert_eq!(PLAN_BUDGET_MS, 180_000);
+}
 
 struct FakeNavigate {
     current_page: Arc<Mutex<usize>>,

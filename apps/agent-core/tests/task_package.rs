@@ -117,19 +117,25 @@ fn test_browser_cdp_assertion_mappings_cover_edge_and_chrome() {
             .get("postconditions")
             .and_then(Value::as_array)
             .expect("postconditions");
+        let timeouts = step
+            .get("timeouts")
+            .and_then(Value::as_object)
+            .expect("timeouts");
         assistant_verify::parse_postconditions(postconditions)
             .expect("browser postconditions must be accepted by verify");
 
         if tool.ends_with(".navigate") {
+            assert_eq!(timeouts.get("execute_ms"), Some(&json!(60000)));
             assert_eq!(
                 postconditions,
                 &vec![json!({
                     "kind": "state_changed",
-                    "within_ms": 20000,
+                    "within_ms": 60000,
                     "fingerprint_scope": "cdp_target",
                 })]
             );
         } else {
+            assert_eq!(timeouts.get("execute_ms"), Some(&json!(20000)));
             assert_eq!(postconditions, &vec![json!({"kind": "state_unchanged"})]);
         }
     }

@@ -325,16 +325,16 @@ fn test_browser_navigation_deadline_accepts_boundary_and_rejects_overrun() {
     observation.previous_fingerprint = Some(fingerprint('b'));
     let postcondition = Postcondition::StateChanged {
         fingerprint_scope: None,
-        within_ms: 20_000,
+        within_ms: 60_000,
     };
 
-    observation.elapsed_since_previous_ms = Some(19_999);
+    observation.elapsed_since_previous_ms = Some(59_999);
     assert!(
         evaluate_one(&postcondition, &observation).is_satisfied(),
         "a navigation completing inside the execute timeout must pass"
     );
 
-    observation.elapsed_since_previous_ms = Some(20_001);
+    observation.elapsed_since_previous_ms = Some(60_001);
     assert!(
         evaluate_one(&postcondition, &observation).is_falsified(),
         "a navigation exceeding the execute timeout must fail"
