@@ -415,3 +415,34 @@ DRIFT-056-10
   **140** 次。历史记录中的 **60** 是外部验收前的快照，
   不能继续作为最终值。140 次中既有只读命令成功、失败或 exit 0，也有此前已记录的
   `git push` exit 0；本轮新增 7 次均未执行目标、未写仓库，并在发生时如实记录。
+
+---
+
+**2026-10-28 · TASK-338 修复后的外部 smoke（DRIFT-056-11）**
+
+- TASK-338 已通过 PR #622 合并为 `f5d2b8f3c3691a8d2aacef14b6ae4caa15f89ee7`；
+  PR checks 22/22，post-merge main CI run `40633235747` 全绿。
+- TASK-056 分支合入 TASK-338 后，CSV title 去歧义测试与 15 个 eval 契约通过，
+  二进制重建成功。外部 v4 使用全新隔离 profile
+  `C:\Users\fexfe\AppData\Local\ai-assistant-task-056-edge-profile\external-final-v4`。
+- 首轮在 `navigate_page_1` 后置验证失败：页面确实发生状态变化，before/after
+  fingerprint 不同，但实测 `elapsed=22488 ms`，超过当前固定 20 秒
+  execute / state_changed 窗口；外部 smoke 仍为 **0/3**，没有成功 CSV。
+- 失败后专用 Edge 进程为 0、8765 无监听。原始 command 与 summary 位于
+  `eval/tasks/edge/t5.1/evidence/2026-10-28-task-056-final-external-v4/`。
+  TASK-338 已解除此前的 duplicate title 阻塞，本次是独立的冷启动真实网络耗时问题。
+
+```text
+DRIFT-056-11
+触发器：#5（当前 write scope 不足）+ #8（browser navigate 执行预算与真实冷启动页面耗时矛盾）
+现象：TASK-338 修复后，真实外部 page-1 成功发生状态变化，但 CDP load 等待与 fingerprint 观察实测 22488 ms；task package renderer 对每个步骤固定 execute_ms=20000，并复用同值作为 navigate state_changed within_ms，因此验证阶段把实际成功判为 Falsified。
+影响：TASK-056 本地真实 Edge 10/10 已完成，但外部 smoke 0/3、没有成功 CSV；不能通过 warm-cache、修改断言或跳过 load 伪装通过。
+我的建议：另开最小 TASK-339，仅对 Edge/Chrome cdp.navigate 引入明确的 60000 ms execute/postcondition 预算，并同步现有 120000 ms Plan 预算与验收脚本 session timeout，使三页冷启动仍在界内；dom_read / wait_network_idle 与其他步骤保持 20000 ms 不变。补 59999 ms 通过、60001 ms 失败和真实冷启动证据，不删断言、不改 load 语义。
+已停止的工作：未修改 task package renderer、公共 schema/API、Policy、load condition、browser transport 或验收脚本；未用 warm-cache；未写外部成功 JSON/CSV。
+需要人类裁决：是。请批准新建 TASK-339。
+```
+
+- 2026-10-28 当前 rollout shell misuse 机器审计更新为 **148** 次；本段新增
+  8 次均发生在只读查询或 guard/commit 命令的 shell 参数误填，其中 1 次
+  `git commit` 经 bash 成功但文件内容来自已审查暂存区并随后用 PowerShell 重写；
+  其余 7 次均在命令解析或查找阶段失败，未执行目标、未写仓库。
