@@ -27,9 +27,9 @@ TASK-257     ：**TASK-257 Done（2026-10-20）** —— Paint 形状 / 调色�
 TASK-047     ：**TASK-047 Done（2026-10-20）** —— Stage 1b Paint integration 与 Adapter 复用度审计；技术 **GO**、行政 **条件 GO**。T3.1/T3.2/T3.3 真机合计 **30/30**；六类 `platform/api` 演进均由 ADR-0067/0076/0085/0086/0091/0092+0093 授权；未发现 Paint 专用 trait。TASK-257 Review 与计划表滞后状态保留给独立治理收口。证据：`docs/audits/stage-1b-integration-adapter-reuse-2026-10-20.md`。
 TASK-046     ：**TASK-046 Done（2026-10-20）** —— Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚；真实十次 **10/10 passed**，单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式 `VerifyFailed`；同时修复隐藏 `PopupWindowSiteBridge` flyout 被误判为未保存模态框。证据：`eval/tasks/paint/t3.3/ten-run-summary.json`。
 TASK-323     ：**TASK-323 Done（2026-10-20）** —— TASK-313 同号历史留痕收口：保留现有 selector 正式卡，按 PR #453 / #466 / #468 / #469 的真实 base、merge、CI 与文件范围补全记录；不建第二个同号卡，`PL-117` 由可追溯对账闭环，`PL-115` 限期豁免仍开放。证据：`docs/automations/2026-10-20-round-3.md`。
-更新日期    ：2026-10-28（**TASK-338 Done**：Browser CSV title anchor 去歧义；href-only 图片链接不再冒充 title；**TASK-337 Done**：browser navigate postcondition deadline 对齐 20 秒 step execute timeout；Stage 1c 进行中）
+更新日期    ：2026-10-28（**TASK-339 Done**：browser navigate 冷启动预算；navigate 使用 60 秒执行/验证窗口，其他步骤保持 20 秒；**TASK-338 Done**：Browser CSV title anchor 去歧义；Stage 1c 进行中）
 当前阶段    ：**阶段 1（三试点闭环）进行中**；Stage 1a Done、Stage 1b Done；Stage 1c 进行中。
-当前任务卡  ：**TASK-338 Done**（Browser CSV title anchor 去歧义）；TASK-056 本地 10/10 已通过，外部 smoke 待 TASK-338 合并后重跑。
+当前任务卡  ：**TASK-339 Done**（browser navigate 冷启动预算）；TASK-056 本地 10/10 已通过，外部 smoke 待 TASK-339 合并后重跑。
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done
 真机收口    ：**TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径 14 步全部 `Committed`，`1 passed / 0 failed`；新增 `adapters/com.microsoft.paint/tasks/t3.2.full-toolset-path.json` 与 `test_paint_t3_2_full_toolset_path_runs_on_real_paint`，stable before/after content address 与画布裁剪证据见 `LEDGER.md` / `docs/memory/apps/paint.md` §13.22；真机确认画笔选择会切换活动工具、WinUI flyout 展开状态有异步窗口。
 TASK-256/044 ：**TASK-256 / TASK-044 Done（2026-10-19）** —— T3.1 真机 ignored 验收 `1 passed / 0 failed / 11.18 s`；`run-ten.ps1 -AllowClosePaint` 真机十次 **10/10 passed（success_rate=1.0）**；`coordinate-error.ps1 -AllowClosePaint` 量到拖拽终点 **0 px**（期望/实际均为 `(1458, 859)`，判据 2 px）。证据：`eval/tasks/paint/t3.1/ten-run-summary.json` / `coordinate-error-summary.json`。
