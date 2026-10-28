@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "mode": "local",
+  "task_package": "D:\\csart\\ai-assistant\\adapters\\browser.edge\\tasks\\t5.1.books-list-to-csv.json",
+  "csv_base_url": "http://127.0.0.1:8765",
+  "expected_csv": "eval\\tasks\\edge\\t5.1\\fixtures\\expected.csv",
+  "edge_executable": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "edge_version": "156.0.4314.42",
+  "profile_root": "C:\\Users\\fexfe\\AppData\\Local\\ai-assistant-task-056-edge-profile",
+  "started_at_utc": "2026-10-28T01:29:35.3726305Z",
+  "completed_at_utc": "2026-10-28T01:30:04.5450714Z",
+  "required_rounds": 10,
+  "successful_rounds": 10,
+  "success_rate": 1,
+  "result": "passed",
+  "failure": null,
+  "rounds": [
+    {
+      "run": 1,
+      "profile_id": "task056-local-v3-01",
+      "json": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-01.json",
+      "csv": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-01.csv",
+      "json_sha256": "e3454a801a141fb0207a93f127c2744cbfe05c208710a55dec7d18d772b2608c",
+      "csv_sha256": "4365c928631f5a07b81c08ceac4e204326e495013ae891d807bbf09602015ab3",
+      "edge_processes_after_run": 0,
+      "validator": "CSV CONTRACT OK: rows=60 first=http://127.0.0.1:8765/catalogue/product-001/index.html last=http://127.0.0.1:8765/catalogue/product-060/index.html"
+    },
+    {
+      "run": 2,
+      "profile_id": "task056-local-v3-02",
+      "json": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-02.json",
+      "csv": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-02.csv",
+      "json_sha256": "3bee2cecb5e5f2b297528af7ae6bf598ccd99b42ba5bf245ae064692a2c46653",
+      "csv_sha256": "4365c928631f5a07b81c08ceac4e204326e495013ae891d807bbf09602015ab3",
+      "edge_processes_after_run": 0,
+      "validator": "CSV CONTRACT OK: rows=60 first=http://127.0.0.1:8765/catalogue/product-001/index.html last=http://127.0.0.1:8765/catalogue/product-060/index.html"
+    },
+    {
+      "run": 3,
+      "profile_id": "task056-local-v3-03",
+      "json": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-03.json",
+      "csv": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-03.csv",
+      "json_sha256": "0e455533d624ff970b20f34d31233e3e5637f7feebb5d6a7ecaf41e41a71c9a4",
+      "csv_sha256": "4365c928631f5a07b81c08ceac4e204326e495013ae891d807bbf09602015ab3",
+      "edge_processes_after_run": 0,
+      "validator": "CSV CONTRACT OK: rows=60 first=http://127.0.0.1:8765/catalogue/product-001/index.html last=http://127.0.0.1:8765/catalogue/product-060/index.html"
+    },
+    {
+      "run": 4,
+      "profile_id": "task056-local-v3-04",
+      "json": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-04.json",
+      "csv": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-04.csv",
+      "json_sha256": "b28274ceb0df959aff349c357a38173dac8b14200a0d6a7aa50943da41b666b4",
+      "csv_sha256": "4365c928631f5a07b81c08ceac4e204326e495013ae891d807bbf09602015ab3",
+      "edge_processes_after_run": 0,
+      "validator": "CSV CONTRACT OK: rows=60 first=http://127.0.0.1:8765/catalogue/product-001/index.html last=http://127.0.0.1:8765/catalogue/product-060/index.html"
+    },
+    {
+      "run": 5,
+      "profile_id": "task056-local-v3-05",
+      "json": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-05.json",
+      "csv": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-05.csv",
+      "json_sha256": "9fcc6d794cdcc1f68282449aab0d3dc1f968bdc3d118ef9e58eab9e0e2055ba4",
+      "csv_sha256": "4365c928631f5a07b81c08ceac4e204326e495013ae891d807bbf09602015ab3",
+      "edge_processes_after_run": 0,
+      "validator": "CSV CONTRACT OK: rows=60 first=http://127.0.0.1:8765/catalogue/product-001/index.html last=http://127.0.0.1:8765/catalogue/product-060/index.html"
+    },
+    {
+      "run": 6,
+      "profile_id": "task056-local-v3-06",
+      "json": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-06.json",
+      "csv": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-06.csv",
+      "json_sha256": "095600e79d7635e271bc35d65b9e4422bc1519b75c277ead3c43591fd6d30624",
+      "csv_sha256": "4365c928631f5a07b81c08ceac4e204326e495013ae891d807bbf09602015ab3",
+      "edge_processes_after_run": 0,
+      "validator": "CSV CONTRACT OK: rows=60 first=http://127.0.0.1:8765/catalogue/product-001/index.html last=http://127.0.0.1:8765/catalogue/product-060/index.html"
+    },
+    {
+      "run": 7,
+      "profile_id": "task056-local-v3-07",
+      "json": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-07.json",
+      "csv": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-07.csv",
+      "json_sha256": "91ffd300c27f7ce5978653cf6c3ed49b25914d875a7a3689f36d878cdc984e8d",
+      "csv_sha256": "4365c928631f5a07b81c08ceac4e204326e495013ae891d807bbf09602015ab3",
+      "edge_processes_after_run": 0,
+      "validator": "CSV CONTRACT OK: rows=60 first=http://127.0.0.1:8765/catalogue/product-001/index.html last=http://127.0.0.1:8765/catalogue/product-060/index.html"
+    },
+    {
+      "run": 8,
+      "profile_id": "task056-local-v3-08",
+      "json": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-08.json",
+      "csv": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-08.csv",
+      "json_sha256": "60f3bd6640ddbd37e15949079893dacd854ffc79adc62e3b06d2312cd2c8cc6d",
+      "csv_sha256": "4365c928631f5a07b81c08ceac4e204326e495013ae891d807bbf09602015ab3",
+      "edge_processes_after_run": 0,
+      "validator": "CSV CONTRACT OK: rows=60 first=http://127.0.0.1:8765/catalogue/product-001/index.html last=http://127.0.0.1:8765/catalogue/product-060/index.html"
+    },
+    {
+      "run": 9,
+      "profile_id": "task056-local-v3-09",
+      "json": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-09.json",
+      "csv": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-09.csv",
+      "json_sha256": "b0e8e047ca6a1f673c58abf93c3c008aeb85da342e21b7cade2cabd05c4a6378",
+      "csv_sha256": "4365c928631f5a07b81c08ceac4e204326e495013ae891d807bbf09602015ab3",
+      "edge_processes_after_run": 0,
+      "validator": "CSV CONTRACT OK: rows=60 first=http://127.0.0.1:8765/catalogue/product-001/index.html last=http://127.0.0.1:8765/catalogue/product-060/index.html"
+    },
+    {
+      "run": 10,
+      "profile_id": "task056-local-v3-10",
+      "json": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-10.json",
+      "csv": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-local\\local\\run-10.csv",
+      "json_sha256": "888f7495e62a62e773c1b045927ff81aee6f1dd040f22b4a754056607c937d03",
+      "csv_sha256": "4365c928631f5a07b81c08ceac4e204326e495013ae891d807bbf09602015ab3",
+      "edge_processes_after_run": 0,
+      "validator": "CSV CONTRACT OK: rows=60 first=http://127.0.0.1:8765/catalogue/product-001/index.html last=http://127.0.0.1:8765/catalogue/product-060/index.html"
+    }
+  ]
+}

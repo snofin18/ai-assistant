@@ -134,6 +134,61 @@ class T51ContractTests(unittest.TestCase):
             ],
         )
 
+    def test_external_task_uses_only_approved_urls_and_registered_tools(self) -> None:
+        task_path = (
+            REPOSITORY_ROOT
+            / "adapters"
+            / "browser.edge"
+            / "tasks"
+            / "t5.1.books-list-to-csv.external.json"
+        )
+        tools_path = (
+            REPOSITORY_ROOT / "adapters" / "browser.edge" / "tools" / "tools.json"
+        )
+        contract = json.loads(
+            (HERE / "external-smoke-contract.json").read_text(encoding="utf-8")
+        )
+        task = json.loads(task_path.read_text(encoding="utf-8"))
+        tools_document = json.loads(tools_path.read_text(encoding="utf-8"))
+        registered = {
+            definition["schema"]["name"]
+            for definition in tools_document["tools"]
+        }
+        used = {
+            step["tool"]
+            for step in task["steps"]
+            if step["kind"] == "tool"
+        }
+        approved_urls = {
+            page["url"]
+            for page in contract["allowed_pages"]
+        }
+        navigate_urls = {
+            step["args"]["url"]
+            for step in task["steps"]
+            if step["id"].startswith("navigate_page_")
+        }
+        load_conditions = {
+            step["args"]["load_condition"]
+            for step in task["steps"]
+            if step["id"].startswith("navigate_page_")
+        }
+        read_selectors = {
+            step["args"]["selector"]
+            for step in task["steps"]
+            if step["id"].startswith("read_page_")
+        }
+
+        self.assertEqual(task["task_id"], "edge.t5_1.books_list_to_csv.external")
+        self.assertEqual(task["app_id"], "com.microsoft.edge")
+        self.assertEqual(task["runtime_status"], "ready_for_real_edge_acceptance")
+        self.assertEqual(task["metrics"]["repeat_runs"], 3)
+        self.assertEqual(task["metrics"]["time_budget_ms"], 180000)
+        self.assertEqual(navigate_urls, approved_urls)
+        self.assertEqual(load_conditions, {"load"})
+        self.assertEqual(read_selectors, {"body"})
+        self.assertLessEqual(used, registered)
+
     def test_cases_match_validator_header(self) -> None:
         cases = json.loads((HERE / "cases.json").read_text(encoding="utf-8"))
         self.assertEqual(cases["expected"]["header"], validate_csv.HEADER)

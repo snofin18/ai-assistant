@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "mode": "external",
+  "task_package": "D:\\csart\\ai-assistant\\adapters\\browser.edge\\tasks\\t5.1.books-list-to-csv.external.json",
+  "csv_base_url": "https://books.toscrape.com",
+  "expected_csv": "",
+  "edge_executable": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "edge_version": "156.0.4314.42",
+  "profile_root": "C:\\Users\\fexfe\\AppData\\Local\\ai-assistant-task-056-edge-profile\\external-final-v6",
+  "started_at_utc": "2026-10-28T06:47:33.2864380Z",
+  "completed_at_utc": "2026-10-28T06:50:27.3290009Z",
+  "required_rounds": 3,
+  "successful_rounds": 3,
+  "success_rate": 1,
+  "result": "passed",
+  "failure": null,
+  "rounds": [
+    {
+      "run": 1,
+      "profile_id": "task056-external-v3-01",
+      "json": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-external-v6\\external\\run-01.json",
+      "csv": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-external-v6\\external\\run-01.csv",
+      "json_sha256": "92d9f424048166fdfc33b518f055b1b4668d274522854be1b5af4809f04d94c3",
+      "csv_sha256": "c10b753cffe00a1bb1342698c20d2c2eba7c677b8bc36962f9c1500e8c182562",
+      "edge_processes_after_run": 0,
+      "validator": "CSV CONTRACT OK: rows=60 first=https://books.toscrape.com/a-light-in-the-attic_1000/index.html last=https://books.toscrape.com/the-natural-history-of-us-the-fine-art-of-pretending-2_941/index.html"
+    },
+    {
+      "run": 2,
+      "profile_id": "task056-external-v3-02",
+      "json": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-external-v6\\external\\run-02.json",
+      "csv": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-external-v6\\external\\run-02.csv",
+      "json_sha256": "c9944411ab68090489ec5301d5d899cab273aebe169e79ca6524f6793e827290",
+      "csv_sha256": "c10b753cffe00a1bb1342698c20d2c2eba7c677b8bc36962f9c1500e8c182562",
+      "edge_processes_after_run": 0,
+      "validator": "CSV CONTRACT OK: rows=60 first=https://books.toscrape.com/a-light-in-the-attic_1000/index.html last=https://books.toscrape.com/the-natural-history-of-us-the-fine-art-of-pretending-2_941/index.html"
+    },
+    {
+      "run": 3,
+      "profile_id": "task056-external-v3-03",
+      "json": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-external-v6\\external\\run-03.json",
+      "csv": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.1\\evidence\\2026-10-28-task-056-final-external-v6\\external\\run-03.csv",
+      "json_sha256": "ab57f92f7bbf47da3566b6c2c30fef89438731ac5a73faa3ba5ef78e8f3f2d87",
+      "csv_sha256": "c10b753cffe00a1bb1342698c20d2c2eba7c677b8bc36962f9c1500e8c182562",
+      "edge_processes_after_run": 0,
+      "validator": "CSV CONTRACT OK: rows=60 first=https://books.toscrape.com/a-light-in-the-attic_1000/index.html last=https://books.toscrape.com/the-natural-history-of-us-the-fine-art-of-pretending-2_941/index.html"
+    }
+  ]
+}

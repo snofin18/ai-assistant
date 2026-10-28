@@ -1,0 +1,14 @@
+{
+  "csv_sha256": "4365c928631f5a07b81c08ceac4e204326e495013ae891d807bbf09602015ab3",
+  "origin": "http://127.0.0.1:8765",
+  "page_count": 3,
+  "pages": {
+    "page-1.html": "cb32f7d8fa311228dd48624b1e43ff8645eb20369e2022c4a9403afbe4b125b5",
+    "page-2.html": "ac7fc1c4df01ce3075fbce93780eca6f8f0b4e42be6748ec8e8dbf7cfa6524f0",
+    "page-3.html": "f7e5f2faf098b5e4dc760a77fa25f1dfff4a6c98cf67bc525e1a130f4f971b60"
+  },
+  "rows_per_page": 20,
+  "schema_version": 1,
+  "task_id": "edge.t5_1.books_list_to_csv",
+  "total_rows": 60
+}

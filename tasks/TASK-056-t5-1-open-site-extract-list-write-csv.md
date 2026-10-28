@@ -1,6 +1,6 @@
 # TASK-056　T5.1：打开指定站点 → 提取列表页结构化数据 → 写入本地 CSV
 
-- 状态：**Blocked**
+- 状态：**Done**
 - 阶段：1　子阶段：**1c**　批次：**1c**　依赖：055　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -352,3 +352,159 @@ DRIFT-056-8
 已停止的工作：未放宽 launcher 错误分类；未修改公共 API/schema/依赖、TASK-056 断言、CSV validator 或其他 browser 工具；未开始外部 smoke。
 需要人类裁决：按当前连续验收授权和“按建议做”建议另开 TASK-336。
 ```
+
+---
+
+**2026-10-28 · TASK-056 最终真实 Edge 验收**
+
+- 本地真实 Edge `156.0.4314.42` baseline 已完成 **10/10**。每轮专用 profile、
+  全新 JSON/CSV、6 steps 全部 `Committed`、3 个 DOM 输出和 60 行 CSV；
+  10 份 CSV SHA-256 均为
+  `4365c928631f5a07b81c08ceac4e204326e495013ae891d807bbf09602015ab3`。
+  证据根：`eval/tasks/edge/t5.1/evidence/2026-10-28-task-056-final-local/`。
+- 外部三页在线复核均为 HTTP 200、正文各 20 个 `article`，无重定向、登录墙或
+  验证码。新增独立 external task package 后，真实 Edge `navigate_page_1` 与
+  `read_page_1` 已 `Committed`；`navigate_page_2` 的页面也已加载并产生状态变化，
+  但固定 postcondition `state_changed within_ms=3000` 在实测
+  **4514 ms** 时 fail-closed，因此外部 smoke 为 **0/3**。
+- 首次外部尝试使用 `network_idle` 时在 20 秒导航窗口内未达到全网络静默；
+  契约未要求 network-idle，改用 `load` 后页面可加载，随后暴露上述 3 秒断言问题。
+  两次失败证据分别位于
+  `eval/tasks/edge/t5.1/evidence/2026-10-28-task-056-final-external/` 与
+  `eval/tasks/edge/t5.1/evidence/2026-10-28-task-056-final-external-v2/`。
+
+```text
+DRIFT-056-9
+触发器：#5（当前 write scope 不足）+ #8（自动断言与真实外部导航耗时矛盾）
+现象：批准的外部页面已加载并发生状态变化，但 task_package_render 对 edge.cdp.navigate 固定生成 state_changed within_ms=3000；真实导航与 fingerprint 观察耗时 4514 ms，verifier 因此判定 Falsified，尽管 before/after fingerprint 不同。
+影响：TASK-056 本地 baseline 10/10 已完成，但外部 smoke 0/3，CSV 没有生成；不能把外部 smoke 冒充通过。
+我的建议：另开最小 TASK-337，仅改 apps/agent-core/src/task_package_render.rs 的 browser navigate postcondition deadline，使其与 step execute timeout（20000 ms）一致或采用明确批准的等价语义；补 slow navigation within/over deadline 契约测试，保持 dom_read state_unchanged 与所有 schema/public API 不变。不得直接删断言或用 warm-cache 掩盖。
+已停止的工作：未修改 browser handler、公共 schema/API、Policy 或现有断言 deadline；未写外部成功 CSV，未执行第四轮。
+需要人类裁决：是。请批准是否允许新建 TASK-337 调整该 postcondition deadline。
+```
+
+---
+
+**2026-10-28 · TASK-337 修复后的外部 smoke（DRIFT-056-10）**
+
+- TASK-337 已通过 PR #620 合并为 `5f0b462f85c1dd829dcf798de966c30d417384a4`，
+  post-merge main CI run `40618035174` 全绿（10 success + 1 skipped）。
+- TASK-056 分支合入该修复后，15 个 eval 契约测试通过，二进制重建成功。外部 v3
+  使用同一专用 profile 根下的全新隔离目录
+  `C:\Users\fexfe\AppData\Local\ai-assistant-task-056-edge-profile\external-final-v3`；
+  首轮在 CSV 归一化阶段失败，外部 smoke 仍为 **0/3**，没有成功 CSV。
+- runner 原始错误为
+  `browser task [VerifyFailed]: CSV normalization: DOM input: duplicate product field 'title'`。
+  失败后专用 Edge 进程为 0、8765 无监听；证据位于
+  `eval/tasks/edge/t5.1/evidence/2026-10-28-task-056-final-external-v3/`。
+- 根因：外部商品卡先在 `image_container` 中出现图片链接 `a[href]`，随后在 `h3`
+  中出现标题链接；`browser_task_csv_page.rs` 把 article 内任意带 `href` 的锚点都识别为
+  title 字段，因此第二个标题锚点触发 duplicate title。导航 20 秒 deadline 修复本身已生效。
+
+```text
+DRIFT-056-10
+触发器：#5（当前 write scope 不足）+ #8（DOM 归一化契约与真实外部页面结构矛盾）
+现象：真实 books.toscrape.com 商品卡包含图片链接 `a[href]` 和标题链接 `a[href][title]`；`field_for_tag` 将两者都识别为 title，CSV 归一化 fail-closed 并报告 duplicate product field `title`。
+影响：TASK-056 本地真实 Edge 10/10 已完成，但外部 smoke 0/3、没有成功 CSV；不能宣称 TASK-056 Done。
+我的建议：另开最小 TASK-338，只改 apps/agent-core/src/browser_task_csv_page.rs 的 title 识别：移除仅凭 href 推断 title 的分支，只接受显式 data-field=title、标题 title 属性或 data-product-url 契约；补“图片 href 在标题之前”的真实外部 DOM 形状回归，并保持无 title 时 fail-closed。不得放宽 60 行、字段完整性或重复字段断言。
+已停止的工作：未修改 apps/agent-core、公共 API/schema/依赖/Policy 或 CSV 契约；未写外部成功 JSON/CSV；未用局部 DOM 或 warm-cache 绕过 3/3。
+需要人类裁决：是。请批准新建 TASK-338。
+```
+
+- 2026-10-28 对当前 rollout 重新做机器审计：`exec_command` 参数级误填 bash 共
+  **140** 次。历史记录中的 **60** 是外部验收前的快照，
+  不能继续作为最终值。140 次中既有只读命令成功、失败或 exit 0，也有此前已记录的
+  `git push` exit 0；本轮新增 7 次均未执行目标、未写仓库，并在发生时如实记录。
+
+---
+
+**2026-10-28 · TASK-338 修复后的外部 smoke（DRIFT-056-11）**
+
+- TASK-338 已通过 PR #622 合并为 `f5d2b8f3c3691a8d2aacef14b6ae4caa15f89ee7`；
+  PR checks 22/22，post-merge main CI run `40633235747` 全绿。
+- TASK-056 分支合入 TASK-338 后，CSV title 去歧义测试与 15 个 eval 契约通过，
+  二进制重建成功。外部 v4 使用全新隔离 profile
+  `C:\Users\fexfe\AppData\Local\ai-assistant-task-056-edge-profile\external-final-v4`。
+- 首轮在 `navigate_page_1` 后置验证失败：页面确实发生状态变化，before/after
+  fingerprint 不同，但实测 `elapsed=22488 ms`，超过当前固定 20 秒
+  execute / state_changed 窗口；外部 smoke 仍为 **0/3**，没有成功 CSV。
+- 失败后专用 Edge 进程为 0、8765 无监听。原始 command 与 summary 位于
+  `eval/tasks/edge/t5.1/evidence/2026-10-28-task-056-final-external-v4/`。
+  TASK-338 已解除此前的 duplicate title 阻塞，本次是独立的冷启动真实网络耗时问题。
+
+```text
+DRIFT-056-11
+触发器：#5（当前 write scope 不足）+ #8（browser navigate 执行预算与真实冷启动页面耗时矛盾）
+现象：TASK-338 修复后，真实外部 page-1 成功发生状态变化，但 CDP load 等待与 fingerprint 观察实测 22488 ms；task package renderer 对每个步骤固定 execute_ms=20000，并复用同值作为 navigate state_changed within_ms，因此验证阶段把实际成功判为 Falsified。
+影响：TASK-056 本地真实 Edge 10/10 已完成，但外部 smoke 0/3、没有成功 CSV；不能通过 warm-cache、修改断言或跳过 load 伪装通过。
+我的建议：另开最小 TASK-339，仅对 Edge/Chrome cdp.navigate 引入明确的 60000 ms execute/postcondition 预算，并同步现有 120000 ms Plan 预算与验收脚本 session timeout，使三页冷启动仍在界内；dom_read / wait_network_idle 与其他步骤保持 20000 ms 不变。补 59999 ms 通过、60001 ms 失败和真实冷启动证据，不删断言、不改 load 语义。
+已停止的工作：未修改 task package renderer、公共 schema/API、Policy、load condition、browser transport 或验收脚本；未用 warm-cache；未写外部成功 JSON/CSV。
+需要人类裁决：是。请批准新建 TASK-339。
+```
+
+- 2026-10-28 当前 rollout shell misuse 机器审计更新为 **148** 次；本段新增
+  8 次均发生在只读查询或 guard/commit 命令的 shell 参数误填，其中 1 次
+  `git commit` 经 bash 成功但文件内容来自已审查暂存区并随后用 PowerShell 重写；
+  其余 7 次均在命令解析或查找阶段失败，未执行目标、未写仓库。
+
+---
+
+**2026-10-28 · TASK-339 修复后的外部 smoke（DRIFT-056-12）**
+
+- TASK-339 已通过 PR #623 合并为 `c1dda9c0f61294ee494928b0ec7dbb93be72e739`；
+  PR checks 22/22，post-merge main CI run `40637792717` 全绿。
+- TASK-056 合入 TASK-339 后，外部任务包 `time_budget_ms` 同步为 180000 ms，
+  15 个 eval 契约通过，二进制重建成功。v5 使用全新隔离 profile
+  `C:\Users\fexfe\AppData\Local\ai-assistant-task-056-edge-profile\external-final-v5`。
+- 三页导航预算已不再是阻塞：首轮完成导航与 DOM 读取，但在 CSV 归一化失败：
+  `HTML tag name \/script is invalid`。外部 smoke 仍为 **0/3**，没有成功 CSV。
+- 失败后专用 Edge 进程为 0、8765 无监听。原始 command 与 summary 位于
+  `eval/tasks/edge/t5.1/evidence/2026-10-28-task-056-final-external-v5/`。
+
+```text
+DRIFT-056-12
+触发器：#5（当前 write scope 不足）+ #8（HTML tokenizer 与真实页面脚本文本矛盾）
+现象：真实 books.toscrape.com outerHTML 的脚本字符串包含 `<\/script`；当前 `browser_task_csv_html.rs` tokenizer 在任意 `<` 后按普通标签读取名称，得到 `\/script` 并 fail-closed，虽然页面商品文章本身结构有效。
+影响：TASK-056 的 60 秒导航预算已生效，但外部 smoke 仍为 0/3、没有成功 CSV；不能通过替换页面字符串、局部 DOM 或跳过脚本块掩盖。
+我的建议：另开最小 TASK-340，只改 apps/agent-core/src/browser_task_csv_html.rs 的 raw-text 处理：进入 `<script>` / `<style>` 后按大小写不敏感的精确闭合标签扫描，忽略其内部所有 `<` / `</...` 文本；保留未知 entity、未闭合元素、非法快照和商品字段 fail-closed。补真实 `<\/script`、普通 script/style、大小写闭合与未闭合 raw-text 回归。
+已停止的工作：未修改 HTML tokenizer、CSV parser、公共 schema/API、依赖、Policy 或验收脚本；未用字符串替换或局部 DOM 绕过 3/3。
+需要人类裁决：是。请批准新建 TASK-340。
+```
+
+- 当前 rollout shell misuse 机器审计更新为 **163** 次；本段新增 5 次：1 次只读
+  `Get-Content` command-not-found，1 次 `git add` 暂存和 1 次 `git commit`
+  经 bash 成功，1 次 PR body here-string 与 1 次最终状态查询在 bash 中解析失败；
+  命令均未改写产品内容，随后用 PowerShell 重跑。
+
+---
+
+**2026-10-28 · TASK-340 修复后的最终外部验收（Done）**
+
+- TASK-340 已通过 PR #624 合并为 `38362eb9b40f549be7b9204ba355f4a870a29dad`；
+  post-merge main CI run `40644682306` 全绿。TASK-056 分支已合入 raw-text tokenizer。
+- 外部 v6 使用全新专用 profile
+  `C:\Users\fexfe\AppData\Local\ai-assistant-task-056-edge-profile\external-final-v6`，
+  结果 **3/3 passed**，`success_rate=1.0`。三页、六步、3 个 DOM 输出全部完成；
+  每轮严格 validator 均输出 `CSV CONTRACT OK: rows=60`。
+- 三份外部 CSV 的 SHA-256 一致：
+  `c10b753cffe00a1bb1342698c20d2c2eba7c677b8bc36962f9c1500e8c182562`；
+  first / last product URL 分别为
+  `https://books.toscrape.com/a-light-in-the-attic_1000/index.html` 与
+  `https://books.toscrape.com/the-natural-history-of-us-the-fine-art-of-pretending-2_941/index.html`。
+- 本地真实 Edge baseline **10/10**，外部 smoke **3/3**，两套证据均保留。最终
+  Edge 版本为 `156.0.4314.42`；外部跑完后专用 Edge 进程为 0、8765 无监听。
+- 证据根：`eval/tasks/edge/t5.1/evidence/2026-10-28-task-056-final-external-v6/`。
+
+**最终 DoD**
+
+- [x] 本地 loopback 真实 Edge 10/10。
+- [x] 外部批准站点 3/3。
+- [x] 每轮 3 页、3 个 DOM 输出、60 行 CSV。
+- [x] 外部 CSV 经严格 validator 通过，三份 SHA-256 一致。
+- [x] 未使用默认 profile、Cookie、凭据、验证码或风控绕过。
+- [x] 所有测试、文档门禁、schema/codegen、arch、deny 与最终 PR CI 全绿。
+
+- 当前 rollout shell misuse 最终机器审计为 **172** 次；相对上一段新增 9 次，
+  均为分支切换、merge、guard/status 和最终状态查询的 shell 参数误填。只读命令
+  command-not-found，或 git merge 成功但未产生文件内容改动；均已用 PowerShell
+  重跑或继续完成。没有 bash 伪造验收结果，也没有产品代码由 bash heredoc 写入。
