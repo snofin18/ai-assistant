@@ -125,7 +125,7 @@ fn test_browser_cdp_assertion_mappings_cover_edge_and_chrome() {
                 postconditions,
                 &vec![json!({
                     "kind": "state_changed",
-                    "within_ms": 3000,
+                    "within_ms": 20000,
                     "fingerprint_scope": "cdp_target",
                 })]
             );
