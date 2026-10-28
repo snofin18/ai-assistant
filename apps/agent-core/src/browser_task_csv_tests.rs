@@ -70,6 +70,11 @@ fn test_real_books_list_shape_resolves_relative_product_url()
         <ol class="row">
           <li>
             <article class="product_pod">
+              <div class="image_container">
+                <a href="catalogue/a-light-in-the-attic_1000/index.html">
+                  <img src="media/cache/cover.jpg" alt="A Light in the Attic">
+                </a>
+              </div>
               <h3><a href="catalogue/a-light-in-the-attic_1000/index.html"
                 title="A Light in the Attic">A Light in the Attic</a></h3>
               <p class="price_color">&pound;51.77</p>
@@ -91,6 +96,25 @@ fn test_real_books_list_shape_resolves_relative_product_url()
         "https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html"
     );
     Ok(())
+}
+
+#[test]
+fn test_href_only_anchor_is_not_product_title() {
+    let dom = r#"
+        <article class="product_pod">
+          <div class="image_container">
+            <a href="/catalogue/book/index.html">
+              <img src="/media/cache/cover.jpg" alt="Book">
+            </a>
+          </div>
+          <p class="price_color">&pound;10.00</p>
+          <p class="instock availability">In stock</p>
+          <p class="star-rating One"></p>
+        </article>
+    "#;
+    let origin = CsvOrigin::parse(ORIGIN).expect("origin");
+    let error = parse_page_dom(dom, 1, &origin).expect_err("href-only title must fail");
+    assert!(error.to_string().contains("product title is missing"));
 }
 
 #[test]

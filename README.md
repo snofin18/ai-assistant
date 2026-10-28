@@ -6,7 +6,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
-> 状态：**阶段 1**；**TASK-337 Done（2026-10-28）**（browser navigate postcondition deadline 对齐 20 秒 step execute timeout）；**TASK-336 Done（2026-10-27）**（`DevToolsActivePort` sharing/lock readiness retry）；Stage 1a Done、Stage 1b Paint 30/30；TASK-056 本地真实 Edge 10/10 已通过，外部 smoke 待重跑。
+> 状态：**阶段 1**；**TASK-338 Done（2026-10-28）**（Browser CSV title anchor 去歧义）；**TASK-337 Done（2026-10-28）**（browser navigate postcondition deadline 对齐 20 秒 step execute timeout）；Stage 1a Done、Stage 1b Paint 30/30；TASK-056 本地真实 Edge 10/10 已通过，外部 smoke 待 TASK-338 合并后重跑。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -91,6 +91,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-28 TASK-338 Done（browser CSV title anchor）**：商品卡 title 识别不再接受 href-only 锚点，图片容器链接不会先占用 title 字段；新增真实 books 商品卡形状正例与无显式标题负例。CSV 子模块 10/10、workspace 497 passed、fmt/clippy/arch/schema/codegen/文档门禁/deny 全绿；真实外部 3/3 仍由 TASK-056 合并后重跑。
+
 **2026-10-28 TASK-337 Done（browser navigate deadline）**：Edge/Chrome navigate 的 `state_changed` deadline 直接复用 20 秒 step execute timeout，修复真实外部导航 4514 ms 被旧 3 秒窗口误判的问题；19999 ms 慢导航正例与 20001 ms 负例通过，其他 browser postcondition 未变。
 
 **2026-10-27 TASK-336 Done（browser launcher readiness retry）**：`DevToolsActivePort` 的 Windows raw OS error 32 / 33 现在按“尚未 ready”在既有 launch deadline 内重试；NotFound、ACL、非法内容、超限与其他 IO 错误仍 fail-closed。真实 `share_mode(0)` 独占句柄回归、launcher 专项、workspace、arch、schema/codegen、文档门禁、deny、replay 与 79.79% 行覆盖全绿；未执行真实 GUI。
@@ -384,6 +386,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-28 TASK-338 Done（browser CSV title anchor）**：title 字段只接受显式 title 契约，图片容器中的 href-only 锚点不再参与字段捕获；真实 books 商品卡顺序回归和缺失 title 负向回归均通过。CSV 子模块 10/10、workspace 497 passed，未改 schema/API/依赖/Policy；TASK-056 外部 3/3 待本卡合并后重跑。
+
 **2026-10-28 TASK-337 Done（browser navigate postcondition deadline）**：browser navigate 的 `state_changed` 窗口从固定 3000 ms 改为现有 20000 ms step execute timeout；task-package 23/23、verifier 29/29、workspace、fmt/clippy、arch、schema/codegen 全绿。TASK-056 本地 10/10 已通过，外部 3/3 待本修复合并后重跑。
 
 **2026-10-27 TASK-336 Done（DevToolsActivePort readiness retry）**：Windows sharing violation 32 / lock violation 33 只在既有 launch deadline 内按尚未 ready 重试，真实独占打开回归命中 error 32 并返回 pending。launcher 专项 9 passed / 1 ignored、平台全套 138 passed / 5 ignored、coverage 79.79%；TASK-056 仍 Blocked，真实 10/10 与外部 3/3 留给人类在场验收。
