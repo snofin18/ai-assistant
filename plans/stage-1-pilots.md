@@ -25,7 +25,7 @@
 > **TASK-271 Done（2026-10-11）**：`assistant-dlp` 新增 7 个公共契约测试，独立行覆盖率 83.59% → 98.89%；生产源码零改动；PR #320 / merge `8a5ad5f`。
 
 > **TASK-290 Done（2026-10-14）**：PL-010 闭环 —— `gov §9.2` 的 LEDGER 模板新增 `pending` 占位与追加式回填规则；原开放行不改，PARKING_LOT 追加闭环节点；docs-only，零产品代码改动；PR #388 / merge `4e9bce6`。
-> 周期 10~12 周　状态：**进行中（2026-10-28：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-048 / TASK-049 / TASK-055 / TASK-107 / TASK-108 / TASK-109 / TASK-110 / TASK-111 / TASK-112 / TASK-113 / TASK-114 / TASK-328 / TASK-329 / TASK-330 / TASK-331 / TASK-332 / TASK-333 / TASK-334 / TASK-335 / TASK-336 / TASK-337 / TASK-338 / TASK-339 / TASK-340 Done；Stage 1c 进行中，TASK-056 本地 10/10 已通过，外部 3/3 待 TASK-340 合并后重跑）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> 周期 10~12 周　状态：**进行中（2026-10-28：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-048 / TASK-049 / TASK-055 / TASK-107 / TASK-108 / TASK-109 / TASK-110 / TASK-111 / TASK-112 / TASK-113 / TASK-114 / TASK-328 / TASK-329 / TASK-330 / TASK-331 / TASK-332 / TASK-333 / TASK-334 / TASK-335 / TASK-336 / TASK-337 / TASK-338 / TASK-339 / TASK-340 / TASK-056 Done；TASK-056 本地真实 Edge 10/10、外部 3/3；Stage 1c 的 TASK-057/058 待派单）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
 > **TASK-326 Done（2026-10-21）**：审计 2026-10-20 五轮 automation 的自删顺序；5/5 已执行且已自删，发现 17:00 轮 PR #502、00:30 轮 PR #509 两次在 self-delete 后才落地，已追加运行日更正与 `docs/audits/automation-sequence-deviation-2026-10-20.md`；当前无残留 automation、锁、open PR。
 > **TASK-327 Done（2026-10-22）**：人工接管 2026-10-21 17:00 失联 automation 的离线 WIP；新增 8 个 CDP 公开契约测试，`cdp.rs` 行覆盖 0.00% → **100.00%**、crate **95.13%**；生产逻辑 / 公共 API / schema / 依赖零改动；清理由该槽遗留的陈旧 guard 锁与 automation 目录。
 > **TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）**：Paint 全工具集真机路径
@@ -477,7 +477,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-315 ✅** | 治理池 | `tasks/TASK-315-stage1-dod-evidence-and-crate-readme-completeness.md` | Done（阶段 1 DoD 机器可验证项取证收口：workspace 行覆盖 81.18%（exit 0）、`assistant-core` 92.09%、`assistant-policy` 95.03%、`assistant-task-engine` 91.58% 首次独立取证并落 `docs/audits/stage-1-dod-evidence-2026-10-18.md`；补齐 `crates/capture` / `crates/dlp` / `crates/replay` 的「已知限制」第四节；新提 PL-119；docs-only） |
 | **TASK-054 ✅** | 1c | `tasks/TASK-054-clean-context-review-small-model-fourth-layer.md` | Done（ADR-0081：clean-context review 组件；输入仅 session goal + Step 摘要；无 Tool / 外部内容、不写会话 / 不改 taint；实现 / 测试已拆分；PR / merge hash 待回填） |
 | **TASK-055 ✅** | 1c | `tasks/TASK-055-edge-adapter-cdp-ua-blacklist-interrupts.md` | Done（Edge / Chrome 声明式 adapter pack；黑名单与三档 interrupts；pack 契约校验脚本） |
-| TASK-056 | 1c | `tasks/TASK-056-t5-1-open-site-extract-list-write-csv.md` | Ready（批次表占位派单前补全） |
+| **TASK-056 ✅** | 1c | `tasks/TASK-056-t5-1-open-site-extract-list-write-csv.md` | Done（真实 Edge 本地 10/10、外部 3/3；每轮 60 行 CSV） |
 | TASK-057 | 1c | `tasks/TASK-057-t5-2-form-fill-stop-before-submit-diff-origin.md` | Ready（批次表占位派单前补全） |
 | TASK-058 | 1c | `tasks/TASK-058-t5-3-injection-target-security-ci-audit.md` | Ready（批次表占位派单前补全） |
 | **TASK-085 ✅** | XTASK 池 | `tasks/TASK-085-xtask-hygiene-rust-source-rules.md` | Done（gov §5.4 第 1 / 2 / 3 / 10 / 11 项 = Rust 源码结构规则；实现覆盖 8/13） |

@@ -1,6 +1,6 @@
 # TASK-056　T5.1：打开指定站点 → 提取列表页结构化数据 → 写入本地 CSV
 
-- 状态：**Blocked**
+- 状态：**Done**
 - 阶段：1　子阶段：**1c**　批次：**1c**　依赖：055　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -475,3 +475,36 @@ DRIFT-056-12
   `Get-Content` command-not-found，1 次 `git add` 暂存和 1 次 `git commit`
   经 bash 成功，1 次 PR body here-string 与 1 次最终状态查询在 bash 中解析失败；
   命令均未改写产品内容，随后用 PowerShell 重跑。
+
+---
+
+**2026-10-28 · TASK-340 修复后的最终外部验收（Done）**
+
+- TASK-340 已通过 PR #624 合并为 `38362eb9b40f549be7b9204ba355f4a870a29dad`；
+  post-merge main CI run `40644682306` 全绿。TASK-056 分支已合入 raw-text tokenizer。
+- 外部 v6 使用全新专用 profile
+  `C:\Users\fexfe\AppData\Local\ai-assistant-task-056-edge-profile\external-final-v6`，
+  结果 **3/3 passed**，`success_rate=1.0`。三页、六步、3 个 DOM 输出全部完成；
+  每轮严格 validator 均输出 `CSV CONTRACT OK: rows=60`。
+- 三份外部 CSV 的 SHA-256 一致：
+  `c10b753cffe00a1bb1342698c20d2c2eba7c677b8bc36962f9c1500e8c182562`；
+  first / last product URL 分别为
+  `https://books.toscrape.com/a-light-in-the-attic_1000/index.html` 与
+  `https://books.toscrape.com/the-natural-history-of-us-the-fine-art-of-pretending-2_941/index.html`。
+- 本地真实 Edge baseline **10/10**，外部 smoke **3/3**，两套证据均保留。最终
+  Edge 版本为 `156.0.4314.42`；外部跑完后专用 Edge 进程为 0、8765 无监听。
+- 证据根：`eval/tasks/edge/t5.1/evidence/2026-10-28-task-056-final-external-v6/`。
+
+**最终 DoD**
+
+- [x] 本地 loopback 真实 Edge 10/10。
+- [x] 外部批准站点 3/3。
+- [x] 每轮 3 页、3 个 DOM 输出、60 行 CSV。
+- [x] 外部 CSV 经严格 validator 通过，三份 SHA-256 一致。
+- [x] 未使用默认 profile、Cookie、凭据、验证码或风控绕过。
+- [x] 所有测试、文档门禁、schema/codegen、arch、deny 与最终 PR CI 全绿。
+
+- 当前 rollout shell misuse 最终机器审计为 **171** 次；相对上一段新增 8 次，
+  均为分支切换、merge、guard/status 和最终状态查询的 shell 参数误填。只读命令
+  command-not-found，或 git merge 成功但未产生文件内容改动；均已用 PowerShell
+  重跑或继续完成。没有 bash 伪造验收结果，也没有产品代码由 bash heredoc 写入。

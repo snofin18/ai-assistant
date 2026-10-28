@@ -1,0 +1,61 @@
+page_number,row_number,title,price,currency,availability,rating,product_url
+1,1,A Light in the ...,51.77,GBP,in_stock,3,https://books.toscrape.com/a-light-in-the-attic_1000/index.html
+1,2,Tipping the Velvet,53.74,GBP,in_stock,1,https://books.toscrape.com/tipping-the-velvet_999/index.html
+1,3,Soumission,50.10,GBP,in_stock,1,https://books.toscrape.com/soumission_998/index.html
+1,4,Sharp Objects,47.82,GBP,in_stock,4,https://books.toscrape.com/sharp-objects_997/index.html
+1,5,Sapiens: A Brief History ...,54.23,GBP,in_stock,5,https://books.toscrape.com/sapiens-a-brief-history-of-humankind_996/index.html
+1,6,The Requiem Red,22.65,GBP,in_stock,1,https://books.toscrape.com/the-requiem-red_995/index.html
+1,7,The Dirty Little Secrets ...,33.34,GBP,in_stock,4,https://books.toscrape.com/the-dirty-little-secrets-of-getting-your-dream-job_994/index.html
+1,8,The Coming Woman: A ...,17.93,GBP,in_stock,3,https://books.toscrape.com/the-coming-woman-a-novel-based-on-the-life-of-the-infamous-feminist-victoria-woodhull_993/index.html
+1,9,The Boys in the ...,22.60,GBP,in_stock,4,https://books.toscrape.com/the-boys-in-the-boat-nine-americans-and-their-epic-quest-for-gold-at-the-1936-berlin-olympics_992/index.html
+1,10,The Black Maria,52.15,GBP,in_stock,1,https://books.toscrape.com/the-black-maria_991/index.html
+1,11,Starving Hearts (Triangular Trade ...,13.99,GBP,in_stock,2,https://books.toscrape.com/starving-hearts-triangular-trade-trilogy-1_990/index.html
+1,12,Shakespeare's Sonnets,20.66,GBP,in_stock,4,https://books.toscrape.com/shakespeares-sonnets_989/index.html
+1,13,Set Me Free,17.46,GBP,in_stock,5,https://books.toscrape.com/set-me-free_988/index.html
+1,14,Scott Pilgrim's Precious Little ...,52.29,GBP,in_stock,5,https://books.toscrape.com/scott-pilgrims-precious-little-life-scott-pilgrim-1_987/index.html
+1,15,Rip it Up and ...,35.02,GBP,in_stock,5,https://books.toscrape.com/rip-it-up-and-start-again_986/index.html
+1,16,Our Band Could Be ...,57.25,GBP,in_stock,3,https://books.toscrape.com/our-band-could-be-your-life-scenes-from-the-american-indie-underground-1981-1991_985/index.html
+1,17,Olio,23.88,GBP,in_stock,1,https://books.toscrape.com/olio_984/index.html
+1,18,Mesaerion: The Best Science ...,37.59,GBP,in_stock,1,https://books.toscrape.com/mesaerion-the-best-science-fiction-stories-1800-1849_983/index.html
+1,19,Libertarianism for Beginners,51.33,GBP,in_stock,2,https://books.toscrape.com/libertarianism-for-beginners_982/index.html
+1,20,It's Only the Himalayas,45.17,GBP,in_stock,2,https://books.toscrape.com/its-only-the-himalayas_981/index.html
+2,1,In Her Wake,12.84,GBP,in_stock,1,https://books.toscrape.com/in-her-wake_980/index.html
+2,2,How Music Works,37.32,GBP,in_stock,2,https://books.toscrape.com/how-music-works_979/index.html
+2,3,Foolproof Preserving: A Guide ...,30.52,GBP,in_stock,3,https://books.toscrape.com/foolproof-preserving-a-guide-to-small-batch-jams-jellies-pickles-condiments-and-more-a-foolproof-guide-to-making-small-batch-jams-jellies-pickles-condiments-and-more_978/index.html
+2,4,Chase Me (Paris Nights ...,25.27,GBP,in_stock,5,https://books.toscrape.com/chase-me-paris-nights-2_977/index.html
+2,5,Black Dust,34.53,GBP,in_stock,5,https://books.toscrape.com/black-dust_976/index.html
+2,6,Birdsong: A Story in ...,54.64,GBP,in_stock,3,https://books.toscrape.com/birdsong-a-story-in-pictures_975/index.html
+2,7,America's Cradle of Quarterbacks: ...,22.50,GBP,in_stock,3,https://books.toscrape.com/americas-cradle-of-quarterbacks-western-pennsylvanias-football-factory-from-johnny-unitas-to-joe-montana_974/index.html
+2,8,Aladdin and His Wonderful ...,53.13,GBP,in_stock,3,https://books.toscrape.com/aladdin-and-his-wonderful-lamp_973/index.html
+2,9,Worlds Elsewhere: Journeys Around ...,40.30,GBP,in_stock,5,https://books.toscrape.com/worlds-elsewhere-journeys-around-shakespeares-globe_972/index.html
+2,10,Wall and Piece,44.18,GBP,in_stock,4,https://books.toscrape.com/wall-and-piece_971/index.html
+2,11,The Four Agreements: A ...,17.66,GBP,in_stock,5,https://books.toscrape.com/the-four-agreements-a-practical-guide-to-personal-freedom_970/index.html
+2,12,The Five Love Languages: ...,31.05,GBP,in_stock,3,https://books.toscrape.com/the-five-love-languages-how-to-express-heartfelt-commitment-to-your-mate_969/index.html
+2,13,The Elephant Tree,23.82,GBP,in_stock,5,https://books.toscrape.com/the-elephant-tree_968/index.html
+2,14,The Bear and the ...,36.89,GBP,in_stock,1,https://books.toscrape.com/the-bear-and-the-piano_967/index.html
+2,15,Sophie's World,15.94,GBP,in_stock,5,https://books.toscrape.com/sophies-world_966/index.html
+2,16,Penny Maybe,33.29,GBP,in_stock,3,https://books.toscrape.com/penny-maybe_965/index.html
+2,17,Maude (1883-1993):She Grew Up ...,18.02,GBP,in_stock,2,https://books.toscrape.com/maude-1883-1993she-grew-up-with-the-country_964/index.html
+2,18,"In a Dark, Dark ...",19.63,GBP,in_stock,1,https://books.toscrape.com/in-a-dark-dark-wood_963/index.html
+2,19,Behind Closed Doors,52.22,GBP,in_stock,4,https://books.toscrape.com/behind-closed-doors_962/index.html
+2,20,You can't bury them ...,33.63,GBP,in_stock,2,https://books.toscrape.com/you-cant-bury-them-all-poems_961/index.html
+3,1,Slow States of Collapse: ...,57.31,GBP,in_stock,3,https://books.toscrape.com/slow-states-of-collapse-poems_960/index.html
+3,2,Reasons to Stay Alive,26.41,GBP,in_stock,2,https://books.toscrape.com/reasons-to-stay-alive_959/index.html
+3,3,Private Paris (Private #10),47.61,GBP,in_stock,5,https://books.toscrape.com/private-paris-private-10_958/index.html
+3,4,#HigherSelfie: Wake Up Your ...,23.11,GBP,in_stock,5,https://books.toscrape.com/higherselfie-wake-up-your-life-free-your-soul-find-your-tribe_957/index.html
+3,5,Without Borders (Wanderlove #1),45.07,GBP,in_stock,2,https://books.toscrape.com/without-borders-wanderlove-1_956/index.html
+3,6,When We Collided,31.77,GBP,in_stock,1,https://books.toscrape.com/when-we-collided_955/index.html
+3,7,"We Love You, Charlie ...",50.27,GBP,in_stock,5,https://books.toscrape.com/we-love-you-charlie-freeman_954/index.html
+3,8,Untitled Collection: Sabbath Poems ...,14.27,GBP,in_stock,4,https://books.toscrape.com/untitled-collection-sabbath-poems-2014_953/index.html
+3,9,Unseen City: The Majesty ...,44.18,GBP,in_stock,4,https://books.toscrape.com/unseen-city-the-majesty-of-pigeons-the-discreet-charm-of-snails-other-wonders-of-the-urban-wilderness_952/index.html
+3,10,Unicorn Tracks,18.78,GBP,in_stock,3,https://books.toscrape.com/unicorn-tracks_951/index.html
+3,11,Unbound: How Eight Technologies ...,25.52,GBP,in_stock,1,https://books.toscrape.com/unbound-how-eight-technologies-made-us-human-transformed-society-and-brought-our-world-to-the-brink_950/index.html
+3,12,Tsubasa: WoRLD CHRoNiCLE 2 ...,16.28,GBP,in_stock,1,https://books.toscrape.com/tsubasa-world-chronicle-2-tsubasa-world-chronicle-2_949/index.html
+3,13,Throwing Rocks at the ...,31.12,GBP,in_stock,3,https://books.toscrape.com/throwing-rocks-at-the-google-bus-how-growth-became-the-enemy-of-prosperity_948/index.html
+3,14,This One Summer,19.49,GBP,in_stock,4,https://books.toscrape.com/this-one-summer_947/index.html
+3,15,Thirst,17.27,GBP,in_stock,5,https://books.toscrape.com/thirst_946/index.html
+3,16,The Torch Is Passed: ...,19.09,GBP,in_stock,1,https://books.toscrape.com/the-torch-is-passed-a-harding-family-story_945/index.html
+3,17,The Secret of Dreadwillow ...,56.13,GBP,in_stock,1,https://books.toscrape.com/the-secret-of-dreadwillow-carse_944/index.html
+3,18,The Pioneer Woman Cooks: ...,56.41,GBP,in_stock,1,https://books.toscrape.com/the-pioneer-woman-cooks-dinnertime-comfort-classics-freezer-food-16-minute-meals-and-other-delicious-ways-to-solve-supper_943/index.html
+3,19,The Past Never Ends,56.50,GBP,in_stock,4,https://books.toscrape.com/the-past-never-ends_942/index.html
+3,20,The Natural History of ...,45.22,GBP,in_stock,3,https://books.toscrape.com/the-natural-history-of-us-the-fine-art-of-pretending-2_941/index.html
