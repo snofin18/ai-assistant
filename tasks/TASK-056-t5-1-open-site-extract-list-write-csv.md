@@ -471,6 +471,7 @@ DRIFT-056-12
 需要人类裁决：是。请批准新建 TASK-340。
 ```
 
-- 当前 rollout shell misuse 机器审计更新为 **161** 次；本段新增 3 次：1 次只读
+- 当前 rollout shell misuse 机器审计更新为 **162** 次；本段新增 4 次：1 次只读
   `Get-Content` command-not-found，1 次 `git add` 暂存和 1 次 `git commit`
-  经 bash 成功，但文件内容均来自已审查变更；随后用 PowerShell 重写同一提交。
+  经 bash 成功，1 次 PR body here-string 在 bash 中解析失败；命令均未改写产品内容，
+  随后用 PowerShell 重跑。
