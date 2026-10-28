@@ -514,5 +514,5 @@ DRIFT-056-12
 - PR #621：22 checks / 22 success-or-skipped，pending 0，failed 0。
 - merge commit：`29f16c32cc0788102924981f301826a7f25a8f56`。
 - post-merge main CI run `40648404345`：success。
-- 回填时 shell misuse 机器审计更新为 **173** 次；新增 1 次为 guard acquire
-  command-not-found，未执行目标、未写仓库，随后用 PowerShell 重跑。
+- 回填时 shell misuse 机器审计更新为 **174** 次；新增 2 次为 guard acquire
+  与 PR create command-not-found / 解析失败，均未写仓库，随后用 PowerShell 重跑。
