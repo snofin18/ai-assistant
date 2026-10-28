@@ -376,10 +376,11 @@ fn field_for_tag(tag_name: &str, attributes: &BTreeMap<String, String>) -> Optio
         _ => {}
     }
     let classes = class_tokens(attributes);
+    // PITFALL(app=edge): books.toscrape product cards contain an image anchor
+    // before the titled heading anchor. An href-only anchor identifies a link,
+    // not which DOM node owns the product title contract.
     if tag_name == "a"
-        && (attributes.contains_key("title")
-            || attributes.contains_key("href")
-            || attributes.contains_key("data-product-url"))
+        && (attributes.contains_key("title") || attributes.contains_key("data-product-url"))
     {
         return Some(CapturedField::Title);
     }
