@@ -508,3 +508,11 @@ DRIFT-056-12
   均为分支切换、merge、guard/status 和最终状态查询的 shell 参数误填。只读命令
   command-not-found，或 git merge 成功但未产生文件内容改动；均已用 PowerShell
   重跑或继续完成。没有 bash 伪造验收结果，也没有产品代码由 bash heredoc 写入。
+
+### 合并证据
+
+- PR #621：22 checks / 22 success-or-skipped，pending 0，failed 0。
+- merge commit：`29f16c32cc0788102924981f301826a7f25a8f56`。
+- post-merge main CI run `40648404345`：success。
+- 回填时 shell misuse 机器审计更新为 **173** 次；新增 1 次为 guard acquire
+  command-not-found，未执行目标、未写仓库，随后用 PowerShell 重跑。
