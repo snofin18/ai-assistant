@@ -6,7 +6,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
-> 状态：**阶段 1**；**TASK-341 Review（2026-10-29）**（ADR-0099 每日 08:00 + 每次人类 prompt 自动 reset `N_auto`）；**TASK-056 Done（2026-10-28）**（真实 Edge 本地 10/10、外部 3/3）；Stage 1a Done、Stage 1b Paint 30/30，Stage 1c 的 TASK-057/058 待派单。
+> 状态：**阶段 1**；**TASK-342 Review（2026-10-29）**（ADR-0100 PowerShell 强制 guard + OpenAI 文档代理回退）；**TASK-341 Review**（每日 08:00 + 每次 prompt 自动 reset）；**TASK-056 Done（2026-10-28）**（真实 Edge 本地 10/10、外部 3/3）；Stage 1a Done、Stage 1b Paint 30/30，Stage 1c 的 TASK-057/058 待派单。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -392,6 +392,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-29 TASK-342 Review（PowerShell guard + OpenAI proxy fallback）**：ADR-0100 记录 hooks 探针结果：`PreToolUse` 不暴露 `shell`，且仅改 `updatedInput.shell` 不会生效。项目 guard 现在把每个 `Bash` 工具的原始命令用 UTF-16LE Base64 重写为显式 `powershell.exe -EncodedCommand`，任意外层 shell 都会落回 PowerShell；故意 `shell: "bash"` 的 `Get-Date` 已成功执行。新增 `tools/fetch-openai-doc.ps1`，OpenAI 官方文档直连 403 后通过 `127.0.0.1:30000` 重试并取得 HTTP 200 / 528794 字符正文。
+
 **2026-10-29 TASK-341 Review（daily + per-prompt auto reset）**：ADR-0099 将 `N_auto` 的 reset 固定为三个边界的最近值：每日本地 08:00 运行日 `round 0`、项目 `UserPromptSubmit` hook 在每次人类 prompt 写入的仓库外单文件水位 `$CODEX_HOME/automations/human-session-reset.v1`、历史 `机制=human` 轮次。`automation-rounds` 通过 `CODEX_SESSION_ID` rollout 的 `thread_source` 区分 human / automation；automation 只统计最近边界后的轮次。当前运行日实测 `reset_source=daily-0800`、`n_auto=0`；同一 thread 连续两次 prompt 均更新水位，`automation-reset` 的 human 更新 / automation no-op 也已验证。项目 hook 首次使用需在 Codex 完成一次持久 trust；来源缺失、rollout 重复或水位损坏均 fail-closed。
 
 **2026-10-28 TASK-056 Done（real Edge and external CSV acceptance）**：本地真实 Edge baseline 10/10；外部三页 smoke 3/3。每轮 60 行 UTF-8 CSV，外部三份 SHA-256 一致为 `c10b753c...2562`，validator 全绿。真实问题链 TASK-337 至 TASK-340 已逐项修复，未用 warm-cache、局部 DOM 或放宽断言。

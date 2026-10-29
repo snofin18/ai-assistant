@@ -1,6 +1,6 @@
 # 自动推进章程（Automation Charter）
 
-> 状态：Active　版本：**1.22**　日期：**2026-10-29**　变更历史见 §12
+> 状态：Active　版本：**1.23**　日期：**2026-10-29**　变更历史见 §12
 > 上位：`AGENTS.md`、`docs/governance-ai-agent-execution.md`（gov）、`docs/subagent-orchestration.md`
 > 本文件是**自动化任务**的**唯一权威规则源**。automation（或回退方案的调度器）传给 agent 的 prompt
 > 变更门槛：修改本章程需 ADR。
@@ -261,6 +261,12 @@ G1~G8 结果（任一失败则本报告只有这一节 + 原因）
 - **②的陈旧锁**：`guard` 的 `--stale-after` 默认 900 s，到期可接管（`TAKEOVER`），
   接管会**打印被接管者的完整锁记录**。自动化运行把 `--owner` 固定为 `<会话级唯一标识>`，
   便于人类区分「自动化的锁」与「人工会话的锁」。
+- **Windows shell 强制（ADR-0100）**：automation 的每个命令必须显式使用
+  `shell: "powershell"`；项目 `PreToolUse` hook 会把任何 Bash 工具调用重写为显式 Windows
+  PowerShell `-EncodedCommand`，避免模型误填 `shell` 后落入 WSL/bash。hook 失败、trust 缺失或
+  重写后命令失败都必须如实记录，不得手写“已用 PowerShell”掩盖证据。
+- **OpenAI 官方文档网络（ADR-0100）**：直连失败后按环境代理 → `127.0.0.1:30000` 回退；
+  只有实际 HTTP 2xx 且正文非空才算成功，搜索摘要与旧缓存不能替代抓取。
 - **两层都要，不能只留一层**：①挡不住「两个人类会话同时改 `MEMORY.md`」，②挡不住
   「自动化任务与人类同时改整个仓库」（guard 是文件级、协作式，且锁在 `target/` 下会被 `cargo clean` 删掉）。
 
@@ -489,6 +495,7 @@ cron（standalone）与 heartbeat **两种形态**都验过（GATE-0.2）；触�
 | 1.20 | 2026-10-14 | **§2 P6 的 PITFALL 落点改为 `docs/memory/`**（跨应用 → `pitfalls.md`、应用专属 → `apps/<app>.md` §6；write scope 去掉 `MEMORY.md`）—— **ADR-0090** | ADR-0021 已把 `MEMORY.md` 重构成 ≤150 行索引、无 §5；2026-10-13 无人值守批次 round 9~12 均因该冲突放弃 P6，需把章程对齐过来 |
 | 1.21 | 2026-10-29 | **人类会话自动 reset `N_auto`**：§11.3 的 reset 权威从“最近 `机制=human` 轮次”改为“当前人类 Codex 会话自动写入的单文件水位”；历史 human round 继续兼容—— **ADR-0099** | 当前 `automation-rounds` 只认手工 human round，导致人类即使已经开始新会话，仍继续累计历史 automation；用户 2026-10-29 明确裁决“每次人类会话都应该重置，而不是需要手工通知重置” |
 | 1.22 | 2026-10-29 | **补齐每日 08:00 与每次人类 prompt reset**：§6 / §11.3 的边界改为每日运行日 08:00、`UserPromptSubmit` hook 每条人类消息写入的 prompt 水位、历史 human round 三者的最晚值；新增项目 hook 要求与持久 trust 说明。1.21 的“会话自动 reset”保留为历史节点，不再单独代表最终口径 | 用户 2026-10-29 最终确认两点：每天早上 8 点自动重置；只要和用户有对话就自动重置，并不仅限于新开会话；ADR-0099 / TASK-341 |
+| 1.23 | 2026-10-29 | **PowerShell 强制 guard + OpenAI 文档代理回退**：§11.2 记录所有 Bash 工具调用的显式 Windows PowerShell `-EncodedCommand` 重写、Git 根 hook 路径和 trust 边界；官方 OpenAI 文档直连失败后按环境代理 / 本机代理有界回退 | 用户 2026-10-29 要求彻查并彻底解决频繁 bash 误用，并允许 OpenAI 页面直连失败后尝试代理；ADR-0100 / TASK-342 |
 
 ---
 

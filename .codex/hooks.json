@@ -1,13 +1,26 @@
 {
-  "description": "Reset N_auto for every human prompt.",
+  "description": "Force Windows shell commands through PowerShell and reset N_auto for every human prompt.",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File \"$(git rev-parse --show-toplevel)/.codex/hooks/powershell-guard.ps1\"",
+            "commandWindows": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& '$(git rev-parse --show-toplevel)/.codex/hooks/powershell-guard.ps1'\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "cargo run --quiet -p xtask -- automation-reset",
-            "commandWindows": "powershell -NoProfile -ExecutionPolicy Bypass -File .codex/hooks/user-prompt-reset.ps1",
+            "command": "pwsh -NoProfile -File \"$(git rev-parse --show-toplevel)/.codex/hooks/user-prompt-reset.ps1\"",
+            "commandWindows": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& '$(git rev-parse --show-toplevel)/.codex/hooks/user-prompt-reset.ps1'\"",
             "timeout": 30
           }
         ]

@@ -300,3 +300,7 @@
 
 - [2026-10-29][DECISION][src:ADR-0099，人类 2026-10-29 明确裁决；TASK-341] **每次人类 Codex 会话自动重置 `N_auto`**：`automation-rounds` 从 `CODEX_SESSION_ID` 定位 rollout `session_meta`，只有 `thread_source=automation` 才算无人值守；人类会话自动更新仓库外单文件 `$CODEX_HOME/automations/human-session-reset.v1` 到当前轮次末尾并输出 `n_auto=0`，后续 automation 从该水位后累计。历史 `机制=human` 轮次继续兼容，但不再要求人工创建 human round；来源缺失、rollout 重复或水位损坏必须 fail-closed。ADR-0089 的 N 派生、2000 行总预算、单卡 400 行与历史正文不变。
 - [2026-10-29][DECISION][supersedes:2026-10-29 的 ADR-0099「仅人类会话启动 reset」条目][src:ADR-0099 最终裁决；TASK-341] **`N_auto` 每天早上 08:00 与每次人类 prompt 都自动重置**：本地 08:00 进入新 `run-date` 时，以当日 `round 0` 作为硬边界；项目级 `UserPromptSubmit` hook 在每条人类消息提交时运行 `xtask automation-reset`，把仓库外单文件 `$CODEX_HOME/automations/human-session-reset.v1` 更新到当前轮次末尾，不限于新开会话。实际 reset 取每日 08:00、最新 prompt 水位、历史 human round 三者的最晚值；只有明确 `thread_source=automation` 的会话参与 `N_auto`，来源缺失、rollout 重复或水位损坏必须 fail-closed。项目 hook 首次使用需 Codex 持久 trust；启动 preflight 幂等写水位作为兜底。
+
+## 2026-10-29 追加（ADR-0100，Accepted）
+
+- [2026-10-29][DECISION][src:ADR-0100，人类 2026-10-29 要求彻底解决 bash 误用；TASK-342] **Windows shell 采用宿主级 PowerShell 强制重写，OpenAI 官方文档采用有界代理回退**：`PreToolUse` 对 `Bash` 工具的原始命令按 UTF-16LE Base64 包装为 `powershell.exe -EncodedCommand`，因为 hook 看不到 `shell` 且 `updatedInput.shell` 被忽略；命令超过 10000 字符或 hook 解析失败时 deny。文档抓取只允许 `developers.openai.com` / `platform.openai.com` / `learn.chatgpt.com`，直连失败后依次使用 `HTTPS_PROXY` / `HTTP_PROXY` 与 `http://127.0.0.1:30000`，最多三次并在 PowerShell 7 下校验最终主机、2xx 与非空正文。
