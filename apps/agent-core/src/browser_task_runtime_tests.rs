@@ -28,6 +28,7 @@ use crate::browser_runtime::BrowserSelection;
 
 const EDGE_NAVIGATE: &str = "edge.cdp.navigate";
 const EDGE_DOM_READ: &str = "edge.cdp.dom_read";
+const EDGE_FORM_FILL: &str = "edge.cdp.form_fill";
 const EDGE_IDLE: &str = "edge.cdp.wait_network_idle";
 
 #[test]
@@ -119,6 +120,18 @@ impl ToolHandler for FakeIdle {
             "elapsed_ms": 0,
         })))
     }
+}
+
+fn fake_form_fill_handler(_call: &CallContext, _arguments: &Map<String, Value>) -> ToolOutput {
+    let fingerprint = fingerprint(0);
+    ToolOutput::json(json!({
+        "filled_fields": 1,
+        "submitted": false,
+        "fingerprint_scope": "cdp_target",
+        "fingerprint": fingerprint,
+        "previous_fingerprint": fingerprint,
+        "elapsed_ms": 0,
+    }))
 }
 
 #[test]
@@ -255,6 +268,7 @@ fn test_browser_tool_schemas_exclude_reserved_planner_catalog() {
     for name in [
         EDGE_NAVIGATE,
         EDGE_DOM_READ,
+        EDGE_FORM_FILL,
         EDGE_IDLE,
         "assistant.runtime.verify_postconditions",
     ] {
@@ -275,7 +289,7 @@ fn test_browser_tool_schemas_exclude_reserved_planner_catalog() {
         );
     }
     let filtered = browser_tool_schemas(schemas, BrowserSelection::Edge).expect("filtered");
-    assert_eq!(filtered.len(), 3);
+    assert_eq!(filtered.len(), 4);
     assert!(
         filtered
             .iter()
@@ -523,6 +537,10 @@ fn scripted_registry(
             Arc::new(FakeDomRead {
                 current_page: Arc::clone(current_page),
             })
+        } else if schema.name == EDGE_FORM_FILL {
+            Arc::new(|call: &CallContext, arguments: &Map<String, Value>| {
+                Ok(fake_form_fill_handler(call, arguments))
+            })
         } else {
             Arc::new(FakeIdle)
         };
@@ -558,7 +576,7 @@ fn authoritative_browser_schemas()
         let schema: assistant_protocol::ToolSchema = serde_json::from_value(schema)?;
         schemas.insert(schema.name.clone(), schema);
     }
-    [EDGE_NAVIGATE, EDGE_DOM_READ, EDGE_IDLE]
+    [EDGE_NAVIGATE, EDGE_DOM_READ, EDGE_FORM_FILL, EDGE_IDLE]
         .into_iter()
         .map(|name| {
             schemas

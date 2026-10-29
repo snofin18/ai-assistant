@@ -142,6 +142,40 @@ fn test_browser_cdp_assertion_mappings_cover_edge_and_chrome() {
 }
 
 #[test]
+fn test_browser_form_fill_assertions_pin_count_and_non_submission() {
+    let package = json!({
+        "task_id": "browser.t5_2.form_fill_probe",
+        "steps": [{
+            "id": "fill_form",
+            "kind": "tool",
+            "tool": "edge.cdp.form_fill",
+            "args": {
+                "fields": [
+                    {"selector": "#name", "value": "Ada"},
+                    {"selector": "#email", "value": "ada@example.test"}
+                ]
+            }
+        }]
+    })
+    .to_string();
+    let provider =
+        TaskPackageProvider::from_package_json(&package).expect("form fill package render");
+    let plan: Value = serde_json::from_str(provider.plan_json()).expect("plan is JSON");
+    let step = plan
+        .get("steps")
+        .and_then(Value::as_array)
+        .and_then(|steps| steps.first())
+        .expect("form fill step");
+    assert_eq!(
+        step.get("postconditions"),
+        Some(&json!([
+            {"kind": "value_equals", "name": "filled_fields", "value": 2},
+            {"kind": "value_equals", "name": "submitted", "value": false}
+        ]))
+    );
+}
+
+#[test]
 fn test_t5_1_browser_package_renders_without_missing_assertion() {
     let provider = TaskPackageProvider::from_package_file(&t5_1_browser_package_path())
         .expect("TASK-056 browser task contract must render");
@@ -185,9 +219,10 @@ fn test_unmapped_browser_tool_still_fails_closed() {
         "steps": [{
             "id": "fill",
             "kind": "tool",
-            "tool": "edge.cdp.form_fill",
+            "tool": "edge.cdp.download",
             "args": {
-                "fields": [{"selector": "#q", "value": "probe"}]
+                "target_directory": "C:\\fixture\\downloads",
+                "overwrite_existing": false
             }
         }]
     })

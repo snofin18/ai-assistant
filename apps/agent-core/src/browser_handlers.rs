@@ -1,4 +1,4 @@
-//! Production handlers for the three implemented browser CDP tools.
+//! Production handlers for the implemented browser CDP tools.
 //!
 //! Responsibilities:
 //! - translate validated tool arguments into calls on the existing CDP runtime;
@@ -9,7 +9,7 @@
 //! Boundaries:
 //! - does not launch or close a browser;
 //! - does not decide policy, approval, or site eligibility;
-//! - does not implement form fill, download, screenshot, or click.
+//! - does not submit forms or implement download, screenshot, or click.
 //!
 //! Invariants:
 //! 1. a provider future that is unexpectedly pending fails closed;
@@ -40,6 +40,8 @@ use crate::handler_support as support;
 const EDGE_TOOL_NAVIGATE: &str = "edge.cdp.navigate";
 /// Edge tool name for DOM reads.
 const EDGE_TOOL_DOM_READ: &str = "edge.cdp.dom_read";
+/// Edge tool name for form filling.
+const EDGE_TOOL_FORM_FILL: &str = "edge.cdp.form_fill";
 /// Edge tool name for network-idle waits.
 const EDGE_TOOL_WAIT_NETWORK_IDLE: &str = "edge.cdp.wait_network_idle";
 
@@ -47,6 +49,8 @@ const EDGE_TOOL_WAIT_NETWORK_IDLE: &str = "edge.cdp.wait_network_idle";
 const CHROME_TOOL_NAVIGATE: &str = "chrome.cdp.navigate";
 /// Chrome tool name for DOM reads.
 const CHROME_TOOL_DOM_READ: &str = "chrome.cdp.dom_read";
+/// Chrome tool name for form filling.
+const CHROME_TOOL_FORM_FILL: &str = "chrome.cdp.form_fill";
 /// Chrome tool name for network-idle waits.
 const CHROME_TOOL_WAIT_NETWORK_IDLE: &str = "chrome.cdp.wait_network_idle";
 
@@ -58,6 +62,11 @@ const MAX_QUIET_MS: u64 = 10_000;
 const CDP_TARGET_FINGERPRINT_SCOPE: &str = "cdp_target";
 const CDP_IDENTITY_EXPRESSION: &str =
     "JSON.stringify({ url: location.href, title: document.title })";
+
+#[path = "browser_form_fill.rs"]
+mod form_fill;
+
+use form_fill::FormFillHandler;
 
 /// Synchronous boundary used by handlers and tests around the asynchronous CDP trait.
 pub trait BrowserCdpRuntime: Send + Sync {
@@ -138,6 +147,13 @@ where
         }),
     );
     handlers.insert(
+        tool_names.form_fill.clone(),
+        Arc::new(FormFillHandler {
+            context: Arc::clone(context),
+            tool_name: tool_names.form_fill.clone(),
+        }),
+    );
+    handlers.insert(
         tool_names.wait_network_idle.clone(),
         Arc::new(WaitNetworkIdleHandler {
             context: Arc::clone(context),
@@ -169,11 +185,13 @@ impl BrowserToolFamily {
             Self::Edge => BrowserToolNames {
                 navigate: EDGE_TOOL_NAVIGATE.to_owned(),
                 dom_read: EDGE_TOOL_DOM_READ.to_owned(),
+                form_fill: EDGE_TOOL_FORM_FILL.to_owned(),
                 wait_network_idle: EDGE_TOOL_WAIT_NETWORK_IDLE.to_owned(),
             },
             Self::Chrome => BrowserToolNames {
                 navigate: CHROME_TOOL_NAVIGATE.to_owned(),
                 dom_read: CHROME_TOOL_DOM_READ.to_owned(),
+                form_fill: CHROME_TOOL_FORM_FILL.to_owned(),
                 wait_network_idle: CHROME_TOOL_WAIT_NETWORK_IDLE.to_owned(),
             },
         }
@@ -184,6 +202,7 @@ impl BrowserToolFamily {
 pub struct BrowserToolNames {
     pub(crate) navigate: String,
     pub(crate) dom_read: String,
+    pub(crate) form_fill: String,
     pub(crate) wait_network_idle: String,
 }
 
@@ -192,6 +211,7 @@ impl BrowserToolNames {
         vec![
             self.navigate.clone(),
             self.dom_read.clone(),
+            self.form_fill.clone(),
             self.wait_network_idle.clone(),
         ]
     }

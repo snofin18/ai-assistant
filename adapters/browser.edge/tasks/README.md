@@ -40,6 +40,9 @@ provides production handlers for `navigate`, `dom.read`, and
 `wait_network_idle` plus an Edge/Chrome `ToolRegistry` builder. The builder is
 verified through the real in-process `ToolBus` with a scripted CDP runtime.
 
-This is still not real-browser acceptance: form fill, download, screenshot,
-click, browser auto-launch wiring inside the CLI production root, and TASK-056
-10/10 external smoke remain pending.
+`edge.cdp.form_fill` is now a production handler: it validates a bounded,
+unique field set, writes only text-like controls, and never submits or clicks.
+TASK-057 still owns the diff display, instruction-origin attribution, and
+human-confirmed submit workflow. Download, screenshot, click, browser
+auto-launch wiring inside the CLI production root, and the remaining T5.2
+acceptance remain pending.
