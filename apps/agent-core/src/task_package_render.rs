@@ -316,11 +316,11 @@ pub(super) fn normalize_task_id(value: &str) -> String {
 fn assertion_table(tool: &str, arguments: &Value) -> Option<Vec<Value>> {
     paint_assertion_table(tool, arguments)
         .or_else(|| notepad_assertion_table(tool, arguments))
-        .or_else(|| browser_assertion_table(tool))
+        .or_else(|| browser_assertion_table(tool, arguments))
         .or_else(|| reserved_assertion_table(tool))
 }
 
-fn browser_assertion_table(tool: &str) -> Option<Vec<Value>> {
+fn browser_assertion_table(tool: &str, arguments: &Value) -> Option<Vec<Value>> {
     let operation = tool
         .strip_prefix("edge.cdp.")
         .or_else(|| tool.strip_prefix("chrome.cdp."))?;
@@ -334,6 +334,21 @@ fn browser_assertion_table(tool: &str) -> Option<Vec<Value>> {
             "fingerprint_scope": "cdp_target",
         })]),
         "dom_read" | "wait_network_idle" => Some(vec![json!({ "kind": "state_unchanged" })]),
+        "form_fill" => {
+            let field_count = u64::try_from(arguments.get("fields")?.as_array()?.len()).ok()?;
+            Some(vec![
+                json!({
+                    "kind": "value_equals",
+                    "name": "filled_fields",
+                    "value": field_count,
+                }),
+                json!({
+                    "kind": "value_equals",
+                    "name": "submitted",
+                    "value": false,
+                }),
+            ])
+        }
         _ => None,
     }
 }
