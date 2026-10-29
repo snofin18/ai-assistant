@@ -29,10 +29,10 @@
 
 | 文件 | 行数 | 条目数 | 读法 |
 |---|---|---|---|
-| `facts.md` | 280 | 227 | 按主题分节；**grep 优先**，不必全读 |
-| `pitfalls.md` | 302 | 191 | 按主题分节；**grep 优先**，不必全读 |
+| `facts.md` | 281 | 228 | 按主题分节；**grep 优先**，不必全读 |
+| `pitfalls.md` | 303 | 192 | 按主题分节；**grep 优先**，不必全读 |
 | `rejected.md` | 60 | 40 | ★ **动手前全量读**（防止同一方案被反复重新提出） |
-| `decisions.md` | 297 | 106 | 索引 → `docs/adr/NNNN-*.md` |
+| `decisions.md` | 301 | 107 | 索引 → `docs/adr/NNNN-*.md` |
 | `open.md` | 57 | 26 | `[OPEN]` 待实测/裁决 ＋ `[ASSUMPTION]` **不得当结论用** |
 | `apps/notepad.md` | 343 | 0 | 接记事本时**全量读**；8 个固定小节 |
 | `apps/paint.md` | 479 | 0 | Read fully when working on Paint; 8 fixed sections plus the current TASK-309 ControlView + ExpandCollapse probe tables (§13.8–§13.23; §11.2/§12 shape-pattern conclusion superseded by §13.9; §13.13's "must select a shape first" is amended by §13.19 for the outline/fill expand case and by §13.21 for the size flyout; sizes are Size1/Size3/Size5/Size8 by aid because Size1 is named 大小, and ADR-0098 exposes them as `paint.size.select` with a pixel-width vocabulary; §13.22 records the full-toolset real-machine path, brush selection switching the active tool, WinUI async expand state, and the TASK-044 T3.1 ten-run 10/10 plus 0 px drag endpoint; §13.24 records TASK-046 T3.3 10/10 one-step undo and stale PopupWindowSiteBridge detection; §13.23 records the TASK-045 T3.2 common-dialog Edit fix dependency, zoom combo direct-child index 12 for 50%, stable capture requirement, Save As default-HEIF pitfall with Tab+P PNG selection, and fingerprint-before-capture timing). Early TASK-044 / TASK-106 / TASK-256 / TASK-294 probe and runtime notes plus the static toolset inventory are archived in `docs/memory/archive/paint-early-probes.md`; selectors remain provisional before real-machine calibration. |

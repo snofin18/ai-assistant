@@ -1,8 +1,11 @@
 //! `automation_rounds` 的私有白盒测试。
 
 use super::{
-    Mechanism, RoundEntry, classify_mechanism, parse_round_file_name, summarize, validate_run_date,
+    Mechanism, ResetSource, RoundEntry, classify_mechanism, parse_round_file_name, summarize,
+    summarize_with_human_reset, validate_run_date,
 };
+use crate::automation_session::{CurrentSession, HumanReset, SessionSource};
+use std::path::PathBuf;
 
 fn entry(path: &str, run_date: &str, round: u32, mechanism: Mechanism) -> RoundEntry {
     RoundEntry {
@@ -117,5 +120,86 @@ fn test_historic_missing_before_human_is_warning_only() {
     assert_eq!(summary.missing_before_latest_human, vec!["old-missing"]);
     assert!(summary.missing_after_latest_human.is_empty());
     assert_eq!(summary.n_auto, 1);
+    assert!(summary.is_usable());
+}
+
+#[test]
+fn test_human_session_reset_counts_only_later_automation() {
+    let entries = vec![
+        entry("old", "2026-10-01", 1, Mechanism::Automation),
+        entry("later-a", "2026-10-03", 1, Mechanism::Automation),
+        entry("later-missing", "2026-10-04", 1, Mechanism::Missing),
+    ];
+    let reset = HumanReset {
+        session_id: "human-session".to_owned(),
+        recorded_at_epoch_ms: 1,
+        after_run_date: Some("2026-10-02".to_owned()),
+        after_round: 5,
+    };
+    let summary = summarize_with_human_reset(&entries, "2026-10-04", Some(&reset), None);
+    assert_eq!(
+        summary.latest_human.as_deref(),
+        Some("session:human-session")
+    );
+    assert_eq!(summary.reset_source, ResetSource::HumanSession);
+    assert_eq!(summary.n_auto, 2);
+    assert_eq!(summary.missing_after_latest_human, vec!["later-missing"]);
+    assert!(!summary.is_usable());
+}
+
+#[test]
+fn test_human_session_after_all_rounds_resets_to_zero() {
+    let entries = vec![
+        entry("a1", "2026-10-01", 1, Mechanism::Automation),
+        entry("a2", "2026-10-02", 1, Mechanism::Automation),
+    ];
+    let reset = HumanReset {
+        session_id: "human-session".to_owned(),
+        recorded_at_epoch_ms: 1,
+        after_run_date: Some("2026-10-02".to_owned()),
+        after_round: 1,
+    };
+    let current = CurrentSession {
+        session_id: "human-session".to_owned(),
+        source: SessionSource::Human,
+        session_file: PathBuf::from("session.jsonl"),
+    };
+    let summary = summarize_with_human_reset(&entries, "2026-10-03", Some(&reset), Some(&current));
+    assert_eq!(summary.n_auto, 0);
+    assert_eq!(summary.reset_source, ResetSource::HumanSession);
+    assert!(summary.is_usable());
+}
+
+#[test]
+fn test_later_human_round_wins_over_older_session_watermark() {
+    let entries = vec![
+        entry("a1", "2026-10-01", 1, Mechanism::Automation),
+        entry("h2", "2026-10-04", 1, Mechanism::Human),
+        entry("a3", "2026-10-05", 1, Mechanism::Automation),
+    ];
+    let reset = HumanReset {
+        session_id: "old-human-session".to_owned(),
+        recorded_at_epoch_ms: 1,
+        after_run_date: Some("2026-10-02".to_owned()),
+        after_round: 1,
+    };
+    let summary = summarize_with_human_reset(&entries, "2026-10-05", Some(&reset), None);
+    assert_eq!(summary.n_auto, 1);
+    assert_eq!(summary.reset_source, ResetSource::HumanRound);
+    assert_eq!(summary.latest_human.as_deref(), Some("h2"));
+}
+
+#[test]
+fn test_session_reset_with_no_rounds_counts_all_subsequent_automation() {
+    let entries = vec![entry("a1", "2026-10-01", 1, Mechanism::Automation)];
+    let reset = HumanReset {
+        session_id: "first-human-session".to_owned(),
+        recorded_at_epoch_ms: 1,
+        after_run_date: None,
+        after_round: 0,
+    };
+    let summary = summarize_with_human_reset(&entries, "2026-10-02", Some(&reset), None);
+    assert_eq!(summary.n_auto, 1);
+    assert_eq!(summary.reset_source, ResetSource::HumanSession);
     assert!(summary.is_usable());
 }

@@ -69,6 +69,7 @@ mod adr_index;
 mod adr_registry;
 mod arch;
 mod automation_rounds;
+mod automation_session;
 mod card_check;
 mod cli;
 mod codegen;

@@ -6,7 +6,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
-> 状态：**阶段 1**；**TASK-056 Done（2026-10-28）**（真实 Edge 本地 10/10、外部 3/3）；**TASK-340 Done**（HTML raw-text tokenizer）；Stage 1a Done、Stage 1b Paint 30/30，Stage 1c 的 TASK-057/058 待派单。
+> 状态：**阶段 1**；**TASK-341 Review（2026-10-29）**（ADR-0099 人类会话自动 reset `N_auto`；当前 human / automation 路径实测 `n_auto=0`）；**TASK-056 Done（2026-10-28）**（真实 Edge 本地 10/10、外部 3/3）；Stage 1a Done、Stage 1b Paint 30/30，Stage 1c 的 TASK-057/058 待派单。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -392,6 +392,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-29 TASK-341 Review（human session auto reset）**：ADR-0099 将 `N_auto` 的 reset 从手工 human round 改为会话自动识别。`automation-rounds` 通过 `CODEX_SESSION_ID` rollout 的 `thread_source` 区分 human / automation；人类会话自动写仓库外单文件水位 `$CODEX_HOME/automations/human-session-reset.v1`，automation 从该水位后累计。当前人类会话实测 `n_auto=0`，模拟 automation 会话保持同一边界；来源缺失、rollout 重复或水位损坏均 fail-closed。
+
 **2026-10-28 TASK-056 Done（real Edge and external CSV acceptance）**：本地真实 Edge baseline 10/10；外部三页 smoke 3/3。每轮 60 行 UTF-8 CSV，外部三份 SHA-256 一致为 `c10b753c...2562`，validator 全绿。真实问题链 TASK-337 至 TASK-340 已逐项修复，未用 warm-cache、局部 DOM 或放宽断言。
 
 **2026-10-28 TASK-340 Done（HTML raw-text tokenizer）**：新增 script/style raw-text 状态机，`<\\/script>`、`</scriptx>`、大小写闭合、style 内部 markup 与未闭合失败均有回归。CSV 子模块 13/13、workspace 497 passed；TASK-056 外部 3/3 待本卡合并后重跑。

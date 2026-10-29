@@ -47,7 +47,7 @@
 
 ## 3. 会话协议
 
-**启动（前 5 分钟，不可跳过）**：① 读本文件 ② 读 `PLAN.md` + `plans/<当前阶段>.md` 的 In/Out of scope ③ 读你的 `tasks/TASK-NNN-<slug>.md` **全文**（正文区 + 记录区 9 节骨架，gov §3.4）④ 读卡中引用的 spec/ADR 章节 + 目标 crate 的 `README.md`（**不变量**） ⑤ 读 `MEMORY.md`（L0 索引 + §1 快照）→ **`docs/memory/rejected.md` 全量** → 本卡涉及应用的 `docs/memory/apps/<app>.md` 全量 → 其余 `docs/memory/*` **grep 命中再局部读**；再读 `LEDGER.md` 末 10 行 ⑥ **输出约束回执，等确认后再动手**。
+**启动（前 5 分钟，不可跳过）**：① 读本文件 ② 读 `PLAN.md` + `plans/<当前阶段>.md` 的 In/Out of scope ③ 读你的 `tasks/TASK-NNN-<slug>.md` **全文**（正文区 + 记录区 9 节骨架，gov §3.4）④ 读卡中引用的 spec/ADR 章节 + 目标 crate 的 `README.md`（**不变量**） ⑤ 读 `MEMORY.md`（L0 索引 + §1 快照）→ **`docs/memory/rejected.md` 全量** → 本卡涉及应用的 `docs/memory/apps/<app>.md` 全量 → 其余 `docs/memory/*` **grep 命中再局部读**；再读 `LEDGER.md` 末 10 行 ⑥ 运行 `cargo run -p xtask -- automation-rounds --run-date <运行日>`：人类会话按 `CODEX_SESSION_ID` 自动写仓库外 reset 水位并得到 `n_auto=0`，automation 只从该水位起算；来源缺失或水位损坏必须显式失败 ⑦ **输出约束回执，等确认后再动手**。
 
 **约束回执（固定格式）**：
 
