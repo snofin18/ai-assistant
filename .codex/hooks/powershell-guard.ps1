@@ -19,7 +19,15 @@ function Write-HookDecision {
 }
 
 try {
-    $payload = [Console]::In.ReadToEnd() | ConvertFrom-Json
+    $payloadText = [Console]::In.ReadToEnd()
+    # The hook matcher already limits execution to Bash. Keep the same fast
+    # path inside the script so a directly invoked or misconfigured hook never
+    # parses unrelated MCP payloads whose strings can exceed the host bridge's
+    # stable JSON forwarding limit.
+    if ($payloadText -notmatch '"tool_name"\s*:\s*"Bash"') {
+        exit 0
+    }
+    $payload = $payloadText | ConvertFrom-Json
     if ($payload.tool_name -ne 'Bash') {
         exit 0
     }
