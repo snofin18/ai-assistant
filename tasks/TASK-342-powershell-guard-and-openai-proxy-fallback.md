@@ -121,6 +121,10 @@ cargo run -p xtask -- check-ledger
 - 三个 PowerShell 脚本 parser errors = 0、non-ASCII bytes = 0。
 - `hygiene` 0E / 151W；`memory-counts` 0E / 1 existing warning；
   `adr-index`、`docscan`、`card-check`、`check-ledger` 均 0E。
+- 2026-10-29 merge refresh：在 `origin/main` 的 #641 merge `eaf99d8` 上解决热点文档冲突；
+  `cargo test -p xtask` 510/510、`cargo test --workspace` 0 failed、fmt 与
+  all-targets / Linux / macOS `xtask` clippy、全部 xtask 文档门禁、schema/codegen、
+  deny、replay 再次全绿。
 
 ### 4. DoD 逐条核对
 
@@ -137,6 +141,9 @@ cargo run -p xtask -- check-ledger
   所有实际工作随后均以显式 PowerShell 重跑。新 guard 已通过故意 `shell=bash` 的端到端验证。
 - `fetch-openai-doc.ps1` 在 Windows PowerShell 5.1 下无法跟随代理链 308，因此明确要求
   PowerShell 7；PowerShell 7 实测通过。
+- 2026-10-29 merge refresh：PowerShell session `92960` 零输出后回退 `cmd`；本轮 5 次
+  `shell_misuse`（1 次本地 fast-forward、4 次只读查询）均未写产品文件。guard 已覆盖后续
+  同类误填，但项目 hook 仍需合并后由人类完成持久 trust。
 
 ### 6. 更合理做法
 
@@ -147,7 +154,7 @@ cargo run -p xtask -- check-ledger
 
 - 项目 hooks 首次使用仍需在 Codex `/hooks` 完成持久 trust。
 - 若外层 bash 在 sandbox 启动前即被宿主拒绝，guard 无法修复该启动错误；只能留痕，不能伪称执行成功。
-- 当前提交后还需重新运行 PR CI 并回填 PR / CI / merge evidence。
+- PR #640 已存在；merge refresh 后等待新 CI 与人类合并，再回填 merge evidence。
 
 ### 8. 新增长期记忆
 

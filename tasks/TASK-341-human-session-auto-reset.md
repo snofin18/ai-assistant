@@ -148,6 +148,14 @@ cargo deny check
   `hook: UserPromptSubmit Completed`。随后在同一 thread `01a18575-d9ff-7551-8918-35e5ffa0f25a`
   连续执行两次 prompt，reset mtime 两次都更新（`02:20:57` → `02:21:23`），证明不是只在新会话触发。
 
+- 2026-10-29 merge refresh：合入 `origin/main` 的 #641 merge `eaf99d8` 后，冲突仅在
+  `LEDGER.md` / `MEMORY.md` / `PLAN.md` / `README.md` / `facts.md` / `pitfalls.md` /
+  `plans/stage-1-pilots.md`，均按“双方新增记录同时保留”解决，无业务代码冲突。
+- merge refresh 复验：`cargo test -p xtask` 510/510、`cargo test --workspace` 0 failed、
+  fmt 与 all-targets / Linux / macOS `xtask` clippy 全绿；全部 xtask 文档门禁、
+  schema/codegen、deny、replay 全绿；`automation-rounds --run-date 2026-10-29`
+  输出 `session_source=human`、`reset_source=daily-0800`、`n_auto=0`。
+
 ### 4. DoD 逐条核对
 
 - [x] 当前运行日输出 `session_source=human`、`reset_source=daily-0800`、`n_auto=0`。
@@ -163,6 +171,10 @@ cargo deny check
   PowerShell 语法 / 命令不存在而失败，另有少量 shell-neutral 的只读 `git` 查询成功；
   没有通过 Bash 写仓库。发现后均以 PowerShell 重跑，完整证据见本轮 rollout。
 - 未新增第三方依赖；`xtask` 仍为零第三方依赖。
+- 2026-10-29 merge refresh：PowerShell 首查再次 10 秒零输出并终止 session `92960`，
+  随后按既有证据回退 `cmd`。本轮新增 5 次 `shell_misuse`：1 次 `git merge --ff-only`
+  完成本地 fast-forward，另 4 次为只读 Git / 文件查看；均未通过 Bash 写产品文件，
+  产品验证均由 `cmd` 重跑。
 
 ### 6. 更合理做法
 
@@ -171,7 +183,7 @@ cargo deny check
 
 ### 7. 遗留问题
 
-- 当前改动处于 Review，待 PR / CI 与人类合并。
+- 当前改动处于 Review；PR #640 已存在，merge refresh 后等待新 CI 与人类合并。
 - Codex rollout 首次落盘前的极早调用会显式失败；按 fail-closed 处理，不猜测 human。
 - 项目 hook 首次使用需在 Codex 完成一次持久 trust；本卡只以 bypass 证明 hook 本身可执行，
   不代替人类信任该项目配置。
