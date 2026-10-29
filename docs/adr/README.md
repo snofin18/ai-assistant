@@ -120,8 +120,9 @@
 | **0099** | `0099-human-session-auto-reset.md` | **Accepted** | `N_auto` 的 reset 取每日本地 08:00 运行日、项目 `UserPromptSubmit` hook 在每次人类 prompt 写入的仓库外单文件水位、历史 `机制=human` 轮次三者的最晚值；`CODEX_SESSION_ID` rollout 的 `thread_source` 区分 human / automation，automation 只统计边界后的轮次。项目 hook 首次使用需持久 trust（人类 2026-10-29 最终确认「每天早上8点自动重置」「和用户有对话就自动重置，不仅限于新开会话」；TASK-341） |
 
 | **0100** | `0100-powershell-guard-and-openai-proxy-fallback.md` | **Accepted** | Windows `PreToolUse` hook 把每个 Bash 工具调用重写为显式 Windows PowerShell `-EncodedCommand`，绕过宿主不暴露 `shell` 字段且会忽略 `updatedInput.shell` 的限制；OpenAI 官方文档直连失败后按 `HTTPS_PROXY` / `HTTP_PROXY` → `127.0.0.1:30000` 有界回退（人类 2026-10-29 要求彻底解决频繁 bash 误用，并允许 OpenAI 页面走代理；TASK-342） |
+| **0101** | `0101-browser-form-confirmation-and-submit-contract.md` | **Accepted** | T5.2 表单链路固定为 `form_read` 只读快照 → `form_fill` 有界填写且永不提交 → 字段 diff + 已校验来源归因 → 高风险 `form_submit` 仅 `once` 人工批准 → 同源 action + 字段状态复验后点击一次；点击后未知状态交人，不自动重试（人类 2026-10-29 确认；TASK-344） |
 
-**下一个可用编号：0101**（= §1 与 §2 已用最大号 **0100** + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0102**（= §1 与 §2 已用最大号 **0101** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由
