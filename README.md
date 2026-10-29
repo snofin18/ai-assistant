@@ -6,7 +6,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
-> 状态：**阶段 1**；**TASK-342 Review（2026-10-29）**（ADR-0100 PowerShell 强制 guard + OpenAI 文档代理回退）；**TASK-341 Review**（每日 08:00 + 每次 prompt 自动 reset）；**TASK-343 Review**（form_fill 已合并）；**TASK-056 Done（2026-10-28）**；Stage 1a Done、Stage 1b Paint 30/30，Stage 1c 的 TASK-057/058 待正式派单。
+> 状态：**阶段 1**；**TASK-342 Done（2026-10-29）**（ADR-0100 PowerShell 强制 guard + OpenAI 文档代理回退）；**TASK-341 Done**（每日 08:00 + 每次 prompt 自动 reset）；**TASK-343 Done**（form_fill 已合并）；**TASK-056 Done（2026-10-28）**；Stage 1a Done、Stage 1b Paint 30/30，Stage 1c 的 TASK-057/058 仍待正式展开。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -94,7 +94,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 **2026-10-28 TASK-056 Done（真实 Edge CSV acceptance）**：本地 loopback 真实 Edge 10/10，外部 `books.toscrape.com` 3/3；每轮 3 页、6 steps、3 个 DOM 输出和 60 行 CSV。三份外部 CSV SHA-256 均为 `c10b753cffe00a1bb1342698c20d2c2eba7c677b8bc36962f9c1500e8c182562`，严格 validator 全通过，跑后 Edge/8765 收敛。
 
 **2026-10-28 TASK-340 Done（HTML raw-text tokenizer）**：script/style 正文进入 raw-text 状态，`<\\/script>`、伪闭合和普通 `<` 不再被当标签；只有精确且大小写不敏感的 `</script>` / `</style>` 可结束，未闭合继续 fail-closed。CSV 子模块 13/13、workspace 497 passed，未改公共 schema/API/依赖。
-**2026-10-29 TASK-343 Review（browser form_fill）**：Edge/Chrome registry 均挂载第四个生产工具 `cdp.form_fill`。最多 100 个字段，selector/value/总量有界，重复 selector、敏感控件、歧义命中与 readback 不符全部 fail-closed；表达式源码不含 `submit` / `requestSubmit` / `click`，结果固定 `submitted=false`。Form fill 专项 6/6、浏览器聚焦测试 47 passed、workspace、fmt 与 all-targets clippy 全绿；TASK-057 的 diff、来源归因和人工确认提交仍待正式派单。
+**2026-10-29 TASK-343 Done（browser form_fill）**：PR #641 / merge `eaf99d8`；Edge/Chrome registry 均挂载第四个生产工具 `cdp.form_fill`。最多 100 个字段，selector/value/总量有界，重复 selector、敏感控件、歧义命中与 readback 不符全部 fail-closed；表达式源码不含 `submit` / `requestSubmit` / `click`，结果固定 `submitted=false`。Form fill 专项 6/6、浏览器聚焦测试 47 passed、workspace、fmt 与 all-targets clippy 全绿；TASK-057 的 diff、来源归因和人工确认提交仍待正式展开。
 
 **2026-10-28 TASK-339 Done（browser navigate cold-start budget）**：Edge/Chrome navigate 使用 60000 ms execute/postcondition 窗口，dom_read、wait_network_idle 与其他步骤保持 20000 ms；browser runner 与验收脚本总预算提升为 180000 ms。59999 ms 通过、60001 ms 失败，workspace 497 passed，未改公共 schema/API/依赖或 load 语义。
 
@@ -393,12 +393,12 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
-**2026-10-29 TASK-342 Review（PowerShell guard + OpenAI proxy fallback）**：ADR-0100 记录 hooks 探针结果：`PreToolUse` 不暴露 `shell`，且仅改 `updatedInput.shell` 不会生效。项目 guard 现在把每个 `Bash` 工具的原始命令用 UTF-16LE Base64 重写为显式 `powershell.exe -EncodedCommand`，任意外层 shell 都会落回 PowerShell；故意 `shell: "bash"` 的 `Get-Date` 已成功执行。新增 `tools/fetch-openai-doc.ps1`，OpenAI 官方文档直连 403 后通过 `127.0.0.1:30000` 重试并取得 HTTP 200 / 528794 字符正文。
+**2026-10-29 TASK-342 Done（PowerShell guard + OpenAI proxy fallback）**：PR #640 / merge `5dd22c4`；ADR-0100 记录 hooks 探针结果：`PreToolUse` 不暴露 `shell`，且仅改 `updatedInput.shell` 不会生效。项目 guard 现在把每个 `Bash` 工具的原始命令用 UTF-16LE Base64 重写为显式 `powershell.exe -EncodedCommand`，任意外层 shell 都会落回 PowerShell；故意 `shell: "bash"` 的 `Get-Date` 已成功执行。新增 `tools/fetch-openai-doc.ps1`，OpenAI 官方文档直连 403 后通过 `127.0.0.1:30000` 重试并取得 HTTP 200 / 528794 字符正文。
 
-**2026-10-29 TASK-341 Review（daily + per-prompt auto reset）**：ADR-0099 将 `N_auto` 的 reset 固定为三个边界的最近值：每日本地 08:00 运行日 `round 0`、项目 `UserPromptSubmit` hook 在每次人类 prompt 写入的仓库外单文件水位 `$CODEX_HOME/automations/human-session-reset.v1`、历史 `机制=human` 轮次。`automation-rounds` 通过 `CODEX_SESSION_ID` rollout 的 `thread_source` 区分 human / automation；automation 只统计最近边界后的轮次。当前运行日实测 `reset_source=daily-0800`、`n_auto=0`；同一 thread 连续两次 prompt 均更新水位，`automation-reset` 的 human 更新 / automation no-op 也已验证。项目 hook 首次使用需在 Codex 完成一次持久 trust；来源缺失、rollout 重复或水位损坏均 fail-closed。
+**2026-10-29 TASK-341 Done（daily + per-prompt auto reset）**：PR #640 / merge `5dd22c4`；ADR-0099 将 `N_auto` 的 reset 固定为三个边界的最近值：每日本地 08:00 运行日 `round 0`、项目 `UserPromptSubmit` hook 在每次人类 prompt 写入的仓库外单文件水位 `$CODEX_HOME/automations/human-session-reset.v1`、历史 `机制=human` 轮次。`automation-rounds` 通过 `CODEX_SESSION_ID` rollout 的 `thread_source` 区分 human / automation；automation 只统计最近边界后的轮次。当前运行日实测 `reset_source=daily-0800`、`n_auto=0`；同一 thread 连续两次 prompt 均更新水位，`automation-reset` 的 human 更新 / automation no-op 也已验证。项目 hook 首次使用需在 Codex 完成一次持久 trust；来源缺失、rollout 重复或水位损坏均 fail-closed。
 
 **2026-10-28 TASK-056 Done（real Edge and external CSV acceptance）**：本地真实 Edge baseline 10/10；外部三页 smoke 3/3。每轮 60 行 UTF-8 CSV，外部三份 SHA-256 一致为 `c10b753c...2562`，validator 全绿。真实问题链 TASK-337 至 TASK-340 已逐项修复，未用 warm-cache、局部 DOM 或放宽断言。
-**2026-10-29 TASK-343 Review（browser form_fill production handler）**：既有 `edge.cdp.form_fill` / `chrome.cdp.form_fill` 声明已接入 ToolBus；字段写入前全量预校验、唯一 selector 命中、DOM 原生 value setter、input/change 事件与逐字段 readback 已覆盖。Edge/Chrome 四工具 registry、task package `filled_fields=<N>` + `submitted=false` postcondition 与错误路径均有回归；没有新增 Tool schema、依赖、IPC、UI 或提交能力。
+**2026-10-29 TASK-343 Done（browser form_fill production handler）**：PR #641 / merge `eaf99d8`；既有 `edge.cdp.form_fill` / `chrome.cdp.form_fill` 声明已接入 ToolBus；字段写入前全量预校验、唯一 selector 命中、DOM 原生 value setter、input/change 事件与逐字段 readback 已覆盖。Edge/Chrome 四工具 registry、task package `filled_fields=<N>` + `submitted=false` postcondition 与错误路径均有回归；没有新增 Tool schema、依赖、IPC、UI 或提交能力。
 
 **2026-10-28 TASK-340 Done（HTML raw-text tokenizer）**：新增 script/style raw-text 状态机，`<\\/script>`、`</scriptx>`、大小写闭合、style 内部 markup 与未闭合失败均有回归。CSV 子模块 13/13、workspace 497 passed；TASK-056 外部 3/3 待本卡合并后重跑。
 

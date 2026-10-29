@@ -1,6 +1,6 @@
 # TASK-341　人类 prompt 与每日边界自动重置 N_auto
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：1c　批次：治理修复
 - 依赖：ADR-0089、TASK-328、ADR-0099
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031）。分界线以上是正文；以下由 Implementer 填写。
@@ -156,6 +156,11 @@ cargo deny check
   schema/codegen、deny、replay 全绿；`automation-rounds --run-date 2026-10-29`
   输出 `session_source=human`、`reset_source=daily-0800`、`n_auto=0`。
 
+- 2026-10-29 merge evidence：PR #640 head `ce950c898f0d3283e0d1cbd7410271c3b98eaed4`
+  的 11 项 checks 全部 success；合并提交
+  `5dd22c47463a7bcaffa75325603dd15697e33c6d`；post-merge main CI
+  `40832315701` 为 11 jobs = 10 success + 1 skipped，0 failed。
+
 ### 4. DoD 逐条核对
 
 - [x] 当前运行日输出 `session_source=human`、`reset_source=daily-0800`、`n_auto=0`。
@@ -183,7 +188,7 @@ cargo deny check
 
 ### 7. 遗留问题
 
-- 当前改动处于 Review；PR #640 已存在，merge refresh 后等待新 CI 与人类合并。
+- PR #640 已合并，head checks 与 post-merge main CI 均成功；状态已收口为 Done。
 - Codex rollout 首次落盘前的极早调用会显式失败；按 fail-closed 处理，不猜测 human。
 - 项目 hook 首次使用需在 Codex 完成一次持久 trust；本卡只以 bypass 证明 hook 本身可执行，
   不代替人类信任该项目配置。

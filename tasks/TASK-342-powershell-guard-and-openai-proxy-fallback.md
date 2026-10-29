@@ -1,6 +1,6 @@
 # TASK-342　PowerShell 强制 guard 与 OpenAI 文档代理回退
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：1c　批次：治理修复
 - 依赖：ADR-0099、ADR-0100
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031）。分界线以上是正文；以下由 Implementer 填写。
@@ -126,6 +126,11 @@ cargo run -p xtask -- check-ledger
   all-targets / Linux / macOS `xtask` clippy、全部 xtask 文档门禁、schema/codegen、
   deny、replay 再次全绿。
 
+- 2026-10-29 merge evidence：PR #640 head `ce950c898f0d3283e0d1cbd7410271c3b98eaed4`
+  的 11 项 checks 全部 success；合并提交
+  `5dd22c47463a7bcaffa75325603dd15697e33c6d`；post-merge main CI
+  `40832315701` 为 11 jobs = 10 success + 1 skipped，0 failed。
+
 ### 4. DoD 逐条核对
 
 - [x] 事件探针证明 `PreToolUse` 只提供 `tool_name` 与 `tool_input.command`，不提供 `shell`。
@@ -154,7 +159,8 @@ cargo run -p xtask -- check-ledger
 
 - 项目 hooks 首次使用仍需在 Codex `/hooks` 完成持久 trust。
 - 若外层 bash 在 sandbox 启动前即被宿主拒绝，guard 无法修复该启动错误；只能留痕，不能伪称执行成功。
-- PR #640 已存在；merge refresh 后等待新 CI 与人类合并，再回填 merge evidence。
+- PR #640 已合并；head checks 与 post-merge main CI 已回填，状态收口为 Done。后续只剩人类在
+  `/hooks` 完成持久 trust。
 
 ### 8. 新增长期记忆
 
