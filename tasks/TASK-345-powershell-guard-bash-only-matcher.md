@@ -1,6 +1,6 @@
 # TASK-345　PowerShell guard 仅订阅 Bash 工具
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：1c　批次：治理修复
 - 依赖：ADR-0100、TASK-342
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031）。分界线以上是正文；以下由 Implementer 填写。
@@ -98,6 +98,13 @@ cargo run -p xtask -- memory-counts
 - `card-check`：0 error / 35 warnings，PASSED。
 - `check-ledger`：0 error / 0 warning，PASSED。
 - `memory-counts`：0 error / 1 warning，PASSED（仅既有 Paint 归档阈值告警）。
+- 2026-10-29 merge evidence：PR #644 head
+  `8129084fc5f566b1e379239227aa08ef8f7b325e` 的 11 项 checks 全部 success；
+  合入 commit `674e9a0d1749e56e3bb03806c550f5630f560ae2`；PR base=`main`。
+- post-merge main CI `40842663573` = **success**，0 failed。
+- 2026-10-29 真实长 prompt 创建复验：一次性 automation
+  `ai-assistant-task-round-20261029-1700` 已成功创建并启动；preceding
+  PreToolUse 未再以非 Bash guard 误拒该输入。
 
 ### 4. DoD 逐条核对
 
@@ -105,6 +112,7 @@ cargo run -p xtask -- memory-counts
 - [x] 伪造 Bash `Get-Date` 仍返回 allow 与 `-EncodedCommand` 改写。
 - [x] 长 MCP payload 不再进入 guard 解析；修复合并后将用真实 `automation_update` 复验。
 - [x] 文档门禁全绿，任务卡与 LEDGER 同步。
+- [x] PR #644 合并后的真实长 prompt automation 创建成功，修复链路完成复验。
 
 ### 5. 偏差
 
@@ -120,7 +128,7 @@ cargo run -p xtask -- memory-counts
 
 ### 7. 遗留问题
 
-- 修复合并后重新创建五个一次性 automation，并用真实 create 调用验证长 prompt。
+- 修复合并后的一次性 automation 已用真实 create 调用完成长 prompt 复验；本卡无剩余实现项。
 
 ### 8. 新增长期记忆
 

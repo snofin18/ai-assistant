@@ -1,6 +1,6 @@
 # TASK-344　T5.2 浏览器表单确认与提交契约
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：1c　批次：治理契约
 - 依赖：TASK-056、TASK-343；ADR-0082
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031）。分界线以上是正文；以下由 Implementer 填写。
@@ -101,6 +101,11 @@ cargo run -p xtask -- memory-counts
 - `cargo run -p xtask -- check-ledger` → 0 error / 0 warning，PASSED。
 - `cargo run -p xtask -- hygiene` → 0 error / 153 warnings，PASSED；均为仓库既有告警。
 - `cargo run -p xtask -- memory-counts` → 0 error / 1 warning，PASSED；仅既有 Paint 归档阈值告警。
+- 2026-10-29 merge evidence：PR #643 head
+  `3ba0154c3c86aa63a5fc0895689fb448e823de42` 的 11 项 checks 全部 success；
+  合并提交 `b1b48c0e4c23a815a66bb68ec04bd1d971122848`；PR base=`main`。
+- post-merge main CI `40842663573`（head
+  `674e9a0d1749e56e3bb03806c550f5630f560ae2`）= **success**，0 failed。
 
 ### 4. DoD 逐条核对
 
@@ -109,6 +114,7 @@ cargo run -p xtask -- memory-counts
 - [x] TASK-057 仍保持 Blocked；没有把契约卡冒充实现卡。
 - [x] 上述文档门禁全部 PASSED；只修改 write scope 内文件。
 - [x] LEDGER.md 已追加 Review 行。
+- [x] 工作 PR 已合并，PR checks 与 post-merge main CI 均由 `main` 上的真实证据确认。
 
 ### 5. 偏差
 
@@ -126,7 +132,7 @@ cargo run -p xtask -- memory-counts
 
 ### 7. 遗留问题
 
-- TASK-057 仍需正式展开并实现；本卡只解除契约阻塞。
+- TASK-057 仍需正式展开并实现；本卡的契约工作与合并后收口均已完成，不替代实现或真实 Edge 验收。
 
 ### 8. 新增长期记忆
 
