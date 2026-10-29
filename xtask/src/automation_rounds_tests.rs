@@ -70,14 +70,12 @@ fn test_classify_mechanism_ignores_body_prose() {
 #[test]
 fn test_summary_counts_automation_after_latest_human() {
     let entries = vec![
-        entry("h1", "2026-10-01", 1, Mechanism::Human),
-        entry("a1", "2026-10-02", 1, Mechanism::Automation),
-        entry("h2", "2026-10-03", 1, Mechanism::Human),
-        entry("a2", "2026-10-04", 1, Mechanism::Automation),
-        entry("m1", "2026-10-05", 1, Mechanism::Missing),
+        entry("h1", "2026-10-05", 1, Mechanism::Human),
+        entry("a1", "2026-10-05", 2, Mechanism::Automation),
+        entry("m1", "2026-10-05", 3, Mechanism::Missing),
     ];
-    let summary = summarize(&entries, "2026-10-06");
-    assert_eq!(summary.latest_human.as_deref(), Some("h2"));
+    let summary = summarize(&entries, "2026-10-05");
+    assert_eq!(summary.latest_human.as_deref(), Some("h1"));
     assert_eq!(summary.n_auto, 2);
     assert_eq!(summary.missing_after_latest_human, vec!["m1"]);
     assert!(
@@ -87,12 +85,13 @@ fn test_summary_counts_automation_after_latest_human() {
 }
 
 #[test]
-fn test_summary_without_human_is_not_usable() {
+fn test_daily_boundary_counts_only_current_run_date() {
     let entries = vec![entry("a1", "2026-10-02", 1, Mechanism::Automation)];
     let summary = summarize(&entries, "2026-10-02");
-    assert_eq!(summary.latest_human, None);
-    assert_eq!(summary.n_auto, 0);
-    assert!(!summary.is_usable());
+    assert_eq!(summary.latest_human.as_deref(), Some("daily:2026-10-02"));
+    assert_eq!(summary.reset_source, ResetSource::DailyBoundary);
+    assert_eq!(summary.n_auto, 1);
+    assert!(summary.is_usable());
 }
 
 #[test]
@@ -112,11 +111,11 @@ fn test_summary_computes_round_for_requested_date() {
 #[test]
 fn test_historic_missing_before_human_is_warning_only() {
     let entries = vec![
-        entry("old-missing", "2026-10-01", 1, Mechanism::Missing),
-        entry("human", "2026-10-02", 1, Mechanism::Human),
-        entry("automation", "2026-10-03", 1, Mechanism::Automation),
+        entry("old-missing", "2026-10-02", 1, Mechanism::Missing),
+        entry("human", "2026-10-02", 2, Mechanism::Human),
+        entry("automation", "2026-10-02", 3, Mechanism::Automation),
     ];
-    let summary = summarize(&entries, "2026-10-04");
+    let summary = summarize(&entries, "2026-10-02");
     assert_eq!(summary.missing_before_latest_human, vec!["old-missing"]);
     assert!(summary.missing_after_latest_human.is_empty());
     assert_eq!(summary.n_auto, 1);
@@ -126,15 +125,15 @@ fn test_historic_missing_before_human_is_warning_only() {
 #[test]
 fn test_human_session_reset_counts_only_later_automation() {
     let entries = vec![
-        entry("old", "2026-10-01", 1, Mechanism::Automation),
-        entry("later-a", "2026-10-03", 1, Mechanism::Automation),
-        entry("later-missing", "2026-10-04", 1, Mechanism::Missing),
+        entry("old", "2026-10-04", 1, Mechanism::Automation),
+        entry("later-a", "2026-10-04", 2, Mechanism::Automation),
+        entry("later-missing", "2026-10-04", 3, Mechanism::Missing),
     ];
     let reset = HumanReset {
         session_id: "human-session".to_owned(),
         recorded_at_epoch_ms: 1,
-        after_run_date: Some("2026-10-02".to_owned()),
-        after_round: 5,
+        after_run_date: Some("2026-10-04".to_owned()),
+        after_round: 1,
     };
     let summary = summarize_with_human_reset(&entries, "2026-10-04", Some(&reset), None);
     assert_eq!(
@@ -151,12 +150,12 @@ fn test_human_session_reset_counts_only_later_automation() {
 fn test_human_session_after_all_rounds_resets_to_zero() {
     let entries = vec![
         entry("a1", "2026-10-01", 1, Mechanism::Automation),
-        entry("a2", "2026-10-02", 1, Mechanism::Automation),
+        entry("a2", "2026-10-03", 1, Mechanism::Automation),
     ];
     let reset = HumanReset {
         session_id: "human-session".to_owned(),
         recorded_at_epoch_ms: 1,
-        after_run_date: Some("2026-10-02".to_owned()),
+        after_run_date: Some("2026-10-03".to_owned()),
         after_round: 1,
     };
     let current = CurrentSession {
@@ -173,9 +172,9 @@ fn test_human_session_after_all_rounds_resets_to_zero() {
 #[test]
 fn test_later_human_round_wins_over_older_session_watermark() {
     let entries = vec![
-        entry("a1", "2026-10-01", 1, Mechanism::Automation),
+        entry("a1", "2026-10-02", 1, Mechanism::Automation),
         entry("h2", "2026-10-04", 1, Mechanism::Human),
-        entry("a3", "2026-10-05", 1, Mechanism::Automation),
+        entry("a3", "2026-10-04", 2, Mechanism::Automation),
     ];
     let reset = HumanReset {
         session_id: "old-human-session".to_owned(),
@@ -183,14 +182,14 @@ fn test_later_human_round_wins_over_older_session_watermark() {
         after_run_date: Some("2026-10-02".to_owned()),
         after_round: 1,
     };
-    let summary = summarize_with_human_reset(&entries, "2026-10-05", Some(&reset), None);
+    let summary = summarize_with_human_reset(&entries, "2026-10-04", Some(&reset), None);
     assert_eq!(summary.n_auto, 1);
     assert_eq!(summary.reset_source, ResetSource::HumanRound);
     assert_eq!(summary.latest_human.as_deref(), Some("h2"));
 }
 
 #[test]
-fn test_session_reset_with_no_rounds_counts_all_subsequent_automation() {
+fn test_no_round_reset_falls_back_to_daily_boundary() {
     let entries = vec![entry("a1", "2026-10-01", 1, Mechanism::Automation)];
     let reset = HumanReset {
         session_id: "first-human-session".to_owned(),
@@ -198,8 +197,44 @@ fn test_session_reset_with_no_rounds_counts_all_subsequent_automation() {
         after_run_date: None,
         after_round: 0,
     };
-    let summary = summarize_with_human_reset(&entries, "2026-10-02", Some(&reset), None);
+    let summary = summarize_with_human_reset(&entries, "2026-10-01", Some(&reset), None);
     assert_eq!(summary.n_auto, 1);
+    assert_eq!(summary.reset_source, ResetSource::DailyBoundary);
+    assert!(summary.is_usable());
+}
+
+#[test]
+fn test_human_prompt_turn_boundary_wins_over_daily_boundary() {
+    let entries = vec![
+        entry("a1", "2026-10-29", 1, Mechanism::Automation),
+        entry("a2", "2026-10-29", 2, Mechanism::Automation),
+    ];
+    let reset = HumanReset {
+        session_id: "same-human-thread".to_owned(),
+        recorded_at_epoch_ms: 2,
+        after_run_date: Some("2026-10-29".to_owned()),
+        after_round: 2,
+    };
+    let summary = summarize_with_human_reset(&entries, "2026-10-29", Some(&reset), None);
     assert_eq!(summary.reset_source, ResetSource::HumanSession);
+    assert_eq!(summary.n_auto, 0);
+    assert!(summary.is_usable());
+}
+
+#[test]
+fn test_daily_boundary_wins_when_human_reset_is_from_previous_day() {
+    let entries = vec![
+        entry("old", "2026-10-28", 5, Mechanism::Automation),
+        entry("today", "2026-10-29", 1, Mechanism::Automation),
+    ];
+    let reset = HumanReset {
+        session_id: "yesterday-human".to_owned(),
+        recorded_at_epoch_ms: 1,
+        after_run_date: Some("2026-10-28".to_owned()),
+        after_round: 5,
+    };
+    let summary = summarize_with_human_reset(&entries, "2026-10-29", Some(&reset), None);
+    assert_eq!(summary.reset_source, ResetSource::DailyBoundary);
+    assert_eq!(summary.n_auto, 1);
     assert!(summary.is_usable());
 }

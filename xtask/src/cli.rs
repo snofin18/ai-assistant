@@ -51,6 +51,7 @@ pub const USAGE: &str = r#"xtask — 仓库护栏与开发任务工具（只读�
                      LEDGER.md 末行日期 + README.md 有 `> 状态：` 行且含当前阶段名）
   automation-rounds  从轮次文件计算最近 human reset、N_auto 与指定运行日下一轮次
                      （ADR-0089；缺机制字段按 automation fail-closed）
+  automation-reset   供 UserPromptSubmit hook 调用的静默 human 会话 reset
   check-migrations   迁移登记表一致性（PL-047：号段全局唯一 + 与
                      docs/storage-design.md §3.4 逐行一致 + 含迁移的 crate 公开 MIGRATIONS）
   check-comments     命名与注释规范检查（naming §10 的 8 条规则；输出含 rule-coverage 行）
@@ -349,6 +350,7 @@ mod tests {
             "check-comments",
             "check-ledger",
             "automation-rounds",
+            "automation-reset",
         ] {
             assert!(USAGE.contains(command), "用法说明遗漏子命令 {command}");
         }

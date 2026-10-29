@@ -1,0 +1,17 @@
+{
+  "description": "Reset N_auto for every human prompt.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cargo run --quiet -p xtask -- automation-reset",
+            "commandWindows": "powershell -NoProfile -ExecutionPolicy Bypass -File .codex/hooks/user-prompt-reset.ps1",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -2,7 +2,7 @@
 //!
 //! 职责：
 //! - 从 `docs/automations/<run-date>-round-<N>.md` 解析每个轮次的机制；
-//! - 从当前 Codex 会话或历史 human round 找 reset 边界；
+//! - 从每日 08:00、人类 prompt hook 水位与历史 human round 找 reset 边界；
 //! - 统计 reset 边界后的 `机制=automation` 数量；
 //! - 计算指定运行日下一可用轮次号。
 //!
@@ -59,7 +59,7 @@ pub struct RoundSummary {
     pub existing_rounds_for_run_date: usize,
     /// 该运行日下一轮次号。
     pub next_round: u32,
-    /// 最近 reset 边界：`session:<id>` 或 human round 路径。
+    /// 最近 reset 边界：`daily:<date>`、`session:<id>` 或 human round 路径。
     pub latest_human: Option<String>,
     /// reset 边界之后、包含 Missing 的 automation 数。
     pub n_auto: usize,
@@ -76,8 +76,10 @@ pub struct RoundSummary {
 /// reset 边界来源。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResetSource {
-    /// 当前人类 Codex 会话自动写入的水位。
+    /// 人类 prompt hook 自动写入的会话水位。
     HumanSession,
+    /// 当前运行日的本地 08:00 自动边界。
+    DailyBoundary,
     /// 历史 `机制=human` 轮次文件。
     HumanRound,
     /// 没有可验证的 reset 边界。
@@ -153,6 +155,31 @@ pub fn run(
     } else {
         Ok(EXIT_FINDINGS)
     }
+}
+
+/// `UserPromptSubmit` hook：每次人类消息自动更新 reset 水位。
+///
+/// automation 会话调用时直接 no-op；人类会话只写仓库外单文件水位，不产生 stdout。
+///
+/// # Errors
+/// session 元数据不可验证、轮次扫描失败或 reset 水位无法写入时返回错误。
+pub fn record_human_prompt(repo_root: &Path) -> Result<u8, String> {
+    let current_session = automation_session::current_session_from_environment()?
+        .ok_or_else(|| "UserPromptSubmit hook 缺少 Codex session 元数据".to_owned())?;
+    if current_session.source == SessionSource::Automation {
+        return Ok(crate::EXIT_OK);
+    }
+    let entries = scan_round_files(&repo_root.join("docs/automations"))?;
+    let boundary = latest_boundary(&entries);
+    let reset = HumanReset {
+        session_id: current_session.session_id,
+        recorded_at_epoch_ms: automation_session::epoch_milliseconds_now()?,
+        after_run_date: boundary.as_ref().map(|value| value.run_date.clone()),
+        after_round: boundary.as_ref().map_or(0, |value| value.round),
+    };
+    let codex_home = codex_home_from_environment()?;
+    automation_session::save_human_reset(&codex_home, &reset)?;
+    Ok(crate::EXIT_OK)
 }
 
 fn prepare_human_reset(
@@ -236,7 +263,7 @@ pub fn summarize_with_human_reset(
     let latest_human_index = ordered
         .iter()
         .rposition(|entry| entry.mechanism == Mechanism::Human);
-    let boundary = choose_boundary(&ordered, latest_human_index, human_session_reset);
+    let boundary = choose_boundary(&ordered, latest_human_index, human_session_reset, run_date);
     let mut missing_after_latest_human = Vec::new();
     let mut missing_before_latest_human = Vec::new();
     for entry in &ordered {
@@ -285,6 +312,7 @@ fn choose_boundary(
     ordered: &[&RoundEntry],
     latest_human_index: Option<usize>,
     human_session_reset: Option<&HumanReset>,
+    run_date: &str,
 ) -> BoundaryChoice {
     let human_round = latest_human_index.and_then(|index| {
         ordered
@@ -297,7 +325,7 @@ fn choose_boundary(
             format!("session:{}", reset.session_id),
         )
     });
-    match (human_round, human_session) {
+    let human_choice = match (human_round, human_session) {
         (Some((round_boundary, round_label)), Some((session_boundary, session_label))) => {
             if session_boundary >= round_boundary {
                 BoundaryChoice {
@@ -328,6 +356,22 @@ fn choose_boundary(
             source: ResetSource::None,
             latest_human: None,
         },
+    };
+    let daily_boundary = RoundBoundary {
+        run_date: run_date.to_owned(),
+        round: 0,
+    };
+    if human_choice
+        .boundary
+        .as_ref()
+        .is_some_and(|boundary| boundary >= &daily_boundary)
+    {
+        return human_choice;
+    }
+    BoundaryChoice {
+        boundary: Some(daily_boundary),
+        source: ResetSource::DailyBoundary,
+        latest_human: Some(format!("daily:{run_date}")),
     }
 }
 
@@ -360,6 +404,7 @@ fn render(summary: &RoundSummary, output: &mut dyn std::io::Write) -> Result<(),
     let reset_source = match summary.reset_source {
         ResetSource::HumanSession => "human-session",
         ResetSource::HumanRound => "human-round",
+        ResetSource::DailyBoundary => "daily-0800",
         ResetSource::None => "none",
     };
     writeln!(

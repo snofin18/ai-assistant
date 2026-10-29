@@ -8,9 +8,11 @@
 - `memory-counts`：`MEMORY.md`「各文件当前规模」表 ↔ `docs/memory/` 实测计数是否一致（ADR-0030 D1/D2，**8** 条规则）
 - `adr-index`：`docs/adr/README.md` 编号登记表 ↔ `docs/adr/NNNN-*.md` ↔ `docs/memory/decisions.md` 是否一致（ADR-0030 D3，**11** 条规则）
 - `automation-rounds --run-date YYYY-MM-DD`：从 Codex `CODEX_SESSION_ID` 的
-  `thread_source` 自动识别 human / automation；人类会话写仓库外单文件 reset 水位，
-  automation 从该水位计算 `N_auto` 与下一轮次；历史 `机制=human` 轮次继续兼容，
-  缺机制字段按 automation fail-closed（ADR-0089 / ADR-0099）
+  `thread_source` 自动识别 human / automation；reset 取每日 08:00 运行日、最新人类 prompt
+  水位与历史 `机制=human` 轮次的最晚值，再计算 `N_auto` 与下一轮次；缺机制字段按
+  automation fail-closed（ADR-0088 / ADR-0089 / ADR-0099）
+- `automation-reset`：供项目级 `UserPromptSubmit` hook 调用的静默 reset 入口；人类每次提交
+  prompt 时更新仓库外单文件水位，automation 会话 no-op（ADR-0099）
 - `guard`：文件改写互斥锁（ADR-0028），操作 = `acquire` / `release` / `status` / `reap`
 - `write`：命令行唯一写通道（ADR-0066）：stdin → 目标，复用 guard 锁 + Windows 独占占用探测 + 退避重试
 - `--list-deferred`：打印**未实现**的子命令与规则，含归属任务卡号
@@ -21,9 +23,11 @@
 
 ## 边界（不做什么）
 
-- **只读仓库内容，除两个显式例外**：`guard` 在 `target/locks/` 下管理的临时锁文件与放弃日志
-  （ADR-0028 D8），以及 `write` 命令明确指定的仓库内相对目标（ADR-0066）。
-  除 `write` 目标外，本工具不创建、修改、删除任何**受版本控制**的文件，也不访问网络。
+- **只读仓库内容，除显式例外**：`guard` 在 `target/locks/` 下管理的临时锁文件与放弃日志
+  （ADR-0028 D8）、`write` 命令明确指定的仓库内相对目标（ADR-0066），以及
+  `automation-reset` / human-session preflight 对仓库外单文件
+  `$CODEX_HOME/automations/human-session-reset.v1` 的更新（ADR-0099）。
+  除这些目标外，本工具不创建、修改、删除任何**受版本控制**的文件，也不访问网络。
 - **不参与产品运行时**：不被任何 `crates/*` 或 `apps/*` 依赖。
 - **零第三方依赖**：只用 `std`。护栏工具自身必须无供应链风险，且编译要快到
   「每次提交都能跑」（当前全量编译 < 1 s）。
@@ -64,7 +68,7 @@
 | `memory_counts.rs` | 记忆规模一致性的 8 条规则 | 否 |
 | `adr_registry.rs` | ADR 登记表 / ADR 文件状态行 / 待建号解析（ADR-0030） | 否 |
 | `adr_index.rs` | ADR 编号一致性的 11 条规则 | 否 |
-| `automation_rounds.rs` | ADR-0089 / ADR-0099 轮次机制解析、human reset 与下一轮号计算 | **是**（仅调用 `automation_session` 写仓库外水位） |
+| `automation_rounds.rs` | ADR-0088 / ADR-0089 / ADR-0099 轮次机制解析、每日/prompt human reset 与下一轮号计算 | **是**（仅调用 `automation_session` 写仓库外水位） |
 | `automation_session.rs` | Codex 会话来源探测与仓库外 human reset 单文件水位 | **是**（仅 `$CODEX_HOME/automations/human-session-reset.v1`） |
 | `doccheck.rs` | `memory-counts` 与 `adr-index` 的 IO 边界 | **是**（只读） |
 | `guard.rs` | 锁记录编解码、slug/摘要派生、`decide_acquire` 判定（ADR-0028） | 否 |
@@ -242,6 +246,10 @@ cargo run -p xtask -- memory-counts
 cargo run -p xtask -- adr-index
 cargo run -p xtask -- hygiene --list-deferred
 cargo run -p xtask -- hygiene --repo <路径>     # 指定仓库根（默认由编译期常量推导）
+
+# N_auto：每日 08:00 / 每次人类 prompt / 历史 human round 取最晚 reset 边界
+cargo run -p xtask -- automation-rounds --run-date 2026-10-29
+cargo run -p xtask -- automation-reset           # UserPromptSubmit hook 的静默入口
 
 # guard：改写公共热点文件前先取锁，改完立刻释放
 cargo run -p xtask -- guard acquire MEMORY.md --owner codex-1a2b3c4d --task TASK-030 --intent "追加 FACT 条目"

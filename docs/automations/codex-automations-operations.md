@@ -1,6 +1,6 @@
 # Codex 原生 scheduled tasks（automations）操作手册
 
-> 状态：Active　版本：**1.18**　日期：**2026-10-29**　变更历史见 §9
+> 状态：Active　版本：**1.19**　日期：**2026-10-29**　变更历史见 §9
 > 上位：**ADR-0029**（自动化的投递机制改回 Codex 官方 scheduled tasks，Supersedes ADR-0018 的「Windows 任务计划程序 + `codex exec`」方案）、`docs/automation-charter.md` §11
 > **用途**：把「Codex 桌面应用的 scheduled tasks / automations 怎么建、怎么改、怎么删、怎么跑、怎么暂停、怎么停」写成可以照着做的操作手册，并且**逐条标明证据强度** —— 哪些是官方写明的、哪些是本机实测的、哪些其实谁都不知道。
 > **适用范围**：本机（Windows + Codex 桌面应用 + 第三方 Responses 兼容端点）。**不覆盖** ChatGPT Work 云端任务；**不覆盖** `codex exec` CLI 路径（那是 ADR-0018 的旧方案，只在 §1 门禁不通过时作为回落手段出现）。
@@ -308,16 +308,21 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 ```
 
 > **建后硬核对（2026-09-28 复发修复）**：automation 创建成功后，不得直接等触发。必须立刻读取 `~/.codex/automations/<id>/automation.toml`，逐项确认 prompt 已包含上列固定块：
-> ① `.automation.lock` 的获取、跳过 / 陈旧接管与释放；② 运行日归属规则（00:00~07:59 归前一天、08:00~23:59 归当日）；③ `git fetch` + `git ls-tree --name-only origin/main -- docs/automations/` 计算轮次命名序号，并运行 `xtask automation-rounds --run-date <运行日>`；以 `N_auto`（自最近人类 Codex 会话自动 reset 水位以来 automation 轮次数）判断 `N_auto > N`（现行 5）时只补报告不写代码；命令 FAILED 时先修正缺失机制字段，不能手数兜底；④ 轮次文件禁止覆盖；⑤ 阶段报告触发条件；⑥ 先落地、再自删；⑦ 仓库外持久日志路径与事件清单。
+> ① `.automation.lock` 的获取、跳过 / 陈旧接管与释放；② 运行日归属规则（00:00~07:59 归前一天、08:00~23:59 归当日）；③ `git fetch` + `git ls-tree --name-only origin/main -- docs/automations/` 计算轮次命名序号，并运行 `xtask automation-rounds --run-date <运行日>`；以 `N_auto`（自每日 08:00、最新人类 prompt 水位、历史 human round 的最晚边界以来 automation 轮次数）判断 `N_auto > N`（现行 5）时只补报告不写代码；命令 FAILED 时先修正缺失机制字段，不能手数兜底；④ 轮次文件禁止覆盖；⑤ 阶段报告触发条件；⑥ 先落地、再自删；⑦ 仓库外持久日志路径与事件清单。
 > **任一项缺失 → 立刻 `mode = "update"` 修正，或删除后重建；不得保留一个缺少固定块的 `ACTIVE` automation。** 反例（2026-09-27 运行日）：round-1 有轮次产物，round-2 / round-3 的 prompt 没带固定块，结果两轮都完成了产品工作却没有轮次记录；2026-09-28 已按 ADR-0054 的留痕原则 docs-only 回填。以后“建完就核对”是唯一可靠的收口点。
 
 > **人类会话自动 reset（2026-10-29，supersedes 2026-10-26 手工留痕口径；ADR-0099）**：
-> 人类会话启动时运行 `cargo run -p xtask -- automation-rounds --run-date <运行日>`。工具会通过
-> `CODEX_SESSION_ID` 定位当前 rollout，只有 `thread_source=automation` 才按 automation；
-> 其他明确来源由工具自动把仓库外单文件水位
+> reset 取三个边界的最晚值：① 本地每日 08:00 对应的新运行日 `round 0`；② 项目级
+> `UserPromptSubmit` hook 在**每次人类 prompt** 写入的 prompt 水位；③ 历史
+> `机制=human` 轮次。项目 hook 配置在 `.codex/hooks.json`，Windows 入口为
+> `.codex/hooks/user-prompt-reset.ps1`，实际调用
+> `cargo run --quiet -p xtask -- automation-reset`。该命令通过 `CODEX_SESSION_ID` 定位当前
+> rollout，只有 `thread_source=automation` 才按 automation；其他明确来源把仓库外单文件
 > `$CODEX_HOME/automations/human-session-reset.v1` 更新到当前 round 顺序末尾，随后输出
-> `n_auto=0`。历史 `机制=human` 轮次继续兼容，但不再要求人工创建；会话来源缺失、rollout
-> 重复或水位损坏时必须显式失败，不得自行假设 reset。
+> `reset_source=human-session`。人类会话启动时 `automation-rounds` 仍幂等更新同一水位作为
+> 兜底；每日 08:00 在没有 prompt 时也可独立生效，输出 `reset_source=daily-0800`。
+> 项目 hook **首次使用需在 Codex 完成一次持久 trust**；trust 后每条人类消息自动执行，不需要
+> 手工通知。会话来源缺失、rollout 重复或水位损坏时必须显式失败，不得自行假设 reset。
 
 > **与 `#### 4.1.b` 自删的顺序**：自删仍是**整个 run 的最后一步**；`.automation.lock` 的**释放**排在自删**之前**（先放锁，再自删）。
 > **`[未验证]`**：把「自删」与「放锁」都放在最后一步是否会被中途失败打断 —— 失败时留下条目 + 残留锁正是「需要人工看一眼」的信号（与 §4.1.b 同一口径）。
@@ -636,3 +641,4 @@ heartbeat 约定 18:04:23 → 实际 **18:04:24（约 +1 s）**。→ 计划时�
 | 1.16 | 2026-10-13 | **prompt 固定块补运行日 / N>3 / 仓库外持久日志**：§4.1.c 从“两件事”改为“三件事”，明确要求先按 §11.3 归运行日、N>3 只补报告不写代码，并在 `%USERPROFILE%\.codex\automations-logs\<run-date>\<automation-id>.jsonl` 留下 start / gates / work / PR / CI / merge / lock_release / self_delete 事件；建后硬核对新增第 ⑦ 项。Codex automation 条目仍必须自删，仓库外日志不删。 | 用户 2026-10-13 裁决；`docs/audits/automation-26-audit-2026-10-13.md`；26 轮审计发现 N>3 漂移与自删后取证缺口 |
 | 1.17 | 2026-10-14 | **§4.1.a 追加「`BYHOUR` 走本地钟表」实测更正块**：旧文里「`BYHOUR` 被按 UTC 解释」的观察只适用于**掉出本地钟表快路径**的规则形状，**不适用于** `FREQ=DAILY;COUNT=1` + `BYHOUR`/`BYMINUTE`。2026-10-14 建 5 个一次性 automation 时当场实测：`BYHOUR=9`（意图本地 17:00）落到 `next_run_at` = 2026-10-15 09:00 +08，改成 `BYHOUR=17` 后 = 2026-10-14 17:00 +08；5 槽位按本地墙钟直写后 `next_run_at` = 17:00 / 19:30 / 22:00（10-14）+ 00:30 / 03:00（10-15），相邻间隔均 2.5 h。口径改为「`BYHOUR` 直接填本地小时，不做 -8 换算」。文件头版本 1.16 → **1.17**。§1 / §3 / §4.0 / §4.1.b~§4.1.c / §4.2~§8 正文一字未改 | 人类 2026-10-14 指令建 5 个一次性自动化（本地 17:00 起、间隔 2.5 h）；`automation_update(mode=create)` × 5 + `mode=update` × 5 + `~/.codex/automations/*/automation.toml` 与 `codex-dev.db` 的 `automations` 表实测；**ADR-0046 D2**（下次建立时当场实测并回填本手册） |
 | 1.18 | 2026-10-29 | **human reset 改为会话自动水位（ADR-0099）**：`automation-rounds` 从 `CODEX_SESSION_ID` rollout 的 `thread_source` 自动区分 human / automation；人类会话写仓库外单文件 `$CODEX_HOME/automations/human-session-reset.v1`，automation 从该水位后累计。§4.1.c 固定块、建后硬核对与 2026-10-26 人工留痕段同步改写；历史 `机制=human` 轮次继续兼容但不再要求手工创建 | 用户 2026-10-29 明确裁决「N_auto 计算错误，每次人类会话都应该重置，而不是需要手工通知重置」；TASK-341 |
+| 1.19 | 2026-10-29 | **补齐每日 08:00 与每次 prompt reset**：§4.1.c 固定块、建后硬核对和 reset 说明改为每日 08:00、`UserPromptSubmit` hook 每条人类消息水位、历史 human round 三者的最晚值；记录 `.codex/hooks.json` / `.codex/hooks/user-prompt-reset.ps1` 与首次持久 trust 要求。1.18 的会话级描述保留为历史节点 | 用户 2026-10-29 最终确认「每天早上8点 N_auto 自动重置」且「和我有对话就自动重置，并不仅限于新开会话」；ADR-0099 / TASK-341 |

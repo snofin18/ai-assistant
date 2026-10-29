@@ -10,6 +10,7 @@
 | 目录 | 用途 | 授权 ADR |
 |---|---|---|
 | `.github/` | GitHub Actions、模板与仓库自动化配置 | ADR-0019 |
+| `.codex/` | 项目级 Codex hooks；只放受版本控制、可审查、无凭据的宿主集成配置 | ADR-0099 |
 | `adapters/` | 声明式应用适配包（selectors、tools、tasks、rollback） | 架构 v2 §3 |
 | `apps/` | 可执行应用进程与 Tauri UI | ADR-0053 |
 | `crates/` | Rust workspace 库 crate | ADR-0053 |

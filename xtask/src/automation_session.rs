@@ -3,7 +3,7 @@
 //! 职责：
 //! - 从 `CODEX_SESSION_ID` 定位当前 Codex rollout 的 `session_meta`；
 //! - 区分 automation 与人类会话；
-//! - 在仓库外维护一个有界的 human-session reset 水位。
+//! - 在仓库外维护一个有界的 human prompt / session reset 水位。
 //!
 //! 边界：
 //! - 不读取会话正文，只读取首行元数据中的 `thread_source`；

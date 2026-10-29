@@ -117,7 +117,7 @@
 
 | **0098** | `0098-paint-shape-size-group-tool.md` | **Accepted** | ADR-0096 / ADR-0097 的增量：把 `大小`（形状笔宽）拆成语义工具 `paint.size.select`，沿用组内词汇表 + 有界 `path`（1..=1，非法即既有 `ToolInvalidArgs`）+ 通道按组声明；与轮廓 / 填充的差别是**条目按 `AutomationId` 解析**（`Size1`/`Size3`/`Size5`/`Size8`，2026-10-19 第一手只读复测：形状组有活动形状时 flyout 枚举出全部 4 项），词汇表用像素宽度而不是显示名（`Size1` 的 UIA name 是 `大小`，与按钮 / 画笔 Slider 三重同名，§13.16）；形状未激活 → flyout 为空 → 既有 `TargetNotFound` fail-closed，本工具**不得**自己点形状；画笔 `尺寸` / `不透明度` Slider 仍不进 schema（预授权自动化裁决；TASK-319） |
 
-| **0099** | `0099-human-session-auto-reset.md` | **Accepted** | `N_auto` 的 human reset 改为自动会话识别：`automation-rounds` 从 `CODEX_SESSION_ID` rollout 的 `thread_source` 区分 human / automation；人类会话写仓库外单文件水位 `$CODEX_HOME/automations/human-session-reset.v1`，automation 从水位后累计；历史 `机制=human` 轮次兼容但不再要求人工创建（人类 2026-10-29「每次人类会话都应该重置，而不是需要手工通知重置」；TASK-341） |
+| **0099** | `0099-human-session-auto-reset.md` | **Accepted** | `N_auto` 的 reset 取每日本地 08:00 运行日、项目 `UserPromptSubmit` hook 在每次人类 prompt 写入的仓库外单文件水位、历史 `机制=human` 轮次三者的最晚值；`CODEX_SESSION_ID` rollout 的 `thread_source` 区分 human / automation，automation 只统计边界后的轮次。项目 hook 首次使用需持久 trust（人类 2026-10-29 最终确认「每天早上8点自动重置」「和用户有对话就自动重置，不仅限于新开会话」；TASK-341） |
 
 **下一个可用编号：0100**（= §1 与 §2 已用最大号 **0099** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
