@@ -304,3 +304,7 @@
 ## 2026-10-29 追加（ADR-0100，Accepted）
 
 - [2026-10-29][DECISION][src:ADR-0100，人类 2026-10-29 要求彻底解决 bash 误用；TASK-342] **Windows shell 采用宿主级 PowerShell 强制重写，OpenAI 官方文档采用有界代理回退**：`PreToolUse` 对 `Bash` 工具的原始命令按 UTF-16LE Base64 包装为 `powershell.exe -EncodedCommand`，因为 hook 看不到 `shell` 且 `updatedInput.shell` 被忽略；命令超过 10000 字符或 hook 解析失败时 deny。文档抓取只允许 `developers.openai.com` / `platform.openai.com` / `learn.chatgpt.com`，直连失败后依次使用 `HTTPS_PROXY` / `HTTP_PROXY` 与 `http://127.0.0.1:30000`，最多三次并在 PowerShell 7 下校验最终主机、2xx 与非空正文。
+
+## 2026-10-29 追加（ADR-0101，Accepted）
+
+- [2026-10-29][DECISION][src:ADR-0101，人类 2026-10-29 确认；TASK-344] **浏览器 T5.2 表单链路固定为 `form_read` → `form_fill` → 字段 diff + 已校验归因 → `form_submit` 一次性人工审批**：`form_fill` 保持 TASK-343 的“有界写入、逐字段 readback、永不提交”，`form_read` 只返回有界允许控件的快照，`form_submit` 固定 high / L3 irreversible / requires_approval / 非幂等且只允许 `once`。提交前必须在同一 DOM 表达式内复验唯一 form / submit、同源绝对 action、预期字段状态；跨 origin、歧义、字段漂移或任何不允许控件在点击前 fail-closed。点击后未知状态进入 `NeedsHuman` / `UserInteraction`，禁止自动重试。approval UI 只接收已校验 `InstructionAttribution`，`app_content` 默认拒绝且覆盖不放宽 policy；自动验收只使用 `127.0.0.1` 三字段 loopback fixture。
