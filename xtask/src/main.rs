@@ -69,6 +69,7 @@ mod adr_index;
 mod adr_registry;
 mod arch;
 mod automation_rounds;
+mod automation_session;
 mod card_check;
 mod cli;
 mod codegen;
@@ -282,6 +283,11 @@ fn execute(arguments: &[String], output: &mut dyn Write) -> Result<u8, Failure> 
     }
     if command == "automation-rounds" {
         return run_automation_rounds(&invocation, output);
+    }
+    if command == "automation-reset" {
+        let root = resolve_repo_root(invocation.repo.as_deref())
+            .map_err(|error| Failure::from_walk(&error))?;
+        return automation_rounds::record_human_prompt(&root).map_err(Failure::Io);
     }
     if command == "check-migrations" {
         return run_check_migrations(&invocation, output);

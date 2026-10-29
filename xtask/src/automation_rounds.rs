@@ -2,23 +2,29 @@
 //!
 //! 职责：
 //! - 从 `docs/automations/<run-date>-round-<N>.md` 解析每个轮次的机制；
-//! - 找到最近一次 `机制=human`，统计其后的 `机制=automation` 数量；
+//! - 从每日 08:00、人类 prompt hook 水位与历史 human round 找 reset 边界；
+//! - 统计 reset 边界后的 `机制=automation` 数量；
 //! - 计算指定运行日下一可用轮次号。
 //!
 //! 边界：
-//! - 不读取 git 历史，只读取当前仓库内容；
-//! - 不修改轮次文件或台账；
+//! - 读取仓库轮次文件、Codex session 首行元数据与仓库外 reset 水位；
+//! - 不修改仓库轮次文件或台账；
 //! - 不判断任务内容质量，只处理 ADR-0089 的轮次计数事实。
 //!
 //! 不变量：
 //! 1. 缺机制字段按 automation fail-closed，不能静默跳过；
-//! 2. 输出只依赖文件名和机制声明，同一仓库状态必得同一结果；
-//! 3. 没有 human 轮次时绝不伪造 reset。
+//! 2. 人类会话自动写单文件 reset 水位，automation 会话只读；
+//! 3. 没有可验证 reset 边界时绝不伪造 reset。
 //!
-//! 相关：`docs/adr/0089-unattended-round-cap-derived-and-human-reset.md`、
+//! 相关：`docs/adr/0099-human-session-auto-reset.md`、
+//! `docs/adr/0089-unattended-round-cap-derived-and-human-reset.md`、
 //! `docs/automation-charter.md` §11.3、`docs/automations/2026-10-26-round-1.md`。
 
 use std::path::Path;
+
+use crate::automation_session::{
+    self, CurrentSession, HumanReset, SessionSource, codex_home_from_environment,
+};
 
 /// 一个轮次文件的机制。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,14 +59,63 @@ pub struct RoundSummary {
     pub existing_rounds_for_run_date: usize,
     /// 该运行日下一轮次号。
     pub next_round: u32,
-    /// 最近一次 human 轮次路径。
+    /// 最近 reset 边界：`daily:<date>`、`session:<id>` 或 human round 路径。
     pub latest_human: Option<String>,
-    /// 最近 human 之后、包含 Missing 的 automation 数。
+    /// reset 边界之后、包含 Missing 的 automation 数。
     pub n_auto: usize,
-    /// 最近 human 之后缺机制声明的路径。
+    /// reset 边界之后缺机制声明的路径。
     pub missing_after_latest_human: Vec<String>,
-    /// 最近 human 之前缺机制声明的路径；仅作历史警告。
+    /// reset 边界之前缺机制声明的路径；仅作历史警告。
     pub missing_before_latest_human: Vec<String>,
+    /// 当前 Codex 会话来源。
+    pub session_source: Option<SessionSource>,
+    /// reset 边界来源。
+    pub reset_source: ResetSource,
+}
+
+/// reset 边界来源。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResetSource {
+    /// 人类 prompt hook 自动写入的会话水位。
+    HumanSession,
+    /// 当前运行日的本地 08:00 自动边界。
+    DailyBoundary,
+    /// 历史 `机制=human` 轮次文件。
+    HumanRound,
+    /// 没有可验证的 reset 边界。
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct RoundBoundary {
+    run_date: String,
+    round: u32,
+}
+
+impl RoundBoundary {
+    fn from_entry(entry: &RoundEntry) -> Self {
+        Self {
+            run_date: entry.run_date.clone(),
+            round: entry.round,
+        }
+    }
+
+    fn from_reset(reset: &HumanReset) -> Self {
+        Self {
+            run_date: reset.after_run_date.clone().unwrap_or_default(),
+            round: reset.after_round,
+        }
+    }
+
+    fn is_before_or_equal(&self, entry: &RoundEntry) -> bool {
+        (&entry.run_date, entry.round) <= (&self.run_date, self.round)
+    }
+}
+
+struct BoundaryChoice {
+    boundary: Option<RoundBoundary>,
+    source: ResetSource,
+    latest_human: Option<String>,
 }
 
 impl RoundSummary {
@@ -86,12 +141,70 @@ pub fn run(
 
     validate_run_date(run_date)?;
     let entries = scan_round_files(&repo_root.join("docs/automations"))?;
-    let summary = summarize(&entries, run_date);
+    let current_session = automation_session::current_session_from_environment()?;
+    let human_reset = prepare_human_reset(&entries, current_session.as_ref())?;
+    let summary = summarize_with_human_reset(
+        &entries,
+        run_date,
+        human_reset.as_ref(),
+        current_session.as_ref(),
+    );
     render(&summary, output)?;
     if summary.is_usable() {
         Ok(EXIT_OK)
     } else {
         Ok(EXIT_FINDINGS)
+    }
+}
+
+/// `UserPromptSubmit` hook：每次人类消息自动更新 reset 水位。
+///
+/// automation 会话调用时直接 no-op；人类会话只写仓库外单文件水位，不产生 stdout。
+///
+/// # Errors
+/// session 元数据不可验证、轮次扫描失败或 reset 水位无法写入时返回错误。
+pub fn record_human_prompt(repo_root: &Path) -> Result<u8, String> {
+    let current_session = automation_session::current_session_from_environment()?
+        .ok_or_else(|| "UserPromptSubmit hook 缺少 Codex session 元数据".to_owned())?;
+    if current_session.source == SessionSource::Automation {
+        return Ok(crate::EXIT_OK);
+    }
+    let entries = scan_round_files(&repo_root.join("docs/automations"))?;
+    let boundary = latest_boundary(&entries);
+    let reset = HumanReset {
+        session_id: current_session.session_id,
+        recorded_at_epoch_ms: automation_session::epoch_milliseconds_now()?,
+        after_run_date: boundary.as_ref().map(|value| value.run_date.clone()),
+        after_round: boundary.as_ref().map_or(0, |value| value.round),
+    };
+    let codex_home = codex_home_from_environment()?;
+    automation_session::save_human_reset(&codex_home, &reset)?;
+    Ok(crate::EXIT_OK)
+}
+
+fn prepare_human_reset(
+    entries: &[RoundEntry],
+    current_session: Option<&CurrentSession>,
+) -> Result<Option<HumanReset>, String> {
+    match current_session.map(|session| session.source) {
+        Some(SessionSource::Human) => {
+            let boundary = latest_boundary(entries);
+            let reset = HumanReset {
+                session_id: current_session
+                    .map(|session| session.session_id.clone())
+                    .ok_or_else(|| "human reset 缺少 session id".to_owned())?,
+                recorded_at_epoch_ms: automation_session::epoch_milliseconds_now()?,
+                after_run_date: boundary.as_ref().map(|value| value.run_date.clone()),
+                after_round: boundary.as_ref().map_or(0, |value| value.round),
+            };
+            let codex_home = codex_home_from_environment()?;
+            automation_session::save_human_reset(&codex_home, &reset)?;
+            Ok(Some(reset))
+        }
+        None | Some(SessionSource::Automation) => {
+            let codex_home = codex_home_from_environment()?;
+            automation_session::load_human_reset(&codex_home)
+        }
     }
 }
 
@@ -125,8 +238,20 @@ fn scan_round_files(directory: &Path) -> Result<Vec<RoundEntry>, String> {
 }
 
 /// 汇总最近 human reset 与指定运行日下一轮号。
+#[cfg(test)]
 #[must_use]
 pub fn summarize(entries: &[RoundEntry], run_date: &str) -> RoundSummary {
+    summarize_with_human_reset(entries, run_date, None, None)
+}
+
+/// 汇总会话 reset、历史 human round 与指定运行日下一轮号。
+#[must_use]
+pub fn summarize_with_human_reset(
+    entries: &[RoundEntry],
+    run_date: &str,
+    human_session_reset: Option<&HumanReset>,
+    current_session: Option<&CurrentSession>,
+) -> RoundSummary {
     let mut ordered = entries.iter().collect::<Vec<_>>();
     ordered.sort_by(|left, right| {
         (left.run_date.as_str(), left.round, left.path.as_str()).cmp(&(
@@ -138,24 +263,25 @@ pub fn summarize(entries: &[RoundEntry], run_date: &str) -> RoundSummary {
     let latest_human_index = ordered
         .iter()
         .rposition(|entry| entry.mechanism == Mechanism::Human);
+    let boundary = choose_boundary(&ordered, latest_human_index, human_session_reset, run_date);
     let mut missing_after_latest_human = Vec::new();
     let mut missing_before_latest_human = Vec::new();
-    for (index, entry) in ordered.iter().enumerate() {
+    for entry in &ordered {
         if entry.mechanism != Mechanism::Missing {
             continue;
         }
-        if latest_human_index.is_some_and(|human_index| index > human_index) {
-            missing_after_latest_human.push(entry.path.clone());
-        } else if latest_human_index.is_some_and(|human_index| index < human_index) {
-            missing_before_latest_human.push(entry.path.clone());
+        match boundary.boundary.as_ref() {
+            Some(value) if value.is_before_or_equal(entry) => {
+                missing_before_latest_human.push(entry.path.clone());
+            }
+            Some(_) => missing_after_latest_human.push(entry.path.clone()),
+            None => {}
         }
     }
-    let n_auto = latest_human_index.map_or(0, |human_index| {
+    let n_auto = boundary.boundary.as_ref().map_or(0, |value| {
         ordered
-            .get(human_index.saturating_add(1)..)
-            .unwrap_or_default()
             .iter()
-            .filter(|entry| entry.mechanism != Mechanism::Human)
+            .filter(|entry| !value.is_before_or_equal(entry) && entry.mechanism != Mechanism::Human)
             .count()
     });
     let existing_rounds_for_run_date = ordered
@@ -173,12 +299,93 @@ pub fn summarize(entries: &[RoundEntry], run_date: &str) -> RoundSummary {
         run_date: run_date.to_owned(),
         existing_rounds_for_run_date,
         next_round,
-        latest_human: latest_human_index
-            .and_then(|index| ordered.get(index).map(|entry| entry.path.clone())),
+        latest_human: boundary.latest_human,
         n_auto,
         missing_after_latest_human,
         missing_before_latest_human,
+        session_source: current_session.map(|session| session.source),
+        reset_source: boundary.source,
     }
+}
+
+fn choose_boundary(
+    ordered: &[&RoundEntry],
+    latest_human_index: Option<usize>,
+    human_session_reset: Option<&HumanReset>,
+    run_date: &str,
+) -> BoundaryChoice {
+    let human_round = latest_human_index.and_then(|index| {
+        ordered
+            .get(index)
+            .map(|entry| (RoundBoundary::from_entry(entry), entry.path.clone()))
+    });
+    let human_session = human_session_reset.map(|reset| {
+        (
+            RoundBoundary::from_reset(reset),
+            format!("session:{}", reset.session_id),
+        )
+    });
+    let human_choice = match (human_round, human_session) {
+        (Some((round_boundary, round_label)), Some((session_boundary, session_label))) => {
+            if session_boundary >= round_boundary {
+                BoundaryChoice {
+                    boundary: Some(session_boundary),
+                    source: ResetSource::HumanSession,
+                    latest_human: Some(session_label),
+                }
+            } else {
+                BoundaryChoice {
+                    boundary: Some(round_boundary),
+                    source: ResetSource::HumanRound,
+                    latest_human: Some(round_label),
+                }
+            }
+        }
+        (Some((boundary, label)), None) => BoundaryChoice {
+            boundary: Some(boundary),
+            source: ResetSource::HumanRound,
+            latest_human: Some(label),
+        },
+        (None, Some((boundary, label))) => BoundaryChoice {
+            boundary: Some(boundary),
+            source: ResetSource::HumanSession,
+            latest_human: Some(label),
+        },
+        (None, None) => BoundaryChoice {
+            boundary: None,
+            source: ResetSource::None,
+            latest_human: None,
+        },
+    };
+    let daily_boundary = RoundBoundary {
+        run_date: run_date.to_owned(),
+        round: 0,
+    };
+    if human_choice
+        .boundary
+        .as_ref()
+        .is_some_and(|boundary| boundary >= &daily_boundary)
+    {
+        return human_choice;
+    }
+    BoundaryChoice {
+        boundary: Some(daily_boundary),
+        source: ResetSource::DailyBoundary,
+        latest_human: Some(format!("daily:{run_date}")),
+    }
+}
+
+fn latest_boundary(entries: &[RoundEntry]) -> Option<RoundBoundary> {
+    entries
+        .iter()
+        .max_by(|left, right| {
+            (&left.run_date, left.round, left.path.as_str()).cmp(&(
+                &right.run_date,
+                right.round,
+                right.path.as_str(),
+            ))
+        })
+        .map(RoundBoundary::from_entry)
 }
 
 /// 渲染稳定、易解析的输出。
@@ -189,13 +396,26 @@ fn render(summary: &RoundSummary, output: &mut dyn std::io::Write) -> Result<(),
     } else {
         "FAILED"
     };
+    let session_source = match summary.session_source {
+        Some(SessionSource::Human) => "human",
+        Some(SessionSource::Automation) => "automation",
+        None => "unknown",
+    };
+    let reset_source = match summary.reset_source {
+        ResetSource::HumanSession => "human-session",
+        ResetSource::HumanRound => "human-round",
+        ResetSource::DailyBoundary => "daily-0800",
+        ResetSource::None => "none",
+    };
     writeln!(
         output,
-        "== automation-rounds ==\nrun_date={}\nexisting_rounds_for_run_date={}\nnext_round={}\nlatest_human={}\nn_auto={}\nmissing_after_latest_human={}\nmissing_before_latest_human={}\n-- verdict: {}",
+        "== automation-rounds ==\nrun_date={}\nexisting_rounds_for_run_date={}\nnext_round={}\nlatest_human={}\nreset_source={}\nsession_source={}\nn_auto={}\nmissing_after_latest_human={}\nmissing_before_latest_human={}\n-- verdict: {}",
         summary.run_date,
         summary.existing_rounds_for_run_date,
         summary.next_round,
         latest_human,
+        reset_source,
+        session_source,
         summary.n_auto,
         summary.missing_after_latest_human.len(),
         summary.missing_before_latest_human.len(),
