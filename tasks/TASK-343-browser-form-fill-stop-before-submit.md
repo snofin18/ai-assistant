@@ -1,6 +1,6 @@
 # TASK-343　Browser form_fill：有界填表并强制停在提交前
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：1c　批次：T5.2 前置
 - 依赖：TASK-055、TASK-056、TASK-057（整体确认流程仍由 057 承接）
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031）。分界线以上是正文；以下由 Implementer 填写。
@@ -107,6 +107,11 @@ cargo run -p xtask -- check-ledger
 - `hygiene` / `memory-counts` / `adr-index` / `refscan` / `docscan` / `card-check` / `check-ledger` / `check-comments` / `verify-schemas` / `codegen --check`：全部 PASSED，0 error。
 - `cargo deny check`：advisories / bans / licenses / sources 全部 ok。
 - `xtask replay --suite core`：2 steps、5 changes、0 mismatch，PASSED。
+
+- 2026-10-29 merge evidence：PR #641 head `e68c690980d7fe5fc50e6d9e23e012cd72543c08`
+  的 11 项 checks 全部 success；合并提交
+  `eaf99d8aaece0066dd2f66032878f7207f3ba568`；post-merge main CI
+  `40830115033` 为 11 jobs = 10 success + 1 skipped，0 failed。
 
 ### 4. DoD 逐条核对
 
