@@ -193,6 +193,67 @@
     {
       "schema": {
         "version": "1.0",
+        "name": "edge.cdp.form_submit",
+        "description": "Submit one same-origin form after exact state validation, at most once.",
+        "input": {
+          "type": "object",
+          "properties": {
+            "form_selector": {"type": "string", "minLength": 1},
+            "submit_selector": {"type": "string", "minLength": 1},
+            "expected_origin": {"type": "string", "minLength": 1},
+            "expected_action": {"type": "string", "minLength": 1},
+            "expected_fields": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 100,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "selector": {"type": "string", "minLength": 1},
+                  "value": {"type": "string"}
+                },
+                "required": ["selector", "value"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "form_selector",
+            "submit_selector",
+            "expected_origin",
+            "expected_action",
+            "expected_fields"
+          ],
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "submitted": {"type": "boolean", "const": true},
+            "post_url": {"type": "string", "minLength": 1}
+          },
+          "required": ["submitted", "post_url"],
+          "additionalProperties": false
+        },
+        "effect": "write",
+        "reversibility": "l3_irreversible",
+        "risk_level": "high",
+        "requires_approval": true,
+        "idempotent": false,
+        "tags": ["edge", "cdp", "form", "submit", "l3_irreversible"]
+      },
+      "postconditions": [
+        {
+          "kind": "state_changed",
+          "fingerprint_scope": "cdp_target",
+          "within_ms": 3000,
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.0",
         "name": "edge.cdp.download",
         "description": "Start and verify a download routed into the dedicated shadow directory.",
         "input": {

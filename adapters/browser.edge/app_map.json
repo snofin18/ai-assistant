@@ -24,6 +24,11 @@
       "reliable": true
     },
     {
+      "intent": "submit_form",
+      "tool": "edge.cdp.form_submit",
+      "reliable": true
+    },
+    {
       "intent": "download",
       "tool": "edge.cdp.download",
       "reliable": true
@@ -127,6 +132,19 @@
       ],
       "pitfalls": [
         "Never submit automatically; the caller owns the final user confirmation."
+      ]
+    },
+    {
+      "name": "submit_form_after_confirmation",
+      "steps": [
+        "edge.cdp.navigate",
+        "edge.cdp.wait_network_idle",
+        "edge.cdp.form_fill",
+        "edge.cdp.form_read",
+        "edge.cdp.form_submit"
+      ],
+      "pitfalls": [
+        "Submit only after one explicit human confirmation and exact field revalidation."
       ]
     },
     {

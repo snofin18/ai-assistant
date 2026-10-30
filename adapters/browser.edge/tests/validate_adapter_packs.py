@@ -38,6 +38,7 @@ REQUIRED_TOOLS = {
     "cdp.dom_read",
     "cdp.form_fill",
     "cdp.form_read",
+    "cdp.form_submit",
     "cdp.download",
     "cdp.screenshot",
     "cdp.wait_network_idle",
@@ -167,6 +168,26 @@ def validate_pack(name: str, expected_app_id: str, tool_prefix: str, pack_path: 
     require(
         form_read.get("reversibility") == "none_readonly",
         f"{name}: form read reversibility",
+    )
+    form_submit = find_tool(tool_entries, tool_prefix + "cdp.form_submit").get("schema", {})
+    require(form_submit.get("effect") == "write", f"{name}: form submit effect")
+    require(
+        form_submit.get("reversibility") == "l3_irreversible",
+        f"{name}: form submit reversibility",
+    )
+    require(form_submit.get("risk_level") == "high", f"{name}: form submit risk")
+    require(
+        form_submit.get("requires_approval") is True,
+        f"{name}: form submit approval",
+    )
+    require(
+        form_submit.get("idempotent") is False,
+        f"{name}: form submit idempotency",
+    )
+    form_submit_output = form_submit.get("output", {}).get("properties", {})
+    require(
+        form_submit_output.get("submitted", {}).get("const") is True,
+        f"{name}: form submit success marker",
     )
 
 

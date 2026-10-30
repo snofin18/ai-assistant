@@ -165,7 +165,7 @@ fn test_dom_read_handler_returns_untrusted_bounded_payload()
 }
 
 #[tokio::test]
-async fn test_edge_registry_runs_five_tools_through_real_toolbus()
+async fn test_edge_registry_runs_six_tools_through_real_toolbus()
 -> Result<(), Box<dyn std::error::Error>> {
     let runtime = Arc::new(FakeRuntime::default());
     let build = build_browser_registry_with_runtime(
@@ -174,11 +174,12 @@ async fn test_edge_registry_runs_five_tools_through_real_toolbus()
         BrowserFamily::Edge,
         &tools_path(BrowserFamily::Edge),
     )?;
-    assert_eq!(build.registry().len(), 5);
+    assert_eq!(build.registry().len(), 6);
     assert!(build.registry().contains("edge.cdp.navigate"));
     assert!(build.registry().contains("edge.cdp.dom_read"));
     assert!(build.registry().contains("edge.cdp.form_fill"));
     assert!(build.registry().contains("edge.cdp.form_read"));
+    assert!(build.registry().contains("edge.cdp.form_submit"));
     assert!(build.registry().contains("edge.cdp.wait_network_idle"));
     let (registry, schemas) = build.into_parts();
     assert!(
@@ -200,6 +201,11 @@ async fn test_edge_registry_runs_five_tools_through_real_toolbus()
         schemas
             .iter()
             .any(|schema| schema.name == "edge.cdp.form_read")
+    );
+    assert!(
+        schemas
+            .iter()
+            .any(|schema| schema.name == "edge.cdp.form_submit")
     );
     assert!(
         schemas
@@ -335,10 +341,11 @@ fn test_chrome_registry_mounts_only_implemented_tools() -> Result<(), Box<dyn st
         BrowserFamily::Chrome,
         &tools_path(BrowserFamily::Chrome),
     )?;
-    assert_eq!(build.registry().len(), 5);
+    assert_eq!(build.registry().len(), 6);
     assert!(build.registry().contains("chrome.cdp.navigate"));
     assert!(build.registry().contains("chrome.cdp.form_fill"));
     assert!(build.registry().contains("chrome.cdp.form_read"));
+    assert!(build.registry().contains("chrome.cdp.form_submit"));
     assert!(!build.registry().contains("chrome.cdp.download"));
     assert!(!build.registry().contains("chrome.cdp.screenshot"));
     Ok(())

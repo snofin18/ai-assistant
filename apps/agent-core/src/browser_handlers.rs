@@ -239,12 +239,12 @@ pub struct BrowserToolNames {
 
 impl BrowserToolNames {
     pub(crate) fn as_vec(&self) -> Vec<String> {
-        // form_submit stays handler-only until adapter schema and registry wiring land.
         vec![
             self.navigate.clone(),
             self.dom_read.clone(),
             self.form_fill.clone(),
             self.form_read.clone(),
+            self.form_submit.clone(),
             self.wait_network_idle.clone(),
         ]
     }
