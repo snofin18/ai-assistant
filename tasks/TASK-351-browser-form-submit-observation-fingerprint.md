@@ -169,7 +169,7 @@ cargo llvm-cov --workspace --fail-under-lines 75
 `expect()`；已分别删除 lifetime、改为显式 `is_ok()` + `if let`，重跑 clippy exit 0。
 
 过程偏差（最终机器更正）：本 rollout 的 exec_command function_call 参数统计为
-shell="bash" 462 次；另统计到 shell="cmd" 336 次，其中包含此前已记录的回退或受控验证，
+shell="bash" 474 次；另统计到 shell="cmd" 336 次，其中包含此前已记录的回退或受控验证，
 不与 bash 误填合并计数。初记 25 为未收口快照，现以本更正取代。误填命令未用于产品代码
 写入，随后均以 shell="powershell" 重跑或继续；不以项目 hook 重写作为误填理由。
 ```
