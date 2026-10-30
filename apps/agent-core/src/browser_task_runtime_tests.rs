@@ -30,6 +30,7 @@ const EDGE_NAVIGATE: &str = "edge.cdp.navigate";
 const EDGE_DOM_READ: &str = "edge.cdp.dom_read";
 const EDGE_FORM_FILL: &str = "edge.cdp.form_fill";
 const EDGE_FORM_READ: &str = "edge.cdp.form_read";
+const EDGE_FORM_SUBMIT: &str = "edge.cdp.form_submit";
 const EDGE_IDLE: &str = "edge.cdp.wait_network_idle";
 
 #[test]
@@ -148,6 +149,17 @@ fn fake_form_read_handler(_call: &CallContext, _arguments: &Map<String, Value>) 
             "fingerprint": fingerprint,
             "previous_fingerprint": fingerprint,
             "elapsed_ms": 0,
+        }),
+    )
+}
+
+fn fake_form_submit_handler(_call: &CallContext, _arguments: &Map<String, Value>) -> ToolOutput {
+    ToolOutput::untrusted(
+        assistant_tool_bus::SourceDescriptor::app_content("com.microsoft.edge")
+            .with_target("browser_form"),
+        json!({
+            "submitted": true,
+            "post_url": "http://127.0.0.1:8765/submitted",
         }),
     )
 }
@@ -288,6 +300,7 @@ fn test_browser_tool_schemas_exclude_reserved_planner_catalog() {
         EDGE_DOM_READ,
         EDGE_FORM_FILL,
         EDGE_FORM_READ,
+        EDGE_FORM_SUBMIT,
         EDGE_IDLE,
         "assistant.runtime.verify_postconditions",
     ] {
@@ -308,7 +321,7 @@ fn test_browser_tool_schemas_exclude_reserved_planner_catalog() {
         );
     }
     let filtered = browser_tool_schemas(schemas, BrowserSelection::Edge).expect("filtered");
-    assert_eq!(filtered.len(), 5);
+    assert_eq!(filtered.len(), 6);
     assert!(
         filtered
             .iter()
@@ -564,6 +577,10 @@ fn scripted_registry(
             Arc::new(|call: &CallContext, arguments: &Map<String, Value>| {
                 Ok(fake_form_read_handler(call, arguments))
             })
+        } else if schema.name == EDGE_FORM_SUBMIT {
+            Arc::new(|call: &CallContext, arguments: &Map<String, Value>| {
+                Ok(fake_form_submit_handler(call, arguments))
+            })
         } else {
             Arc::new(FakeIdle)
         };
@@ -604,6 +621,7 @@ fn authoritative_browser_schemas()
         EDGE_DOM_READ,
         EDGE_FORM_FILL,
         EDGE_FORM_READ,
+        EDGE_FORM_SUBMIT,
         EDGE_IDLE,
     ]
     .into_iter()

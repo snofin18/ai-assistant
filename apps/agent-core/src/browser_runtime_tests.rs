@@ -142,7 +142,7 @@ fn test_parse_rejects_relative_paths_duplicate_options_and_invalid_timeout() {
 }
 
 #[test]
-fn test_registry_assembly_contains_five_tools_without_launching_browser()
+fn test_registry_assembly_contains_six_tools_without_launching_browser()
 -> Result<(), Box<dyn std::error::Error>> {
     let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     for (family, adapter_name, tool_prefix) in [
@@ -158,14 +158,14 @@ fn test_registry_assembly_contains_five_tools_without_launching_browser()
             .join("tools.json");
         let build =
             build_browser_registry(provider, target, family.registry_family(), &tools_path)?;
-        assert_eq!(build.registry().len(), 5);
+        assert_eq!(build.registry().len(), 6);
         assert_eq!(
             build
                 .tool_schemas()
                 .iter()
                 .filter(|schema| schema.name.starts_with(tool_prefix))
                 .count(),
-            5
+            6
         );
         assert_eq!(
             build
@@ -173,7 +173,7 @@ fn test_registry_assembly_contains_five_tools_without_launching_browser()
                 .iter()
                 .filter(|schema| schema.name.starts_with(tool_prefix))
                 .count(),
-            5
+            6
         );
     }
     Ok(())
