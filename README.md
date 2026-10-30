@@ -397,7 +397,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
-**2026-10-30 TASK-346 / TASK-347 Done（form_read production integration）**：TASK-346 的只读 `form_read` handler 已合并（PR #659 / merge `e21b957`）；TASK-347 将 Edge/Chrome adapter pack、五工具 registry/runtime 和 task package `state_unchanged` 断言接齐，adapter pack 双绿、form_read 5/5、browser registry 5/5、runtime 5/5、task runner 27/27。未启动真实浏览器，`form_submit` / approval / fixture 仍未完成。
+**2026-10-30 TASK-346 / TASK-347 Done（form_read production integration）**：TASK-346 的只读 `form_read` handler 已合并（PR #659 / merge `e21b957`）；TASK-347 将 Edge/Chrome adapter pack、五工具 registry/runtime 和 task package `state_unchanged` 断言接齐（PR #660 / merge `a5ba47e`，post-merge main CI `40990836783` success），adapter pack 双绿、form_read 5/5、browser registry 5/5、runtime 5/5、task runner 27/27。未启动真实浏览器，`form_submit` / approval / fixture 仍未完成。
 
 **2026-10-29 TASK-344 / TASK-345 Done（form contract + guard matcher）**：PR #643 / merge `b1b48c0` 冻结浏览器表单三段契约、字段 diff、已校验来源归因、高风险 L3 once 审批与点击后未知状态禁止重试；PR #644 / merge `674e9a0` 把 PowerShell guard 收窄为仅 `Bash`，并让脚本先按原始 `tool_name` 快退。两 PR 各 11/11 checks success，post-merge main CI `40842663573` 成功；本自动化真实长 prompt 创建已复验 guard 修复。TASK-057/058 仍为 Blocked 占位，真实 Edge 提交仍须人类在场。
 

@@ -79,6 +79,7 @@ deny、replay 与覆盖率全绿。
 form_read 5/5、browser registry 5/5、runtime 5/5、browser task 27/27、task_package 25/25；
 adapter pack 双绿；workspace 510/510；fmt、clippy、schema/codegen、文档门禁、deny、replay 与
 coverage 79.69% 全绿。
+- Merge evidence：PR #660 / merge `a5ba47e`；post-merge main CI `40990836783` success。
 
 ### 4. DoD 逐条核对
 
