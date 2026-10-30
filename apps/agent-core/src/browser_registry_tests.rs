@@ -74,7 +74,14 @@ impl BrowserCdpRuntime for FakeRuntime {
             return Err(PlatformError::new(code, "scripted DOM failure"));
         }
         let dom = dom.unwrap_or_else(|| {
-            if expression.contains("const specs =") {
+            if expression.contains("const formSelector=") {
+                json!({
+                    "origin": "http://127.0.0.1:8765",
+                    "action": "http://127.0.0.1:8765/submitted",
+                    "fields": [{"selector": "#full-name", "value": ""}],
+                })
+                .to_string()
+            } else if expression.contains("const specs =") {
                 json!({
                     "filled_fields": 1,
                     "submitted": false,
@@ -158,7 +165,7 @@ fn test_dom_read_handler_returns_untrusted_bounded_payload()
 }
 
 #[tokio::test]
-async fn test_edge_registry_runs_four_tools_through_real_toolbus()
+async fn test_edge_registry_runs_five_tools_through_real_toolbus()
 -> Result<(), Box<dyn std::error::Error>> {
     let runtime = Arc::new(FakeRuntime::default());
     let build = build_browser_registry_with_runtime(
@@ -167,10 +174,11 @@ async fn test_edge_registry_runs_four_tools_through_real_toolbus()
         BrowserFamily::Edge,
         &tools_path(BrowserFamily::Edge),
     )?;
-    assert_eq!(build.registry().len(), 4);
+    assert_eq!(build.registry().len(), 5);
     assert!(build.registry().contains("edge.cdp.navigate"));
     assert!(build.registry().contains("edge.cdp.dom_read"));
     assert!(build.registry().contains("edge.cdp.form_fill"));
+    assert!(build.registry().contains("edge.cdp.form_read"));
     assert!(build.registry().contains("edge.cdp.wait_network_idle"));
     let (registry, schemas) = build.into_parts();
     assert!(
@@ -187,6 +195,11 @@ async fn test_edge_registry_runs_four_tools_through_real_toolbus()
         schemas
             .iter()
             .any(|schema| schema.name == "edge.cdp.form_fill")
+    );
+    assert!(
+        schemas
+            .iter()
+            .any(|schema| schema.name == "edge.cdp.form_read")
     );
     assert!(
         schemas
@@ -272,13 +285,17 @@ async fn call_edge_tools(bus: &ToolBus) -> Result<(), ToolBusError> {
         )
         .await?;
     assert!(idle.ok);
+    call_edge_form_tools(bus, &call).await
+}
+
+async fn call_edge_form_tools(bus: &ToolBus, call: &CallContext) -> Result<(), ToolBusError> {
     let form = bus
         .call_tool(
             "edge.cdp.form_fill",
             arguments(json!({
                 "fields": [{"selector": "#full-name", "value": "Ada"}]
             }))?,
-            &call,
+            call,
         )
         .await?;
     assert!(form.ok);
@@ -295,6 +312,18 @@ async fn call_edge_tools(bus: &ToolBus) -> Result<(), ToolBusError> {
             .and_then(Value::as_bool),
         Some(false)
     );
+    let read = bus
+        .call_tool(
+            "edge.cdp.form_read",
+            arguments(json!({
+                "form_selector": "#profile-form",
+                "fields": [{"selector": "#full-name"}]
+            }))?,
+            call,
+        )
+        .await?;
+    assert!(read.ok);
+    assert!(read.untrusted);
     Ok(())
 }
 
@@ -306,9 +335,10 @@ fn test_chrome_registry_mounts_only_implemented_tools() -> Result<(), Box<dyn st
         BrowserFamily::Chrome,
         &tools_path(BrowserFamily::Chrome),
     )?;
-    assert_eq!(build.registry().len(), 4);
+    assert_eq!(build.registry().len(), 5);
     assert!(build.registry().contains("chrome.cdp.navigate"));
     assert!(build.registry().contains("chrome.cdp.form_fill"));
+    assert!(build.registry().contains("chrome.cdp.form_read"));
     assert!(!build.registry().contains("chrome.cdp.download"));
     assert!(!build.registry().contains("chrome.cdp.screenshot"));
     Ok(())

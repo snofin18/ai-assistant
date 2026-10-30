@@ -176,6 +176,35 @@ fn test_browser_form_fill_assertions_pin_count_and_non_submission() {
 }
 
 #[test]
+fn test_browser_form_read_assertion_is_fixed() {
+    let package = json!({
+        "task_id": "browser.t5_2.form_read_probe",
+        "steps": [
+            {
+                "id": "read_form",
+                "kind": "tool",
+                "tool": "edge.cdp.form_read",
+                "args": {
+                    "form_selector": "#profile-form",
+                    "fields": [{"selector": "#name"}]
+                }
+            }
+        ]
+    })
+    .to_string();
+    let provider = TaskPackageProvider::from_package_json(&package).expect("form package render");
+    let plan: Value = serde_json::from_str(provider.plan_json()).expect("plan is JSON");
+    let steps = plan
+        .get("steps")
+        .and_then(Value::as_array)
+        .expect("plan has steps");
+    assert_eq!(
+        steps.first().and_then(|step| step.get("postconditions")),
+        Some(&json!([{"kind": "state_unchanged"}]))
+    );
+}
+
+#[test]
 fn test_t5_1_browser_package_renders_without_missing_assertion() {
     let provider = TaskPackageProvider::from_package_file(&t5_1_browser_package_path())
         .expect("TASK-056 browser task contract must render");
