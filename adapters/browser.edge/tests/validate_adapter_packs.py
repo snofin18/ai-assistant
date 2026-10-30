@@ -169,7 +169,8 @@ def validate_pack(name: str, expected_app_id: str, tool_prefix: str, pack_path: 
         form_read.get("reversibility") == "none_readonly",
         f"{name}: form read reversibility",
     )
-    form_submit = find_tool(tool_entries, tool_prefix + "cdp.form_submit").get("schema", {})
+    form_submit_entry = find_tool(tool_entries, tool_prefix + "cdp.form_submit")
+    form_submit = form_submit_entry.get("schema", {})
     require(form_submit.get("effect") == "write", f"{name}: form submit effect")
     require(
         form_submit.get("reversibility") == "l3_irreversible",
@@ -188,6 +189,35 @@ def validate_pack(name: str, expected_app_id: str, tool_prefix: str, pack_path: 
     require(
         form_submit_output.get("submitted", {}).get("const") is True,
         f"{name}: form submit success marker",
+    )
+    require(
+        form_submit_output.get("fingerprint_scope", {}).get("const") == "cdp_target",
+        f"{name}: form submit fingerprint scope",
+    )
+    require(
+        set(form_submit.get("output", {}).get("required", []))
+        == {
+            "submitted",
+            "post_url",
+            "fingerprint_scope",
+            "fingerprint",
+            "previous_fingerprint",
+            "elapsed_ms",
+        },
+        f"{name}: form submit observation fields",
+    )
+    postconditions = form_submit_entry.get("postconditions", [])
+    require(
+        postconditions
+        == [
+            {
+                "kind": "state_changed",
+                "fingerprint_scope": "cdp_target",
+                "within_ms": 20000,
+                "error_code": "VerifyFailed",
+            }
+        ],
+        f"{name}: form submit postcondition",
     )
 
 

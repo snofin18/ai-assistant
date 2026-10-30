@@ -1,8 +1,8 @@
 # spec: 浏览器表单确认与提交（browser-form-confirmation）
 
 > 摘要：冻结 T5.2 的只读表单快照、填写后字段 diff、来源归因、一次性人工审批与专用同源提交。
-> 状态：Draft（ADR-0101 Accepted）　版本：0.1　日期：2026-10-29
-> 上位：`AGENTS.md` 铁律 1/2/3/4/6/10、ADR-0048、ADR-0055、ADR-0060、ADR-0082、ADR-0101
+> 状态：Draft（ADR-0101 / ADR-0102 Accepted）　版本：0.2　日期：2026-10-30
+> 上位：`AGENTS.md` 铁律 1/2/3/4/6/10、ADR-0048、ADR-0055、ADR-0060、ADR-0082、ADR-0101、ADR-0102
 > 强制性：TASK-057 实现卡必须按本文落代码和测试；违反由 Reviewer 拒绝。
 > 变更门槛：改变工具名、效果 / 风险 / 可逆性、审批入口、diff 结构或提交状态机 → 需 ADR。
 
@@ -40,7 +40,22 @@
 
 专用 `edge.cdp.form_submit` / `chrome.cdp.form_submit`，输入为 `form_selector`、
 `submit_selector`、`expected_origin`、`expected_action` 与 `expected_fields`
-（`selector/value` 数组）。输出只允许 `{ "submitted": true, "post_url": "<absolute-url>" }`。
+（`selector/value` 数组）。成功输出固定为：
+
+```json
+{
+  "submitted": true,
+  "post_url": "<absolute-url>",
+  "fingerprint_scope": "cdp_target",
+  "fingerprint": "sha256:<observed-post-identity>",
+  "previous_fingerprint": "sha256:<observed-pre-identity>",
+  "elapsed_ms": 0
+}
+```
+
+前后 fingerprint 只从实际观察到的 `location.href`、`document.title` 与
+`performance.timeOrigin` canonical identity 生成；title 不回传明文。不得使用预期参数或
+`submitted/post_url` 的结果哈希冒充平台状态指纹。
 schema 固定 `effect=write`、`l3_irreversible`、`high`、`requires_approval=true`、非幂等。
 
 同一 DOM 表达式内必须在点击前完成：
@@ -80,6 +95,7 @@ deny / timeout / replay / scope mismatch -> submit calls = 0
 approved once -> revalidate origin + action + fields
   -> mismatch: fail before click
   -> match: click exactly once
+      -> observe post URL/title/timeOrigin and emit identity fingerprints
       -> postcondition observed: submitted=true
       -> unknown / disconnect after click: NeedsHuman, no retry
 ```
@@ -101,6 +117,7 @@ fixture 由测试启动器绑定 `127.0.0.1` 临时端口，固定三个合成�
 | deny / timeout / replay / 非 once | submit handler 调用次数 = 0 |
 | origin / action / field state 漂移 | 点击前失败 |
 | 正常批准一次 | 点击恰好一次，postcondition 成功后 `submitted=true` |
+| 正常批准一次 | 前后 identity fingerprint 不同，`state_changed` 可验证 |
 | 点击后断连 / 未知状态 | `NeedsHuman` / `UserInteraction`，无自动重试 |
 
 ## 7. 关系与演进
@@ -112,3 +129,4 @@ fixture 由测试启动器绑定 `127.0.0.1` 临时端口，固定三个合成�
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | 0.1 | 2026-10-29 | ADR-0101 / TASK-344：建立 form_read / form_fill / form_submit、diff、归因与一次审批契约 |
+| 0.2 | 2026-10-30 | ADR-0102 / TASK-351：增加提交前后真实 identity fingerprint 与 task-package `state_changed` 契约 |

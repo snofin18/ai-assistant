@@ -230,9 +230,20 @@
           "type": "object",
           "properties": {
             "submitted": {"type": "boolean", "const": true},
-            "post_url": {"type": "string", "minLength": 1}
+            "post_url": {"type": "string", "minLength": 1},
+            "fingerprint_scope": {"type": "string", "const": "cdp_target"},
+            "fingerprint": {"type": "string", "minLength": 1},
+            "previous_fingerprint": {"type": "string", "minLength": 1},
+            "elapsed_ms": {"type": "integer", "minimum": 0}
           },
-          "required": ["submitted", "post_url"],
+          "required": [
+            "submitted",
+            "post_url",
+            "fingerprint_scope",
+            "fingerprint",
+            "previous_fingerprint",
+            "elapsed_ms"
+          ],
           "additionalProperties": false
         },
         "effect": "write",
@@ -246,7 +257,7 @@
         {
           "kind": "state_changed",
           "fingerprint_scope": "cdp_target",
-          "within_ms": 3000,
+          "within_ms": 20000,
           "error_code": "VerifyFailed"
         }
       ]

@@ -99,10 +99,13 @@ fn runtime_with_success() -> Arc<SubmitRuntime> {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .responses = VecDeque::from([
-        Ok(snapshot("/", r#"{"clicked":true,"pre_time_origin":1.0}"#)),
+        Ok(snapshot(
+            "/",
+            r#"{"clicked":true,"pre_url":"http://127.0.0.1:43000/","pre_title":"Fixture","pre_time_origin":1.0}"#,
+        )),
         Ok(snapshot(
             "/submitted",
-            r#"{"url":"http://127.0.0.1:43000/submitted","time_origin":2.0}"#,
+            r#"{"url":"http://127.0.0.1:43000/submitted","title":"Submitted","time_origin":2.0}"#,
         )),
     ]);
     Arc::new(runtime)
@@ -140,6 +143,8 @@ fn test_form_submit_expression_has_single_click_after_validation() {
         "target_unsafe",
         "checkValidity",
         "performance.timeOrigin",
+        "pre_url",
+        "pre_title",
         "form.noValidate",
         "submit.form!==form",
         "formnovalidate",
@@ -201,9 +206,10 @@ fn test_form_submit_preclick_errors_map_to_existing_codes() {
         let payload = parse_submit_payload(input, "edge.cdp.form_submit");
         assert!(payload.is_ok());
         if let Ok(payload) = payload {
-            let code = validate_preflight(&payload, "edge.cdp.form_submit")
-                .err()
-                .map(|error| error.error_code());
+            let code =
+                validate_preflight(&payload, "http://127.0.0.1:43000", "edge.cdp.form_submit")
+                    .err()
+                    .map(|error| error.error_code());
             assert_eq!(code, Some(expected));
         }
     }
@@ -223,10 +229,13 @@ fn test_form_submit_handler_requires_observed_navigation() {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .responses = VecDeque::from([
-        Ok(snapshot("/", r#"{"clicked":true,"pre_time_origin":1.0}"#)),
+        Ok(snapshot(
+            "/",
+            r#"{"clicked":true,"pre_url":"http://127.0.0.1:43000/","pre_title":"Fixture","pre_time_origin":1.0}"#,
+        )),
         Ok(snapshot(
             "/submitted",
-            r#"{"url":"http://127.0.0.1:43000/submitted","time_origin":1.0}"#,
+            r#"{"url":"http://127.0.0.1:43000/submitted","title":"Submitted","time_origin":1.0}"#,
         )),
     ]);
     let code = call(Arc::new(runtime))
@@ -245,4 +254,44 @@ fn test_form_submit_postclick_wait_failure_is_user_interaction() {
         .wait_error = Some(ErrorCode::Transient);
     let code = call(runtime).err().map(|error| error.error_code());
     assert_eq!(code, Some(ErrorCode::UserInteraction));
+}
+
+#[test]
+fn test_form_submit_outputs_real_identity_fingerprints() {
+    let previous = ObservedIdentity {
+        url: "http://127.0.0.1:43000/".to_owned(),
+        title: "Fixture".to_owned(),
+        time_origin: 1.0,
+    };
+    let current = ObservedIdentity {
+        url: "http://127.0.0.1:43000/submitted".to_owned(),
+        title: "Submitted".to_owned(),
+        time_origin: 2.0,
+    };
+    let output = submit_output_value(&previous, &current, 17, "edge.cdp.form_submit");
+    assert!(output.is_ok());
+    if let Ok(output) = output {
+        assert_eq!(output.get("submitted"), Some(&json!(true)));
+        assert_eq!(
+            output.get("post_url"),
+            Some(&json!("http://127.0.0.1:43000/submitted"))
+        );
+        assert_eq!(
+            output.get("fingerprint_scope"),
+            Some(&json!(CDP_TARGET_FINGERPRINT_SCOPE))
+        );
+        assert_eq!(output.get("elapsed_ms"), Some(&json!(17)));
+        assert_ne!(
+            output.get("fingerprint"),
+            output.get("previous_fingerprint")
+        );
+        assert!(
+            output
+                .get("fingerprint")
+                .and_then(Value::as_str)
+                .is_some_and(|value| value.starts_with("sha256:"))
+        );
+        assert!(!output.to_string().contains("Fixture"));
+        assert!(!output.to_string().contains("Submitted"));
+    }
 }

@@ -6,6 +6,7 @@
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
+use std::time::Instant;
 
 use assistant_platform_api::{ErrorCode, PlatformError};
 use assistant_protocol::serde_json;
@@ -13,7 +14,10 @@ use assistant_tool_bus::{CallContext, SourceDescriptor, ToolBusError, ToolHandle
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
-use super::{BrowserCdpRuntime, BrowserHandlerContext};
+use super::{
+    BrowserCdpRuntime, BrowserHandlerContext, CDP_TARGET_FINGERPRINT_SCOPE, elapsed_millis,
+    fingerprint_value,
+};
 use crate::handler_support as support;
 
 const MAX_FORM_FIELDS: usize = 100;
@@ -21,9 +25,9 @@ const MAX_SELECTOR_BYTES: usize = 4 * 1024;
 const MAX_VALUE_BYTES: usize = 16 * 1024;
 const MAX_TOTAL_VALUE_BYTES: usize = 64 * 1024;
 const MAX_URL_BYTES: usize = 8 * 1024;
+const MAX_TITLE_BYTES: usize = 8 * 1024;
 const SUBMIT_QUIET_MS: u64 = 500;
-const POST_SUBMIT_IDENTITY_EXPRESSION: &str =
-    "JSON.stringify({ url: location.href, time_origin: performance.timeOrigin })";
+const POST_SUBMIT_IDENTITY_EXPRESSION: &str = "JSON.stringify({ url: location.href, title: document.title, time_origin: performance.timeOrigin })";
 
 pub struct FormSubmitHandler<R> {
     pub(crate) context: Arc<BrowserHandlerContext<R>>,
@@ -45,12 +49,20 @@ struct SubmitRequest {
     fields: Vec<ExpectedField>,
 }
 
+struct ObservedIdentity {
+    url: String,
+    title: String,
+    time_origin: f64,
+}
+
 #[derive(Debug, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 struct SubmitPayload {
     error: Option<String>,
     selector: Option<String>,
     clicked: Option<bool>,
+    pre_url: Option<String>,
+    pre_title: Option<String>,
     pre_time_origin: Option<f64>,
 }
 
@@ -58,6 +70,7 @@ struct SubmitPayload {
 #[serde(default, deny_unknown_fields)]
 struct PostSubmitPayload {
     url: Option<String>,
+    title: Option<String>,
     time_origin: Option<f64>,
 }
 
@@ -71,6 +84,7 @@ where
         arguments: &Map<String, Value>,
     ) -> Result<ToolOutput, ToolBusError> {
         let request = parse_submit_request(arguments, &self.tool_name)?;
+        let started = Instant::now();
         let expression = form_submit_expression(
             &request.form_selector,
             &request.submit_selector,
@@ -79,17 +93,24 @@ where
             &request.fields,
         )?;
         let preflight = self.evaluate_preflight(&expression)?;
-        let pre_time_origin = validate_preflight(&preflight, &self.tool_name)?;
+        let pre_identity =
+            validate_preflight(&preflight, &request.expected_origin, &self.tool_name)?;
         let post_payload = self.read_post_submit_identity()?;
-        let post_url = validate_post_submit(
+        let post_identity = validate_post_submit(
             &post_payload,
             &request.expected_origin,
-            pre_time_origin,
+            pre_identity.time_origin,
+            &self.tool_name,
+        )?;
+        let data = submit_output_value(
+            &pre_identity,
+            &post_identity,
+            elapsed_millis(started.elapsed()),
             &self.tool_name,
         )?;
         Ok(ToolOutput::untrusted(
             SourceDescriptor::app_content(self.context.app_id.clone()).with_target("browser_form"),
-            json!({"submitted": true, "post_url": post_url}),
+            data,
         ))
     }
 }
@@ -219,7 +240,11 @@ fn parse_expected_field(value: &Value, tool: &str) -> Result<ExpectedField, Tool
     })
 }
 
-fn validate_preflight(payload: &SubmitPayload, tool: &str) -> Result<f64, ToolBusError> {
+fn validate_preflight(
+    payload: &SubmitPayload,
+    expected_origin: &str,
+    tool: &str,
+) -> Result<ObservedIdentity, ToolBusError> {
     if let Some(error) = payload.error.as_deref() {
         if error == "click_failed" {
             return Err(unknown_outcome(tool, "submit click threw"));
@@ -250,9 +275,14 @@ fn validate_preflight(payload: &SubmitPayload, tool: &str) -> Result<f64, ToolBu
             "pre-click payload did not report clicked=true",
         ));
     }
-    payload
-        .pre_time_origin
-        .ok_or_else(|| unknown_outcome(tool, "pre-click payload has no navigation marker"))
+    observed_identity(
+        payload.pre_url.as_deref(),
+        payload.pre_title.as_deref(),
+        payload.pre_time_origin,
+        expected_origin,
+        tool,
+        "pre-click",
+    )
 }
 
 fn parse_submit_payload(input: &str, tool: &str) -> Result<SubmitPayload, ToolBusError> {
@@ -265,22 +295,20 @@ fn parse_post_submit_payload(input: &str, tool: &str) -> Result<PostSubmitPayloa
         .map_err(|error| unknown_outcome(tool, &format!("post-click payload is not JSON: {error}")))
 }
 
-fn validate_post_submit<'a>(
-    payload: &'a PostSubmitPayload,
+fn validate_post_submit(
+    payload: &PostSubmitPayload,
     expected_origin: &str,
     pre_time_origin: f64,
     tool: &str,
-) -> Result<&'a str, ToolBusError> {
-    let post_url = payload
-        .url
-        .as_deref()
-        .ok_or_else(|| unknown_outcome(tool, "post-click payload has no URL"))?;
-    if !is_safe_http_url(post_url, Some(expected_origin)) {
-        return Err(unknown_outcome(
-            tool,
-            "post-click URL is not a safe same-origin HTTP(S) URL",
-        ));
-    }
+) -> Result<ObservedIdentity, ToolBusError> {
+    let identity = observed_identity(
+        payload.url.as_deref(),
+        payload.title.as_deref(),
+        payload.time_origin,
+        expected_origin,
+        tool,
+        "post-click",
+    )?;
     let post_time_origin = payload
         .time_origin
         .ok_or_else(|| unknown_outcome(tool, "post-click payload has no navigation marker"))?;
@@ -293,7 +321,75 @@ fn validate_post_submit<'a>(
             "post-click navigation marker did not change",
         ));
     }
-    Ok(post_url)
+    Ok(identity)
+}
+
+fn observed_identity(
+    url: Option<&str>,
+    title: Option<&str>,
+    time_origin: Option<f64>,
+    expected_origin: &str,
+    tool: &str,
+    phase: &str,
+) -> Result<ObservedIdentity, ToolBusError> {
+    let url = url.ok_or_else(|| unknown_outcome(tool, &format!("{phase} payload has no URL")))?;
+    if !is_safe_http_url(url, Some(expected_origin)) {
+        return Err(unknown_outcome(
+            tool,
+            &format!("{phase} URL is not a safe same-origin HTTP(S) URL"),
+        ));
+    }
+    let title = title.unwrap_or_default();
+    if title.len() > MAX_TITLE_BYTES || has_forbidden_control(title) {
+        return Err(unknown_outcome(
+            tool,
+            &format!("{phase} title exceeds its safe bound"),
+        ));
+    }
+    let time_origin = time_origin
+        .filter(|value| value.is_finite())
+        .ok_or_else(|| {
+            unknown_outcome(tool, &format!("{phase} payload has no finite time origin"))
+        })?;
+    Ok(ObservedIdentity {
+        url: url.to_owned(),
+        title: title.to_owned(),
+        time_origin,
+    })
+}
+
+fn submit_output_value(
+    previous: &ObservedIdentity,
+    current: &ObservedIdentity,
+    elapsed_ms: u64,
+    tool: &str,
+) -> Result<Value, ToolBusError> {
+    let previous_fingerprint = identity_fingerprint(previous)?;
+    let fingerprint = identity_fingerprint(current)?;
+    if previous_fingerprint == fingerprint {
+        return Err(unknown_outcome(
+            tool,
+            "pre-click and post-click fingerprints are identical",
+        ));
+    }
+    Ok(json!({
+        "submitted": true,
+        "post_url": current.url,
+        "fingerprint_scope": CDP_TARGET_FINGERPRINT_SCOPE,
+        "fingerprint": fingerprint,
+        "previous_fingerprint": previous_fingerprint,
+        "elapsed_ms": elapsed_ms,
+    }))
+}
+
+fn identity_fingerprint(identity: &ObservedIdentity) -> Result<String, ToolBusError> {
+    fingerprint_value(&json!({
+        "cdp": {
+            "url": identity.url,
+            "title": identity.title,
+            "time_origin": identity.time_origin,
+        }
+    }))
 }
 
 fn form_submit_expression(
@@ -313,7 +409,7 @@ fn form_submit_expression(
         serde_json::to_string(expected_action).map_err(|error| serialization_error(&error))?;
     let fields = serde_json::to_string(fields).map_err(|error| serialization_error(&error))?;
     Ok(format!(
-        "(() => {{ const formSelector={form_selector}; const submitSelector={submit_selector}; const expectedOrigin={expected_origin}; const expectedAction={expected_action}; const expectedFields={fields}; const allowed=new Set(['text','search','email','url','tel','number','date','time','datetime-local','month','week']); const read=(e)=>e instanceof HTMLSelectElement?e.value:e.isContentEditable?(e.textContent||''):e.value; let forms; try {{ forms=document.querySelectorAll(formSelector); }} catch(_) {{ return JSON.stringify({{error:'invalid_selector',selector:formSelector}}); }} if(!forms||forms.length===0)return JSON.stringify({{error:'not_found',selector:formSelector}}); if(forms.length!==1)return JSON.stringify({{error:'ambiguous',selector:formSelector}}); const form=forms[0]; if(!(form instanceof HTMLFormElement))return JSON.stringify({{error:'unsupported',selector:formSelector}}); if(form.noValidate)return JSON.stringify({{error:'validation_disabled',selector:formSelector}}); if((form.method||'get').toLowerCase()==='dialog')return JSON.stringify({{error:'unsupported',selector:formSelector}}); const formTarget=(form.getAttribute('target')||'').toLowerCase(); if(formTarget&&formTarget!=='_self')return JSON.stringify({{error:'target_unsafe',selector:formSelector}}); for(const input of form.querySelectorAll('input')) {{ const kind=(input.type||'text').toLowerCase(); if(kind==='password'||kind==='file')return JSON.stringify({{error:'forbidden',selector:formSelector}}); }} let submits; try {{ submits=form.querySelectorAll(submitSelector); }} catch(_) {{ return JSON.stringify({{error:'invalid_selector',selector:submitSelector}}); }} if(!submits||submits.length===0)return JSON.stringify({{error:'not_found',selector:submitSelector}}); if(submits.length!==1)return JSON.stringify({{error:'ambiguous',selector:submitSelector}}); const submit=submits[0]; if(!(submit instanceof HTMLButtonElement)&&!(submit instanceof HTMLInputElement))return JSON.stringify({{error:'unsupported',selector:submitSelector}}); if(submit.form!==form)return JSON.stringify({{error:'submit_not_owned',selector:submitSelector}}); if((submit.getAttribute('type')||'').toLowerCase()!=='submit'||submit.disabled)return JSON.stringify({{error:'forbidden',selector:submitSelector}}); if(submit.hasAttribute('formnovalidate'))return JSON.stringify({{error:'validation_override',selector:submitSelector}}); if(submit.hasAttribute('formaction'))return JSON.stringify({{error:'action_override',selector:submitSelector}}); const submitTarget=(submit.getAttribute('formtarget')||'').toLowerCase(); if(submitTarget&&submitTarget!=='_self')return JSON.stringify({{error:'target_unsafe',selector:submitSelector}}); if(location.origin!==expectedOrigin)return JSON.stringify({{error:'origin_mismatch',selector:formSelector}}); let actionUrl; try {{ actionUrl=new URL(form.getAttribute('action')||location.href,location.href); }} catch(_) {{ return JSON.stringify({{error:'invalid_action',selector:formSelector}}); }} if(!['http:','https:'].includes(actionUrl.protocol)||actionUrl.username||actionUrl.password||actionUrl.origin!==expectedOrigin||actionUrl.href!==expectedAction)return JSON.stringify({{error:'action_mismatch',selector:formSelector}}); const encoder=new TextEncoder(); let total=0; for(const spec of expectedFields) {{ let nodes; try {{ nodes=form.querySelectorAll(spec.selector); }} catch(_) {{ return JSON.stringify({{error:'invalid_selector',selector:spec.selector}}); }} if(!nodes||nodes.length===0)return JSON.stringify({{error:'not_found',selector:spec.selector}}); if(nodes.length!==1)return JSON.stringify({{error:'ambiguous',selector:spec.selector}}); const e=nodes[0]; if(e instanceof HTMLInputElement) {{ const kind=(e.type||'text').toLowerCase(); if(!allowed.has(kind))return JSON.stringify({{error:'forbidden',selector:spec.selector}}); }} else if(!(e instanceof HTMLTextAreaElement)&&!(e instanceof HTMLSelectElement)&&!e.isContentEditable) {{ return JSON.stringify({{error:'unsupported',selector:spec.selector}}); }} const value=String(read(e)); if(value!==spec.value)return JSON.stringify({{error:'field_mismatch',selector:spec.selector}}); const bytes=encoder.encode(value).length; total+=bytes; if(bytes>{MAX_VALUE_BYTES}||total>{MAX_TOTAL_VALUE_BYTES})return JSON.stringify({{error:'too_large',selector:spec.selector}}); }} if(!form.checkValidity())return JSON.stringify({{error:'validation_failed',selector:formSelector}}); const preTimeOrigin=performance.timeOrigin; try {{ submit.click(); }} catch(_) {{ return JSON.stringify({{error:'click_failed',selector:submitSelector}}); }} return JSON.stringify({{clicked:true,pre_time_origin:preTimeOrigin}}); }})()"
+        "(() => {{ const formSelector={form_selector}; const submitSelector={submit_selector}; const expectedOrigin={expected_origin}; const expectedAction={expected_action}; const expectedFields={fields}; const allowed=new Set(['text','search','email','url','tel','number','date','time','datetime-local','month','week']); const read=(e)=>e instanceof HTMLSelectElement?e.value:e.isContentEditable?(e.textContent||''):e.value; let forms; try {{ forms=document.querySelectorAll(formSelector); }} catch(_) {{ return JSON.stringify({{error:'invalid_selector',selector:formSelector}}); }} if(!forms||forms.length===0)return JSON.stringify({{error:'not_found',selector:formSelector}}); if(forms.length!==1)return JSON.stringify({{error:'ambiguous',selector:formSelector}}); const form=forms[0]; if(!(form instanceof HTMLFormElement))return JSON.stringify({{error:'unsupported',selector:formSelector}}); if(form.noValidate)return JSON.stringify({{error:'validation_disabled',selector:formSelector}}); if((form.method||'get').toLowerCase()==='dialog')return JSON.stringify({{error:'unsupported',selector:formSelector}}); const formTarget=(form.getAttribute('target')||'').toLowerCase(); if(formTarget&&formTarget!=='_self')return JSON.stringify({{error:'target_unsafe',selector:formSelector}}); for(const input of form.querySelectorAll('input')) {{ const kind=(input.type||'text').toLowerCase(); if(kind==='password'||kind==='file')return JSON.stringify({{error:'forbidden',selector:formSelector}}); }} let submits; try {{ submits=form.querySelectorAll(submitSelector); }} catch(_) {{ return JSON.stringify({{error:'invalid_selector',selector:submitSelector}}); }} if(!submits||submits.length===0)return JSON.stringify({{error:'not_found',selector:submitSelector}}); if(submits.length!==1)return JSON.stringify({{error:'ambiguous',selector:submitSelector}}); const submit=submits[0]; if(!(submit instanceof HTMLButtonElement)&&!(submit instanceof HTMLInputElement))return JSON.stringify({{error:'unsupported',selector:submitSelector}}); if(submit.form!==form)return JSON.stringify({{error:'submit_not_owned',selector:submitSelector}}); if((submit.getAttribute('type')||'').toLowerCase()!=='submit'||submit.disabled)return JSON.stringify({{error:'forbidden',selector:submitSelector}}); if(submit.hasAttribute('formnovalidate'))return JSON.stringify({{error:'validation_override',selector:submitSelector}}); if(submit.hasAttribute('formaction'))return JSON.stringify({{error:'action_override',selector:submitSelector}}); const submitTarget=(submit.getAttribute('formtarget')||'').toLowerCase(); if(submitTarget&&submitTarget!=='_self')return JSON.stringify({{error:'target_unsafe',selector:submitSelector}}); if(location.origin!==expectedOrigin)return JSON.stringify({{error:'origin_mismatch',selector:formSelector}}); let actionUrl; try {{ actionUrl=new URL(form.getAttribute('action')||location.href,location.href); }} catch(_) {{ return JSON.stringify({{error:'invalid_action',selector:formSelector}}); }} if(!['http:','https:'].includes(actionUrl.protocol)||actionUrl.username||actionUrl.password||actionUrl.origin!==expectedOrigin||actionUrl.href!==expectedAction)return JSON.stringify({{error:'action_mismatch',selector:formSelector}}); const encoder=new TextEncoder(); let total=0; for(const spec of expectedFields) {{ let nodes; try {{ nodes=form.querySelectorAll(spec.selector); }} catch(_) {{ return JSON.stringify({{error:'invalid_selector',selector:spec.selector}}); }} if(!nodes||nodes.length===0)return JSON.stringify({{error:'not_found',selector:spec.selector}}); if(nodes.length!==1)return JSON.stringify({{error:'ambiguous',selector:spec.selector}}); const e=nodes[0]; if(e instanceof HTMLInputElement) {{ const kind=(e.type||'text').toLowerCase(); if(!allowed.has(kind))return JSON.stringify({{error:'forbidden',selector:spec.selector}}); }} else if(!(e instanceof HTMLTextAreaElement)&&!(e instanceof HTMLSelectElement)&&!e.isContentEditable) {{ return JSON.stringify({{error:'unsupported',selector:spec.selector}}); }} const value=String(read(e)); if(value!==spec.value)return JSON.stringify({{error:'field_mismatch',selector:spec.selector}}); const bytes=encoder.encode(value).length; total+=bytes; if(bytes>{MAX_VALUE_BYTES}||total>{MAX_TOTAL_VALUE_BYTES})return JSON.stringify({{error:'too_large',selector:spec.selector}}); }} if(!form.checkValidity())return JSON.stringify({{error:'validation_failed',selector:formSelector}}); const preTimeOrigin=performance.timeOrigin; try {{ submit.click(); }} catch(_) {{ return JSON.stringify({{error:'click_failed',selector:submitSelector}}); }} return JSON.stringify({{clicked:true,pre_url:location.href,pre_title:document.title,pre_time_origin:preTimeOrigin}}); }})()"
     ))
 }
 
