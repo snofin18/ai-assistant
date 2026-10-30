@@ -9,7 +9,8 @@
 //! Boundaries:
 //! - does not launch or close a browser;
 //! - does not decide policy, approval, or site eligibility;
-//! - does not submit forms or implement download, screenshot, or generic click.
+//! - only exposes the dedicated form submit handler; does not implement download,
+//!   screenshot, or generic click.
 //!
 //! Invariants:
 //! 1. a provider future that is unexpectedly pending fails closed;
@@ -43,6 +44,7 @@ const EDGE_TOOL_DOM_READ: &str = "edge.cdp.dom_read";
 /// Edge tool name for form filling.
 const EDGE_TOOL_FORM_FILL: &str = "edge.cdp.form_fill";
 const EDGE_TOOL_FORM_READ: &str = "edge.cdp.form_read";
+const EDGE_TOOL_FORM_SUBMIT: &str = "edge.cdp.form_submit";
 /// Edge tool name for network-idle waits.
 const EDGE_TOOL_WAIT_NETWORK_IDLE: &str = "edge.cdp.wait_network_idle";
 
@@ -53,6 +55,7 @@ const CHROME_TOOL_DOM_READ: &str = "chrome.cdp.dom_read";
 /// Chrome tool name for form filling.
 const CHROME_TOOL_FORM_FILL: &str = "chrome.cdp.form_fill";
 const CHROME_TOOL_FORM_READ: &str = "chrome.cdp.form_read";
+const CHROME_TOOL_FORM_SUBMIT: &str = "chrome.cdp.form_submit";
 /// Chrome tool name for network-idle waits.
 const CHROME_TOOL_WAIT_NETWORK_IDLE: &str = "chrome.cdp.wait_network_idle";
 
@@ -69,9 +72,12 @@ const CDP_IDENTITY_EXPRESSION: &str =
 mod form_fill;
 #[path = "browser_form_read.rs"]
 mod form_read;
+#[path = "browser_form_submit.rs"]
+mod form_submit;
 
 use form_fill::FormFillHandler;
 use form_read::FormReadHandler;
+use form_submit::FormSubmitHandler;
 
 /// Synchronous boundary used by handlers and tests around the asynchronous CDP trait.
 pub trait BrowserCdpRuntime: Send + Sync {
@@ -166,6 +172,13 @@ where
         }),
     );
     handlers.insert(
+        tool_names.form_submit.clone(),
+        Arc::new(FormSubmitHandler {
+            context: Arc::clone(context),
+            tool_name: tool_names.form_submit.clone(),
+        }),
+    );
+    handlers.insert(
         tool_names.wait_network_idle.clone(),
         Arc::new(WaitNetworkIdleHandler {
             context: Arc::clone(context),
@@ -199,6 +212,7 @@ impl BrowserToolFamily {
                 dom_read: EDGE_TOOL_DOM_READ.to_owned(),
                 form_fill: EDGE_TOOL_FORM_FILL.to_owned(),
                 form_read: EDGE_TOOL_FORM_READ.to_owned(),
+                form_submit: EDGE_TOOL_FORM_SUBMIT.to_owned(),
                 wait_network_idle: EDGE_TOOL_WAIT_NETWORK_IDLE.to_owned(),
             },
             Self::Chrome => BrowserToolNames {
@@ -206,6 +220,7 @@ impl BrowserToolFamily {
                 dom_read: CHROME_TOOL_DOM_READ.to_owned(),
                 form_fill: CHROME_TOOL_FORM_FILL.to_owned(),
                 form_read: CHROME_TOOL_FORM_READ.to_owned(),
+                form_submit: CHROME_TOOL_FORM_SUBMIT.to_owned(),
                 wait_network_idle: CHROME_TOOL_WAIT_NETWORK_IDLE.to_owned(),
             },
         }
@@ -218,11 +233,13 @@ pub struct BrowserToolNames {
     pub(crate) dom_read: String,
     pub(crate) form_fill: String,
     pub(crate) form_read: String,
+    pub(crate) form_submit: String,
     pub(crate) wait_network_idle: String,
 }
 
 impl BrowserToolNames {
     pub(crate) fn as_vec(&self) -> Vec<String> {
+        // form_submit stays handler-only until adapter schema and registry wiring land.
         vec![
             self.navigate.clone(),
             self.dom_read.clone(),
