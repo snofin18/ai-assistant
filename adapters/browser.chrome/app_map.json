@@ -19,6 +19,11 @@
       "reliable": true
     },
     {
+      "intent": "read_form",
+      "tool": "chrome.cdp.form_read",
+      "reliable": true
+    },
+    {
       "intent": "download",
       "tool": "chrome.cdp.download",
       "reliable": true
