@@ -19,11 +19,6 @@
       "reliable": true
     },
     {
-      "intent": "read_form",
-      "tool": "edge.cdp.form_read",
-      "reliable": true
-    },
-    {
       "intent": "download",
       "tool": "edge.cdp.download",
       "reliable": true

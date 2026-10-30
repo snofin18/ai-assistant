@@ -3,7 +3,7 @@
 //! Responsibilities:
 //! - parse explicit browser executable and dedicated-profile inputs;
 //! - start one browser, connect to its dynamic loopback CDP port, and build the
-//!   five-tool browser registry;
+//!   four-tool browser registry;
 //! - keep the launched process alive through registry assembly and close it
 //!   explicitly after the CLI self-check.
 //!
@@ -226,7 +226,7 @@ pub struct BrowserRuntime {
 }
 
 impl BrowserRuntime {
-    /// Starts, connects, and builds the five-tool browser registry.
+    /// Starts, connects, and builds the four-tool browser registry.
     ///
     /// If connection or registry construction fails after launch, dropping
     /// `LaunchedBrowser` performs the TASK-110 bounded process-tree cleanup.
@@ -268,10 +268,10 @@ impl BrowserRuntime {
                     .starts_with(options.browser.planner_tool_prefix())
             })
             .count();
-        if registry.len() != 5 || browser_schema_count != 5 {
+        if registry.len() != 4 || browser_schema_count != 4 {
             return Err(BrowserRuntimeError::Assembly {
                 reason: format!(
-                    "browser registry must contain exactly five tools, got {browser_schema_count} \
+                    "browser registry must contain exactly four tools, got {browser_schema_count} \
                      browser schemas and {} tools",
                     registry.len(),
                 ),

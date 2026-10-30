@@ -333,9 +333,7 @@ fn browser_assertion_table(tool: &str, arguments: &Value) -> Option<Vec<Value>> 
             "within_ms": BROWSER_NAVIGATE_EXECUTE_TIMEOUT_MS,
             "fingerprint_scope": "cdp_target",
         })]),
-        "dom_read" | "form_read" | "wait_network_idle" => {
-            Some(vec![json!({ "kind": "state_unchanged" })])
-        }
+        "dom_read" | "wait_network_idle" => Some(vec![json!({ "kind": "state_unchanged" })]),
         "form_fill" => {
             let field_count = u64::try_from(arguments.get("fields")?.as_array()?.len()).ok()?;
             Some(vec![

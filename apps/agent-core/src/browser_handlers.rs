@@ -9,8 +9,7 @@
 //! Boundaries:
 //! - does not launch or close a browser;
 //! - does not decide policy, approval, or site eligibility;
-//! - does not implement download, screenshot, or generic click;
-//! - does not submit forms or implement generic click.
+//! - does not submit forms or implement download, screenshot, or generic click.
 //!
 //! Invariants:
 //! 1. a provider future that is unexpectedly pending fails closed;
@@ -43,7 +42,6 @@ const EDGE_TOOL_NAVIGATE: &str = "edge.cdp.navigate";
 const EDGE_TOOL_DOM_READ: &str = "edge.cdp.dom_read";
 /// Edge tool name for form filling.
 const EDGE_TOOL_FORM_FILL: &str = "edge.cdp.form_fill";
-/// Edge tool name for bounded form snapshots.
 const EDGE_TOOL_FORM_READ: &str = "edge.cdp.form_read";
 /// Edge tool name for network-idle waits.
 const EDGE_TOOL_WAIT_NETWORK_IDLE: &str = "edge.cdp.wait_network_idle";
@@ -54,7 +52,6 @@ const CHROME_TOOL_NAVIGATE: &str = "chrome.cdp.navigate";
 const CHROME_TOOL_DOM_READ: &str = "chrome.cdp.dom_read";
 /// Chrome tool name for form filling.
 const CHROME_TOOL_FORM_FILL: &str = "chrome.cdp.form_fill";
-/// Chrome tool name for bounded form snapshots.
 const CHROME_TOOL_FORM_READ: &str = "chrome.cdp.form_read";
 /// Chrome tool name for network-idle waits.
 const CHROME_TOOL_WAIT_NETWORK_IDLE: &str = "chrome.cdp.wait_network_idle";
@@ -230,7 +227,6 @@ impl BrowserToolNames {
             self.navigate.clone(),
             self.dom_read.clone(),
             self.form_fill.clone(),
-            self.form_read.clone(),
             self.wait_network_idle.clone(),
         ]
     }

@@ -37,7 +37,6 @@ REQUIRED_TOOLS = {
     "cdp.navigate",
     "cdp.dom_read",
     "cdp.form_fill",
-    "cdp.form_read",
     "cdp.download",
     "cdp.screenshot",
     "cdp.wait_network_idle",
@@ -162,12 +161,6 @@ def validate_pack(name: str, expected_app_id: str, tool_prefix: str, pack_path: 
         .get("const")
     )
     require(submitted is False, f"{name}: form fill must stop before submit")
-    form_read = find_tool(tool_entries, tool_prefix + "cdp.form_read").get("schema", {})
-    require(form_read.get("effect") == "read", f"{name}: form read effect")
-    require(
-        form_read.get("reversibility") == "none_readonly",
-        f"{name}: form read reversibility",
-    )
 
 
 def find_tool(tool_entries: list[Any], name: str) -> dict[str, Any]:

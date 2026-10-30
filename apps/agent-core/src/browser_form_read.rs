@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 use std::time::Instant;
 
-use assistant_platform_api::{CdpDomSnapshot, ErrorCode, PlatformError};
+use assistant_platform_api::{ErrorCode, PlatformError};
 use assistant_protocol::serde_json;
 use assistant_tool_bus::{CallContext, SourceDescriptor, ToolBusError, ToolHandler, ToolOutput};
 use serde::{Deserialize, Serialize};
@@ -30,22 +30,13 @@ pub struct FormReadHandler<R> {
     pub(crate) tool_name: String,
 }
 
-#[derive(Debug, Clone)]
-struct FieldSpec {
-    selector: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
 struct FormReadPayload {
-    #[serde(default)]
     error: Option<String>,
-    #[serde(default)]
     selector: Option<String>,
-    #[serde(default)]
-    message: Option<String>,
-    origin: String,
-    action: String,
+    origin: Option<String>,
+    action: Option<String>,
     fields: Vec<FieldSnapshot>,
 }
 
@@ -82,9 +73,13 @@ where
                     self.tool_name
                 ),
             })?;
-        validate_form_read_payload(&fields, &payload, &self.tool_name)?;
+        let (origin, action) = validate_form_read_payload(&fields, &payload, &self.tool_name)?;
         let fingerprint = fingerprint_value(&json!({
-            "cdp": cdp_identity(&snapshot),
+            "cdp": {
+                "url": snapshot.target_url(),
+                "title": snapshot.target_title(),
+                "marker": snapshot.target_marker(),
+            },
             "fields": payload.fields.iter().map(|field| json!({
                 "selector": field.selector,
                 "value": field.value,
@@ -93,8 +88,8 @@ where
         Ok(ToolOutput::untrusted(
             SourceDescriptor::app_content(self.context.app_id.clone()).with_target("browser_form"),
             json!({
-                "origin": payload.origin,
-                "action": payload.action,
+                "origin": origin,
+                "action": action,
                 "fields": payload.fields,
                 "fingerprint_scope": CDP_TARGET_FINGERPRINT_SCOPE,
                 "fingerprint": fingerprint,
@@ -105,156 +100,95 @@ where
     }
 }
 
-fn parse_fields(
-    arguments: &Map<String, Value>,
-    tool: &str,
-) -> Result<Vec<FieldSpec>, ToolBusError> {
+fn parse_fields(arguments: &Map<String, Value>, tool: &str) -> Result<Vec<String>, ToolBusError> {
     let values = arguments
         .get("fields")
         .and_then(Value::as_array)
         .ok_or_else(|| support::invalid_arguments(tool, "fields must be an array"))?;
     if values.is_empty() || values.len() > MAX_FORM_FIELDS {
-        return Err(support::invalid_arguments(
-            tool,
-            format!("fields must contain between 1 and {MAX_FORM_FIELDS} entries"),
-        ));
+        return Err(support::invalid_arguments(tool, "invalid field count"));
     }
     let mut selectors = BTreeSet::new();
     let mut fields = Vec::with_capacity(values.len());
     for value in values {
         let object = value
             .as_object()
-            .ok_or_else(|| support::invalid_arguments(tool, "each field must be an object"))?;
+            .ok_or_else(|| support::invalid_arguments(tool, "field must be an object"))?;
         let selector = object
             .get("selector")
             .and_then(Value::as_str)
             .filter(|value| !value.trim().is_empty())
             .ok_or_else(|| support::invalid_arguments(tool, "field selector must be non-empty"))?;
         if selector.len() > MAX_SELECTOR_BYTES || has_forbidden_control(selector) {
-            return Err(support::invalid_arguments(
-                tool,
-                "field selector is invalid or too large",
-            ));
+            return Err(support::invalid_arguments(tool, "invalid field selector"));
         }
         if object.len() != 1 {
-            return Err(support::invalid_arguments(
-                tool,
-                "form-read field objects may contain only selector",
-            ));
+            return Err(support::invalid_arguments(tool, "field keys"));
         }
         if !selectors.insert(selector.to_owned()) {
-            return Err(support::invalid_arguments(
-                tool,
-                "field selector appears more than once",
-            ));
+            return Err(support::invalid_arguments(tool, "duplicate field selector"));
         }
-        fields.push(FieldSpec {
-            selector: selector.to_owned(),
-        });
+        fields.push(selector.to_owned());
     }
     Ok(fields)
 }
 
-fn validate_form_read_payload(
-    fields: &[FieldSpec],
-    payload: &FormReadPayload,
+fn validate_form_read_payload<'a>(
+    fields: &[String],
+    payload: &'a FormReadPayload,
     tool: &str,
-) -> Result<(), ToolBusError> {
+) -> Result<(&'a str, &'a str), ToolBusError> {
     if let Some(error) = payload.error.as_deref() {
         let code = match error {
             "not_found" => ErrorCode::TargetNotFound,
             "ambiguous" => ErrorCode::TargetAmbiguous,
-            "invalid_selector" | "unsupported" | "forbidden" | "too_large" => {
+            "invalid_selector" | "invalid_action" | "unsupported" | "forbidden" | "too_large" => {
                 ErrorCode::ToolInvalidArgs
             }
             _ => ErrorCode::VerifyFailed,
         };
-        let message = payload.message.as_deref().map_or_else(
-            || {
-                payload.selector.as_deref().map_or_else(
-                    || format!("form read failed: {error}"),
-                    |selector| format!("form read failed for `{selector}`: {error}"),
-                )
-            },
-            str::to_owned,
-        );
+        let subject = payload.selector.as_deref().unwrap_or("form");
+        let message = format!("form read failed for `{subject}`: {error}");
         return Err(support::map_platform_error(
             tool,
             &PlatformError::new(code, message),
         ));
     }
-    validate_http_url(&payload.origin, tool)?;
-    validate_http_url(&payload.action, tool)?;
+    let origin = payload
+        .origin
+        .as_deref()
+        .ok_or_else(|| invalid_result(tool, "form-read returned no origin"))?;
+    let action = payload
+        .action
+        .as_deref()
+        .ok_or_else(|| invalid_result(tool, "form-read returned no action"))?;
+    validate_http_url(origin, tool)?;
+    validate_http_url(action, tool)?;
     if fields.len() != payload.fields.len() {
-        return Err(invalid_result(
-            tool,
-            "form-read did not return every requested field",
-        ));
+        return Err(invalid_result(tool, "field count mismatch"));
     }
     let mut total = 0usize;
     for (field, snapshot) in fields.iter().zip(&payload.fields) {
-        if field.selector != snapshot.selector {
-            return Err(invalid_result(
-                tool,
-                "form-read returned an unrequested field",
-            ));
+        if field != &snapshot.selector {
+            return Err(invalid_result(tool, "unrequested field returned"));
         }
         if snapshot.value.len() > MAX_VALUE_BYTES {
-            return Err(invalid_result(
-                tool,
-                "form-read returned a value above 16 KiB",
-            ));
+            return Err(invalid_result(tool, "field value exceeds 16 KiB"));
         }
         total = total.saturating_add(snapshot.value.len());
         if total > MAX_TOTAL_VALUE_BYTES {
-            return Err(invalid_result(
-                tool,
-                "form-read returned values above 64 KiB",
-            ));
+            return Err(invalid_result(tool, "values exceed 64 KiB"));
         }
     }
-    Ok(())
+    Ok((origin, action))
 }
 
-fn form_read_expression(form_selector: &str, fields: &[FieldSpec]) -> Result<String, ToolBusError> {
+fn form_read_expression(form_selector: &str, fields: &[String]) -> Result<String, ToolBusError> {
     let form_selector =
         serde_json::to_string(form_selector).map_err(|error| serialization_error(&error))?;
-    let fields = serde_json::to_string(
-        &fields
-            .iter()
-            .map(|field| json!({ "selector": field.selector }))
-            .collect::<Vec<_>>(),
-    )
-    .map_err(|error| serialization_error(&error))?;
+    let fields = serde_json::to_string(fields).map_err(|error| serialization_error(&error))?;
     Ok(format!(
-        "(() => {{ const formSelector={form_selector}; const specs={fields}; \
-         const allowed=new Set(['text','search','email','url','tel','number','date','time',\
-         'datetime-local','month','week']); \
-         const read=(e)=>e instanceof HTMLSelectElement?e.value:e.isContentEditable?\
-         (e.textContent||''):e.value; \
-         let forms; try {{ forms=document.querySelectorAll(formSelector); }} \
-         catch(_) {{ return JSON.stringify({{error:'invalid_selector',selector:formSelector}}); }} \
-         if(!forms||forms.length===0)return JSON.stringify({{error:'not_found',selector:formSelector}}); \
-         if(forms.length!==1)return JSON.stringify({{error:'ambiguous',selector:formSelector}}); \
-         const form=forms[0]; if(!(form instanceof HTMLFormElement)) \
-         return JSON.stringify({{error:'unsupported',selector:formSelector}}); \
-         let action; try {{ action=new URL(form.getAttribute('action')||location.href,location.href).href; }} \
-         catch(_) {{ return JSON.stringify({{error:'invalid_action',selector:formSelector}}); }} \
-         const encoder=new TextEncoder(); const states=[]; let total=0; \
-         for(const spec of specs) {{ let nodes; try {{ nodes=form.querySelectorAll(spec.selector); }} \
-         catch(_) {{ return JSON.stringify({{error:'invalid_selector',selector:spec.selector}}); }} \
-         if(!nodes||nodes.length===0)return JSON.stringify({{error:'not_found',selector:spec.selector}}); \
-         if(nodes.length!==1)return JSON.stringify({{error:'ambiguous',selector:spec.selector}}); \
-         const e=nodes[0]; if(e instanceof HTMLInputElement) {{ \
-           const kind=(e.type||'text').toLowerCase(); if(!allowed.has(kind)) \
-           return JSON.stringify({{error:'forbidden',selector:spec.selector}}); \
-         }} else if(!(e instanceof HTMLTextAreaElement)&&!(e instanceof HTMLSelectElement)&&\
-         !e.isContentEditable) {{ return JSON.stringify({{error:'unsupported',selector:spec.selector}}); }} \
-         const value=String(read(e)); const bytes=encoder.encode(value).length; total+=bytes; \
-         if(bytes>{MAX_VALUE_BYTES}||total>{MAX_TOTAL_VALUE_BYTES}) \
-         return JSON.stringify({{error:'too_large',selector:spec.selector}}); \
-         states.push({{selector:spec.selector,value}}); }} \
-         return JSON.stringify({{origin:location.origin,action,fields:states}}); }})()"
+        "(() => {{ const formSelector={form_selector}; const specs={fields}; const allowed=new Set(['text','search','email','url','tel','number','date','time','datetime-local','month','week']); const read=(e)=>e instanceof HTMLSelectElement?e.value:e.isContentEditable?(e.textContent||''):e.value; let forms; try {{ forms=document.querySelectorAll(formSelector); }} catch(_) {{ return JSON.stringify({{error:'invalid_selector',selector:formSelector}}); }} if(!forms||forms.length===0)return JSON.stringify({{error:'not_found',selector:formSelector}}); if(forms.length!==1)return JSON.stringify({{error:'ambiguous',selector:formSelector}}); const form=forms[0]; if(!(form instanceof HTMLFormElement))return JSON.stringify({{error:'unsupported',selector:formSelector}}); let action; try {{ action=new URL(form.getAttribute('action')||location.href,location.href).href; }} catch(_) {{ return JSON.stringify({{error:'invalid_action',selector:formSelector}}); }} const encoder=new TextEncoder(); const states=[]; let total=0; for(const selector of specs) {{ let nodes; try {{ nodes=form.querySelectorAll(selector); }} catch(_) {{ return JSON.stringify({{error:'invalid_selector',selector}}); }} if(!nodes||nodes.length===0)return JSON.stringify({{error:'not_found',selector}}); if(nodes.length!==1)return JSON.stringify({{error:'ambiguous',selector}}); const e=nodes[0]; if(e instanceof HTMLInputElement) {{ const kind=(e.type||'text').toLowerCase(); if(!allowed.has(kind))return JSON.stringify({{error:'forbidden',selector}}); }} else if(!(e instanceof HTMLTextAreaElement)&&!(e instanceof HTMLSelectElement)&&!e.isContentEditable) {{ return JSON.stringify({{error:'unsupported',selector}}); }} const value=String(read(e)); const bytes=encoder.encode(value).length; total+=bytes; if(bytes>{MAX_VALUE_BYTES}||total>{MAX_TOTAL_VALUE_BYTES})return JSON.stringify({{error:'too_large',selector}}); states.push({{selector,value}}); }} return JSON.stringify({{origin:location.origin,action,fields:states}}); }})()"
     ))
 }
 
@@ -267,30 +201,17 @@ fn required_selector<'a>(
         .get(field)
         .and_then(Value::as_str)
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| {
-            support::invalid_arguments(tool, format!("{field} must be a non-empty string"))
-        })?;
+        .ok_or_else(|| support::invalid_arguments(tool, format!("{field} must be non-empty")))?;
     if value.len() > MAX_SELECTOR_BYTES || has_forbidden_control(value) {
-        return Err(support::invalid_arguments(
-            tool,
-            format!("{field} is invalid or too large"),
-        ));
+        return Err(support::invalid_arguments(tool, format!("invalid {field}")));
     }
     Ok(value)
 }
 
 fn has_forbidden_control(value: &str) -> bool {
-    value.chars().any(|character| {
-        character == '\0' || (character.is_control() && !matches!(character, '\n' | '\r' | '\t'))
-    })
-}
-
-fn cdp_identity(snapshot: &CdpDomSnapshot) -> Value {
-    json!({
-        "url": snapshot.target_url(),
-        "title": snapshot.target_title(),
-        "marker": snapshot.target_marker(),
-    })
+    value
+        .chars()
+        .any(|c| c == '\0' || (c.is_control() && !matches!(c, '\n' | '\r' | '\t')))
 }
 
 fn invalid_result(tool: &str, reason: &str) -> ToolBusError {

@@ -154,12 +154,12 @@ fn browser_tool_schemas(
         .into_iter()
         .filter(|schema| schema.name.starts_with(&prefix))
         .collect::<Vec<_>>();
-    if schemas.len() == 5 {
+    if schemas.len() == 4 {
         Ok(schemas)
     } else {
         Err(BrowserTaskError::Arguments {
             reason: format!(
-                "browser task runner requires exactly five `{prefix}` schemas, got {}",
+                "browser task runner requires exactly four `{prefix}` schemas, got {}",
                 schemas.len()
             ),
         })

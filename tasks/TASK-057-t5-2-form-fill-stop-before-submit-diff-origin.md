@@ -1,27 +1,19 @@
 # TASK-057　T5.2：表单填写 → **停在提交前** → 展示 diff 与来源归因 → 用户确认后提交
 
 - 状态：**Blocked**
-- 阶段：1　子阶段：**1c**　批次：**1c**　依赖：056、346、347、348、349　预估：M　难度：M
+- 阶段：1　子阶段：**1c**　批次：**1c**　依赖：056　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
 
 ---
 
-- **依赖**：056、346、347、348、349　**预估**：M　**难度**：M
+- **依赖**：056　**预估**：M　**难度**：M
 - **write scope**：同上
 - **关联**：`plans/stage-1-pilots.md` 批次表 1c（1c）、`docs/wbs-overview.md` §6（DoD）
 
 **目标**
 
 T5.2：表单填写 → **停在提交前** → 展示 diff 与来源归因 → 用户确认后提交。
-
-**实现拆分**
-
-- TASK-346：`form_read` 生产 handler；
-- TASK-347：`form_submit` 生产 handler；
-- TASK-348：approval 事件、字段 diff 与来源归因；
-- TASK-349：本地 loopback fixture 与脚本化端到端；
-- 本卡在 346–349 Done 后只承接真实 Edge 人类在场验收与总体验收。
 
 **write scope**（本卡独有部分，完整列表见 plan 批次表）
 

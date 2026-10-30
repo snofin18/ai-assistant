@@ -1,7 +1,7 @@
 //! Browser CDP tool registration for Edge and Chrome.
 //!
 //! Responsibilities:
-//! - register only the five browser tools that have production handlers;
+//! - register only the four browser tools that have production handlers;
 //! - reuse the shared adapter declaration loader and fail-closed checks;
 //! - expose the registry and Planner schemas to the binary assembly layer.
 //!
@@ -11,8 +11,7 @@
 //! - does not define a second protocol or tool schema representation.
 //!
 //! Invariants:
-//! 1. Edge and Chrome mount exactly `navigate`, `dom_read`, `form_fill`, `form_read`,
-//!    and `wait_network_idle`;
+//! 1. Edge and Chrome mount exactly `navigate`, `dom_read`, `form_fill`, and `wait_network_idle`;
 //! 2. download, screenshot, and shell tools remain unmounted;
 //! 3. a missing declaration or handler fails before `ToolBus` startup.
 
@@ -80,7 +79,7 @@ pub enum BrowserRegistryError {
 /// # Errors
 ///
 /// Returns [`BrowserRegistryError::Registration`] when the adapter declaration is
-/// malformed, lacks one of the five implemented tools, or cannot be mounted.
+/// malformed, lacks one of the four implemented tools, or cannot be mounted.
 pub fn build_browser_registry(
     provider: Arc<RuntimeCdpProvider>,
     target: ResolvedCdpTarget,

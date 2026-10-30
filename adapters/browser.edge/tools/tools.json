@@ -133,66 +133,6 @@
     {
       "schema": {
         "version": "1.0",
-        "name": "edge.cdp.form_read",
-        "description": "Read bounded values from one form without changing page state.",
-        "input": {
-          "type": "object",
-          "properties": {
-            "form_selector": {"type": "string", "minLength": 1},
-            "fields": {
-              "type": "array",
-              "minItems": 1,
-              "maxItems": 100,
-              "items": {
-                "type": "object",
-                "properties": {"selector": {"type": "string", "minLength": 1}},
-                "required": ["selector"],
-                "additionalProperties": false
-              }
-            }
-          },
-          "required": ["form_selector", "fields"],
-          "additionalProperties": false
-        },
-        "output": {
-          "type": "object",
-          "properties": {
-            "origin": {"type": "string", "minLength": 1},
-            "action": {"type": "string", "minLength": 1},
-            "fields": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "selector": {"type": "string", "minLength": 1},
-                  "value": {"type": "string"}
-                },
-                "required": ["selector", "value"],
-                "additionalProperties": false
-              }
-            }
-          },
-          "required": ["origin", "action", "fields"],
-          "additionalProperties": false
-        },
-        "effect": "read",
-        "reversibility": "none_readonly",
-        "risk_level": "low",
-        "requires_approval": false,
-        "idempotent": true,
-        "tags": ["edge", "cdp", "form", "read"]
-      },
-      "postconditions": [
-        {
-          "kind": "read_only_no_state_change",
-          "description": "Reading form fields does not change page state.",
-          "error_code": "VerifyFailed"
-        }
-      ]
-    },
-    {
-      "schema": {
-        "version": "1.0",
         "name": "edge.cdp.download",
         "description": "Start and verify a download routed into the dedicated shadow directory.",
         "input": {
