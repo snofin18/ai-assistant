@@ -109,3 +109,8 @@ adapter schema、registry/runtime 接线、approval/diff、fixture 与真实 Edg
 ### 9. 给审阅者的关注点
 
 确认所有检查都在 `.click()` 之前、表达式只有一个 click，且点击后任何不确定路径都不会返回成功。
+
+### 10. 合并证据
+
+- PR #662 checks 11/11 success；Mergeable / Clean；merge `f043f76`；
+- post-merge main CI `41000801189` success。
