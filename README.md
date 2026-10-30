@@ -6,7 +6,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
-> 状态：**阶段 1**；**TASK-350 Done（2026-10-30）**（T5.2 loopback 表单靶页；Python 9/9 + 人工 Edge 提交通过）；**TASK-349 Done（2026-10-30）**（form_submit 六工具接线；PR #664 / merge `f811e43`；post-merge main CI `41008058991` success）；**TASK-348 Done（2026-10-30）**（form_submit handler-only；PR #662 / merge `f043f76`；post-merge main CI `41000801189` success）；**TASK-347 Done（2026-10-30）**（form_read 五工具接线）；**TASK-346 Done（2026-10-30）**（form_read handler；PR #659 / merge `e21b957`）；**TASK-345 Done（2026-10-29）**（PowerShell guard 已仅订阅 Bash，真实长 prompt automation 创建通过）；**TASK-344 Done**（ADR-0101 表单确认与提交契约已合并）；**TASK-343 Done**（form_fill 已合并）；**TASK-342 Done**（ADR-0100 PowerShell 强制 guard + OpenAI 文档代理回退）；**TASK-341 Done**（每日 08:00 + 每次 prompt 自动 reset）；**TASK-056 Done（2026-10-28）**；Stage 1a Done、Stage 1b Paint 30/30，Stage 1c 的 TASK-057/058 仍待正式展开。
+> 状态：**阶段 1**；**TASK-351 Done（2026-10-30）**（form_submit 真实 identity fingerprint + `state_changed`；ADR-0102）；**TASK-350 Done（2026-10-30）**（T5.2 loopback 表单靶页；Python 9/9 + 人工 Edge 提交通过）；**TASK-349 Done（2026-10-30）**（form_submit 六工具接线；PR #664 / merge `f811e43`；post-merge main CI `41008058991` success）；**TASK-348 Done（2026-10-30）**（form_submit handler-only；PR #662 / merge `f043f76`；post-merge main CI `41000801189` success）；**TASK-347 Done（2026-10-30）**（form_read 五工具接线）；**TASK-346 Done（2026-10-30）**（form_read handler；PR #659 / merge `e21b957`）；**TASK-345 Done（2026-10-29）**（PowerShell guard 已仅订阅 Bash，真实长 prompt automation 创建通过）；**TASK-344 Done**（ADR-0101 表单确认与提交契约已合并）；**TASK-343 Done**（form_fill 已合并）；**TASK-342 Done**（ADR-0100 PowerShell 强制 guard + OpenAI 文档代理回退）；**TASK-341 Done**（每日 08:00 + 每次 prompt 自动 reset）；**TASK-056 Done（2026-10-28）**；Stage 1a Done、Stage 1b Paint 30/30，Stage 1c 的 TASK-057/058 仍待正式展开。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -91,6 +91,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-30 TASK-351 Done（form_submit observation fingerprint）**：ADR-0102 修订 `form_submit` 输出边界，handler 在点击前后观察真实 URL/title/timeOrigin，生成 `cdp_target` identity fingerprint；Edge/Chrome schema 增加四个 observation 字段，task package 固定使用 `state_changed`。专项 6/6、task-package 1/1、workspace 510/510、coverage 79.73%，Runtime 通用 observation 规则未放宽。
+
 **2026-10-30 TASK-350 Done（T5.2 loopback form fixture）**：新增零依赖生成器、仅绑定 `127.0.0.1:8766` 的静态服务器与三字段同源 GET 表单；成功页固定 `submitted-marker`。Python `-W error` 专项 9/9、workspace 510/510，人工 Edge 提交后标题与 marker 均符合契约。该 fixture 不解决 `form_submit` 输出缺少 Runtime observation fingerprint 的契约缺口。
 
 **2026-10-30 TASK-349 Done（form_submit 六工具接线）**：Edge/Chrome adapter pack 已声明高风险 `form_submit` schema，registry/runtime/task runner 已同步为六工具；task-package 观测与 approval/diff 留待 TASK-057 展开。
@@ -403,6 +405,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-30 TASK-351 Done（form_submit observation fingerprint）**：新增 ADR-0102，明确 fingerprint 只能来自点击前后实际观察的 `location.href` / `document.title` / `performance.timeOrigin`，不得用 `submitted/post_url` 结果哈希或全局放宽 observation 替代。`form_submit` 输出增加 scope、前后 fingerprint 与 elapsed；Edge/Chrome pack 要求六字段，task-package 生成 `state_changed`。form_submit 6/6、adapter pack 双绿、workspace 510/510、coverage 79.73%。
+
 **2026-10-30 TASK-350 Done（T5.2 local loopback form fixture）**：新增确定性 `form.html` 与 extensionless `/t5.2/submitted` 成功页，固定三个合成字段和唯一提交控件；服务器只监听 loopback、禁用目录列表、设置 no-store/nosniff/frame deny 与 `form-action 'self'`。Python `-W error` 9/9、workspace 510/510，人工 Edge 提交返回 HTTP 200 并显示 `Submission received.`；TASK-057 的 observation fingerprint、approval/diff 仍未完成。
 
 **2026-10-30 TASK-349 Done（form_submit production integration）**：Edge/Chrome `tools.json` 与 app-map 已加入 `cdp.form_submit`，schema 固定 write / high / l3_irreversible / requires_approval / non-idempotent；browser registry、runtime 和 task runner 从五工具同步为六工具。adapter pack 双绿，form_submit 5/5、browser registry 5/5、runtime 5/5、browser task 27/27，workspace 510/510；PR #664 / merge `f811e43`，post-merge main CI `41008058991` success；task-package assertion 暂不接线，等待 approval/diff 与 observation 设计。

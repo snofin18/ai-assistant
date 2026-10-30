@@ -205,6 +205,40 @@ fn test_browser_form_read_assertion_is_fixed() {
 }
 
 #[test]
+fn test_browser_form_submit_assertion_is_state_changed() {
+    let package = json!({
+        "task_id": "browser.t5_2.form_submit_probe",
+        "steps": [{
+            "id": "submit_form",
+            "kind": "tool",
+            "tool": "edge.cdp.form_submit",
+            "args": {
+                "form_selector": "#profile-form",
+                "submit_selector": "#profile-submit",
+                "expected_origin": "http://127.0.0.1:43000",
+                "expected_action": "http://127.0.0.1:43000/submitted",
+                "expected_fields": [{"selector": "#name", "value": "Ada"}]
+            }
+        }]
+    })
+    .to_string();
+    let provider =
+        TaskPackageProvider::from_package_json(&package).expect("form submit package render");
+    let plan: Value = serde_json::from_str(provider.plan_json()).expect("plan is JSON");
+    assert_eq!(
+        plan.get("steps")
+            .and_then(Value::as_array)
+            .and_then(|steps| steps.first())
+            .and_then(|step| step.get("postconditions")),
+        Some(&json!([{
+            "kind": "state_changed",
+            "within_ms": 20_000,
+            "fingerprint_scope": "cdp_target"
+        }]))
+    );
+}
+
+#[test]
 fn test_t5_1_browser_package_renders_without_missing_assertion() {
     let provider = TaskPackageProvider::from_package_file(&t5_1_browser_package_path())
         .expect("TASK-056 browser task contract must render");

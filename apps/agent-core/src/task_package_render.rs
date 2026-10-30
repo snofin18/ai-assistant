@@ -351,6 +351,11 @@ fn browser_assertion_table(tool: &str, arguments: &Value) -> Option<Vec<Value>> 
                 }),
             ])
         }
+        "form_submit" => Some(vec![json!({
+            "kind": "state_changed",
+            "within_ms": STEP_EXECUTE_TIMEOUT_MS,
+            "fingerprint_scope": "cdp_target",
+        })]),
         _ => None,
     }
 }
