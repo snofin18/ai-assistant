@@ -6,7 +6,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
-> 状态：**阶段 1**；**TASK-347 Done（2026-10-30）**（form_read 五工具接线）；**TASK-346 Done（2026-10-30）**（form_read handler；PR #659 / merge `e21b957`）；**TASK-345 Done（2026-10-29）**（PowerShell guard 已仅订阅 Bash，真实长 prompt automation 创建通过）；**TASK-344 Done**（ADR-0101 表单确认与提交契约已合并）；**TASK-343 Done**（form_fill 已合并）；**TASK-342 Done**（ADR-0100 PowerShell 强制 guard + OpenAI 文档代理回退）；**TASK-341 Done**（每日 08:00 + 每次 prompt 自动 reset）；**TASK-056 Done（2026-10-28）**；Stage 1a Done、Stage 1b Paint 30/30，Stage 1c 的 TASK-057/058 仍待正式展开。
+> 状态：**阶段 1**；**TASK-348 Done（2026-10-30）**（form_submit handler-only）；**TASK-347 Done（2026-10-30）**（form_read 五工具接线）；**TASK-346 Done（2026-10-30）**（form_read handler；PR #659 / merge `e21b957`）；**TASK-345 Done（2026-10-29）**（PowerShell guard 已仅订阅 Bash，真实长 prompt automation 创建通过）；**TASK-344 Done**（ADR-0101 表单确认与提交契约已合并）；**TASK-343 Done**（form_fill 已合并）；**TASK-342 Done**（ADR-0100 PowerShell 强制 guard + OpenAI 文档代理回退）；**TASK-341 Done**（每日 08:00 + 每次 prompt 自动 reset）；**TASK-056 Done（2026-10-28）**；Stage 1a Done、Stage 1b Paint 30/30，Stage 1c 的 TASK-057/058 仍待正式展开。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -91,6 +91,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-10-30 TASK-348 Done（form_submit handler-only）**：专用提交 handler 已在单一 DOM 表达式内复验同源 action、无凭据、`_self` target、formaction 与字段状态，检查通过后最多点击一次；点击后以 bounded network-idle 和 `performance.timeOrigin` 变化作为 postcondition，未知结果返回 `UserInteraction`。adapter/registry、approval/diff、fixture 与真实 Edge 尚未接线。
+
 **2026-10-30 TASK-346 / TASK-347 Done（form_read handler + five-tool integration）**：只读 `form_read` handler 已从独立实现接入 Edge/Chrome adapter schema、五工具 registry/runtime 和任务包固定 `state_unchanged` 断言；未实现 `form_submit`、approval/diff、fixture 或真实 Edge 提交。
 
 **2026-10-28 TASK-056 Done（真实 Edge CSV acceptance）**：本地 loopback 真实 Edge 10/10，外部 `books.toscrape.com` 3/3；每轮 3 页、6 steps、3 个 DOM 输出和 60 行 CSV。三份外部 CSV SHA-256 均为 `c10b753cffe00a1bb1342698c20d2c2eba7c677b8bc36962f9c1500e8c182562`，严格 validator 全通过，跑后 Edge/8765 收敛。
@@ -397,6 +399,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-10-30 TASK-348 Done（form_submit handler-only）**：新增专用 `edge|chrome.cdp.form_submit` handler，form/submit 唯一命中、同源 action、credentials/formaction/target 拒绝、字段精确状态与 `checkValidity` 全在单表达式内完成；`.click()` 仅一次，点击后要求 network-idle 且 `performance.timeOrigin` 变化，否则 `UserInteraction`。form_submit 专项 5/5，workspace 510/510；未接 adapter/registry，也未实现 approval/diff 或真实浏览器。
+
 **2026-10-30 TASK-346 / TASK-347 Done（form_read production integration）**：TASK-346 的只读 `form_read` handler 已合并（PR #659 / merge `e21b957`）；TASK-347 将 Edge/Chrome adapter pack、五工具 registry/runtime 和 task package `state_unchanged` 断言接齐（PR #660 / merge `a5ba47e`，post-merge main CI `40990836783` success），adapter pack 双绿、form_read 5/5、browser registry 5/5、runtime 5/5、task runner 27/27。未启动真实浏览器，`form_submit` / approval / fixture 仍未完成。
 
 **2026-10-29 TASK-344 / TASK-345 Done（form contract + guard matcher）**：PR #643 / merge `b1b48c0` 冻结浏览器表单三段契约、字段 diff、已校验来源归因、高风险 L3 once 审批与点击后未知状态禁止重试；PR #644 / merge `674e9a0` 把 PowerShell guard 收窄为仅 `Bash`，并让脚本先按原始 `tool_name` 快退。两 PR 各 11/11 checks success，post-merge main CI `40842663573` 成功；本自动化真实长 prompt 创建已复验 guard 修复。TASK-057/058 仍为 Blocked 占位，真实 Edge 提交仍须人类在场。
