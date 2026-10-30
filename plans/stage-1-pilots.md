@@ -484,7 +484,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-344 ✅** | 1c 契约 | `tasks/TASK-344-t5-2-form-approval-contract.md` | ADR-0101：`form_read` / `form_fill` / 一次性 L3 `form_submit`、字段 diff、归因投影与本地 loopback fixture；不实现产品代码，不替代 TASK-057 |
 | **TASK-345 ✅** | Stage 1c 治理修复 | `tasks/TASK-345-powershell-guard-bash-only-matcher.md` | PreToolUse matcher 收窄为 `Bash`，脚本对非 Bash 原始 payload 快退；修复长 `automation_update` 输入被误拒 |
 | **TASK-346 ✅** | T5.2 前置 | `tasks/TASK-346-browser-form-read-handler.md` | Done（只读 form_read handler；PR #659 / merge `e21b957`） |
-| **TASK-347 ✅** | T5.2 前置 | `tasks/TASK-347-browser-form-read-integration.md` | Done（adapter schema、五工具 registry/runtime 与 `state_unchanged` 接线；PR/CI 待回填） |
+| **TASK-347 ✅** | T5.2 前置 | `tasks/TASK-347-browser-form-read-integration.md` | Done（adapter schema、五工具 registry/runtime 与 `state_unchanged` 接线；PR #660 / merge `a5ba47e`） |
 | TASK-057 | 1c | `tasks/TASK-057-t5-2-form-fill-stop-before-submit-diff-origin.md` | Ready（批次表占位派单前补全） |
 | TASK-058 | 1c | `tasks/TASK-058-t5-3-injection-target-security-ci-audit.md` | Ready（批次表占位派单前补全） |
 | **TASK-085 ✅** | XTASK 池 | `tasks/TASK-085-xtask-hygiene-rust-source-rules.md` | Done（gov §5.4 第 1 / 2 / 3 / 10 / 11 项 = Rust 源码结构规则；实现覆盖 8/13） |
