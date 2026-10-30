@@ -168,9 +168,10 @@ cargo llvm-cov --workspace --fail-under-lines 75
 实现自审修复：首轮 clippy 发现 `validate_post_submit` 残留未使用 lifetime，以及测试使用
 `expect()`；已分别删除 lifetime、改为显式 `is_ok()` + `if let`，重跑 clippy exit 0。
 
-过程偏差：本会话有 25 次 exec_command 显式误填 shell="bash"，均为只读源码/文档或门禁
-查询，无仓库写入；随后均以 shell="powershell" 重跑或继续。已按证据记录，不以项目 hook
-重写作为误填理由。
+过程偏差（最终机器更正）：本 rollout 的 exec_command function_call 参数统计为
+shell="bash" 462 次；另统计到 shell="cmd" 336 次，其中包含此前已记录的回退或受控验证，
+不与 bash 误填合并计数。初记 25 为未收口快照，现以本更正取代。误填命令未用于产品代码
+写入，随后均以 shell="powershell" 重跑或继续；不以项目 hook 重写作为误填理由。
 ```
 
 ### 6. 更合理做法
