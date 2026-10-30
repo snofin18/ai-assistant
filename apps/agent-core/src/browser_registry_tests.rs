@@ -315,14 +315,36 @@ fn test_chrome_registry_mounts_only_implemented_tools() -> Result<(), Box<dyn st
 }
 
 #[test]
-fn test_invalid_arguments_fail_before_runtime() -> Result<(), Box<dyn std::error::Error>> {
+fn test_handler_map_form_read_and_invalid_arguments() -> Result<(), Box<dyn std::error::Error>> {
     let runtime = Arc::new(FakeRuntime::default());
+    runtime
+        .state
+        .lock()
+        .map_err(|_| "fake mutex poisoned")?
+        .dom_response = Some(
+        json!({
+            "origin": "http://127.0.0.1:8765",
+            "action": "http://127.0.0.1:8765/submitted",
+            "fields": [{"selector": "#full-name", "value": ""}],
+        })
+        .to_string(),
+    );
     let context = Arc::new(BrowserHandlerContext {
         runtime: Arc::clone(&runtime),
         target: browser_target(),
         app_id: BrowserFamily::Edge.app_id().to_owned(),
     });
     let handlers = build_handler_map(&context, &BrowserFamily::Edge.tool_names());
+    let read = handlers
+        .get("edge.cdp.form_read")
+        .ok_or("missing form read handler")?
+        .call(
+            &CallContext::new("task", "step"),
+            &arguments(
+                json!({"form_selector":"#profile-form","fields":[{"selector":"#full-name"}]}),
+            )?,
+        )?;
+    assert!(read.is_untrusted());
     let navigate = handlers
         .get("edge.cdp.navigate")
         .ok_or("missing navigate handler")?;
