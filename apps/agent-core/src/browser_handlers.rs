@@ -227,6 +227,7 @@ impl BrowserToolNames {
             self.navigate.clone(),
             self.dom_read.clone(),
             self.form_fill.clone(),
+            self.form_read.clone(),
             self.wait_network_idle.clone(),
         ]
     }

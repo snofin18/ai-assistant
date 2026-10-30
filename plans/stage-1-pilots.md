@@ -25,7 +25,7 @@
 > **TASK-271 Done（2026-10-11）**：`assistant-dlp` 新增 7 个公共契约测试，独立行覆盖率 83.59% → 98.89%；生产源码零改动；PR #320 / merge `8a5ad5f`。
 
 > **TASK-290 Done（2026-10-14）**：PL-010 闭环 —— `gov §9.2` 的 LEDGER 模板新增 `pending` 占位与追加式回填规则；原开放行不改，PARKING_LOT 追加闭环节点；docs-only，零产品代码改动；PR #388 / merge `4e9bce6`。
-> 周期 10~12 周　状态：**进行中（2026-10-30：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-048 / TASK-049 / TASK-055 / TASK-107 / TASK-108 / TASK-109 / TASK-110 / TASK-111 / TASK-112 / TASK-113 / TASK-114 / TASK-328 / TASK-329 / TASK-330 / TASK-331 / TASK-332 / TASK-333 / TASK-334 / TASK-335 / TASK-336 / TASK-337 / TASK-338 / TASK-339 / TASK-340 / TASK-056 / TASK-341 / TASK-342 / TASK-343 / TASK-344 / TASK-345 Done；TASK-346 Review；TASK-057/058 Blocked）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> 周期 10~12 周　状态：**进行中（2026-10-30：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-048 / TASK-049 / TASK-055 / TASK-107 / TASK-108 / TASK-109 / TASK-110 / TASK-111 / TASK-112 / TASK-113 / TASK-114 / TASK-328 / TASK-329 / TASK-330 / TASK-331 / TASK-332 / TASK-333 / TASK-334 / TASK-335 / TASK-336 / TASK-337 / TASK-338 / TASK-339 / TASK-340 / TASK-056 / TASK-341 / TASK-342 / TASK-343 / TASK-344 / TASK-345 / TASK-346 / TASK-347 Done；TASK-057/058 Blocked）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
 > **TASK-326 Done（2026-10-21）**：审计 2026-10-20 五轮 automation 的自删顺序；5/5 已执行且已自删，发现 17:00 轮 PR #502、00:30 轮 PR #509 两次在 self-delete 后才落地，已追加运行日更正与 `docs/audits/automation-sequence-deviation-2026-10-20.md`；当前无残留 automation、锁、open PR。
 > **TASK-327 Done（2026-10-22）**：人工接管 2026-10-21 17:00 失联 automation 的离线 WIP；新增 8 个 CDP 公开契约测试，`cdp.rs` 行覆盖 0.00% → **100.00%**、crate **95.13%**；生产逻辑 / 公共 API / schema / 依赖零改动；清理由该槽遗留的陈旧 guard 锁与 automation 目录。
 > **TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）**：Paint 全工具集真机路径
@@ -483,7 +483,8 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-343 ✅** | 1c 前置 | `tasks/TASK-343-browser-form-fill-stop-before-submit.md` | Done（有界唯一命中 form_fill；固定 `submitted=false`；不替代 TASK-057；PR #641 / merge `eaf99d8`） |
 | **TASK-344 ✅** | 1c 契约 | `tasks/TASK-344-t5-2-form-approval-contract.md` | ADR-0101：`form_read` / `form_fill` / 一次性 L3 `form_submit`、字段 diff、归因投影与本地 loopback fixture；不实现产品代码，不替代 TASK-057 |
 | **TASK-345 ✅** | Stage 1c 治理修复 | `tasks/TASK-345-powershell-guard-bash-only-matcher.md` | PreToolUse matcher 收窄为 `Bash`，脚本对非 Bash 原始 payload 快退；修复长 `automation_update` 输入被误拒 |
-| **TASK-346（Review）** | T5.2 前置 | `tasks/TASK-346-browser-form-read-handler.md` | 只读 form_read handler 的受限 DOM 快照、Rust 校验与直接 handler 测试 |
+| **TASK-346 ✅** | T5.2 前置 | `tasks/TASK-346-browser-form-read-handler.md` | Done（只读 form_read handler；PR #659 / merge `e21b957`） |
+| **TASK-347 ✅** | T5.2 前置 | `tasks/TASK-347-browser-form-read-integration.md` | Done（adapter schema、五工具 registry/runtime 与 `state_unchanged` 接线；PR/CI 待回填） |
 | TASK-057 | 1c | `tasks/TASK-057-t5-2-form-fill-stop-before-submit-diff-origin.md` | Ready（批次表占位派单前补全） |
 | TASK-058 | 1c | `tasks/TASK-058-t5-3-injection-target-security-ci-audit.md` | Ready（批次表占位派单前补全） |
 | **TASK-085 ✅** | XTASK 池 | `tasks/TASK-085-xtask-hygiene-rust-source-rules.md` | Done（gov §5.4 第 1 / 2 / 3 / 10 / 11 项 = Rust 源码结构规则；实现覆盖 8/13） |
