@@ -124,6 +124,28 @@ cargo run -p xtask -- codegen --check
   TASK-346（只读快照）与 TASK-347（提交 handler）。
 - 未启动真实 Edge/Chrome；提交与真实 postcondition 留 TASK-347 / TASK-349 / TASK-057。
 
+```text
+DRIFT-346-1
+触发器：#10（工作量超预估 2 倍）
+现象：拆出 form_submit 后，最终 diff 仍为 906 additions / 39 deletions；新增只读 handler、
+      双 adapter schema、registry/runtime 接线、测试和治理文件超过 400 行预算。
+影响：单卡无法在 400 行内完整审阅；若直接合并会违反任务卡粒度规则。
+我的建议：保持 Review，由人类裁决是否接受一次例外，或再拆为 handler 与 adapter/registry 接线两张卡。
+已停止的工作：不再加入 UI、approval、fixture 或真实浏览器工作。
+需要人类裁决：是
+```
+
+```text
+DRIFT-346-1
+触发器：#10（工作量超预估 2 倍）
+现象：TASK-346 的最终 diff 为 895 additions / 39 deletions；虽然已拆出 form_submit，
+      但新增 handler、双 adapter schema、registry/runtime 接线、测试和治理文件仍超过 400 行预算。
+影响：单卡不可在 400 行内完整审阅；若继续按 Done 合并，会违反任务卡粒度规则。
+我的建议：保持 Review，由人类决定是否接受一次例外，或再拆成“handler 实现”与“adapter/registry 接线”两张卡。
+已停止的工作：已停止继续扩范围；不再加入 UI、approval 或 fixture。
+需要人类裁决：是
+```
+
 ### 6. 更合理做法
 
 - 先交付只读快照并固定 registry 计数，再由独立卡增加不可逆提交，避免将两种风险和
