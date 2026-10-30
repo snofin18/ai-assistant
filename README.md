@@ -6,7 +6,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
-> 状态：**阶段 1**；**TASK-348 Done（2026-10-30）**（form_submit handler-only）；**TASK-347 Done（2026-10-30）**（form_read 五工具接线）；**TASK-346 Done（2026-10-30）**（form_read handler；PR #659 / merge `e21b957`）；**TASK-345 Done（2026-10-29）**（PowerShell guard 已仅订阅 Bash，真实长 prompt automation 创建通过）；**TASK-344 Done**（ADR-0101 表单确认与提交契约已合并）；**TASK-343 Done**（form_fill 已合并）；**TASK-342 Done**（ADR-0100 PowerShell 强制 guard + OpenAI 文档代理回退）；**TASK-341 Done**（每日 08:00 + 每次 prompt 自动 reset）；**TASK-056 Done（2026-10-28）**；Stage 1a Done、Stage 1b Paint 30/30，Stage 1c 的 TASK-057/058 仍待正式展开。
+> 状态：**阶段 1**；**TASK-348 Done（2026-10-30）**（form_submit handler-only；PR #662 / merge `f043f76`；post-merge main CI `41000801189` success）；**TASK-347 Done（2026-10-30）**（form_read 五工具接线）；**TASK-346 Done（2026-10-30）**（form_read handler；PR #659 / merge `e21b957`）；**TASK-345 Done（2026-10-29）**（PowerShell guard 已仅订阅 Bash，真实长 prompt automation 创建通过）；**TASK-344 Done**（ADR-0101 表单确认与提交契约已合并）；**TASK-343 Done**（form_fill 已合并）；**TASK-342 Done**（ADR-0100 PowerShell 强制 guard + OpenAI 文档代理回退）；**TASK-341 Done**（每日 08:00 + 每次 prompt 自动 reset）；**TASK-056 Done（2026-10-28）**；Stage 1a Done、Stage 1b Paint 30/30，Stage 1c 的 TASK-057/058 仍待正式展开。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -399,7 +399,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
-**2026-10-30 TASK-348 Done（form_submit handler-only）**：新增专用 `edge|chrome.cdp.form_submit` handler，form/submit 唯一命中、同源 action、credentials/formaction/target 拒绝、字段精确状态与 `checkValidity` 全在单表达式内完成；`.click()` 仅一次，点击后要求 network-idle 且 `performance.timeOrigin` 变化，否则 `UserInteraction`。form_submit 专项 5/5，workspace 510/510；未接 adapter/registry，也未实现 approval/diff 或真实浏览器。
+**2026-10-30 TASK-348 Done（form_submit handler-only）**：新增专用 `edge|chrome.cdp.form_submit` handler，form/submit 唯一命中、同源 action、credentials/formaction/target 拒绝、字段精确状态与 `checkValidity` 全在单表达式内完成；`.click()` 仅一次，点击后要求 network-idle 且 `performance.timeOrigin` 变化，否则 `UserInteraction`。form_submit 专项 5/5，workspace 510/510；PR #662 / merge `f043f76`，post-merge main CI `41000801189` success；未接 adapter/registry，也未实现 approval/diff 或真实浏览器。
 
 **2026-10-30 TASK-346 / TASK-347 Done（form_read production integration）**：TASK-346 的只读 `form_read` handler 已合并（PR #659 / merge `e21b957`）；TASK-347 将 Edge/Chrome adapter pack、五工具 registry/runtime 和 task package `state_unchanged` 断言接齐（PR #660 / merge `a5ba47e`，post-merge main CI `40990836783` success），adapter pack 双绿、form_read 5/5、browser registry 5/5、runtime 5/5、task runner 27/27。未启动真实浏览器，`form_submit` / approval / fixture 仍未完成。
 
