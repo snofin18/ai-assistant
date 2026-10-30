@@ -117,3 +117,8 @@ registry/runtime；不实现 task-package 执行断言、approval/diff、UI/IPC�
 - 确认 Edge/Chrome schema 的 write / high / l3_irreversible / approval / non-idempotent
   五项语义一致；确认六工具计数在 registry、runtime、task runner 与测试中同步；确认没有把
   task-package assertion 作为本卡的隐含扩展。
+
+### 10. 合并证据
+
+- PR #664 checks 11/11 success；Mergeable / Clean；merge `f811e43`；
+- post-merge main CI `41008058991` success。
