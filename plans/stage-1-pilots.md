@@ -489,7 +489,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-349 ✅** | T5.2 前置 | `tasks/TASK-349-browser-form-submit-integration.md` | Done（Edge/Chrome `form_submit` schema、六工具 registry/runtime 与 adapter pack；task-package/approval 待后续） |
 | **TASK-350 ✅** | T5.2 前置 | `tasks/TASK-350-t5-2-loopback-form-fixture.md` | Done（本地 loopback 三字段表单靶页、成功页、Python 9/9 与人工 Edge 提交验收） |
 | **TASK-351 ✅** | T5.2 前置 | `tasks/TASK-351-browser-form-submit-observation-fingerprint.md` | Done（ADR-0102：真实 identity fingerprint + task-package `state_changed`） |
-| TASK-352 | T5.2 前置 | `tasks/TASK-352-browser-form-approval-preview.md` | Ready（字段 diff + 来源归因预览；UI / once 审批另卡） |
+| TASK-352 | T5.2 前置 | `tasks/TASK-352-browser-form-approval-preview.md` | Blocked（DRIFT-352-1：form_fill readback 未进入 ToolBus 输出；等待契约裁决） |
 | TASK-057 | 1c | `tasks/TASK-057-t5-2-form-fill-stop-before-submit-diff-origin.md` | Ready（批次表占位派单前补全） |
 | TASK-058 | 1c | `tasks/TASK-058-t5-3-injection-target-security-ci-audit.md` | Ready（批次表占位派单前补全） |
 | **TASK-085 ✅** | XTASK 池 | `tasks/TASK-085-xtask-hygiene-rust-source-rules.md` | Done（gov §5.4 第 1 / 2 / 3 / 10 / 11 项 = Rust 源码结构规则；实现覆盖 8/13） |

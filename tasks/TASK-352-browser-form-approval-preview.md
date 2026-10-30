@@ -1,6 +1,6 @@
 # TASK-352 Browser form approval preview and attribution
 
-- 状态：**Ready**
+- 状态：**Blocked**
 - 阶段：1　子阶段：**1c**　批次：**1c**　依赖：344、346、347、348、349、351　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -96,11 +96,13 @@ cargo run -p xtask -- replay --suite core
 
 ### 2. 实际改动文件
 
-- 待实现。
+- 仅本卡执行记录与状态同步文件；未改产品代码。
 
 ### 3. 验收输出摘要
 
-- 待实现后填写真实命令与输出。
+- 只读核对 `browser_form_read.rs`、`browser_form_fill.rs`、adapter `form_fill` schema 与
+  `browser_task_approval.rs`：确认当前 ToolBus 输出无法携带 preview 所需的逐字段 readback。
+- 未运行产品验收命令；发现契约阻塞后已停止编码。
 
 ### 4. DoD 逐条核对
 
@@ -109,7 +111,20 @@ cargo run -p xtask -- replay --suite core
 ### 5. 偏差
 
 ```text
-无（尚未开工）。
+DRIFT-352-1
+现象：#8（spec / 代码矛盾）+ #3（需要扩展内部/公共接口）。
+当前 `form_read` 输出含 origin/action/fields，但 `form_fill` ToolBus 输出仅含
+`filled_fields` / `submitted`（以及 fingerprint 元数据）；逐字段 before/after readback
+只在 handler 内部用于计算 fingerprint，adapter output schema 还设置了
+`additionalProperties=false`。因此 Runtime 侧无法拿到“由 form_fill readback 产生的 after”
+来构造 `hitl::DiffPreview::Fields`，也无法比较 after origin/action。
+影响：按卡内约束只能三选一：扩展 form_fill 公共输出/schema；增加跨 crate 内部通道
+或公开 API；或在 fill 后再做一次 form_read（但这违反“after 只来自 form_fill readback”）。
+三者都超出 TASK-352 write scope，不能静默选一条继续。
+建议：人类裁决优先选择“扩展 form_fill 输出契约”，由新 ADR/spec 明确哪些 readback 字段
+可以进入内部审批层、哪些不得进入模型可见 ToolOutput；随后重开实现卡。
+已停工作：未修改 handler、runtime、schema、UI、测试断言或产品代码；未启动浏览器。
+需要人类裁决。
 ```
 
 ### 6. 更合理做法
@@ -118,7 +133,8 @@ cargo run -p xtask -- replay --suite core
 
 ### 7. 遗留问题
 
-- UI `step_approval_requested`、once grant 消费和 loopback 任务链由后续卡承接。
+- 等待 DRIFT-352-1 裁决后，再决定是否新增 form_fill 内部 readback 契约卡。
+- UI `step_approval_requested`、once grant 消费和 loopback 任务链仍由后续卡承接。
 
 ### 8. 新增长期记忆
 
