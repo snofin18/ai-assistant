@@ -136,8 +136,9 @@ cargo deny check
 - `DRIFT-354-1`：卡面 In scope 含 `docs/spec/browser-form-confirmation.md`，但 `AGENTS.md` §8 将
   `docs/spec/*` 设为只读。实现中曾试改线上形状说明，发现冲突后已完整撤回；最终 spec 无 diff，
   事件形状由 ADR-0101 D6、`ui_ipc.rs` 与共享黄金样本冻结，不改变产品行为。
-- 本轮接续段最终机器统计到显式 `shell="bash"` 误填 **55** 次；均为只读、测试、门禁、guard 或状态
-  查询命令，未通过 bash 写入产品文件。后续命令改用显式 PowerShell。
+- 本轮接续段最终机器统计为显式 `shell="bash"` 误填 **57** 次、`shell="cmd"` 回退 **18** 次；
+  bash 误填均为只读、测试、门禁、guard 或状态查询命令，未通过 bash 写入产品文件。PowerShell
+  网络/启动出现零输出挂起后，按 ADR-0100 回退到有界 `cmd`；后续 correction PR 自身不递归计数。
 
 ### 6. 更合理做法
 
