@@ -24,7 +24,7 @@ use std::sync::{Arc, Mutex};
 use assistant_agent_core::{
     ApprovalGrants, BindingInvoker, EnvelopeObservationCollector, RuntimeBindingState,
     RuntimeExecutionError, RuntimeExecutor, StepExecutionOutcome, TaskPackageProvider,
-    ToolBusInvoker, ToolInvoker,
+    ToolBusInvoker, ToolInvoker, UiEvent,
 };
 use assistant_core::{InstructionAttribution, Planner, PlannerRequest};
 use assistant_model_gateway::{CancellationToken, ModelProvider};
@@ -47,7 +47,7 @@ mod browser_task_support;
 
 use browser_task_approval::{
     BrowserTaskPolicy, FormApprovalPreview, FormReadSnapshot, grant_step_approvals,
-    validate_step_approvals,
+    recorded_approval_events, validate_step_approvals,
 };
 use browser_task_csv::normalize_t5_1_outputs;
 use browser_task_support::{BrowserTaskError, BrowserTaskOptions, BrowserTaskResult, write_output};
@@ -62,6 +62,12 @@ struct BrowserExecution<'arguments> {
     now_ms: i64,
     approved_step_ids: &'arguments [String],
     attribution: InstructionAttribution,
+}
+
+struct BrowserDriveState<'state> {
+    binding_state: &'state Arc<Mutex<RuntimeBindingState>>,
+    latest_snapshot: &'state Arc<Mutex<Option<TaskSnapshot>>>,
+    recorder: &'state Arc<Mutex<BrowserInvocationRecorder>>,
 }
 
 type BrowserExecutor<'bus> = RuntimeExecutor<
@@ -187,7 +193,7 @@ async fn execute_with_bus(
         approved_step_ids,
     )
     .await
-    .map(|(result, _approval_previews)| result)
+    .map(|(result, _approval_previews, _approval_events)| result)
 }
 
 async fn execute_with_bus_and_previews(
@@ -197,7 +203,7 @@ async fn execute_with_bus_and_previews(
     app_id: &str,
     now_ms: i64,
     approved_step_ids: &[String],
-) -> Result<(BrowserTaskResult, Vec<FormApprovalPreview>), BrowserTaskError> {
+) -> Result<(BrowserTaskResult, Vec<FormApprovalPreview>, Vec<UiEvent>), BrowserTaskError> {
     let task_id = provider.task_id().clone();
     let provider_arc: Arc<dyn ModelProvider> = Arc::new(provider.clone());
     let request = PlannerRequest::new(
@@ -254,7 +260,7 @@ async fn execute_plan(
     plan: Plan,
     tool_schemas: Vec<ToolSchema>,
     execution: BrowserExecution<'_>,
-) -> Result<(BrowserTaskResult, Vec<FormApprovalPreview>), BrowserTaskError> {
+) -> Result<(BrowserTaskResult, Vec<FormApprovalPreview>, Vec<UiEvent>), BrowserTaskError> {
     let task_id = plan.task_id.clone();
     let ordered = plan
         .ordered_steps()
@@ -296,8 +302,11 @@ async fn execute_plan(
         executor,
         &task_id,
         &ordered,
-        &binding_state,
-        &latest_snapshot,
+        BrowserDriveState {
+            binding_state: &binding_state,
+            latest_snapshot: &latest_snapshot,
+            recorder: &recorder,
+        },
         execution.now_ms,
     )
     .await?;
@@ -311,6 +320,7 @@ async fn execute_plan(
     }
     let outputs = collect_outputs(provider.dataflow_plan(), &recorder)?;
     let approval_previews = recorded_previews(&recorder)?;
+    let approval_events = recorded_approval_events(&recorder)?;
     Ok((
         BrowserTaskResult {
             task_id: provider.declared_task_id().to_owned(),
@@ -318,6 +328,7 @@ async fn execute_plan(
             steps,
         },
         approval_previews,
+        approval_events,
     ))
 }
 
@@ -345,19 +356,28 @@ async fn drive_steps<'bus>(
     mut executor: BrowserExecutor<'bus>,
     task_id: &TaskId,
     ordered: &[PlanStep],
-    binding_state: &Arc<Mutex<RuntimeBindingState>>,
-    latest_snapshot: &Arc<Mutex<Option<TaskSnapshot>>>,
+    state: BrowserDriveState<'_>,
     now_ms: i64,
 ) -> Result<(BrowserExecutor<'bus>, Vec<Value>), BrowserTaskError> {
     let mut steps = Vec::new();
     for step in ordered {
+        state
+            .recorder
+            .lock()
+            .map_err(|_| {
+                BrowserTaskError::Runtime(RuntimeExecutionError::Tool {
+                    reason: "browser task invocation recorder is unavailable".to_owned(),
+                })
+            })?
+            .prepare_form_submit_approval(task_id, step, now_ms)?;
         let outcome = executor
             .advance(task_id, &step.id, now_ms.saturating_add(3))
             .await?;
         let snapshot = match outcome {
             StepExecutionOutcome::Committed(snapshot) => snapshot,
             other => {
-                binding_state
+                state
+                    .binding_state
                     .lock()
                     .map_err(|_| {
                         BrowserTaskError::Runtime(RuntimeExecutionError::Tool {
@@ -371,7 +391,8 @@ async fn drive_steps<'bus>(
                 });
             }
         };
-        binding_state
+        state
+            .binding_state
             .lock()
             .map_err(|_| {
                 BrowserTaskError::Runtime(RuntimeExecutionError::Tool {
@@ -379,7 +400,7 @@ async fn drive_steps<'bus>(
                 })
             })?
             .commit(step.id.as_str());
-        *latest_snapshot.lock().map_err(|_| {
+        *state.latest_snapshot.lock().map_err(|_| {
             BrowserTaskError::Runtime(RuntimeExecutionError::Tool {
                 reason: "latest task snapshot state is unavailable".to_owned(),
             })
@@ -404,7 +425,9 @@ async fn drive_steps<'bus>(
 struct BrowserInvocationRecorder {
     envelopes: BTreeMap<String, ToolEnvelope>,
     pending_form_read: Option<FormReadSnapshot>,
+    pending_form_approval: Option<FormApprovalPreview>,
     previews: BTreeMap<String, FormApprovalPreview>,
+    approval_events: BTreeMap<String, UiEvent>,
     attribution: InstructionAttribution,
 }
 
@@ -413,7 +436,9 @@ impl BrowserInvocationRecorder {
         Self {
             envelopes: BTreeMap::new(),
             pending_form_read: None,
+            pending_form_approval: None,
             previews: BTreeMap::new(),
+            approval_events: BTreeMap::new(),
             attribution,
         }
     }
@@ -446,6 +471,7 @@ impl BrowserInvocationRecorder {
             let preview =
                 FormApprovalPreview::from_envelopes(&before, envelope, self.attribution.clone())
                     .map_err(|error| preview_runtime_error(step_id, error))?;
+            self.pending_form_approval = Some(preview.clone());
             self.previews.insert(step_id.to_owned(), preview);
         }
         Ok(())

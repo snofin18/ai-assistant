@@ -87,6 +87,27 @@ test("events require the nullable fields Core always sends", () => {
   assert.equal(missing.ok, false);
 });
 
+test("golden step approval event satisfies the strict UI contract", () => {
+  const result = parseUiEvent(fixture("step_approval_requested.json"));
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.value.kind, "step_approval_requested");
+  assert.deepEqual(result.value.scope_options, ["once"]);
+});
+
+test("step approval event rejects illegal attribution and extra fields", () => {
+  const event = fixture("step_approval_requested.json");
+  event.instruction_attribution = {
+    origin: "plan_derived",
+    parent_goal: null,
+    source_ref: null,
+  };
+  assert.equal(parseUiEvent(event).ok, false);
+
+  const withExtra = fixture("step_approval_requested.json");
+  withExtra.raw_fields = [{ selector: "#note", value: "secret" }];
+  assert.equal(parseUiEvent(withExtra).ok, false);
+});
+
 test("outcomes must match a known status", () => {
   assert.equal(
     parseUiCommandOutcome({

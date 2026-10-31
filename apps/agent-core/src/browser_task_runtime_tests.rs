@@ -16,6 +16,7 @@ use std::sync::{Arc, Mutex};
 use assistant_agent_core::{RuntimeDataflowPlan, RuntimeStepBinding, TaskPackageProvider};
 use assistant_core::InstructionAttribution;
 use assistant_protocol::ToolEnvelope;
+use assistant_task_engine::{PlanStep, Reversibility, StepEffect, StepId, StepTimeouts, TaskId};
 use assistant_tool_bus::{
     CallContext, Clock, EnvelopeRequest, EvidenceDescriptor, MountSelection, SystemClock, ToolBus,
     ToolBusConfig, ToolBusError, ToolDefinition, ToolHandler, ToolOutput, ToolRegistry,
@@ -23,6 +24,7 @@ use assistant_tool_bus::{
 };
 use serde_json::{Map, Value, json};
 
+use super::browser_task_approval::recorded_approval_events;
 use super::{
     BrowserInvocationRecorder, BrowserTaskOptions, PLAN_BUDGET_MS, browser_tool_schemas,
     collect_outputs, execute_with_bus, extract_browser_output, recorded_previews, write_output,
@@ -353,6 +355,30 @@ fn test_browser_recorder_consumes_form_fill_evidence_once() -> Result<(), Box<dy
     let rendered = format!("{:?}", previews[0]);
     assert!(rendered.contains("[redacted:3]"));
     assert!(!rendered.contains("Ada"));
+
+    let submit_step = PlanStep {
+        id: StepId::new("submit-form")?,
+        sequence: 4,
+        tool: EDGE_FORM_SUBMIT.to_owned(),
+        args: json!({}),
+        depends_on: Vec::new(),
+        postconditions: Vec::new(),
+        effect: StepEffect::Write,
+        reversibility: Reversibility::L3Irreversible,
+        point_of_no_return: true,
+        timeouts: StepTimeouts::new(500, 2_000, 1_000)?,
+    };
+    recorder
+        .lock()
+        .map_err(|_| fake_error("recorder state is poisoned"))?
+        .prepare_form_submit_approval(&TaskId::new("task-1")?, &submit_step, 10_000)?;
+    let events = recorded_approval_events(&recorder)?;
+    assert_eq!(events.len(), 1);
+    assert!(matches!(
+        events.first(),
+        Some(assistant_agent_core::UiEvent::StepApprovalRequested { step_id, .. })
+            if step_id == "submit-form"
+    ));
 
     let mut dataflow = RuntimeDataflowPlan::new();
     dataflow.insert(

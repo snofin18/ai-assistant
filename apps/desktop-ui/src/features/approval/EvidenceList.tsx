@@ -13,9 +13,13 @@ export function EvidenceList({ evidence, copy }: EvidenceListProps) {
       <ul className="mt-1 flex flex-wrap gap-2 text-sm">
         {evidence.map((entry) => (
           <li className="border border-slate-700 px-2 py-1" key={entry.id}>
-            <a className="underline" href={entry.href}>
-              {copy.evidenceMessages[entry.labelKey] ?? entry.labelKey}
-            </a>
+            {entry.href === null ? (
+              <span>{copy.evidenceMessages[entry.labelKey] ?? entry.labelKey}</span>
+            ) : (
+              <a className="underline" href={entry.href}>
+                {copy.evidenceMessages[entry.labelKey] ?? entry.labelKey}
+              </a>
+            )}
             <span className="ml-2 text-slate-400">{copy.evidenceKindLabels[entry.kind]}</span>
           </li>
         ))}

@@ -11,9 +11,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use assistant_agent_core::{
-    ApprovalGrants, TaskControlHandler, UI_IPC_VERSION, UiAuthorizationScope, UiCommand,
-    UiCommandError, UiCommandHandler, UiCommandOutcome, UiEvent, dispatch_ui_command,
-    parse_ui_command, project_snapshot_events,
+    ApprovalGrants, TaskControlHandler, UI_IPC_VERSION, UiApprovalDiff, UiApprovalReversibility,
+    UiApprovalRisk, UiAuthorizationScope, UiCommand, UiCommandError, UiCommandHandler,
+    UiCommandOutcome, UiEvent, dispatch_ui_command, parse_ui_command, project_snapshot_events,
 };
 use assistant_hitl::ApprovalScope;
 use assistant_platform_api::Fingerprint;
@@ -136,6 +136,37 @@ fn test_golden_fixtures_parse_into_the_contract() {
             task_id: "t_1".to_owned(),
         }
     );
+}
+
+#[test]
+fn test_step_approval_event_fixture_parses_into_the_closed_shape() {
+    let event: UiEvent =
+        serde_json::from_value(fixture("step_approval_requested.json")).expect("approval event");
+    let UiEvent::StepApprovalRequested {
+        request_id,
+        step_id,
+        diff,
+        risk,
+        reversibility,
+        scope_options,
+        evidence,
+        expires_at_ms,
+        ..
+    } = event
+    else {
+        panic!("expected step_approval_requested");
+    };
+    assert_eq!(request_id, "runtime:browser.t5_2.profile:submit_form");
+    assert_eq!(step_id, "submit_form");
+    let UiApprovalDiff::Fields { entries } = *diff;
+    assert_eq!(entries.len(), 2);
+    assert_eq!(entries[0].field, "#display-name");
+    assert_eq!(entries[1].after, "[redacted:5]");
+    assert_eq!(risk, UiApprovalRisk::High);
+    assert_eq!(reversibility, UiApprovalReversibility::L3Irreversible);
+    assert_eq!(scope_options, vec![UiAuthorizationScope::Once]);
+    assert_eq!(evidence.form_origin, "http://127.0.0.1:8765");
+    assert_eq!(expires_at_ms, 4_102_444_800_000);
 }
 
 #[test]

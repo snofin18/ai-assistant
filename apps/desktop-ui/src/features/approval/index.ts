@@ -1,5 +1,6 @@
 export { ApprovalCard } from "./ApprovalCard.js";
 export { toApprovalCommand } from "./approvalCommand.js";
+export { toApprovalCardModel, type StepApprovalRequestedEvent } from "./browserApproval.js";
 export { useApprovalCard } from "./useApprovalCard.js";
 export {
   approvalControllerReducer,

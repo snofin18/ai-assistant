@@ -10,7 +10,10 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use assistant_agent_core::{ApprovalGrants, StepPolicy};
+use assistant_agent_core::{
+    ApprovalGrants, StepPolicy, UiApprovalDiff, UiApprovalReversibility, UiApprovalRisk,
+    UiAuthorizationScope, UiEvent,
+};
 use assistant_core::InstructionAttribution;
 use assistant_hitl::DiffPreview;
 use assistant_policy::{Decision, Effect, PolicyRule, RuleConditions, RuleEffect, RuleId, RuleSet};
@@ -117,6 +120,109 @@ fn test_form_approval_preview_uses_readback_and_redacts_values()
     let rendered = format!("{preview:?}");
     assert!(!rendered.contains("Ada"));
     assert!(!rendered.contains("old"));
+    Ok(())
+}
+
+#[test]
+fn test_form_approval_preview_projects_a_closed_ui_event() -> Result<(), Box<dyn std::error::Error>>
+{
+    let before = FormReadSnapshot::from_envelope(&form_read_envelope())?;
+    let fill = form_fill_envelope(approval_evidence(
+        "http://127.0.0.1:8765",
+        "http://127.0.0.1:8765/submitted",
+        &json!([
+            {"selector": "#name", "before": "", "after": "Ada"},
+            {"selector": "#note", "before": "old", "after": "old"}
+        ]),
+    ))?;
+    let preview = FormApprovalPreview::from_envelopes(
+        &before,
+        &fill,
+        InstructionAttribution::plan_derived("Fill the local profile form")?,
+    )?;
+    let task_id = TaskId::new("task-1")?;
+    let submit_step_id = StepId::new("submit-form")?;
+    let event = preview.to_ui_event(&task_id, &submit_step_id, "edge.cdp.form_submit", 10_000)?;
+    let UiEvent::StepApprovalRequested {
+        request_id,
+        task_id: event_task_id,
+        step_id,
+        action,
+        target,
+        diff,
+        instruction_attribution,
+        risk,
+        reversibility,
+        scope_options,
+        evidence,
+        expires_at_ms,
+        ..
+    } = event
+    else {
+        return Err("expected step approval requested event".into());
+    };
+    assert_eq!(request_id, "runtime:task-1:submit-form");
+    assert_eq!(event_task_id, "task-1");
+    assert_eq!(step_id, "submit-form");
+    assert_eq!(action, "edge.cdp.form_submit");
+    assert_eq!(target, "http://127.0.0.1:8765");
+    let UiApprovalDiff::Fields { entries } = *diff;
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].field, "#name");
+    assert_eq!(entries[0].before, "");
+    assert_eq!(entries[0].after, "[redacted:3]");
+    assert_eq!(instruction_attribution.origin, "plan_derived");
+    assert_eq!(
+        instruction_attribution.parent_goal.as_deref(),
+        Some("Fill the local profile form")
+    );
+    assert_eq!(risk, UiApprovalRisk::High);
+    assert_eq!(reversibility, UiApprovalReversibility::L3Irreversible);
+    assert_eq!(scope_options, vec![UiAuthorizationScope::Once]);
+    assert_eq!(evidence.form_origin, "http://127.0.0.1:8765");
+    assert_eq!(evidence.form_action, "http://127.0.0.1:8765/submitted");
+    assert_eq!(expires_at_ms, 310_000);
+    let rendered = serde_json::to_string(&preview.to_ui_event(
+        &task_id,
+        &submit_step_id,
+        "edge.cdp.form_submit",
+        10_000,
+    )?)?;
+    assert!(rendered.contains("[redacted:3]"));
+    assert!(!rendered.contains("Ada"));
+    assert!(!rendered.contains("\"old\""));
+    assert!(!rendered.contains(APPROVAL_READBACK_EVIDENCE_KEY));
+    Ok(())
+}
+
+#[test]
+fn test_form_approval_event_rejects_invalid_action() -> Result<(), Box<dyn std::error::Error>> {
+    let before = FormReadSnapshot::from_envelope(&form_read_envelope())?;
+    let fill = form_fill_envelope(approval_evidence(
+        "http://127.0.0.1:8765",
+        "http://127.0.0.1:8765/submitted",
+        &json!([
+            {"selector": "#name", "before": "", "after": "Ada"},
+            {"selector": "#note", "before": "old", "after": "old"}
+        ]),
+    ))?;
+    let preview = FormApprovalPreview::from_envelopes(
+        &before,
+        &fill,
+        InstructionAttribution::user_request(),
+    )?;
+    let error = preview
+        .to_ui_event(
+            &TaskId::new("task-1")?,
+            &StepId::new("submit-form")?,
+            "edge.cdp.form_submit extra",
+            10_000,
+        )
+        .expect_err("whitespace in an action identifier must fail closed");
+    assert!(matches!(
+        error,
+        FormApprovalPreviewError::InvalidEvent { .. }
+    ));
     Ok(())
 }
 

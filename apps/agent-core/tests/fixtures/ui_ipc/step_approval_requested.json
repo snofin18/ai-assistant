@@ -1,0 +1,38 @@
+{
+  "kind": "step_approval_requested",
+  "request_id": "runtime:browser.t5_2.profile:submit_form",
+  "task_id": "browser.t5_2.profile",
+  "step_id": "submit_form",
+  "action": "edge.cdp.form_submit",
+  "target": "http://127.0.0.1:8765",
+  "summary": "Submit 2 changed form fields to http://127.0.0.1:8765/submitted",
+  "impact": "Submitting to http://127.0.0.1:8765/submitted cannot be automatically undone.",
+  "diff": {
+    "kind": "fields",
+    "entries": [
+      {
+        "field": "#display-name",
+        "before": "",
+        "after": "[redacted:3]"
+      },
+      {
+        "field": "#note",
+        "before": "[redacted:3]",
+        "after": "[redacted:5]"
+      }
+    ]
+  },
+  "instruction_attribution": {
+    "origin": "plan_derived",
+    "parent_goal": "Fill and submit the local profile form",
+    "source_ref": null
+  },
+  "risk": "high",
+  "reversibility": "l3_irreversible",
+  "scope_options": ["once"],
+  "evidence": {
+    "form_origin": "http://127.0.0.1:8765",
+    "form_action": "http://127.0.0.1:8765/submitted"
+  },
+  "expires_at_ms": 4102444800000
+}
