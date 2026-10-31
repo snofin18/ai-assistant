@@ -1,6 +1,6 @@
 # TASK-352 Browser form approval preview and attribution
 
-- 状态：**Blocked**
+- 状态：**Ready**
 - 阶段：1　子阶段：**1c**　批次：**1c**　依赖：344、346、347、348、349、351　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -133,7 +133,7 @@ DRIFT-352-1
 
 ### 7. 遗留问题
 
-- 等待 DRIFT-352-1 裁决后，再决定是否新增 form_fill 内部 readback 契约卡。
+- `DRIFT-352-1` 已由 ADR-0103 / TASK-353 关闭；实现时从 `form_fill` evidence.extra 消费 readback。
 - UI `step_approval_requested`、once grant 消费和 loopback 任务链仍由后续卡承接。
 
 ### 8. 新增长期记忆
