@@ -71,9 +71,9 @@ export type ApprovalDiff =
 
 export interface ApprovalEvidence {
   id: string;
-  kind: "tree_snapshot" | "screenshot" | "log";
+  kind: "tree_snapshot" | "screenshot" | "log" | "form_state";
   labelKey: string;
-  href: string;
+  href: string | null;
 }
 
 export interface ApprovalUndoPlan {
@@ -423,10 +423,10 @@ function parseEvidence(value: unknown, errors: string[]): ApprovalEvidence[] | n
       !isRecord(entry) ||
       typeof entry.id !== "string" ||
       entry.id.trim() === "" ||
-      !isEnumValue(entry.kind, ["tree_snapshot", "screenshot", "log"] as const) ||
+      !isEnumValue(entry.kind, ["tree_snapshot", "screenshot", "log", "form_state"] as const) ||
       typeof entry.labelKey !== "string" ||
       entry.labelKey.trim() === "" ||
-      !isSafeEvidenceHref(entry.href)
+      (entry.href !== null && !isSafeEvidenceHref(entry.href))
     ) {
       errors.push("evidence entry is malformed");
       return null;

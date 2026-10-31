@@ -177,3 +177,21 @@ test("test_parse_approval_card_external_evidence_link_is_rejected", () => {
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /evidence entry is malformed/);
 });
+
+test("test_parse_approval_card_accepts_in_memory_form_state_evidence", () => {
+  const result = parseApprovalCardModel(
+    createModel({
+      evidence: [
+        {
+          id: "form-state:approval-1",
+          kind: "form_state",
+          labelKey: "approval.evidence.form_state",
+          href: null,
+        },
+      ],
+    }),
+  );
+  assert.equal(result.ok, true);
+  assert.equal(result.model.evidence[0]?.kind, "form_state");
+  assert.equal(result.model.evidence[0]?.href, null);
+});

@@ -55,6 +55,76 @@ impl UiAuthorizationScope {
     }
 }
 
+/// Risk level carried by a browser form approval event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UiApprovalRisk {
+    /// Low-risk action.
+    Low,
+    /// Medium-risk action.
+    Medium,
+    /// High-risk action.
+    High,
+    /// Critical action.
+    Critical,
+}
+
+/// Reversibility level carried by a browser form approval event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UiApprovalReversibility {
+    /// Undo through the target application's undo stack.
+    L0UndoStack,
+    /// Restore from a content snapshot.
+    L1ContentSnapshot,
+    /// Restore from a shadow copy or compensation.
+    L2ShadowCopy,
+    /// No automatic undo path exists.
+    L3Irreversible,
+}
+
+/// One redacted field change shown in a browser form approval event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UiApprovalFieldDiff {
+    /// Stable form field selector.
+    pub field: String,
+    /// Redacted previous value.
+    pub before: String,
+    /// Redacted next value.
+    pub after: String,
+}
+
+/// Structured diff attached to a browser form approval event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum UiApprovalDiff {
+    /// Field-level before/after values.
+    Fields {
+        /// Changed fields only.
+        entries: Vec<UiApprovalFieldDiff>,
+    },
+}
+
+/// Validated instruction attribution projected into a UI event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UiInstructionAttribution {
+    /// Stable origin token.
+    pub origin: String,
+    /// Parent goal required for `plan_derived`.
+    pub parent_goal: Option<String>,
+    /// Source reference required for `app_content` / `tool_suggestion`.
+    pub source_ref: Option<String>,
+}
+
+/// Minimal form evidence safe to expose in a browser form approval event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UiFormEvidence {
+    /// Absolute HTTP(S) form origin.
+    pub form_origin: String,
+    /// Absolute HTTP(S) form action.
+    pub form_action: String,
+}
+
 /// Command the desktop UI may send to Core.
 ///
 /// The wire shape is the envelope documented by [`parse_ui_command`]:
@@ -277,6 +347,37 @@ pub enum UiEvent {
         phase: Option<String>,
         /// Post-step fingerprint recorded after verification.
         post_fingerprint: Option<String>,
+    },
+    /// A high-risk browser form action is waiting for one explicit approval.
+    StepApprovalRequested {
+        /// Stable approval request identifier.
+        request_id: String,
+        /// Task identifier.
+        task_id: String,
+        /// Step identifier awaiting approval.
+        step_id: String,
+        /// Tool or action identifier.
+        action: String,
+        /// Human-readable target label.
+        target: String,
+        /// Short action summary.
+        summary: String,
+        /// Point-of-no-return impact summary.
+        impact: String,
+        /// Redacted field-level diff.
+        diff: Box<UiApprovalDiff>,
+        /// Validated instruction attribution.
+        instruction_attribution: Box<UiInstructionAttribution>,
+        /// Risk level.
+        risk: UiApprovalRisk,
+        /// Reversibility level.
+        reversibility: UiApprovalReversibility,
+        /// Scopes the user may select.
+        scope_options: Vec<UiAuthorizationScope>,
+        /// Minimal form evidence.
+        evidence: UiFormEvidence,
+        /// Approval expiry timestamp in Unix milliseconds.
+        expires_at_ms: i64,
     },
 }
 

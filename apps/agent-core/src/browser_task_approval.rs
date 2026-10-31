@@ -78,6 +78,9 @@ pub(super) enum FormApprovalPreviewError {
     /// The readback contained no changed fields.
     #[error("form_fill produced no changed fields for an approval preview")]
     EmptyDiff,
+    /// The approval event could not be constructed from the validated preview.
+    #[error("browser form approval event is invalid: {reason}")]
+    InvalidEvent { reason: String },
 }
 
 impl FormReadSnapshot {
@@ -565,6 +568,10 @@ const fn policy_reversibility(reversibility: ToolReversibility) -> Reversibility
         _ => Reversibility::L3Irreversible,
     }
 }
+
+#[path = "browser_task_approval_event.rs"]
+mod event;
+pub(super) use event::recorded_approval_events;
 
 #[cfg(test)]
 #[path = "browser_task_approval_tests.rs"]

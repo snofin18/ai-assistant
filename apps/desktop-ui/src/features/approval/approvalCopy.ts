@@ -40,7 +40,7 @@ export interface ApprovalCardCopy {
   authorizationScopeLabel: string;
   scopeLabels: Record<AuthorizationScope, string>;
   evidenceLabel: string;
-  evidenceKindLabels: Record<"tree_snapshot" | "screenshot" | "log", string>;
+  evidenceKindLabels: Record<"tree_snapshot" | "screenshot" | "log" | "form_state", string>;
   evidenceMessages: Record<string, string>;
   expiredWarning: string;
   validationErrorLabel: string;
