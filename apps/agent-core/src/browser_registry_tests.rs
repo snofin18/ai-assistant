@@ -85,6 +85,8 @@ impl BrowserCdpRuntime for FakeRuntime {
                 json!({
                     "filled_fields": 1,
                     "submitted": false,
+                    "form_origin": "http://127.0.0.1:8765",
+                    "form_action": "http://127.0.0.1:8765/submitted",
                     "fields": [{
                         "selector": "#full-name",
                         "requested": "Ada",
@@ -317,6 +319,18 @@ async fn call_edge_form_tools(bus: &ToolBus, call: &CallContext) -> Result<(), T
             .and_then(|data| data.get("submitted"))
             .and_then(Value::as_bool),
         Some(false)
+    );
+    assert!(
+        form.evidence
+            .as_ref()
+            .and_then(|evidence| evidence.extra.as_ref())
+            .and_then(|extra| extra.get("assistant.browser_form_fill.approval_readback.v1"))
+            .is_some()
+    );
+    assert!(
+        form_data
+            .and_then(|data| data.get("assistant.browser_form_fill.approval_readback.v1"))
+            .is_none()
     );
     let read = bus
         .call_tool(

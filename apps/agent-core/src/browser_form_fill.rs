@@ -10,13 +10,13 @@ use std::time::Instant;
 
 use assistant_platform_api::{CdpDomSnapshot, ErrorCode, PlatformError};
 use assistant_protocol::serde_json;
-use assistant_tool_bus::{CallContext, ToolBusError, ToolHandler, ToolOutput};
+use assistant_tool_bus::{CallContext, EvidenceDescriptor, ToolBusError, ToolHandler, ToolOutput};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::{
     BrowserCdpRuntime, BrowserHandlerContext, CDP_TARGET_FINGERPRINT_SCOPE, elapsed_millis,
-    fingerprint_value,
+    fingerprint_value, validate_http_url,
 };
 use crate::handler_support as support;
 
@@ -24,6 +24,7 @@ const MAX_FORM_FIELDS: usize = 100;
 const MAX_SELECTOR_BYTES: usize = 4 * 1024;
 const MAX_VALUE_BYTES: usize = 16 * 1024;
 const MAX_TOTAL_VALUE_BYTES: usize = 64 * 1024;
+const APPROVAL_READBACK_EVIDENCE_KEY: &str = "assistant.browser_form_fill.approval_readback.v1";
 
 pub struct FormFillHandler<R> {
     pub(crate) context: std::sync::Arc<BrowserHandlerContext<R>>,
@@ -49,6 +50,10 @@ struct FormFillPayload {
     filled_fields: Option<u64>,
     #[serde(default)]
     submitted: Option<bool>,
+    #[serde(default)]
+    form_origin: Option<String>,
+    #[serde(default)]
+    form_action: Option<String>,
     #[serde(default)]
     fields: Vec<FieldState>,
 }
@@ -97,7 +102,7 @@ where
                     self.tool_name
                 ),
             })?;
-        let filled_fields = validate_form_fill_payload(&fields, &payload, &self.tool_name)?;
+        let validated = validate_form_fill_payload(&fields, &payload, &self.tool_name)?;
         let previous_fingerprint = fingerprint_value(&json!({
             "cdp": cdp_identity(&before),
             "fields": payload.fields.iter().map(|state| json!({
@@ -113,14 +118,24 @@ where
             })).collect::<Vec<_>>(),
         }))?;
         Ok(ToolOutput::json(json!({
-            "filled_fields": filled_fields,
+            "filled_fields": validated.filled_fields,
             "submitted": false,
             "fingerprint_scope": CDP_TARGET_FINGERPRINT_SCOPE,
             "fingerprint": fingerprint,
             "previous_fingerprint": previous_fingerprint,
             "elapsed_ms": elapsed_millis(started.elapsed()),
-        })))
+        }))
+        .with_evidence(EvidenceDescriptor {
+            extra: Some(approval_readback_evidence(&payload, &validated)),
+            ..EvidenceDescriptor::default()
+        }))
     }
+}
+
+struct ValidatedFormFill<'payload> {
+    filled_fields: u64,
+    form_origin: &'payload str,
+    form_action: &'payload str,
 }
 
 fn parse_fields(
@@ -197,16 +212,18 @@ fn parse_field(value: &Value, tool: &str) -> Result<FieldSpec, ToolBusError> {
     })
 }
 
-fn validate_form_fill_payload(
+fn validate_form_fill_payload<'payload>(
     fields: &[FieldSpec],
-    payload: &FormFillPayload,
+    payload: &'payload FormFillPayload,
     tool: &str,
-) -> Result<u64, ToolBusError> {
+) -> Result<ValidatedFormFill<'payload>, ToolBusError> {
     if let Some(error) = payload.error.as_deref() {
         let code = match error {
             "not_found" => ErrorCode::TargetNotFound,
             "ambiguous" | "no_option" => ErrorCode::TargetAmbiguous,
-            "unsupported" | "forbidden" | "invalid_selector" => ErrorCode::ToolInvalidArgs,
+            "unsupported" | "forbidden" | "invalid_selector" | "no_form" | "cross_form" => {
+                ErrorCode::ToolInvalidArgs
+            }
             _ => ErrorCode::VerifyFailed,
         };
         return Err(support::map_platform_error(
@@ -241,8 +258,41 @@ fn validate_form_fill_payload(
             ),
         });
     }
+    let form_origin = payload
+        .form_origin
+        .as_deref()
+        .ok_or_else(|| invalid_form_fill_result(tool, "form fill returned no form origin"))?;
+    let form_action = payload
+        .form_action
+        .as_deref()
+        .ok_or_else(|| invalid_form_fill_result(tool, "form fill returned no form action"))?;
+    validate_form_origin(form_origin, tool)?;
+    validate_form_action(form_action, tool)?;
     validate_field_states(fields, &payload.fields, tool)?;
-    Ok(filled_fields)
+    Ok(ValidatedFormFill {
+        filled_fields,
+        form_origin,
+        form_action,
+    })
+}
+
+fn approval_readback_evidence(
+    payload: &FormFillPayload,
+    validated: &ValidatedFormFill<'_>,
+) -> Value {
+    let readback = json!({
+        "form_origin": validated.form_origin,
+        "form_action": validated.form_action,
+        "fields": payload.fields.iter().map(|state| json!({
+            "selector": state.selector,
+            "before": state.before,
+            "after": state.after,
+        })).collect::<Vec<_>>(),
+    });
+    Value::Object(serde_json::Map::from_iter([(
+        APPROVAL_READBACK_EVIDENCE_KEY.to_owned(),
+        readback,
+    )]))
 }
 
 fn has_forbidden_control(value: &str) -> bool {
@@ -252,16 +302,7 @@ fn has_forbidden_control(value: &str) -> bool {
 }
 
 fn form_fill_expression(fields: &[FieldSpec]) -> Result<String, ToolBusError> {
-    let field_json = serde_json::to_string(
-        &fields
-            .iter()
-            .map(|field| json!({ "selector": field.selector, "value": field.value }))
-            .collect::<Vec<_>>(),
-    )
-    .map_err(|error| ToolBusError::Mcp {
-        code: -32_000,
-        message: format!("form field serialization failed: {error}"),
-    })?;
+    let field_json = serialize_field_specs(fields)?;
     Ok(format!(
         "(() => {{ const specs = {field_json}; \
          const allowed = new Set(['text','search','email','url','tel','number','date','time',\
@@ -288,10 +329,29 @@ fn form_fill_expression(fields: &[FieldSpec]) -> Result<String, ToolBusError> {
            }} else if (!element.isContentEditable) {{ \
              return {{ error:'unsupported', selector:spec.selector }}; \
            }} \
-           return {{ element, selector:spec.selector, requested:spec.value, matched_by:matchedBy, expected }}; }}; \
+           const form = element.form instanceof HTMLFormElement ? element.form : \
+             element.closest('form'); \
+           if (!(form instanceof HTMLFormElement)) {{ \
+             return {{ error:'no_form', selector:spec.selector }}; \
+           }} \
+           return {{ element, form, selector:spec.selector, requested:spec.value, \
+             matched_by:matchedBy, expected }}; }}; \
          const resolved = specs.map(resolve); \
          const failed = resolved.find((item) => item.error); \
          if (failed) return JSON.stringify(failed); \
+         const form = resolved[0].form; \
+         if (resolved.some((item) => item.form !== form)) {{ \
+           return JSON.stringify({{ error:'cross_form' }}); \
+         }} \
+         let actionUrl; \
+         try {{ actionUrl = new URL(form.getAttribute('action') || location.href, location.href); }} \
+         catch (_) {{ return JSON.stringify({{ error:'invalid_action' }}); }} \
+         if (!['http:','https:'].includes(location.protocol) || \
+             !['http:','https:'].includes(actionUrl.protocol) || \
+             actionUrl.username || actionUrl.password || actionUrl.hash) {{ \
+           return JSON.stringify({{ error:'invalid_action' }}); \
+         }} \
+         const action = actionUrl.href; \
          const states = resolved.map((item) => ({{
            element:item.element, selector:item.selector, requested:item.requested,
            matched_by:item.matched_by, expected:item.expected, before:read(item.element),
@@ -310,10 +370,24 @@ fn form_fill_expression(fields: &[FieldSpec]) -> Result<String, ToolBusError> {
            state.element.dispatchEvent(new Event('change', {{ bubbles:true }})); \
          }} }} catch (_) {{ return JSON.stringify({{ error:'write_failed' }}); }} \
          return JSON.stringify({{ filled_fields:states.length, submitted:false, \
+           form_origin:location.origin, form_action:action, \
            fields:states.map((state) => ({{ selector:state.selector, requested:state.requested, \
              matched_by:state.matched_by, before:state.before, expected:state.expected, \
              after:state.after }})) }}); }})()"
     ))
+}
+
+fn serialize_field_specs(fields: &[FieldSpec]) -> Result<String, ToolBusError> {
+    serde_json::to_string(
+        &fields
+            .iter()
+            .map(|field| json!({ "selector": field.selector, "value": field.value }))
+            .collect::<Vec<_>>(),
+    )
+    .map_err(|error| ToolBusError::Mcp {
+        code: -32_000,
+        message: format!("form field serialization failed: {error}"),
+    })
 }
 
 fn validate_field_states(
@@ -327,6 +401,7 @@ fn validate_field_states(
             "form fill did not return every requested field",
         ));
     }
+    let mut total_value_bytes = 0usize;
     for (field, state) in fields.iter().zip(states) {
         if state.selector != field.selector {
             return Err(invalid_form_fill_result(
@@ -338,6 +413,34 @@ fn validate_field_states(
             return Err(invalid_form_fill_result(
                 tool,
                 "form fill returned a field that does not match the request",
+            ));
+        }
+        if state.selector.len() > MAX_SELECTOR_BYTES || has_forbidden_control(&state.selector) {
+            return Err(invalid_form_fill_result(
+                tool,
+                "form fill returned an invalid field selector",
+            ));
+        }
+        for value in [
+            state.requested.as_str(),
+            state.expected.as_str(),
+            state.before.as_str(),
+            state.after.as_str(),
+        ] {
+            if value.len() > MAX_VALUE_BYTES || has_forbidden_control(value) {
+                return Err(invalid_form_fill_result(
+                    tool,
+                    "form fill returned a field value outside its safe bound",
+                ));
+            }
+        }
+        total_value_bytes = total_value_bytes
+            .saturating_add(state.before.len())
+            .saturating_add(state.after.len());
+        if total_value_bytes > MAX_TOTAL_VALUE_BYTES {
+            return Err(invalid_form_fill_result(
+                tool,
+                "form fill readback exceeds 64 KiB",
             ));
         }
         let expected_matches = match state.matched_by {
@@ -361,6 +464,44 @@ fn invalid_form_fill_result(tool: &str, reason: &str) -> ToolBusError {
     }
 }
 
+fn validate_form_origin(origin: &str, tool: &str) -> Result<(), ToolBusError> {
+    validate_http_url(origin, tool)?;
+    if http_origin_prefix(origin) != Some(origin) {
+        return Err(invalid_form_fill_result(
+            tool,
+            "form fill returned a form origin with a path or userinfo",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_form_action(action: &str, tool: &str) -> Result<(), ToolBusError> {
+    validate_http_url(action, tool)?;
+    if action.contains('#') || http_origin_prefix(action).is_none() {
+        return Err(invalid_form_fill_result(
+            tool,
+            "form fill returned an unsafe form action",
+        ));
+    }
+    Ok(())
+}
+
+fn http_origin_prefix(url: &str) -> Option<&str> {
+    let scheme_end = url.find("://")?;
+    let scheme = url.get(..scheme_end)?;
+    if !scheme.eq_ignore_ascii_case("http") && !scheme.eq_ignore_ascii_case("https") {
+        return None;
+    }
+    let authority_start = scheme_end.checked_add(3)?;
+    let remainder = url.get(authority_start..)?;
+    let authority_end = remainder.find(['/', '?', '#']).unwrap_or(remainder.len());
+    let authority = remainder.get(..authority_end)?;
+    if authority.is_empty() || authority.contains('@') || authority.contains('\\') {
+        return None;
+    }
+    url.get(..authority_start.checked_add(authority_end)?)
+}
+
 fn cdp_identity(snapshot: &CdpDomSnapshot) -> Value {
     json!({
         "url": snapshot.target_url(),
@@ -371,6 +512,8 @@ fn cdp_identity(snapshot: &CdpDomSnapshot) -> Value {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::indexing_slicing)]
+
     use super::*;
 
     fn field(selector: &str, value: &str) -> FieldSpec {
@@ -392,7 +535,91 @@ mod tests {
             assert!(expression.contains("HTMLSelectElement"));
             assert!(expression.contains("fields:states.map"));
             assert!(!expression.contains("fields:states }}"));
+            assert!(expression.contains("cross_form"));
+            assert!(expression.contains("no_form"));
+            assert!(expression.contains("form_origin:location.origin"));
+            assert!(expression.contains("form_action:action"));
         }
+    }
+
+    #[test]
+    fn test_form_fill_approval_evidence_contains_only_readback_fields() {
+        let payload = FormFillPayload {
+            error: None,
+            selector: None,
+            message: None,
+            filled_fields: Some(1),
+            submitted: Some(false),
+            form_origin: Some("http://127.0.0.1:8765".to_owned()),
+            form_action: Some("http://127.0.0.1:8765/submitted".to_owned()),
+            fields: vec![FieldState {
+                selector: "#name".to_owned(),
+                requested: "Ada".to_owned(),
+                matched_by: FieldMatchKind::Direct,
+                before: String::new(),
+                expected: "Ada".to_owned(),
+                after: "Ada".to_owned(),
+            }],
+        };
+        let validated = ValidatedFormFill {
+            filled_fields: 1,
+            form_origin: "http://127.0.0.1:8765",
+            form_action: "http://127.0.0.1:8765/submitted",
+        };
+        let evidence = approval_readback_evidence(&payload, &validated);
+        let readback = &evidence[APPROVAL_READBACK_EVIDENCE_KEY];
+        assert_eq!(readback["form_origin"], "http://127.0.0.1:8765");
+        assert_eq!(readback["form_action"], "http://127.0.0.1:8765/submitted");
+        assert_eq!(readback["fields"][0]["selector"], "#name");
+        assert_eq!(readback["fields"][0]["before"], "");
+        assert_eq!(readback["fields"][0]["after"], "Ada");
+        assert!(readback["fields"][0].get("requested").is_none());
+        assert!(readback["fields"][0].get("matched_by").is_none());
+        assert!(readback["fields"][0].get("expected").is_none());
+    }
+
+    #[test]
+    fn test_form_fill_payload_requires_http_origin_and_action() {
+        let fields = vec![field("#name", "Ada")];
+        let mut payload = FormFillPayload {
+            error: None,
+            selector: None,
+            message: None,
+            filled_fields: Some(1),
+            submitted: Some(false),
+            form_origin: Some("file:///tmp/form".to_owned()),
+            form_action: Some("http://127.0.0.1:8765/submitted".to_owned()),
+            fields: vec![FieldState {
+                selector: "#name".to_owned(),
+                requested: "Ada".to_owned(),
+                matched_by: FieldMatchKind::Direct,
+                before: String::new(),
+                expected: "Ada".to_owned(),
+                after: "Ada".to_owned(),
+            }],
+        };
+        assert!(validate_form_fill_payload(&fields, &payload, "edge.cdp.form_fill").is_err());
+        payload.form_origin = Some("http://127.0.0.1:8765".to_owned());
+        payload.form_action = Some("javascript:alert(1)".to_owned());
+        assert!(validate_form_fill_payload(&fields, &payload, "edge.cdp.form_fill").is_err());
+        payload.form_action = Some("http://user:secret@127.0.0.1:8765/submitted".to_owned());
+        assert!(validate_form_fill_payload(&fields, &payload, "edge.cdp.form_fill").is_err());
+        payload.form_action = Some("http://127.0.0.1:8765/submitted#fragment".to_owned());
+        assert!(validate_form_fill_payload(&fields, &payload, "edge.cdp.form_fill").is_err());
+    }
+
+    #[test]
+    fn test_form_fill_readback_rejects_values_over_fixed_bound() {
+        let fields = vec![field("#name", "Ada")];
+        let states = vec![FieldState {
+            selector: "#name".to_owned(),
+            requested: "Ada".to_owned(),
+            matched_by: FieldMatchKind::Direct,
+            before: String::new(),
+            expected: "Ada".to_owned(),
+            after: "x".repeat(MAX_VALUE_BYTES + 1),
+        }];
+        assert!(validate_field_states(&fields, &states, "edge.cdp.form_fill").is_err());
     }
 
     #[test]
