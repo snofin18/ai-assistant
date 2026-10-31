@@ -1,7 +1,7 @@
 # spec: 浏览器表单确认与提交（browser-form-confirmation）
 
 > 摘要：冻结 T5.2 的只读表单快照、填写后字段 diff、来源归因、一次性人工审批与专用同源提交。
-> 状态：Draft（ADR-0101 / ADR-0102 Accepted）　版本：0.2　日期：2026-10-30
+> 状态：Draft（ADR-0101 / ADR-0102 / ADR-0103 Accepted）　版本：0.3　日期：2026-10-31
 > 上位：`AGENTS.md` 铁律 1/2/3/4/6/10、ADR-0048、ADR-0055、ADR-0060、ADR-0082、ADR-0101、ADR-0102
 > 强制性：TASK-057 实现卡必须按本文落代码和测试；违反由 Reviewer 拒绝。
 > 变更门槛：改变工具名、效果 / 风险 / 可逆性、审批入口、diff 结构或提交状态机 → 需 ADR。
@@ -35,6 +35,10 @@
 
 保持 TASK-343：全部字段预校验后写入、逐字段 readback、固定 `submitted=false`。
 不允许增加隐式提交参数，表达式不得出现 `submit` / `requestSubmit` / `click`。
+成功 readback 后，所有字段必须属于同一个 `HTMLFormElement`；handler 把
+`form_origin`、绝对 `form_action` 与逐字段 `selector/before/after` 写入
+`ToolEnvelope.evidence.extra` 的
+`assistant.browser_form_fill.approval_readback.v1`。模型可见 `data` / schema 不变。
 
 ### 2.3 `form_submit`
 
@@ -72,9 +76,12 @@ schema 固定 `effect=write`、`l3_irreversible`、`high`、`requires_approval=t
 
 ## 3. Diff 与来源归因
 
-仅在 `form_fill` 的逐字段 readback 验证后，RuntimeExecutor 用 `form_read` before 与已验证
-readback after 构造 `hitl::DiffPreview::Fields`。字段先按 DLP 脱敏；不变字段不进入 diff；
-空 diff 不允许进入提交审批。模型摘要、页面可见文本和字符串猜测都不能充当字段值。
+仅在 `form_fill` 的逐字段 readback 验证后，RuntimeExecutor 用 `form_read` before 与
+`evidence.extra` 中的已验证 readback after 构造 `hitl::DiffPreview::Fields`。证据必须与
+before 的 origin/action、selector 顺序和数量、before 值精确匹配，并且只能一次性消费。
+原始字段值不得进入模型、日志、审计、DB、任务输出或 replay；preview 默认把每个非空值
+替换为 `[redacted:<utf8-bytes>]`，空值保留空串。不变字段不进入 diff；空 diff 不允许
+进入提交审批。模型摘要、页面可见文本和字符串猜测都不能充当字段值。
 
 来源归因复用 `assistant_core::InstructionAttribution` 的封闭四元组：`user_request`、
 `plan_derived`（必须有 parent goal）、`app_content` / `tool_suggestion`（必须有 source ref）。
@@ -114,6 +121,7 @@ fixture 由测试启动器绑定 `127.0.0.1` 临时端口，固定三个合成�
 | form_read 字段缺失 / 重复 / 歧义 / 越界 / 禁止控件 | 失败，表单不变 |
 | form_fill 两个字段 | `filled_fields=2`、`submitted=false`、readback 一致 |
 | diff | before 来自 form_read，after 来自 readback；不变字段不进入 |
+| fill 成功但 evidence 缺失 / 重复 / 跨 form / origin/action 漂移 | 不生成可批准 preview；submit calls = 0 |
 | deny / timeout / replay / 非 once | submit handler 调用次数 = 0 |
 | origin / action / field state 漂移 | 点击前失败 |
 | 正常批准一次 | 点击恰好一次，postcondition 成功后 `submitted=true` |
@@ -130,3 +138,4 @@ fixture 由测试启动器绑定 `127.0.0.1` 临时端口，固定三个合成�
 |---|---|---|
 | 0.1 | 2026-10-29 | ADR-0101 / TASK-344：建立 form_read / form_fill / form_submit、diff、归因与一次审批契约 |
 | 0.2 | 2026-10-30 | ADR-0102 / TASK-351：增加提交前后真实 identity fingerprint 与 task-package `state_changed` 契约 |
+| 0.3 | 2026-10-31 | ADR-0103 / TASK-353：增加 form_fill 审批专用 readback evidence、一次性消费与模型不可见边界 |

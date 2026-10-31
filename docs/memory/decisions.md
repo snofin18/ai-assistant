@@ -308,3 +308,7 @@
 ## 2026-10-29 追加（ADR-0101，Accepted）
 
 - [2026-10-29][DECISION][src:ADR-0101，人类 2026-10-29 确认；TASK-344] **浏览器 T5.2 表单链路固定为 `form_read` → `form_fill` → 字段 diff + 已校验归因 → `form_submit` 一次性人工审批**：`form_fill` 保持 TASK-343 的“有界写入、逐字段 readback、永不提交”，`form_read` 只返回有界允许控件的快照，`form_submit` 固定 high / L3 irreversible / requires_approval / 非幂等且只允许 `once`。提交前必须在同一 DOM 表达式内复验唯一 form / submit、同源绝对 action、预期字段状态；跨 origin、歧义、字段漂移或任何不允许控件在点击前 fail-closed。点击后未知状态进入 `NeedsHuman` / `UserInteraction`，禁止自动重试。approval UI 只接收已校验 `InstructionAttribution`，`app_content` 默认拒绝且覆盖不放宽 policy；自动验收只使用 `127.0.0.1` 三字段 loopback fixture。
+
+## 2026-10-31 追加（ADR-0103，Accepted）
+
+- [2026-10-31][DECISION][src:ADR-0103，人类 2026-10-31“继续下一步”；TASK-353] **form_fill 审批 readback 使用 `ToolEnvelope.evidence.extra` 内部通道**：固定键 `assistant.browser_form_fill.approval_readback.v1`，只含同一 form 的 `form_origin` / `form_action` / 逐字段 `selector,before,after`；公共 `data` / schema 不变。Runtime 严格解析并一次性消费，证据不得进入模型、日志、审计、DB、任务输出或 replay。preview 必须匹配 `form_read` before，原始值不得进入 `DiffPreview::Fields`；当前最小 redactor 将所有非空值替换为 `[redacted:<utf8-bytes>]`。证据缺失、重复、跨 form 或漂移一律不生成可批准 preview。

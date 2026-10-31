@@ -122,8 +122,9 @@
 | **0100** | `0100-powershell-guard-and-openai-proxy-fallback.md` | **Accepted** | Windows `PreToolUse` hook 把每个 Bash 工具调用重写为显式 Windows PowerShell `-EncodedCommand`，绕过宿主不暴露 `shell` 字段且会忽略 `updatedInput.shell` 的限制；OpenAI 官方文档直连失败后按 `HTTPS_PROXY` / `HTTP_PROXY` → `127.0.0.1:30000` 有界回退（人类 2026-10-29 要求彻底解决频繁 bash 误用，并允许 OpenAI 页面走代理；TASK-342） |
 | **0101** | `0101-browser-form-confirmation-and-submit-contract.md` | **Accepted** | T5.2 表单链路固定为 `form_read` 只读快照 → `form_fill` 有界填写且永不提交 → 字段 diff + 已校验来源归因 → 高风险 `form_submit` 仅 `once` 人工批准 → 同源 action + 字段状态复验后点击一次；点击后未知状态交人，不自动重试（人类 2026-10-29 确认；TASK-344） |
 | **0102** | `0102-browser-form-submit-observation-fingerprint.md` | **Accepted** | 修订 ADR-0101 的 `form_submit` 输出边界：提交前后观察真实 `location.href` / `document.title` / `performance.timeOrigin`，生成 `cdp_target` identity fingerprint；输出增加 observation 元数据并允许 task package 使用 `state_changed`，不得用结果哈希或放宽 Runtime 规则替代（人类 2026-10-30“继续下一步”与既有预授权；TASK-351） |
+| **0103** | `0103-browser-form-fill-approval-readback-evidence.md` | **Accepted** | 保持 `form_fill` 公共 data/schema 不变，把成功 readback 放入 `ToolEnvelope.evidence.extra` 的固定审批命名空间；所有字段必须同 form，证据一次性消费且不得进入模型、日志、审计、DB、任务输出或 replay；preview 默认全值脱敏（人类 2026-10-31“继续下一步”；TASK-353） |
 
-**下一个可用编号：0103**（= §1 与 §2 已用最大号 **0102** + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0104**（= §1 与 §2 已用最大号 **0103** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由
