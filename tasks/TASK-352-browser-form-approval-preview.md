@@ -1,6 +1,6 @@
 # TASK-352 Browser form approval preview and attribution
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：**1c**　批次：**1c**　依赖：344、346、347、348、349、351　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -114,6 +114,7 @@ cargo run -p xtask -- replay --suite core
 - `cargo fmt --all --check` → **PASSED**
 - `cargo clippy --all-targets -- -D warnings` → **exit 0**；仅有仓库既有未知 lint `clippy::assert_is_empty` 提示
 - `verify-schemas` / `codegen --check` / `hygiene` / `memory-counts` / `adr-index` / `docscan` / `card-check` / `check-ledger` / `check-comments` / `cargo deny check` / `replay --suite core` → 全部 **PASSED**
+- PR #675 checks **22**（21 success + 1 skipped，pending 0），Mergeable / Clean；merge `ff174e6`；post-merge main CI `41160560050` success（Windows 10m56s / macOS 4m43s / Ubuntu 4m40s，0 failed）
 
 ### 4. DoD 逐条核对
 
