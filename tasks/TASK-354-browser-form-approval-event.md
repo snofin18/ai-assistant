@@ -1,6 +1,6 @@
 # TASK-354 Browser form approval event and strict UI parser
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：1c　批次：T5.2 前置
 - 依赖：TASK-344、TASK-352、TASK-353
 - 本文件 = **卡片正文 + 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
@@ -162,3 +162,10 @@ cargo deny check
 - 重点检查 `browser_task_approval_event.rs` 是否只在 `form_submit` 前一次性取走 preview，且没有登记授权。
 - 重点检查 zod `instructionAttributionSchema` 与 form evidence 的 origin/action 条件是否和 ADR-0101 一致。
 - 重点检查 `UiEvent` boxed 字段序列化后仍是同一扁平 JSON，没有把内部 Rust 表示泄漏到线上形状。
+
+---
+
+**2026-10-31 merge evidence**
+
+- PR #678 checks **22**（21 success + 1 skipped，pending 0），Mergeable / Clean，merge `a0280d2`。
+- post-merge main CI `41167108842` = **success**。
