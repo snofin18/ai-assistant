@@ -139,7 +139,7 @@ DRIFT-352-2（最小卡外测试夹具更新，自决落地）
 data 不含 evidence 的断言；未改产品行为、公共 schema/API、依赖或断言松紧。
 
 shell_misuse
-本轮 rollout 自 TASK-352 接续段起机器统计到 36 次显式 shell="bash" 误填；均为只读、
+本轮 rollout 自 TASK-352 接续段起机器统计到 37 次显式 shell="bash" 误填；均为只读、
 门禁或 guard 锁命令，无产品文件写入。后续命令全部显式使用 shell="powershell"。
 ```
 
