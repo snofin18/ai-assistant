@@ -13,16 +13,19 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
-use assistant_agent_core::TaskPackageProvider;
+use assistant_agent_core::{RuntimeDataflowPlan, RuntimeStepBinding, TaskPackageProvider};
+use assistant_core::InstructionAttribution;
+use assistant_protocol::ToolEnvelope;
 use assistant_tool_bus::{
-    CallContext, Clock, MountSelection, SystemClock, ToolBus, ToolBusConfig, ToolBusError,
-    ToolDefinition, ToolHandler, ToolOutput, ToolRegistry,
+    CallContext, Clock, EnvelopeRequest, EvidenceDescriptor, MountSelection, SystemClock, ToolBus,
+    ToolBusConfig, ToolBusError, ToolDefinition, ToolHandler, ToolOutput, ToolRegistry,
+    assemble_envelope,
 };
 use serde_json::{Map, Value, json};
 
 use super::{
-    BrowserTaskOptions, PLAN_BUDGET_MS, browser_tool_schemas, execute_with_bus,
-    extract_browser_output, write_output,
+    BrowserInvocationRecorder, BrowserTaskOptions, PLAN_BUDGET_MS, browser_tool_schemas,
+    collect_outputs, execute_with_bus, extract_browser_output, recorded_previews, write_output,
 };
 use crate::browser_runtime::BrowserSelection;
 
@@ -32,6 +35,7 @@ const EDGE_FORM_FILL: &str = "edge.cdp.form_fill";
 const EDGE_FORM_READ: &str = "edge.cdp.form_read";
 const EDGE_FORM_SUBMIT: &str = "edge.cdp.form_submit";
 const EDGE_IDLE: &str = "edge.cdp.wait_network_idle";
+const APPROVAL_READBACK_EVIDENCE_KEY: &str = "assistant.browser_form_fill.approval_readback.v1";
 
 #[test]
 fn test_browser_plan_budget_covers_three_cold_navigation_windows() {
@@ -327,6 +331,67 @@ fn test_browser_tool_schemas_exclude_reserved_planner_catalog() {
             .iter()
             .all(|schema| schema.name.starts_with("edge.cdp."))
     );
+}
+
+#[test]
+fn test_browser_recorder_consumes_form_fill_evidence_once() -> Result<(), Box<dyn std::error::Error>>
+{
+    let recorder = Arc::new(Mutex::new(BrowserInvocationRecorder::new(
+        InstructionAttribution::plan_derived("Fill the local profile form")?,
+    )));
+    recorder
+        .lock()
+        .map_err(|_| fake_error("recorder state is poisoned"))?
+        .record(EDGE_FORM_READ, "read-form", &runtime_form_read_envelope())?;
+    recorder
+        .lock()
+        .map_err(|_| fake_error("recorder state is poisoned"))?
+        .record(EDGE_FORM_FILL, "fill-form", &runtime_form_fill_envelope())?;
+
+    let previews = recorded_previews(&recorder)?;
+    assert_eq!(previews.len(), 1);
+    let rendered = format!("{:?}", previews[0]);
+    assert!(rendered.contains("[redacted:3]"));
+    assert!(!rendered.contains("Ada"));
+
+    let mut dataflow = RuntimeDataflowPlan::new();
+    dataflow.insert(
+        "fill-form",
+        RuntimeStepBinding {
+            tool: EDGE_FORM_FILL.to_owned(),
+            condition: None,
+            outputs: vec!["filled_fields".to_owned()],
+        },
+    )?;
+    let outputs = collect_outputs(&dataflow, &recorder)?;
+    assert_eq!(outputs.get("filled_fields"), Some(&json!(1)));
+    let rendered_outputs = serde_json::to_string(&outputs)?;
+    assert!(!rendered_outputs.contains(APPROVAL_READBACK_EVIDENCE_KEY));
+    assert!(!rendered_outputs.contains("Ada"));
+
+    let error = recorder
+        .lock()
+        .map_err(|_| fake_error("recorder state is poisoned"))?
+        .record(
+            EDGE_FORM_FILL,
+            "fill-form-again",
+            &runtime_form_fill_envelope(),
+        )
+        .expect_err("evidence must not be reusable");
+    assert!(error.to_string().contains("no preceding form_read"));
+    Ok(())
+}
+
+#[test]
+fn test_browser_recorder_rejects_ambiguous_form_read_pairing()
+-> Result<(), Box<dyn std::error::Error>> {
+    let mut recorder = BrowserInvocationRecorder::new(InstructionAttribution::user_request());
+    recorder.record(EDGE_FORM_READ, "read-form-1", &runtime_form_read_envelope())?;
+    let error = recorder
+        .record(EDGE_FORM_READ, "read-form-2", &runtime_form_read_envelope())
+        .expect_err("two reads before fill must fail closed");
+    assert!(error.to_string().contains("another form_read"));
+    Ok(())
 }
 
 #[tokio::test]
@@ -631,6 +696,49 @@ fn authoritative_browser_schemas()
             .ok_or_else(|| format!("authoritative browser schema `{name}` is missing").into())
     })
     .collect()
+}
+
+fn runtime_form_read_envelope() -> ToolEnvelope {
+    ToolEnvelope::ok(
+        EDGE_FORM_READ.to_owned(),
+        "task-1".to_owned(),
+        "read-form".to_owned(),
+        json!({
+            "origin": "http://127.0.0.1:8765",
+            "action": "http://127.0.0.1:8765/submitted",
+            "fields": [{"selector": "#name", "value": ""}],
+            "fingerprint": "sha256:before",
+            "previous_fingerprint": "sha256:before"
+        }),
+    )
+}
+
+fn runtime_form_fill_envelope() -> ToolEnvelope {
+    let extra = serde_json::Value::Object(serde_json::Map::from_iter([(
+        APPROVAL_READBACK_EVIDENCE_KEY.to_owned(),
+        json!({
+            "form_origin": "http://127.0.0.1:8765",
+            "form_action": "http://127.0.0.1:8765/submitted",
+            "fields": [{"selector": "#name", "before": "", "after": "Ada"}]
+        }),
+    )]));
+    assemble_envelope(
+        &EnvelopeRequest::new(
+            EDGE_FORM_FILL,
+            "task-1",
+            "fill-form",
+            json!({
+                "filled_fields": 1,
+                "submitted": false,
+                "fingerprint": "sha256:after"
+            }),
+        )
+        .with_evidence(EvidenceDescriptor {
+            extra: Some(extra),
+            ..EvidenceDescriptor::default()
+        }),
+    )
+    .expect("form fill envelope")
 }
 
 fn fingerprint(value: usize) -> String {

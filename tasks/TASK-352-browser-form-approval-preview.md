@@ -1,6 +1,6 @@
 # TASK-352 Browser form approval preview and attribution
 
-- 状态：**Ready**
+- 状态：**Review**
 - 阶段：1　子阶段：**1c**　批次：**1c**　依赖：344、346、347、348、349、351　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息见 `plans/stage-1-pilots.md`。
@@ -96,50 +96,72 @@ cargo run -p xtask -- replay --suite core
 
 ### 2. 实际改动文件
 
-- 仅本卡执行记录与状态同步文件；未改产品代码。
+- `apps/agent-core/src/browser_form_fill.rs`
+- `apps/agent-core/src/browser_task_approval.rs`
+- `apps/agent-core/src/browser_task_approval_tests.rs`
+- `apps/agent-core/src/browser_task_runtime.rs`
+- `apps/agent-core/src/browser_task_runtime_tests.rs`
+- `apps/agent-core/src/browser_registry_tests.rs`（`DRIFT-352-2`：仅更新既有 scripted runtime 的 payload 并断言 evidence 不进入 data）
+- `docs/memory/facts.md`
+- 本卡与 `plans/stage-1-pilots.md`、`PLAN.md`、`README.md`、`LEDGER.md`、`MEMORY.md` 的状态/进度同步
 
 ### 3. 验收输出摘要
 
-- 只读核对 `browser_form_read.rs`、`browser_form_fill.rs`、adapter `form_fill` schema 与
-  `browser_task_approval.rs`：确认当前 ToolBus 输出无法携带 preview 所需的逐字段 readback。
-- 未运行产品验收命令；发现契约阻塞后已停止编码。
+- `cargo test -p assistant-agent-core browser_task_approval` → **8 passed / 0 failed**
+- `cargo test -p assistant-agent-core browser_task` → **36 passed / 0 failed**
+- `cargo test -p assistant-agent-core` → **91 + 47 passed / 0 failed**（集成套件全绿，既有 ignored 保持）
+- `cargo test --workspace` → **exit 0**
+- `cargo fmt --all --check` → **PASSED**
+- `cargo clippy --all-targets -- -D warnings` → **exit 0**；仅有仓库既有未知 lint `clippy::assert_is_empty` 提示
+- `verify-schemas` / `codegen --check` / `hygiene` / `memory-counts` / `adr-index` / `docscan` / `card-check` / `check-ledger` / `check-comments` / `cargo deny check` / `replay --suite core` → 全部 **PASSED**
 
 ### 4. DoD 逐条核对
 
-- [ ] 待实现。
+- [x] `FormApprovalPreview` 只由同一 form 的 before/readback 构造。
+- [x] origin/action/selector 顺序/字段数量漂移均 fail-closed。
+- [x] diff 精确反映 before → after；非空值只以 `[redacted:<utf8-bytes>]` 进入预览。
+- [x] `app_content` 归因保持高风险；未知/畸形 evidence 与空 diff 被拒绝。
+- [x] 专项、workspace、fmt、clippy、schema/codegen、文档门禁、deny、replay 全绿。
+- [x] LEDGER、事实与状态文件同批同步。
 
 ### 5. 偏差
 
 ```text
-DRIFT-352-1
-现象：#8（spec / 代码矛盾）+ #3（需要扩展内部/公共接口）。
-当前 `form_read` 输出含 origin/action/fields，但 `form_fill` ToolBus 输出仅含
-`filled_fields` / `submitted`（以及 fingerprint 元数据）；逐字段 before/after readback
-只在 handler 内部用于计算 fingerprint，adapter output schema 还设置了
-`additionalProperties=false`。因此 Runtime 侧无法拿到“由 form_fill readback 产生的 after”
-来构造 `hitl::DiffPreview::Fields`，也无法比较 after origin/action。
-影响：按卡内约束只能三选一：扩展 form_fill 公共输出/schema；增加跨 crate 内部通道
-或公开 API；或在 fill 后再做一次 form_read（但这违反“after 只来自 form_fill readback”）。
-三者都超出 TASK-352 write scope，不能静默选一条继续。
-建议：人类裁决优先选择“扩展 form_fill 输出契约”，由新 ADR/spec 明确哪些 readback 字段
-可以进入内部审批层、哪些不得进入模型可见 ToolOutput；随后重开实现卡。
-已停工作：未修改 handler、runtime、schema、UI、测试断言或产品代码；未启动浏览器。
-需要人类裁决。
+DRIFT-352-1（已由 ADR-0103 / TASK-353 关闭）
+实现按 ADR-0103 从 form_fill evidence.extra 一次性消费 readback；公共 data/schema 未变。
+
+DRIFT-352-2（最小卡外测试夹具更新，自决落地）
+现象：既有 browser_registry_tests.rs 的 FakeRuntime 仍返回旧 form_fill payload，
+新增同 form/origin/action 校验后该真实 ToolBus 测试按契约失败。
+影响：不更新夹具就只能放宽产品校验或让全量测试保持失败，两者均不可接受。
+处理：只给 scripted runtime 补 form_origin/form_action，并新增 evidence 存在性及
+data 不含 evidence 的断言；未改产品行为、公共 schema/API、依赖或断言松紧。
+
+shell_misuse
+本轮 rollout 自 TASK-352 接续段起机器统计到 36 次显式 shell="bash" 误填；均为只读、
+门禁或 guard 锁命令，无产品文件写入。后续命令全部显式使用 shell="powershell"。
 ```
 
 ### 6. 更合理做法
 
-- 将 diff 与来源归因限制在内部预览层，避免在 UI 卡之前改动公共审批接口。
+- `form_fill` 在同一 DOM 表达式内先校验同 form、HTTP(S) origin/action 与所有字段，
+  再写入并 readback；成功后才附加 evidence，失败路径不带证据。
+- Runtime 在 ToolBus 结果进入 verify/commit 前消费 evidence，evidence 缺失或漂移会
+  直接终止该 step；原始 before/after 不进入 `BrowserTaskResult.outputs`。
 
 ### 7. 遗留问题
 
-- `DRIFT-352-1` 已由 ADR-0103 / TASK-353 关闭；实现时从 `form_fill` evidence.extra 消费 readback。
 - UI `step_approval_requested`、once grant 消费和 loopback 任务链仍由后续卡承接。
+- 当前 preview 由 runtime 内部返回后由现有 CLI wrapper 丢弃；下一张 UI 卡需要接入
+  `step_approval_requested`，不得把 evidence 或原始字段值序列化出去。
 
 ### 8. 新增长期记忆
 
-- 无（尚未验证新事实）。
+- FACT：`form_fill` 审批 readback 已由固定 evidence、同 form 匹配与全值脱敏 preview
+  实现；原始字段值不进入任务输出。
 
 ### 9. 给审阅者的关注点
 
-- 核对 after 值只来自 readback，且 origin/action/字段状态漂移不会生成可批准预览。
+- 核对 runtime 消费发生在 commit 前，evidence 缺失/重复/漂移不会生成可批准 preview。
+- 核对 `FieldDiff` 即使 before/after 脱敏后同形，仍只在原值确实变化时进入 diff。
+- 核对 `browser_registry_tests.rs` 的两处夹具更新只补真实 payload 形状与不可见边界。

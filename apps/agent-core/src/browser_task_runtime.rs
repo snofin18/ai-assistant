@@ -26,7 +26,7 @@ use assistant_agent_core::{
     RuntimeExecutionError, RuntimeExecutor, StepExecutionOutcome, TaskPackageProvider,
     ToolBusInvoker, ToolInvoker,
 };
-use assistant_core::{Planner, PlannerRequest};
+use assistant_core::{InstructionAttribution, Planner, PlannerRequest};
 use assistant_model_gateway::{CancellationToken, ModelProvider};
 use assistant_policy::RuleSet;
 use assistant_protocol::{ToolEnvelope, ToolSchema};
@@ -45,7 +45,10 @@ mod browser_task_csv;
 #[path = "browser_task_support.rs"]
 mod browser_task_support;
 
-use browser_task_approval::{BrowserTaskPolicy, grant_step_approvals, validate_step_approvals};
+use browser_task_approval::{
+    BrowserTaskPolicy, FormApprovalPreview, FormReadSnapshot, grant_step_approvals,
+    validate_step_approvals,
+};
 use browser_task_csv::normalize_t5_1_outputs;
 use browser_task_support::{BrowserTaskError, BrowserTaskOptions, BrowserTaskResult, write_output};
 
@@ -58,6 +61,7 @@ struct BrowserExecution<'arguments> {
     app_id: &'arguments str,
     now_ms: i64,
     approved_step_ids: &'arguments [String],
+    attribution: InstructionAttribution,
 }
 
 type BrowserExecutor<'bus> = RuntimeExecutor<
@@ -174,6 +178,26 @@ async fn execute_with_bus(
     now_ms: i64,
     approved_step_ids: &[String],
 ) -> Result<BrowserTaskResult, BrowserTaskError> {
+    execute_with_bus_and_previews(
+        bus,
+        provider,
+        tool_schemas,
+        app_id,
+        now_ms,
+        approved_step_ids,
+    )
+    .await
+    .map(|(result, _approval_previews)| result)
+}
+
+async fn execute_with_bus_and_previews(
+    bus: &ToolBus,
+    provider: TaskPackageProvider,
+    tool_schemas: Vec<ToolSchema>,
+    app_id: &str,
+    now_ms: i64,
+    approved_step_ids: &[String],
+) -> Result<(BrowserTaskResult, Vec<FormApprovalPreview>), BrowserTaskError> {
     let task_id = provider.task_id().clone();
     let provider_arc: Arc<dyn ModelProvider> = Arc::new(provider.clone());
     let request = PlannerRequest::new(
@@ -203,6 +227,12 @@ async fn execute_with_bus(
         .map_err(|error| BrowserTaskError::Planner {
             reason: error.to_string(),
         })?;
+    let attribution =
+        InstructionAttribution::plan_derived(provider.goal().to_owned()).map_err(|error| {
+            BrowserTaskError::Runtime(RuntimeExecutionError::Tool {
+                reason: format!("browser task instruction attribution is invalid: {error}"),
+            })
+        })?;
     execute_plan(
         bus,
         provider,
@@ -212,6 +242,7 @@ async fn execute_with_bus(
             app_id,
             now_ms,
             approved_step_ids,
+            attribution,
         },
     )
     .await
@@ -223,7 +254,7 @@ async fn execute_plan(
     plan: Plan,
     tool_schemas: Vec<ToolSchema>,
     execution: BrowserExecution<'_>,
-) -> Result<BrowserTaskResult, BrowserTaskError> {
+) -> Result<(BrowserTaskResult, Vec<FormApprovalPreview>), BrowserTaskError> {
     let task_id = plan.task_id.clone();
     let ordered = plan
         .ordered_steps()
@@ -248,10 +279,12 @@ async fn execute_plan(
         execution.now_ms.saturating_add(2),
     )?;
 
-    let envelopes = Arc::new(Mutex::new(BTreeMap::<String, ToolEnvelope>::new()));
+    let recorder = Arc::new(Mutex::new(BrowserInvocationRecorder::new(
+        execution.attribution.clone(),
+    )));
     let binding_state = Arc::new(Mutex::new(RuntimeBindingState::new(Map::new())));
     let latest_snapshot = Arc::new(Mutex::new(None::<TaskSnapshot>));
-    let invoker = RecordingInvoker::new(ToolBusInvoker::new(bus), Arc::clone(&envelopes));
+    let invoker = RecordingInvoker::new(ToolBusInvoker::new(bus), Arc::clone(&recorder));
     let binding = BindingInvoker::new(
         invoker,
         Arc::new(provider.dataflow_plan().clone()),
@@ -276,12 +309,16 @@ async fn execute_plan(
             outcome: format!("{:?}", snapshot.status),
         });
     }
-    let outputs = collect_outputs(provider.dataflow_plan(), &envelopes)?;
-    Ok(BrowserTaskResult {
-        task_id: provider.declared_task_id().to_owned(),
-        outputs,
-        steps,
-    })
+    let outputs = collect_outputs(provider.dataflow_plan(), &recorder)?;
+    let approval_previews = recorded_previews(&recorder)?;
+    Ok((
+        BrowserTaskResult {
+            task_id: provider.declared_task_id().to_owned(),
+            outputs,
+            steps,
+        },
+        approval_previews,
+    ))
 }
 
 fn prepare_browser_policy(
@@ -364,14 +401,98 @@ async fn drive_steps<'bus>(
     Ok((executor, steps))
 }
 
+struct BrowserInvocationRecorder {
+    envelopes: BTreeMap<String, ToolEnvelope>,
+    pending_form_read: Option<FormReadSnapshot>,
+    previews: BTreeMap<String, FormApprovalPreview>,
+    attribution: InstructionAttribution,
+}
+
+impl BrowserInvocationRecorder {
+    const fn new(attribution: InstructionAttribution) -> Self {
+        Self {
+            envelopes: BTreeMap::new(),
+            pending_form_read: None,
+            previews: BTreeMap::new(),
+            attribution,
+        }
+    }
+
+    fn record(
+        &mut self,
+        tool: &str,
+        step_id: &str,
+        envelope: &ToolEnvelope,
+    ) -> Result<(), RuntimeExecutionError> {
+        self.envelopes.insert(step_id.to_owned(), envelope.clone());
+        if !envelope.ok {
+            return Ok(());
+        }
+        if is_form_read_tool(tool) {
+            if self.pending_form_read.is_some() {
+                return Err(preview_runtime_error(
+                    step_id,
+                    "another form_read arrived before form_fill consumed the previous snapshot",
+                ));
+            }
+            self.pending_form_read = Some(
+                FormReadSnapshot::from_envelope(envelope)
+                    .map_err(|error| preview_runtime_error(step_id, error))?,
+            );
+        } else if is_form_fill_tool(tool) {
+            let before = self.pending_form_read.take().ok_or_else(|| {
+                preview_runtime_error(step_id, "form_fill has no preceding form_read snapshot")
+            })?;
+            let preview =
+                FormApprovalPreview::from_envelopes(&before, envelope, self.attribution.clone())
+                    .map_err(|error| preview_runtime_error(step_id, error))?;
+            self.previews.insert(step_id.to_owned(), preview);
+        }
+        Ok(())
+    }
+
+    fn envelopes(&self) -> BTreeMap<String, ToolEnvelope> {
+        self.envelopes.clone()
+    }
+
+    fn previews(&self) -> Vec<FormApprovalPreview> {
+        self.previews.values().cloned().collect()
+    }
+}
+
+fn is_form_read_tool(tool: &str) -> bool {
+    matches!(tool, "edge.cdp.form_read" | "chrome.cdp.form_read")
+}
+
+fn is_form_fill_tool(tool: &str) -> bool {
+    matches!(tool, "edge.cdp.form_fill" | "chrome.cdp.form_fill")
+}
+
+fn preview_runtime_error(step_id: &str, error: impl std::fmt::Display) -> RuntimeExecutionError {
+    RuntimeExecutionError::Tool {
+        reason: format!("step `{step_id}` approval preview failed closed: {error}"),
+    }
+}
+
+fn recorded_previews(
+    recorder: &Arc<Mutex<BrowserInvocationRecorder>>,
+) -> Result<Vec<FormApprovalPreview>, BrowserTaskError> {
+    recorder
+        .lock()
+        .map(|recorder| recorder.previews())
+        .map_err(|_| BrowserTaskError::ToolBus {
+            reason: "browser task invocation recorder is unavailable".to_owned(),
+        })
+}
+
 struct RecordingInvoker<Inner> {
     inner: Inner,
-    envelopes: Arc<Mutex<BTreeMap<String, ToolEnvelope>>>,
+    recorder: Arc<Mutex<BrowserInvocationRecorder>>,
 }
 
 impl<Inner> RecordingInvoker<Inner> {
-    const fn new(inner: Inner, envelopes: Arc<Mutex<BTreeMap<String, ToolEnvelope>>>) -> Self {
-        Self { inner, envelopes }
+    const fn new(inner: Inner, recorder: Arc<Mutex<BrowserInvocationRecorder>>) -> Self {
+        Self { inner, recorder }
     }
 }
 
@@ -388,12 +509,12 @@ where
         let invocation = self.inner.invoke(task_id, step);
         async move {
             let envelope = invocation.await?;
-            self.envelopes
+            self.recorder
                 .lock()
                 .map_err(|_| RuntimeExecutionError::Tool {
-                    reason: "browser task envelope recorder is unavailable".to_owned(),
+                    reason: "browser task invocation recorder is unavailable".to_owned(),
                 })?
-                .insert(step_id, envelope.clone());
+                .record(&step.tool, &step_id, &envelope)?;
             Ok(envelope)
         }
     }
@@ -401,20 +522,20 @@ where
 
 fn collect_outputs(
     dataflow: &assistant_agent_core::RuntimeDataflowPlan,
-    envelopes: &Arc<Mutex<BTreeMap<String, ToolEnvelope>>>,
+    recorder: &Arc<Mutex<BrowserInvocationRecorder>>,
 ) -> Result<Map<String, Value>, BrowserTaskError> {
-    let recorded = envelopes
+    let captured_envelopes = recorder
         .lock()
         .map_err(|_| BrowserTaskError::ToolBus {
-            reason: "browser task envelope recorder is unavailable".to_owned(),
+            reason: "browser task invocation recorder is unavailable".to_owned(),
         })?
-        .clone();
+        .envelopes();
     let mut outputs = Map::new();
     for step_id in dataflow.step_ids() {
         let Some(binding) = dataflow.get(&step_id) else {
             continue;
         };
-        let Some(envelope) = recorded.get(&step_id) else {
+        let Some(envelope) = captured_envelopes.get(&step_id) else {
             continue;
         };
         let Some(data) = envelope.data.as_ref().and_then(|data| data.0.as_object()) else {
