@@ -92,12 +92,16 @@ cargo llvm-cov --workspace --fail-under-lines 75: 79.74% lines, PASSED
 
 启动时 PR #701（`codex/round4-shell-correction`）仍为 OPEN，base=`main`，
 `mergeable=MERGEABLE` / `mergeStateStatus=UNSTABLE`。其 `cargo deny` status context 报 FAILURE，
-其余已完成检查多数 success，macOS/Windows check 仍在跑。本槽未修改、重跑、强推或合并 #701；
+日志根因是 `async-executor 1.14.0` 已被 crates.io 标记为 yanked，经 `zbus` / `secret-service`
+进入 workspace 锁文件。其余检查随后完成，仍有 1 个 failure。本槽未修改、重跑、强推或合并 #701；
 该 PR 与占锁 owner 由上一槽自行收口。
 
 最终处置：TASK-360 / PR #703 将 yanked `async-executor` 从 `1.14.0` 更新到 `1.14.1`，
 PR #703 以 `6a3013c` 合并且 main CI `41554452445` success。PR #701 随后 rebase 到该 main，
 11 项检查全部 success，以 `25ef8c3` 合并，post-merge main CI `41558010718` success。
+
+本槽 PR #702 也曾复现同一 `cargo deny` failure；根据漂移触发器 #2 / #3，本槽没有擅自
+修改依赖或放宽 deny 判据。上述依赖修复合入后，本 PR rebase 并重跑全部门禁。
 
 ## 7. 实际写入
 
@@ -109,9 +113,20 @@ PR #703 以 `6a3013c` 合并且 main CI `41554452445` success。PR #701 随后 r
 
 ## 8. 偏差
 
-- 本槽自报 `shell_misuse=bash=2` / `cmd=0`。两次均为只读命令误填 `shell: "bash"`：
-  一次查看计划表上下文，一次读取 PR #701 失败日志；ADR-0100 hook 已重写为 PowerShell，
-  未在 WSL/bash 中执行产品写入，后续命令全部显式使用 PowerShell。
+```text
+DRIFT-AUTO-20261103-1
+触发器：#2 / #3（依赖与公共锁文件变更超出 docs-only write scope）
+现象：CI `cargo deny` 失败，根因 `async-executor 1.14.0` yanked through zbus / secret-service。
+影响：PR #701 与 #702 均无法满足 failed=0 的合并门；本槽 skipped 证据不能进入 main。
+我的建议：由人类或明确授权的依赖安全卡更新 `async-executor` 与 `Cargo.lock`，
+          复跑 cargo deny 后先收口上一槽 #701，再重新验证本槽 #702。
+已停止的工作：未修改 Cargo.toml / Cargo.lock，未放宽 deny，未合并任何 PR，未自删 automation。
+需要人类裁决：是更新异步执行器版本，还是记录 advisory waiver（不得由 automation 自行决定）。
+```
+
+- 本槽自报 `shell_misuse=bash=3` / `cmd=0`。两次为只读命令、一次为 LEDGER guard acquire
+  误填 `shell: "bash"`；ADR-0100 hook 已重写为 PowerShell，未在 WSL/bash 中执行产品写入，
+  三次均未产生预期外仓库写入，后续命令全部显式使用 PowerShell。
 - 启动时上一槽锁仍在活动阈值内，导致本轮无法执行任何合格卡；这是 G8 设计行为，不是静默跳过。
 
 ## 9. 外部持久日志
@@ -121,3 +136,4 @@ PR #703 以 `6a3013c` 合并且 main CI `41554452445` success。PR #701 随后 r
 至少记录 `start / gates / work / pr / ci / merge / lock_release / self_delete`，不包含凭据。
 本轮执行 PR 与 merge-hash backfill 进入 `main`、最终 open PR=0、main CI success、
 工作树 clean、`guard status=NONE` 后，才允许写 automation memory 并自删。
+当前因 `DRIFT-AUTO-20261103-1` 阻塞，automation 保留，不自删。
