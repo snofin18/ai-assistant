@@ -1,6 +1,6 @@
 # TASK-357 Formal UI approval session bridge
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：1c　批次：T5.2 前置
 - 依赖：TASK-355、TASK-356
 - 本文件 = **卡片正文 + 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
@@ -123,7 +123,7 @@ cargo run -p xtask -- replay --suite core
 - `verify-schemas`、`codegen --check`、`hygiene`、`memory-counts`、`adr-index`、`refscan`、`docscan`、`card-check`、`check-ledger`、`check-comments` -> 均 PASSED。
 - `cargo deny check` -> advisories / bans / licenses / sources 全部 ok。
 - `cargo run -p xtask -- replay --suite core` -> 2 steps、5 changes、0 mismatch。
-- Shell misuse：同一 user turn 机器统计 `shell="bash"` **18**、`shell="cmd"` **0**；18 次均为只读检索、文件读取、门禁或 guard 命令，未通过误填 shell 写入仓库。
+- Shell misuse：同一 user turn 机器统计 `shell="bash"` **22**、`shell="cmd"` **0**；22 次均为只读检索、文件读取、门禁或 guard 命令，未通过误填 shell 写入仓库。
 
 ### 4. DoD 逐条核对
 
@@ -159,3 +159,10 @@ cargo run -p xtask -- replay --suite core
 - 重点审查 `drive_ui_approvals` 对 grant、pending、request id、deny 最终状态与 engine 生命周期的绑定。
 - 重点审查 `serve_session_with_events_inner` 的提前返回条件，确保既有常驻 session 行为不变。
 - 重点审查 `FloorClock` 是否只用于审批 handler，是否影响生产运行其余时间语义。
+
+---
+
+**2026-11-02 merge evidence**
+
+- PR #687 checks **22**（21 success + 1 skipped，pending 0），Mergeable / Clean，base `main`；merge `fb76fa1`。
+- post-merge main CI `41396116377` = **success**。
