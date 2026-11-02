@@ -29,15 +29,19 @@ use assistant_tool_bus::{
 use serde_json::{Map, Value, json};
 
 use super::browser_task_approval::recorded_approval_events;
+use super::ui_approval::{grant_human_approval, take_runtime_approval_event};
 use super::{
     BrowserInvocationRecorder, BrowserTaskOptions, PLAN_BUDGET_MS, browser_tool_schemas,
-    collect_outputs, execute_with_bus, extract_browser_output, grant_human_approval,
-    recorded_previews, reject_form_submit_preapproval, take_runtime_approval_event, write_output,
+    collect_outputs, execute_with_bus, extract_browser_output, recorded_previews,
+    reject_form_submit_preapproval, write_output,
 };
 use crate::browser_runtime::BrowserSelection;
 
 #[path = "browser_task_human_approval_tests.rs"]
 mod human_approval;
+
+#[path = "browser_task_ui_approval_tests.rs"]
+mod browser_task_ui_approval;
 
 const EDGE_NAVIGATE: &str = "edge.cdp.navigate";
 const EDGE_DOM_READ: &str = "edge.cdp.dom_read";
@@ -66,11 +70,14 @@ impl ToolHandler for FakeNavigate {
             .get("url")
             .and_then(Value::as_str)
             .ok_or_else(|| fake_error("navigate URL is missing"))?;
-        let page = url
-            .rsplit_once("page-")
-            .and_then(|(_, suffix)| suffix.strip_suffix(".html"))
-            .and_then(|page| page.parse::<usize>().ok())
-            .ok_or_else(|| fake_error("navigate URL is not a scripted page"))?;
+        let page = if url == "http://127.0.0.1:8766/form.html" {
+            100
+        } else {
+            url.rsplit_once("page-")
+                .and_then(|(_, suffix)| suffix.strip_suffix(".html"))
+                .and_then(|page| page.parse::<usize>().ok())
+                .ok_or_else(|| fake_error("navigate URL is not a scripted page"))?
+        };
         let mut state = self
             .current_page
             .lock()
@@ -140,14 +147,30 @@ impl ToolHandler for FakeIdle {
 
 fn fake_form_fill_handler(_call: &CallContext, _arguments: &Map<String, Value>) -> ToolOutput {
     let fingerprint = fingerprint(0);
+    let extra = serde_json::Value::Object(serde_json::Map::from_iter([(
+        APPROVAL_READBACK_EVIDENCE_KEY.to_owned(),
+        json!({
+            "form_origin": "http://127.0.0.1:8766",
+            "form_action": "http://127.0.0.1:8766/t5.2/submitted",
+            "fields": [
+                {"selector": "#display-name", "before": "", "after": "Ada"},
+                {"selector": "#email", "before": "", "after": "ada@example.test"},
+                {"selector": "#note", "before": "", "after": "human approval loopback"}
+            ]
+        }),
+    )]));
     ToolOutput::json(json!({
-        "filled_fields": 1,
+        "filled_fields": 3,
         "submitted": false,
         "fingerprint_scope": "cdp_target",
         "fingerprint": fingerprint,
         "previous_fingerprint": fingerprint,
         "elapsed_ms": 0,
     }))
+    .with_evidence(EvidenceDescriptor {
+        extra: Some(extra),
+        ..EvidenceDescriptor::default()
+    })
 }
 
 fn fake_form_read_handler(_call: &CallContext, _arguments: &Map<String, Value>) -> ToolOutput {
@@ -156,9 +179,13 @@ fn fake_form_read_handler(_call: &CallContext, _arguments: &Map<String, Value>) 
         assistant_tool_bus::SourceDescriptor::app_content("com.microsoft.edge")
             .with_target("browser_form"),
         json!({
-            "origin": "http://127.0.0.1:8765",
-            "action": "http://127.0.0.1:8765/submitted",
-            "fields": [{"selector": "#name", "value": ""}],
+            "origin": "http://127.0.0.1:8766",
+            "action": "http://127.0.0.1:8766/t5.2/submitted",
+            "fields": [
+                {"selector": "#display-name", "value": ""},
+                {"selector": "#email", "value": ""},
+                {"selector": "#note", "value": ""}
+            ],
             "fingerprint_scope": "cdp_target",
             "fingerprint": fingerprint,
             "previous_fingerprint": fingerprint,
@@ -173,7 +200,11 @@ fn fake_form_submit_handler(_call: &CallContext, _arguments: &Map<String, Value>
             .with_target("browser_form"),
         json!({
             "submitted": true,
-            "post_url": "http://127.0.0.1:8765/submitted",
+            "post_url": "http://127.0.0.1:8766/t5.2/submitted",
+            "fingerprint_scope": "cdp_target",
+            "fingerprint": fingerprint(101),
+            "previous_fingerprint": fingerprint(100),
+            "elapsed_ms": 1,
         }),
     )
 }

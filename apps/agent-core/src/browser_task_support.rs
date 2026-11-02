@@ -6,8 +6,9 @@
 use std::collections::BTreeSet;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
-use assistant_agent_core::RuntimeExecutionError;
+use assistant_agent_core::{RuntimeExecutionError, UiServerConfig};
 use assistant_platform_api::ErrorCode;
 use serde_json::{Map, Value, json};
 use thiserror::Error;
@@ -26,7 +27,7 @@ pub(super) struct BrowserTaskCsvOptions {
 }
 
 /// Validated runner inputs.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub(super) struct BrowserTaskOptions {
     pub(super) runtime: BrowserRuntimeOptions,
     pub(super) task_package_path: PathBuf,
@@ -35,17 +36,24 @@ pub(super) struct BrowserTaskOptions {
     pub(super) csv: Option<BrowserTaskCsvOptions>,
     pub(super) approved_step_ids: Vec<String>,
     pub(super) human_approval: bool,
+    pub(super) ui_approval: Option<UiServerConfig>,
 }
 
 impl BrowserTaskOptions {
     pub(super) fn parse(arguments: &[String]) -> Result<Self, BrowserTaskError> {
         let parsed = parse_arguments(arguments)?;
         validate_unique_step_approvals(&parsed.approved_step_ids)?;
+        let ui_approval = parse_ui_approval(&parsed)?;
         let output_path = parsed
             .output_path
             .ok_or_else(|| argument_error("missing --output <path>"))?;
         validate_new_output_path(&output_path, "--output")?;
         let csv = parse_csv_options(parsed.csv_output_path, parsed.csv_base_url, &output_path)?;
+        if parsed.human_approval && ui_approval.is_some() {
+            return Err(argument_error(
+                "--human-approval and --ui-approval are mutually exclusive",
+            ));
+        }
         Ok(Self {
             runtime: BrowserRuntimeOptions::parse(&parsed.runtime)?,
             task_package_path: parsed
@@ -56,6 +64,7 @@ impl BrowserTaskOptions {
             csv,
             approved_step_ids: parsed.approved_step_ids,
             human_approval: parsed.human_approval,
+            ui_approval,
         })
     }
 
@@ -92,6 +101,10 @@ struct ParsedArguments {
     csv_base_url: Option<String>,
     approved_step_ids: Vec<String>,
     human_approval: bool,
+    ui_approval: bool,
+    ui_pipe: Option<String>,
+    ui_token_environment_variable: Option<String>,
+    ui_peer: Option<PathBuf>,
 }
 
 impl ParsedArguments {
@@ -123,6 +136,29 @@ impl ParsedArguments {
             self.human_approval = true;
             return Ok(true);
         }
+        if option == "--ui-approval" {
+            if self.ui_approval {
+                return Err(argument_error("--ui-approval was provided more than once"));
+            }
+            self.ui_approval = true;
+            return Ok(true);
+        }
+        if option == "--ui-pipe" {
+            set_once(
+                &mut self.ui_pipe,
+                next_value(arguments, index, option)?,
+                option,
+            )?;
+            return Ok(true);
+        }
+        if option == "--ui-token-env" {
+            set_once(
+                &mut self.ui_token_environment_variable,
+                next_value(arguments, index, option)?,
+                option,
+            )?;
+            return Ok(true);
+        }
         if option != "--csv-base-url" {
             return Ok(false);
         }
@@ -145,6 +181,7 @@ impl ParsedArguments {
             "--task-inputs" => &mut self.task_inputs_path,
             "--output" => &mut self.output_path,
             "--csv-output" => &mut self.csv_output_path,
+            "--ui-peer" => &mut self.ui_peer,
             _ => return Ok(false),
         };
         set_once(
@@ -154,6 +191,42 @@ impl ParsedArguments {
         )?;
         Ok(true)
     }
+}
+
+fn parse_ui_approval(parsed: &ParsedArguments) -> Result<Option<UiServerConfig>, BrowserTaskError> {
+    let has_ui_options = parsed.ui_pipe.is_some()
+        || parsed.ui_token_environment_variable.is_some()
+        || parsed.ui_peer.is_some();
+    if !parsed.ui_approval {
+        if has_ui_options {
+            return Err(argument_error(
+                "--ui-pipe, --ui-token-env, and --ui-peer require --ui-approval",
+            ));
+        }
+        return Ok(None);
+    }
+    let pipe_name = parsed
+        .ui_pipe
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| argument_error("--ui-approval requires --ui-pipe <name>"))?;
+    let token_environment_variable = parsed
+        .ui_token_environment_variable
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| argument_error("--ui-approval requires --ui-token-env <name>"))?;
+    let peer = parsed
+        .ui_peer
+        .as_ref()
+        .ok_or_else(|| argument_error("--ui-approval requires --ui-peer <path>"))?;
+    Ok(Some(
+        UiServerConfig::new(
+            pipe_name,
+            token_environment_variable,
+            Duration::from_secs(10),
+        )
+        .with_allowed_peer(peer),
+    ))
 }
 
 fn validate_unique_step_approvals(step_ids: &[String]) -> Result<(), BrowserTaskError> {
@@ -290,6 +363,8 @@ pub(super) enum BrowserTaskError {
     HumanApprovalExpired { step_id: String },
     #[error("human approval prompt failed: {reason}")]
     HumanPrompt { reason: String },
+    #[error("browser UI approval session failed: {reason}")]
+    UiServer { reason: String },
     #[error("declared output `{output}` was not produced by `{step_id}`")]
     MissingOutput { step_id: String, output: String },
     #[error("CSV normalization: {0}")]
@@ -316,7 +391,8 @@ impl BrowserTaskError {
             | Self::ToolBus { .. }
             | Self::Output { .. }
             | Self::HumanApprovalNotApplied { .. }
-            | Self::HumanPrompt { .. } => ErrorCode::Fatal,
+            | Self::HumanPrompt { .. }
+            | Self::UiServer { .. } => ErrorCode::Fatal,
         }
     }
 }
