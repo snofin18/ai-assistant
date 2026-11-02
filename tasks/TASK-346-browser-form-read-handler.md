@@ -1,5 +1,5 @@
 # TASK-346　浏览器 form_read 生产 handler
-- 状态：**Review**
+- 状态：**Done（2026-10-30；PR #659 / merge `e21b957`；post-merge main CI `40988250703` success；2026-11-02 round 2 按既有合并证据校正卡面滞后）**
 - 阶段：1　子阶段：1c　批次：T5.2 前置
 - 依赖：TASK-343、ADR-0101、`docs/spec/browser-form-confirmation.md`
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031）。
