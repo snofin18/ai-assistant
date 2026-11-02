@@ -147,7 +147,7 @@ cargo run -p xtask -- replay --suite core
 
 ### 5. 偏差
 
-- 本会话机器统计到 **22** 次误填 `shell:"bash"`；ADR-0100 的 PreToolUse hook 均将其
+- 本会话机器统计到 **25** 次误填 `shell:"bash"`；ADR-0100 的 PreToolUse hook 均将其
   重写为显式 PowerShell，没有进入 WSL/bash。误填本身仍记缺陷；所有写入均为预期文件，
   无目录外写入或产品文件意外改动。
 - 初版 bridge parser 在 Node type-stripping 下无法解析运行时 `contract.js`；改为注入
