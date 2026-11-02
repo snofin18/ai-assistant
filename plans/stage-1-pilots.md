@@ -496,6 +496,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-356 ✅** | T5.2 前置 | `tasks/TASK-356-browser-form-human-approval-loopback.md` | Done（PR #685 / merge `315bd53`；真实 Edge human approval loopback + once 单次提交 + query-free/redacted `post_url`） |
 | **TASK-357 ✅** | T5.2 前置 | `tasks/TASK-357-formal-ui-approval-session.md` | Done（PR #687 / merge `fb76fa1`；one-shot UI decision、同一 Prechecking step 恢复、同一 engine deny、断连/伪造 outcome fail-closed） |
 | **TASK-358 ✅** | T5.2 前置 | `tasks/TASK-358-browser-form-formal-ui-approval.md` | Done（PR #689 / merge `44d2ce4`；browser runner 正式 one-shot UI approval、同 engine 恢复/deny、断连/错误 request/无 grant fail-closed） |
+| **TASK-359 Review** | T5.2 产品化 | `tasks/TASK-359-desktop-ui-event-bridge.md` | 实现 Core→Tauri→React 事件桥与浏览器审批卡接线；本地门禁全绿，待 merge evidence |
 | TASK-057 | 1c | `tasks/TASK-057-t5-2-form-fill-stop-before-submit-diff-origin.md` | Ready（批次表占位派单前补全） |
 | TASK-058 | 1c | `tasks/TASK-058-t5-3-injection-target-security-ci-audit.md` | Ready（批次表占位派单前补全） |
 | **TASK-085 ✅** | XTASK 池 | `tasks/TASK-085-xtask-hygiene-rust-source-rules.md` | Done（gov §5.4 第 1 / 2 / 3 / 10 / 11 项 = Rust 源码结构规则；实现覆盖 8/13） |
