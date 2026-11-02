@@ -1,6 +1,6 @@
 # TASK-356 Browser form human approval loopback chain
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：1c　批次：T5.2 前置
 - 依赖：TASK-350、TASK-354、TASK-355
 - 本文件 = **卡片正文 + 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
@@ -207,7 +207,7 @@ DRIFT-356-3
 已处理：新增两类负向测试；重跑 v7 真实 Edge；删除含原值的 v6 证据，不提交。
 ```
 
-Shell misuse：同一 user turn 机器统计 `shell="bash"` **13**、`shell="cmd"` **0**；13 次均为只读检索、文件读取或目录列举，未通过误填 shell 写入仓库。
+Shell misuse：同一 user turn 机器统计 `shell="bash"` **16**、`shell="cmd"` **0**；15 次为只读检索、文件读取或目录列举，1 次是在误填 shell 下执行 evidence 分支切换；未通过误填 shell 写入产品文件。
 
 ### 6. 更合理做法
 
@@ -231,3 +231,10 @@ Shell misuse：同一 user turn 机器统计 `shell="bash"` **13**、`shell="cmd
 - 重点审查 `browser_task_runtime.rs` 的事件来源、request/task/step 绑定与拒绝路径。
 - 重点审查 `browser_task_approval.rs` 的规则是否只覆盖 high/L3 write，未放宽 unattended/tainted deny floor。
 - 重点审查 `browser_form_submit.rs` 的 post_url DLP 与 fingerprint 仍基于真实 observed identity，二者没有混淆。
+
+---
+
+**2026-11-02 merge evidence**
+
+- PR #685 checks **22**（21 success + 1 skipped，pending 0），Mergeable / Clean，base `main`；merge `315bd53`。
+- post-merge main CI `41385329263` = **success**。
