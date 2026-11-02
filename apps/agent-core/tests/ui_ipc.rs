@@ -11,14 +11,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use assistant_agent_core::{
-    ApprovalGrants, TaskControlHandler, UI_IPC_VERSION, UiApprovalDiff, UiApprovalReversibility,
-    UiApprovalRisk, UiAuthorizationScope, UiCommand, UiCommandError, UiCommandHandler,
-    UiCommandOutcome, UiEvent, dispatch_ui_command, parse_ui_command, project_snapshot_events,
+    ApprovalGrants, MAX_PENDING_APPROVALS, PendingApprovalEventSource, PendingApprovals,
+    TaskControlHandler, UI_IPC_VERSION, UiApprovalDiff, UiApprovalReversibility, UiApprovalRisk,
+    UiAuthorizationScope, UiCommand, UiCommandError, UiCommandHandler, UiCommandOutcome, UiEvent,
+    UiEventSource, dispatch_ui_command, parse_ui_command, project_snapshot_events,
 };
 use assistant_hitl::ApprovalScope;
 use assistant_platform_api::Fingerprint;
 use assistant_protocol::{ErrorCode, serde_json::Value, serde_json::json};
-use assistant_storage::SystemClock;
+use assistant_storage::{Clock, SystemClock};
 use assistant_task_engine::{
     Budget, CheckpointPolicy, MemoryCheckpointStore, Plan, PlanId, PlanStep, Reversibility,
     StepCommit, StepEffect, StepId, StepStatus, StepTimeouts, TaskEngine, TaskEvent, TaskId,
@@ -30,6 +31,14 @@ use assistant_verify::{Observation, parse_postconditions, verify_postconditions_
 #[derive(Default)]
 struct RecordingHandler {
     seen: Vec<UiCommand>,
+}
+
+struct FixedClock(i64);
+
+impl Clock for FixedClock {
+    fn now_unix_ms(&self) -> i64 {
+        self.0
+    }
 }
 
 impl UiCommandHandler for RecordingHandler {
@@ -88,6 +97,49 @@ fn running_engine() -> (TaskEngine<MemoryCheckpointStore>, TaskId, StepId) {
         .apply_task_event(&task_id, TaskEvent::ApprovePlan, 1_020)
         .expect("approve");
     (engine, task_id, step_id)
+}
+
+fn browser_approval_event_value(task_id: &TaskId, step_id: &StepId, expires_at_ms: i64) -> Value {
+    json!({
+        "kind": "step_approval_requested",
+        "request_id": format!("runtime:{}:{}", task_id.as_str(), step_id.as_str()),
+        "task_id": task_id.as_str(),
+        "step_id": step_id.as_str(),
+        "action": "edge.cdp.form_submit",
+        "target": "http://127.0.0.1:8765",
+        "summary": "Submit one changed form field",
+        "impact": "Submission cannot be automatically undone.",
+        "diff": {
+            "kind": "fields",
+            "entries": [{
+                "field": "#display-name",
+                "before": "",
+                "after": "[redacted:3]"
+            }]
+        },
+        "instruction_attribution": {
+            "origin": "user_request",
+            "parent_goal": null,
+            "source_ref": null
+        },
+        "risk": "high",
+        "reversibility": "l3_irreversible",
+        "scope_options": ["once"],
+        "evidence": {
+            "form_origin": "http://127.0.0.1:8765",
+            "form_action": "http://127.0.0.1:8765/submitted"
+        },
+        "expires_at_ms": expires_at_ms
+    })
+}
+
+fn browser_approval_event(task_id: &TaskId, step_id: &StepId, expires_at_ms: i64) -> UiEvent {
+    serde_json::from_value(browser_approval_event_value(
+        task_id,
+        step_id,
+        expires_at_ms,
+    ))
+    .expect("browser approval event")
 }
 
 fn verified_receipt() -> assistant_verify::VerificationReceipt {
@@ -311,6 +363,154 @@ fn test_ui_approval_releases_the_runtime_step_exactly_once() {
             .expect_err("the consumed request is no longer pending"),
         UiCommandError::UnknownApproval { .. }
     ));
+}
+
+#[test]
+fn test_browser_approval_event_registers_the_same_ui_decision() {
+    let (engine, task_id, step_id) = running_engine();
+    let pending = Arc::new(PendingApprovals::new());
+    let approvals = Arc::new(ApprovalGrants::new());
+    let mut handler = TaskControlHandler::new(engine, Arc::new(SystemClock))
+        .with_pending(Arc::clone(&pending))
+        .with_approvals(Arc::clone(&approvals));
+    let event = browser_approval_event(&task_id, &step_id, 4_102_444_800_000);
+    handler
+        .register_pending_approval_event(&event, 1_000)
+        .expect("register browser approval event");
+
+    let request_id = format!("runtime:{}:{}", task_id.as_str(), step_id.as_str());
+    let outcome = handler
+        .handle(UiCommand::ApproveRequest {
+            request_id: request_id.clone(),
+            scope: UiAuthorizationScope::Once,
+        })
+        .expect("browser approval applies");
+    assert_eq!(
+        outcome,
+        UiCommandOutcome::ApprovalGranted {
+            request_id,
+            scope: UiAuthorizationScope::Once,
+        }
+    );
+    assert!(
+        pending.drain_events().expect("drain events").is_empty(),
+        "approving must remove an undelivered stale card"
+    );
+    assert!(
+        matches!(
+            approvals.consume(
+                task_id.as_str(),
+                step_id.as_str(),
+                SystemClock.now_unix_ms()
+            ),
+            Ok(Some(ApprovalScope::Once))
+        ),
+        "the browser event must target the same task and step as the UI grant"
+    );
+}
+
+#[test]
+fn test_browser_approval_event_rejects_expired_duplicate_and_wrong_scope() {
+    let (_, task_id, step_id) = running_engine();
+    let pending = PendingApprovals::new();
+    let expired = browser_approval_event(&task_id, &step_id, 1_000);
+    let error = pending
+        .register_event(&expired, 1_000)
+        .expect_err("an expired event must fail closed");
+    assert!(matches!(error, UiCommandError::Handler { .. }));
+
+    let event = browser_approval_event(&task_id, &step_id, 4_102_444_800_000);
+    pending
+        .register_event(&event, 1_000)
+        .expect("valid event registers");
+    let duplicate = pending
+        .register_event(&event, 1_000)
+        .expect_err("a duplicate request id must fail closed");
+    assert!(matches!(duplicate, UiCommandError::Handler { .. }));
+
+    let mut wrong_scope = browser_approval_event_value(&task_id, &step_id, 4_102_444_800_000);
+    wrong_scope["scope_options"] = json!(["this_task"]);
+    let wrong_scope: UiEvent =
+        serde_json::from_value(wrong_scope).expect("wrong-scope event shape");
+    let error = PendingApprovals::new()
+        .register_event(&wrong_scope, 1_000)
+        .expect_err("a non-once browser approval must fail closed");
+    assert!(matches!(error, UiCommandError::Handler { .. }));
+}
+
+#[test]
+fn test_browser_approval_expires_before_the_ui_decision() {
+    let (engine, task_id, step_id) = running_engine();
+    let pending = Arc::new(PendingApprovals::new());
+    let approvals = Arc::new(ApprovalGrants::new());
+    let mut handler = TaskControlHandler::new(engine, Arc::new(FixedClock(2_000)))
+        .with_pending(Arc::clone(&pending))
+        .with_approvals(Arc::clone(&approvals));
+    let event = browser_approval_event(&task_id, &step_id, 2_000);
+    handler
+        .register_pending_approval_event(&event, 1_000)
+        .expect("register event before expiry");
+
+    let request_id = format!("runtime:{}:{}", task_id.as_str(), step_id.as_str());
+    let error = handler
+        .handle(UiCommand::ApproveRequest {
+            request_id,
+            scope: UiAuthorizationScope::Once,
+        })
+        .expect_err("expired event must not release the step");
+    assert!(matches!(error, UiCommandError::UnknownApproval { .. }));
+    assert!(pending.drain_events().expect("drain events").is_empty());
+    assert!(
+        matches!(
+            approvals.consume(task_id.as_str(), step_id.as_str(), 2_000),
+            Ok(None)
+        ),
+        "expired approval must not leave a usable grant"
+    );
+}
+
+#[test]
+fn test_pending_approval_registry_is_bounded_without_eviction() {
+    let pending = PendingApprovals::new();
+    for index in 0..MAX_PENDING_APPROVALS {
+        let task_id = TaskId::new(format!("t_bound_{index:04}")).expect("task id");
+        let step_id = StepId::new("s_1").expect("step id");
+        pending
+            .register(
+                format!("request-{index:04}"),
+                task_id,
+                step_id,
+                vec![UiAuthorizationScope::Once],
+            )
+            .expect("register within capacity");
+    }
+    let task_id = TaskId::new("t_bound_overflow").expect("task id");
+    let step_id = StepId::new("s_1").expect("step id");
+    let error = pending
+        .register(
+            "request-overflow",
+            task_id,
+            step_id,
+            vec![UiAuthorizationScope::Once],
+        )
+        .expect_err("the registry must reject overflow instead of evicting");
+    assert!(matches!(error, UiCommandError::Handler { .. }));
+}
+
+#[test]
+fn test_browser_approval_event_source_drains_once_through_the_ui_boundary() {
+    let (engine, task_id, step_id) = running_engine();
+    let pending = Arc::new(PendingApprovals::new());
+    let handler =
+        TaskControlHandler::new(engine, Arc::new(SystemClock)).with_pending(Arc::clone(&pending));
+    let event = browser_approval_event(&task_id, &step_id, 4_102_444_800_000);
+    handler
+        .register_pending_approval_event(&event, 1_000)
+        .expect("register browser approval event");
+
+    let mut source = PendingApprovalEventSource::new(Arc::clone(&pending));
+    assert_eq!(source.drain(), vec![event]);
+    assert!(source.drain().is_empty());
 }
 
 #[test]
