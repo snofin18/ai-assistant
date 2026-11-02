@@ -28,7 +28,7 @@ use assistant_ipc::{
     peer_process_image_path, server_handshake,
 };
 
-use crate::ui_ipc::{UiCommandHandler, UiEvent, dispatch_ui_command};
+use crate::ui_ipc::{UiCommandHandler, UiCommandOutcome, UiEvent, dispatch_ui_command};
 
 /// Source of UI events pushed on a live session (ADR-0057 D5).
 ///
@@ -60,7 +60,7 @@ impl UiEventSource for NoEvents {
 pub fn push_events<T, S>(transport: &mut T, source: &mut S, timeout: Duration) -> IpcResult<usize>
 where
     T: Transport,
-    S: UiEventSource,
+    S: UiEventSource + ?Sized,
 {
     let mut pushed = 0;
     for event in source.drain() {
@@ -151,7 +151,7 @@ pub fn serve_with_events<H, S>(
 ) -> IpcResult<()>
 where
     H: UiCommandHandler,
-    S: UiEventSource,
+    S: UiEventSource + ?Sized,
 {
     let authentication_token = std::env::var(&config.token_environment_variable)
         .map_err(|_| IpcError::InvalidAuthenticationToken)?;
@@ -175,6 +175,51 @@ where
         config.handshake_timeout,
     )?;
     serve_session_with_events(
+        &mut transport,
+        &handshake.server_hello,
+        config.heartbeat_timeout,
+        handler,
+        source,
+    )
+}
+
+/// Serves one authenticated UI session until its first approval decision.
+///
+/// # Errors
+///
+/// Returns the same configuration, handshake, authorization, heartbeat,
+/// transport, and serialization failures as [`serve_with_events`].
+pub fn serve_until_human_decision_with_events<H, S>(
+    config: &UiServerConfig,
+    handler: &mut H,
+    source: &mut S,
+) -> IpcResult<UiCommandOutcome>
+where
+    H: UiCommandHandler,
+    S: UiEventSource + ?Sized,
+{
+    let authentication_token = std::env::var(&config.token_environment_variable)
+        .map_err(|_| IpcError::InvalidAuthenticationToken)?;
+
+    let mut transport = NamedPipeTransport::server(&config.pipe_name)?;
+    transport.accept(config.handshake_timeout)?;
+    let peer_process_id = transport.peer_process_id()?;
+    let peer_image_path = peer_process_image_path(peer_process_id)?;
+    if !config.is_peer_allowed(&peer_image_path) {
+        return Err(IpcError::PeerIdentityRejected {
+            image_path: peer_image_path,
+        });
+    }
+
+    let session_id = generate_session_id()?;
+    let handshake = server_handshake(
+        &mut transport,
+        &authentication_token,
+        Vec::new(),
+        &session_id,
+        config.handshake_timeout,
+    )?;
+    serve_session_until_human_decision_with_events(
         &mut transport,
         &handshake.server_hello,
         config.heartbeat_timeout,
@@ -228,7 +273,67 @@ pub fn serve_session_with_events<T, H, S>(
 where
     T: Transport,
     H: UiCommandHandler,
-    S: UiEventSource,
+    S: UiEventSource + ?Sized,
+{
+    serve_session_with_events_inner(
+        transport,
+        server_hello,
+        heartbeat_timeout,
+        handler,
+        events,
+        false,
+    )
+    .map(|_outcome| ())
+}
+
+/// Serves one session until the first validated approve or deny command.
+///
+/// The returned outcome is always [`UiCommandOutcome::ApprovalGranted`] or
+/// [`UiCommandOutcome::ApprovalDenied`]. Invalid commands are answered with a
+/// rejection and do not end the session; disconnect and heartbeat failures are
+/// returned as transport errors.
+///
+/// # Errors
+///
+/// Returns the same errors as [`serve_session_with_events`]. A session that
+/// ends without a human decision is reported as an explicit disconnect.
+pub fn serve_session_until_human_decision_with_events<T, H, S>(
+    transport: &mut T,
+    server_hello: &ServerHello,
+    heartbeat_timeout: Duration,
+    handler: &mut H,
+    events: &mut S,
+) -> IpcResult<UiCommandOutcome>
+where
+    T: Transport,
+    H: UiCommandHandler,
+    S: UiEventSource + ?Sized,
+{
+    serve_session_with_events_inner(
+        transport,
+        server_hello,
+        heartbeat_timeout,
+        handler,
+        events,
+        true,
+    )?
+    .ok_or_else(|| IpcError::Disconnected {
+        message: "approval session ended without a human decision".to_owned(),
+    })
+}
+
+fn serve_session_with_events_inner<T, H, S>(
+    transport: &mut T,
+    server_hello: &ServerHello,
+    heartbeat_timeout: Duration,
+    handler: &mut H,
+    events: &mut S,
+    stop_after_human_decision: bool,
+) -> IpcResult<Option<UiCommandOutcome>>
+where
+    T: Transport,
+    H: UiCommandHandler,
+    S: UiEventSource + ?Sized,
 {
     let now = unix_time_ms()?;
     let mut monitor = HeartbeatMonitor::new(heartbeat_timeout, now);
@@ -254,8 +359,13 @@ where
             }
             Ok(WireMessage::UiRequest(request)) => {
                 monitor.observe(now);
-                let response = process_ui_request(handler, &request);
+                let (response, outcome) = process_ui_request_with_outcome(handler, &request);
                 transport.send(&WireMessage::UiResponse(response), heartbeat_timeout)?;
+                if stop_after_human_decision
+                    && outcome.as_ref().is_some_and(is_human_decision_outcome)
+                {
+                    return Ok(outcome);
+                }
             }
             Ok(other) => {
                 // 工具形状的 Request/Response 走错通道必须显式失败，不能忽略
@@ -283,22 +393,42 @@ pub fn process_ui_request<H: UiCommandHandler>(
     handler: &mut H,
     request: &UiIpcRequest,
 ) -> UiIpcResponse {
+    process_ui_request_with_outcome(handler, request).0
+}
+
+fn process_ui_request_with_outcome<H: UiCommandHandler>(
+    handler: &mut H,
+    request: &UiIpcRequest,
+) -> (UiIpcResponse, Option<UiCommandOutcome>) {
     let correlation_id = request.correlation_id.clone();
     match dispatch_ui_command(handler, &request.command) {
         Ok(outcome) => match serde_json::to_value(&outcome) {
-            Ok(value) => UiIpcResponse::outcome(correlation_id, value),
-            Err(error) => UiIpcResponse::rejected(
-                correlation_id,
-                "Fatal",
-                format!("outcome serialization failed: {error}"),
+            Ok(value) => (UiIpcResponse::outcome(correlation_id, value), Some(outcome)),
+            Err(error) => (
+                UiIpcResponse::rejected(
+                    correlation_id,
+                    "Fatal",
+                    format!("outcome serialization failed: {error}"),
+                ),
+                None,
             ),
         },
-        Err(error) => UiIpcResponse::rejected(
-            correlation_id,
-            format!("{:?}", error.error_code()),
-            error.to_string(),
+        Err(error) => (
+            UiIpcResponse::rejected(
+                correlation_id,
+                format!("{:?}", error.error_code()),
+                error.to_string(),
+            ),
+            None,
         ),
     }
+}
+
+const fn is_human_decision_outcome(outcome: &UiCommandOutcome) -> bool {
+    matches!(
+        outcome,
+        UiCommandOutcome::ApprovalGranted { .. } | UiCommandOutcome::ApprovalDenied { .. }
+    )
 }
 
 fn send_heartbeat<T: Transport>(

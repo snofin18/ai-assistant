@@ -18,7 +18,7 @@ use std::time::Duration;
 use assistant_agent_core::{
     AdapterKind, HostAssembly, HostAssemblyError, HostAssemblyInput, ProductionConfig,
     ProductionError, StorageBlobSink, TaskControlHandler, UiServerConfig, assemble_production_host,
-    serve_with_events,
+    serve_until_human_decision_with_events, serve_with_events,
 };
 use assistant_audit::Durability;
 use assistant_core::{
@@ -418,7 +418,18 @@ async fn run_production(
     }
     let plan = host.plan_task()?;
     let task_id = plan.task_id.to_string();
-    let run = host.execute_plan(plan, now_ms).await?;
+    let mut run = host.execute_plan(plan, now_ms).await?;
+    if serve_ui && run.is_awaiting_approval() {
+        run = host
+            .drive_ui_approvals(run, |config, _pending, handler, events| {
+                serve_until_human_decision_with_events(config, handler, events).map_err(|error| {
+                    ProductionError::UiServer {
+                        reason: error.to_string(),
+                    }
+                })
+            })
+            .await?;
+    }
     let report = ProductionReport {
         task_id,
         status: run.final_snapshot.status.as_str(),

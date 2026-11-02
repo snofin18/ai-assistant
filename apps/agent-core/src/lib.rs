@@ -83,7 +83,7 @@ pub use task_package::{TASK_PACKAGE_MODEL_ID, TaskPackageError, TaskPackageProvi
 pub use ui_control::{
     MAX_PENDING_APPROVALS, PendingApproval, PendingApprovals, TaskControlHandler,
 };
-pub use ui_events::{PendingApprovalEventSource, SnapshotEventSource};
+pub use ui_events::{CombinedEventSource, PendingApprovalEventSource, SnapshotEventSource};
 pub use ui_ipc::{
     UI_IPC_VERSION, UiApprovalDiff, UiApprovalFieldDiff, UiApprovalReversibility, UiApprovalRisk,
     UiAuthorizationScope, UiCommand, UiCommandError, UiCommandHandler, UiCommandOutcome, UiEvent,
@@ -92,6 +92,7 @@ pub use ui_ipc::{
 };
 pub use ui_server::{
     NoEvents, UiEventSource, UiServerConfig, looks_like_image_path, process_ui_request,
-    push_events, serve as serve_ui, serve_session, serve_session_with_events, serve_with_events,
+    push_events, serve as serve_ui, serve_session, serve_session_until_human_decision_with_events,
+    serve_session_with_events, serve_until_human_decision_with_events, serve_with_events,
 };
 pub use visual_source::{StorageVisualObservationCollector, VISUAL_OBSERVATION_FIELD};
