@@ -33,5 +33,6 @@ TASK-029 的最小桌面壳：Tauri 2 + React + TypeScript + Tailwind。
 - Core 进程的 IPC 传输尚未接通：`src-tauri` 的 `send_ui_command` 会本地校验信封，
   再经 `CoreCommandTransport` 转发；未注入传输时显式返回 `core_transport_unavailable`，
   不伪造成功。
-- 事件流（Core → UI）的推送通道同样待接；当前只提供经校验的事件解析与时间线投影。
+- 事件流（Core → UI）由 `src-tauri/src/event_bridge.rs` 启动单实例订阅，经
+  `src/ipc/client.ts` 的 zod 边界进入 React；断连或坏载荷显式上报，不自动重放命令。
 - 图标为骨架用的最小 ICO；品牌资源归后续发布卡。

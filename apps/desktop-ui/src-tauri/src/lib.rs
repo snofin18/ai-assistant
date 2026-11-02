@@ -6,9 +6,11 @@
 
 mod commands;
 mod core_pipe;
+mod event_bridge;
 
 pub use commands::{CommandState, CoreCommandTransport, UiCommandRejection, send_ui_command};
 pub use core_pipe::{CorePipeConfig, CorePipeTransport};
+pub use event_bridge::{EventStreamState, start_ui_event_stream};
 
 /// Runs the desktop shell with no Core transport installed.
 ///
@@ -27,9 +29,20 @@ pub fn run() -> Result<(), tauri::Error> {
 /// Returns the Tauri startup error when the webview cannot be created or the
 /// event loop exits abnormally.
 pub fn run_with_state(state: CommandState) -> Result<(), tauri::Error> {
+    run_with_event_state(state, EventStreamState::unavailable())
+}
+
+fn run_with_event_state(
+    state: CommandState,
+    event_state: EventStreamState,
+) -> Result<(), tauri::Error> {
     tauri::Builder::default()
         .manage(state)
-        .invoke_handler(tauri::generate_handler![commands::send_ui_command])
+        .manage(event_state)
+        .invoke_handler(tauri::generate_handler![
+            commands::send_ui_command,
+            event_bridge::start_ui_event_stream
+        ])
         .run(tauri::generate_context!())
 }
 
@@ -40,7 +53,9 @@ pub fn run_with_state(state: CommandState) -> Result<(), tauri::Error> {
 /// Returns the Tauri startup error when the webview cannot be created or the
 /// event loop exits abnormally.
 pub fn run_with_core_pipe(config: CorePipeConfig) -> Result<(), tauri::Error> {
-    run_with_state(CommandState::with_transport(std::sync::Arc::new(
-        CorePipeTransport::new(config),
-    )))
+    let transport = std::sync::Arc::new(CorePipeTransport::new(config));
+    run_with_event_state(
+        CommandState::with_transport(transport.clone()),
+        EventStreamState::new(transport),
+    )
 }
