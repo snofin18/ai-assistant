@@ -1,6 +1,6 @@
 # TASK-358 Browser form formal UI approval session
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：1c　批次：T5.2 前置
 - 依赖：TASK-344、TASK-350、TASK-352、TASK-355、TASK-356、TASK-357
 - 本文件 = **卡片正文 + 执行记录**（ADR-0031「一卡一文件」）。分界线以上是正文（Orchestrator 所有，Implementer 只读）；以下是执行记录（Implementer 填写）。
@@ -127,7 +127,7 @@ cargo run -p xtask -- replay --suite core
 - `cargo fmt --all --check`、`cargo clippy --all-targets -- -D warnings` -> exit 0；保留仓库既有 `unknown lint: clippy::assert_is_empty` 提示。
 - UI `lint` / `typecheck` / `test` -> 全绿；model 85/85、DOM 3/3。
 - schema/codegen/hygiene/memory/adr/refscan/docscan/card/ledger/check-comments/deny/replay core -> 均 PASSED。
-- Shell misuse：同一 user turn 机器统计 `shell="bash"` **7**、`shell="cmd"` **0**；均为只读检索或门禁命令，未通过误填 shell 写入仓库。
+- Shell misuse：同一 user turn 机器统计 `shell="bash"` **9**、`shell="cmd"` **0**；均为只读检索或门禁命令，未通过误填 shell 写入仓库。
 
 ### 4. DoD 逐条核对
 
@@ -162,3 +162,11 @@ cargo run -p xtask -- replay --suite core
 - 重点审查 `browser_task_ui_approval.rs` 的 executor 重建是否遗漏 runtime 组件或放宽 approval 条件。
 - 重点审查 UI 与 terminal 模式互斥、peer/token 参数在启动浏览器前失败。
 - 重点审查 deny 的 `Failed + PolicyDenied` 核验以及无 grant 不会导致 form_submit 重放。
+
+---
+
+**2026-11-02 merge evidence**
+
+- PR #689 checks **22**（21 success + 1 skipped，pending 0），Mergeable / Clean，base `main`；merge `44d2ce4`。
+- post-merge main CI `41404030945` = **success**（Windows 11m36s / macOS 3m5s / Ubuntu 3m45s，0 failed）。
+- 同一 user turn 最终 shell misuse：`shell="bash"` **9**、`shell="cmd"` **0**；均为只读或门禁命令，未通过误填 shell 写入仓库。
