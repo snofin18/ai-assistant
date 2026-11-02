@@ -148,7 +148,7 @@ cargo run -p xtask -- replay --suite core
 
 ### 5. 偏差
 
-- 同一 user turn 的显式 `shell="bash"` 误填机器审计值为 **38**，`shell="cmd"` 为 **0**；
+- 同一 user turn 的显式 `shell="bash"` 误填机器审计值为 **44**，`shell="cmd"` 为 **0**；
   已知误填均为只读/门禁/状态查询命令，未通过 bash 写入仓库。后续命令全部显式 PowerShell。
 
 ### 6. 更合理做法
@@ -183,3 +183,4 @@ cargo run -p xtask -- replay --suite core
 - PR #682 checks **22**（21 success + 1 skipped，pending 0），Mergeable / Clean，
   merge `1770f39`。
 - post-merge main CI `41372166625` = **success**。
+- Done evidence PR #683 merge `18f94a5`；post-merge main CI `41374978195` = **success**。
