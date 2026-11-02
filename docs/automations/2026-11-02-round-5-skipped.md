@@ -124,9 +124,9 @@ DRIFT-AUTO-20261103-1
 需要人类裁决：是更新异步执行器版本，还是记录 advisory waiver（不得由 automation 自行决定）。
 ```
 
-- 本槽机器统计 `shell_misuse=bash=5` / `cmd=0`。三次为只读命令、一次为 LEDGER guard acquire、
-  一次为 push + PR comment 组合命令误填 `shell: "bash"`；ADR-0100 hook 已重写为 PowerShell，
-  未在 WSL/bash 中执行产品写入，五次均未产生预期外仓库写入，后续命令全部显式使用 PowerShell。
+- 本槽机器统计 `shell_misuse=bash=6` / `cmd=0`。三次为只读命令、一次为 LEDGER guard acquire、
+  一次为 push + PR comment、一次为外部 JSONL 追加误填 `shell: "bash"`；ADR-0100 hook 已重写为
+  PowerShell，未在 WSL/bash 中执行产品写入，六次均未产生预期外仓库写入，后续命令全部显式使用 PowerShell。
 - 启动时上一槽锁仍在活动阈值内，导致本轮无法执行任何合格卡；这是 G8 设计行为，不是静默跳过。
 
 ## 9. 外部持久日志
