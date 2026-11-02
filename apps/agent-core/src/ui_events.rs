@@ -90,6 +90,35 @@ impl UiEventSource for PendingApprovalEventSource {
     }
 }
 
+/// Drains two event sources in a fixed order during one UI tick.
+///
+/// This is used when a paused task must publish its existing snapshot before
+/// the approval card that asks the human to act on that snapshot.
+pub struct CombinedEventSource<First, Second> {
+    first: First,
+    second: Second,
+}
+
+impl<First, Second> CombinedEventSource<First, Second> {
+    /// Creates an ordered composition of two bounded event sources.
+    #[must_use]
+    pub const fn new(first: First, second: Second) -> Self {
+        Self { first, second }
+    }
+}
+
+impl<First, Second> UiEventSource for CombinedEventSource<First, Second>
+where
+    First: UiEventSource,
+    Second: UiEventSource,
+{
+    fn drain(&mut self) -> Vec<UiEvent> {
+        let mut events = self.first.drain();
+        events.extend(self.second.drain());
+        events
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::expect_used)]
@@ -102,7 +131,7 @@ mod tests {
         StepEffect, StepId, StepTimeouts, TaskEngine, TaskEvent, TaskId,
     };
 
-    use super::{PendingApprovalEventSource, SnapshotEventSource};
+    use super::{CombinedEventSource, PendingApprovalEventSource, SnapshotEventSource};
     use crate::ui_control::PendingApprovals;
     use crate::ui_ipc::UiEvent;
     use crate::ui_server::UiEventSource;
@@ -253,5 +282,39 @@ mod tests {
             source.drain().is_empty(),
             "an event source must not replay a delivered approval card"
         );
+    }
+
+    struct FixedEvents(Vec<UiEvent>);
+
+    impl UiEventSource for FixedEvents {
+        fn drain(&mut self) -> Vec<UiEvent> {
+            std::mem::take(&mut self.0)
+        }
+    }
+
+    #[test]
+    fn test_combined_event_source_preserves_source_order() {
+        let snapshot = FixedEvents(vec![UiEvent::TaskStateChanged {
+            task_id: "t_events".to_owned(),
+            status: "running".to_owned(),
+            hold_reason: None,
+        }]);
+        let approval = FixedEvents(vec![UiEvent::TaskStateChanged {
+            task_id: "approval".to_owned(),
+            status: "awaiting".to_owned(),
+            hold_reason: Some("approval".to_owned()),
+        }]);
+        let mut source = CombinedEventSource::new(snapshot, approval);
+        let events = source.drain();
+        assert_eq!(events.len(), 2);
+        assert!(matches!(
+            events.first(),
+            Some(UiEvent::TaskStateChanged { task_id, .. }) if task_id == "t_events"
+        ));
+        assert!(matches!(
+            events.last(),
+            Some(UiEvent::TaskStateChanged { task_id, .. }) if task_id == "approval"
+        ));
+        assert!(source.drain().is_empty());
     }
 }

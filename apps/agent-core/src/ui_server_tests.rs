@@ -16,7 +16,7 @@ use assistant_protocol::ToolEnvelope;
 
 use super::{
     UiEventSource, UiServerConfig, looks_like_image_path, process_ui_request, push_events,
-    serve_session, serve_session_with_events,
+    serve_session, serve_session_until_human_decision_with_events, serve_session_with_events,
 };
 use crate::ui_ipc::{
     UiAuthorizationScope, UiCommand, UiCommandError, UiCommandHandler, UiCommandOutcome,
@@ -89,6 +89,55 @@ fn submit_intent_request() -> UiIpcRequest {
         serde_json::json!({
             "version": "1.0",
             "command": { "kind": "submit_intent", "intent_id": "i_1", "goal": "replace and save" }
+        }),
+    )
+}
+
+#[derive(Default)]
+struct DecisionHandler {
+    seen: Vec<UiCommand>,
+}
+
+impl UiCommandHandler for DecisionHandler {
+    fn handle(&mut self, command: UiCommand) -> Result<UiCommandOutcome, UiCommandError> {
+        self.seen.push(command.clone());
+        match command {
+            UiCommand::ApproveRequest { request_id, scope } => {
+                Ok(UiCommandOutcome::ApprovalGranted { request_id, scope })
+            }
+            UiCommand::DenyRequest { request_id, reason } => Ok(UiCommandOutcome::ApprovalDenied {
+                request_id,
+                reason,
+                task_status: "denied".to_owned(),
+            }),
+            _ => Ok(UiCommandOutcome::TaskPaused {
+                task_id: "t_1".to_owned(),
+                task_status: "paused".to_owned(),
+            }),
+        }
+    }
+}
+
+fn approval_request(scope: &str) -> UiIpcRequest {
+    UiIpcRequest::new(
+        "c_approval",
+        serde_json::json!({
+            "version": "1.0",
+            "command": { "kind": "approve_request", "request_id": "runtime:t_1:s_1", "scope": scope }
+        }),
+    )
+}
+
+fn denial_request() -> UiIpcRequest {
+    UiIpcRequest::new(
+        "c_denial",
+        serde_json::json!({
+            "version": "1.0",
+            "command": {
+                "kind": "deny_request",
+                "request_id": "runtime:t_1:s_1",
+                "reason": "human rejected the action"
+            }
         }),
     )
 }
@@ -342,6 +391,84 @@ fn test_session_pushes_events_before_serving_the_request() {
         vec!["Heartbeat", "UiEvent", "UiResponse"],
         "事件必须先于响应发出，且顺序确定"
     );
+}
+
+#[test]
+fn test_until_human_decision_returns_after_one_valid_approval() {
+    let mut transport = ScriptedTransport::default();
+    transport
+        .incoming
+        .push_back(WireMessage::UiRequest(approval_request("once")));
+    let mut handler = DecisionHandler::default();
+    let mut source = one_event();
+    let outcome = serve_session_until_human_decision_with_events(
+        &mut transport,
+        &hello(),
+        Duration::from_millis(2_000),
+        &mut handler,
+        &mut source,
+    );
+    assert!(matches!(
+        outcome,
+        Ok(UiCommandOutcome::ApprovalGranted {
+            request_id,
+            scope: UiAuthorizationScope::Once
+        }) if request_id == "runtime:t_1:s_1"
+    ));
+    assert_eq!(handler.seen.len(), 1);
+    assert!(transport.sent.iter().any(|message| matches!(
+        message,
+        WireMessage::UiResponse(response)
+            if response.correlation_id == "c_approval"
+    )));
+}
+
+#[test]
+fn test_until_human_decision_returns_after_one_valid_denial() {
+    let mut transport = ScriptedTransport::default();
+    transport
+        .incoming
+        .push_back(WireMessage::UiRequest(denial_request()));
+    let mut handler = DecisionHandler::default();
+    let mut source = one_event();
+    let outcome = serve_session_until_human_decision_with_events(
+        &mut transport,
+        &hello(),
+        Duration::from_millis(2_000),
+        &mut handler,
+        &mut source,
+    );
+    assert!(matches!(
+        outcome,
+        Ok(UiCommandOutcome::ApprovalDenied {
+            request_id,
+            reason,
+            task_status
+        }) if request_id == "runtime:t_1:s_1"
+            && reason == "human rejected the action"
+            && task_status == "denied"
+    ));
+    assert_eq!(handler.seen.len(), 1);
+    assert!(transport.sent.iter().any(|message| matches!(
+        message,
+        WireMessage::UiResponse(response) if response.correlation_id == "c_denial"
+    )));
+}
+
+#[test]
+fn test_until_human_decision_disconnect_is_not_a_decision() {
+    let mut transport = ScriptedTransport::default();
+    let mut handler = DecisionHandler::default();
+    let mut source = one_event();
+    let outcome = serve_session_until_human_decision_with_events(
+        &mut transport,
+        &hello(),
+        Duration::from_millis(2_000),
+        &mut handler,
+        &mut source,
+    );
+    assert!(matches!(outcome, Err(IpcError::Disconnected { .. })));
+    assert!(handler.seen.is_empty());
 }
 
 /// A live heartbeat for the negotiated session is observed and re-answered; a

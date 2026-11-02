@@ -67,6 +67,8 @@ use crate::visual_source::StorageVisualObservationCollector;
 
 #[path = "production_resume.rs"]
 mod resume;
+#[path = "production_ui_approval.rs"]
+mod ui_approval;
 
 const PRODUCTION_PLAN_BUDGET_STEPS: u64 = 32;
 const PRODUCTION_PLAN_BUDGET_MS: u64 = 120_000;

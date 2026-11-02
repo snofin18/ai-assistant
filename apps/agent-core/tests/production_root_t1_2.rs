@@ -27,13 +27,13 @@ use fixture::{FakePlatform, FixedClock, TestDirectory, workspace_root};
 use assistant_agent_core::GrantRequest;
 #[cfg(windows)]
 use assistant_agent_core::{
-    ProductionConfig, TaskControlHandler, UiAuthorizationScope, UiCommand, UiCommandHandler,
-    UiServerConfig, assemble_production_host,
+    ProductionConfig, ProductionError, UiAuthorizationScope, UiCommand, UiCommandHandler,
+    UiCommandOutcome, UiServerConfig, assemble_production_host,
 };
 #[cfg(windows)]
 use assistant_hitl::ApprovalScope;
 #[cfg(windows)]
-use assistant_task_engine::{MemoryCheckpointStore, StepStatus, TaskEngine, TaskStatus};
+use assistant_task_engine::{StepStatus, TaskStatus};
 
 #[cfg(windows)]
 #[tokio::test]
@@ -330,32 +330,27 @@ async fn test_production_t1_2_pauses_and_resumes_with_ui_approval()
     let host = assemble_production_host(config, platform.clone(), Arc::new(FixedClock)).await?;
 
     let run = host.execute_plan(host.plan_task()?, FIXED_NOW_MS).await?;
-    let first_pause = run
-        .pending_approval()
-        .cloned()
-        .expect("the replace step must pause for approval");
-    assert_eq!(first_pause.step_id.as_str(), "approve_replace");
-    let mut handler = TaskControlHandler::new(
-        TaskEngine::new(MemoryCheckpointStore::new()),
-        Arc::new(FixedClock),
-    )
-    .with_pending(host.pending_approvals())
-    .with_approvals(host.approvals());
-    handler
-        .handle(UiCommand::ApproveRequest {
-            request_id: first_pause.request_id,
-            scope: UiAuthorizationScope::Once,
-        })
-        .expect("UI approval for replace");
-
+    let mut approved_steps = Vec::new();
     let run = host
-        .resume_plan(run, FIXED_NOW_MS.saturating_add(10))
+        .drive_ui_approvals(run, |_config, pending, handler, events| {
+            approved_steps.push(pending.step_id.to_string());
+            let emitted = events.drain();
+            assert!(emitted.iter().any(|event| matches!(
+                event,
+                assistant_agent_core::UiEvent::StepStateChanged { step_id, .. }
+                    if step_id == pending.step_id.as_str()
+            )));
+            handler
+                .handle(UiCommand::ApproveRequest {
+                    request_id: pending.request_id.clone(),
+                    scope: UiAuthorizationScope::Once,
+                })
+                .map_err(|error| ProductionError::UiServer {
+                    reason: error.to_string(),
+                })
+        })
         .await?;
-    let second_pause = run
-        .pending_approval()
-        .cloned()
-        .expect("the save step must pause for approval");
-    assert_eq!(second_pause.step_id.as_str(), "approve_save");
+    assert_eq!(approved_steps, vec!["approve_replace", "approve_save"]);
     assert_eq!(
         run.final_snapshot
             .step(&assistant_task_engine::StepId::new(
@@ -367,16 +362,6 @@ async fn test_production_t1_2_pauses_and_resumes_with_ui_approval()
     );
     assert_eq!(platform.state.lock().expect("fake state").text, "报告 报告");
 
-    handler
-        .handle(UiCommand::ApproveRequest {
-            request_id: second_pause.request_id,
-            scope: UiAuthorizationScope::Once,
-        })
-        .expect("UI approval for save");
-    let run = host
-        .resume_plan(run, FIXED_NOW_MS.saturating_add(20))
-        .await?;
-
     assert_eq!(run.final_snapshot.status, TaskStatus::Completed);
     assert!(!run.is_awaiting_approval());
     assert!(
@@ -386,6 +371,134 @@ async fn test_production_t1_2_pauses_and_resumes_with_ui_approval()
             .all(|step| step.status == StepStatus::Committed)
     );
     assert_eq!(platform.state.lock().expect("fake state").key_calls, 1);
+    host.shutdown().await?;
+    Ok(())
+}
+
+#[cfg(windows)]
+#[tokio::test]
+async fn test_drive_ui_approvals_denies_with_the_run_engine()
+-> Result<(), Box<dyn std::error::Error>> {
+    let directory = TestDirectory::new("production-t1-2-deny")?;
+    let document_path = directory.path.join("t1-2-deny.txt");
+    std::fs::write(&document_path, "报表 报表")?;
+    let (host, platform) = assemble_t1_2_fake_host(&directory, &document_path).await?;
+
+    let run = host.execute_plan(host.plan_task()?, FIXED_NOW_MS).await?;
+    let denied_step = run
+        .pending_approval()
+        .map(|pending| pending.step_id.to_string())
+        .expect("the replace step must pause");
+    let run = host
+        .drive_ui_approvals(run, |_config, pending, handler, events| {
+            assert!(events.drain().iter().any(|event| matches!(
+                event,
+                assistant_agent_core::UiEvent::StepStateChanged { step_id, .. }
+                    if step_id == pending.step_id.as_str()
+            )));
+            handler
+                .handle(UiCommand::DenyRequest {
+                    request_id: pending.request_id.clone(),
+                    reason: "human rejected the production test".to_owned(),
+                })
+                .map_err(|error| ProductionError::UiServer {
+                    reason: error.to_string(),
+                })
+        })
+        .await?;
+
+    assert_eq!(denied_step, "approve_replace");
+    assert_ne!(run.final_snapshot.status, TaskStatus::Completed);
+    assert!(!run.is_awaiting_approval());
+    assert_eq!(platform.state.lock().expect("fake state").text, "报表 报表");
+    assert_eq!(platform.state.lock().expect("fake state").key_calls, 0);
+    host.shutdown().await?;
+    Ok(())
+}
+
+#[cfg(windows)]
+#[tokio::test]
+async fn test_drive_ui_approvals_rejects_a_decision_without_a_grant()
+-> Result<(), Box<dyn std::error::Error>> {
+    let directory = TestDirectory::new("production-t1-2-no-grant")?;
+    let document_path = directory.path.join("t1-2-no-grant.txt");
+    std::fs::write(&document_path, "报表 报表")?;
+    let (host, _platform) = assemble_t1_2_fake_host(&directory, &document_path).await?;
+
+    let run = host.execute_plan(host.plan_task()?, FIXED_NOW_MS).await?;
+    let result = host
+        .drive_ui_approvals(run, |_config, pending, _handler, _events| {
+            Ok(UiCommandOutcome::ApprovalGranted {
+                request_id: pending.request_id.clone(),
+                scope: UiAuthorizationScope::Once,
+            })
+        })
+        .await;
+    let Err(error) = result else {
+        return Err("an approval outcome without a grant must fail closed".into());
+    };
+    let reason = error.to_string();
+    assert!(
+        reason.contains("already pending") || reason.contains("paused again"),
+        "{reason}"
+    );
+    host.shutdown().await?;
+    Ok(())
+}
+
+#[cfg(windows)]
+#[tokio::test]
+async fn test_drive_ui_approvals_rejects_a_mismatched_request()
+-> Result<(), Box<dyn std::error::Error>> {
+    let directory = TestDirectory::new("production-t1-2-wrong-request")?;
+    let document_path = directory.path.join("t1-2-wrong-request.txt");
+    std::fs::write(&document_path, "报表 报表")?;
+    let (host, _platform) = assemble_t1_2_fake_host(&directory, &document_path).await?;
+
+    let run = host.execute_plan(host.plan_task()?, FIXED_NOW_MS).await?;
+    let result = host
+        .drive_ui_approvals(run, |_config, _pending, _handler, _events| {
+            Ok(UiCommandOutcome::ApprovalGranted {
+                request_id: "runtime:another_task:another_step".to_owned(),
+                scope: UiAuthorizationScope::Once,
+            })
+        })
+        .await;
+    let Err(error) = result else {
+        return Err("a mismatched approval request must fail closed".into());
+    };
+    assert!(error.to_string().contains("does not match pending request"));
+    host.shutdown().await?;
+    Ok(())
+}
+
+#[cfg(windows)]
+#[tokio::test]
+async fn test_drive_ui_approvals_rejects_a_denial_without_engine_transition()
+-> Result<(), Box<dyn std::error::Error>> {
+    let directory = TestDirectory::new("production-t1-2-fake-deny")?;
+    let document_path = directory.path.join("t1-2-fake-deny.txt");
+    std::fs::write(&document_path, "报表 报表")?;
+    let (host, _platform) = assemble_t1_2_fake_host(&directory, &document_path).await?;
+
+    let run = host.execute_plan(host.plan_task()?, FIXED_NOW_MS).await?;
+    let result = host
+        .drive_ui_approvals(run, |_config, pending, _handler, _events| {
+            Ok(UiCommandOutcome::ApprovalDenied {
+                request_id: pending.request_id.clone(),
+                reason: "forged outcome without engine transition".to_owned(),
+                task_status: "failed".to_owned(),
+            })
+        })
+        .await;
+    let Err(error) = result else {
+        return Err("a denial outcome without an engine transition must fail closed".into());
+    };
+    assert!(
+        error
+            .to_string()
+            .contains("was not applied by the run engine")
+    );
     host.shutdown().await?;
     Ok(())
 }
