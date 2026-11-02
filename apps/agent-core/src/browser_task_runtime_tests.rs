@@ -379,6 +379,20 @@ fn test_browser_recorder_consumes_form_fill_evidence_once() -> Result<(), Box<dy
         Some(assistant_agent_core::UiEvent::StepApprovalRequested { step_id, .. })
             if step_id == "submit-form"
     ));
+    let pending = {
+        let recorder = recorder
+            .lock()
+            .map_err(|_| fake_error("recorder state is poisoned"))?;
+        Arc::clone(&recorder.pending_approvals)
+    };
+    let queued = pending
+        .drain_events()
+        .map_err(|error| fake_error(error.to_string()))?;
+    assert_eq!(
+        queued.len(),
+        1,
+        "the runtime must register the same event for the UI source"
+    );
 
     let mut dataflow = RuntimeDataflowPlan::new();
     dataflow.insert(

@@ -80,8 +80,10 @@ pub use runtime_dataflow::{
 };
 pub use storage_session_store::StorageSessionStore;
 pub use task_package::{TASK_PACKAGE_MODEL_ID, TaskPackageError, TaskPackageProvider};
-pub use ui_control::{PendingApproval, PendingApprovals, TaskControlHandler};
-pub use ui_events::SnapshotEventSource;
+pub use ui_control::{
+    MAX_PENDING_APPROVALS, PendingApproval, PendingApprovals, TaskControlHandler,
+};
+pub use ui_events::{PendingApprovalEventSource, SnapshotEventSource};
 pub use ui_ipc::{
     UI_IPC_VERSION, UiApprovalDiff, UiApprovalFieldDiff, UiApprovalReversibility, UiApprovalRisk,
     UiAuthorizationScope, UiCommand, UiCommandError, UiCommandHandler, UiCommandOutcome, UiEvent,

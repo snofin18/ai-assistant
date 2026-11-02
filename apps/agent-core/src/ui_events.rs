@@ -19,8 +19,11 @@
 //! 3. event order inside one snapshot is deterministic — it is exactly
 //!    `project_snapshot_events`' order.
 
+use std::sync::Arc;
+
 use assistant_task_engine::TaskSnapshot;
 
+use crate::ui_control::PendingApprovals;
 use crate::ui_ipc::{UiEvent, project_snapshot_events};
 use crate::ui_server::UiEventSource;
 
@@ -61,15 +64,47 @@ where
     }
 }
 
+/// Emits browser-form approval events registered in the shared pending registry.
+///
+/// The source drains each queued event exactly once. The pending decision stays
+/// registered until the UI approves or denies it; approving or denying removes
+/// any event that has not been delivered yet.
+pub struct PendingApprovalEventSource {
+    pending: Arc<PendingApprovals>,
+}
+
+impl PendingApprovalEventSource {
+    /// Creates a source over the same registry used by the task-control handler.
+    #[must_use]
+    pub const fn new(pending: Arc<PendingApprovals>) -> Self {
+        Self { pending }
+    }
+}
+
+impl UiEventSource for PendingApprovalEventSource {
+    fn drain(&mut self) -> Vec<UiEvent> {
+        // The queue contains plain events and has no panic path while locked.
+        // Recovering a poisoned lock avoids turning a completed registration
+        // into a silent "no event" result.
+        self.pending.drain_events_recovering_poison()
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used)]
+
+    use std::sync::Arc;
+
     use assistant_protocol::serde_json::json;
     use assistant_task_engine::{
         Budget, CheckpointPolicy, MemoryCheckpointStore, Plan, PlanId, PlanStep, Reversibility,
         StepEffect, StepId, StepTimeouts, TaskEngine, TaskEvent, TaskId,
     };
 
-    use super::SnapshotEventSource;
+    use super::{PendingApprovalEventSource, SnapshotEventSource};
+    use crate::ui_control::PendingApprovals;
+    use crate::ui_ipc::UiEvent;
     use crate::ui_server::UiEventSource;
 
     /// 构造一个处于 `Running` 的引擎；任一步骤失败返回 `None`（测试里不 panic）。
@@ -171,6 +206,52 @@ mod tests {
         assert!(
             !source.drain().is_empty(),
             "revision 变化后必须重新产出事件"
+        );
+    }
+    #[test]
+    fn test_pending_approval_source_drains_each_event_once() {
+        let pending = Arc::new(PendingApprovals::new());
+        let event: UiEvent = serde_json::from_value(json!({
+            "kind": "step_approval_requested",
+            "request_id": "runtime:t_events:s_1",
+            "task_id": "t_events",
+            "step_id": "s_1",
+            "action": "edge.cdp.form_submit",
+            "target": "http://127.0.0.1:8765",
+            "summary": "Submit one changed field",
+            "impact": "Submission cannot be automatically undone.",
+            "diff": {
+                "kind": "fields",
+                "entries": [{
+                    "field": "#display-name",
+                    "before": "",
+                    "after": "[redacted:3]"
+                }]
+            },
+            "instruction_attribution": {
+                "origin": "user_request",
+                "parent_goal": null,
+                "source_ref": null
+            },
+            "risk": "high",
+            "reversibility": "l3_irreversible",
+            "scope_options": ["once"],
+            "evidence": {
+                "form_origin": "http://127.0.0.1:8765",
+                "form_action": "http://127.0.0.1:8765/submitted"
+            },
+            "expires_at_ms": 4_102_444_800_000_i64
+        }))
+        .expect("approval event");
+        pending
+            .register_event(&event, 1_000)
+            .expect("register approval event");
+
+        let mut source = PendingApprovalEventSource::new(Arc::clone(&pending));
+        assert_eq!(source.drain(), vec![event]);
+        assert!(
+            source.drain().is_empty(),
+            "an event source must not replay a delivered approval card"
         );
     }
 }

@@ -22,9 +22,9 @@ use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
 
 use assistant_agent_core::{
-    ApprovalGrants, BindingInvoker, EnvelopeObservationCollector, RuntimeBindingState,
-    RuntimeExecutionError, RuntimeExecutor, StepExecutionOutcome, TaskPackageProvider,
-    ToolBusInvoker, ToolInvoker, UiEvent,
+    ApprovalGrants, BindingInvoker, EnvelopeObservationCollector, PendingApprovals,
+    RuntimeBindingState, RuntimeExecutionError, RuntimeExecutor, StepExecutionOutcome,
+    TaskPackageProvider, ToolBusInvoker, ToolInvoker, UiEvent,
 };
 use assistant_core::{InstructionAttribution, Planner, PlannerRequest};
 use assistant_model_gateway::{CancellationToken, ModelProvider};
@@ -285,9 +285,11 @@ async fn execute_plan(
         execution.now_ms.saturating_add(2),
     )?;
 
-    let recorder = Arc::new(Mutex::new(BrowserInvocationRecorder::new(
-        execution.attribution.clone(),
-    )));
+    let pending_approvals = Arc::new(PendingApprovals::new());
+    let recorder = Arc::new(Mutex::new(
+        BrowserInvocationRecorder::new(execution.attribution.clone())
+            .with_pending_approvals(Arc::clone(&pending_approvals)),
+    ));
     let binding_state = Arc::new(Mutex::new(RuntimeBindingState::new(Map::new())));
     let latest_snapshot = Arc::new(Mutex::new(None::<TaskSnapshot>));
     let invoker = RecordingInvoker::new(ToolBusInvoker::new(bus), Arc::clone(&recorder));
@@ -428,19 +430,26 @@ struct BrowserInvocationRecorder {
     pending_form_approval: Option<FormApprovalPreview>,
     previews: BTreeMap<String, FormApprovalPreview>,
     approval_events: BTreeMap<String, UiEvent>,
+    pending_approvals: Arc<PendingApprovals>,
     attribution: InstructionAttribution,
 }
 
 impl BrowserInvocationRecorder {
-    const fn new(attribution: InstructionAttribution) -> Self {
+    fn new(attribution: InstructionAttribution) -> Self {
         Self {
             envelopes: BTreeMap::new(),
             pending_form_read: None,
             pending_form_approval: None,
             previews: BTreeMap::new(),
             approval_events: BTreeMap::new(),
+            pending_approvals: Arc::new(PendingApprovals::new()),
             attribution,
         }
+    }
+
+    fn with_pending_approvals(mut self, pending_approvals: Arc<PendingApprovals>) -> Self {
+        self.pending_approvals = pending_approvals;
+        self
     }
 
     fn record(

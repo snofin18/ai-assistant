@@ -16,14 +16,15 @@
 //! - an approval is only granted for a scope Core actually offered;
 //! - timestamps come from the injected clock, never from wall-clock calls here.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Mutex};
 
 use assistant_storage::Clock;
 use assistant_task_engine::{CheckpointStore, StepId, TaskEngine, TaskEngineError, TaskId};
 
 use crate::ui_ipc::{
-    UiAuthorizationScope, UiCommand, UiCommandError, UiCommandHandler, UiCommandOutcome,
+    UiApprovalDiff, UiApprovalReversibility, UiApprovalRisk, UiAuthorizationScope, UiCommand,
+    UiCommandError, UiCommandHandler, UiCommandOutcome, UiEvent,
 };
 
 use assistant_hitl::ApprovalScope;
@@ -36,6 +37,7 @@ pub struct PendingApproval {
     task_id: TaskId,
     step_id: StepId,
     scopes: Vec<UiAuthorizationScope>,
+    expires_at_ms: Option<i64>,
 }
 
 impl PendingApproval {
@@ -56,13 +58,40 @@ impl PendingApproval {
     pub fn scopes(&self) -> &[UiAuthorizationScope] {
         &self.scopes
     }
+
+    /// Returns the event expiry when this request came from a UI approval event.
+    #[must_use]
+    pub const fn expires_at_ms(&self) -> Option<i64> {
+        self.expires_at_ms
+    }
+
+    fn is_expired(&self, now_ms: i64) -> bool {
+        self.expires_at_ms.is_some_and(|expires| now_ms >= expires)
+    }
+
+    fn grant_ttl_ms(&self, now_ms: i64) -> i64 {
+        self.expires_at_ms
+            .map_or(APPROVAL_TTL_MS, |expires| expires.saturating_sub(now_ms))
+    }
 }
 
 /// Shared registry of approval requests the runtime is waiting on.
 #[derive(Debug, Default)]
 pub struct PendingApprovals {
-    entries: Mutex<BTreeMap<String, PendingApproval>>,
+    state: Mutex<PendingState>,
 }
+
+#[derive(Debug, Default)]
+struct PendingState {
+    entries: BTreeMap<String, PendingApproval>,
+    events: VecDeque<UiEvent>,
+}
+
+/// Hard cap for pending decisions and queued approval events.
+///
+/// Reaching the cap rejects a new request instead of silently dropping a
+/// decision that a human may still be reviewing.
+pub const MAX_PENDING_APPROVALS: usize = 1024;
 
 impl PendingApprovals {
     /// Creates an empty registry.
@@ -85,7 +114,32 @@ impl PendingApprovals {
         step_id: StepId,
         scopes: Vec<UiAuthorizationScope>,
     ) -> Result<(), UiCommandError> {
-        let request_id = request_id.into();
+        self.register_internal(request_id.into(), task_id, step_id, scopes, None)
+    }
+
+    /// Registers a validated browser-form approval event.
+    ///
+    /// The event is accepted only when its request identity, risk,
+    /// reversibility, scope and expiry match the closed T5.2 contract.
+    ///
+    /// # Errors
+    ///
+    /// Returns a handler error when the event is not a valid
+    /// `step_approval_requested`, has expired, duplicates an existing request,
+    /// or either bounded queue is full.
+    pub fn register_event(&self, event: &UiEvent, now_ms: i64) -> Result<(), UiCommandError> {
+        let (request_id, task, step, scopes) = validate_approval_event(event, now_ms)?;
+        self.register_internal(request_id, task, step, scopes, Some(event.clone()))
+    }
+
+    fn register_internal(
+        &self,
+        request_id: String,
+        task_id: TaskId,
+        step_id: StepId,
+        scopes: Vec<UiAuthorizationScope>,
+        event: Option<UiEvent>,
+    ) -> Result<(), UiCommandError> {
         if request_id.trim().is_empty() {
             return Err(UiCommandError::EmptyField {
                 field: "request_id",
@@ -96,35 +150,189 @@ impl PendingApprovals {
                 reason: "a pending approval must offer at least one scope".to_owned(),
             });
         }
-        let mut entries = self.entries.lock().map_err(|_| UiCommandError::Handler {
+        let mut state = self.state.lock().map_err(|_| UiCommandError::Handler {
             reason: "the pending approval registry is unavailable".to_owned(),
         })?;
-        entries.insert(
+        if state.entries.contains_key(&request_id) {
+            return Err(UiCommandError::Handler {
+                reason: format!("approval request `{request_id}` is already pending"),
+            });
+        }
+        if state.entries.len() >= MAX_PENDING_APPROVALS {
+            return Err(UiCommandError::Handler {
+                reason: "the pending approval registry is full".to_owned(),
+            });
+        }
+        if event.is_some() && state.events.len() >= MAX_PENDING_APPROVALS {
+            return Err(UiCommandError::Handler {
+                reason: "the pending approval event queue is full".to_owned(),
+            });
+        }
+        state.entries.insert(
             request_id,
             PendingApproval {
                 task_id,
                 step_id,
                 scopes,
+                expires_at_ms: event.as_ref().and_then(event_expiry),
             },
         );
-        drop(entries);
+        if let Some(event) = event {
+            state.events.push_back(event);
+        }
+        drop(state);
         Ok(())
     }
 
     fn get(&self, request_id: &str) -> Result<Option<PendingApproval>, UiCommandError> {
-        let entries = self.entries.lock().map_err(|_| UiCommandError::Handler {
+        let state = self.state.lock().map_err(|_| UiCommandError::Handler {
             reason: "the pending approval registry is unavailable".to_owned(),
         })?;
-        Ok(entries.get(request_id).cloned())
+        Ok(state.entries.get(request_id).cloned())
     }
 
     fn remove(&self, request_id: &str) -> Result<Option<PendingApproval>, UiCommandError> {
-        let mut entries = self.entries.lock().map_err(|_| UiCommandError::Handler {
+        let mut state = self.state.lock().map_err(|_| UiCommandError::Handler {
             reason: "the pending approval registry is unavailable".to_owned(),
         })?;
-        let entry = entries.remove(request_id);
-        drop(entries);
+        let entry = state.entries.remove(request_id);
+        state.events.retain(|event| match event {
+            UiEvent::StepApprovalRequested {
+                request_id: queued, ..
+            } => queued != request_id,
+            _ => true,
+        });
+        drop(state);
         Ok(entry)
+    }
+
+    /// Drains queued approval events without removing their pending decisions.
+    ///
+    /// # Errors
+    ///
+    /// Returns a handler error when the registry lock is unavailable.
+    pub fn drain_events(&self) -> Result<Vec<UiEvent>, UiCommandError> {
+        let mut state = self.state.lock().map_err(|_| UiCommandError::Handler {
+            reason: "the pending approval registry is unavailable".to_owned(),
+        })?;
+        Ok(state.events.drain(..).collect())
+    }
+
+    pub(crate) fn drain_events_recovering_poison(&self) -> Vec<UiEvent> {
+        let mut state = match self.state.lock() {
+            Ok(state) => state,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        state.events.drain(..).collect()
+    }
+}
+
+fn validate_approval_event(
+    event: &UiEvent,
+    now_ms: i64,
+) -> Result<(String, TaskId, StepId, Vec<UiAuthorizationScope>), UiCommandError> {
+    let UiEvent::StepApprovalRequested {
+        request_id,
+        task_id,
+        step_id,
+        action,
+        target,
+        summary,
+        impact,
+        diff,
+        instruction_attribution,
+        risk,
+        reversibility,
+        scope_options,
+        evidence,
+        expires_at_ms,
+    } = event
+    else {
+        return Err(handler_error(
+            "only step_approval_requested events can be registered",
+        ));
+    };
+    let required = [
+        request_id.as_str(),
+        task_id.as_str(),
+        step_id.as_str(),
+        action.as_str(),
+        target.as_str(),
+        summary.as_str(),
+        impact.as_str(),
+        instruction_attribution.origin.as_str(),
+        evidence.form_origin.as_str(),
+        evidence.form_action.as_str(),
+    ];
+    if required.iter().any(|value| value.trim().is_empty()) {
+        return Err(handler_error(
+            "approval event contains an empty required field",
+        ));
+    }
+    let task = TaskId::new(task_id.clone())
+        .map_err(|error| handler_error(format!("approval event task id is invalid: {error}")))?;
+    let step = StepId::new(step_id.clone())
+        .map_err(|error| handler_error(format!("approval event step id is invalid: {error}")))?;
+    let expected_request_id = format!("runtime:{}:{}", task.as_str(), step.as_str());
+    if request_id != &expected_request_id {
+        return Err(handler_error(
+            "approval event request id does not match task and step",
+        ));
+    }
+    validate_approval_policy(
+        *risk,
+        *reversibility,
+        scope_options,
+        diff,
+        *expires_at_ms,
+        now_ms,
+    )?;
+    Ok((request_id.clone(), task, step, scope_options.clone()))
+}
+
+fn validate_approval_policy(
+    risk: UiApprovalRisk,
+    reversibility: UiApprovalReversibility,
+    scope_options: &[UiAuthorizationScope],
+    diff: &UiApprovalDiff,
+    expires_at_ms: i64,
+    now_ms: i64,
+) -> Result<(), UiCommandError> {
+    if risk != UiApprovalRisk::High {
+        return Err(handler_error("browser form approval must carry high risk"));
+    }
+    if reversibility != UiApprovalReversibility::L3Irreversible {
+        return Err(handler_error(
+            "browser form approval must be L3 irreversible",
+        ));
+    }
+    if scope_options != [UiAuthorizationScope::Once] {
+        return Err(handler_error(
+            "browser form approval must offer exactly once",
+        ));
+    }
+    if expires_at_ms <= now_ms {
+        return Err(handler_error("browser form approval event has expired"));
+    }
+    let UiApprovalDiff::Fields { entries } = diff;
+    if entries.is_empty() || entries.iter().any(|entry| entry.field.trim().is_empty()) {
+        return Err(handler_error(
+            "browser form approval must contain a non-empty field diff",
+        ));
+    }
+    Ok(())
+}
+
+const fn event_expiry(event: &UiEvent) -> Option<i64> {
+    match event {
+        UiEvent::StepApprovalRequested { expires_at_ms, .. } => Some(*expires_at_ms),
+        _ => None,
+    }
+}
+
+fn handler_error(reason: impl Into<String>) -> UiCommandError {
+    UiCommandError::Handler {
+        reason: reason.into(),
     }
 }
 
@@ -185,6 +393,19 @@ impl<Store> TaskControlHandler<Store> {
         self.pending.register(request_id, task_id, step_id, scopes)
     }
 
+    /// Registers a validated browser-form approval event and its pending decision.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same fail-closed errors as [`PendingApprovals::register_event`].
+    pub fn register_pending_approval_event(
+        &self,
+        event: &UiEvent,
+        now_ms: i64,
+    ) -> Result<(), UiCommandError> {
+        self.pending.register_event(event, now_ms)
+    }
+
     /// Records the human decision so the waiting runtime step can proceed **once**.
     ///
     /// A standing scope is refused: the grant table will not hold one, and a
@@ -202,7 +423,7 @@ impl<Store> TaskControlHandler<Store> {
         scope: UiAuthorizationScope,
         now_ms: i64,
     ) -> Result<UiCommandOutcome, UiCommandError> {
-        let (task_id, step_id) = {
+        let (task_id, step_id, ttl_ms) = {
             let pending =
                 self.pending
                     .get(&request_id)?
@@ -212,7 +433,13 @@ impl<Store> TaskControlHandler<Store> {
             if !pending.scopes.contains(&scope) {
                 return Err(UiCommandError::ScopeNotOffered { request_id, scope });
             }
-            (pending.task_id, pending.step_id)
+            if pending.is_expired(now_ms) {
+                drop(pending);
+                let _ = self.pending.remove(&request_id)?;
+                return Err(UiCommandError::UnknownApproval { request_id });
+            }
+            let ttl_ms = pending.grant_ttl_ms(now_ms);
+            (pending.task_id, pending.step_id, ttl_ms)
         };
         let granted = match scope {
             UiAuthorizationScope::Once => ApprovalScope::Once,
@@ -231,7 +458,7 @@ impl<Store> TaskControlHandler<Store> {
                 step_id: step_id.as_str(),
                 scope: granted,
                 now_ms,
-                ttl_ms: APPROVAL_TTL_MS,
+                ttl_ms,
                 uses: 1,
             })
             .map_err(|error| UiCommandError::Handler {

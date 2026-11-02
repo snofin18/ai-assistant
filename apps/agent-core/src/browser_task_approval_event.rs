@@ -120,6 +120,9 @@ impl BrowserInvocationRecorder {
         let event = preview
             .to_ui_event(task_id, &step.id, &step.tool, now_ms)
             .map_err(|error| preview_runtime_error(step.id.as_str(), error))?;
+        self.pending_approvals
+            .register_event(&event, now_ms)
+            .map_err(|error| preview_runtime_error(step.id.as_str(), error))?;
         self.approval_events.insert(step.id.to_string(), event);
         Ok(())
     }
