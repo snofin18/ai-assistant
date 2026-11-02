@@ -39,6 +39,31 @@ http://127.0.0.1:8766/form.html
 The form submits with GET to `/t5.2/submitted`. A successful manual check ends on
 the page containing `data-testid="submitted-marker"`.
 
+## Human approval loopback
+
+Build the private runner, then run:
+
+```powershell
+cargo build -p assistant-agent-core
+pwsh -NoProfile -File eval/tasks/edge/t5.2/run_real_edge_human_approval.ps1 `
+  -EvidenceRoot eval/tasks/edge/t5.2/evidence/<date>-task-356-human-approval `
+  -EdgeExecutable "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+```
+
+The runner opens the local form in a dedicated Edge profile, reads and fills the
+three synthetic fields, and pauses before `form_submit`. It prints the redacted
+`step_approval_requested` event and waits for the exact input `once`. Only then
+does Policy consume one `ApprovalGrants` use and call `form_submit` exactly once.
+The navigate and fill setup steps are explicitly pre-approved; pre-approving
+`form_submit` in human-approval mode is rejected. The fill step never submits.
+The script verifies `submitted=true`, the query-free local `post_url`, the
+`submitted-marker`, and process/port cleanup. The model-visible URL removes
+query/fragment data and redacts any expected field value found in its path.
+
+This is a human-present CLI acceptance, not a real UI-session acceptance. Do not
+add real personal data, credentials, files, payment details, CAPTCHA, or external
+redirects to this fixture.
+
 ## Safety boundary
 
 Only synthetic values belong in this form. Do not add real credentials, personal

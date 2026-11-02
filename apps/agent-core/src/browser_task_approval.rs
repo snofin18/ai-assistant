@@ -22,8 +22,11 @@ use std::sync::Arc;
 use assistant_agent_core::{ApprovalGrants, GrantRequest, RuntimeExecutionError, StepPolicy};
 use assistant_core::InstructionAttribution;
 use assistant_hitl::{ApprovalScope, DiffPreview, FieldDiff};
-use assistant_policy::{Decision, EgressDestination, EvaluationContext, Reversibility, RuleSet};
-use assistant_protocol::{ToolEffect, ToolEnvelope, ToolReversibility, ToolSchema};
+use assistant_policy::{
+    Decision, Effect, EgressDestination, EvaluationContext, PolicyRule, Reversibility,
+    RuleConditions, RuleEffect, RuleId, RuleSet, ScopeOption,
+};
+use assistant_protocol::{RiskLevel, ToolEffect, ToolEnvelope, ToolReversibility, ToolSchema};
 use assistant_task_engine::{PlanStep, StepEffect, StepId, TaskId};
 use assistant_tool_bus::{Clock, SystemClock};
 use serde::Deserialize;
@@ -378,6 +381,29 @@ pub(super) struct BrowserTaskPolicy {
     pub(super) target_app: String,
     pub(super) grants: Arc<ApprovalGrants>,
     pub(super) task_id: TaskId,
+}
+
+/// Browser-only policy extension for the ADR-0101 L3 form submit boundary.
+///
+/// The shared example rule set intentionally has no high/L3 confirmation rule,
+/// so this narrow addition keeps the default deny floor everywhere else and
+/// enables exactly one human confirmation for `form_submit`.
+pub(super) fn browser_task_rules() -> RuleSet {
+    let mut rules = RuleSet::example_v0().rules().to_vec();
+    rules.push(PolicyRule {
+        id: RuleId::new("confirm_high_irreversible_browser_form_submit"),
+        conditions: RuleConditions {
+            effect: Some(vec![Effect::Write]),
+            risk_level: Some(vec![RiskLevel::High]),
+            reversibility: Some(vec![Reversibility::L3Irreversible]),
+            ..RuleConditions::default()
+        },
+        effect: RuleEffect::AllowWithConfirmation {
+            scope_options: vec![ScopeOption::Once],
+            show_diff: true,
+        },
+    });
+    RuleSet::new(rules)
 }
 
 impl BrowserTaskPolicy {

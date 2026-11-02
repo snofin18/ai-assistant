@@ -2,7 +2,9 @@
 //!
 //! The DOM expression validates the form, submit control, URL and exact field
 //! state before one click. A second read must observe a new navigation time
-//! origin; any unknown post-click outcome returns `UserInteraction`.
+//! origin; any unknown post-click outcome returns `UserInteraction`. The
+//! model-visible `post_url` strips query/fragment data and redacts any path that
+//! contains an expected field value, because raw form values must not escape.
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -105,6 +107,7 @@ where
         let data = submit_output_value(
             &pre_identity,
             &post_identity,
+            &request.fields,
             elapsed_millis(started.elapsed()),
             &self.tool_name,
         )?;
@@ -361,6 +364,7 @@ fn observed_identity(
 fn submit_output_value(
     previous: &ObservedIdentity,
     current: &ObservedIdentity,
+    fields: &[ExpectedField],
     elapsed_ms: u64,
     tool: &str,
 ) -> Result<Value, ToolBusError> {
@@ -374,12 +378,68 @@ fn submit_output_value(
     }
     Ok(json!({
         "submitted": true,
-        "post_url": current.url,
+        "post_url": redact_post_submit_url(&current.url, fields),
         "fingerprint_scope": CDP_TARGET_FINGERPRINT_SCOPE,
         "fingerprint": fingerprint,
         "previous_fingerprint": previous_fingerprint,
         "elapsed_ms": elapsed_ms,
     }))
+}
+
+fn redact_post_submit_url(url: &str, fields: &[ExpectedField]) -> String {
+    let without_fragment = url.split_once('#').map_or(url, |(prefix, _)| prefix);
+    let mut sanitized = without_fragment
+        .split_once('?')
+        .map_or(without_fragment, |(prefix, _)| prefix)
+        .to_owned();
+    if fields
+        .iter()
+        .filter(|field| !field.value.is_empty())
+        .any(|field| url_path_contains_value(&sanitized, &field.value))
+        && let Some(origin) = http_origin_prefix(&sanitized)
+    {
+        sanitized = format!("{origin}/%5Bredacted%5D");
+    }
+    sanitized
+}
+
+fn url_path_contains_value(url: &str, value: &str) -> bool {
+    let Some(origin) = http_origin_prefix(url) else {
+        return true;
+    };
+    let path = url.strip_prefix(origin).unwrap_or(url);
+    path.contains(value) || percent_decode(path).is_none_or(|decoded| decoded.contains(value))
+}
+
+fn percent_decode(value: &str) -> Option<String> {
+    let bytes = value.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes.get(index).copied()? == b'%' {
+            let high = bytes.get(index.checked_add(1)?).copied()?;
+            let low = bytes.get(index.checked_add(2)?).copied()?;
+            decoded.push(
+                hex_value(high)?
+                    .checked_mul(16)?
+                    .checked_add(hex_value(low)?)?,
+            );
+            index = index.checked_add(3)?;
+        } else {
+            decoded.push(*bytes.get(index)?);
+            index = index.checked_add(1)?;
+        }
+    }
+    String::from_utf8(decoded).ok()
+}
+
+fn hex_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => byte.checked_sub(b'0'),
+        b'a'..=b'f' => byte.checked_sub(b'a')?.checked_add(10),
+        b'A'..=b'F' => byte.checked_sub(b'A')?.checked_add(10),
+        _ => None,
+    }
 }
 
 fn identity_fingerprint(identity: &ObservedIdentity) -> Result<String, ToolBusError> {

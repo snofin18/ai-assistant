@@ -109,7 +109,11 @@ fn render_step(
     register_step_dataflow(step, tool, condition, &outputs, known_outputs, dataflow)?;
     let point_of_no_return = matches!(
         tool,
-        "notepad.file.save_as" | "paint.document.new" | "paint.file.save_as"
+        "notepad.file.save_as"
+            | "paint.document.new"
+            | "paint.file.save_as"
+            | "edge.cdp.form_submit"
+            | "chrome.cdp.form_submit"
     );
     let execute_timeout_ms = step_execute_timeout_ms(tool);
     Ok(Some(json!({

@@ -268,7 +268,13 @@ fn test_form_submit_outputs_real_identity_fingerprints() {
         title: "Submitted".to_owned(),
         time_origin: 2.0,
     };
-    let output = submit_output_value(&previous, &current, 17, "edge.cdp.form_submit");
+    let output = submit_output_value(
+        &previous,
+        &current,
+        &[field("#name", "Ada")],
+        17,
+        "edge.cdp.form_submit",
+    );
     assert!(output.is_ok());
     if let Ok(output) = output {
         assert_eq!(output.get("submitted"), Some(&json!(true)));
@@ -293,5 +299,68 @@ fn test_form_submit_outputs_real_identity_fingerprints() {
         );
         assert!(!output.to_string().contains("Fixture"));
         assert!(!output.to_string().contains("Submitted"));
+    }
+}
+
+#[test]
+fn test_form_submit_output_redacts_get_query_and_fragment_values() {
+    let previous = ObservedIdentity {
+        url: "http://127.0.0.1:43000/".to_owned(),
+        title: "Fixture".to_owned(),
+        time_origin: 1.0,
+    };
+    let current = ObservedIdentity {
+        url: "http://127.0.0.1:43000/submitted?name=Ada&email=ada%40example.test#receipt"
+            .to_owned(),
+        title: "Submitted".to_owned(),
+        time_origin: 2.0,
+    };
+    let output = submit_output_value(
+        &previous,
+        &current,
+        &[field("#name", "Ada"), field("#email", "ada@example.test")],
+        17,
+        "edge.cdp.form_submit",
+    );
+    assert!(output.is_ok());
+    if let Ok(output) = output {
+        assert_eq!(
+            output.get("post_url"),
+            Some(&json!("http://127.0.0.1:43000/submitted"))
+        );
+        let rendered = output.to_string();
+        assert!(!rendered.contains("Ada"));
+        assert!(!rendered.contains("ada%40example.test"));
+        assert!(!rendered.contains("#receipt"));
+    }
+}
+
+#[test]
+fn test_form_submit_output_redacts_field_values_in_path() {
+    let previous = ObservedIdentity {
+        url: "http://127.0.0.1:43000/".to_owned(),
+        title: "Fixture".to_owned(),
+        time_origin: 1.0,
+    };
+    let current = ObservedIdentity {
+        url: "http://127.0.0.1:43000/receipt/Ada%20Lovelace?state=done".to_owned(),
+        title: "Submitted".to_owned(),
+        time_origin: 2.0,
+    };
+    let output = submit_output_value(
+        &previous,
+        &current,
+        &[field("#name", "Ada Lovelace")],
+        17,
+        "edge.cdp.form_submit",
+    );
+    assert!(output.is_ok());
+    if let Ok(output) = output {
+        assert_eq!(
+            output.get("post_url"),
+            Some(&json!("http://127.0.0.1:43000/%5Bredacted%5D"))
+        );
+        assert!(!output.to_string().contains("Ada"));
+        assert!(!output.to_string().contains("Lovelace"));
     }
 }

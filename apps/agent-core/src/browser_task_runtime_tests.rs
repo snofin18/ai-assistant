@@ -11,10 +11,14 @@
 )]
 
 use std::collections::BTreeMap;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-use assistant_agent_core::{RuntimeDataflowPlan, RuntimeStepBinding, TaskPackageProvider};
+use assistant_agent_core::{
+    ApprovalGrants, RuntimeDataflowPlan, RuntimeStepBinding, TaskPackageProvider,
+};
 use assistant_core::InstructionAttribution;
+use assistant_hitl::ApprovalScope;
 use assistant_protocol::ToolEnvelope;
 use assistant_task_engine::{PlanStep, Reversibility, StepEffect, StepId, StepTimeouts, TaskId};
 use assistant_tool_bus::{
@@ -27,9 +31,13 @@ use serde_json::{Map, Value, json};
 use super::browser_task_approval::recorded_approval_events;
 use super::{
     BrowserInvocationRecorder, BrowserTaskOptions, PLAN_BUDGET_MS, browser_tool_schemas,
-    collect_outputs, execute_with_bus, extract_browser_output, recorded_previews, write_output,
+    collect_outputs, execute_with_bus, extract_browser_output, grant_human_approval,
+    recorded_previews, reject_form_submit_preapproval, take_runtime_approval_event, write_output,
 };
 use crate::browser_runtime::BrowserSelection;
+
+#[path = "browser_task_human_approval_tests.rs"]
+mod human_approval;
 
 const EDGE_NAVIGATE: &str = "edge.cdp.navigate";
 const EDGE_DOM_READ: &str = "edge.cdp.dom_read";

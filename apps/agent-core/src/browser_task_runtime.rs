@@ -22,16 +22,16 @@ use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
 
 use assistant_agent_core::{
-    ApprovalGrants, BindingInvoker, EnvelopeObservationCollector, PendingApprovals,
+    ApprovalGrants, BindingInvoker, EnvelopeObservationCollector, GrantRequest, PendingApprovals,
     RuntimeBindingState, RuntimeExecutionError, RuntimeExecutor, StepExecutionOutcome,
-    TaskPackageProvider, ToolBusInvoker, ToolInvoker, UiEvent,
+    TaskPackageProvider, ToolBusInvoker, ToolInvoker, UiAuthorizationScope, UiEvent,
 };
 use assistant_core::{InstructionAttribution, Planner, PlannerRequest};
+use assistant_hitl::ApprovalScope;
 use assistant_model_gateway::{CancellationToken, ModelProvider};
-use assistant_policy::RuleSet;
 use assistant_protocol::{ToolEnvelope, ToolSchema};
 use assistant_task_engine::{
-    Budget, Plan, PlanId, PlanStep, TaskEngine, TaskEvent, TaskId, TaskSnapshot, TaskStatus,
+    Budget, Plan, PlanId, PlanStep, StepId, TaskEngine, TaskEvent, TaskId, TaskSnapshot, TaskStatus,
 };
 use assistant_tool_bus::{Clock, MountSelection, SystemClock, ToolBus, ToolBusConfig};
 use serde_json::{Map, Value, json};
@@ -46,8 +46,8 @@ mod browser_task_csv;
 mod browser_task_support;
 
 use browser_task_approval::{
-    BrowserTaskPolicy, FormApprovalPreview, FormReadSnapshot, grant_step_approvals,
-    recorded_approval_events, validate_step_approvals,
+    BrowserTaskPolicy, FormApprovalPreview, FormReadSnapshot, browser_task_rules,
+    grant_step_approvals, recorded_approval_events, validate_step_approvals,
 };
 use browser_task_csv::normalize_t5_1_outputs;
 use browser_task_support::{BrowserTaskError, BrowserTaskOptions, BrowserTaskResult, write_output};
@@ -61,13 +61,24 @@ struct BrowserExecution<'arguments> {
     app_id: &'arguments str,
     now_ms: i64,
     approved_step_ids: &'arguments [String],
+    human_approval: bool,
     attribution: InstructionAttribution,
+}
+
+struct BrowserRunContext<'arguments> {
+    app_id: &'arguments str,
+    now_ms: i64,
+    approved_step_ids: &'arguments [String],
+    human_approval: bool,
 }
 
 struct BrowserDriveState<'state> {
     binding_state: &'state Arc<Mutex<RuntimeBindingState>>,
     latest_snapshot: &'state Arc<Mutex<Option<TaskSnapshot>>>,
     recorder: &'state Arc<Mutex<BrowserInvocationRecorder>>,
+    pending_approvals: &'state Arc<PendingApprovals>,
+    approval_grants: &'state Arc<ApprovalGrants>,
+    human_approval: bool,
 }
 
 type BrowserExecutor<'bus> = RuntimeExecutor<
@@ -130,13 +141,16 @@ async fn run(arguments: &[String]) -> Result<BrowserTaskResult, BrowserTaskError
     .await
     .map_err(BrowserTaskError::from)?;
 
-    let execution = execute_with_bus(
+    let execution = execute_with_bus_human(
         &bus,
         provider,
         tool_schemas,
-        selection.app_id(),
-        SystemClock.now_unix_ms(),
-        &options.approved_step_ids,
+        BrowserRunContext {
+            app_id: selection.app_id(),
+            now_ms: SystemClock.now_unix_ms(),
+            approved_step_ids: &options.approved_step_ids,
+            human_approval: options.human_approval,
+        },
     )
     .await;
     let shutdown = bus.shutdown().await.map_err(BrowserTaskError::from);
@@ -176,6 +190,18 @@ fn browser_tool_schemas(
     }
 }
 
+async fn execute_with_bus_human(
+    bus: &ToolBus,
+    provider: TaskPackageProvider,
+    tool_schemas: Vec<ToolSchema>,
+    context: BrowserRunContext<'_>,
+) -> Result<BrowserTaskResult, BrowserTaskError> {
+    execute_with_bus_and_previews(bus, provider, tool_schemas, context)
+        .await
+        .map(|(result, _approval_previews, _approval_events)| result)
+}
+
+#[cfg(test)]
 async fn execute_with_bus(
     bus: &ToolBus,
     provider: TaskPackageProvider,
@@ -184,25 +210,25 @@ async fn execute_with_bus(
     now_ms: i64,
     approved_step_ids: &[String],
 ) -> Result<BrowserTaskResult, BrowserTaskError> {
-    execute_with_bus_and_previews(
+    execute_with_bus_human(
         bus,
         provider,
         tool_schemas,
-        app_id,
-        now_ms,
-        approved_step_ids,
+        BrowserRunContext {
+            app_id,
+            now_ms,
+            approved_step_ids,
+            human_approval: false,
+        },
     )
     .await
-    .map(|(result, _approval_previews, _approval_events)| result)
 }
 
 async fn execute_with_bus_and_previews(
     bus: &ToolBus,
     provider: TaskPackageProvider,
     tool_schemas: Vec<ToolSchema>,
-    app_id: &str,
-    now_ms: i64,
-    approved_step_ids: &[String],
+    context: BrowserRunContext<'_>,
 ) -> Result<(BrowserTaskResult, Vec<FormApprovalPreview>, Vec<UiEvent>), BrowserTaskError> {
     let task_id = provider.task_id().clone();
     let provider_arc: Arc<dyn ModelProvider> = Arc::new(provider.clone());
@@ -245,9 +271,10 @@ async fn execute_with_bus_and_previews(
         plan,
         tool_schemas,
         BrowserExecution {
-            app_id,
-            now_ms,
-            approved_step_ids,
+            app_id: context.app_id,
+            now_ms: context.now_ms,
+            approved_step_ids: context.approved_step_ids,
+            human_approval: context.human_approval,
             attribution,
         },
     )
@@ -262,16 +289,14 @@ async fn execute_plan(
     execution: BrowserExecution<'_>,
 ) -> Result<(BrowserTaskResult, Vec<FormApprovalPreview>, Vec<UiEvent>), BrowserTaskError> {
     let task_id = plan.task_id.clone();
-    let ordered = plan
-        .ordered_steps()
-        .into_iter()
-        .cloned()
-        .collect::<Vec<_>>();
+    let ordered = ordered_plan_steps(&plan);
     let catalog = tool_schemas
         .into_iter()
         .map(|schema| (schema.name.clone(), schema))
         .collect::<BTreeMap<_, _>>();
-    let policy = prepare_browser_policy(&task_id, &catalog, &ordered, &execution)?;
+    let approval_grants = Arc::new(ApprovalGrants::new());
+    let policy =
+        prepare_browser_policy(&task_id, &catalog, &ordered, &execution, &approval_grants)?;
     let mut engine = TaskEngine::new(assistant_task_engine::MemoryCheckpointStore::new());
     engine.create_task(plan, execution.now_ms)?;
     engine.apply_task_event(
@@ -308,6 +333,9 @@ async fn execute_plan(
             binding_state: &binding_state,
             latest_snapshot: &latest_snapshot,
             recorder: &recorder,
+            pending_approvals: &pending_approvals,
+            approval_grants: &approval_grants,
+            human_approval: execution.human_approval,
         },
         execution.now_ms,
     )
@@ -334,24 +362,56 @@ async fn execute_plan(
     ))
 }
 
+fn ordered_plan_steps(plan: &Plan) -> Vec<PlanStep> {
+    plan.ordered_steps().into_iter().cloned().collect()
+}
+
 fn prepare_browser_policy(
     task_id: &TaskId,
     catalog: &BTreeMap<String, ToolSchema>,
     ordered: &[PlanStep],
     execution: &BrowserExecution<'_>,
+    approval_grants: &Arc<ApprovalGrants>,
 ) -> Result<BrowserTaskPolicy, BrowserTaskError> {
-    let approval_grants = Arc::new(ApprovalGrants::new());
     let policy = BrowserTaskPolicy::new(
-        RuleSet::example_v0(),
+        browser_task_rules(),
         catalog.clone(),
         execution.app_id.to_owned(),
-        Arc::clone(&approval_grants),
+        Arc::clone(approval_grants),
         task_id.clone(),
     );
     let approved_steps =
         validate_step_approvals(ordered, execution.approved_step_ids, &policy, catalog)?;
-    grant_step_approvals(&approval_grants, task_id, &approved_steps, execution.now_ms)?;
+    reject_form_submit_preapproval(ordered, &approved_steps, execution.human_approval)?;
+    grant_step_approvals(approval_grants, task_id, &approved_steps, execution.now_ms)?;
     Ok(policy)
+}
+
+fn reject_form_submit_preapproval(
+    ordered: &[PlanStep],
+    approved_steps: &[StepId],
+    human_approval: bool,
+) -> Result<(), BrowserTaskError> {
+    if !human_approval {
+        return Ok(());
+    }
+    let preapproved_submit = approved_steps.iter().any(|approved| {
+        ordered
+            .iter()
+            .find(|step| &step.id == approved)
+            .is_some_and(|step| is_form_submit_tool(&step.tool))
+    });
+    if preapproved_submit {
+        return Err(BrowserTaskError::Arguments {
+            reason: "--approve-step cannot pre-approve form_submit in --human-approval mode"
+                .to_owned(),
+        });
+    }
+    Ok(())
+}
+
+fn is_form_submit_tool(tool: &str) -> bool {
+    matches!(tool, "edge.cdp.form_submit" | "chrome.cdp.form_submit")
 }
 
 async fn drive_steps<'bus>(
@@ -372,9 +432,26 @@ async fn drive_steps<'bus>(
                 })
             })?
             .prepare_form_submit_approval(task_id, step, now_ms)?;
-        let outcome = executor
+        let mut outcome = executor
             .advance(task_id, &step.id, now_ms.saturating_add(3))
             .await?;
+        if matches!(outcome, StepExecutionOutcome::AwaitingApproval) && state.human_approval {
+            let event = take_runtime_approval_event(state.pending_approvals, task_id, &step.id)?;
+            if !prompt_for_human_approval(&event)? {
+                return Err(BrowserTaskError::HumanRejected {
+                    step_id: step.id.to_string(),
+                });
+            }
+            grant_human_approval(&event, state.approval_grants, now_ms)?;
+            outcome = executor
+                .advance(task_id, &step.id, now_ms.saturating_add(3))
+                .await?;
+            if matches!(outcome, StepExecutionOutcome::AwaitingApproval) {
+                return Err(BrowserTaskError::HumanApprovalNotApplied {
+                    step_id: step.id.to_string(),
+                });
+            }
+        }
         let snapshot = match outcome {
             StepExecutionOutcome::Committed(snapshot) => snapshot,
             other => {
@@ -422,6 +499,141 @@ async fn drive_steps<'bus>(
         }));
     }
     Ok((executor, steps))
+}
+
+fn take_runtime_approval_event(
+    pending_approvals: &PendingApprovals,
+    task_id: &TaskId,
+    step_id: &StepId,
+) -> Result<UiEvent, BrowserTaskError> {
+    let events = pending_approvals.drain_events().map_err(|error| {
+        BrowserTaskError::Runtime(RuntimeExecutionError::Tool {
+            reason: format!("pending approval event source failed: {error}"),
+        })
+    })?;
+    let mut matching = Vec::new();
+    let mut unexpected = Vec::new();
+    for event in events {
+        match &event {
+            UiEvent::StepApprovalRequested {
+                task_id: event_task,
+                step_id: event_step,
+                ..
+            } if event_task == task_id.as_str() && event_step == step_id.as_str() => {
+                matching.push(event);
+            }
+            _ => unexpected.push(event),
+        }
+    }
+    if !unexpected.is_empty() {
+        return Err(BrowserTaskError::Runtime(RuntimeExecutionError::Tool {
+            reason: "pending approval queue contained an event for another task or step".to_owned(),
+        }));
+    }
+    if matching.len() != 1 {
+        return Err(BrowserTaskError::Runtime(RuntimeExecutionError::Tool {
+            reason: format!(
+                "expected exactly one pending approval event for step `{step_id}`, got {}",
+                matching.len()
+            ),
+        }));
+    }
+    matching.pop().ok_or_else(|| {
+        BrowserTaskError::Runtime(RuntimeExecutionError::Tool {
+            reason: "pending approval event disappeared after validation".to_owned(),
+        })
+    })
+}
+
+fn prompt_for_human_approval(event: &UiEvent) -> Result<bool, BrowserTaskError> {
+    let rendered =
+        serde_json::to_string_pretty(event).map_err(|error| BrowserTaskError::HumanPrompt {
+            reason: format!("approval event serialization failed: {error}"),
+        })?;
+    let mut stdout = io::stdout().lock();
+    writeln!(stdout, "{rendered}").map_err(|error| BrowserTaskError::HumanPrompt {
+        reason: format!("cannot write approval event: {error}"),
+    })?;
+    writeln!(
+        stdout,
+        "Type `once` to approve this exact form submission; anything else rejects it."
+    )
+    .map_err(|error| BrowserTaskError::HumanPrompt {
+        reason: format!("cannot write approval prompt: {error}"),
+    })?;
+    stdout
+        .flush()
+        .map_err(|error| BrowserTaskError::HumanPrompt {
+            reason: format!("cannot flush approval prompt: {error}"),
+        })?;
+    let mut response = String::new();
+    io::stdin()
+        .read_line(&mut response)
+        .map_err(|error| BrowserTaskError::HumanPrompt {
+            reason: format!("cannot read approval response: {error}"),
+        })?;
+    Ok(response.trim() == "once")
+}
+
+fn grant_human_approval(
+    event: &UiEvent,
+    approval_grants: &ApprovalGrants,
+    now_ms: i64,
+) -> Result<(), BrowserTaskError> {
+    let UiEvent::StepApprovalRequested {
+        request_id,
+        task_id,
+        step_id,
+        scope_options,
+        expires_at_ms,
+        ..
+    } = event
+    else {
+        return Err(BrowserTaskError::Runtime(RuntimeExecutionError::Tool {
+            reason: "human approval event has the wrong type".to_owned(),
+        }));
+    };
+    if scope_options.as_slice() != [UiAuthorizationScope::Once] {
+        return Err(BrowserTaskError::Runtime(RuntimeExecutionError::Policy {
+            reason: "human form approval must offer exactly once".to_owned(),
+        }));
+    }
+    let task = TaskId::new(task_id.clone()).map_err(|error| {
+        BrowserTaskError::Runtime(RuntimeExecutionError::Tool {
+            reason: format!("human approval task id is invalid: {error}"),
+        })
+    })?;
+    let step = StepId::new(step_id.clone()).map_err(|error| {
+        BrowserTaskError::Runtime(RuntimeExecutionError::Tool {
+            reason: format!("human approval step id is invalid: {error}"),
+        })
+    })?;
+    let expected_request_id = format!("runtime:{}:{}", task.as_str(), step.as_str());
+    if request_id != &expected_request_id {
+        return Err(BrowserTaskError::Runtime(RuntimeExecutionError::Tool {
+            reason: "human approval request id does not match task and step".to_owned(),
+        }));
+    }
+    let ttl_ms = expires_at_ms.saturating_sub(now_ms);
+    if ttl_ms <= 0 {
+        return Err(BrowserTaskError::HumanApprovalExpired {
+            step_id: step.to_string(),
+        });
+    }
+    approval_grants
+        .grant(&GrantRequest {
+            task_id: task.as_str(),
+            step_id: step.as_str(),
+            scope: ApprovalScope::Once,
+            now_ms,
+            ttl_ms,
+            uses: 1,
+        })
+        .map_err(|error| {
+            BrowserTaskError::Runtime(RuntimeExecutionError::Policy {
+                reason: format!("cannot record human approval: {error}"),
+            })
+        })
 }
 
 struct BrowserInvocationRecorder {
