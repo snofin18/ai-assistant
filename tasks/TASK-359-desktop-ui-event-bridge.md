@@ -1,6 +1,6 @@
 # TASK-359 desktop-ui/Tauri Core 事件桥与审批卡接线
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：1c　批次：T5.2 产品化
 - 依赖：ADR-0057、ADR-0101、ADR-0103、TASK-344、TASK-355、TASK-358
 - 本文件 = 卡片正文 + 执行记录（ADR-0031）。分界线以上由 Orchestrator 所有。
@@ -132,6 +132,10 @@ cargo run -p xtask -- replay --suite core
   `check-migrations`：PASSED，0 error。
 - `cargo deny check`：advisories / bans / licenses / sources ok。
 - `cargo run -p xtask -- replay --suite core`：2 steps、5 changes、0 mismatch。
+- 2026-11-02 merge evidence：PR #691 head `a6d4836a7e1f9c3e08c6e79dd0b6e0eb4d736baf`
+  的 11 项 checks 全部 success；合并提交
+  `ebe7a3fd4696c2a1154f5b40257f055149caa9cd`；post-merge main CI
+  `41425763958` 为 success。
 
 ### 4. DoD 逐条核对
 
@@ -143,8 +147,9 @@ cargo run -p xtask -- replay --suite core
 
 ### 5. 偏差
 
-- 本会话曾 **7** 次误填 `shell:"bash"`：6 次只读/测试命令仍成功，1 次只读状态读取
-  成功；均未由 bash 写入仓库。后续命令继续显式使用 PowerShell。
+- 本会话机器统计到 **22** 次误填 `shell:"bash"`；ADR-0100 的 PreToolUse hook 均将其
+  重写为显式 PowerShell，没有进入 WSL/bash。误填本身仍记缺陷；所有写入均为预期文件，
+  无目录外写入或产品文件意外改动。
 - 初版 bridge parser 在 Node type-stripping 下无法解析运行时 `contract.js`；改为注入
   既有 `parseUiEvent` parser，保持单一契约源。
 - 现有 `ApprovalCard` 不变量要求 L3 使用 `irreversible` diff，而浏览器事件合法地同时
@@ -162,8 +167,7 @@ cargo run -p xtask -- replay --suite core
 
 - desktop-ui 目前为骨架页面；任务时间线的持久化展示仍非本卡范围。
 - 未启动真实 Core pipe / 真实浏览器做人工端到端；TASK-057 / TASK-058 保持 Blocked。
-- merge hash、PR checks、post-merge main CI 与最终 shell misuse 计数由独立
-  docs-only evidence PR 回填。
+- merge hash / PR checks / post-merge main CI 与最终 shell misuse 已由本回填提交记录。
 
 ### 8. 新增长期记忆
 
