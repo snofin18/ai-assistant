@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "task_id": "edge.t5_2.profile_human_approval",
+  "app_id": "com.microsoft.edge",
+  "title": "Fill the local profile form and submit exactly once after human approval",
+  "goal": "Fill the approved local T5.2 profile form, stop before submit, show the redacted approval card, and submit once after the human types once.",
+  "runtime_status": "ready",
+  "read_only": false,
+  "preconditions": [
+    "Edge uses a dedicated automation profile, never the user's default profile.",
+    "The T5.2 fixture server is bound to 127.0.0.1:8766.",
+    "Only synthetic form values are used."
+  ],
+  "steps": [
+    {
+      "id": "navigate_form",
+      "kind": "tool",
+      "tool": "edge.cdp.navigate",
+      "args": {
+        "url": "http://127.0.0.1:8766/form.html",
+        "load_condition": "network_idle"
+      },
+      "outputs": ["form_ready"]
+    },
+    {
+      "id": "read_form",
+      "kind": "tool",
+      "tool": "edge.cdp.form_read",
+      "args": {
+        "form_selector": "#profile-form",
+        "fields": [
+          {"selector": "#display-name"},
+          {"selector": "#email"},
+          {"selector": "#note"}
+        ]
+      }
+    },
+    {
+      "id": "fill_form",
+      "kind": "tool",
+      "tool": "edge.cdp.form_fill",
+      "args": {
+        "fields": [
+          {"selector": "#display-name", "value": "Ada"},
+          {"selector": "#email", "value": "ada@example.test"},
+          {"selector": "#note", "value": "human approval loopback"}
+        ]
+      }
+    },
+    {
+      "id": "submit_form",
+      "kind": "tool",
+      "tool": "edge.cdp.form_submit",
+      "args": {
+        "form_selector": "#profile-form",
+        "submit_selector": "#profile-submit",
+        "expected_origin": "http://127.0.0.1:8766",
+        "expected_action": "http://127.0.0.1:8766/t5.2/submitted",
+        "expected_fields": [
+          {"selector": "#display-name", "value": "Ada"},
+          {"selector": "#email", "value": "ada@example.test"},
+          {"selector": "#note", "value": "human approval loopback"}
+        ]
+      },
+      "outputs": [
+        "submitted",
+        "post_url",
+        "fingerprint_scope",
+        "fingerprint",
+        "previous_fingerprint",
+        "elapsed_ms"
+      ]
+    }
+  ],
+  "postconditions": [
+    {
+      "id": "human_once",
+      "description": "The submit step pauses for one explicit human once approval.",
+      "error_code": "UserInteraction"
+    },
+    {
+      "id": "submitted",
+      "description": "The local success page is observed after exactly one submit click.",
+      "error_code": "VerifyFailed"
+    }
+  ],
+  "failure_mapping": [
+    {
+      "condition": "approval_rejected_or_expired",
+      "error_code": "UserInteraction"
+    },
+    {
+      "condition": "field_or_origin_drift",
+      "error_code": "PolicyDenied"
+    },
+    {
+      "condition": "postcondition_missing",
+      "error_code": "VerifyFailed"
+    }
+  ],
+  "metrics": {
+    "repeat_runs": 1,
+    "minimum_success_rate": 1.0,
+    "silent_failure_rate": 0,
+    "time_budget_ms": 60000
+  }
+}

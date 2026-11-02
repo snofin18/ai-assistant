@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "mode": "human-approval-local",
+  "result": "passed",
+  "task_package": "D:\\csart\\ai-assistant\\adapters\\browser.edge\\tasks\\t5.2.profile-human-approval.json",
+  "edge_executable": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "edge_version": "156.0.4314.58",
+  "profile_root": "C:\\Users\\fexfe\\AppData\\Local\\ai-assistant-task-356-edge-profile",
+  "profile_id": "task356-human-01",
+  "output_json": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.2\\evidence\\2026-11-02-task-356-human-approval-v7\\human\\result.json",
+  "command_log": "D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.2\\evidence\\2026-11-02-task-356-human-approval-v7\\human\\run.command.log",
+  "started_at_utc": "2026-11-02T03:29:35.4369485Z",
+  "completed_at_utc": "2026-11-02T03:31:17.3680385Z",
+  "edge_processes_after_run": 0,
+  "post_url": "http://127.0.0.1:8766/t5.2/submitted",
+  "submitted_marker": "submitted-marker"
+}

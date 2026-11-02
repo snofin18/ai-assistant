@@ -46,3 +46,20 @@ TASK-057 still owns the diff display, instruction-origin attribution, and
 human-confirmed submit workflow. Download, screenshot, click, browser
 auto-launch wiring inside the CLI production root, and the remaining T5.2
 acceptance remain pending.
+
+## T5.2 human approval
+
+`t5.2.profile-human-approval.json` is the private human-present loopback package
+for the current T5.2 slice. It navigates to the local `127.0.0.1:8766` form,
+reads and fills three synthetic fields, then stops at `form_submit` with the
+TASK-355 `step_approval_requested` event. The private runner resumes only after
+the human types `once`; the same event binds the task, step, high/L3/once scope
+and expiry, and Policy consumes one `ApprovalGrants` use before the submit tool
+runs.
+
+The package is not a real UI-session acceptance and does not close TASK-057.
+It does not add a generic click tool, accept real personal data, or authorize a
+second submit. The private runner may pre-approve the navigate and fill setup
+steps with `--approve-step navigate_form --approve-step fill_form`, but it
+rejects any pre-approval of `form_submit`; the submit itself must be approved
+interactively with `once`.

@@ -34,6 +34,7 @@ pub(super) struct BrowserTaskOptions {
     pub(super) output_path: PathBuf,
     pub(super) csv: Option<BrowserTaskCsvOptions>,
     pub(super) approved_step_ids: Vec<String>,
+    pub(super) human_approval: bool,
 }
 
 impl BrowserTaskOptions {
@@ -54,6 +55,7 @@ impl BrowserTaskOptions {
             output_path,
             csv,
             approved_step_ids: parsed.approved_step_ids,
+            human_approval: parsed.human_approval,
         })
     }
 
@@ -89,6 +91,7 @@ struct ParsedArguments {
     csv_output_path: Option<PathBuf>,
     csv_base_url: Option<String>,
     approved_step_ids: Vec<String>,
+    human_approval: bool,
 }
 
 impl ParsedArguments {
@@ -109,6 +112,15 @@ impl ParsedArguments {
                 ));
             }
             self.approved_step_ids.push(step_id);
+            return Ok(true);
+        }
+        if option == "--human-approval" {
+            if self.human_approval {
+                return Err(argument_error(
+                    "--human-approval was provided more than once",
+                ));
+            }
+            self.human_approval = true;
             return Ok(true);
         }
         if option != "--csv-base-url" {
@@ -270,6 +282,14 @@ pub(super) enum BrowserTaskError {
     ToolBus { reason: String },
     #[error("step `{step_id}` ended as {outcome}")]
     StepNotCommitted { step_id: String, outcome: String },
+    #[error("human rejected form approval for step `{step_id}`")]
+    HumanRejected { step_id: String },
+    #[error("human approval was not applied for step `{step_id}`")]
+    HumanApprovalNotApplied { step_id: String },
+    #[error("human approval expired before step `{step_id}` could resume")]
+    HumanApprovalExpired { step_id: String },
+    #[error("human approval prompt failed: {reason}")]
+    HumanPrompt { reason: String },
     #[error("declared output `{output}` was not produced by `{step_id}`")]
     MissingOutput { step_id: String, output: String },
     #[error("CSV normalization: {0}")]
@@ -285,12 +305,18 @@ impl BrowserTaskError {
             Self::Browser(_) | Self::TaskPackage(_) | Self::Planner { .. } => {
                 ErrorCode::CapabilityMissing
             }
+            Self::HumanRejected { .. } | Self::HumanApprovalExpired { .. } => {
+                ErrorCode::UserInteraction
+            }
             Self::StepNotCommitted { .. } | Self::MissingOutput { .. } | Self::Csv(_) => {
                 ErrorCode::VerifyFailed
             }
-            Self::TaskEngine(_) | Self::Runtime(_) | Self::ToolBus { .. } | Self::Output { .. } => {
-                ErrorCode::Fatal
-            }
+            Self::TaskEngine(_)
+            | Self::Runtime(_)
+            | Self::ToolBus { .. }
+            | Self::Output { .. }
+            | Self::HumanApprovalNotApplied { .. }
+            | Self::HumanPrompt { .. } => ErrorCode::Fatal,
         }
     }
 }

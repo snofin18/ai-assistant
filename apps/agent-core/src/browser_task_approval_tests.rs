@@ -16,7 +16,9 @@ use assistant_agent_core::{
 };
 use assistant_core::InstructionAttribution;
 use assistant_hitl::DiffPreview;
-use assistant_policy::{Decision, Effect, PolicyRule, RuleConditions, RuleEffect, RuleId, RuleSet};
+use assistant_policy::{
+    Decision, Effect, PolicyRule, RuleConditions, RuleEffect, RuleId, RuleSet, ScopeOption,
+};
 use assistant_protocol::{RiskLevel, ToolEffect, ToolEnvelope, ToolReversibility, ToolSchema};
 use assistant_task_engine::{PlanStep, Reversibility, StepEffect, StepId, StepTimeouts, TaskId};
 use assistant_tool_bus::{
@@ -26,12 +28,13 @@ use serde_json::json;
 
 use super::{
     BrowserTaskPolicy, FormApprovalPreview, FormApprovalPreviewError, FormReadSnapshot,
-    MAX_VALUE_BYTES, grant_step_approvals, validate_step_approvals,
+    MAX_VALUE_BYTES, browser_task_rules, grant_step_approvals, validate_step_approvals,
 };
 
 const EDGE_NAVIGATE: &str = "edge.cdp.navigate";
 const EDGE_FORM_READ: &str = "edge.cdp.form_read";
 const EDGE_FORM_FILL: &str = "edge.cdp.form_fill";
+const EDGE_FORM_SUBMIT: &str = "edge.cdp.form_submit";
 const APPROVAL_READBACK_EVIDENCE_KEY: &str = "assistant.browser_form_fill.approval_readback.v1";
 
 #[test]
@@ -46,6 +49,43 @@ fn test_authoritative_navigate_schema_requires_step_approval()
         decision,
         Decision::AllowWithConfirmation { ref rule_id, .. }
             if rule_id == "confirm_medium_write"
+    ));
+    Ok(())
+}
+
+#[test]
+fn test_high_l3_form_submit_requires_once_confirmation_and_keeps_unattended_deny()
+-> Result<(), Box<dyn std::error::Error>> {
+    let submit = form_submit_schema()?;
+    assert_eq!(submit.risk_level, RiskLevel::High);
+    assert_eq!(submit.reversibility, ToolReversibility::L3Irreversible);
+    let policy = approval_policy(submit)?;
+    let step = form_submit_step();
+    let decision = policy.evaluate_without_approval(&step)?;
+    assert!(matches!(
+        decision,
+        Decision::AllowWithConfirmation {
+            ref scope_options,
+            ..
+        } if scope_options.as_slice() == [ScopeOption::Once]
+    ));
+
+    let unattended = assistant_policy::EvaluationContext {
+        effect: Effect::Write,
+        risk_level: RiskLevel::High,
+        reversibility: assistant_policy::Reversibility::L3Irreversible,
+        unattended: true,
+        tainted: false,
+        target_app: "com.microsoft.edge".to_owned(),
+        egress: assistant_policy::EgressDestination::None,
+    };
+    assert!(matches!(
+        policy.rules.evaluate(&unattended)?,
+        Decision::Deny { .. }
+    ));
+    assert!(matches!(
+        policy.decide(&step)?,
+        Decision::AllowWithConfirmation { .. }
     ));
     Ok(())
 }
@@ -455,7 +495,7 @@ fn approval_evidence(origin: &str, action: &str, fields: &serde_json::Value) -> 
 
 fn approval_policy(schema: ToolSchema) -> Result<BrowserTaskPolicy, Box<dyn std::error::Error>> {
     Ok(BrowserTaskPolicy::new(
-        RuleSet::example_v0(),
+        browser_task_rules(),
         BTreeMap::from([(schema.name.clone(), schema)]),
         "com.microsoft.edge".to_owned(),
         Arc::new(ApprovalGrants::new()),
@@ -464,6 +504,14 @@ fn approval_policy(schema: ToolSchema) -> Result<BrowserTaskPolicy, Box<dyn std:
 }
 
 fn navigate_schema() -> Result<ToolSchema, Box<dyn std::error::Error>> {
+    tool_schema(EDGE_NAVIGATE)
+}
+
+fn form_submit_schema() -> Result<ToolSchema, Box<dyn std::error::Error>> {
+    tool_schema(EDGE_FORM_SUBMIT)
+}
+
+fn tool_schema(tool_name: &str) -> Result<ToolSchema, Box<dyn std::error::Error>> {
     let root: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(tools_path())?)?;
     let schema = root
         .get("tools")
@@ -471,11 +519,11 @@ fn navigate_schema() -> Result<ToolSchema, Box<dyn std::error::Error>> {
         .and_then(|tools| {
             tools.iter().find_map(|tool| {
                 let schema = tool.get("schema")?;
-                (schema.get("name").and_then(serde_json::Value::as_str) == Some(EDGE_NAVIGATE))
+                (schema.get("name").and_then(serde_json::Value::as_str) == Some(tool_name))
                     .then(|| schema.clone())
             })
         })
-        .ok_or("authoritative navigate schema is missing")?;
+        .ok_or_else(|| format!("authoritative tool schema is missing: {tool_name}"))?;
     Ok(serde_json::from_value(schema)?)
 }
 
@@ -499,6 +547,26 @@ fn navigate_step() -> PlanStep {
         reversibility: Reversibility::L2Compensation,
         point_of_no_return: false,
         timeouts: StepTimeouts::new(1_000, 30_000, 3_000).expect("timeouts"),
+    }
+}
+
+fn form_submit_step() -> PlanStep {
+    PlanStep {
+        id: StepId::new("submit_form").expect("step id"),
+        sequence: 4,
+        tool: EDGE_FORM_SUBMIT.to_owned(),
+        args: json!({}),
+        depends_on: Vec::new(),
+        postconditions: vec![json!({
+            "kind": "state_changed",
+            "fingerprint_scope": "cdp_target",
+            "within_ms": 20000,
+            "error_code": "VerifyFailed",
+        })],
+        effect: StepEffect::Write,
+        reversibility: Reversibility::L3Irreversible,
+        point_of_no_return: true,
+        timeouts: StepTimeouts::new(1_000, 20_000, 3_000).expect("timeouts"),
     }
 }
 

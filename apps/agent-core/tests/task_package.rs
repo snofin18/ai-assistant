@@ -225,16 +225,23 @@ fn test_browser_form_submit_assertion_is_state_changed() {
     let provider =
         TaskPackageProvider::from_package_json(&package).expect("form submit package render");
     let plan: Value = serde_json::from_str(provider.plan_json()).expect("plan is JSON");
+    let step = plan
+        .get("steps")
+        .and_then(Value::as_array)
+        .and_then(|steps| steps.first())
+        .expect("form submit step");
     assert_eq!(
-        plan.get("steps")
-            .and_then(Value::as_array)
-            .and_then(|steps| steps.first())
-            .and_then(|step| step.get("postconditions")),
+        step.get("postconditions"),
         Some(&json!([{
             "kind": "state_changed",
             "within_ms": 20_000,
             "fingerprint_scope": "cdp_target"
         }]))
+    );
+    assert_eq!(
+        step.get("point_of_no_return"),
+        Some(&json!(true)),
+        "form_submit is L3 and must be a point of no return"
     );
 }
 

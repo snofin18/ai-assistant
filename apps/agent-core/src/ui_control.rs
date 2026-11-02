@@ -336,6 +336,68 @@ fn handler_error(reason: impl Into<String>) -> UiCommandError {
     }
 }
 
+fn pending_approval_target(
+    pending_approvals: &PendingApprovals,
+    request_id: &str,
+    scope: UiAuthorizationScope,
+    now_ms: i64,
+) -> Result<(TaskId, StepId, i64), UiCommandError> {
+    let pending =
+        pending_approvals
+            .get(request_id)?
+            .ok_or_else(|| UiCommandError::UnknownApproval {
+                request_id: request_id.to_owned(),
+            })?;
+    if !pending.scopes.contains(&scope) {
+        return Err(UiCommandError::ScopeNotOffered {
+            request_id: request_id.to_owned(),
+            scope,
+        });
+    }
+    if pending.is_expired(now_ms) {
+        let _ = pending_approvals.remove(request_id)?;
+        return Err(UiCommandError::UnknownApproval {
+            request_id: request_id.to_owned(),
+        });
+    }
+    let ttl_ms = pending.grant_ttl_ms(now_ms);
+    Ok((pending.task_id, pending.step_id, ttl_ms))
+}
+
+fn approve_pending_request(
+    pending_approvals: &PendingApprovals,
+    approvals: &ApprovalGrants,
+    request_id: &str,
+    scope: UiAuthorizationScope,
+    now_ms: i64,
+) -> Result<(), UiCommandError> {
+    let (task_id, step_id, ttl_ms) =
+        pending_approval_target(pending_approvals, request_id, scope, now_ms)?;
+    let granted = match scope {
+        UiAuthorizationScope::Once => ApprovalScope::Once,
+        UiAuthorizationScope::ThisStepPattern => ApprovalScope::ThisStepPattern,
+        UiAuthorizationScope::ThisTask => ApprovalScope::ThisTask,
+        UiAuthorizationScope::ThisAppSession => ApprovalScope::ThisAppSession,
+        UiAuthorizationScope::Persistent => {
+            return Err(handler_error(
+                "a standing approval cannot be granted to a runtime step",
+            ));
+        }
+    };
+    approvals
+        .grant(&GrantRequest {
+            task_id: task_id.as_str(),
+            step_id: step_id.as_str(),
+            scope: granted,
+            now_ms,
+            ttl_ms,
+            uses: 1,
+        })
+        .map_err(|error| handler_error(error.to_string()))?;
+    let _ = pending_approvals.remove(request_id)?;
+    Ok(())
+}
+
 /// Applies UI commands to the task engine owned by the binary layer.
 pub struct TaskControlHandler<Store> {
     engine: TaskEngine<Store>,
@@ -423,48 +485,7 @@ impl<Store> TaskControlHandler<Store> {
         scope: UiAuthorizationScope,
         now_ms: i64,
     ) -> Result<UiCommandOutcome, UiCommandError> {
-        let (task_id, step_id, ttl_ms) = {
-            let pending =
-                self.pending
-                    .get(&request_id)?
-                    .ok_or_else(|| UiCommandError::UnknownApproval {
-                        request_id: request_id.clone(),
-                    })?;
-            if !pending.scopes.contains(&scope) {
-                return Err(UiCommandError::ScopeNotOffered { request_id, scope });
-            }
-            if pending.is_expired(now_ms) {
-                drop(pending);
-                let _ = self.pending.remove(&request_id)?;
-                return Err(UiCommandError::UnknownApproval { request_id });
-            }
-            let ttl_ms = pending.grant_ttl_ms(now_ms);
-            (pending.task_id, pending.step_id, ttl_ms)
-        };
-        let granted = match scope {
-            UiAuthorizationScope::Once => ApprovalScope::Once,
-            UiAuthorizationScope::ThisStepPattern => ApprovalScope::ThisStepPattern,
-            UiAuthorizationScope::ThisTask => ApprovalScope::ThisTask,
-            UiAuthorizationScope::ThisAppSession => ApprovalScope::ThisAppSession,
-            UiAuthorizationScope::Persistent => {
-                return Err(UiCommandError::Handler {
-                    reason: "a standing approval cannot be granted to a runtime step".to_owned(),
-                });
-            }
-        };
-        self.approvals
-            .grant(&GrantRequest {
-                task_id: task_id.as_str(),
-                step_id: step_id.as_str(),
-                scope: granted,
-                now_ms,
-                ttl_ms,
-                uses: 1,
-            })
-            .map_err(|error| UiCommandError::Handler {
-                reason: error.to_string(),
-            })?;
-        let _ = self.pending.remove(&request_id)?;
+        approve_pending_request(&self.pending, &self.approvals, &request_id, scope, now_ms)?;
         Ok(UiCommandOutcome::ApprovalGranted { request_id, scope })
     }
 

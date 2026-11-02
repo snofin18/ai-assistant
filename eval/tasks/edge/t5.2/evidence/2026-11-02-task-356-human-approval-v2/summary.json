@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "mode": "human-approval-local",
+  "result": "failed",
+  "failure": "Human approval run failed with exit code 2; see D:\\csart\\ai-assistant\\eval\\tasks\\edge\\t5.2\\evidence\\2026-11-02-task-356-human-approval-v2\\human\\run.command.log",
+  "started_at_utc": "2026-11-02T03:08:33.3523608Z",
+  "completed_at_utc": "2026-11-02T03:08:36.1549063Z"
+}
