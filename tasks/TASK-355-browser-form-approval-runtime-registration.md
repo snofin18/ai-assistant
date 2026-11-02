@@ -1,6 +1,6 @@
 # TASK-355 Browser form approval runtime registration
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：1c　批次：T5.2 前置
 - 依赖：TASK-354
 - 本文件 = **卡片正文 + 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
@@ -148,7 +148,7 @@ cargo run -p xtask -- replay --suite core
 
 ### 5. 偏差
 
-- 同一 user turn 的显式 `shell="bash"` 误填机器审计值为 **36**，`shell="cmd"` 为 **0**；
+- 同一 user turn 的显式 `shell="bash"` 误填机器审计值为 **38**，`shell="cmd"` 为 **0**；
   已知误填均为只读/门禁/状态查询命令，未通过 bash 写入仓库。后续命令全部显式 PowerShell。
 
 ### 6. 更合理做法
@@ -175,3 +175,11 @@ cargo run -p xtask -- replay --suite core
 - 重点检查 `TaskControlHandler::approve_request` 是否仍只写 `ApprovalGrants`，没有在
   UI source 或 recorder 中直接放行工具。
 - 重点检查 runtime 是否在 policy 求值前登记事件，且 event source drain 不重复推送。
+
+---
+
+**2026-11-02 merge evidence**
+
+- PR #682 checks **22**（21 success + 1 skipped，pending 0），Mergeable / Clean，
+  merge `1770f39`。
+- post-merge main CI `41372166625` = **success**。
