@@ -128,9 +128,10 @@ git diff --check
 
 ### 5. 偏差
 
-- 本会话最终 `shell_misuse=bash=10` / `cmd=0`。十次分别为失败的分支切换、分支创建、
+- 本会话最终 `shell_misuse=bash=15` / `cmd=0`。十五次分别为失败的分支切换、分支创建、
   `Cargo.lock` 读取、run 查询、PLAN/README 读取、文档 diff、check-comments 包装与
-  guard release、linked worktree 长路径清理、worktree prune/list；均为只读操作或
+  guard release、linked worktree 长路径清理、worktree prune/list，以及最终关闭审计中的
+  PR/main CI 查询、状态/guard/lock 查询、JSONL 校验和两次收尾复核；均为只读操作或
   Git/guard/worktree 管理，未执行产品文件写入。ADR-0100 hook 均重写为 PowerShell，
   未进入 WSL/bash。
 
@@ -150,4 +151,4 @@ git diff --check
 
 - 审查 `Cargo.lock` diff 是否只有 `async-executor` 版本与 checksum。
 - 审查 `cargo deny check` 是否保持四类检查全开，没有新增 ignore/waiver。
-- 审查最终 shell misuse 统计是否与真实十次记录一致，且没有产品写入落入 WSL/bash。
+- 审查最终 shell misuse 统计是否与真实十五次记录一致，且没有产品写入落入 WSL/bash。
