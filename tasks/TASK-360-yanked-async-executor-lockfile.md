@@ -1,6 +1,6 @@
 # TASK-360 修复 yanked async-executor 锁文件
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：1c　批次：依赖安全修复
 - 依赖：TASK-358、TASK-359
 - 本文件 = 卡片正文 + 执行记录（ADR-0031）。
@@ -99,7 +99,8 @@ git diff --check
 ### 2. 实际改动文件
 
 - `Cargo.lock`：`async-executor` 由 `1.14.0` 更新到 `1.14.1`，仅版本与 checksum 变化。
-- `tasks/TASK-360-yanked-async-executor-lockfile.md`：记录修复范围、验收入口与证据。
+- `tasks/TASK-360-yanked-async-executor-lockfile.md`：记录修复范围、验收入口、PR 与 Done 证据。
+- `LEDGER.md`、`PLAN.md`、`plans/stage-1-pilots.md`、`README.md`：同步 TASK-360 Done 证据与当前状态。
 
 ### 3. 验收输出摘要
 
@@ -111,6 +112,11 @@ git diff --check
 - `cargo test --workspace`：exit 0；agent-core 98 + 61、xtask 510，全部 doctest 通过。
 - `cargo test -p assistant-core arch::`：10 passed。
 - `verify-schemas`、`codegen --check`、`hygiene`、`memory-counts`、`adr-index`、`refscan`、`docscan`、`check-comments`、`replay --suite core`：均 PASSED。
+- PR #703：base=`main`，checks **22**（21 success + 1 skipped），pending 0，failed 0，
+  `MERGEABLE` / `CLEAN`；squash merge `6a3013cb44db9de466bf511775388f454643bcf5`。
+- post-merge main CI `41554452445`：success。
+- 依赖阻塞解除后，automation evidence PR #701 以 `25ef8c3` 合并并通过 main CI
+  `41558010718`；PR #702 以 `deffacad` 合并并通过 main CI `41561013523`。
 
 ### 4. DoD 逐条核对
 
@@ -122,7 +128,10 @@ git diff --check
 
 ### 5. 偏差
 
-- 本会话有一次只读 `git switch main` 误填 `shell="bash"`；ADR-0100 hook 在启动前拒绝，未在 WSL/bash 执行，也未写入仓库。
+- 本会话最终 `shell_misuse=bash=8` / `cmd=0`。八次分别为失败的分支切换、分支创建、
+  `Cargo.lock` 读取、run 查询、PLAN/README 读取、文档 diff、check-comments 包装与
+  guard release；均为只读操作或 Git/guard 管理，未执行产品文件写入。ADR-0100 hook
+  均重写为 PowerShell，未进入 WSL/bash。
 
 ### 6. 实施中发现的更合理做法
 
@@ -130,7 +139,7 @@ git diff --check
 
 ### 7. 遗留问题
 
-- 依赖修复合并后，需要更新并重跑 automation evidence PR #701 / #702。
+- 依赖修复后，automation evidence PR #701 / #702 均已重跑并合入 main；本卡无遗留阻塞。
 
 ### 8. 新增长期记忆
 
@@ -140,3 +149,4 @@ git diff --check
 
 - 审查 `Cargo.lock` diff 是否只有 `async-executor` 版本与 checksum。
 - 审查 `cargo deny check` 是否保持四类检查全开，没有新增 ignore/waiver。
+- 审查最终 shell misuse 统计是否与真实八次记录一致，且没有产品写入落入 WSL/bash。
