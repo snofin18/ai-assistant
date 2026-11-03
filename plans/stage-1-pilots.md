@@ -25,7 +25,7 @@
 > **TASK-271 Done（2026-10-11）**：`assistant-dlp` 新增 7 个公共契约测试，独立行覆盖率 83.59% → 98.89%；生产源码零改动；PR #320 / merge `8a5ad5f`。
 
 > **TASK-290 Done（2026-10-14）**：PL-010 闭环 —— `gov §9.2` 的 LEDGER 模板新增 `pending` 占位与追加式回填规则；原开放行不改，PARKING_LOT 追加闭环节点；docs-only，零产品代码改动；PR #388 / merge `4e9bce6`。
-> 周期 10~12 周　状态：**进行中（2026-11-03：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-048 / TASK-049 / TASK-055 / TASK-107 / TASK-108 / TASK-109 / TASK-110 / TASK-111 / TASK-112 / TASK-113 / TASK-114 / TASK-328 / TASK-329 / TASK-330 / TASK-331 / TASK-332 / TASK-333 / TASK-334 / TASK-335 / TASK-336 / TASK-337 / TASK-338 / TASK-339 / TASK-340 / TASK-056 / TASK-341 / TASK-342 / TASK-343 / TASK-344 / TASK-345 / TASK-346 / TASK-347 / TASK-348 / TASK-349 / TASK-350 / TASK-351 / TASK-352 / TASK-353 / TASK-354 / TASK-355 / TASK-356 / TASK-357 / TASK-358 / TASK-359 Done；TASK-360 Review；TASK-057/058 Blocked）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
+> 周期 10~12 周　状态：**进行中（2026-11-03：Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；TASK-048 / TASK-049 / TASK-055 / TASK-107 / TASK-108 / TASK-109 / TASK-110 / TASK-111 / TASK-112 / TASK-113 / TASK-114 / TASK-328 / TASK-329 / TASK-330 / TASK-331 / TASK-332 / TASK-333 / TASK-334 / TASK-335 / TASK-336 / TASK-337 / TASK-338 / TASK-339 / TASK-340 / TASK-056 / TASK-341 / TASK-342 / TASK-343 / TASK-344 / TASK-345 / TASK-346 / TASK-347 / TASK-348 / TASK-349 / TASK-350 / TASK-351 / TASK-352 / TASK-353 / TASK-354 / TASK-355 / TASK-356 / TASK-357 / TASK-358 / TASK-359 / TASK-360 Done；TASK-057/058 Blocked）**；阶段 1 的当前进度与下一张卡看 `PLAN.md` 当前状态块；卡级进展看 `LEDGER.md`。
 > **TASK-326 Done（2026-10-21）**：审计 2026-10-20 五轮 automation 的自删顺序；5/5 已执行且已自删，发现 17:00 轮 PR #502、00:30 轮 PR #509 两次在 self-delete 后才落地，已追加运行日更正与 `docs/audits/automation-sequence-deviation-2026-10-20.md`；当前无残留 automation、锁、open PR。
 > **TASK-327 Done（2026-10-22）**：人工接管 2026-10-21 17:00 失联 automation 的离线 WIP；新增 8 个 CDP 公开契约测试，`cdp.rs` 行覆盖 0.00% → **100.00%**、crate **95.13%**；生产逻辑 / 公共 API / schema / 依赖零改动；清理由该槽遗留的陈旧 guard 锁与 automation 目录。
 > **TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）**：Paint 全工具集真机路径
@@ -497,7 +497,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-357 ✅** | T5.2 前置 | `tasks/TASK-357-formal-ui-approval-session.md` | Done（PR #687 / merge `fb76fa1`；one-shot UI decision、同一 Prechecking step 恢复、同一 engine deny、断连/伪造 outcome fail-closed） |
 | **TASK-358 ✅** | T5.2 前置 | `tasks/TASK-358-browser-form-formal-ui-approval.md` | Done（PR #689 / merge `44d2ce4`；browser runner 正式 one-shot UI approval、同 engine 恢复/deny、断连/错误 request/无 grant fail-closed） |
 | **TASK-359 ✅** | T5.2 产品化 | `tasks/TASK-359-desktop-ui-event-bridge.md` | Done（PR #691 / merge `ebe7a3f`；Core→Tauri→React 事件桥、审批卡接线与 StrictMode 单实例事件泵；post-merge main CI `41425763958` success） |
-| TASK-360 | 1c 依赖 | `tasks/TASK-360-yanked-async-executor-lockfile.md` | Review（`async-executor 1.14.0` yanked → `1.14.1`；Cargo.lock-only，本地 deny 与全门禁通过） |
+| ✅ TASK-360 | 1c 依赖 | `tasks/TASK-360-yanked-async-executor-lockfile.md` | Review（`async-executor 1.14.0` yanked → `1.14.1`；Cargo.lock-only，本地 deny 与全门禁通过） |
 | TASK-057 | 1c | `tasks/TASK-057-t5-2-form-fill-stop-before-submit-diff-origin.md` | Ready（批次表占位派单前补全） |
 | TASK-058 | 1c | `tasks/TASK-058-t5-3-injection-target-security-ci-audit.md` | Ready（批次表占位派单前补全） |
 | **TASK-085 ✅** | XTASK 池 | `tasks/TASK-085-xtask-hygiene-rust-source-rules.md` | Done（gov §5.4 第 1 / 2 / 3 / 10 / 11 项 = Rust 源码结构规则；实现覆盖 8/13） |
