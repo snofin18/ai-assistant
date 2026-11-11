@@ -1,6 +1,6 @@
 # TASK-363 desktop-ui single-session approval transport
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：1c　批次：T5.2 产品化前置
 - 依赖：ADR-0057、TASK-357、TASK-358、TASK-359、TASK-361
 - 本文件 = 卡片正文 + 执行记录（ADR-0031）。
@@ -139,13 +139,17 @@ cargo deny check
 - [x] 心跳、事件、响应的分发均有 focused test，错误消息不含 token。
 - [x] 真实 NamedPipe 集成测试证明事件与命令同连接且 correlation 精确匹配。
 - [x] desktop-ui 专项、UI checks、workspace 与全部文档/安全门禁通过。
-- [ ] PR 合并并记录 checks / merge / post-merge main CI；进度文件同步 Done。
+- [x] PR 合并并记录 checks / merge / post-merge main CI；进度文件同步 Done。
+- PR #711 checks **11/11 success**，pending 0 / failed 0，base=main，
+  `MERGEABLE` / `CLEAN`；merge `8a8c7c1dc5384012a4c8384d0c4a5b8970077f6e`，
+  post-merge main CI `42991511612` success。
 
 ### 5. 偏差
 
 - 实现中发现 `NamedPipeTransport` 持有没有 `Send` 的 Windows 原生句柄，因此连接和握手必须在
   长期 worker 线程内完成，不能先在调用线程打开再移动；已按此边界实现，无契约变更。
-- 当前 user turn 的最终 shell misuse 计数留到 Done 回填，避免提交前快照再次漂移。
+- 当前 user turn 最终机器统计 `shell_misuse=bash=40` / `cmd=0`；均为只读命令，
+  ADR-0100 hook 已重写为 PowerShell，未产生非预期仓库写入。
 
 ### 6. 实施中发现的更合理做法
 
