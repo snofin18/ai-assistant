@@ -1,6 +1,6 @@
 # TASK-361 desktop-ui real Core pipe bootstrap
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：1c　批次：T5.2 产品化前置
 - 依赖：ADR-0057、TASK-213、TASK-358、TASK-359
 - 本文件 = 卡片正文 + 执行记录（ADR-0031）。
@@ -144,11 +144,14 @@ cargo run -p xtask -- replay --suite core
 - [x] 默认值与 Core 参数一致，自定义 pipe/token 名可用。
 - [x] 缺 token、空 pipe、空 token 名在启动前 fail-closed，错误不含 token 值。
 - [x] desktop-ui / UI / workspace 门禁通过，`cargo deny` 四类全绿。
-- [ ] PR 合并并记录 checks / merge / post-merge main CI。
+- [x] PR 合并并记录 checks / merge / post-merge main CI。
+- PR #709 checks **11/11 success**，pending 0 / failed 0，base=main，
+  `MERGEABLE` / `CLEAN`；merge `27f9c05a280e1647dc9e4ea85396385ad7df821f`，
+  post-merge main CI `42950493042` success。
 
 ### 5. 偏差
 
-- 当前 user turn 最终机器统计 `shell_misuse=bash=60` / `cmd=0`；均被 ADR-0100 hook
+- 当前 user turn 最终机器统计 `shell_misuse=bash=64` / `cmd=0`；均被 ADR-0100 hook
   重写为 PowerShell，未产生非预期仓库写入。
 - 初次全门禁被 main 的四个新增 RUSTSEC advisory 阻断；独立 TASK-362 已完成安全
   升级，rebase 后本卡全门禁通过。
