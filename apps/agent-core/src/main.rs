@@ -170,7 +170,7 @@ async fn main() -> ExitCode {
     {
         let rest = arguments.get(1..).unwrap_or(&[]);
         return match parse_production_options(rest) {
-            Ok(options) => match run_production(options.config, options.serve_ui).await {
+            Ok(options) => match Box::pin(run_production(options.config, options.serve_ui)).await {
                 Ok(report) => {
                     if report_production_ok(&report) {
                         ExitCode::SUCCESS
