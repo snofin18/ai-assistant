@@ -25,6 +25,24 @@ use serde_json::Value;
 
 use crate::commands::{CoreCommandTransport, UiTransportFailure};
 
+/// Environment variable selecting the Core UI pipe name.
+pub const UI_PIPE_ENVIRONMENT_VARIABLE: &str = "ASSISTANT_UI_PIPE";
+
+/// Environment variable selecting the environment variable that contains the token.
+pub const UI_TOKEN_ENVIRONMENT_VARIABLE: &str = "ASSISTANT_UI_TOKEN_ENV";
+
+/// Default pipe name shared with Core production and browser UI listeners.
+pub const DEFAULT_UI_PIPE_NAME: &str = "assistant-agent-core-ui";
+
+/// Default token environment variable shared with Core production listeners.
+pub const DEFAULT_UI_TOKEN_ENVIRONMENT_VARIABLE: &str = "ASSISTANT_AGENT_CORE_UI_TOKEN";
+
+/// Stable failure code for invalid desktop UI transport configuration.
+pub const CORE_TRANSPORT_CONFIG_INVALID: &str = "core_transport_config_invalid";
+
+const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(2);
+
 /// How to reach the Core UI listener.
 #[derive(Debug, Clone)]
 pub struct CorePipeConfig {
@@ -36,6 +54,82 @@ pub struct CorePipeConfig {
     pub connect_timeout: Duration,
     /// Deadline for one request/response exchange.
     pub request_timeout: Duration,
+}
+
+impl CorePipeConfig {
+    /// Builds configuration from the desktop UI process environment.
+    ///
+    /// `ASSISTANT_UI_PIPE` and `ASSISTANT_UI_TOKEN_ENV` are optional and default
+    /// to the values used by Core. The selected token environment variable must
+    /// be present and non-empty. Error messages name the variable but never
+    /// include its value.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CORE_TRANSPORT_CONFIG_INVALID`] when the pipe name is empty,
+    /// the token variable name is empty, or the token value is missing/empty.
+    pub fn from_environment() -> Result<Self, UiTransportFailure> {
+        let pipe_name = environment_value(UI_PIPE_ENVIRONMENT_VARIABLE)
+            .unwrap_or_else(|| DEFAULT_UI_PIPE_NAME.to_owned());
+        let token_environment_variable = environment_value(UI_TOKEN_ENVIRONMENT_VARIABLE)
+            .unwrap_or_else(|| DEFAULT_UI_TOKEN_ENVIRONMENT_VARIABLE.to_owned());
+        let token_value = std::env::var(&token_environment_variable).ok();
+        Self::from_values(
+            Some(&pipe_name),
+            Some(&token_environment_variable),
+            token_value.as_deref(),
+        )
+    }
+
+    fn from_values(
+        pipe_name: Option<&str>,
+        token_environment_variable: Option<&str>,
+        token_value: Option<&str>,
+    ) -> Result<Self, UiTransportFailure> {
+        let pipe_name = normalize_required_value(
+            pipe_name.unwrap_or(DEFAULT_UI_PIPE_NAME),
+            UI_PIPE_ENVIRONMENT_VARIABLE,
+            "pipe name",
+        )?;
+        let token_environment_variable = normalize_required_value(
+            token_environment_variable.unwrap_or(DEFAULT_UI_TOKEN_ENVIRONMENT_VARIABLE),
+            UI_TOKEN_ENVIRONMENT_VARIABLE,
+            "token environment variable name",
+        )?;
+        if !matches!(token_value, Some(value) if !value.is_empty()) {
+            return Err(config_error(format!(
+                "{token_environment_variable} must contain the one-shot UI token"
+            )));
+        }
+        Ok(Self {
+            pipe_name,
+            token_environment_variable,
+            connect_timeout: DEFAULT_CONNECT_TIMEOUT,
+            request_timeout: DEFAULT_REQUEST_TIMEOUT,
+        })
+    }
+}
+
+fn environment_value(name: &str) -> Option<String> {
+    std::env::var(name).ok()
+}
+
+fn normalize_required_value(
+    value: &str,
+    environment_variable: &str,
+    field: &str,
+) -> Result<String, UiTransportFailure> {
+    let normalized = value.trim();
+    if normalized.is_empty() {
+        return Err(config_error(format!(
+            "{environment_variable} must contain a non-empty {field}"
+        )));
+    }
+    Ok(normalized.to_owned())
+}
+
+fn config_error(message: impl Into<String>) -> UiTransportFailure {
+    UiTransportFailure::with_code(CORE_TRANSPORT_CONFIG_INVALID, message)
 }
 
 /// Real transport over the authenticated UI pipe.
@@ -189,7 +283,10 @@ mod tests {
     use assistant_ipc::{UiIpcResponse, WireMessage};
     use serde_json::json;
 
-    use super::{CorePipeConfig, CorePipeTransport, interpret_event, interpret_response};
+    use super::{
+        CORE_TRANSPORT_CONFIG_INVALID, CorePipeConfig, CorePipeTransport, DEFAULT_UI_PIPE_NAME,
+        DEFAULT_UI_TOKEN_ENVIRONMENT_VARIABLE, interpret_event, interpret_response,
+    };
     use crate::commands::{CoreCommandTransport, UiTransportFailure};
 
     fn config() -> CorePipeConfig {
@@ -199,6 +296,60 @@ mod tests {
             connect_timeout: Duration::from_millis(100),
             request_timeout: Duration::from_millis(100),
         }
+    }
+
+    #[test]
+    fn test_core_pipe_config_uses_core_compatible_defaults() {
+        let config =
+            CorePipeConfig::from_values(None, None, Some("test-token")).expect("default config");
+        assert_eq!(config.pipe_name, DEFAULT_UI_PIPE_NAME);
+        assert_eq!(
+            config.token_environment_variable,
+            DEFAULT_UI_TOKEN_ENVIRONMENT_VARIABLE
+        );
+        assert_eq!(config.connect_timeout, Duration::from_secs(10));
+        assert_eq!(config.request_timeout, Duration::from_secs(2));
+    }
+
+    #[test]
+    fn test_core_pipe_config_accepts_custom_pipe_and_token_variable() {
+        let config = CorePipeConfig::from_values(
+            Some("assistant-custom-ui"),
+            Some("ASSISTANT_CUSTOM_UI_TOKEN"),
+            Some("test-token"),
+        )
+        .expect("custom config");
+        assert_eq!(config.pipe_name, "assistant-custom-ui");
+        assert_eq!(
+            config.token_environment_variable,
+            "ASSISTANT_CUSTOM_UI_TOKEN"
+        );
+    }
+
+    #[test]
+    fn test_core_pipe_config_rejects_empty_pipe_name() {
+        let error = CorePipeConfig::from_values(Some("  "), None, Some("test-token"))
+            .expect_err("empty pipe must fail");
+        assert_eq!(error.code, CORE_TRANSPORT_CONFIG_INVALID);
+    }
+
+    #[test]
+    fn test_core_pipe_config_rejects_empty_token_variable_name() {
+        let error = CorePipeConfig::from_values(None, Some(" "), Some("test-token"))
+            .expect_err("empty token variable must fail");
+        assert_eq!(error.code, CORE_TRANSPORT_CONFIG_INVALID);
+    }
+
+    #[test]
+    fn test_core_pipe_config_rejects_missing_or_empty_token_value() {
+        let missing =
+            CorePipeConfig::from_values(None, None, None).expect_err("missing token must fail");
+        let empty =
+            CorePipeConfig::from_values(None, None, Some("")).expect_err("empty token must fail");
+        assert_eq!(missing.code, CORE_TRANSPORT_CONFIG_INVALID);
+        assert_eq!(empty.code, CORE_TRANSPORT_CONFIG_INVALID);
+        assert!(!missing.message.contains("test-token"));
+        assert!(!empty.message.contains("test-token"));
     }
 
     #[test]

@@ -28,11 +28,27 @@ TASK-029 的最小桌面壳：Tauri 2 + React + TypeScript + Tailwind。
 5. 未知字段、未知 kind、版本漂移一律拒绝；解析失败的命令不得发出，也不得渲染。
 6. 未知 Core 状态不得映射为成功类时间线状态（`timelineEvents.ts` 直接丢弃）。
 
+## 启动配置
+
+desktop-ui 二进制通过受控环境变量连接 Core UI listener：
+
+- `ASSISTANT_UI_PIPE`：NamedPipe 名，默认 `assistant-agent-core-ui`。
+- `ASSISTANT_UI_TOKEN_ENV`：保存一次性 token 的环境变量名，默认
+  `ASSISTANT_AGENT_CORE_UI_TOKEN`。
+- 被选中的 token 环境变量必须有非空值；缺失时进程在 Tauri 启动前显式失败。
+
+示例（token 值由 Core 生成并经受保护渠道注入，不要写入日志或命令行）：
+
+```powershell
+$env:ASSISTANT_UI_PIPE = "assistant-agent-core-ui"
+$env:ASSISTANT_UI_TOKEN_ENV = "ASSISTANT_AGENT_CORE_UI_TOKEN"
+pnpm --dir apps/desktop-ui tauri dev
+```
+
 ## 已知限制
 
-- Core 进程的 IPC 传输尚未接通：`src-tauri` 的 `send_ui_command` 会本地校验信封，
-  再经 `CoreCommandTransport` 转发；未注入传输时显式返回 `core_transport_unavailable`，
-  不伪造成功。
+- 生产二进制已经通过 `run_with_core_pipe` 连接 Core；若 Core listener 未启动或
+  token/pipe 不匹配，`send_ui_command` 与事件流会显式返回传输错误，不伪造成功。
 - 事件流（Core → UI）由 `src-tauri/src/event_bridge.rs` 启动单实例订阅，经
   `src/ipc/client.ts` 的 zod 边界进入 React；断连或坏载荷显式上报，不自动重放命令。
 - 图标为骨架用的最小 ICO；品牌资源归后续发布卡。
