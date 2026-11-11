@@ -1,6 +1,6 @@
 # TASK-362 修复 rmcp / SQLite 新 advisory
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：1c　批次：依赖安全修复
 - 依赖：TASK-020、TASK-012
 - 本文件 = 卡片正文 + 执行记录（ADR-0031）。
@@ -145,6 +145,9 @@ git diff --check
 - verify-schemas、codegen、hygiene、memory-counts、adr-index、refscan、
   docscan、card-check、check-ledger、check-comments、check-migrations：通过。
 - `replay --suite core`：2 steps / 5 changes / 0 mismatch，通过。
+- PR #707 checks **11/11 success**，base=`main`，`MERGEABLE` / `CLEAN`；
+  merge `cfa392b3474eaed398d6c4f24291cff42e03476e`。
+- post-merge main CI `42942830771`：success。
 
 ### 4. DoD 逐条核对
 
@@ -152,14 +155,16 @@ git diff --check
 - [x] `rusqlite 0.41.1` → `libsqlite3-sys 0.39.1`，bundled/cache 语义不变。
 - [x] 根 workspace MSRV 明确为 1.89，依赖登记与文档同步。
 - [x] 四个 RUSTSEC advisory 消失，`cargo deny` 四类全绿。
-- [ ] PR 合并并记录 checks / merge / post-merge main CI。
+- [x] PR 合并并记录 checks / merge / post-merge main CI。
 
 ### 5. 偏差
 
 - `rmcp 3.9` 使 production future 超过 clippy `large_futures` 阈值；在
   `apps/agent-core/src/main.rs` 调用点使用 `Box::pin`，不改变行为。
-- 当前 user turn 机器统计 `shell_misuse=bash=44` / `cmd=0`；均被 ADR-0100
+- 当前 user turn 最终机器统计 `shell_misuse=bash=47` / `cmd=0`；均被 ADR-0100
   hook 重写为 PowerShell，未产生非预期仓库写入。
+- Done 回填首次取 LEDGER 锁时与同会话旧 owner `codex-task362-closeout`
+  冲突并等待 30 秒超时；随后正常释放旧 owner 并继续，无 lost update。
 
 ### 6. 实施中发现的更合理做法
 
@@ -170,7 +175,7 @@ git diff --check
 
 ### 7. 遗留问题
 
-- TASK-362 完成后，TASK-361 需要 rebase 并重跑全门禁。
+- TASK-361 需要在修复后的 main 上 rebase 并重跑全门禁。
 
 ### 8. 新增长期记忆
 
