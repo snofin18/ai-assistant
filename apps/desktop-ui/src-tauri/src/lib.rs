@@ -6,6 +6,7 @@
 
 mod commands;
 mod core_pipe;
+mod core_pipe_session;
 mod event_bridge;
 
 pub use commands::{CommandState, CoreCommandTransport, UiCommandRejection, send_ui_command};

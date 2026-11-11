@@ -27,6 +27,8 @@ TASK-029 的最小桌面壳：Tauri 2 + React + TypeScript + Tailwind。
 4. `src-tauri` 是独立 Cargo workspace，避免根 Host workspace 依赖 Linux WebKit 系统包。
 5. 未知字段、未知 kind、版本漂移一律拒绝；解析失败的命令不得发出，也不得渲染。
 6. 未知 Core 状态不得映射为成功类时间线状态（`timelineEvents.ts` 直接丢弃）。
+7. 事件、心跳与审批命令必须复用同一条 authenticated Core UI 会话；不得另开第二条连接
+   猜测或重放审批决定。
 
 ## 启动配置
 
@@ -50,5 +52,7 @@ pnpm --dir apps/desktop-ui tauri dev
 - 生产二进制已经通过 `run_with_core_pipe` 连接 Core；若 Core listener 未启动或
   token/pipe 不匹配，`send_ui_command` 与事件流会显式返回传输错误，不伪造成功。
 - 事件流（Core → UI）由 `src-tauri/src/event_bridge.rs` 启动单实例订阅，经
-  `src/ipc/client.ts` 的 zod 边界进入 React；断连或坏载荷显式上报，不自动重放命令。
+  `src/ipc/client.ts` 的 zod 边界进入 React。底层 `core_pipe_session.rs` 在一条会话内
+  同时处理 Heartbeat、UiEvent 与 UiResponse；断连、错 correlation、错 session id、
+  心跳超时或坏载荷显式上报，不自动重连或重放命令。
 - 图标为骨架用的最小 ICO；品牌资源归后续发布卡。

@@ -1,29 +1,25 @@
 //! NamedPipe client for the Core-side UI listener (ADR-0057 D3 / D4 / D7).
 //!
 //! Responsibilities:
-//! - connect to the Core UI pipe, authenticate with the one-shot token and run
-//!   the handshake;
-//! - send one `UiIpcRequest` per UI command and match the `UiIpcResponse` by
-//!   `correlation_id`;
+//! - own the stable configuration for the Core UI pipe;
+//! - expose one transport handle backed by a single authenticated session;
 //! - translate Core's structured rejection into a machine-readable failure.
 //!
 //! Boundaries:
 //! - does not parse UI command semantics (the webview's zod boundary and Core's
 //!   own allow-list already do that);
 //! - does not link Core, `assistant-policy`, or `assistant-task-engine`;
-//! - never retries a command automatically — a retry could duplicate a side
+//! - never retries a command automatically, because a retry could duplicate a side
 //!   effect (ADR-0057 spec §7 不变量 4).
 
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
-use assistant_ipc::{
-    IpcError, NamedPipeTransport, Transport, UiIpcRequest, UiIpcResult, WireMessage,
-    client_handshake,
-};
+use assistant_ipc::{UiIpcResult, WireMessage};
 use serde_json::Value;
 
 use crate::commands::{CoreCommandTransport, UiTransportFailure};
+use crate::core_pipe_session::CorePipeSession;
 
 /// Environment variable selecting the Core UI pipe name.
 pub const UI_PIPE_ENVIRONMENT_VARIABLE: &str = "ASSISTANT_UI_PIPE";
@@ -134,90 +130,41 @@ fn config_error(message: impl Into<String>) -> UiTransportFailure {
 
 /// Real transport over the authenticated UI pipe.
 pub struct CorePipeTransport {
-    config: CorePipeConfig,
-    sequence: AtomicU64,
+    session: Arc<CorePipeSession>,
 }
 
 impl CorePipeTransport {
     /// Creates a transport for one Core pipe.
     #[must_use]
-    pub const fn new(config: CorePipeConfig) -> Self {
+    pub fn new(config: CorePipeConfig) -> Self {
         Self {
-            config,
-            sequence: AtomicU64::new(0),
+            session: Arc::new(CorePipeSession::new(config, None)),
         }
-    }
-
-    fn next_correlation_id(&self) -> String {
-        let next = self
-            .sequence
-            .fetch_add(1, Ordering::Relaxed)
-            .saturating_add(1);
-        format!("ui_{next}")
     }
 }
 
 impl CorePipeTransport {
-    /// Connects and authenticates one session.
-    fn open_session(&self) -> Result<NamedPipeTransport, UiTransportFailure> {
-        let token = std::env::var(&self.config.token_environment_variable).map_err(|_| {
-            UiTransportFailure::unavailable(format!(
-                "{} is not set",
-                self.config.token_environment_variable
-            ))
-        })?;
-        let mut transport = NamedPipeTransport::client(&self.config.pipe_name)
-            .map_err(|error| UiTransportFailure::unavailable(error.to_string()))?;
-        transport
-            .connect(self.config.connect_timeout)
-            .map_err(|error| UiTransportFailure::unavailable(error.to_string()))?;
-        client_handshake(
-            &mut transport,
-            &token,
-            Vec::new(),
-            self.config.connect_timeout,
-        )
-        .map_err(|error| UiTransportFailure::unavailable(error.to_string()))?;
-        Ok(transport)
-    }
-
-    /// Subscribes to Core's one-way event stream until Core closes it.
+    /// Subscribes to Core's event stream on the shared authenticated session.
     ///
-    /// An idle stream is normal (Core heartbeats on the same pipe), so a read
-    /// timeout just keeps waiting; a disconnect ends the subscription cleanly.
+    /// Events, command responses, and heartbeats are demultiplexed by the same
+    /// session worker. A clean close after the human decision ends this method
+    /// successfully; an unexpected disconnect is reported as a failure.
     ///
     /// # Errors
     ///
     /// Fails when connect/handshake fails, the peer sends a non-event message,
     /// or `on_event` rejects an event.
-    pub fn subscribe<F>(&self, mut on_event: F) -> Result<(), UiTransportFailure>
+    pub fn subscribe<F>(&self, on_event: F) -> Result<(), UiTransportFailure>
     where
         F: FnMut(Value) -> Result<(), UiTransportFailure>,
     {
-        let mut transport = self.open_session()?;
-        loop {
-            match transport.recv(self.config.request_timeout) {
-                Ok(message) => on_event(interpret_event(message)?)?,
-                Err(IpcError::Disconnected { .. }) => return Ok(()),
-                Err(IpcError::Timeout { .. }) => continue,
-                Err(error) => return Err(UiTransportFailure::unavailable(error.to_string())),
-            }
-        }
+        self.session.subscribe(on_event)
     }
 }
 
 impl CoreCommandTransport for CorePipeTransport {
     fn send(&self, envelope: Value) -> Result<Value, UiTransportFailure> {
-        let mut transport = self.open_session()?;
-        let correlation_id = self.next_correlation_id();
-        let request = WireMessage::UiRequest(UiIpcRequest::new(correlation_id.clone(), envelope));
-        transport
-            .send(&request, self.config.request_timeout)
-            .map_err(|error| UiTransportFailure::unavailable(error.to_string()))?;
-        let response = transport
-            .recv(self.config.request_timeout)
-            .map_err(|error| UiTransportFailure::unavailable(error.to_string()))?;
-        interpret_response(&correlation_id, response)
+        self.session.send(envelope)
     }
 }
 
@@ -258,24 +205,6 @@ pub(crate) fn interpret_response(
     }
 }
 
-/// Maps one message from the event stream onto the event payload.
-///
-/// The payload stays opaque JSON here; the webview's zod boundary validates it
-/// before it reaches the timeline model.
-///
-/// # Errors
-///
-/// Fails for any non-`UiEvent` message: a tool-shaped frame or a stray response
-/// on the event channel must never be rendered.
-pub(crate) fn interpret_event(message: WireMessage) -> Result<Value, UiTransportFailure> {
-    match message {
-        WireMessage::UiEvent(event) => Ok(event.event),
-        other => Err(UiTransportFailure::unavailable(format!(
-            "unexpected {} on the UI event channel",
-            other.kind()
-        ))),
-    }
-}
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
@@ -285,7 +214,7 @@ mod tests {
 
     use super::{
         CORE_TRANSPORT_CONFIG_INVALID, CorePipeConfig, CorePipeTransport, DEFAULT_UI_PIPE_NAME,
-        DEFAULT_UI_TOKEN_ENVIRONMENT_VARIABLE, interpret_event, interpret_response,
+        DEFAULT_UI_TOKEN_ENVIRONMENT_VARIABLE, interpret_response,
     };
     use crate::commands::{CoreCommandTransport, UiTransportFailure};
 
@@ -414,35 +343,6 @@ mod tests {
         let transport = CorePipeTransport::new(config());
         let result = transport.send(json!({ "version": "1.0", "command": {} }));
         assert!(matches!(result, Err(ref failure) if failure.code == "core_transport_unavailable"));
-    }
-
-    #[test]
-    fn test_correlation_ids_are_monotonic() {
-        let transport = CorePipeTransport::new(config());
-        assert_eq!(transport.next_correlation_id(), "ui_1");
-        assert_eq!(transport.next_correlation_id(), "ui_2");
-    }
-
-    #[test]
-    fn test_ui_event_payload_is_passed_through() {
-        let payload = json!({ "kind": "task_state_changed", "task_id": "t_1" });
-        let result = interpret_event(WireMessage::UiEvent(assistant_ipc::UiIpcEvent::new(
-            payload.clone(),
-        )));
-        assert_eq!(result, Ok(payload));
-    }
-
-    #[test]
-    fn test_non_event_message_on_event_channel_fails_closed() {
-        let result = interpret_event(WireMessage::Heartbeat(assistant_ipc::Heartbeat {
-            session_id: "018f6d4e-52a1-7b03-8f22-1234567890ab".to_owned(),
-            timestamp_unix_ms: 1,
-            alive: true,
-        }));
-        assert!(matches!(
-            result,
-            Err(ref failure) if failure.code == "core_transport_unavailable"
-        ));
     }
 
     #[test]
