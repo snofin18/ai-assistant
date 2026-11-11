@@ -148,8 +148,9 @@ cargo deny check
 
 - 实现中发现 `NamedPipeTransport` 持有没有 `Send` 的 Windows 原生句柄，因此连接和握手必须在
   长期 worker 线程内完成，不能先在调用线程打开再移动；已按此边界实现，无契约变更。
-- 当前 user turn 最终机器统计 `shell_misuse=bash=40` / `cmd=0`；均为只读命令，
-  ADR-0100 hook 已重写为 PowerShell，未产生非预期仓库写入。
+- 当前 user turn 最终机器统计 `shell_misuse=bash=41` / `cmd=0`；包含只读检查、clippy/build、
+  guard 锁操作与一次 push，均被 ADR-0100 hook 重写为 PowerShell 后执行，未产生超出本卡
+  预期的产品变更。
 
 ### 6. 实施中发现的更合理做法
 
