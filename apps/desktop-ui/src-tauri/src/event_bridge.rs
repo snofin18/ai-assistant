@@ -184,12 +184,11 @@ where
     OnFailure: FnMut(UiBridgeFailure) -> Result<(), UiTransportFailure>,
 {
     let result = source.subscribe(&mut |event| on_event(event));
-    let failure = result
-        .err()
-        .unwrap_or_else(|| UiTransportFailure::unavailable("Core closed the UI event stream"));
-    let emitted = on_failure(UiBridgeFailure::from(&failure));
     running.store(false, Ordering::Release);
-    emitted
+    match result {
+        Ok(()) => Ok(()),
+        Err(failure) => on_failure(UiBridgeFailure::from(&failure)),
+    }
 }
 
 #[cfg(test)]
@@ -220,6 +219,18 @@ mod tests {
                 "hold_reason": null
             }))?;
             Err(UiTransportFailure::unavailable("fixture disconnected"))
+        }
+    }
+
+    struct CleanSource;
+
+    impl CoreEventSource for CleanSource {
+        fn subscribe(
+            &self,
+            _on_event: &mut dyn FnMut(Value) -> Result<(), UiTransportFailure>,
+        ) -> Result<(), UiTransportFailure> {
+            // STUB(TASK-363): test-only source models a clean decision close.
+            Ok(())
         }
     }
 
@@ -254,6 +265,24 @@ mod tests {
         assert_eq!(duplicate, Some(UI_EVENT_STREAM_ALREADY_RUNNING.to_owned()));
         state.stop();
         assert!(state.try_start().is_ok());
+    }
+
+    #[test]
+    fn test_clean_session_close_resets_without_failure() {
+        let running = Arc::new(AtomicBool::new(true));
+        let mut failures = Vec::new();
+        let result = run_event_stream(
+            Arc::new(CleanSource),
+            Arc::clone(&running),
+            |_event| Ok(()),
+            |failure| {
+                failures.push(failure);
+                Ok(())
+            },
+        );
+        assert!(result.is_ok());
+        assert!(failures.is_empty());
+        assert!(!running.load(Ordering::Acquire));
     }
 
     #[test]
