@@ -13,7 +13,7 @@ publish.workspace = true
 #   rusqlite  : 与 storage 共用同一个写连接（audit_logs 就在主库里；bundled 已由 storage 启用）
 #   sha2      : hash chain 的 SHA-256（与 blob_id 同算法；架构 v2 §15.3 的既定口径）
 #   serde_json: AuditEvent ⇄ detail_json 的序列化（事件类型来自 assistant-protocol，不另造结构体）
-rusqlite = { version = "0.37", features = ["bundled"] }
+rusqlite = { version = "0.41.1", default-features = false, features = ["bundled", "cache"] }
 sha2 = "0.10"
 serde_json = "1.0"
 

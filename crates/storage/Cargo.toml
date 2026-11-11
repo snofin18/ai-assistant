@@ -12,7 +12,7 @@ publish.workspace = true
 #   rusqlite: SQLite 驱动；bundled = 自带 SQLite C 源码，三平台可复现、不依赖系统库
 #   zstd:     blob 池压缩（level 3，storage-design.md §3.3 既定口径）
 #   sha2:     内容寻址 SHA-256（blob_id + 完整性校验）
-rusqlite = { version = "0.37", features = ["bundled"] }
+rusqlite = { version = "0.41.1", default-features = false, features = ["bundled", "cache"] }
 zstd = "0.14"
 sha2 = "0.10"
 

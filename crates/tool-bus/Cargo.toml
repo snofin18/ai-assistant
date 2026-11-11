@@ -17,7 +17,7 @@ sha2 = "0.10"
 thiserror = "2"
 # Q1：架构 v2 §5.4 指定的 MCP 官方 Rust SDK。只开 client + server
 #（server 自带 transport-async-rw = in-process 传输所需），不开 http / reqwest / auth → 零网络。
-rmcp = { version = "3.4", default-features = false, features = ["client", "server"] }
+rmcp = { version = "3.9", default-features = false, features = ["client", "server"] }
 # Q4：in-process 传输 = tokio::io::duplex（内存管道，无 socket、无子进程、无网络）。
 tokio = { version = "1", features = [
     "io-util",
