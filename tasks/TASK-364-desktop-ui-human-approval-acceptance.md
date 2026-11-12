@@ -1,6 +1,6 @@
 # TASK-364 desktop-ui human approval acceptance
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：1c　批次：T5.2 产品化
 - 依赖：ADR-0101、TASK-056、TASK-343、TASK-356、TASK-358、TASK-359、TASK-361、TASK-363
 - 本文件 = 卡片正文 + 执行记录（ADR-0031）。
@@ -129,6 +129,9 @@ cargo run -p xtask -- memory-counts
 - v7 清理：专用 Edge profile 进程 0；fixture pid 已停；8766 listener=false；
   Core / desktop-ui 进程退出。
 - 证据目录中 token 环境赋值匹配 0；Edge 版本 `157.0.4341.46`。
+- PR #714 checks **11/11 success**，base=`main`，`MERGEABLE` / `CLEAN`；
+  merge `59fd555d1973599784604df2b07db2a8e379db35`。
+- post-merge main CI `43132393138`：success。
 
 ### 4. DoD 逐条核对
 
@@ -136,15 +139,22 @@ cargo run -p xtask -- memory-counts
 - [x] 人类确认前无 `form_submit`，确认后恰好提交一次。
 - [x] JSON、成功页 marker、进程树与端口清理证据齐全。
 - [x] desktop-ui / workspace / 文档门禁通过。
-- [ ] PR 合并并记录 checks / merge / post-merge main CI；进度同步。
+- [x] PR #714 合并并记录 checks / merge / post-merge main CI；进度同步。
 
 ### 5. 偏差
 
 - `DRIFT-364-1`：正式 UI 首次实跑发现 5 秒 accept timeout 不足，且 Tauri event ACL
   与 StrictMode 重放使审批卡无法出现。已按 write scope 修复为 30 秒握手窗口与无 ACL
   的自定义命令轮询；未批准前 submit calls 为 0。
-- 当前 user turn 最终机器统计 `shell_misuse=bash=44` / `cmd=0`；包含只读检查、
-  测试/构建、guard 锁操作与 push/poll 命令，均由 ADR-0100 hook 重写，未超出本卡预期变更。
+- TASK-364 证据轮次最终机器统计为 `shell_misuse=bash=54` / `cmd=0`；此前记录的 44 是
+  提交前快照，新增命令均为只读检查、测试/构建、guard 锁操作与 push/poll，未超出本卡
+  预期变更。当前批准/收口轮截至 Done 回填前为 `bash=1` / `cmd=0`，后续命令全部显式
+  使用 PowerShell。
+- `DRIFT-364-2`：实现 PR #714 还改动了 `apps/desktop-ui/src-tauri/src/lib.rs`、
+  `apps/desktop-ui/src/ipc/eventStream.ts` 与 `eventStream.test.mjs`，但这三项不在本卡
+  write scope。改动用于注册无 ACL 的事件读取命令及其严格校验轮询客户端，未触及
+  Tool/UI IPC/DB schema、审批状态机或依赖。人类已于 2026-11-12 明确批准将其作为
+  TASK-364 的 write scope 例外，裁决已同步到 `LEDGER.md`。
 
 ### 6. 实施中发现的更合理做法
 
