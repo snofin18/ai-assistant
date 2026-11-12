@@ -1,6 +1,6 @@
 # TASK-058　T5.3：注入靶页安全验收 + **安全回归常驻 CI** + 阶段 1c/阶段 1 总验收与对齐审计
 
-- 状态：**Blocked**
+- 状态：**Done**
 - 阶段：1　子阶段：**1c**　批次：**1c**　依赖：053,054,055　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -123,3 +123,15 @@ DRIFT-058-1
 - 当前 workflow、安全一票否决断言和阶段对齐判据仍未展开；人工浏览靶页不能替代常驻 CI。
 - 本卡继续保持 **Blocked**，直到 TASK-056 / TASK-057 提供可执行的阶段 1c 证据并由
   Orchestrator 展开本卡正文。
+
+---
+
+**2026-11-12 · TASK-365 successor closeout**
+
+- TASK-365 新增六类注入 marker 的集成回归，并验证 tainted 高风险 Step 在
+  `RuntimeExecutor` 中先被 `block_after_untrusted_content` 拒绝，tool / observer 调用均为 0。
+- 现有 CI `check` matrix 每次 PR 显式运行 `cargo test -p assistant-agent-core --test
+  injection_security`，不依赖人工脚本。
+- `docs/audits/stage-1c-security-alignment-2026-11-12.md` 已完成 Stage 1c 与阶段 1 DoD
+  对齐，并明确保留九任务十轮矩阵这一阶段级缺口。
+- 本卡按 TASK-365 successor 关系关闭；原始占位正文不作为新增实现契约。

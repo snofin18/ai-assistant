@@ -1,6 +1,6 @@
 # TASK-057　T5.2：表单填写 → **停在提交前** → 展示 diff 与来源归因 → 用户确认后提交
 
-- 状态：**Blocked**
+- 状态：**Done**
 - 阶段：1　子阶段：**1c**　批次：**1c**　依赖：056　预估：M　难度：M
 - 本文件 = **卡片正文 ＋ 执行记录**（ADR-0031「一卡一文件」）。分界线**以上**是正文（Orchestrator 所有，Implementer **只读**）；**以下**是执行记录（Implementer 填写）。
 - 阶段级信息（阶段 In/Out scope、阶段 DoD、批次表与并行建议）见 `plans/stage-1-pilots.md`。
@@ -124,3 +124,13 @@ DRIFT-057-1
   的离线契约。
 - 当前卡面仍是占位稿，`form_fill` provider 与提交前确认链路尚未实现；人工点击不能补足缺失实现。
   本卡继续保持 **Blocked**，等待独立展开与实现卡。
+
+---
+
+**2026-11-12 · TASK-365 successor closeout**
+
+- TASK-343、TASK-346～359、TASK-361、TASK-363 与 TASK-364 已分别完成有界填表、
+  before/readback diff、来源归因、一次性 UI 审批、正式 desktop-ui 事件桥与人类确认提交。
+- TASK-364 v7 证据记录 `submit_step_count=1`、`submitted=true`、固定成功 marker 与
+  进程/端口清理通过；L3 提交由人类亲自确认，不由 automation 代为批准。
+- 本卡按 TASK-365 successor 关系关闭；原始占位正文不作为新增实现契约。
