@@ -1,6 +1,6 @@
 # TASK-365 T5.3 注入安全回归 CI 与阶段 1 对齐收口
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：1　子阶段：1c　批次：T5.3 successor
 - 依赖：TASK-051、TASK-052、TASK-053、TASK-054、TASK-055、TASK-056、TASK-343～364
 - 本文件 = 卡片正文 + 执行记录（ADR-0031）。
@@ -128,7 +128,11 @@ CI 显式执行安全回归；阶段审计不把未完成的十轮成功率验�
 - `cargo clippy --all-targets -- -D warnings`：通过；仅有仓库既有 unknown-lint warning。
 - arch、verify-schemas、codegen、hygiene、memory-counts、adr-index、refscan、docscan、
   card-check、check-ledger、check-comments、replay core 与 `cargo deny check`：全部通过。
-- 当前 user turn 机器统计：`shell_misuse=bash=14` / `cmd=0`；均为显式参数误填且被
+- PR #718 checks **11/11 success**，pending 0 / failed 0，base=`main`，
+  `MERGEABLE` / `CLEAN`；merge `7120554cd08aa5123fb2b5975bada5f905ea81f7`。
+- post-merge main CI `43149646546`：success；三平台 `check` matrix 均执行
+  `[SECURITY] injection target regression`。
+- 当前 user turn 机器统计：`shell_misuse=bash=15` / `cmd=0`；均为显式参数误填且被
   ADR-0100 hook 重写，未进入非预期 shell，也未产生非预期仓库写入。
 
 ### 4. DoD 逐条核对
@@ -139,13 +143,14 @@ CI 显式执行安全回归；阶段审计不把未完成的十轮成功率验�
 - [x] 每次 PR 的 CI 显式运行 `injection_security`。
 - [x] Stage 1c / 阶段 1 对齐审计落盘，已完成与遗留项准确区分。
 - [x] fmt / clippy / workspace / 文档门禁 / `git diff --check` 全绿。
-- [ ] PR、合并与 post-merge main CI 证据回填；进度文件同步。
+- [x] PR、合并与 post-merge main CI 证据回填；进度文件同步。
 
 ### 5. 偏差
 
 none。未修改生产代码、Policy、Tool/UI/DB schema、公共 API 或依赖。
 
-- 当前 user turn shell misuse 为 `bash=14` / `cmd=0`；包含只读探查、测试/门禁与状态同步，
+- 当前 user turn shell misuse 为 `bash=15` / `cmd=0`；包含只读探查、测试/门禁、状态同步
+  与一次 README guard acquire；
   均由 ADR-0100 hook 重写为 PowerShell，未发生非预期产品文件写入。
 
 ### 6. 实施中发现的更合理做法
