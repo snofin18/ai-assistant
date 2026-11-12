@@ -166,8 +166,8 @@ matrix report 输出 `stage1_complete=true`、`completed_tasks=9`、`missing_tas
 - `run-04` 在提交后遇到真实 cleanup 缺陷，未重试该轮，按失败计入 10 轮并保留原始
   Core/server 日志。
 - 未修改生产代码、Policy、schema/API、依赖或旧证据。
-- 本轮 `exec_command` 共 174 次，`shell_misuse=bash=26` / `cmd=0`；26 次误填均由
-  ADR-0100 hook 重写为 PowerShell，没有在 WSL/bash 执行，也没有额外产品文件写入。
+- 收口审计 `shell_misuse=bash=27` / `cmd=0`；27 次误填均由 ADR-0100 hook
+  重写为 PowerShell，没有在 WSL/bash 执行，也没有额外产品文件写入。
 
 ### 6. 实施中发现的更合理做法
 
