@@ -1,6 +1,6 @@
 # TASK-366 Stage 1 nine-task repeated-run acceptance matrix
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：1　子阶段：阶段级验收　批次：Stage 1 acceptance
 - 依赖：TASK-105、TASK-044～046、TASK-056、TASK-364、TASK-365
 - 本文件 = 卡片正文 + 执行记录（ADR-0031）。
@@ -123,6 +123,12 @@ git diff --check
 - T5.2 可读证据为单次 human approval；validator 输出
   `insufficient_runs:1/10` 与 `insufficient_passes:1/8`。
 - `cargo test --workspace`、all-targets clippy：通过；workspace 含 xtask 510/510。
+- PR #720 checks **11/11 success**，pending 0 / failed 0，base=`main`，
+  `MERGEABLE` / `CLEAN`；merge `b0f8df5b379940b555e808b99ed59519b4af77e7`。
+- post-merge main CI `43163016810`：success；三平台 check matrix 均执行
+  `[STAGE1] acceptance matrix tests` 与 `[STAGE1] repeated-run acceptance report`。
+- 当前 user turn 机器统计：`shell_misuse=bash=8` / `cmd=0`；均为只读探查或状态查询误填，
+  由 ADR-0100 hook 重写为 PowerShell，未产生非预期产品文件写入。
 
 ### 4. DoD 逐条核对
 
@@ -132,12 +138,15 @@ git diff --check
 - [x] 缺失证据、伪造轮次、低成功率和 schema 错误均有负向单测。
 - [x] CI 每次 PR 输出结构化 Stage 1 报告并运行 validator tests。
 - [x] 阶段审计明确 Stage 1 仍为 InProgress。
-- [ ] Python、workspace、clippy、文档门禁与 `git diff --check` 全绿。
-- [ ] PR、合并与 post-merge main CI 证据回填；进度文件同步。
+- [x] Python、workspace、clippy、文档门禁与 `git diff --check` 全绿。
+- [x] PR、合并与 post-merge main CI 证据回填；进度文件同步。
 
 ### 5. 偏差
 
 none。未修改生产代码、Policy、Tool/UI/DB schema、公共 API 或第三方依赖。
+
+- 当前 user turn shell misuse 为 `bash=8` / `cmd=0`；包含只读探查与 `gh` 查询，
+  均由 ADR-0100 hook 重写，未发生非预期仓库写入。
 
 ### 6. 实施中发现的更合理做法
 
@@ -145,6 +154,8 @@ none。未修改生产代码、Policy、Tool/UI/DB schema、公共 API 或第三
   `stage1_complete=false`。这样 CI 不会因已知阶段缺口永久红灯，也不会让损坏证据静默通过。
 - 负向单测发现临时矩阵路径不在仓库内时错误信息会触发 `relative_to` 异常；已改为仓库内路径
   相对显示、仓库外路径原样显示，验收判据不变。
+- 十轮安全摘要首次由 Python 在 Windows 上写出 CRLF，被 `hygiene` 正确拦截；runner 已显式
+  `newline="\n"`，证据重写后 hygiene 通过。
 
 ### 7. 遗留问题
 
