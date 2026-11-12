@@ -70,7 +70,7 @@ Build the production binaries and run:
 
 ```powershell
 pnpm --dir apps/desktop-ui build
-cargo build --manifest-path apps/desktop-ui/src-tauri/Cargo.toml
+pnpm --dir apps/desktop-ui tauri build --debug --no-bundle
 cargo build -p assistant-agent-core
 pwsh -NoProfile -File eval/tasks/edge/t5.2/run_real_edge_ui_approval.ps1 `
   -EvidenceRoot eval/tasks/edge/t5.2/evidence/2026-11-12-task-364-desktop-ui-human-approval
@@ -88,6 +88,36 @@ After the decision, the runner verifies exactly one committed `form_submit`,
 `submitted-marker`. It then closes the UI and dedicated Edge profile and writes
 `summary.json`. Tokens stay only in the child-process environment and are not
 written to command or evidence logs.
+
+## Desktop UI ten-run human approval
+
+The Stage 1 T5.2 acceptance requires ten separate human-present decisions. Build
+the same production binaries, then run:
+
+```powershell
+pnpm --dir apps/desktop-ui build
+pnpm --dir apps/desktop-ui tauri build --debug --no-bundle
+cargo build -p assistant-agent-core
+pwsh -NoProfile -File eval/tasks/edge/t5.2/run_ten_real_edge_ui_approvals.ps1 `
+  -EvidenceRoot eval/tasks/edge/t5.2/evidence/2026-11-12-task-367-ten-run
+```
+
+The outer runner invokes the single-run desktop-ui runner for rounds `run-01`
+through `run-10`. Each round has a separate evidence directory and dedicated
+Edge profile while reusing the task package's fixed local port `8766`
+sequentially. The human must inspect the approval card and complete the
+irreversible confirmation in the formal desktop-ui window for every round.
+
+The script stops on the first failed round and retains that round's raw
+evidence. It never approves, types the confirmation phrase, or retries a submit.
+After all ten summaries exist, `-FinalizeOnly` can re-aggregate the evidence
+without executing another round:
+
+```powershell
+pwsh -NoProfile -File eval/tasks/edge/t5.2/run_ten_real_edge_ui_approvals.ps1 `
+  -EvidenceRoot eval/tasks/edge/t5.2/evidence/2026-11-12-task-367-ten-run `
+  -FinalizeOnly
+```
 
 ## Safety boundary
 
