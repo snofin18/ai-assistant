@@ -6,19 +6,16 @@
 //! approval.
 
 use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+    atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
 use serde::Serialize;
 use serde_json::Value;
-use tauri::{AppHandle, Emitter, State};
+use tauri::State;
 
 use crate::commands::UiTransportFailure;
 use crate::core_pipe::CorePipeTransport;
-
-/// Tauri event carrying a tagged bridge event or failure payload.
-pub const UI_BRIDGE_EVENT: &str = "assistant://ui-bridge";
 
 /// Stable code returned when a second event stream is requested.
 pub const UI_EVENT_STREAM_ALREADY_RUNNING: &str = "ui_event_stream_already_running";
@@ -65,6 +62,8 @@ impl CoreEventSource for UnavailableEventSource {
 pub struct EventStreamState {
     source: Arc<dyn CoreEventSource>,
     is_running: Arc<AtomicBool>,
+    sequence: Arc<AtomicU64>,
+    latest: Arc<Mutex<Option<UiBridgeEntry>>>,
 }
 
 impl EventStreamState {
@@ -74,6 +73,8 @@ impl EventStreamState {
         Self {
             source,
             is_running: Arc::new(AtomicBool::new(false)),
+            sequence: Arc::new(AtomicU64::new(0)),
+            latest: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -95,6 +96,15 @@ impl EventStreamState {
 
     fn stop(&self) {
         self.is_running.store(false, Ordering::Release);
+    }
+
+    #[cfg(test)]
+    fn record(&self, message: UiBridgeMessage) {
+        record_message(&self.sequence, &self.latest, message);
+    }
+
+    fn latest(&self) -> Option<UiBridgeEntry> {
+        self.latest.lock().ok().and_then(|entry| entry.clone())
     }
 }
 
@@ -125,11 +135,17 @@ impl From<&UiTransportFailure> for UiBridgeFailure {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-enum UiBridgeMessage {
+pub enum UiBridgeMessage {
     Event { event: Value },
     Failure { failure: UiBridgeFailure },
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct UiBridgeEntry {
+    pub sequence: u64,
+    pub message: UiBridgeMessage,
 }
 
 /// Starts one background Core event subscription.
@@ -140,23 +156,39 @@ enum UiBridgeMessage {
 /// the worker thread cannot be created.
 #[tauri::command]
 pub fn start_ui_event_stream(
-    app: AppHandle,
     state: State<'_, EventStreamState>,
 ) -> Result<(), EventStreamStartError> {
-    state.try_start()?;
+    if state.try_start().is_err() {
+        return Ok(());
+    }
     let source = Arc::clone(&state.source);
     let running = Arc::clone(&state.is_running);
-    let app_for_worker = app.clone();
+    let sequence = Arc::clone(&state.sequence);
+    let latest = Arc::clone(&state.latest);
     let worker = std::thread::Builder::new()
         .name("assistant-ui-events".to_owned())
         .spawn(move || {
-            let emit_event =
-                |event| emit_message(&app_for_worker, &UiBridgeMessage::Event { event });
-            let emit_failure =
-                |failure| emit_message(&app_for_worker, &UiBridgeMessage::Failure { failure });
-            if run_event_stream(source, Arc::clone(&running), emit_event, emit_failure).is_err() {
-                app_for_worker.exit(1);
-            }
+            let event_sequence = Arc::clone(&sequence);
+            let event_latest = Arc::clone(&latest);
+            let emit_event = move |event: Value| -> Result<(), UiTransportFailure> {
+                record_message(
+                    &event_sequence,
+                    &event_latest,
+                    UiBridgeMessage::Event { event },
+                );
+                Ok(())
+            };
+            let failure_sequence = Arc::clone(&sequence);
+            let failure_latest = Arc::clone(&latest);
+            let emit_failure = move |failure| {
+                record_message(
+                    &failure_sequence,
+                    &failure_latest,
+                    UiBridgeMessage::Failure { failure },
+                );
+                Ok(())
+            };
+            let _ = run_event_stream(source, Arc::clone(&running), emit_event, emit_failure);
         });
     if let Err(error) = worker {
         state.stop();
@@ -168,9 +200,25 @@ pub fn start_ui_event_stream(
     Ok(())
 }
 
-fn emit_message(app: &AppHandle, message: &UiBridgeMessage) -> Result<(), UiTransportFailure> {
-    app.emit(UI_BRIDGE_EVENT, message)
-        .map_err(|error| UiTransportFailure::unavailable(error.to_string()))
+/// Reads the latest sequenced bridge message without consuming it.
+#[tauri::command]
+#[must_use]
+pub fn read_ui_event_stream(state: State<'_, EventStreamState>) -> Option<UiBridgeEntry> {
+    state.latest()
+}
+
+fn record_message(
+    sequence: &AtomicU64,
+    latest: &Mutex<Option<UiBridgeEntry>>,
+    message: UiBridgeMessage,
+) {
+    let next = sequence.fetch_add(1, Ordering::Relaxed) + 1;
+    if let Ok(mut entry) = latest.lock() {
+        *entry = Some(UiBridgeEntry {
+            sequence: next,
+            message,
+        });
+    }
 }
 
 fn run_event_stream<OnEvent, OnFailure>(
@@ -202,7 +250,7 @@ mod tests {
 
     use super::{
         CoreEventSource, EventStreamState, UI_EVENT_STREAM_ALREADY_RUNNING, UiBridgeFailure,
-        UiTransportFailure, run_event_stream,
+        UiBridgeMessage, UiTransportFailure, run_event_stream,
     };
 
     struct FailingSource;
@@ -265,6 +313,20 @@ mod tests {
         assert_eq!(duplicate, Some(UI_EVENT_STREAM_ALREADY_RUNNING.to_owned()));
         state.stop();
         assert!(state.try_start().is_ok());
+    }
+
+    #[test]
+    fn test_latest_event_is_retained_for_a_new_listener() {
+        let state = EventStreamState::unavailable();
+        state.record(UiBridgeMessage::Event {
+            event: json!({
+                "kind": "step_approval_requested",
+                "request_id": "runtime:task:submit"
+            }),
+        });
+        let latest = state.latest().expect("retained event");
+        assert_eq!(latest.sequence, 1);
+        assert!(matches!(latest.message, UiBridgeMessage::Event { .. }));
     }
 
     #[test]

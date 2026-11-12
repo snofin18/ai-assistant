@@ -192,7 +192,8 @@ fn test_ui_approval_options_require_authenticated_peer_configuration() {
         r"C:\Edge\msedge.exe".to_owned(),
     ]);
     let options = BrowserTaskOptions::parse(&arguments).expect("valid UI approval options");
-    assert!(options.ui_approval.is_some());
+    let ui_approval = options.ui_approval.as_ref().expect("UI approval config");
+    assert_eq!(ui_approval.handshake_timeout, Duration::from_secs(30));
     assert!(!options.human_approval);
 }
 

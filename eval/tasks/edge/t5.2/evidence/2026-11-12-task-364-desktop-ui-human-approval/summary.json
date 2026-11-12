@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "mode": "desktop-ui-human-approval-local",
+  "result": "failed",
+  "failure": "Core exited before opening UI pipe assistant-agent-core-ui-task364-44473bef430e4f269e6cd9435026567a",
+  "core_pid": 21364,
+  "ui_pid": null,
+  "started_at_utc": "2026-11-12T00:22:52.9608521Z",
+  "completed_at_utc": "2026-11-12T00:22:55.5774191Z",
+  "token_logged": false
+}

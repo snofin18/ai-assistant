@@ -1,0 +1,26 @@
+[String] --browser-task-run
+[String] --task-package
+[String] D:\csart\ai-assistant\adapters\browser.edge\tasks\t5.2.profile-human-approval.json
+[String] --output
+[String] D:\csart\ai-assistant\eval\tasks\edge\t5.2\evidence\2026-11-12-task-364-desktop-ui-human-approval\human\result.json
+[String] --ui-approval
+[String] --ui-pipe
+[String] assistant-agent-core-ui-task364-44473bef430e4f269e6cd9435026567a
+[String] --ui-token-env
+[String] ASSISTANT_AGENT_CORE_UI_TOKEN
+[String] --ui-peer
+[String] D:\csart\ai-assistant\apps\desktop-ui\src-tauri\target\debug\assistant-desktop-ui.exe
+[String] --approve-step
+[String] navigate_form
+[String] --approve-step
+[String] fill_form
+[String] --browser
+[String] edge
+[String] --browser-executable
+[String] C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe
+[String] --browser-profile-root
+[String] C:\Users\fexfe\AppData\Local\ai-assistant-task-364-edge-profile
+[String] --browser-profile-id
+[String] task364-ui-human-b5d42e06
+[String] --browser-session-timeout-ms
+[String] 180000

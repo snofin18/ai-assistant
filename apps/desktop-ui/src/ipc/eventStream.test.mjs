@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import { parseUiEvent } from "./contract.ts";
-import { parseUiBridgeMessage } from "./eventStream.ts";
+import { parseUiBridgeMessage, parseUiBridgePoll } from "./eventStream.ts";
 
 const fixture = JSON.parse(
   readFileSync(
@@ -66,4 +66,16 @@ test("unknown bridge fields and blank failures are rejected", () => {
     ).ok,
     false,
   );
+});
+
+test("a sequenced bridge poll reuses the strict bridge parser", () => {
+  const result = parseUiBridgePoll(
+    { sequence: 4, message: { kind: "event", event: fixture } },
+    parseUiEvent,
+  );
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.value.sequence, 4);
+    assert.equal(result.value.message.kind, "event");
+  }
 });

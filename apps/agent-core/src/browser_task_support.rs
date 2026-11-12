@@ -219,14 +219,15 @@ fn parse_ui_approval(parsed: &ParsedArguments) -> Result<Option<UiServerConfig>,
         .ui_peer
         .as_ref()
         .ok_or_else(|| argument_error("--ui-approval requires --ui-peer <path>"))?;
-    Ok(Some(
-        UiServerConfig::new(
-            pipe_name,
-            token_environment_variable,
-            Duration::from_secs(10),
-        )
-        .with_allowed_peer(peer),
-    ))
+    let mut config = UiServerConfig::new(
+        pipe_name,
+        token_environment_variable,
+        Duration::from_secs(10),
+    );
+    // A cold production desktop-ui build can take longer than the default
+    // five-second pipe accept window to create its webview and subscribe.
+    config.handshake_timeout = Duration::from_secs(30);
+    Ok(Some(config.with_allowed_peer(peer)))
 }
 
 fn validate_unique_step_approvals(step_ids: &[String]) -> Result<(), BrowserTaskError> {

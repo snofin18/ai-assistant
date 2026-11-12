@@ -1,0 +1,9 @@
+run=2026-11-12-task-364-desktop-ui-human-approval-v7
+phase_before_user_input=awaiting_human_confirmation
+computer_use_observation=User input was detected in the Assistant approval window.
+post_user_input_phase=passed
+pre_approval_result_exists=false
+submit_step_count=1
+submitted=true
+process_cleanup=passed
+token_env_assignment_matches=0
