@@ -56,8 +56,8 @@
       "task_id": "t5.2",
       "app": "edge",
       "minimum_success_rate": 0.75,
-      "adapter": "single_human_approval",
-      "evidence": "eval/tasks/edge/t5.2/evidence/2026-11-12-task-364-desktop-ui-human-approval-v7/summary.json"
+      "adapter": "round_summary",
+      "evidence": "eval/tasks/edge/t5.2/evidence/2026-11-12-task-367-ten-run/summary.json"
     },
     {
       "task_id": "t5.3",

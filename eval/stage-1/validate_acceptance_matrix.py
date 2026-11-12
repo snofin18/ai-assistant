@@ -20,7 +20,7 @@ EXPECTED_TASKS = {
     "t3.2": ("paint", 0.75, "round_summary"),
     "t3.3": ("paint", 0.75, "round_summary"),
     "t5.1": ("edge", 0.75, "round_summary"),
-    "t5.2": ("edge", 0.75, "single_human_approval"),
+    "t5.2": ("edge", 0.75, "round_summary"),
     "t5.3": ("edge", 1.0, "round_summary"),
 }
 

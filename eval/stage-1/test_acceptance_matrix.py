@@ -19,20 +19,19 @@ class AcceptanceMatrixTests(unittest.TestCase):
             list(matrix.EXPECTED_TASKS),
         )
 
-    def test_current_matrix_reports_only_t5_2_gap(self) -> None:
+    def test_current_matrix_completes_stage1(self) -> None:
         report = matrix.evaluate_matrix(matrix.load_matrix())
-        self.assertFalse(report["stage1_complete"])
-        self.assertEqual(report["completed_tasks"], 8)
+        self.assertTrue(report["stage1_complete"])
+        self.assertEqual(report["completed_tasks"], 9)
         self.assertEqual(report["total_tasks"], 9)
-        self.assertEqual(report["missing_tasks"], ["t5.2"])
+        self.assertEqual(report["missing_tasks"], [])
         by_task = {task["task_id"]: task for task in report["tasks"]}
         self.assertEqual(by_task["t1.1"]["minimum_passed_runs"], 9)
         self.assertEqual(by_task["t3.1"]["minimum_passed_runs"], 8)
         self.assertEqual(by_task["t5.3"]["minimum_passed_runs"], 10)
-        self.assertIn(
-            "insufficient_runs:1/10",
-            by_task["t5.2"]["reasons"],
-        )
+        self.assertEqual(by_task["t5.2"]["observed_runs"], 10)
+        self.assertEqual(by_task["t5.2"]["passed_runs"], 9)
+        self.assertEqual(by_task["t5.2"]["reasons"], [])
 
     def test_round_summary_rejects_forged_round_count(self) -> None:
         evidence = {
@@ -91,6 +90,17 @@ class AcceptanceMatrixTests(unittest.TestCase):
             result["reasons"],
             ["insufficient_runs:1/10"],
         )
+
+    def test_t5_2_ten_run_summary_meets_threshold(self) -> None:
+        data = matrix._load_json(
+            matrix.ROOT
+            / "eval/tasks/edge/t5.2/evidence/"
+            "2026-11-12-task-367-ten-run/summary.json"
+        )
+        result = matrix._round_result("t5.2", "fixture.json", data, 10)
+        self.assertEqual(result["observed_runs"], 10)
+        self.assertEqual(result["passed_runs"], 9)
+        self.assertEqual(result["reasons"], [])
 
     def test_missing_evidence_is_hard_error(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

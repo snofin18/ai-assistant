@@ -1,0 +1,40 @@
+{
+  "outputs": {
+    "elapsed_ms": 559,
+    "fingerprint": "sha256:7ad80f6ccafa59258e292459c85788d276b0f581d871a82aee070d56a089c4ca",
+    "fingerprint_scope": "cdp_target",
+    "form_ready": true,
+    "post_url": "http://127.0.0.1:8766/t5.2/submitted",
+    "previous_fingerprint": "sha256:9a17e68f61df802990911b37cf031d2b5e153b6fc272711182ea2717f8bac2d1",
+    "submitted": true
+  },
+  "schema_version": 1,
+  "status": "completed",
+  "steps": [
+    {
+      "id": "navigate_form",
+      "post_fingerprint": "sha256:a67a16582f442011164e40fc6748799850f0d6f9c445cb8d64310eacd5863876",
+      "status": "committed",
+      "tool": "edge.cdp.navigate"
+    },
+    {
+      "id": "read_form",
+      "post_fingerprint": "sha256:836b5c320d9b1cc4c13f5e2e080889efa49d2fe9592ca215b20474a784644d5a",
+      "status": "committed",
+      "tool": "edge.cdp.form_read"
+    },
+    {
+      "id": "fill_form",
+      "post_fingerprint": "sha256:2d2bd7fcd390c74dc0dcd3fade1b8f63cfad4cb34a2af70336ba7a2abbb2f5f3",
+      "status": "committed",
+      "tool": "edge.cdp.form_fill"
+    },
+    {
+      "id": "submit_form",
+      "post_fingerprint": "sha256:7ad80f6ccafa59258e292459c85788d276b0f581d871a82aee070d56a089c4ca",
+      "status": "committed",
+      "tool": "edge.cdp.form_submit"
+    }
+  ],
+  "task_id": "edge.t5_2.profile_human_approval"
+}
