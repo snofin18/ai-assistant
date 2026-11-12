@@ -83,6 +83,12 @@ jobs:
       - name: "[HARD #4] cargo test"
         run: cargo test --workspace
 
+      # TASK-365 / TASK-058: the prompt-injection fixture is a security veto.
+      # Keep this explicit step in every PR while remaining inside the existing
+      # 11-job merge gate, so the regression cannot disappear from the target set.
+      - name: "[SECURITY] injection target regression"
+        run: cargo test -p assistant-agent-core --test injection_security
+
       # --- 硬门禁 #10：构建（release，验证 LTO/strip 配置可用）---
       # gov-gate: 10
       - name: "[HARD #10] cargo build --release"
