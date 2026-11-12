@@ -148,8 +148,9 @@ cargo run -p xtask -- memory-counts
   的自定义命令轮询；未批准前 submit calls 为 0。
 - TASK-364 证据轮次最终机器统计为 `shell_misuse=bash=54` / `cmd=0`；此前记录的 44 是
   提交前快照，新增命令均为只读检查、测试/构建、guard 锁操作与 push/poll，未超出本卡
-  预期变更。当前批准/收口轮截至 Done 回填前为 `bash=1` / `cmd=0`，后续命令全部显式
-  使用 PowerShell。
+  预期变更。当前批准/收口轮最终为 `bash=2` / `cmd=0`：两次均为误填 shell 参数且被
+  ADR-0100 hook 重写，其中一次是 `plans/stage-1-pilots.md` guard release，另一次是
+  只读的 main CI `gh run view`；没有产生额外仓库写入。
 - `DRIFT-364-2`：实现 PR #714 还改动了 `apps/desktop-ui/src-tauri/src/lib.rs`、
   `apps/desktop-ui/src/ipc/eventStream.ts` 与 `eventStream.test.mjs`，但这三项不在本卡
   write scope。改动用于注册无 ACL 的事件读取命令及其严格校验轮询客户端，未触及
