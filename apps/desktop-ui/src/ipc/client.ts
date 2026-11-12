@@ -74,9 +74,7 @@ export interface UiEventStreamHandlers {
  * Polling uses a custom Tauri command so the shell keeps an empty capability
  * set. The returned function stops polling and reports nothing else.
  */
-export async function connectUiEventStream(
-  handlers: UiEventStreamHandlers,
-): Promise<() => void> {
+export async function connectUiEventStream(handlers: UiEventStreamHandlers): Promise<() => void> {
   let lastSequence = 0;
   let stopped = false;
   let isPolling = false;
