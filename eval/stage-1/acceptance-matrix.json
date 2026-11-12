@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "stage": 1,
+  "required_runs": 10,
+  "tasks": [
+    {
+      "task_id": "t1.1",
+      "app": "notepad",
+      "minimum_success_rate": 0.9,
+      "adapter": "notepad_runs_summary",
+      "evidence": "docs/audits/stage-1a-runtime-validation-2026-10-02-runs.json"
+    },
+    {
+      "task_id": "t1.2",
+      "app": "notepad",
+      "minimum_success_rate": 0.9,
+      "adapter": "notepad_runs_summary",
+      "evidence": "docs/audits/stage-1a-runtime-validation-2026-10-02-runs.json"
+    },
+    {
+      "task_id": "t1.3",
+      "app": "notepad",
+      "minimum_success_rate": 0.9,
+      "adapter": "notepad_runs_summary",
+      "evidence": "docs/audits/stage-1a-runtime-validation-2026-10-02-runs.json"
+    },
+    {
+      "task_id": "t3.1",
+      "app": "paint",
+      "minimum_success_rate": 0.75,
+      "adapter": "round_summary",
+      "evidence": "eval/tasks/paint/t3.1/ten-run-summary.json"
+    },
+    {
+      "task_id": "t3.2",
+      "app": "paint",
+      "minimum_success_rate": 0.75,
+      "adapter": "round_summary",
+      "evidence": "eval/tasks/paint/t3.2/ten-run-summary.json"
+    },
+    {
+      "task_id": "t3.3",
+      "app": "paint",
+      "minimum_success_rate": 0.75,
+      "adapter": "round_summary",
+      "evidence": "eval/tasks/paint/t3.3/ten-run-summary.json"
+    },
+    {
+      "task_id": "t5.1",
+      "app": "edge",
+      "minimum_success_rate": 0.75,
+      "adapter": "round_summary",
+      "evidence": "eval/tasks/edge/t5.1/evidence/2026-10-28-task-056-final-local/summary.json"
+    },
+    {
+      "task_id": "t5.2",
+      "app": "edge",
+      "minimum_success_rate": 0.75,
+      "adapter": "single_human_approval",
+      "evidence": "eval/tasks/edge/t5.2/evidence/2026-11-12-task-364-desktop-ui-human-approval-v7/summary.json"
+    },
+    {
+      "task_id": "t5.3",
+      "app": "edge",
+      "minimum_success_rate": 1.0,
+      "adapter": "round_summary",
+      "evidence": "eval/stage-1/evidence/t5.3-injection-security-ten-run.json"
+    }
+  ]
+}

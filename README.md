@@ -92,6 +92,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-11-12 TASK-366 InProgress（Stage 1 repeated-run acceptance matrix）**：九任务 manifest 与严格 validator 已落地，直接读取 Notepad、Paint、Edge 的 committed evidence；T5.3 安全回归已有 10/10 冻结摘要。当前机器报告 `stage1_complete=false`、`completed_tasks=8`、`missing_tasks=["t5.2"]`，阶段仍保持 InProgress。
 **2026-11-12 TASK-365 Done（T5.3 injection security regression and Stage 1 alignment）**：六类注入 marker 的 fixture、session taint、`app_content` 高风险归因、clean-context 隔离与 RuntimeExecutor policy-before-tool 顺序已形成 3/3 集成回归；tainted 高风险 Step 命中 `block_after_untrusted_content`，tool / observer call 均为 0。审计将 TASK-057/058 以 successor 关系关闭，同时保留九任务十轮成功率这一阶段级缺口。PR #718 checks 11/11，merge `7120554`，post-merge main CI `43149646546` success。
 **2026-11-12 TASK-364 Done（desktop-ui human approval acceptance）**：正式 desktop-ui 通过单一 authenticated Core UI 会话展示脱敏 diff、来源归因、`once` scope 与不可逆提示；人类在本地 Edge T5.2 靶页亲自确认后，`form_submit` 恰好提交一次，`submitted=true`，成功页 marker、专用 Edge profile、fixture listener、Core 与 UI 清理全部通过。PR #714 checks 11/11，merge `59fd555`，post-merge main CI `43132393138` success；write scope 例外已由人类批准并落盘。
 **2026-11-11 TASK-363 Done（desktop-ui single-session approval transport）**：事件订阅、心跳与 approve/deny 命令现在复用同一条 authenticated Core UI NamedPipe 会话；私有 worker 以有界队列串行命令、按 correlation id 匹配响应，并在人类决定后的干净关闭中正常结束。PR #711 checks 11/11，merge `8a8c7c1`，post-merge main CI `42991511612` success。
@@ -423,6 +424,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-11-12 TASK-366 InProgress（Stage 1 repeated-run acceptance matrix）**：新增九任务 manifest、严格证据 validator、10 个正负向单测和 T5.3 十轮安全 runner。普通报告输出 8/9 与唯一 `t5.2` 缺口，`--require-complete` 按预期失败；缺失或伪造证据会 hard fail。CI 在三平台 check matrix 内持续输出该报告，不改变 11 个 job 的合并门禁结构。
+
 **2026-11-12 TASK-365 Done（T5.3 injection security regression）**：新增 `agent-core` 注入安全集成测试，验证六类 fixture marker 全部存在且页面无脚本、表单或外网调用；Tool 原文使 session 进入 tainted，`app_content` 保持高风险，clean-context review 不携带 marker。RuntimeExecutor 对 tainted 高风险 L3 Step 在 tool 前返回 `PolicyDenied`，invoker / observer 调用均为 0。现有 CI `check` matrix 每次 PR 显式执行该测试，11 个 job 的合并门禁结构不变；Stage 1 审计明确保留九任务十轮成功率缺口。PR #718 merge `7120554`，post-merge main CI `43149646546` success。
 
 **2026-11-12 TASK-364 Done（desktop-ui human approval acceptance）**：新增真实 T5.2 desktop-ui 人工验收器；Core UI handshake 放宽到 30 秒；Tauri 事件桥改为保留 sequence 的无 ACL 自定义命令轮询，修复 event ACL 与 React StrictMode listener 重放的竞态。v7 人类确认 run 中 pre-approval result 不存在，确认后 submit 恰好 1，JSON、成功页 marker、Edge profile、fixture listener、Core 与 UI 清理全部通过；证据目录 token 环境赋值匹配 0。PR #714 merge `59fd555`，post-merge main CI `43132393138` success。

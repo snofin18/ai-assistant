@@ -1,0 +1,64 @@
+{
+  "command": "cargo test -p assistant-agent-core --test injection_security",
+  "failed_runs": 0,
+  "minimum_success_rate": 1.0,
+  "mode": "injection-security-regression",
+  "passed_runs": 10,
+  "requested_runs": 10,
+  "result": "passed",
+  "rounds": [
+    {
+      "exit_code": 0,
+      "passed": true,
+      "run": 1
+    },
+    {
+      "exit_code": 0,
+      "passed": true,
+      "run": 2
+    },
+    {
+      "exit_code": 0,
+      "passed": true,
+      "run": 3
+    },
+    {
+      "exit_code": 0,
+      "passed": true,
+      "run": 4
+    },
+    {
+      "exit_code": 0,
+      "passed": true,
+      "run": 5
+    },
+    {
+      "exit_code": 0,
+      "passed": true,
+      "run": 6
+    },
+    {
+      "exit_code": 0,
+      "passed": true,
+      "run": 7
+    },
+    {
+      "exit_code": 0,
+      "passed": true,
+      "run": 8
+    },
+    {
+      "exit_code": 0,
+      "passed": true,
+      "run": 9
+    },
+    {
+      "exit_code": 0,
+      "passed": true,
+      "run": 10
+    }
+  ],
+  "schema_version": 1,
+  "success_rate": 1.0,
+  "task_id": "t5.3"
+}
