@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "mode": "desktop-ui-human-approval-local",
+  "result": "failed",
+  "failure": "Core exited before human approval result was written",
+  "core_pid": 14104,
+  "ui_pid": 24616,
+  "started_at_utc": "2026-11-12T00:24:55.1081125Z",
+  "completed_at_utc": "2026-11-12T00:25:28.3271138Z",
+  "token_logged": false
+}

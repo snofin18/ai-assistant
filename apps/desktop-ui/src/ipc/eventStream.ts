@@ -12,6 +12,7 @@ import type { ContractParseResult, UiEvent } from "./contract.js";
 
 export const UI_BRIDGE_EVENT = "assistant://ui-bridge";
 export const START_UI_EVENT_STREAM_COMMAND = "start_ui_event_stream";
+export const READ_UI_EVENT_STREAM_COMMAND = "read_ui_event_stream";
 export const UI_EVENT_STREAM_ALREADY_RUNNING = "ui_event_stream_already_running";
 
 const bridgeFailureSchema = z.strictObject({
@@ -30,9 +31,18 @@ const bridgeMessageSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
+const bridgePollSchema = z.strictObject({
+  sequence: z.number().int().nonnegative(),
+  message: bridgeMessageSchema,
+});
+
 export type UiBridgeFailure = z.infer<typeof bridgeFailureSchema>;
 export type UiBridgeMessage =
   { kind: "event"; event: UiEvent } | { kind: "failure"; failure: UiBridgeFailure };
+export type UiBridgePoll = {
+  sequence: number;
+  message: UiBridgeMessage;
+};
 
 export function parseUiBridgeMessage(
   input: unknown,
@@ -55,6 +65,35 @@ export function parseUiBridgeMessage(
   return event.ok
     ? { ok: true, value: { kind: "event", event: event.value } }
     : { ok: false, errors: event.errors.map((error) => `event: ${error}`) };
+}
+
+export function parseUiBridgePoll(
+  input: unknown,
+  parseEvent: (value: unknown) => ContractParseResult<UiEvent>,
+): ContractParseResult<UiBridgePoll> {
+  const result = bridgePollSchema.safeParse(input);
+  if (!result.success) {
+    return {
+      ok: false,
+      errors: result.error.issues.map((issue) => {
+        const path = issue.path.join(".");
+        return path.length === 0 ? issue.message : `${path}: ${issue.message}`;
+      }),
+    };
+  }
+  const message = parseUiBridgeMessage(result.data.message, parseEvent);
+  return message.ok
+    ? {
+        ok: true,
+        value: {
+          sequence: result.data.sequence,
+          message: message.value,
+        },
+      }
+    : {
+        ok: false,
+        errors: message.errors.map((error) => `message: ${error}`),
+      };
 }
 
 export function eventFromBridge(message: UiBridgeMessage): UiEvent | null {

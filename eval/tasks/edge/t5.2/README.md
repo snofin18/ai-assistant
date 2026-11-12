@@ -64,6 +64,31 @@ This is a human-present CLI acceptance, not a real UI-session acceptance. Do not
 add real personal data, credentials, files, payment details, CAPTCHA, or external
 redirects to this fixture.
 
+## Desktop UI human approval
+
+Build the production binaries and run:
+
+```powershell
+pnpm --dir apps/desktop-ui build
+cargo build --manifest-path apps/desktop-ui/src-tauri/Cargo.toml
+cargo build -p assistant-agent-core
+pwsh -NoProfile -File eval/tasks/edge/t5.2/run_real_edge_ui_approval.ps1 `
+  -EvidenceRoot eval/tasks/edge/t5.2/evidence/2026-11-12-task-364-desktop-ui-human-approval
+```
+
+The runner starts the local fixture, Core's authenticated `--ui-approval`
+session, a dedicated Edge profile, and the production desktop-ui binary. It
+writes `phase.txt=awaiting_human_confirmation` when the approval card is waiting
+for a person. The human must inspect the redacted field diff, select `once`,
+type the exact irreversible confirmation phrase, and click the approval button
+in the desktop-ui window. The runner never approves on the human's behalf.
+
+After the decision, the runner verifies exactly one committed `form_submit`,
+`submitted=true`, the query-free local success URL, and the
+`submitted-marker`. It then closes the UI and dedicated Edge profile and writes
+`summary.json`. Tokens stay only in the child-process environment and are not
+written to command or evidence logs.
+
 ## Safety boundary
 
 Only synthetic values belong in this form. Do not add real credentials, personal

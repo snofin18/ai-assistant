@@ -7,8 +7,6 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import type { UnlistenFn } from "@tauri-apps/api/event";
 
 import {
   UI_IPC_VERSION,
@@ -18,9 +16,9 @@ import {
 } from "./contract.js";
 import type { UiCommand, UiCommandOutcome, UiEvent } from "./contract.js";
 import {
-  parseUiBridgeMessage,
+  parseUiBridgePoll,
+  READ_UI_EVENT_STREAM_COMMAND,
   START_UI_EVENT_STREAM_COMMAND,
-  UI_BRIDGE_EVENT,
   UI_EVENT_STREAM_ALREADY_RUNNING,
 } from "./eventStream.js";
 
@@ -71,43 +69,94 @@ export interface UiEventStreamHandlers {
 }
 
 /**
- * Subscribes to Core events and asks Tauri to start the single event pump.
+ * Starts the single Core event pump and polls the retained bridge message.
  *
- * The returned function removes the webview listener. Core disconnect is
- * reported through `onFailure`; commands are never replayed automatically.
+ * Polling uses a custom Tauri command so the shell keeps an empty capability
+ * set. The returned function stops polling and reports nothing else.
  */
-export async function connectUiEventStream(handlers: UiEventStreamHandlers): Promise<UnlistenFn> {
-  const unlisten = await listen<unknown>(UI_BRIDGE_EVENT, ({ payload }) => {
-    const parsed = parseUiBridgeMessage(payload, parseUiEvent);
-    if (!parsed.ok) {
-      handlers.onFailure(new HostIpcError("ui_event_payload_invalid", parsed.errors));
+export async function connectUiEventStream(
+  handlers: UiEventStreamHandlers,
+): Promise<() => void> {
+  let lastSequence = 0;
+  let stopped = false;
+  let isPolling = false;
+  let timer: ReturnType<typeof setInterval> | null = null;
+
+  function stop() {
+    stopped = true;
+    if (timer !== null) {
+      clearInterval(timer);
+      timer = null;
+    }
+  }
+
+  function fail(error: HostIpcError) {
+    stop();
+    handlers.onFailure(error);
+  }
+
+  async function poll() {
+    if (stopped || isPolling) {
       return;
     }
-    if (parsed.value.kind === "failure") {
-      handlers.onFailure(
-        new HostIpcError(parsed.value.failure.code, [parsed.value.failure.message]),
-      );
-      return;
+    isPolling = true;
+    try {
+      const raw: unknown = await invokeHost<unknown>(READ_UI_EVENT_STREAM_COMMAND);
+      if (raw === null) {
+        return;
+      }
+      const parsed = parseUiBridgePoll(raw, parseUiEvent);
+      if (!parsed.ok) {
+        fail(new HostIpcError("ui_event_payload_invalid", parsed.errors));
+        return;
+      }
+      if (parsed.value.sequence <= lastSequence) {
+        return;
+      }
+      lastSequence = parsed.value.sequence;
+      if (parsed.value.message.kind === "failure") {
+        fail(
+          new HostIpcError(parsed.value.message.failure.code, [
+            parsed.value.message.failure.message,
+          ]),
+        );
+        return;
+      }
+      handlers.onEvent(parsed.value.message.event);
+    } catch (error) {
+      fail(normalizeInvokeFailure(error));
+    } finally {
+      isPolling = false;
     }
-    handlers.onEvent(parsed.value.event);
-  });
+  }
+
   try {
     await invokeHost<void>(START_UI_EVENT_STREAM_COMMAND);
   } catch (error) {
     const failure = normalizeInvokeFailure(error);
     if (failure.code === UI_EVENT_STREAM_ALREADY_RUNNING) {
-      return unlisten;
+      timer = setInterval(() => {
+        void poll();
+      }, 100);
+      void poll();
+      return stop;
     }
-    unlisten();
     handlers.onFailure(failure);
     throw failure;
   }
-  return unlisten;
+  timer = setInterval(() => {
+    void poll();
+  }, 100);
+  void poll();
+  return stop;
 }
 
 function normalizeInvokeFailure(error: unknown): HostIpcError {
   if (error instanceof HostIpcError) {
     return error;
+  }
+  if (typeof error === "string") {
+    return new HostIpcError("ui_event_stream_unavailable", [error]);
   }
   if (typeof error === "object" && error !== null) {
     const code = "code" in error && typeof error.code === "string" ? error.code : null;
@@ -115,6 +164,13 @@ function normalizeInvokeFailure(error: unknown): HostIpcError {
     if (code !== null) {
       return new HostIpcError(code, message === null ? [] : [message]);
     }
+    let serialized = "unknown object";
+    try {
+      serialized = JSON.stringify(error);
+    } catch {
+      // Keep the stable fallback when a host error cannot be serialized.
+    }
+    return new HostIpcError("ui_event_stream_unavailable", [serialized]);
   }
   return new HostIpcError("ui_event_stream_unavailable", [
     error instanceof Error ? error.message : "unknown Tauri failure",

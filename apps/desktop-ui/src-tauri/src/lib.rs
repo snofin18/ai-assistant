@@ -11,7 +11,7 @@ mod event_bridge;
 
 pub use commands::{CommandState, CoreCommandTransport, UiCommandRejection, send_ui_command};
 pub use core_pipe::{CorePipeConfig, CorePipeTransport};
-pub use event_bridge::{EventStreamState, start_ui_event_stream};
+pub use event_bridge::{EventStreamState, read_ui_event_stream, start_ui_event_stream};
 
 /// Runs the desktop shell with no Core transport installed.
 ///
@@ -42,7 +42,8 @@ fn run_with_event_state(
         .manage(event_state)
         .invoke_handler(tauri::generate_handler![
             commands::send_ui_command,
-            event_bridge::start_ui_event_stream
+            event_bridge::start_ui_event_stream,
+            event_bridge::read_ui_event_stream
         ])
         .run(tauri::generate_context!())
 }
