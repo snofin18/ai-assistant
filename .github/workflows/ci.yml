@@ -89,6 +89,15 @@ jobs:
       - name: "[SECURITY] injection target regression"
         run: cargo test -p assistant-agent-core --test injection_security
 
+      # TASK-366: report the nine-task Stage 1 acceptance matrix on every PR.
+      # The report stays green while evidence is readable but incomplete; the
+      # structured missing_tasks list prevents silent stage closure.
+      - name: "[STAGE1] acceptance matrix tests"
+        run: python -m unittest discover -s eval/stage-1 -p "test_*.py" -v
+
+      - name: "[STAGE1] repeated-run acceptance report"
+        run: python eval/stage-1/validate_acceptance_matrix.py
+
       # --- 硬门禁 #10：构建（release，验证 LTO/strip 配置可用）---
       # gov-gate: 10
       - name: "[HARD #10] cargo build --release"
