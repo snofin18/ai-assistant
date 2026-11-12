@@ -1,6 +1,6 @@
 # TASK-367 T5.2 ten-run human approval
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：阶段级验收　批次：Stage 1 acceptance
 - 依赖：TASK-364、TASK-366、ADR-0101、ADR-0102、ADR-0103
 - 本文件 = 卡片正文 + 执行记录（ADR-0031）。
@@ -119,6 +119,7 @@ matrix report 输出 `stage1_complete=true`、`completed_tasks=9`、`missing_tas
 - `eval/stage-1/acceptance-matrix.json`、`validate_acceptance_matrix.py`、
   `test_acceptance_matrix.py`：T5.2 切换到十轮 `round_summary`，测试更新为阶段 9/9。
 - `docs/audits/stage-1-t5.2-ten-run-2026-11-12.md`：十轮方法、失败轮、资源与安全审计。
+- `PLAN.md`、`plans/stage-1-pilots.md`、`README.md`、`LEDGER.md`：阶段完成状态与 Done 证据回填。
 - 本卡：状态与执行记录。
 
 ### 3. 验收输出摘要
@@ -141,6 +142,9 @@ matrix report 输出 `stage1_complete=true`、`completed_tasks=9`、`missing_tas
   `cargo test --workspace`：通过；workspace 含 xtask 510/510。
 - `hygiene`、`memory-counts`、`adr-index`、`refscan`、`docscan`、
   `card-check`、`git diff --check`：exit 0。
+- PR #722 checks **11/11 success**，pending 0 / failed 0，base=`main`，
+  `MERGEABLE` / `CLEAN`；merge `367f4e5b24b0646d953494cd08723c07ea89f8f8`。
+- post-merge main CI `43173799070`：success；三平台均执行 Stage 1 matrix tests/report。
 
 ### 4. DoD 逐条核对
 
@@ -148,9 +152,9 @@ matrix report 输出 `stage1_complete=true`、`completed_tasks=9`、`missing_tas
 - [x] 人类亲自完成十轮确认；9 轮通过，1 轮失败被显式保留。
 - [x] 每轮一次提交、成功 marker、query-free URL、token 与资源收敛证据可复核。
 - [x] T5.2 matrix 证据切换到十轮摘要，validator 与测试同步到 9/9。
-- [ ] Stage 1 审计、PLAN、plans、README、LEDGER 与卡记录同步（PR 收口阶段完成）。
+- [x] Stage 1 审计、PLAN、plans、README、LEDGER 与卡记录同步。
 - [x] Python、workspace、clippy、文档门禁与 `git diff --check` 全绿。
-- [ ] PR checks、merge 与 post-merge main CI 证据回填。
+- [x] PR checks、merge 与 post-merge main CI 证据回填。
 
 ### 5. 偏差
 
@@ -162,6 +166,8 @@ matrix report 输出 `stage1_complete=true`、`completed_tasks=9`、`missing_tas
 - `run-04` 在提交后遇到真实 cleanup 缺陷，未重试该轮，按失败计入 10 轮并保留原始
   Core/server 日志。
 - 未修改生产代码、Policy、schema/API、依赖或旧证据。
+- 本轮 `exec_command` 共 174 次，`shell_misuse=bash=26` / `cmd=0`；26 次误填均由
+  ADR-0100 hook 重写为 PowerShell，没有在 WSL/bash 执行，也没有额外产品文件写入。
 
 ### 6. 实施中发现的更合理做法
 
@@ -174,7 +180,7 @@ matrix report 输出 `stage1_complete=true`、`completed_tasks=9`、`missing_tas
 
 - `crates/platform/windows/src/browser_launcher.rs::terminate_child_tree` 在 root
   已 reap 时仍把非零 `taskkill` 状态映射为 `TargetUnresponsive`；建议另立生产修复卡。
-- PR checks、merge、post-merge main CI 与 Done 状态回填尚未完成。
+- 本行完成后仅剩独立的 Edge cleanup 生产修复卡；它不阻塞本轮 9/10 验收，但应保留为残余风险。
 
 ### 8. 新增长期记忆
 

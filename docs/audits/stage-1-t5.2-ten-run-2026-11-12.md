@@ -155,3 +155,11 @@ thresholds. The Stage 1 matrix no longer blocks phase closure.
 The round-4 Edge cleanup status remains a production-quality residual risk. It is
 visible in evidence and requires a separate bounded repair card; it must not be
 silently normalized or removed from this summary.
+
+## 9. Merge evidence
+
+- PR #722 checks: **11/11 success**, pending 0, failed 0.
+- Base: `main`; merge state: `MERGEABLE` / `CLEAN`.
+- Merge commit: `367f4e5b24b0646d953494cd08723c07ea89f8f8`.
+- Post-merge main CI: `43173799070` success.
+- All three platform `check` jobs executed the Stage 1 matrix tests and report.
