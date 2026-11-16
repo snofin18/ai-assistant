@@ -1,6 +1,6 @@
 # Stage 2 Excel COM lifecycle evidence
 
-Status: **Review pending PR / merge / post-merge CI**. Date: 2026-11-16.
+Status: **Done**. Date: 2026-11-16.
 Related: TASK-375, TASK-372, ADR-0063.
 
 ## 1. Scope
@@ -118,5 +118,7 @@ initialised shape as the successful exception case.
 - `apps/desktop-ui`: `pnpm lint`, `pnpm typecheck`, model tests 90/90, and
   Vitest 5/5 passed.
 
-PR number, checks, merge commit, and post-merge main CI are intentionally
-pending until the implementation and docs-only closeout PRs complete.
+- Implementation PR: #740, checks **11/11 success**, pending 0 / failed 0,
+  base `main`, `MERGEABLE` / `CLEAN`.
+- Merge commit: `c5cb52fde9d21c82ed922c7d459d5b911bac327b`.
+- Post-merge main CI: `43894628610` success.

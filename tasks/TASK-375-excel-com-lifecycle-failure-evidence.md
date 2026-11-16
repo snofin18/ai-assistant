@@ -1,6 +1,6 @@
 # TASK-375 Excel COM 失败路径生命周期取证
 
-- 状态：InProgress
+- 状态：Done
 - 阶段：2　子阶段：Stage 2 COM lifecycle　批次：1a.2
 - 依赖：TASK-372、TASK-373、TASK-374、ADR-0063
 
@@ -134,7 +134,9 @@ git diff --check
   check-ledger、adr-index、check-comments、架构测试、core replay、`cargo deny check` → 全 PASSED。
 - `cargo llvm-cov --fail-under-lines 75` → 行覆盖 **79.76%**。
 - `apps/desktop-ui` → lint / typecheck PASSED；model 90/90 + Vitest 5/5。
-- PR / CI / merge / main CI：待本实现 PR 创建后回填。
+- 实现 PR #740 checks **11/11 success**，pending 0 / failed 0，base=main，
+  `MERGEABLE` / `CLEAN`；merge `c5cb52fde9d21c82ed922c7d459d5b911bac327b`；
+  post-merge main CI `43894628610` success。
 
 ### 4. DoD 逐条核对
 
@@ -144,7 +146,7 @@ git diff --check
 - [x] 取消适用范围和外部强制终止风险写入 README 与审计。
 - [x] `docs/adr/**`、`docs/spec/**`、`protocol/**`、`adapters/**`、Rust/TS 产品代码零差异。
 - [x] 仓库门禁全绿。
-- [ ] PR 与 post-merge main CI 证据待提交后回填。
+- [x] 实现 PR #740 与 post-merge main CI `43894628610` 证据已回填。
 
 ### 5. 偏差
 
