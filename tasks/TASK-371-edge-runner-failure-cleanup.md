@@ -173,7 +173,7 @@ git diff --check
 - attempt-01 原计划执行无人批准的 30 秒超时 smoke，但人类在场完成了一次 `once` 审批；
   该次仅访问本地 fixture，审批与提交均有效，已独立保留为人工批准旁证，不冒充失败清理证据。
 - attempt-02 达到 30 秒窗口后按预期失败，未提交、无 `human/result.json`。
-- 本卡最终 shell misuse 审计：`bash=14` / `cmd=0`；14 次均由 ADR-0100 hook 重写或
+- 本卡最终 shell misuse 审计：`bash=16` / `cmd=0`；16 次均由 ADR-0100 hook 重写或
   在解析前 fail-closed 拦截，均未在 bash/WSL 执行；
   无额外非预期产品写入。
 

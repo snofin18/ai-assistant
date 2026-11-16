@@ -429,7 +429,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
-**2026-11-16 TASK-371 Done（Edge runner failure cleanup）**：修复 TASK-370 留下的失败路径资源泄漏。runner 先停 UI/Core，再按完整专用 profile 回收 Edge 进程树；`taskkill` 非零退出码只作诊断，最终以 0 个匹配进程为判据。离线真实父子进程树回归、Windows CI、30 秒超时 smoke、Python 9/9、workspace 510、clippy、UI 与全部文档门禁通过。PR #732 checks 11/11，merge `702d645`，post-merge main CI `43816679420` success。最终 shell misuse `bash=14` / `cmd=0`。
+**2026-11-16 TASK-371 Done（Edge runner failure cleanup）**：修复 TASK-370 留下的失败路径资源泄漏。runner 先停 UI/Core，再按完整专用 profile 回收 Edge 进程树；`taskkill` 非零退出码只作诊断，最终以 0 个匹配进程为判据。离线真实父子进程树回归、Windows CI、30 秒超时 smoke、Python 9/9、workspace 510、clippy、UI 与全部文档门禁通过。PR #732 checks 11/11，merge `702d645`，post-merge main CI `43816679420` success。最终 shell misuse `bash=16` / `cmd=0`。
 
 **2026-11-16 TASK-370 Done（real Edge cleanup regression）**：使用正式 desktop-ui、真实本地 Edge 和单一 authenticated Core UI 会话完成一次人类确认的单轮回归。`form_submit` 恰好一次，`submitted=true`，query-free 成功 URL 与 marker 均通过；Core 正常退出并写出 4-step result，post-submit cleanup 无 `TargetUnresponsive`，专用 Edge/Core/UI 进程 0、8766 listener false、token 未落盘。前两次预审批超时独立保留，不改变 TASK-367 十轮 **9/10**。PR #730 checks 11/11，merge `76b74d8`，post-merge main CI `43809369712` success。最终 shell misuse `bash=22` / `cmd=0`。
 
