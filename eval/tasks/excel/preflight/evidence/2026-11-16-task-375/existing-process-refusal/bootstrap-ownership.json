@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "state": "reaped",
+  "process_identity": {
+    "id": 7380,
+    "process_name": "EXCEL",
+    "start_time_utc": "2026-11-16T14:50:37.2082654Z",
+    "start_time_utc_ticks": 639304374372082654,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  "cleanup": {
+    "cleanup_failures": [],
+    "taskkill_exit_codes": [],
+    "remaining_process_identities": []
+  },
+  "completed_at_utc": "2026-11-16T14:50:46.4321849Z"
+}

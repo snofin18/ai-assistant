@@ -1,0 +1,60 @@
+{
+  "schema_version": 2,
+  "mode": "excel-com-preflight",
+  "result": "cancelled",
+  "failure_kind": "cancelled",
+  "failure": "Cooperative cancellation requested at checkpoint after-workbook-create",
+  "failure_injection_point": "none",
+  "cancellation_signal_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\preflight\\evidence\\2026-11-16-task-375\\cooperative-cancel\\request.signal",
+  "cancellation_checkpoint": "after-workbook-create",
+  "hang_after_checkpoint": "none",
+  "cancellation_signal_observed": true,
+  "excel_version": "16.0",
+  "excel_build": "20527",
+  "excel_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16",
+  "probe_excel_process_ids": [
+    29612
+  ],
+  "owned_process_identity": {
+    "id": 29612,
+    "process_name": "EXCEL",
+    "start_time_utc": "2026-11-16T14:50:17.3819675Z",
+    "start_time_utc_ticks": 639304374173819675,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  "ownership_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\preflight\\evidence\\2026-11-16-task-375\\cooperative-cancel\\ownership.json",
+  "display_alerts_observed": 1,
+  "display_alerts_changed": false,
+  "visible_observed": false,
+  "protected_view_window_count": 0,
+  "autosave_on": false,
+  "undo_observation": {
+    "can_undo_before": null,
+    "can_undo_after_first_write": null,
+    "can_undo_after_second_write": null,
+    "application_undo_invoked": false,
+    "value_after_undo": null,
+    "error": null
+  },
+  "formula_observation": {
+    "expected_value2": 5,
+    "actual_value2": null,
+    "formula": null,
+    "text": null
+  },
+  "cleanup": {
+    "workbook_close_attempted": true,
+    "workbook_closed_without_save": true,
+    "quit_attempted": true,
+    "quit_succeeded": true,
+    "cleanup_failures": [],
+    "taskkill_identity_failures": [],
+    "taskkill_exit_codes": [],
+    "remaining_probe_process_ids": [],
+    "excel_process_count_after": 0,
+    "all_probe_processes_reaped": true,
+    "cleanup_succeeded": true
+  },
+  "started_at_utc": "2026-11-16T14:50:17.3655949Z",
+  "completed_at_utc": "2026-11-16T14:50:20.8818105Z"
+}
