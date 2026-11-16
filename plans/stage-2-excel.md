@@ -2,9 +2,8 @@
 
 > 周期 6~8 周　状态：**InProgress（2026-11-16）**；Stage 1 已完成；TASK-372 真实 Excel
 > COM preflight 已通过并以 **GO** 进入 Adapter 契约正式化；TASK-373 六件套就绪审计 Done，
-> PR #736 / main CI `43839388347` 已回填；下一闸门是公共 ADR/spec 裁决。目标不是“再写一个应用专用
-> handler”，而是在三个真实 Adapter 之后正式化声明式 Adapter 契约，并验证企业级 Office
-> COM 通道、L1 快照恢复和长生命周期资源回收。
+> PR #736 / main CI `43839388347` 已回填；TASK-374 已把六项缺口收敛为可裁决 ADR/spec 决策包并进入 Review。
+> 下一闸门仍是人类批准并落地公共 ADR/spec，而不是直接创建 Excel pack 或改公共接口。
 
 ## In scope
 
@@ -30,6 +29,7 @@
 |---|---|---|---|---|
 | 0 | **TASK-372 ✅** | 环境/架构 | `tasks/TASK-372-excel-com-preflight.md` | Done（COM preflight passed；PR #734 checks 11/11；main CI `43825737477` success） |
 | 1a | **TASK-373 ✅** | 架构/治理 | `tasks/TASK-373-adapter-contract-readiness-audit.md` | Done（PR #736 checks 11/11；merge `2fab59f`；main CI `43839388347` success） |
+| 1a.1 | **TASK-374** | 架构/治理 | `tasks/TASK-374-adapter-contract-adr-decision.md` | Review（ADR/spec decision draft；公共契约零改动） |
 | 1 | 待派单 | 架构/治理 | dispatch 时创建 | 未开始（ADR/spec：Adapter 六件套正式化） |
 | 2 | 待派单 | Windows platform | dispatch 时创建 | 未开始（COM apartment/生命周期/回收与负向测试） |
 | 3 | 待派单 | Excel Adapter | dispatch 时创建 | 未开始（Adapter 数据包 + Protected View/AutoSave/interrupts） |
