@@ -1,0 +1,21 @@
+{
+  "schema_version": 2,
+  "mode": "excel-com-preflight",
+  "result": "failed",
+  "failure_kind": "existing_process",
+  "failure": "Existing EXCEL.EXE process detected; refusing to reuse or terminate it",
+  "failure_injection_point": "none",
+  "cancellation_signal_path": null,
+  "cancellation_checkpoint": "after-workbook-create",
+  "existing_excel_process_ids": [
+    24616
+  ],
+  "cleanup": {
+    "cleanup_succeeded": true,
+    "probe_created_any_process": false,
+    "all_probe_processes_reaped": true,
+    "excel_process_count_after": 1
+  },
+  "started_at_utc": "2026-11-16T14:09:13.7034133Z",
+  "completed_at_utc": "2026-11-16T14:09:13.7178751Z"
+}

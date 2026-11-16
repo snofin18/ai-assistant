@@ -3,7 +3,16 @@ param(
     [string]$EvidenceRoot,
 
     [ValidateRange(5, 120)]
-    [int]$CleanupTimeoutSeconds = 30
+    [int]$CleanupTimeoutSeconds = 30,
+
+    [ValidateSet("none", "after-com-create", "after-workbook-create", "after-formula")]
+    [string]$FailureInjectionPoint = "none",
+
+    [AllowNull()]
+    [string]$CancellationSignalPath = $null,
+
+    [ValidateSet("after-com-create", "after-workbook-create", "after-formula")]
+    [string]$CancellationCheckpoint = "after-workbook-create"
 )
 
 $ErrorActionPreference = "Stop"
@@ -11,6 +20,11 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..")).Path
 $evidence = [System.IO.Path]::GetFullPath((Join-Path $repoRoot $EvidenceRoot))
 New-Item -ItemType Directory -Force -Path $evidence | Out-Null
 $summaryPath = Join-Path $evidence "summary.json"
+$cancellationSignal = if ([string]::IsNullOrWhiteSpace($CancellationSignalPath)) {
+    $null
+} else {
+    [System.IO.Path]::GetFullPath($CancellationSignalPath)
+}
 
 function Write-JsonFile {
     param(
@@ -27,13 +41,38 @@ function Get-ExcelProcesses {
 }
 
 function Release-ComObject {
-    param([AllowNull()]$ComObject)
+    param(
+        [AllowNull()]$ComObject,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
     if ($null -eq $ComObject) {
-        return
+        return $null
     }
     try {
         [void][System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($ComObject)
+        return $null
     } catch {
+        return "${Name} FinalReleaseComObject failed: $($_.Exception.Message)"
+    }
+}
+
+function Invoke-CooperativeCheckpoint {
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("after-com-create", "after-workbook-create", "after-formula")]
+        [string]$Checkpoint
+    )
+    if (
+        $Checkpoint -eq $CancellationCheckpoint -and
+        $null -ne $cancellationSignal -and
+        (Test-Path -LiteralPath $cancellationSignal)
+    ) {
+        throw [System.OperationCanceledException]::new(
+            "Cooperative cancellation requested at checkpoint ${Checkpoint}"
+        )
+    }
+    if ($FailureInjectionPoint -eq $Checkpoint) {
+        throw "Injected failure at checkpoint ${Checkpoint}"
     }
 }
 
@@ -67,16 +106,26 @@ $existingProcesses = Get-ExcelProcesses
 $existingProcessIds = @($existingProcesses | ForEach-Object { [int]$_.Id })
 if ($existingProcesses.Count -ne 0) {
     $summary = [pscustomobject]@{
-        schema_version = 1
+        schema_version = 2
         mode = "excel-com-preflight"
         result = "failed"
+        failure_kind = "existing_process"
         failure = "Existing EXCEL.EXE process detected; refusing to reuse or terminate it"
+        failure_injection_point = $FailureInjectionPoint
+        cancellation_signal_path = $cancellationSignal
+        cancellation_checkpoint = $CancellationCheckpoint
         existing_excel_process_ids = $existingProcessIds
+        cleanup = [pscustomobject]@{
+            cleanup_succeeded = $true
+            probe_created_any_process = $false
+            all_probe_processes_reaped = $true
+            excel_process_count_after = $existingProcesses.Count
+        }
         started_at_utc = $startedAt
         completed_at_utc = (Get-Date).ToUniversalTime().ToString("o")
     }
     Write-JsonFile -Path $summaryPath -Value $summary
-    Write-Error $summary.failure
+    [Console]::Error.WriteLine([string]$summary.failure)
     exit 2
 }
 
@@ -87,9 +136,16 @@ $rangeA1 = $null
 $rangeA2 = $null
 $rangeA3 = $null
 $failure = $null
+$failureKind = "none"
+$cancellationObserved = $false
 $cleanupFailures = New-Object System.Collections.Generic.List[string]
 $taskkillExitCodes = New-Object System.Collections.Generic.List[string]
 $newProcessIds = @()
+$remainingProcessIds = @()
+$workbookCloseAttempted = $false
+$workbookClosedWithoutSave = $false
+$quitAttempted = $false
+$quitSucceeded = $false
 $excelVersion = $null
 $excelBuild = $null
 $excelPath = $null
@@ -118,6 +174,7 @@ try {
     if ($newProcessIds.Count -eq 0) {
         throw "Excel COM started without a discoverable EXCEL.EXE process"
     }
+    Invoke-CooperativeCheckpoint -Checkpoint "after-com-create"
 
     $excelVersion = [string]$excel.Version
     $excelBuild = [string]$excel.Build
@@ -132,6 +189,7 @@ try {
     } catch {
         $autoSaveOn = $null
     }
+    Invoke-CooperativeCheckpoint -Checkpoint "after-workbook-create"
     $worksheet = $workbook.Worksheets.Item(1)
     $rangeA1 = $worksheet.Range("A1")
     $rangeA2 = $worksheet.Range("A2")
@@ -160,32 +218,56 @@ try {
     $formulaActual = [double]$rangeA3.Value2
     $formulaExpression = [string]$rangeA3.Formula
     $formulaText = [string]$rangeA3.Text
+    Invoke-CooperativeCheckpoint -Checkpoint "after-formula"
     if ($formulaActual -ne 5) {
         throw "Formula preflight expected 5 but observed $formulaActual"
     }
+} catch [System.OperationCanceledException] {
+    $failureKind = "cancelled"
+    $cancellationObserved = $true
+    $failure = $_.Exception.Message
 } catch {
+    $failureKind = if ($_.Exception.Message.StartsWith(
+        "Injected failure at checkpoint ",
+        [System.StringComparison]::Ordinal
+    )) {
+        "injected_failure"
+    } else {
+        "exception"
+    }
     $failure = $_.Exception.Message
 } finally {
     if ($null -ne $workbook) {
+        $workbookCloseAttempted = $true
         try {
             $workbook.Close($false)
+            $workbookClosedWithoutSave = $true
         } catch {
             $cleanupFailures.Add("Workbook close failed: $($_.Exception.Message)")
         }
     }
     if ($null -ne $excel) {
+        $quitAttempted = $true
         try {
             $excel.Quit()
+            $quitSucceeded = $true
         } catch {
             $cleanupFailures.Add("Excel Quit failed: $($_.Exception.Message)")
         }
     }
-    Release-ComObject $rangeA3
-    Release-ComObject $rangeA2
-    Release-ComObject $rangeA1
-    Release-ComObject $worksheet
-    Release-ComObject $workbook
-    Release-ComObject $excel
+    foreach ($release in @(
+        @{ Object = $rangeA3; Name = "Range A3" },
+        @{ Object = $rangeA2; Name = "Range A2" },
+        @{ Object = $rangeA1; Name = "Range A1" },
+        @{ Object = $worksheet; Name = "Worksheet" },
+        @{ Object = $workbook; Name = "Workbook" },
+        @{ Object = $excel; Name = "Excel Application" }
+    )) {
+        $releaseFailure = Release-ComObject -ComObject $release.Object -Name $release.Name
+        if ($null -ne $releaseFailure) {
+            $cleanupFailures.Add($releaseFailure)
+        }
+    }
     [GC]::Collect()
     [GC]::WaitForPendingFinalizers()
     [GC]::Collect()
@@ -213,22 +295,44 @@ try {
             -TimeoutSeconds $CleanupTimeoutSeconds
     }
     if ($remainingProcessIds.Count -ne 0 -and $failure -eq $null) {
+        $failureKind = "cleanup_failure"
         $failure = "Probe-created EXCEL.EXE processes did not converge"
     }
 }
 
 $excelProcessesAfter = Get-ExcelProcesses
 $completedAt = (Get-Date).ToUniversalTime().ToString("o")
-$result = if ($failure -eq $null -and $excelProcessesAfter.Count -eq 0) {
+$allProbeProcessesReaped = (
+    $newProcessIds.Count -eq 0 -or
+    @(
+        $newProcessIds |
+            Where-Object {
+                $null -ne (Get-Process -Id $_ -ErrorAction SilentlyContinue)
+            }
+    ).Count -eq 0
+)
+$cleanupSucceeded = (
+    $cleanupFailures.Count -eq 0 -and
+    $allProbeProcessesReaped -and
+    $excelProcessesAfter.Count -eq 0
+)
+$result = if ($failureKind -eq "none" -and $failure -eq $null -and $cleanupSucceeded) {
     "passed"
+} elseif ($failureKind -eq "cancelled" -and $cleanupSucceeded) {
+    "cancelled"
 } else {
     "failed"
 }
 $summary = [pscustomobject]@{
-    schema_version = 1
+    schema_version = 2
     mode = "excel-com-preflight"
     result = $result
+    failure_kind = $failureKind
     failure = if ($failure -eq $null) { $null } else { [string]$failure }
+    failure_injection_point = $FailureInjectionPoint
+    cancellation_signal_path = $cancellationSignal
+    cancellation_checkpoint = $CancellationCheckpoint
+    cancellation_signal_observed = $cancellationObserved
     excel_version = $excelVersion
     excel_build = $excelBuild
     excel_path = $excelPath
@@ -253,19 +357,29 @@ $summary = [pscustomobject]@{
         text = $formulaText
     }
     cleanup = [pscustomobject]@{
-        workbook_closed_without_save = $true
+        workbook_close_attempted = $workbookCloseAttempted
+        workbook_closed_without_save = $workbookClosedWithoutSave
+        quit_attempted = $quitAttempted
+        quit_succeeded = $quitSucceeded
         cleanup_failures = @($cleanupFailures)
         taskkill_exit_codes = @($taskkillExitCodes)
         remaining_probe_process_ids = @($remainingProcessIds)
         excel_process_count_after = $excelProcessesAfter.Count
+        all_probe_processes_reaped = $allProbeProcessesReaped
+        cleanup_succeeded = $cleanupSucceeded
     }
     started_at_utc = $startedAt
     completed_at_utc = $completedAt
 }
 Write-JsonFile -Path $summaryPath -Value $summary
 
+if ($result -eq "cancelled") {
+    [Console]::Error.WriteLine([string]$failure)
+    exit 3
+}
+
 if ($result -ne "passed") {
-    Write-Error ([string]$failure)
+    [Console]::Error.WriteLine([string]$failure)
     exit 2
 }
 

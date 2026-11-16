@@ -1,0 +1,218 @@
+{
+  "schema_version": 1,
+  "mode": "excel-com-lifecycle-regression",
+  "result": "passed",
+  "failure": null,
+  "scenarios": {
+    "normal": {
+      "name": "normal",
+      "expected_exit_code": 0,
+      "exit_code": 0,
+      "output_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\preflight\\evidence\\2026-11-16-task-375\\normal\\console.log",
+      "summary_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\preflight\\evidence\\2026-11-16-task-375\\normal\\summary.json",
+      "summary": {
+        "schema_version": 2,
+        "mode": "excel-com-preflight",
+        "result": "passed",
+        "failure_kind": "none",
+        "failure": null,
+        "failure_injection_point": "none",
+        "cancellation_signal_path": null,
+        "cancellation_checkpoint": "after-workbook-create",
+        "cancellation_signal_observed": false,
+        "excel_version": "16.0",
+        "excel_build": "20527",
+        "excel_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16",
+        "probe_excel_process_ids": [
+          5588
+        ],
+        "display_alerts_observed": 1,
+        "display_alerts_changed": false,
+        "visible_observed": false,
+        "protected_view_window_count": 0,
+        "autosave_on": false,
+        "undo_observation": {
+          "can_undo_before": false,
+          "can_undo_after_first_write": false,
+          "can_undo_after_second_write": false,
+          "application_undo_invoked": false,
+          "value_after_undo": null,
+          "error": null
+        },
+        "formula_observation": {
+          "expected_value2": 5,
+          "actual_value2": 5.0,
+          "formula": "=A1+A2",
+          "text": "5"
+        },
+        "cleanup": {
+          "workbook_close_attempted": true,
+          "workbook_closed_without_save": true,
+          "quit_attempted": true,
+          "quit_succeeded": true,
+          "cleanup_failures": [],
+          "taskkill_exit_codes": [],
+          "remaining_probe_process_ids": [],
+          "excel_process_count_after": 0,
+          "all_probe_processes_reaped": true,
+          "cleanup_succeeded": true
+        },
+        "started_at_utc": "2026-11-16T14:08:57.7290616Z",
+        "completed_at_utc": "2026-11-16T14:09:03.7215249Z"
+      }
+    },
+    "injected_failure": {
+      "name": "injected-failure",
+      "expected_exit_code": 2,
+      "exit_code": 2,
+      "output_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\preflight\\evidence\\2026-11-16-task-375\\injected-failure\\console.log",
+      "summary_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\preflight\\evidence\\2026-11-16-task-375\\injected-failure\\summary.json",
+      "summary": {
+        "schema_version": 2,
+        "mode": "excel-com-preflight",
+        "result": "failed",
+        "failure_kind": "injected_failure",
+        "failure": "Injected failure at checkpoint after-workbook-create",
+        "failure_injection_point": "after-workbook-create",
+        "cancellation_signal_path": null,
+        "cancellation_checkpoint": "after-workbook-create",
+        "cancellation_signal_observed": false,
+        "excel_version": "16.0",
+        "excel_build": "20527",
+        "excel_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16",
+        "probe_excel_process_ids": [
+          1140
+        ],
+        "display_alerts_observed": 1,
+        "display_alerts_changed": false,
+        "visible_observed": false,
+        "protected_view_window_count": 0,
+        "autosave_on": false,
+        "undo_observation": {
+          "can_undo_before": null,
+          "can_undo_after_first_write": null,
+          "can_undo_after_second_write": null,
+          "application_undo_invoked": false,
+          "value_after_undo": null,
+          "error": null
+        },
+        "formula_observation": {
+          "expected_value2": 5,
+          "actual_value2": null,
+          "formula": null,
+          "text": null
+        },
+        "cleanup": {
+          "workbook_close_attempted": true,
+          "workbook_closed_without_save": true,
+          "quit_attempted": true,
+          "quit_succeeded": true,
+          "cleanup_failures": [],
+          "taskkill_exit_codes": [],
+          "remaining_probe_process_ids": [],
+          "excel_process_count_after": 0,
+          "all_probe_processes_reaped": true,
+          "cleanup_succeeded": true
+        },
+        "started_at_utc": "2026-11-16T14:09:04.1244924Z",
+        "completed_at_utc": "2026-11-16T14:09:08.6678198Z"
+      }
+    },
+    "cooperative_cancel": {
+      "name": "cooperative-cancel",
+      "expected_exit_code": 3,
+      "exit_code": 3,
+      "output_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\preflight\\evidence\\2026-11-16-task-375\\cooperative-cancel\\console.log",
+      "summary_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\preflight\\evidence\\2026-11-16-task-375\\cooperative-cancel\\summary.json",
+      "summary": {
+        "schema_version": 2,
+        "mode": "excel-com-preflight",
+        "result": "cancelled",
+        "failure_kind": "cancelled",
+        "failure": "Cooperative cancellation requested at checkpoint after-workbook-create",
+        "failure_injection_point": "none",
+        "cancellation_signal_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\preflight\\evidence\\2026-11-16-task-375\\cooperative-cancel\\request.signal",
+        "cancellation_checkpoint": "after-workbook-create",
+        "cancellation_signal_observed": true,
+        "excel_version": "16.0",
+        "excel_build": "20527",
+        "excel_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16",
+        "probe_excel_process_ids": [
+          23760
+        ],
+        "display_alerts_observed": 1,
+        "display_alerts_changed": false,
+        "visible_observed": false,
+        "protected_view_window_count": 0,
+        "autosave_on": false,
+        "undo_observation": {
+          "can_undo_before": null,
+          "can_undo_after_first_write": null,
+          "can_undo_after_second_write": null,
+          "application_undo_invoked": false,
+          "value_after_undo": null,
+          "error": null
+        },
+        "formula_observation": {
+          "expected_value2": 5,
+          "actual_value2": null,
+          "formula": null,
+          "text": null
+        },
+        "cleanup": {
+          "workbook_close_attempted": true,
+          "workbook_closed_without_save": true,
+          "quit_attempted": true,
+          "quit_succeeded": true,
+          "cleanup_failures": [],
+          "taskkill_exit_codes": [],
+          "remaining_probe_process_ids": [],
+          "excel_process_count_after": 0,
+          "all_probe_processes_reaped": true,
+          "cleanup_succeeded": true
+        },
+        "started_at_utc": "2026-11-16T14:09:09.0468988Z",
+        "completed_at_utc": "2026-11-16T14:09:12.5504179Z"
+      }
+    },
+    "existing_process_refusal": {
+      "name": "existing-process-refusal",
+      "expected_exit_code": 2,
+      "exit_code": 2,
+      "output_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\preflight\\evidence\\2026-11-16-task-375\\existing-process-refusal\\console.log",
+      "summary_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\preflight\\evidence\\2026-11-16-task-375\\existing-process-refusal\\summary.json",
+      "summary": {
+        "schema_version": 2,
+        "mode": "excel-com-preflight",
+        "result": "failed",
+        "failure_kind": "existing_process",
+        "failure": "Existing EXCEL.EXE process detected; refusing to reuse or terminate it",
+        "failure_injection_point": "none",
+        "cancellation_signal_path": null,
+        "cancellation_checkpoint": "after-workbook-create",
+        "existing_excel_process_ids": [
+          24616
+        ],
+        "cleanup": {
+          "cleanup_succeeded": true,
+          "probe_created_any_process": false,
+          "all_probe_processes_reaped": true,
+          "excel_process_count_after": 1
+        },
+        "started_at_utc": "2026-11-16T14:09:13.7034133Z",
+        "completed_at_utc": "2026-11-16T14:09:13.7178751Z"
+      }
+    }
+  },
+  "bootstrap_cleanup": {
+    "cleanup_failures": [],
+    "taskkill_exit_codes": [
+      "0"
+    ],
+    "remaining_process_ids": []
+  },
+  "final_excel_process_ids": 0,
+  "final_excel_process_count": 0,
+  "started_at_utc": "2026-11-16T14:08:57.3813719Z",
+  "completed_at_utc": "2026-11-16T14:09:45.9717045Z"
+}

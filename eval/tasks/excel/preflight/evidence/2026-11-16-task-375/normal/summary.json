@@ -1,0 +1,50 @@
+{
+  "schema_version": 2,
+  "mode": "excel-com-preflight",
+  "result": "passed",
+  "failure_kind": "none",
+  "failure": null,
+  "failure_injection_point": "none",
+  "cancellation_signal_path": null,
+  "cancellation_checkpoint": "after-workbook-create",
+  "cancellation_signal_observed": false,
+  "excel_version": "16.0",
+  "excel_build": "20527",
+  "excel_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16",
+  "probe_excel_process_ids": [
+    5588
+  ],
+  "display_alerts_observed": 1,
+  "display_alerts_changed": false,
+  "visible_observed": false,
+  "protected_view_window_count": 0,
+  "autosave_on": false,
+  "undo_observation": {
+    "can_undo_before": false,
+    "can_undo_after_first_write": false,
+    "can_undo_after_second_write": false,
+    "application_undo_invoked": false,
+    "value_after_undo": null,
+    "error": null
+  },
+  "formula_observation": {
+    "expected_value2": 5,
+    "actual_value2": 5.0,
+    "formula": "=A1+A2",
+    "text": "5"
+  },
+  "cleanup": {
+    "workbook_close_attempted": true,
+    "workbook_closed_without_save": true,
+    "quit_attempted": true,
+    "quit_succeeded": true,
+    "cleanup_failures": [],
+    "taskkill_exit_codes": [],
+    "remaining_probe_process_ids": [],
+    "excel_process_count_after": 0,
+    "all_probe_processes_reaped": true,
+    "cleanup_succeeded": true
+  },
+  "started_at_utc": "2026-11-16T14:08:57.7290616Z",
+  "completed_at_utc": "2026-11-16T14:09:03.7215249Z"
+}
