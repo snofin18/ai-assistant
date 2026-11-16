@@ -1,6 +1,6 @@
 # TASK-368 Windows WindowInfo redundant clone
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：CI 修复　批次：Stage 1 closeout follow-up
 - 依赖：TASK-367、CI run `43780062585`
 - 本文件 = 卡片正文 + 执行记录（ADR-0031）。
@@ -88,6 +88,7 @@ git diff --check
 - `crates/platform/windows/src/window/mod.rs`：移除已拥有 `title` 的多余 clone。
 - `tasks/TASK-367-t5-2-ten-run-human-approval.md`：把 shell misuse 终值更正为
   `bash=29` / `cmd=0`。
+- `PLAN.md`、`plans/stage-1-pilots.md`、`README.md`、`LEDGER.md`：Review、Done 与 CI 证据同步。
 - 本卡：状态、验收与边界记录。
 
 ### 3. 验收输出摘要
@@ -101,13 +102,16 @@ git diff --check
   12/7/4 个集成测试与 1 个 doctest 通过。
 - `cargo test --workspace`：通过；xtask 510/510，全部 doctest 通过。
 - pre-merge `shell_misuse` 复核：`bash=29` / `cmd=0`，全部由 ADR-0100 hook 重写。
+- PR #725 checks **11/11 success**，pending 0 / failed 0，base=`main`，
+  `MERGEABLE` / `CLEAN`；merge `7bcc885aea3bee363b229d0324b49e8ff867a6bf`。
+- post-merge main CI `43783453527`：success；Windows Rust 1.100 Clippy 通过。
 
 ### 4. DoD 逐条核对
 
 - [x] `redundant_clone` 修复且行为不变。
 - [x] 目标 crate 与 workspace 验证全绿。
 - [x] TASK-367 shell misuse 终值同步为 `bash=29` / `cmd=0`。
-- [ ] PR checks 11/11，merge 与 post-merge main CI 证据回填。
+- [x] PR checks 11/11，merge 与 post-merge main CI 证据回填。
 
 ### 5. 偏差
 
@@ -124,10 +128,10 @@ PR、merge 与 post-merge main CI 证据待回填。
 
 ### 8. 新增长期记忆
 
-待 PR 收口时判断是否需要记录 stable toolchain lint 漂移坑。
+无新增 `docs/memory/**` 条目；stable toolchain lint 漂移事实已在本卡与 LEDGER 留痕。
 
 ### 9. 给审阅者的关注点
 
 - `record.title` 移动后是否仍保持 `WindowInfo` 字段语义。
-- PR 的 Windows Rust 1.100 Clippy 是否真正变绿。
+- PR #725 的 Windows Rust 1.100 Clippy 与 post-merge main CI 均已变绿。
 - TASK-367 shell count 是否已由 27 更正为 29。
