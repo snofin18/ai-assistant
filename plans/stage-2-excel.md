@@ -4,8 +4,9 @@
 > COM preflight 已通过并以 **GO** 进入 Adapter 契约正式化；TASK-373 六件套就绪审计 Done，
 > PR #736 / main CI `43839388347` 已回填；TASK-374 已把六项缺口收敛为可裁决 ADR/spec 决策包
 > 并完成 PR #738 / main CI `43863545233`；TASK-375 已完成 Excel COM
-> ownership/watchdog 生命周期回归，PR #740 / main CI `43894628610` 已回填。下一闸门仍是
-> 人类批准并落地公共 ADR/spec，而不是直接创建 Excel pack 或改公共接口。
+> ownership/watchdog 生命周期回归，PR #740 / main CI `43894628610` 已回填。TASK-376 已作为
+> 公共 ADR/spec 落地候选卡登记，但因 D1-D6 六项人类裁决尚未给出而保持 **Blocked**。下一动作
+> 是完成该裁决，而不是直接创建 Excel pack、validator 或改公共接口。
 
 ## In scope
 
@@ -33,6 +34,7 @@
 | 1a | **TASK-373 ✅** | 架构/治理 | `tasks/TASK-373-adapter-contract-readiness-audit.md` | Done（PR #736 checks 11/11；merge `2fab59f`；main CI `43839388347` success） |
 | 1a.1 | **TASK-374 ✅** | 架构/治理 | `tasks/TASK-374-adapter-contract-adr-decision.md` | Done（PR #738 checks 11/11；merge `7e5805c`；main CI `43863545233` success） |
 | 1a.2 | **TASK-375 ✅** | Windows platform/eval | `tasks/TASK-375-excel-com-lifecycle-failure-evidence.md` | Done（PR #740 checks 11/11；merge `c5cb52f`；main CI `43894628610` success；5 场景 ownership/watchdog 回归） |
+| 1 gate | **TASK-376** | 架构/治理 | `tasks/TASK-376-adapter-contract-adr-spec-landing.md` | **Blocked**（ADR/spec 候选卡；D1-D6 六项人类裁决未给出，未改公共契约） |
 | 1 | 待派单 | 架构/治理 | dispatch 时创建 | 未开始（ADR/spec：Adapter 六件套正式化） |
 | 2 | 待派单 | Windows platform | dispatch 时创建 | 未开始（COM apartment/生命周期/回收与负向测试） |
 | 3 | 待派单 | Excel Adapter | dispatch 时创建 | 未开始（Adapter 数据包 + Protected View/AutoSave/interrupts） |
