@@ -1,6 +1,6 @@
 # TASK-369 Browser cleanup reap semantics
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：1　子阶段：Stage 1 follow-up　批次：production cleanup repair
 - 依赖：TASK-367、ADR-0063、`docs/audits/stage-1-t5.2-ten-run-2026-11-12.md`
 - 本文件 = 卡片正文 + 执行记录（ADR-0031）。
@@ -103,8 +103,10 @@ git diff --check
   `taskkill` 启动失败负回归；原真实父子进程树回收测试保持不变。
 - `crates/platform/windows/README.md`：说明 root reap 是资源后置条件，已返回的
   `taskkill` 非零状态只作诊断；未启动或 root 未 reap 仍显式失败。
-- `PLAN.md`、`plans/stage-1-pilots.md`、`README.md`、`LEDGER.md`：Done 与 CI 证据待回填。
-- 本卡：状态与执行记录。
+- `PLAN.md`、`plans/stage-1-pilots.md`、`README.md`、`LEDGER.md`：Done、PR #727、
+  merge `7e82274759b483e193f35c44c80002359a1b5558` 与 post-merge main CI
+  `43791998265` 已回填。
+- 本卡：状态、CI 证据与最终 shell misuse 审计已回填。
 
 ### 3. 验收输出摘要
 
@@ -116,22 +118,27 @@ git diff --check
   `clippy::assert_is_empty` unknown-lint 警告。
 - `cargo test --workspace`：exit 0；`xtask` 510 passed / 0 failed，全部 doctest 通过。
 - `cargo fmt --all --check`、`git diff --check`：通过。
-- PR / CI / merge / post-merge main CI：待回填。
+- PR #727 checks **11/11 success**，pending 0 / failed 0，base=`main`，
+  `MERGEABLE` / `CLEAN`；merge `7e82274759b483e193f35c44c80002359a1b5558`。
+- post-merge main CI `43791998265`：success；三平台 check job、cargo deny、desktop-ui、
+  matrix、hygiene、schema/codegen、replay 与 check-ledger 均通过。
 
 ### 4. DoD 逐条核对
 
 - [x] root 已 reap 后，`taskkill` 非零退出码不再把 cleanup 误报为 `TargetUnresponsive`。
 - [x] `taskkill` 启动失败与 root 未 reap 路径继续 fail-closed。
 - [x] 新增正向与负向单测，并保留真实父子进程树回收测试。
-- [ ] 目标 crate、workspace、clippy 与全部文档门禁通过。
-- [ ] PR checks 11/11，merge 与 post-merge main CI 证据回填。
-- [ ] PLAN、plans、README、LEDGER、任务卡与 launcher 不变量同步。
+- [x] 目标 crate、workspace、clippy 与全部文档门禁通过。
+- [x] PR checks 11/11，merge 与 post-merge main CI 证据回填。
+- [x] PLAN、plans、README、LEDGER、任务卡与 launcher 不变量同步。
 
 ### 5. 偏差
 
-产品行为无漂移。本会话创建卡前的只读调查与一次 ADR 文件定位各误填 1 次
-`shell: "bash"`，均由 ADR-0100 hook 重写为 PowerShell，未在 WSL/bash 执行，也未产生额外写入；
-提交前审计为 `bash=2` / `cmd=0`。
+产品行为无漂移。TASK-369 会话最终 shell misuse 审计为 `bash=14` / `cmd=0`：
+前期 2 次为只读调查，后续 12 次为 closeout/PR 审计期间的只读命令、一次被 hook 拒绝的命令，
+以及一次由 API 生成 remote closeout commit 的已授权写入命令。
+所有命令均由 ADR-0100 PreToolUse hook 重写为 PowerShell 或 fail-closed 拦截，未在 WSL/bash 执行，
+未产生额外仓库写入；后续命令继续显式使用 PowerShell。
 
 ### 6. 实施中发现的更合理做法
 
@@ -140,7 +147,7 @@ git diff --check
 
 ### 7. 遗留问题
 
-- PR checks、merge、post-merge main CI 与 Done closeout 待完成。
+无。
 
 ### 8. 新增长期记忆
 
