@@ -1,6 +1,6 @@
 # TASK-374 Adapter 契约 ADR 裁决草案
 
-- 状态：Review
+- 状态：Done
 - 阶段：2　子阶段：Stage 2b Adapter contract decision　批次：1
 - 依赖：TASK-372、TASK-373、[ADR:待建 0005]、ADR-0022、ADR-0028、ADR-0031、ADR-0041、ADR-0055、ADR-0062、ADR-0083
 
@@ -106,6 +106,9 @@ git diff --check
 - `git diff --check` → PASSED。
 - 契约/产品路径差异：`docs/adr/**`、`docs/spec/**`、`protocol/**`、`adapters/**`、`crates/**`、
   `apps/**` 均为 0。
+- PR #738 checks **11/11 success**，pending 0 / failed 0，base=`main`，`MERGEABLE` / `CLEAN`。
+- merge commit `7e5805c2e6280cde07fb5f780eff09ecf278c771`；post-merge main CI `43863545233`
+  success。
 
 ### 4. DoD 逐条核对
 
@@ -113,7 +116,7 @@ git diff --check
 - [x] 四个现有 Adapter 的迁移影响逐项可追踪。
 - [x] 四个关键裁决点已明确。
 - [x] 五步顺序与 Stage 2 批次一致。
-- [ ] PR / main CI 证据待回填。
+- [x] PR / main CI 证据已回填。
 
 ### 5. 偏差
 
@@ -127,7 +130,7 @@ git diff --check
 
 ### 7. 遗留问题
 
-- 公共 ADR/spec 的真实 Accepted 文本仍须独立裁决卡；本卡完成后 Stage 2 不切换。
+- 本决策包已合并；公共 ADR/spec 的真实 Accepted 文本仍须独立裁决卡，Stage 2 保持 InProgress。
 
 ### 8. 新增长期记忆
 
