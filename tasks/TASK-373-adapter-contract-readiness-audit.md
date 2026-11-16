@@ -1,6 +1,6 @@
 # TASK-373 Adapter 契约就绪审计
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2b Adapter contract readiness　批次：1
 - 依赖：TASK-372、ADR-0022、ADR-0028、ADR-0031、ADR-0041、ADR-0058、ADR-0062、ADR-0083
 
@@ -119,7 +119,10 @@ git diff --check
 - `cargo run -p xtask -- refscan` → PASSED，0 error / 0 warning。
 - `cargo run -p xtask -- memory-counts` → PASSED，0 error / 1 条既有 paint 归档 warning。
 - `git diff --check` → PASSED，无 whitespace error。
-- PR checks / merge / post-merge main CI：pending，等待本卡 Review PR。
+- PR #736 checks **11/11 success**，pending 0 / failed 0，base=`main`，`MERGEABLE` / `CLEAN`；
+  merge `2fab59ff9de42ac7cd6b272c17ce7bb50095e511`。
+- post-merge main CI `43839388347` success，10 success + 1 skipped（merge push 的 commitlint），
+  failed 0。
 
 ### 4. DoD 逐条核对
 
@@ -128,7 +131,7 @@ git diff --check
 - [x] 输出统一缺口矩阵，区分 owner、版本、引用、恢复、interrupt 与 schema 问题。
 - [x] 给出下一份 ADR 的六项决策输入与五步拆卡顺序，未修改公共契约。
 - [x] 零 `adapters/**`、`docs/spec/**`、`docs/adr/**`、`protocol/**` 或产品代码差异。
-- [ ] PR 与 post-merge main CI 证据回填。
+- [x] PR #736、11/11 checks、merge hash 与 post-merge main CI `43839388347` 已回填。
 
 ### 5. 偏差
 

@@ -212,3 +212,12 @@ Stage 2 的下一真实阻塞不是 Excel 文件格式，而是 Adapter bundle �
 
 因此建议先完成 ADR/spec 设计，再实现通用 validator。当前包继续按既有 fail-closed 行为运行，
 不得因为本审计而放宽任何现有断言。
+
+## 10. 合并证据
+
+- PR：#736。
+- checks：**11/11 success**，pending 0 / failed 0。
+- base：`main`；状态：`MERGEABLE` / `CLEAN`。
+- merge commit：`2fab59ff9de42ac7cd6b272c17ce7bb50095e511`。
+- post-merge main CI：`43839388347` success；10 success + 1 skipped
+  （merge push 的 `commitlint`），failed 0。
