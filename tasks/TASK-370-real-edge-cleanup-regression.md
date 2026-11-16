@@ -1,6 +1,6 @@
 # TASK-370 Real Edge cleanup regression
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：Stage 1 follow-up　批次：post-TASK-369 real-machine verification
 - 依赖：TASK-367、TASK-369、ADR-0063、ADR-0101
 - 本文件 = 卡片正文 + 执行记录（ADR-0031）。
@@ -111,6 +111,7 @@ git diff --check
 - `eval/tasks/edge/t5.2/evidence/2026-11-16-task-370-cleanup-regression-attempt-03/**`：
   第三次人类确认、单轮提交、Core 正常退出与资源收敛证据。
 - `docs/audits/task-370-real-edge-cleanup-2026-11-16.md`：单轮真实 Edge 回归审计。
+- `PLAN.md`、`plans/stage-1-pilots.md`、`README.md`、`LEDGER.md`：Done 与 CI 证据回填。
 - `apps/desktop-ui/src-tauri/Cargo.toml`：Tauri build 自动改写的空 features 形式已恢复，
   不纳入任务变更。
 
@@ -142,6 +143,10 @@ git diff --check
 - `cargo clippy --all-targets -- -D warnings`、`cargo test --workspace`、
   `cargo fmt --all --check`、`hygiene`、`card-check`、`docscan`、`refscan` 与
   `git diff --check`：通过；workspace `xtask` 510 passed。
+- PR #730 checks **11/11 success**，pending 0 / failed 0，base=`main`，
+  `MERGEABLE` / `CLEAN`；merge `76b74d8aa4a72964d1aec7721c9f3573053afdb2`。
+- post-merge main CI `43809369712`：success；三平台、deny、desktop-ui、Stage 1 matrix、
+  hygiene、schema/codegen、replay 与 ledger 门禁全部通过。
 
 ### 4. DoD 逐条核对
 
@@ -151,14 +156,15 @@ git diff --check
 - [x] 端口、Core、UI、专用 Edge 进程树全部收敛，token 不落盘。
 - [ ] 单轮审计、任务卡、PLAN、plans、README、LEDGER 同步。
 - [x] Python、workspace、clippy 与全部文档门禁通过。
-- [ ] PR checks 11/11，merge 与 post-merge main CI 证据回填。
+- [x] PR checks 11/11，merge 与 post-merge main CI 证据回填。
 
 ### 5. 偏差
 
 - 两次尝试均在人工决定前结束，属于预审批失败，不计人工轮，也没有提交动作。
-- 当前 TASK-370 shell misuse 审计为 `bash=13` / `cmd=0`；包括只读调查/runner
+- TASK-370 最终 shell misuse 审计为 `bash=22` / `cmd=0`；包括只读调查/runner
   文档读取、一次 WIP commit、一次 hygiene、一次 card-check 与一次 guard release，
-  一次 tree 对比、一次 commit metadata 读取与一次 remote branch ref 创建，均由 ADR-0100 hook 重写为
+  一次 tree 对比、一次 commit metadata 读取、一次 remote branch ref 创建，
+  两次 closeout guard release、一次 closeout commit、一次 closeout tree API，以及 closeout 路径中的 5 次只读/元数据调用，均由 ADR-0100 hook 重写为
   PowerShell，无额外非预期写入。
 - 现有 runner 的 `finally` 只回收 Core、UI 和 fixture server，不回收 Core 启动的
   专用 Edge 进程树；两次均需人工补做 `taskkill /T /F` 后才收敛。
