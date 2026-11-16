@@ -97,3 +97,10 @@ Excel L1 COM 通道预检为 **GO**。下一顺序：
 
 本探针只证明本机 COM 基础通道、公式读取、undo 事实与资源生命周期，不代表 T2.1/T2.2/T2.3
 或 Protected View/AutoSave 已完成。
+
+## 8. 合并证据
+
+- PR #734 checks：**11/11 success**，pending 0 / failed 0。
+- base：`main`；状态：`MERGEABLE` / `CLEAN`。
+- merge commit：`fafff75f4b22642ad6f9e858067c989f63e6b947`。
+- post-merge main CI：`43825737477` success。

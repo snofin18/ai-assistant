@@ -1,6 +1,6 @@
 # TASK-372 Excel COM preflight
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2a Excel L1 preflight　批次：Stage 2 kickoff
 - 依赖：Stage 1 closeout、TASK-371、ADR-0063、feasibility P2
 - 本文件 = 卡片正文 + 执行记录（ADR-0031）。
@@ -131,6 +131,9 @@ git diff --check
   cleanup failure 0、taskkill 0；本轮 PID 剩余 0；最终 `EXCEL.EXE=0`。
 - `python -m json.tool .../summary.json`：通过。
 - `cargo run -p xtask -- memory-counts`：0 error / 1 warning，PASSED。
+- PR #734 checks **11/11 success**，pending 0 / failed 0，base=`main`，
+  `MERGEABLE` / `CLEAN`，merge `fafff75f4b22642ad6f9e858067c989f63e6b947`。
+- post-merge main CI `43825737477`：success。
 
 ### 4. DoD 逐条核对
 
@@ -139,8 +142,8 @@ git diff --check
 - [x] 连续程序化写入前后的 undo 状态和一次 Undo 行为均如实记录。
 - [x] Protected View、AutoSave、`DisplayAlerts` 当前状态有结构化证据。
 - [x] 成功清理逻辑覆盖 Close、Quit、release、bounded wait 与新建 PID 回收。
-- [ ] Stage 2 计划、Excel app memory、审计、PLAN/README/LEDGER 尚待 Done closeout。
-- [x] 真实探针与 `memory-counts` 已通过；其余门禁待提交前执行。
+- [x] Stage 2 计划、Excel app memory、审计、PLAN/README/LEDGER 已同步。
+- [x] 真实探针、PR 11/11、post-merge main CI 与全部文档门禁通过。
 
 ### 5. 偏差
 
@@ -148,6 +151,8 @@ git diff --check
   发现行数未增长后立即按 append-only 恢复原条目，再追加 Excel 条目。
 - 探针未覆盖失败路径的现场触发；脚本中的失败 `finally` 与只清理本轮 PID 的逻辑已完成，
   但本次只有真实成功路径证据。
+- 本卡最终 shell misuse 审计：`bash=19` / `cmd=0`；均被 ADR-0100 hook 重写或拦截，
+  未实际在 bash/WSL 执行，也无额外非预期写入。
 
 ### 6. 更合理做法（实施中发现，非漂移）
 

@@ -27,9 +27,9 @@ TASK-257     ：**TASK-257 Done（2026-10-20）** —— Paint 形状 / 调色�
 TASK-047     ：**TASK-047 Done（2026-10-20）** —— Stage 1b Paint integration 与 Adapter 复用度审计；技术 **GO**、行政 **条件 GO**。T3.1/T3.2/T3.3 真机合计 **30/30**；六类 `platform/api` 演进均由 ADR-0067/0076/0085/0086/0091/0092+0093 授权；未发现 Paint 专用 trait。TASK-257 Review 与计划表滞后状态保留给独立治理收口。证据：`docs/audits/stage-1b-integration-adapter-reuse-2026-10-20.md`。
 TASK-046     ：**TASK-046 Done（2026-10-20）** —— Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚；真实十次 **10/10 passed**，单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式 `VerifyFailed`；同时修复隐藏 `PopupWindowSiteBridge` flyout 被误判为未保存模态框。证据：`eval/tasks/paint/t3.3/ten-run-summary.json`。
 TASK-323     ：**TASK-323 Done（2026-10-20）** —— TASK-313 同号历史留痕收口：保留现有 selector 正式卡，按 PR #453 / #466 / #468 / #469 的真实 base、merge、CI 与文件范围补全记录；不建第二个同号卡，`PL-117` 由可追溯对账闭环，`PL-115` 限期豁免仍开放。证据：`docs/automations/2026-10-20-round-3.md`。
-更新日期    ：2026-11-16（**TASK-371 Done**：PR #732 checks 11/11，merge `702d645`，post-merge main CI `43816679420` success；runner 失败路径已回收专用 Edge 进程树）
-当前阶段    ：**阶段 1（三试点闭环）已完成**；Stage 1a/1b/1c Done；TASK-367 完成十轮人类确认与九任务矩阵 9/9；TASK-368/369 完成 Windows CI 与 cleanup 修复，TASK-370/371 完成真实 Edge 回归与 runner 失败清理。
-当前任务卡  ：TASK-371 Done（Edge runner failure cleanup）；TASK-370 Done（real Edge cleanup regression）；TASK-369 Done（browser cleanup reap semantics）；TASK-368 Done（Windows `WindowInfo` redundant clone CI 修复）；TASK-367 Done（T5.2 ten-run human approval）；TASK-366 Done；TASK-365 Done；TASK-057 / TASK-058 successor Done。
+更新日期    ：2026-11-16（**TASK-372 Done**：PR #734 checks 11/11，merge `fafff75`，post-merge main CI `43825737477` success；真实 Excel COM preflight GO）
+当前阶段    ：**阶段 2（Excel L1 COM + Adapter 规范化）InProgress**；Stage 1 已 closeout，TASK-372 已通过 Excel `16.0` / build `20527` COM、公式读回、`CanUndo=false` 与进程回收预检。
+当前任务卡  ：TASK-372 Done（Excel COM preflight / Stage 2 kickoff）；TASK-371 Done（Edge runner failure cleanup）；TASK-370 Done（real Edge cleanup regression）；TASK-369 Done（browser cleanup reap semantics）；TASK-368 Done（Windows `WindowInfo` redundant clone CI 修复）；TASK-367 Done（T5.2 ten-run human approval）。
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done
 真机收口    ：**TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径 14 步全部 `Committed`，`1 passed / 0 failed`；新增 `adapters/com.microsoft.paint/tasks/t3.2.full-toolset-path.json` 与 `test_paint_t3_2_full_toolset_path_runs_on_real_paint`，stable before/after content address 与画布裁剪证据见 `LEDGER.md` / `docs/memory/apps/paint.md` §13.22；真机确认画笔选择会切换活动工具、WinUI flyout 展开状态有异步窗口。
 TASK-256/044 ：**TASK-256 / TASK-044 Done（2026-10-19）** —— T3.1 真机 ignored 验收 `1 passed / 0 failed / 11.18 s`；`run-ten.ps1 -AllowClosePaint` 真机十次 **10/10 passed（success_rate=1.0）**；`coordinate-error.ps1 -AllowClosePaint` 量到拖拽终点 **0 px**（期望/实际均为 `(1458, 859)`，判据 2 px）。证据：`eval/tasks/paint/t3.1/ten-run-summary.json` / `coordinate-error-summary.json`。
@@ -47,8 +47,8 @@ TASK-045     ：**TASK-045 Done（2026-10-20）** —— Paint T3.2 打开 PNG �
 | 阶段 | 名称 | 周期 | 详情文件 | 状态 |
 |---|---|---|---|---|
 | 0 | Spike 技术验证（A/B/C/E/F/G/H + D-lite） | 2~3 周（实际 4 天） | `plans/stage-0-spikes.md` | ✅ closeout 2026-09-20 |
-| 1 | 三试点闭环：Notepad → Paint → Edge/Chrome | 10~12 周 | `plans/stage-1-pilots.md` | **当前** |
-| 2 | Excel（L1 COM）+ Adapter 抽象正式化 | 6~8 周 | `plans/stage-2-excel.md`（待生成） | 未开始 |
+| 1 | 三试点闭环：Notepad → Paint → Edge/Chrome | 10~12 周 | `plans/stage-1-pilots.md` | ✅ closeout 2026-11-16 |
+| 2 | Excel（L1 COM）+ Adapter 抽象正式化 | 6~8 周 | `plans/stage-2-excel.md` | **当前** |
 | 3 | Photoshop（纯脚本型）+ 评测体系 | 6~8 周 | `plans/stage-3-photoshop.md`（待生成） | 未开始 |
 | 4 | 扩量 + 股票只读 + 图表面 | 持续 | `plans/stage-4-scale.md`（待生成） | 未开始 |
 | 5~7 | macOS / Linux（Wayland-first）/ 开放生态·无人值守·交易闸门 | — | 待生成 | 未开始 |
@@ -57,7 +57,7 @@ TASK-045     ：**TASK-045 Done（2026-10-20）** —— Paint T3.2 打开 PNG �
 
 ## 任务队列（当前阶段）
 
-见 `plans/stage-1-pilots.md` 的「批次表」与「卡片正文的位置」表。**一张卡一个 agent 一个会话**，write scope 不得重叠，并行度 ≤ 3。
+见 `plans/stage-2-excel.md` 的「批次表」。**一张卡一个 agent 一个会话**，write scope 不得重叠，并行度 ≤ 3。
 
 ## 范围冻结提示
 
