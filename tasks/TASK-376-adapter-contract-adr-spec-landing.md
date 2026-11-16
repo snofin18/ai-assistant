@@ -124,6 +124,10 @@ git diff --check
 - `git diff --check` → PASSED。
 - 本卡未修改 `docs/adr/**`、`docs/spec/**`、`protocol/**`、`adapters/**`、
   产品代码或依赖；实现门禁留待闸门解除后运行。
+- 实现 PR #742 checks **11/11 success**，pending 0 / failed 0，base=`main`，
+  `MERGEABLE` / `CLEAN`；merge `5ebbf9c2b285775544058d2ecc6274e4edd4fb7b`。
+- Post-merge main CI `43916429808` attempt 1 的 macOS job 因 runner 排队超时在零 step
+  状态取消；`gh run rerun --failed` 后 attempt 2 全绿，macOS check 7m59s success。
 
 ### 4. DoD 逐条核对
 
