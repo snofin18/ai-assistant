@@ -510,6 +510,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-368 ✅** | CI 修复 | `tasks/TASK-368-windows-window-info-redundant-clone.md` | Done（Rust 1.100 Clippy redundant clone fix; PR #725, main CI success） |
 | **TASK-369 ✅** | browser cleanup 修复 | `tasks/TASK-369-browser-cleanup-reap-semantics.md` | Done（root reaped 后忽略已返回 taskkill 非零状态；spawn/error 与未 reap 路径保持 fail-closed；PR #727, main CI success） |
 | **TASK-370 ✅** | 真实 Edge 回归 | `tasks/TASK-370-real-edge-cleanup-regression.md` | Done（human once approval; form_submit 1; Core 正常退出; Edge/UI/port 全部收敛; PR #730, main CI success） |
+| **TASK-371** | Stage 1 follow-up | `tasks/TASK-371-edge-runner-failure-cleanup.md` | Review（runner 失败路径按专用 profile 回收 Edge 进程树；30 秒超时 smoke 已收敛，待独立评审与 CI） |
 | **TASK-085 ✅** | XTASK 池 | `tasks/TASK-085-xtask-hygiene-rust-source-rules.md` | Done（gov §5.4 第 1 / 2 / 3 / 10 / 11 项 = Rust 源码结构规则；实现覆盖 8/13） |
 | **TASK-086 ✅** | XTASK 池 | `tasks/TASK-086-xtask-hygiene-file-level-and-registry-rules.md` | **完整卡**（2026-09-24 PL-059 归属修正新建：gov §5.4 第 8 / 9 / 13 项 = 文件级 + 依赖登记规则）；**Done（hygiene 11/13）** |
 
