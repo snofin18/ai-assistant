@@ -146,6 +146,27 @@ fn test_launcher_rejects_relative_profile_root() -> PlatformResult<()> {
 }
 
 #[test]
+fn test_root_reap_accepts_nonzero_taskkill_exit() -> PlatformResult<()> {
+    use std::os::windows::process::ExitStatusExt;
+
+    classify_taskkill_after_root_reap(Ok(std::process::ExitStatus::from_raw(255)))
+}
+
+#[test]
+fn test_root_reap_preserves_taskkill_spawn_error() {
+    let error = classify_taskkill_after_root_reap(Err(std::io::Error::new(
+        ErrorKind::NotFound,
+        "taskkill fixture missing",
+    )))
+    .err();
+
+    assert_eq!(
+        error.as_ref().map(PlatformError::code),
+        Some(ErrorCode::Fatal)
+    );
+}
+
+#[test]
 fn test_process_tree_termination_reaps_root_and_child() -> PlatformResult<()> {
     let temp_root = std::env::temp_dir().join(format!(
         "assistant-browser-launcher-{}-{}",

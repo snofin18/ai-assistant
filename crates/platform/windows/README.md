@@ -29,7 +29,8 @@
    Edge/Chrome 可执行文件，以固定参数和动态 `--remote-debugging-port=0` 启动；有界读取并校验
    `DevToolsActivePort`。Windows sharing violation 32 / lock violation 33 在 launch deadline
    内按尚未 ready 重试；NotFound 继续等待，ACL、非法内容与其他 IO 错误仍显式失败。
-   显式 close 和 `Drop` 都走 `taskkill /T /F` + bounded wait reap。
+   显式 close 和 `Drop` 都走 `taskkill /T /F` + bounded wait reap。root 已进入已 reap
+   终态后，`taskkill` 已返回的非零退出码只作诊断；`taskkill` 未能启动或 root 未 reap 仍显式失败。
 
 ## 边界（不做什么）
 
