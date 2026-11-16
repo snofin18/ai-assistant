@@ -213,3 +213,11 @@ Adapters 或 Rust loader。Excel 与 COM 不得抢跑。
 6. 是否接受 D6 的五动作闭集并淘汰历史 task-id delegate？
 
 任一答案改变，决策包必须按裁决更新；不得只改实现不改契约。
+
+## 6. 合并证据
+
+- PR：#738。
+- checks：**11/11 success**，pending 0 / failed 0。
+- base：`main`；状态：`MERGEABLE` / `CLEAN`。
+- merge commit：`7e5805c2e6280cde07fb5f780eff09ecf278c771`。
+- post-merge main CI：`43863545233` success。
