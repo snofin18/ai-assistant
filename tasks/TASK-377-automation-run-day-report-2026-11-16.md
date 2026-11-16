@@ -134,8 +134,9 @@ commit 与 post-merge main CI。
 
 - PowerShell 通道在启动探测中连续零输出超时；为读取项目与保障治理流程，只能按
   ADR-0100 的已验证故障路径回退 `cmd`。所有 `cmd` 调用均保留真实输出，未使用 WSL/bash。
-- 当前槽仍误填过 2 次 bash：一次 `gh pr view` 与一次本地只读行号命令；两次都以
-  `command not found` 失败，没有 WSL、没有仓库写入，随后均改用 `cmd`。
+- 当前槽仍误填过 3 次 bash：两次 README / PR 元数据查询与一次本地只读行号命令。
+  其中 `gh` 与 `node` 两次以 `command not found` 失败；另一次只读文档查询完成，
+  没有仓库写入。随后全部改用 `cmd`，未使用 WSL。
 - `automation-rounds` 返回 `existing_rounds_for_run_date=0 / n_auto=0 / next_round=1`，
   同时运行日永久目录存在四个既有 JSONL；报告并列披露，不自行改写机器结果。
 - 当前槽未构成 DRIFT：无产品代码、公共契约、依赖或 write scope 扩张。
