@@ -25,7 +25,7 @@
 > **TASK-271 Done（2026-10-11）**：`assistant-dlp` 新增 7 个公共契约测试，独立行覆盖率 83.59% → 98.89%；生产源码零改动；PR #320 / merge `8a5ad5f`。
 
 > **TASK-290 Done（2026-10-14）**：PL-010 闭环 —— `gov §9.2` 的 LEDGER 模板新增 `pending` 占位与追加式回填规则；原开放行不改，PARKING_LOT 追加闭环节点；docs-only，零产品代码改动；PR #388 / merge `4e9bce6`。
-> 周期 10~12 周　状态：**阶段 1 已完成（2026-11-12）**；Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；Stage 1c 安全回归 Done；TASK-367 完成 T5.2 十轮人类确认并以 **9/10** 达到门槛，九任务 Stage 1 矩阵 **9/9**；TASK-368 完成 Rust 1.100 Clippy CI 修复；TASK-369 完成 root reap 后浏览器 cleanup 判定修复；TASK-370 完成真实 Edge 单轮 cleanup 回归，PR #730 / merge `76b74d8` / main CI `43809369712` success。
+> 周期 10~12 周　状态：**阶段 1 已完成（2026-11-12）**；Stage 1a Done；Stage 1b Paint T3.1/T3.2/T3.3 合计 30/30；Stage 1c 安全回归 Done；TASK-367 完成 T5.2 十轮人类确认并以 **9/10** 达到门槛，九任务 Stage 1 矩阵 **9/9**；TASK-368 完成 Rust 1.100 Clippy CI 修复；TASK-369 完成 root reap 后浏览器 cleanup 判定修复；TASK-370 完成真实 Edge 单轮 cleanup 回归；TASK-371 完成 runner 失败路径 Edge 进程树回收，PR #732 / merge `702d645` / main CI `43816679420` success。
 > **TASK-326 Done（2026-10-21）**：审计 2026-10-20 五轮 automation 的自删顺序；5/5 已执行且已自删，发现 17:00 轮 PR #502、00:30 轮 PR #509 两次在 self-delete 后才落地，已追加运行日更正与 `docs/audits/automation-sequence-deviation-2026-10-20.md`；当前无残留 automation、锁、open PR。
 > **TASK-327 Done（2026-10-22）**：人工接管 2026-10-21 17:00 失联 automation 的离线 WIP；新增 8 个 CDP 公开契约测试，`cdp.rs` 行覆盖 0.00% → **100.00%**、crate **95.13%**；生产逻辑 / 公共 API / schema / 依赖零改动；清理由该槽遗留的陈旧 guard 锁与 automation 目录。
 > **TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）**：Paint 全工具集真机路径
@@ -510,7 +510,7 @@ macOS/Linux 任何代码；Excel/Word/Photoshop Adapter；外部 MCP server 加�
 | **TASK-368 ✅** | CI 修复 | `tasks/TASK-368-windows-window-info-redundant-clone.md` | Done（Rust 1.100 Clippy redundant clone fix; PR #725, main CI success） |
 | **TASK-369 ✅** | browser cleanup 修复 | `tasks/TASK-369-browser-cleanup-reap-semantics.md` | Done（root reaped 后忽略已返回 taskkill 非零状态；spawn/error 与未 reap 路径保持 fail-closed；PR #727, main CI success） |
 | **TASK-370 ✅** | 真实 Edge 回归 | `tasks/TASK-370-real-edge-cleanup-regression.md` | Done（human once approval; form_submit 1; Core 正常退出; Edge/UI/port 全部收敛; PR #730, main CI success） |
-| **TASK-371** | Stage 1 follow-up | `tasks/TASK-371-edge-runner-failure-cleanup.md` | Review（runner 失败路径按专用 profile 回收 Edge 进程树；30 秒超时 smoke 已收敛，待独立评审与 CI） |
+| **TASK-371 ✅** | Stage 1 follow-up | `tasks/TASK-371-edge-runner-failure-cleanup.md` | Done（runner 失败路径按专用 profile 回收 8 个 Edge 进程；Core/UI/端口归零；PR #732 checks 11/11, main CI success） |
 | **TASK-085 ✅** | XTASK 池 | `tasks/TASK-085-xtask-hygiene-rust-source-rules.md` | Done（gov §5.4 第 1 / 2 / 3 / 10 / 11 项 = Rust 源码结构规则；实现覆盖 8/13） |
 | **TASK-086 ✅** | XTASK 池 | `tasks/TASK-086-xtask-hygiene-file-level-and-registry-rules.md` | **完整卡**（2026-09-24 PL-059 归属修正新建：gov §5.4 第 8 / 9 / 13 项 = 文件级 + 依赖登记规则）；**Done（hygiene 11/13）** |
 

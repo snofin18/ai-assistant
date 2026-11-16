@@ -108,3 +108,11 @@ attempt-01 在原定的“无人批准”窗口内收到了一次人类 `once` �
 
 TASK-370 遗留的 runner 失败资源收敛缺口已修复。成功路径仍验证 Core 自然关闭专用 Edge；
 失败路径现在也会在有界时间内回收完整 profile 进程树，并以进程数归零作为唯一成功判据。
+
+## 8. 合并证据
+
+- PR #732 checks：**11/11 success**，pending 0 / failed 0。
+- base：`main`；状态：`MERGEABLE` / `CLEAN`。
+- merge commit：`702d645a9ab036c4d94a14d779c850f8875a51e3`。
+- post-merge main CI：`43816679420` success。
+- Windows runner cleanup 回归在 CI 中实际执行并通过；Ubuntu/macOS 按 OS 条件跳过。

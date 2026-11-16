@@ -1,6 +1,6 @@
 # TASK-371 Edge runner failure cleanup
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：1　子阶段：Stage 1 follow-up　批次：post-TASK-370 runner resource lifecycle
 - 依赖：TASK-369、TASK-370、ADR-0063、ADR-0101
 - 本文件 = 卡片正文 + 执行记录（ADR-0031）。
@@ -153,6 +153,10 @@ git diff --check
 - `pnpm --dir apps/desktop-ui lint`、`typecheck`、`test`：通过；Node model 90/90、
   Vitest 5/5。
 - `git diff --check`：通过。
+- PR #732 checks **11/11 success**，pending 0 / failed 0，base=`main`，
+  `MERGEABLE` / `CLEAN`，merge `702d645a9ab036c4d94a14d779c850f8875a51e3`。
+- post-merge main CI `43816679420`：success；Windows 新回归步骤实际执行并通过，
+  Ubuntu/macOS 按条件正确跳过。
 
 ### 4. DoD 逐条核对
 
@@ -162,15 +166,16 @@ git diff --check
 - [x] 结构化 cleanup 日志与失败 summary 证明失败值和清理结果，不记录 token。
 - [x] Windows CI 已固化离线进程树回归。
 - [x] Python、workspace、clippy 与文档门禁全部通过。
-- [ ] PR checks、merge 与 post-merge main CI 证据待回填。
+- [x] PR checks、merge 与 post-merge main CI 证据已回填。
 
 ### 5. 偏差
 
 - attempt-01 原计划执行无人批准的 30 秒超时 smoke，但人类在场完成了一次 `once` 审批；
   该次仅访问本地 fixture，审批与提交均有效，已独立保留为人工批准旁证，不冒充失败清理证据。
 - attempt-02 达到 30 秒窗口后按预期失败，未提交、无 `human/result.json`。
-- 本卡最终 shell misuse 审计：`bash=7` / `cmd=0`；7 次均由 ADR-0100 hook 重写为
-  PowerShell，未在 bash/WSL 执行，也无额外非预期产品写入。
+- 本卡最终 shell misuse 审计：`bash=16` / `cmd=0`；16 次均由 ADR-0100 hook 重写或
+  在解析前 fail-closed 拦截，均未在 bash/WSL 执行；
+  无额外非预期产品写入。
 
 ### 6. 更合理做法（实施中发现，非漂移）
 
