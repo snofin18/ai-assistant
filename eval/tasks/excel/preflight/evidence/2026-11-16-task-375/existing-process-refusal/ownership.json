@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "state": "refused-existing-process",
+  "existing_process_identities": [
+    {
+      "id": 7380,
+      "process_name": "EXCEL",
+      "start_time_utc": "2026-11-16T14:50:37.2082654Z",
+      "start_time_utc_ticks": 639304374372082654,
+      "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+    }
+  ],
+  "observed_at_utc": "2026-11-16T14:50:38.4879447Z"
+}

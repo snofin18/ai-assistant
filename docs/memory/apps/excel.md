@@ -63,6 +63,11 @@
 5. **现有 Excel 进程不能复用**：Com 可能附着用户实例，误终止会损坏用户工作。探针在
    创建前检测到任何 `EXCEL.EXE` 就 fail-closed。
 6. **公式/值/文本不可混用**：错误读法会让成功断言失真。
+7. **取消点与进程所有权必须显式建模**：原始 COM 实例刚出现、Excel 尚未完成初始化时触发
+   取消，可能让 `Application.Quit()` 阻塞；最终回归只在工作簿创建后的安全 checkpoint
+   验证协作取消。生产/取证 runner 必须先用 `Application.Hwnd` 映射并复核 PID、启动时间与
+   可执行路径，保存 ownership journal，再由独立 watchdog 对超时子进程和该 Excel 身份做
+   有界回收；禁止只按“启动前后 PID 差集”推断所有权或按裸 PID 直接 `taskkill`。
 
 ## 7. 通道结论
 

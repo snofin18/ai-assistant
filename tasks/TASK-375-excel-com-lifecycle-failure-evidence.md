@@ -107,21 +107,25 @@ git diff --check
 ### 2. 实际改动文件（逐个核对是否在 In scope 内）
 
 - `tasks/TASK-375-excel-com-lifecycle-failure-evidence.md`：本卡状态与执行记录。
-- `eval/tasks/excel/preflight/probe_excel_com.ps1`：可追溯的异常注入、协作取消与清理字段。
-- `eval/tasks/excel/preflight/test_excel_com_lifecycle.ps1`：四场景真实生命周期回归。
+- `eval/tasks/excel/preflight/probe_excel_com.ps1`：精确 ownership journal、异常注入、协作取消与清理字段。
+- `eval/tasks/excel/preflight/test_excel_com_lifecycle.ps1`：五场景真实生命周期与 watchdog 回归。
 - `eval/tasks/excel/preflight/README.md`：运行方式、测试专用参数与取消边界。
-- `eval/tasks/excel/preflight/evidence/2026-11-16-task-375/**`：四场景 console/summary 与聚合 summary。
+- `eval/tasks/excel/preflight/evidence/2026-11-16-task-375/**`：五场景 console/summary、
+  ownership journal、watchdog 证据与聚合 summary。
 - `docs/audits/stage-2-excel-com-lifecycle-2026-11-16.md`：真实结果、失败取证与限制。
+- `docs/memory/apps/excel.md`：Excel COM ownership、取消 checkpoint 与 watchdog 长期记忆。
+- `MEMORY.md`：仅同步 `apps/excel.md` 派生行数 91 → 96。
 - `LEDGER.md`：Review 事件行。
 
 ### 3. 验收输出摘要（命令 → 结果，全绿 / 失败项）
 
 - PowerShell AST parse（probe + harness）→ 两文件 `PARSE_OK`。
 - `pwsh -NoProfile -File eval/tasks/excel/preflight/test_excel_com_lifecycle.ps1 -EvidenceRoot eval/tasks/excel/preflight/evidence/2026-11-16-task-375`
-  → `excel-com-lifecycle passed scenarios=4 final_excel_process_count=0`。
+  → `excel-com-lifecycle passed scenarios=5 final_excel_process_count=0`。
 - 正常场景 → exit 0 / `result=passed` / `cleanup_succeeded=true`。
 - 异常注入 → exit 2 / `result=failed` / `failure_kind=injected_failure` / 进程归零。
 - 协作取消 → exit 3 / `result=cancelled` / checkpoint=`after-workbook-create` / 进程归零。
+- 强制 hang → 15 秒 watchdog 命中；ownership 身份复核后只回收本场景 Excel 与子进程。
 - 既有 Excel 拒绝 → exit 2 / `result=failed` / `failure_kind=existing_process`；
   bootstrap PID 在 probe 返回后仍存活，随后由 harness 只回收自己的 PID。
 - `cargo fmt --all --check` / `cargo clippy --all-targets -- -D warnings` → PASSED。
@@ -134,7 +138,7 @@ git diff --check
 
 ### 4. DoD 逐条核对
 
-- [x] 四条真实路径均有 summary 和退出码断言。
+- [x] 四条核心真实路径均有 summary 和退出码断言；新增 watchdog hang 路径验证强制超时回收。
 - [x] 每条路径只回收获准 PID；拒绝场景证明 probe 未终止 bootstrap Excel。
 - [x] COM release、Close、Quit、taskkill、剩余 PID 与最终进程数均有证据字段。
 - [x] 取消适用范围和外部强制终止风险写入 README 与审计。
@@ -150,6 +154,10 @@ git diff --check
   新 PID 后恢复。最终取消点改为已初始化工作簿的 `after-workbook-create`，该失败事实保留在审计中。
 - 首次在仓库根执行 `pnpm` 时因根目录无 `package.json` 而失败；改在实际 UI workspace
   `apps/desktop-ui` 重跑并全绿，不是产品门禁失败。
+- 独立 review 拒绝首版“前后 PID 差集”所有权方案与无限等待；最终改为 HWND→PID、
+  PID/start ticks/path ownership journal、bounded child watchdog 与逐次身份复核。
+- 修复过程中两次在 bootstrap helper 失败后留下本轮进程；均按当时 ownership/PID 与命令行
+  核对后只回收本卡创建进程，未触碰用户实例，并把失败写入本记录。
 - 无 write scope 扩大；没有修改公共契约、产品代码或依赖。
 
 ### 6. 更合理做法（实施中发现，非漂移）
@@ -157,6 +165,9 @@ git diff --check
 - 取消测试不应在 COM 原始实例刚出现、Excel 尚未初始化完成时执行；选择明确安全 checkpoint
   才能验证可控清理，而不是把外部强杀伪装成协作取消。
 - 进程计数断言需要短暂稳定等待；单纯读取一次 `Get-Process` 会与 `taskkill` 退出发生竞态。
+- PowerShell 参数名大小写不敏感；`$BootstrapHelper` switch 不能同时作为持有 helper 对象的变量名。
+- 同步 COM 调用不能靠本地 `WaitForExit` 变成可中断；必须把整个 probe/helper 放进有界父进程，
+  配合 ownership journal 做外部 watchdog。
 
 ### 7. 遗留问题
 
@@ -167,11 +178,12 @@ git diff --check
 
 ### 8. 新增长期记忆
 
-- 无新增独立 FACT/PITFALL 条目；本卡证据细化并引用 TASK-372 已记录的 Excel COM
-  fail-closed、CanUndo=false 与进程回收约束。安全取消 checkpoint 与限制记录在审计和 README。
+- `docs/memory/apps/excel.md` 新增 Excel COM ownership、取消 checkpoint 与 watchdog 条目；
+  `MEMORY.md` 同步派生行数 91 → 96。
 
 ### 9. 给审阅者的关注点（风险最高的 1~3 处）
 
-- 重点核对 `after-com-create` 阻塞事实：不得把任意检查点误当成可安全取消点。
-- 重点核对既有进程拒绝场景只观察、不终止 bootstrap Excel；harness 仅回收自己启动的 PID。
+- 重点核对 ownership：PID、start ticks、路径必须同时匹配，禁止裸 PID kill。
+- 重点核对 `after-com-create` 阻塞事实与 15 秒 watchdog 证据。
+- 重点核对既有进程拒绝场景只观察、不终止 bootstrap Excel；helper 仅回收自己的身份。
 - 重点核对本卡没有把 eval harness 冒充生产 COM runner 或 Stage 2 Adapter 已落地。

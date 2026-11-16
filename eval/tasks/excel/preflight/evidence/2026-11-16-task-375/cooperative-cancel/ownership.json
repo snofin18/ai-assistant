@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "state": "reaped",
+  "established_at_utc": "2026-11-16T14:50:17.3655949Z",
+  "completed_at_utc": "2026-11-16T14:50:20.8703761Z",
+  "process_identity": {
+    "id": 29612,
+    "process_name": "EXCEL",
+    "start_time_utc": "2026-11-16T14:50:17.3819675Z",
+    "start_time_utc_ticks": 639304374173819675,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  "remaining_process_ids": []
+}

@@ -7,8 +7,21 @@
   "failure_injection_point": "none",
   "cancellation_signal_path": null,
   "cancellation_checkpoint": "after-workbook-create",
+  "hang_after_checkpoint": "none",
   "existing_excel_process_ids": [
-    24616
+    7380
+  ],
+  "existing_excel_process_ids_after_refusal": [
+    7380
+  ],
+  "existing_excel_process_identities_still_alive": [
+    {
+      "id": 7380,
+      "process_name": "EXCEL",
+      "start_time_utc": "2026-11-16T14:50:37.2082654Z",
+      "start_time_utc_ticks": 639304374372082654,
+      "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+    }
   ],
   "cleanup": {
     "cleanup_succeeded": true,
@@ -16,6 +29,6 @@
     "all_probe_processes_reaped": true,
     "excel_process_count_after": 1
   },
-  "started_at_utc": "2026-11-16T14:09:13.7034133Z",
-  "completed_at_utc": "2026-11-16T14:09:13.7178751Z"
+  "started_at_utc": "2026-11-16T14:50:38.4473325Z",
+  "completed_at_utc": "2026-11-16T14:50:38.4970974Z"
 }

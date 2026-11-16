@@ -7,13 +7,22 @@
   "failure_injection_point": "none",
   "cancellation_signal_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\preflight\\evidence\\2026-11-16-task-375\\cooperative-cancel\\request.signal",
   "cancellation_checkpoint": "after-workbook-create",
+  "hang_after_checkpoint": "none",
   "cancellation_signal_observed": true,
   "excel_version": "16.0",
   "excel_build": "20527",
   "excel_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16",
   "probe_excel_process_ids": [
-    23760
+    29612
   ],
+  "owned_process_identity": {
+    "id": 29612,
+    "process_name": "EXCEL",
+    "start_time_utc": "2026-11-16T14:50:17.3819675Z",
+    "start_time_utc_ticks": 639304374173819675,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  "ownership_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\preflight\\evidence\\2026-11-16-task-375\\cooperative-cancel\\ownership.json",
   "display_alerts_observed": 1,
   "display_alerts_changed": false,
   "visible_observed": false,
@@ -39,12 +48,13 @@
     "quit_attempted": true,
     "quit_succeeded": true,
     "cleanup_failures": [],
+    "taskkill_identity_failures": [],
     "taskkill_exit_codes": [],
     "remaining_probe_process_ids": [],
     "excel_process_count_after": 0,
     "all_probe_processes_reaped": true,
     "cleanup_succeeded": true
   },
-  "started_at_utc": "2026-11-16T14:09:09.0468988Z",
-  "completed_at_utc": "2026-11-16T14:09:12.5504179Z"
+  "started_at_utc": "2026-11-16T14:50:17.3655949Z",
+  "completed_at_utc": "2026-11-16T14:50:20.8818105Z"
 }
