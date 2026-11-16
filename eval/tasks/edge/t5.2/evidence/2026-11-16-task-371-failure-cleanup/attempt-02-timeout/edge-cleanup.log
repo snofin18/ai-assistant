@@ -1,0 +1,10 @@
+profile=C:\Users\fexfe\AppData\Local\ai-assistant-task-364-edge-profile\task364-ui-human-f7467c79
+process_name=msedge.exe
+initial_process_count=8
+taskkill_attempt_count=8
+taskkill_exit_codes=0,128,128,128,128,128,128,128
+remaining_process_count=0
+remaining_process_ids=
+elapsed_ms=2515
+result=passed
+failure=

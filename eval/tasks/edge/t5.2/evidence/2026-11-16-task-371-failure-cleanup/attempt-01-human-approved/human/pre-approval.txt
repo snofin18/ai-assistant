@@ -1,0 +1,4 @@
+result_exists=False
+pipe=assistant-agent-core-ui-task364-5a15f7aa0154438c9aa6f2039a6d092a
+ui_pid=42752
+core_pid=31108

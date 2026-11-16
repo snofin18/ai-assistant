@@ -95,6 +95,10 @@ jobs:
       - name: "[STAGE1] acceptance matrix tests"
         run: python -m unittest discover -s eval/stage-1 -p "test_*.py" -v
 
+      - name: "[STAGE1] Edge runner failure cleanup (Windows)"
+        if: runner.os == 'Windows'
+        run: pwsh -NoProfile -File eval/tasks/edge/t5.2/test_edge_process_cleanup.ps1
+
       - name: "[STAGE1] repeated-run acceptance report"
         run: python eval/stage-1/validate_acceptance_matrix.py
 

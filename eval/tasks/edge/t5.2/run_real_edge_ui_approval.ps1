@@ -19,6 +19,7 @@ $edgePath = [System.IO.Path]::GetFullPath($EdgeExecutable)
 $profilePath = [System.IO.Path]::GetFullPath($ProfileRoot)
 $packagePath = Join-Path $repoRoot "adapters\browser.edge\tasks\t5.2.profile-human-approval.json"
 $fixtureRoot = Join-Path $PSScriptRoot "fixtures"
+$edgeCleanupHelperPath = Join-Path $PSScriptRoot "edge_process_cleanup.ps1"
 $serverDir = Join-Path $evidence "server"
 $coreDir = Join-Path $evidence "core"
 $uiDir = Join-Path $evidence "ui"
@@ -30,11 +31,18 @@ if ($Port -lt 1 -or $Port -gt 65535) {
 if ($UiDecisionTimeoutSeconds -lt 30 -or $UiDecisionTimeoutSeconds -gt 1800) {
     throw "UiDecisionTimeoutSeconds must be in 30..1800"
 }
-foreach ($required in @($agentCorePath, $desktopUiPath, $edgePath, $packagePath)) {
+foreach ($required in @(
+    $agentCorePath,
+    $desktopUiPath,
+    $edgePath,
+    $packagePath,
+    $edgeCleanupHelperPath
+)) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
         throw "Required file does not exist: $required"
     }
 }
+. $edgeCleanupHelperPath
 if (-not (Test-Path -LiteralPath $profilePath -PathType Container)) {
     New-Item -ItemType Directory -Path $profilePath | Out-Null
 }
@@ -42,6 +50,7 @@ New-Item -ItemType Directory -Force -Path $serverDir, $coreDir, $uiDir, $runDir 
 
 $jsonPath = Join-Path $runDir "result.json"
 $summaryPath = Join-Path $evidence "summary.json"
+$edgeCleanupLogPath = Join-Path $evidence "edge-cleanup.log"
 if (Test-Path -LiteralPath $jsonPath) {
     throw "Result already exists: $jsonPath"
 }
@@ -151,6 +160,8 @@ $serverProcess = $null
 $coreProcess = $null
 $uiProcess = $null
 $failure = $null
+$runProfile = $null
+$edgeCleanupResult = $null
 $startedAt = (Get-Date).ToUniversalTime().ToString("o")
 $edgeVersion = (Get-Item -LiteralPath $edgePath).VersionInfo.ProductVersion
 $tokenVariableName = "ASSISTANT_AGENT_CORE_UI_TOKEN"
@@ -334,6 +345,22 @@ try {
             }
         }
     }
+    if (-not [string]::IsNullOrWhiteSpace($runProfile)) {
+        try {
+            $edgeCleanupResult = Stop-DedicatedEdgeProcessTree `
+                -Profile $runProfile `
+                -ProcessName "msedge.exe" `
+                -TimeoutSeconds 15 `
+                -LogPath $edgeCleanupLogPath
+        } catch {
+            $cleanupFailure = "Dedicated Edge cleanup failed: $($_.Exception.Message)"
+            if ($failure -eq $null) {
+                $failure = $cleanupFailure
+            } else {
+                $failure = "$failure; $cleanupFailure"
+            }
+        }
+    }
     if ($serverProcess -ne $null) {
         try {
             Stop-Process -Id $serverProcess.Id -Force -ErrorAction SilentlyContinue
@@ -363,6 +390,17 @@ if ($failure -ne $null) {
         failure = $failure
         core_pid = if ($coreProcess -ne $null) { $coreProcess.Id } else { $null }
         ui_pid = if ($uiProcess -ne $null) { $uiProcess.Id } else { $null }
+        edge_cleanup_log = $edgeCleanupLogPath
+        edge_cleanup_taskkill_attempts = if ($edgeCleanupResult -ne $null) {
+            $edgeCleanupResult.taskkill_attempt_count
+        } else {
+            $null
+        }
+        edge_processes_after_cleanup = if ($edgeCleanupResult -ne $null) {
+            $edgeCleanupResult.remaining_process_count
+        } else {
+            $null
+        }
         started_at_utc = $startedAt
         completed_at_utc = (Get-Date).ToUniversalTime().ToString("o")
         token_logged = $false
