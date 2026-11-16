@@ -134,9 +134,9 @@ git diff --check
 
 ### 5. 偏差
 
-产品行为无漂移。TASK-369 会话最终 shell misuse 审计为 `bash=14` / `cmd=0`：
-前期 2 次为只读调查，后续 12 次为 closeout/PR 审计期间的只读命令、一次被 hook 拒绝的命令，
-以及一次由 API 生成 remote closeout commit 的已授权写入命令。
+产品行为无漂移。TASK-369 会话最终 shell misuse 审计为 `bash=21` / `cmd=0`：
+前期 2 次为只读调查，后续 19 次集中在 closeout/PR 审计、Git Data API tree/commit/ref
+写入与一次 local amend，其中一次 ref 请求返回 502；另有一次命令被 hook fail-closed 拒绝。
 所有命令均由 ADR-0100 PreToolUse hook 重写为 PowerShell 或 fail-closed 拦截，未在 WSL/bash 执行，
 未产生额外仓库写入；后续命令继续显式使用 PowerShell。
 
