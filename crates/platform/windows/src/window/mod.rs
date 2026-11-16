@@ -146,7 +146,7 @@ fn list_windows(filter: &WindowFilter) -> PlatformResult<Vec<WindowInfo>> {
         listed.push(WindowInfo::new(
             ResolvedWindow::new(id, label),
             record.app_id.clone(),
-            record.title.clone(),
+            record.title,
         ));
     }
     Ok(listed)
