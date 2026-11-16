@@ -7,7 +7,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
 > **TASK-362 Done（2026-11-11）**：升级 `rmcp 3.9.0` 与 `rusqlite 0.41.1` / `libsqlite3-sys 0.39.1`，清除四个新增 RUSTSEC advisory；workspace MSRV 提升到 Rust 1.89，PR #707 与 post-merge main CI 全绿。
-> 状态：**阶段 1 已完成（2026-11-12）**；**TASK-367 Done**（PR #722 / merge `367f4e5`；正式 desktop-ui + 真实本地 Edge 完成 T5.2 十轮人类确认 **9/10**，Stage 1 九任务矩阵 **9/9**，`--require-complete` exit 0；post-merge main CI `43173799070` success）；Stage 1a/1b/1c 全部收口。
+> 状态：**阶段 1 已完成（2026-11-12）**；**TASK-368 Done**（PR #725 / merge `7bcc885`；修复 Rust 1.100 Clippy `redundant_clone`，post-merge main CI `43783453527` success）；**TASK-367 Done**（T5.2 十轮人类确认 **9/10**，Stage 1 九任务矩阵 **9/9**）；Stage 1a/1b/1c 全部收口。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -92,6 +92,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-11-16 TASK-368 Done（Windows CI repair）**：Rust stable 1.100 新增的 Clippy `redundant_clone` 命中 Windows `WindowInfo` 列表构造；移除已拥有 `record.title` 的多余 clone 后，PR #725 checks 11/11，merge `7bcc885`，post-merge main CI `43783453527` success。未修改公共 API、schema、Policy 或依赖。
 **2026-11-12 TASK-367 Done（T5.2 ten-run human approval）**：正式 desktop-ui 通过单一 authenticated Core UI 会话完成十轮人类在场确认，`run-01` 至 `run-10` 全部保留独立证据；9 轮通过，`run-04` 在提交后因 Edge cleanup `taskkill=255` 被诚实记为失败，另有两次点击前技术失败单独留存且不计人工轮。T5.2 十轮摘要切换为 Stage 1 `round_summary`，矩阵达到 **9/9**，`--require-complete` exit 0。PR #722 checks 11/11，merge `367f4e5`，post-merge main CI `43173799070` success。残余风险为 `terminate_child_tree` 在 root 已 reap 时仍返回 `TargetUnresponsive`，应另立生产修复卡。
 **2026-11-12 TASK-366 Done（Stage 1 repeated-run acceptance matrix）**：九任务 manifest 与严格 validator 已落地，直接读取 Notepad、Paint、Edge 的 committed evidence；T5.3 安全回归已有 10/10 冻结摘要。当前机器报告 `stage1_complete=false`、`completed_tasks=8`、`missing_tasks=["t5.2"]`，阶段仍保持 InProgress。PR #720 checks 11/11，merge `b0f8df5`，post-merge main CI `43163016810` success。
 **2026-11-12 TASK-365 Done（T5.3 injection security regression and Stage 1 alignment）**：六类注入 marker 的 fixture、session taint、`app_content` 高风险归因、clean-context 隔离与 RuntimeExecutor policy-before-tool 顺序已形成 3/3 集成回归；tainted 高风险 Step 命中 `block_after_untrusted_content`，tool / observer call 均为 0。审计将 TASK-057/058 以 successor 关系关闭，同时保留九任务十轮成功率这一阶段级缺口。PR #718 checks 11/11，merge `7120554`，post-merge main CI `43149646546` success。
@@ -425,6 +426,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-11-16 TASK-368 Done（Windows CI repair）**：修复 Rust 1.100 Clippy 在 `crates/platform/windows/src/window/mod.rs` 命中的 `redundant_clone`，只移除已拥有 `record.title` 的多余 clone。Windows crate 138 tests passed / 5 ignored，workspace 510 tests 与 all-targets clippy 全绿；PR #725 checks 11/11，merge `7bcc885`，post-merge main CI `43783453527` success。TASK-367 shell misuse 终值同步为 `bash=29` / `cmd=0`。
+
 **2026-11-12 TASK-367 Done（T5.2 ten-run human approval）**：新增十轮外层 runner、失败轮聚合、有界端口收敛检查和 `-FinalizeOnly`；人类完成十次逐轮确认，结果为 `requested_runs=10`、`passed_runs=9`、`success_rate=0.9`。`run-04` 单独记录一次性提交后 Edge cleanup 失败，没有重试或掩盖。T5.2 matrix 切换为十轮 `round_summary`，Stage 1 变为 9/9；Python 11/11、desktop-ui model 90 + DOM 5、workspace 510、clippy 与全部文档门禁通过。PR #722 merge `367f4e5`，post-merge main CI `43173799070` success。
 
 **2026-11-12 TASK-366 Done（Stage 1 repeated-run acceptance matrix）**：新增九任务 manifest、严格证据 validator、10 个正负向单测和 T5.3 十轮安全 runner。普通报告输出 8/9 与唯一 `t5.2` 缺口，`--require-complete` 按预期失败；缺失或伪造证据会 hard fail。CI 在三平台 check matrix 内持续输出该报告，不改变 11 个 job 的合并门禁结构。PR #720 merge `b0f8df5`，post-merge main CI `43163016810` success。
