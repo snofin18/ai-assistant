@@ -427,7 +427,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
-**2026-11-16 TASK-369 Done（browser cleanup reap semantics）**：修复 TASK-367 `run-04` 暴露的生产 cleanup 残余风险。root 已由 bounded `wait()` reap 后，已返回的 `taskkill=255` 只作诊断；`taskkill` spawn error 仍映射 `Fatal`，root 未 reap 仍 fail-closed。新增真实 `255` 正回归与 spawn error 负回归，Windows crate 140 passed / 5 ignored，workspace、clippy 与全部文档门禁通过。PR #727 checks 11/11，merge `7e82274`，post-merge main CI `43791998265` success。TASK-369 最终 shell misuse 审计为 `bash=14` / `cmd=0`，均由 ADR-0100 hook 重写或拦截，未产生额外产品写入。
+**2026-11-16 TASK-369 Done（browser cleanup reap semantics）**：修复 TASK-367 `run-04` 暴露的生产 cleanup 残余风险。root 已由 bounded `wait()` reap 后，已返回的 `taskkill=255` 只作诊断；`taskkill` spawn error 仍映射 `Fatal`，root 未 reap 仍 fail-closed。新增真实 `255` 正回归与 spawn error 负回归，Windows crate 140 passed / 5 ignored，workspace、clippy 与全部文档门禁通过。PR #727 checks 11/11，merge `7e82274`，post-merge main CI `43791998265` success。TASK-369 最终 shell misuse 审计为 `bash=21` / `cmd=0`，均由 ADR-0100 hook 重写或拦截，未产生额外产品写入。
 
 **2026-11-16 TASK-368 Done（Windows CI repair）**：修复 Rust 1.100 Clippy 在 `crates/platform/windows/src/window/mod.rs` 命中的 `redundant_clone`，只移除已拥有 `record.title` 的多余 clone。Windows crate 138 tests passed / 5 ignored，workspace 510 tests 与 all-targets clippy 全绿；PR #725 checks 11/11，merge `7bcc885`，post-merge main CI `43783453527` success。TASK-367 shell misuse 终值同步为 `bash=29` / `cmd=0`。
 
