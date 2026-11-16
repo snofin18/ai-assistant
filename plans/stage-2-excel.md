@@ -1,8 +1,9 @@
 # 阶段 2 — Excel L1 COM + Adapter 规范化
 
-> 周期 6~8 周　状态：**InProgress（2026-11-16）**；Stage 1 已完成，本阶段从真实 Excel COM
-> 预检开始。目标不是“再写一个应用专用 handler”，而是在三个真实 Adapter 之后正式化声明式
-> Adapter 契约，并验证企业级 Office COM 通道、L1 快照恢复和长生命周期资源回收。
+> 周期 6~8 周　状态：**InProgress（2026-11-16）**；Stage 1 已完成；TASK-372 真实 Excel
+> COM preflight 已通过并以 **GO** 进入 Adapter 契约正式化。目标不是“再写一个应用专用
+> handler”，而是在三个真实 Adapter 之后正式化声明式 Adapter 契约，并验证企业级 Office
+> COM 通道、L1 快照恢复和长生命周期资源回收。
 
 ## In scope
 
@@ -26,7 +27,7 @@
 
 | 批次 | 卡号 | 合作方 | 卡片文件 | 状态 |
 |---|---|---|---|---|
-| 0 | **TASK-372** | 环境/架构 | `tasks/TASK-372-excel-com-preflight.md` | Review（COM preflight passed；待独立评审与 CI） |
+| 0 | **TASK-372 ✅** | 环境/架构 | `tasks/TASK-372-excel-com-preflight.md` | Done（COM preflight passed；PR #734 checks 11/11；main CI `43825737477` success） |
 | 1 | 待派单 | 架构/治理 | dispatch 时创建 | 未开始（ADR/spec：Adapter 六件套正式化） |
 | 2 | 待派单 | Windows platform | dispatch 时创建 | 未开始（COM apartment/生命周期/回收与负向测试） |
 | 3 | 待派单 | Excel Adapter | dispatch 时创建 | 未开始（Adapter 数据包 + Protected View/AutoSave/interrupts） |

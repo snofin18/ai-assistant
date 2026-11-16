@@ -7,7 +7,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
 > **TASK-362 Done（2026-11-11）**：升级 `rmcp 3.9.0` 与 `rusqlite 0.41.1` / `libsqlite3-sys 0.39.1`，清除四个新增 RUSTSEC advisory；workspace MSRV 提升到 Rust 1.89，PR #707 与 post-merge main CI 全绿。
-> 状态：**阶段 1 已完成（2026-11-12）**；**TASK-371 Done**（PR #732 / merge `702d645`；runner 失败路径 Edge 进程树回收，post-merge main CI `43816679420` success）；**TASK-370 Done**（真实 Edge 单轮 cleanup 回归）；**TASK-369 Done**（浏览器 cleanup 判定修复）；**TASK-368 Done**（Rust 1.100 Clippy 修复）；**TASK-367 Done**（T5.2 十轮人类确认 **9/10**，Stage 1 九任务矩阵 **9/9**）；Stage 1a/1b/1c 全部收口。
+> 状态：**阶段 2（Excel L1 COM + Adapter 规范化）InProgress**；Stage 1 已 closeout；**TASK-372 Done**（PR #734 / merge `fafff75`；真实 Excel COM preflight GO，post-merge main CI `43825737477` success）；**TASK-371 Done**（Edge runner failure cleanup）；**TASK-370 Done**（真实 Edge 单轮 cleanup 回归）；**TASK-369 Done**（浏览器 cleanup 判定修复）；TASK-367 的 T5.2 十轮 **9/10** 与 Stage 1 九任务矩阵 **9/9** 保持有效。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -92,6 +92,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+**2026-11-16 TASK-372 Done（Excel COM preflight / Stage 2 kickoff）**：建立 Stage 2 计划，并在隔离的新工作簿上完成真实 Excel COM 预检。Office Home 2024 x64 的 COM `Version=16.0` / `Build=20527` 可创建不可见实例；A3=`=A1+A2` 的 `.Value2=5`、`.Formula` 与 `.Text` 均通过；连续两次 COM 写入前后 `CanUndo=false`，确认 Excel undo 不能作为程序化写入回滚。`Close(false)`、`Quit()` 与 COM release 后本轮 PID 和最终 `EXCEL.EXE` 均为 0。PR #734 checks 11/11，merge `fafff75`，post-merge main CI `43825737477` success。
 **2026-11-16 TASK-371 Done（Edge runner failure cleanup）**：T5.2 runner 的失败 `finally` 现在按完整专用 profile 枚举并回收 Edge 进程树，同时以有界 `taskkill` 尝试和零匹配进程作为 cleanup postcondition。30 秒无人批准 smoke 按预期失败，但 8 个专用 Edge 进程全部回收，Core/UI/8766 listener 全部归零。PR #732 checks 11/11，merge `702d645`，post-merge main CI `43816679420` success。
 **2026-11-16 TASK-370 Done（real Edge cleanup regression）**：人类在正式 desktop-ui 审批卡中完成一次 `once` 确认，真实 Edge `157.0.4341.60` 单轮 `result=passed`；`form_submit` 恰好一次，`submitted=true`，Core 正常退出并写出 4-step result，专用 Edge/Core/UI 与 8766 listener 全部收敛。两次预审批超时单独保留，不计人工轮。PR #730 checks 11/11，merge `76b74d8`，post-merge main CI `43809369712` success。
 **2026-11-16 TASK-369 Done（browser cleanup reap semantics）**：Windows launcher 在 root 已 bounded `wait()` reap 后，把已经返回的 `taskkill` 非零状态降为诊断信息，不再误报 `TargetUnresponsive`；`taskkill` 启动失败仍返回 `Fatal`，root 未 reap 仍走 fallback kill 与显式失败。TASK-367 `run-04` 的真实 `taskkill=255` 形态已有正回归，真实父子进程树回收测试继续通过。PR #727 checks 11/11，merge `7e82274`，post-merge main CI `43791998265` success。
@@ -429,6 +430,8 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-11-16 TASK-372 Done（Excel COM preflight / Stage 2 kickoff）**：Stage 2 计划已落盘，真实 Excel COM 探针通过。A3=`=A1+A2` 得到 `.Value2=5`，`.Formula` / `.Text` 均有结构化证据；连续 COM 写入前后 `CanUndo=false`，后续 Excel 写入必须按 L1 快照恢复。`DisplayAlerts` 只读未改，Protected View/AutoSave 字段已取当前值；Close/Quit/release 后 `EXCEL.EXE=0`。Adapter 六件套、产品 COM runner、Excel Adapter pack 与 T2.1/T2.2/T2.3 尚未开始。PR #734 checks 11/11，merge `fafff75`，post-merge main CI `43825737477` success。
+
 **2026-11-16 TASK-371 Done（Edge runner failure cleanup）**：修复 TASK-370 留下的失败路径资源泄漏。runner 先停 UI/Core，再按完整专用 profile 回收 Edge 进程树；`taskkill` 非零退出码只作诊断，最终以 0 个匹配进程为判据。离线真实父子进程树回归、Windows CI、30 秒超时 smoke、Python 9/9、workspace 510、clippy、UI 与全部文档门禁通过。PR #732 checks 11/11，merge `702d645`，post-merge main CI `43816679420` success。最终 shell misuse `bash=16` / `cmd=0`。
 
 **2026-11-16 TASK-370 Done（real Edge cleanup regression）**：使用正式 desktop-ui、真实本地 Edge 和单一 authenticated Core UI 会话完成一次人类确认的单轮回归。`form_submit` 恰好一次，`submitted=true`，query-free 成功 URL 与 marker 均通过；Core 正常退出并写出 4-step result，post-submit cleanup 无 `TargetUnresponsive`，专用 Edge/Core/UI 进程 0、8766 listener false、token 未落盘。前两次预审批超时独立保留，不改变 TASK-367 十轮 **9/10**。PR #730 checks 11/11，merge `76b74d8`，post-merge main CI `43809369712` success。最终 shell misuse `bash=22` / `cmd=0`。
