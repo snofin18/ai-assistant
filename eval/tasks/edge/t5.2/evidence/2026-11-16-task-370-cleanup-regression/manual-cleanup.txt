@@ -1,0 +1,9 @@
+attempt=01
+result=failed_before_human_decision
+failure=No human decision was received within 300 seconds
+orphaned_profile_root_pid=1932
+orphaned_profile_children_pids=9932,37304,26140,35888,42344,21320,36588
+cleanup_command=taskkill /PID 1932 /T /F
+dedicated_edge_remaining=0
+port_8766_listener=false
+token_logged=false

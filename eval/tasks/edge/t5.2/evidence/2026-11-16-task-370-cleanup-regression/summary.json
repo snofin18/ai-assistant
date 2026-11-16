@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "mode": "desktop-ui-human-approval-local",
+  "result": "failed",
+  "failure": "No human decision was received within 300 seconds",
+  "core_pid": 39592,
+  "ui_pid": 23840,
+  "started_at_utc": "2026-11-16T03:48:46.9025099Z",
+  "completed_at_utc": "2026-11-16T03:53:50.4873835Z",
+  "token_logged": false
+}

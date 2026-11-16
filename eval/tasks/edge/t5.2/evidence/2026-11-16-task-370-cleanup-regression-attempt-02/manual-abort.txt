@@ -1,0 +1,12 @@
+attempt=02
+result=aborted_before_human_decision
+phase_at_abort=awaiting_human_confirmation
+approve_once_disabled_without_confirmation_phrase=true
+human_decision_received=false
+result_json_exists=false
+orphaned_profile_root_pid=4740
+orphaned_profile_children_pids=42468,28664,37652,31420,38120,41464,38552
+cleanup_command=taskkill /PID 4740 /T /F
+dedicated_edge_remaining=0
+port_8766_listener=false
+token_logged=false
