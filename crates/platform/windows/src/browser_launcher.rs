@@ -509,14 +509,7 @@ fn terminate_child_tree(child: &mut Child, timeout: Duration) -> PlatformResult<
         .status();
     let wait_outcome = wait_for_exit(child, timeout)?;
     if wait_outcome.is_some() {
-        return match taskkill_outcome {
-            Ok(status) if status.success() => Ok(()),
-            Ok(status) => Err(PlatformError::new(
-                ErrorCode::TargetUnresponsive,
-                format!("taskkill returned {status}, but the browser root was reaped"),
-            )),
-            Err(error) => Err(process_error("run taskkill", &error)),
-        };
+        return classify_taskkill_after_root_reap(taskkill_outcome);
     }
 
     let kill_outcome = child.kill();
@@ -532,6 +525,18 @@ fn terminate_child_tree(child: &mut Child, timeout: Duration) -> PlatformResult<
         ErrorCode::TargetUnresponsive,
         "browser process tree did not terminate within the bounded wait",
     ))
+}
+
+// The reaped root is the resource postcondition. Once `taskkill` has completed,
+// its exit code is diagnostic because the browser may exit while taskkill is
+// inspecting it. A spawn failure still means the tree wider termination command
+// never ran and must remain visible.
+fn classify_taskkill_after_root_reap(
+    taskkill_outcome: std::io::Result<std::process::ExitStatus>,
+) -> PlatformResult<()> {
+    taskkill_outcome
+        .map(|_status| ())
+        .map_err(|error| process_error("run taskkill", &error))
 }
 
 fn wait_for_exit(
