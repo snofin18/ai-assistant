@@ -1,6 +1,6 @@
 # TASK-377 2026-11-16 自动化运行日报告
 
-- 状态：InProgress
+- 状态：Done
 - 阶段：2　子阶段：2b Adapter contract decision　批次：治理池　依赖：TASK-373、TASK-374、TASK-375、TASK-376　预估：S　难度：S
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031「一卡一文件」）。
 
@@ -115,6 +115,10 @@ commit 与 post-merge main CI。
 - `cargo run -p xtask -- adr-index` → PASSED；92 files，0 error，0 warning。
 - `git diff --check` → PASSED。
 - `git status --short --branch` → 仅本卡与运行日报告两个未跟踪新文件。
+- 主 PR #744：base=`main`，11/11 success，pending 0，failed 0，
+  `MERGEABLE` / `CLEAN`；merge `9b2b9d8048e4364169fa3aa5b2736d6115eee911`。
+- post-merge main CI `43942329504`：success；Windows 11m38s、macOS 6m55s、
+  Ubuntu 4m17s，其余 checks success/skipped。
 
 ### 4. DoD 逐条核对
 
@@ -124,12 +128,14 @@ commit 与 post-merge main CI。
 - [x] shell misuse / PowerShell 回退、锁与遗留按实际状态记录。
 - [x] 九条 xtask/文档门禁与 `git diff --check` 全绿。
 - [x] 产品代码、schema、ADR、spec 与依赖零差异。
-- [ ] PR checks、merge 与 post-merge main CI 证据回填后关闭本卡。
+- [x] PR checks、merge 与 post-merge main CI 证据回填后关闭本卡。
 
 ### 5. 偏差
 
 - PowerShell 通道在启动探测中连续零输出超时；为读取项目与保障治理流程，只能按
   ADR-0100 的已验证故障路径回退 `cmd`。所有 `cmd` 调用均保留真实输出，未使用 WSL/bash。
+- 当前槽仍误填过 2 次 bash：一次 `gh pr view` 与一次本地只读行号命令；两次都以
+  `command not found` 失败，没有 WSL、没有仓库写入，随后均改用 `cmd`。
 - `automation-rounds` 返回 `existing_rounds_for_run_date=0 / n_auto=0 / next_round=1`，
   同时运行日永久目录存在四个既有 JSONL；报告并列披露，不自行改写机器结果。
 - 当前槽未构成 DRIFT：无产品代码、公共契约、依赖或 write scope 扩张。
@@ -141,6 +147,8 @@ commit 与 post-merge main CI。
 ### 7. 遗留问题
 
 - TASK-376 的 D1-D6 仍待人类裁决，Stage 2 Adapter 契约实现不能启动。
+- `automation-rounds` 的 `n_auto=0` 与四个永久日志文件存在计数来源差异，需治理 owner
+  单独判断是否修复；本卡没有修改 ADR-0099 或门禁判据。
 
 ### 8. 新增长期记忆
 
