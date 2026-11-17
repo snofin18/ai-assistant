@@ -20,11 +20,25 @@
 //! `docs/adr/0089-unattended-round-cap-derived-and-human-reset.md`、
 //! `docs/automation-charter.md` §11.3、`docs/automations/2026-10-26-round-1.md`。
 
+use std::ffi::OsStr;
+use std::io::Read;
 use std::path::Path;
+use std::process::{Child, Command, ExitStatus, Output, Stdio};
+use std::sync::mpsc::{self, Sender};
+use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
 
 use crate::automation_session::{
     self, CurrentSession, HumanReset, SessionSource, codex_home_from_environment,
 };
+
+const AUTOMATION_PATHSPEC: &str = "docs/automations/";
+const MAX_MAIN_TREE_BYTES: usize = 4 * 1024 * 1024;
+const MAX_ROUND_FILES: usize = 8_192;
+const MAX_ROUND_FILE_BYTES: usize = 2 * 1024 * 1024;
+const MAX_GIT_STDERR_BYTES: usize = 64 * 1024;
+const GIT_TIMEOUT: Duration = Duration::from_secs(30);
+const CLEANUP_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// 一个轮次文件的机制。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -140,7 +154,7 @@ pub fn run(
     use crate::{EXIT_FINDINGS, EXIT_OK};
 
     validate_run_date(run_date)?;
-    let entries = scan_round_files(&repo_root.join("docs/automations"))?;
+    let entries = load_main_round_files(repo_root)?;
     let current_session = automation_session::current_session_from_environment()?;
     let human_reset = prepare_human_reset(&entries, current_session.as_ref())?;
     let summary = summarize_with_human_reset(
@@ -169,7 +183,7 @@ pub fn record_human_prompt(repo_root: &Path) -> Result<u8, String> {
     if current_session.source == SessionSource::Automation {
         return Ok(crate::EXIT_OK);
     }
-    let entries = scan_round_files(&repo_root.join("docs/automations"))?;
+    let entries = load_main_round_files(repo_root)?;
     let boundary = latest_boundary(&entries);
     let reset = HumanReset {
         session_id: current_session.session_id,
@@ -208,36 +222,381 @@ fn prepare_human_reset(
     }
 }
 
-/// 从目录扫描并排序轮次文件。
-fn scan_round_files(directory: &Path) -> Result<Vec<RoundEntry>, String> {
-    let read_dir = std::fs::read_dir(directory)
-        .map_err(|error| format!("读 {} 失败：{error}", directory.display()))?;
+/// 从固定 main commit 快照读取并排序轮次文件。
+fn load_main_round_files(repo_root: &Path) -> Result<Vec<RoundEntry>, String> {
+    let main_commit = resolve_main_ref(repo_root)?;
+    let args = [
+        "ls-tree",
+        "-z",
+        "--format=%(objecttype) %(path)",
+        &main_commit,
+        "--",
+        AUTOMATION_PATHSPEC,
+    ];
+    let listing = run_git_output(repo_root, &args, MAX_MAIN_TREE_BYTES)?;
     let mut entries = Vec::new();
-    for item in read_dir {
-        let item = item.map_err(|error| format!("遍历 {} 失败：{error}", directory.display()))?;
-        let path = item.path();
-        let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
+    let paths = listing
+        .split(|byte| *byte == 0)
+        .filter(|path| !path.is_empty());
+    for (index, raw_path) in paths.enumerate() {
+        if index >= MAX_ROUND_FILES {
+            return Err(format!("main round file count exceeds {MAX_ROUND_FILES}"));
+        }
+        let separator = raw_path
+            .iter()
+            .position(|byte| *byte == b' ')
+            .ok_or_else(|| "git ls-tree returned malformed entry".to_owned())?;
+        let object_type = raw_path
+            .get(..separator)
+            .ok_or_else(|| "git ls-tree returned malformed object type".to_owned())?;
+        if object_type == b"tree" {
             continue;
-        };
+        }
+        if object_type != b"blob" {
+            return Err(format!(
+                "git ls-tree returned unsupported object type: {object_type:?}"
+            ));
+        }
+        let path = raw_path
+            .get(separator + 1..)
+            .ok_or_else(|| "git ls-tree returned malformed path".to_owned())?;
+        let path = std::str::from_utf8(path)
+            .map_err(|error| format!("git ls-tree returned non-UTF-8 path: {error}"))?;
+        let file_name = path
+            .strip_prefix("docs/automations/")
+            .filter(|name| !name.contains('/'))
+            .ok_or_else(|| format!("main round path is outside the direct directory: {path}"))?;
         let Some((run_date, round)) = parse_round_file_name(file_name) else {
-            continue;
+            if is_allowed_non_round_file(file_name) || is_allowed_legacy_round_file(file_name) {
+                continue;
+            }
+            return Err(format!("unexpected file in docs/automations: {path}"));
         };
-        let content = std::fs::read_to_string(&path)
-            .map_err(|error| format!("读 {} 失败：{error}", path.display()))?;
+        let object = format!("{main_commit}:{path}");
+        let content = run_git_output(repo_root, &["show", &object], MAX_ROUND_FILE_BYTES)?;
+        let content = String::from_utf8(content)
+            .map_err(|error| format!("main file {path} is not valid UTF-8: {error}"))?;
         entries.push(RoundEntry {
-            path: format!("docs/automations/{file_name}"),
+            path: path.to_owned(),
             run_date,
             round,
             mechanism: classify_mechanism(&content),
         });
     }
-    entries.sort_by(|left, right| {
-        (&left.run_date, left.round, &left.path).cmp(&(&right.run_date, right.round, &right.path))
-    });
+    entries.sort_by_key(|entry| (entry.run_date.clone(), entry.round, entry.path.clone()));
     Ok(entries)
 }
 
-/// 汇总最近 human reset 与指定运行日下一轮号。
+fn is_allowed_non_round_file(file_name: &str) -> bool {
+    const FIXED_FILES: [&str; 3] = [
+        ".gitkeep",
+        "codex-automations-operations.md",
+        "scheduler-acceptance-test.md",
+    ];
+    if FIXED_FILES.contains(&file_name) {
+        return true;
+    }
+    let Some((run_date, remainder)) = file_name
+        .strip_suffix(".md")
+        .and_then(|stem| stem.split_at_checked(10))
+    else {
+        return false;
+    };
+    is_iso_date(run_date) && matches!(remainder, "-report" | "-report-run1415" | "-skipped")
+}
+
+fn is_allowed_legacy_round_file(file_name: &str) -> bool {
+    let Some((run_date, remainder)) = file_name
+        .strip_suffix(".md")
+        .and_then(|stem| stem.split_at_checked(10))
+    else {
+        return false;
+    };
+    let Some((round, suffix)) = remainder
+        .strip_prefix("-round-")
+        .and_then(|tail| tail.split_once('-'))
+    else {
+        return false;
+    };
+    is_iso_date(run_date)
+        && ((run_date == "2026-09-26" && round == "1" && suffix == "run1415")
+            || (run_date == "2026-11-02" && round == "5" && suffix == "skipped"))
+}
+
+fn resolve_main_ref(root: &Path) -> Result<String, String> {
+    let candidate = if git_ref_exists(root, "refs/remotes/origin/main")? {
+        "refs/remotes/origin/main"
+    } else if git_ref_exists(root, "refs/heads/main")? {
+        "refs/heads/main"
+    } else {
+        return Err("no usable main ref: neither origin/main nor main exists".to_owned());
+    };
+    let revision = format!("{candidate}^{{commit}}");
+    let bytes = run_git_output(root, &["rev-parse", "--verify", &revision], 128)
+        .map_err(|error| format!("no usable main ref {candidate}: {error}"))?;
+    let commit = std::str::from_utf8(&bytes)
+        .map_err(|_| format!("no usable main ref {candidate}: non-UTF-8 commit hash"))?
+        .trim();
+    if commit.is_empty() || !commit.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(format!(
+            "no usable main ref {candidate}: invalid commit `{commit}`"
+        ));
+    }
+    Ok(commit.to_owned())
+}
+
+fn git_ref_exists(root: &Path, reference: &str) -> Result<bool, String> {
+    let args = ["show-ref", "--verify", "--quiet", reference];
+    let output = run_git_command(root, &args, 128)?;
+    match output.status.code() {
+        Some(0) => Ok(true),
+        Some(1) if output.stderr.is_empty() => Ok(false),
+        _ => Err(format!(
+            "git {args:?} failed ({}): {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        )),
+    }
+}
+
+fn run_git_command(root: &Path, args: &[&str], max_bytes: usize) -> Result<Output, String> {
+    let mut command = Command::new("git");
+    command.env_clear();
+    for (key, value) in std::env::vars_os() {
+        if !is_git_environment_name(&key) {
+            command.env(key, value);
+        }
+    }
+    command
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GIT_OPTIONAL_LOCKS", "0")
+        .env("GIT_NO_LAZY_FETCH", "1")
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("failed to start git {args:?}: {error}"))?;
+    let (sender, receiver) = mpsc::channel();
+    let readers = [
+        spawn_bounded_reader(child.stdout.take(), max_bytes, true, sender.clone()),
+        spawn_bounded_reader(child.stderr.take(), MAX_GIT_STDERR_BYTES, false, sender),
+    ];
+    let started = Instant::now();
+    let mut stdout = None;
+    let mut stderr = None;
+    while stdout.is_none() || stderr.is_none() {
+        let remaining = GIT_TIMEOUT.saturating_sub(started.elapsed());
+        match receiver.recv_timeout(remaining) {
+            Ok((is_stdout, Ok(bytes))) if is_stdout && stdout.is_none() => stdout = Some(bytes),
+            Ok((is_stdout, Ok(bytes))) if !is_stdout && stderr.is_none() => stderr = Some(bytes),
+            Ok((_, Ok(_))) => {
+                return Err(abort_git(&mut child, args, "duplicate pipe", readers));
+            }
+            Ok((_, Err(error))) => return Err(abort_git(&mut child, args, &error, readers)),
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                return Err(abort_git(&mut child, args, "timed out", readers));
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                return Err(abort_git(
+                    &mut child,
+                    args,
+                    "pipe readers stopped before completion",
+                    readers,
+                ));
+            }
+        }
+    }
+    let status = wait_git(&mut child, started, args, readers)?;
+    Ok(Output {
+        status,
+        stdout: stdout.ok_or_else(|| format!("git {args:?} has no stdout"))?,
+        stderr: stderr.ok_or_else(|| format!("git {args:?} has no stderr"))?,
+    })
+}
+
+fn wait_git(
+    child: &mut Child,
+    started: Instant,
+    args: &[&str],
+    readers: [JoinHandle<()>; 2],
+) -> Result<ExitStatus, String> {
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if started.elapsed() < GIT_TIMEOUT => {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            Ok(None) => {
+                return Err(abort_git(child, args, "timed out", readers));
+            }
+            Err(error) => {
+                return Err(abort_git(
+                    child,
+                    args,
+                    &format!("wait failed: {error}"),
+                    readers,
+                ));
+            }
+        }
+    };
+    join_readers(readers).map_err(|error| format!("git {args:?}: {error}"))?;
+    Ok(status)
+}
+
+fn spawn_bounded_reader<R: Read + Send + 'static>(
+    reader: Option<R>,
+    limit: usize,
+    is_stdout: bool,
+    sender: Sender<(bool, Result<Vec<u8>, String>)>,
+) -> JoinHandle<()> {
+    std::thread::spawn(move || {
+        let mut output = Vec::new();
+        let result = reader.map_or_else(
+            || Err("pipe unavailable".to_owned()),
+            |reader| {
+                reader
+                    .take(limit as u64 + 1)
+                    .read_to_end(&mut output)
+                    .map_err(|error| format!("read failed: {error}"))
+                    .and_then(|_| {
+                        if output.len() > limit {
+                            Err(format!("pipe output exceeded {limit} bytes"))
+                        } else {
+                            Ok(output)
+                        }
+                    })
+            },
+        );
+        drop(sender.send((is_stdout, result)));
+    })
+}
+
+fn is_git_environment_name(name: &OsStr) -> bool {
+    name.to_string_lossy()
+        .get(..4)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("GIT_"))
+}
+
+fn abort_git(
+    child: &mut Child,
+    args: &[&str],
+    error: &str,
+    readers: [JoinHandle<()>; 2],
+) -> String {
+    let mut cleanup_errors = Vec::new();
+    if let Err(cleanup_error) = terminate_git(child) {
+        cleanup_errors.push(cleanup_error);
+    }
+    if let Err(cleanup_error) = join_readers(readers) {
+        cleanup_errors.push(cleanup_error);
+    }
+    if cleanup_errors.is_empty() {
+        format!("git {args:?}: {error}")
+    } else {
+        format!(
+            "git {args:?}: {error}; cleanup: {}",
+            cleanup_errors.join("; ")
+        )
+    }
+}
+
+fn terminate_git(child: &mut Child) -> Result<(), String> {
+    let mut errors = Vec::new();
+    if cfg!(windows) {
+        let process_id = child.id().to_string();
+        if let Err(error) = taskkill_tree(&process_id) {
+            errors.push(error);
+        }
+    }
+    match child.try_wait() {
+        Ok(Some(_)) => {}
+        Ok(None) => {
+            if let Err(error) = child.kill() {
+                errors.push(format!("kill failed: {error}"));
+            }
+        }
+        Err(error) => errors.push(format!("pre-kill wait failed: {error}")),
+    }
+    if let Err(error) = child.wait() {
+        errors.push(format!("wait failed: {error}"));
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("; "))
+    }
+}
+
+fn taskkill_tree(process_id: &str) -> Result<(), String> {
+    if !cfg!(windows) {
+        return Ok(());
+    }
+    let mut killer = Command::new("taskkill")
+        .args(["/T", "/F", "/PID", process_id])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|error| format!("taskkill failed to start: {error}"))?;
+    let started = Instant::now();
+    loop {
+        match killer.try_wait() {
+            Ok(Some(status)) if status.success() => return Ok(()),
+            Ok(Some(status)) => return Err(format!("taskkill exited {status}")),
+            Ok(None) if started.elapsed() < CLEANUP_TIMEOUT => {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            Ok(None) => {
+                let kill_error = killer.kill().err();
+                let wait_error = killer.wait().err();
+                return Err(format!(
+                    "taskkill timed out; kill_error={kill_error:?}; wait_error={wait_error:?}"
+                ));
+            }
+            Err(error) => {
+                let kill_error = killer.kill().err();
+                let wait_error = killer.wait().err();
+                return Err(format!(
+                    "taskkill wait failed: {error}; kill_error={kill_error:?}; wait_error={wait_error:?}"
+                ));
+            }
+        }
+    }
+}
+
+fn join_readers(readers: [JoinHandle<()>; 2]) -> Result<(), String> {
+    let mut errors = Vec::new();
+    for reader in readers {
+        let started = Instant::now();
+        while !reader.is_finished() && started.elapsed() < CLEANUP_TIMEOUT {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        if !reader.is_finished() {
+            errors.push("reader did not stop within cleanup timeout".to_owned());
+        } else if reader.join().is_err() {
+            errors.push("reader panicked".to_owned());
+        }
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("; "))
+    }
+}
+
+fn run_git_output(root: &Path, args: &[&str], max_bytes: usize) -> Result<Vec<u8>, String> {
+    let output = run_git_command(root, args, max_bytes)?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let status = output.status;
+    if !status.success() {
+        return Err(format!("git {args:?} failed ({status}): {}", stderr.trim()));
+    }
+    Ok(output.stdout)
+}
+
 #[cfg(test)]
 #[must_use]
 pub fn summarize(entries: &[RoundEntry], run_date: &str) -> RoundSummary {
