@@ -34,7 +34,7 @@ pub const SCHEMAS: &[(&str, &str)] = &[
         "crates/protocol/src/generated/envelope.rs",
     ),
     (
-        "protocol/tool-schema/tool-schema-1.0.json",
+        "protocol/tool-schema/tool-schema-1.1.json",
         "crates/protocol/src/generated/tool_schema.rs",
     ),
     (
@@ -49,6 +49,164 @@ pub const SCHEMAS: &[(&str, &str)] = &[
 
 /// 生成物文件头。刻意保持单行，避免 rustfmt 重新折行造成假 drift。
 pub const HEADER: &str = "// GENERATED — DO NOT EDIT. Source: `protocol/**/*.json`. Regenerate via `cargo run -p xtask -- codegen`.\n// Any manual edit here will be detected by `codegen --check` (CI gate).\n";
+
+const TOOL_SCHEMA_RUNTIME_TEMPLATE: &str = r#"}
+
+/// Deserialization wire used to enforce ToolSchema cross-field invariants.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+struct ToolSchemaWire {
+    version: String,
+    name: String,
+    description: String,
+    input: serde_json::Value,
+    output: serde_json::Value,
+    effect: ToolEffect,
+    reversibility: ToolReversibility,
+    risk_level: RiskLevel,
+    #[serde(default)]
+    requires_approval: bool,
+    #[serde(default)]
+    idempotent: bool,
+    #[serde(default)]
+    tags: Vec<String>,
+}
+
+/// Meta-schema for an individual tool.
+///
+/// Versions `1.0` and `1.1` are accepted during the compatibility window.
+/// `none_readonly` is rejected unless `effect` is `Read`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", try_from = "ToolSchemaWire")]
+#[non_exhaustive]
+pub struct ToolSchema {
+    pub version: String,
+    pub name: String,
+    pub description: String,
+    pub input: serde_json::Value,
+    pub output: serde_json::Value,
+    pub effect: ToolEffect,
+    pub reversibility: ToolReversibility,
+    pub risk_level: RiskLevel,
+    #[serde(default)]
+    pub requires_approval: bool,
+    #[serde(default)]
+    pub idempotent: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+}
+
+impl TryFrom<ToolSchemaWire> for ToolSchema {
+    type Error = String;
+
+    fn try_from(value: ToolSchemaWire) -> Result<Self, Self::Error> {
+        if value.version != "1.0" && value.version != "1.1" {
+            return Err(format!("unsupported ToolSchema version: {}", value.version));
+        }
+        if value.reversibility == ToolReversibility::NoneReadonly
+            && value.effect != ToolEffect::Read
+        {
+            return Err("none_readonly requires effect=read".to_owned());
+        }
+        Ok(Self {
+            version: value.version,
+            name: value.name,
+            description: value.description,
+            input: value.input,
+            output: value.output,
+            effect: value.effect,
+            reversibility: value.reversibility,
+            risk_level: value.risk_level,
+            requires_approval: value.requires_approval,
+            idempotent: value.idempotent,
+            tags: value.tags,
+        })
+    }
+}
+
+/// Deserialization wire used to enforce Adapter envelope collection invariants.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+struct AdapterToolEnvelopeV1Wire {
+    schema: ToolSchema,
+    capabilities: Vec<String>,
+    postconditions: Vec<serde_json::Value>,
+}
+
+/// Adapter-owned declaration wrapper from ADR-0104 D4.
+///
+/// Postconditions remain JSON values at the protocol boundary: the later
+/// read-only Adapter validator owns executable assertion parsing without forcing
+/// `assistant-protocol` to depend on the verify crate. `Eq` is omitted because
+/// JSON numbers are not an Eq domain.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", try_from = "AdapterToolEnvelopeV1Wire")]
+#[non_exhaustive]
+pub struct AdapterToolEnvelopeV1 {
+    pub schema: ToolSchema,
+    pub capabilities: Vec<String>,
+    pub postconditions: Vec<serde_json::Value>,
+}
+
+impl TryFrom<AdapterToolEnvelopeV1Wire> for AdapterToolEnvelopeV1 {
+    type Error = String;
+
+    fn try_from(value: AdapterToolEnvelopeV1Wire) -> Result<Self, Self::Error> {
+        if value.capabilities.is_empty() {
+            return Err("adapter capabilities must not be empty".to_owned());
+        }
+        for (index, capability) in value.capabilities.iter().enumerate() {
+            if !is_capability_id(capability) {
+                return Err(format!(
+                    "invalid capability id at index {index}: {capability}"
+                ));
+            }
+            if value
+                .capabilities
+                .iter()
+                .take(index)
+                .any(|existing| existing == capability)
+            {
+                return Err(format!(
+                    "duplicate capability id at index {index}: {capability}"
+                ));
+            }
+        }
+        if value.postconditions.is_empty() {
+            return Err("adapter postconditions must not be empty".to_owned());
+        }
+        for (index, postcondition) in value.postconditions.iter().enumerate() {
+            if postcondition
+                .get("kind")
+                .and_then(serde_json::Value::as_str)
+                .is_none_or(str::is_empty)
+            {
+                return Err(format!(
+                    "postcondition at index {index} needs non-empty kind"
+                ));
+            }
+        }
+        Ok(Self {
+            schema: value.schema,
+            capabilities: value.capabilities,
+            postconditions: value.postconditions,
+        })
+    }
+}
+
+fn is_capability_id(value: &str) -> bool {
+    let Some((layer, capability)) = value.split_once('.') else {
+        return false;
+    };
+    is_snake_segment(layer) && is_snake_segment(capability) && !capability.contains('.')
+}
+
+fn is_snake_segment(value: &str) -> bool {
+    let mut bytes = value.bytes();
+    matches!(bytes.next(), Some(b'a'..=b'z'))
+        && bytes.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+}
+"#;
 
 /// 写 String 失败时的错误文案。
 ///
@@ -119,7 +277,7 @@ pub fn render(schema_relative_path: &str, schema_text: &str) -> Result<String, S
     match file_name {
         "error-codes-1.0.json" => render_error_code(&value, title, version),
         "envelope-1.0.json" => render_envelope(&value, title, version),
-        "tool-schema-1.0.json" => render_tool_schema(&value, title, version),
+        "tool-schema-1.1.json" => render_tool_schema(&value, title, version),
         "capability-1.0.json" => Ok(render_capability()),
         "audit-event-1.0.json" => render_audit_event(&value),
         other => Err(format!("unknown schema file: {other}")),
@@ -407,7 +565,7 @@ fn emit_tool_envelope_impl(out: &mut String) {
     out.push_str("impl ToolEnvelope {\n    /// Build an ok=true envelope.\n    #[must_use]\n    pub fn ok(tool: String, task_id: String, step_id: String, data: serde_json::Value) -> Self {\n        Self {\n            version: \"1.0\".to_string(),\n            tool,\n            task_id,\n            step_id,\n            ok: true,\n            data: Some(EnvelopeData(data)),\n            untrusted: false,\n            source: None,\n            truncated: None,\n            evidence: None,\n            metrics: None,\n            error: None,\n        }\n    }\n\n    /// Build an ok=false envelope. evidence_ref auto-injected from ErrorDefinition.\n    #[must_use]\n    pub fn error(\n        tool: String,\n        task_id: String,\n        step_id: String,\n        code: ErrorCode,\n        message: impl Into<String>,\n    ) -> Self {\n        let def = ErrorDefinition::for_category(code);\n        Self {\n            version: \"1.0\".to_string(),\n            tool,\n            task_id,\n            step_id,\n            ok: false,\n            data: None,\n            untrusted: false,\n            source: None,\n            truncated: None,\n            evidence: None,\n            metrics: None,\n            error: Some(EnvelopeError {\n                code,\n                message: message.into(),\n                evidence_ref: Some(def.evidence_ref),\n                details: None,\n            }),\n        }\n    }\n}\n");
 }
 
-/// 渲染 `generated/tool_schema.rs`（schema：`protocol/tool-schema/tool-schema-1.0.json`）。
+/// 渲染 `generated/tool_schema.rs`（schema：`protocol/tool-schema/tool-schema-1.1.json`）。
 fn render_tool_schema(value: &Value, title: &str, version: &str) -> Result<String, String> {
     // schema 是「被读的文档」（铁律 2）：`title` / `version` 里若含换行，直接插进
     // `//!` 单行注释会把生成物切碎，故先清洗成单行文本。
@@ -419,7 +577,7 @@ fn render_tool_schema(value: &Value, title: &str, version: &str) -> Result<Strin
     let mut out = String::new();
     out.push_str(HEADER);
     out.push_str(
-        "//! Generated by `xtask codegen` from `protocol/tool-schema/tool-schema-1.0.json`.\n",
+        "//! Generated by `xtask codegen` from `protocol/tool-schema/tool-schema-1.1.json`.\n",
     );
     emit_line(
         &mut out,
@@ -442,7 +600,7 @@ fn render_tool_schema(value: &Value, title: &str, version: &str) -> Result<Strin
     for risk_level in &risk_levels {
         emit_line(&mut out, format_args!("    {},", pascal_case(risk_level)))?;
     }
-    out.push_str("}\n\n/// Meta-schema for an individual tool.\n#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]\n#[serde(rename_all = \"snake_case\")]\n#[non_exhaustive]\npub struct ToolSchema {\n    pub version: String,\n    pub name: String,\n    pub description: String,\n    pub input: serde_json::Value,\n    pub output: serde_json::Value,\n    pub effect: ToolEffect,\n    pub reversibility: ToolReversibility,\n    pub risk_level: RiskLevel,\n    #[serde(default)]\n    pub requires_approval: bool,\n    #[serde(default)]\n    pub idempotent: bool,\n    #[serde(default, skip_serializing_if = \"Vec::is_empty\")]\n    pub tags: Vec<String>,\n}\n");
+    out.push_str(TOOL_SCHEMA_RUNTIME_TEMPLATE);
     Ok(out)
 }
 
