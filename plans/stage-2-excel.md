@@ -12,10 +12,11 @@
 > 轮次证据，并把机器结果从 `0 / 1 / 0` 修正为 `5 / 6 / *`；同时登记
 > `automation-rounds` 读取工作区而非 `origin/main` 的 ADR-0054 D3 实现偏差。TASK-379
 > 已把计数源改为 main commit 快照并补五类 git 状态测试；TASK-379 已完成，PR #751 merge `fa87cae6`，main CI `44030156733` success。TASK-380 已完成 ToolSchema 1.1、`AdapterToolEnvelopeV1` 生成类型与 1.0/1.1 fail-closed 门禁，PR #753 merge `06a7fa9`，main CI `44048983726` success；通用只读 validator 仍待后续卡。
-> TASK-381 已完成 validator 实施前提只读审计并进入 Review。D2 projection 生成算法与
-> omission report、D3/D4 既有运行时语义到 binder JSON 的 mapping、D5 recipe JSON 联合和
-> D6 action/human/resume 字段仍需 Accepted 细化；`DRIFT-381-1` 只阻塞 validator 产品代码，
-> 不影响本次审计收口。下一步先补 ADR/spec clarification，再派发 validator implementation。
+> TASK-381 已完成 validator 实施前提只读审计，PR #755 merge `bbefb97`，post-merge main
+> CI `44057360138` success。D2 projection 生成算法与 omission report、D3/D4 既有运行时语义
+> 到 binder JSON 的 mapping、D5 recipe JSON 联合和 D6 action/human/resume 字段仍需
+> Accepted 细化；`DRIFT-381-1` 只阻塞 validator 产品代码，不影响本次审计收口。下一步先补
+> ADR/spec clarification，再派发 validator implementation。
 
 ## In scope
 
@@ -48,7 +49,7 @@
 | 2b evidence | **TASK-378 ✅** | automation/治理 | `tasks/TASK-378-automation-round-evidence-backfill-2026-11-16.md` | Done（PR #747 checks 21 success + 1 skipped；merge `bccc7c9`；main CI `43997916273` success；round 1~5 已补齐，计数来源偏差已登记） |
 | 2b evidence | **TASK-379 ✅** | automation/治理 | `tasks/TASK-379-automation-rounds-main-only-source.md` | Done（PR #751 checks 21 success + 1 skipped；merge `fa87cae6`；main CI `44030156733` success；main-only 快照 + 有界 Git 清理） |
 | Adapter schema | **TASK-380 ✅** | protocol/治理 | `tasks/TASK-380-protocol-tool-schema-1-1.md` | Done（PR #753 checks 21 success + 1 skipped；merge `06a7fa9`；main CI `44048983726` success；validator 后续） |
-| 1 preflight | **TASK-381 🔎** | 架构/治理 | `tasks/TASK-381-adapter-bundle-validator-readiness.md` | Review（审计完成；`DRIFT-381-1` 阻塞下游 validator：D2/D6、D3/D4 binder mapping、D5 recipe JSON 需先补 Accepted ADR/spec） |
+| 1 preflight | **TASK-381 ✅** | 架构/治理 | `tasks/TASK-381-adapter-bundle-validator-readiness.md` | Done（审计完成；PR #755 merge `bbefb97`，main CI `44057360138` success；`DRIFT-381-1` 阻塞下游 validator，下一步补 Accepted ADR/spec） |
 | 1 | 待派单 | 架构/治理 | dispatch 时创建 | 未开始（通用只读 Adapter bundle validator） |
 | 2 | 待派单 | Windows platform | dispatch 时创建 | 未开始（COM apartment/生命周期/回收与负向测试） |
 | 3 | 待派单 | Excel Adapter | dispatch 时创建 | 未开始（Adapter 数据包 + Protected View/AutoSave/interrupts） |
