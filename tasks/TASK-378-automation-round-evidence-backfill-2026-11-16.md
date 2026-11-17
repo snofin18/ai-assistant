@@ -1,6 +1,6 @@
 # TASK-378 2026-11-16 自动化轮次证据回填
 
-- 状态：Review
+- 状态：Done
 - 阶段：2　子阶段：2b Adapter contract decision　批次：治理池　依赖：TASK-373、TASK-374、TASK-375、TASK-377、TASK-376 Blocked
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031「一卡一文件」）。
 
@@ -146,6 +146,11 @@ git diff --check
 - `cargo run -p xtask -- check-ledger` → PASSED；plan date 2026-11-17、ledger 末行
   2026-11-16、current stage=阶段 2，0 error。
 - `git diff --check` → PASSED。
+- PR #747：base=`main`，21 success + 1 skipped / 0 failed / 0 pending，
+  `MERGEABLE` / `CLEAN`；merge
+  `bccc7c97f38c29e0323f86ad10574dc29d72e678`。
+- Post-merge main CI `43997916273`：success；Windows、macOS、Ubuntu 及各硬门禁均完成，
+  唯一 skip 为既有 Windows-only check 在非 Windows 上的条件跳过。
 
 ### 4. DoD 逐条核对
 
@@ -159,7 +164,7 @@ git diff --check
 - [x] 记录 `automation-rounds` 当前扫描工作区而非 `origin/main` 的 ADR-0054 D3
   实现偏差，并给出独立修复方案。
 - [x] 产品代码、schema、ADR、spec、adapters 与依赖零差异。
-- [ ] PR checks、merge 与 post-merge main CI 证据待合入后追加回填。
+- [x] PR checks、merge 与 post-merge main CI 证据已追加回填。
 
 ### 5. 偏差
 
