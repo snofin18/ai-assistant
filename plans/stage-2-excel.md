@@ -5,7 +5,7 @@
 > PR #736 / main CI `43839388347` 已回填；TASK-374 已把六项缺口收敛为可裁决 ADR/spec 决策包
 > 并完成 PR #738 / main CI `43863545233`；TASK-375 已完成 Excel COM
 > ownership/watchdog 生命周期回归，PR #740 / main CI `43894628610` 已回填。TASK-376 的
-> D1-D6 已由人类于 2026-11-17 一次性批准，ADR-0104 与三份 spec 已进入 Review；下一步是
+> D1-D6 已由人类于 2026-11-17 一次性批准，ADR-0104 与三份 spec 已合入；下一步是
 > protocol schema 1.1 + 通用只读 validator，而不是直接创建 Excel pack 或改运行时。
 > TASK-377 已完成运行日报告，
 > PR #744 / main CI `43942329504` 已回填。TASK-378 已补齐 2026-11-16 五份 automation
@@ -38,7 +38,7 @@
 | 1a | **TASK-373 ✅** | 架构/治理 | `tasks/TASK-373-adapter-contract-readiness-audit.md` | Done（PR #736 checks 11/11；merge `2fab59f`；main CI `43839388347` success） |
 | 1a.1 | **TASK-374 ✅** | 架构/治理 | `tasks/TASK-374-adapter-contract-adr-decision.md` | Done（PR #738 checks 11/11；merge `7e5805c`；main CI `43863545233` success） |
 | 1a.2 | **TASK-375 ✅** | Windows platform/eval | `tasks/TASK-375-excel-com-lifecycle-failure-evidence.md` | Done（PR #740 checks 11/11；merge `c5cb52f`；main CI `43894628610` success；5 场景 ownership/watchdog 回归） |
-| 1 gate | **TASK-376** | 架构/治理 | `tasks/TASK-376-adapter-contract-adr-spec-landing.md` | Review（D1-D6 已获人类批准；ADR-0104 Accepted；三份 spec 已同步；PR/CI 待回填） |
+| 1 gate | **TASK-376 ✅** | 架构/治理 | `tasks/TASK-376-adapter-contract-adr-spec-landing.md` | Done（D1-D6 已获人类批准；PR #749 checks 21 success + 1 skipped；merge `f29ae61`；main CI `44015728457` success） |
 | 2b evidence | **TASK-377 ✅** | automation/治理 | `tasks/TASK-377-automation-run-day-report-2026-11-16.md` | Done（PR #744 checks 11/11；merge `9b2b9d8`；main CI `43942329504` success；运行日报告） |
 | 2b evidence | **TASK-378 ✅** | automation/治理 | `tasks/TASK-378-automation-round-evidence-backfill-2026-11-16.md` | Done（PR #747 checks 21 success + 1 skipped；merge `bccc7c9`；main CI `43997916273` success；round 1~5 已补齐，计数来源偏差已登记） |
 | 1 | 待派单 | 架构/治理 | dispatch 时创建 | 未开始（ADR/spec：Adapter 六件套正式化） |
