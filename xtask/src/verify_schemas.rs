@@ -141,6 +141,25 @@ fn check_schema(repo_root: &Path, relative_path: &str, expected_version: &str) -
 
 /// `ToolSchema` 1.0 remains the compatibility baseline and must not gain 1.1 fields.
 fn check_tool_schema_v10(value: &Value) -> Option<String> {
+    if let Some(error) = check_tool_schema_v10_required_fields(value) {
+        return Some(error);
+    }
+    let Some(properties) = value.get("properties") else {
+        return Some("ToolSchema 1.0 missing properties object".to_owned());
+    };
+    if let Some(error) = check_tool_schema_v10_property_shape(properties) {
+        return Some(error);
+    }
+    if let Some(error) = check_tool_schema_v10_literals(properties) {
+        return Some(error);
+    }
+    if value.get("additionalProperties").and_then(Value::as_bool) != Some(false) {
+        return Some("ToolSchema 1.0 additionalProperties must be false".to_owned());
+    }
+    None
+}
+
+fn check_tool_schema_v10_required_fields(value: &Value) -> Option<String> {
     let Some(required) = value.get("required").and_then(Value::as_array) else {
         return Some("ToolSchema 1.0 missing required array".to_owned());
     };
@@ -158,21 +177,117 @@ fn check_tool_schema_v10(value: &Value) -> Option<String> {
             return Some(format!("ToolSchema 1.0 missing required field {field}"));
         }
     }
-    let Some(reversibility) = value
-        .get("properties")
-        .and_then(|properties| properties.get("reversibility"))
-        .and_then(|reversibility| reversibility.get("enum"))
-        .and_then(Value::as_array)
-    else {
-        return Some("ToolSchema 1.0 missing reversibility enum".to_owned());
+    None
+}
+
+fn check_tool_schema_v10_property_shape(properties: &Value) -> Option<String> {
+    let Some(property_map) = properties.as_object() else {
+        return Some("ToolSchema 1.0 properties must be an object".to_owned());
     };
-    if reversibility
-        .iter()
-        .any(|entry| entry.as_str() == Some("none_readonly"))
-    {
-        return Some("ToolSchema 1.0 must not contain none_readonly".to_owned());
+    if property_map.len() != 11 {
+        return Some(format!(
+            "ToolSchema 1.0 must define exactly 11 properties, found {}",
+            property_map.len()
+        ));
+    }
+    for field in [
+        "version",
+        "name",
+        "description",
+        "input",
+        "output",
+        "effect",
+        "reversibility",
+        "risk_level",
+        "requires_approval",
+        "idempotent",
+        "tags",
+    ] {
+        if properties.get(field).is_none() {
+            return Some(format!("ToolSchema 1.0 missing property {field}"));
+        }
+    }
+    for (field, expected_type) in [
+        ("version", "string"),
+        ("name", "string"),
+        ("description", "string"),
+        ("input", "object"),
+        ("effect", "string"),
+        ("reversibility", "string"),
+        ("risk_level", "string"),
+        ("requires_approval", "boolean"),
+        ("idempotent", "boolean"),
+        ("tags", "array"),
+    ] {
+        if properties
+            .get(field)
+            .and_then(|property| property.get("type"))
+            .and_then(Value::as_str)
+            != Some(expected_type)
+        {
+            return Some(format!(
+                "ToolSchema 1.0 property {field} type must be {expected_type}"
+            ));
+        }
     }
     None
+}
+
+fn check_tool_schema_v10_literals(properties: &Value) -> Option<String> {
+    if properties
+        .get("version")
+        .and_then(|version| version.get("const"))
+        .and_then(Value::as_str)
+        != Some("1.0")
+    {
+        return Some("ToolSchema 1.0 version const must be 1.0".to_owned());
+    }
+    if properties
+        .get("output")
+        .and_then(|output| output.get("$ref"))
+        .and_then(Value::as_str)
+        != Some("../envelope/envelope-1.0.json")
+    {
+        return Some("ToolSchema 1.0 output must reference envelope-1.0.json".to_owned());
+    }
+    if !property_enum_matches(properties, "effect", &["read", "write"]) {
+        return Some("ToolSchema 1.0 effect enum mismatch".to_owned());
+    }
+    if !property_enum_matches(
+        properties,
+        "reversibility",
+        &[
+            "l0_undo_stack",
+            "l1_snapshot",
+            "l2_compensation",
+            "l3_irreversible",
+        ],
+    ) {
+        return Some("ToolSchema 1.0 reversibility enum mismatch".to_owned());
+    }
+    if !property_enum_matches(
+        properties,
+        "risk_level",
+        &["low", "medium", "high", "critical"],
+    ) {
+        return Some("ToolSchema 1.0 risk_level enum mismatch".to_owned());
+    }
+    None
+}
+
+fn property_enum_matches(properties: &Value, field: &str, expected: &[&str]) -> bool {
+    let Some(actual) = properties
+        .get(field)
+        .and_then(|property| property.get("enum"))
+        .and_then(Value::as_array)
+    else {
+        return false;
+    };
+    actual.len() == expected.len()
+        && actual
+            .iter()
+            .zip(expected)
+            .all(|(entry, expected)| entry.as_str() == Some(*expected))
 }
 
 /// `ToolSchema` 1.1：支持 `none_readonly`，但只允许与 `effect=read` 组合；
@@ -376,6 +491,7 @@ mod tests {
     /// 用占位符替换而不是 `format!`，避免在 JSON 里逃逸大括号（可读性优先）。
     const ERROR_CODES_TEMPLATE: &str = r#"{"categories":[__DATA__],"properties":{"categories":{"items":{"properties":{"category":{"enum":[__ENUM__]}}}}}}"#;
     const CAPABILITY_TEMPLATE: &str = r#"{"capabilities":[__DATA__]}"#;
+    const TOOL_SCHEMA_V10_TEMPLATE: &str = r#"{"required":["version","name","description","input","output","effect","reversibility","risk_level"],"properties":{"version":{"type":"string","const":"1.0"},"name":{"type":"string"},"description":{"type":"string"},"input":{"type":"object"},"output":{"$ref":"../envelope/envelope-1.0.json"},"effect":{"type":"string","enum":["read","write"]},"reversibility":{"type":"string","enum":["l0_undo_stack","l1_snapshot","l2_compensation","l3_irreversible"]},"risk_level":{"type":"string","enum":["low","medium","high","critical"]},"requires_approval":{"type":"boolean"},"idempotent":{"type":"boolean"},"tags":{"type":"array"}},"additionalProperties":false}"#;
     const TOOL_SCHEMA_V11_TEMPLATE: &str = r#"{"required":["version","name","description","input","output","effect","reversibility","risk_level"],"properties":{"version":{"const":"1.1"},"effect":{"enum":["read","write"]},"reversibility":{"enum":["l0_undo_stack","none_readonly"]}},"allOf":[__RULE__],"definitions":{"AdapterToolEnvelopeV1":{"required":["schema","capabilities","postconditions"],"properties":{"capabilities":{"minItems":1},"postconditions":{"minItems":1}}}}}"#;
     const NONE_READONLY_RULE: &str = r#"{"if":{"properties":{"reversibility":{"const":"none_readonly"}}},"then":{"properties":{"effect":{"const":"read"}}}}"#;
 
@@ -415,6 +531,10 @@ mod tests {
     fn tool_schema_v11_value() -> Value {
         let json = TOOL_SCHEMA_V11_TEMPLATE.replace("__RULE__", NONE_READONLY_RULE);
         serde_json_lite::parse(&json).expect("ToolSchema 1.1 fixture must parse")
+    }
+
+    fn tool_schema_v10_value() -> Value {
+        serde_json_lite::parse(TOOL_SCHEMA_V10_TEMPLATE).expect("ToolSchema 1.0 fixture must parse")
     }
 
     /// 13 类且数据数组与 enum 同序 → 无发现项（正向基线，证明断言不是恒真）。
@@ -529,26 +649,39 @@ mod tests {
     }
 
     #[test]
-    fn test_tool_schema_v10_rejects_none_readonly_field_and_missing_required() {
-        let valid = serde_json_lite::parse(
-            r#"{"required":["version","name","description","input","output","effect","reversibility","risk_level"],"properties":{"reversibility":{"enum":["l0_undo_stack","l1_snapshot"]}}}"#,
-        )
-        .expect("fixture must parse");
+    fn test_tool_schema_v10_rejects_invalid_shape() {
+        let valid = tool_schema_v10_value();
         assert!(check_tool_schema_v10(&valid).is_none());
 
-        let with_none = serde_json_lite::parse(
-            r#"{"required":["version","name","description","input","output","effect","reversibility","risk_level"],"properties":{"reversibility":{"enum":["none_readonly"]}}}"#,
-        )
-        .expect("fixture must parse");
-        assert!(check_tool_schema_v10(&with_none).is_some());
+        let with_none_text = TOOL_SCHEMA_V10_TEMPLATE.replace("l3_irreversible", "none_readonly");
+        assert!(with_none_text.contains("none_readonly"));
+        let with_none = serde_json_lite::parse(&with_none_text).expect("fixture must parse");
+        let finding = check_tool_schema_v10(&with_none).expect("1.1 field must fail");
+        assert!(finding.contains("reversibility enum"), "{finding}");
 
         let missing_required =
             serde_json_lite::parse(r#"{"properties":{"reversibility":{"enum":[]}}}"#)
                 .expect("fixture must parse");
         assert!(check_tool_schema_v10(&missing_required).is_some());
+
+        let wrong_type = serde_json_lite::parse(&TOOL_SCHEMA_V10_TEMPLATE.replace(
+            r#""version":{"type":"string""#,
+            r#""version":{"type":"number""#,
+        ))
+        .expect("fixture must parse");
+        let finding = check_tool_schema_v10(&wrong_type).expect("wrong property type must fail");
+        assert!(finding.contains("property version type"), "{finding}");
+
+        let open_object = serde_json_lite::parse(&TOOL_SCHEMA_V10_TEMPLATE.replace(
+            r#""additionalProperties":false"#,
+            r#""additionalProperties":true"#,
+        ))
+        .expect("fixture must parse");
+        let finding = check_tool_schema_v10(&open_object).expect("open property map must fail");
+        assert!(finding.contains("additionalProperties"), "{finding}");
     }
 
-    /// 负向（真仓库形态）：仓库根指向一个不存在的目录 → 5 份 schema 全读不到
+    /// 负向（真仓库形态）：仓库根指向一个不存在的目录 → 6 份 schema 全读不到
     /// → 必须是阻塞级退出码 1，而不是 0（铁律 1：读不到 ≠ 通过）。
     #[test]
     fn test_run_returns_blocking_exit_code_when_schemas_unreadable() {

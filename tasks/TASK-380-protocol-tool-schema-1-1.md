@@ -15,7 +15,6 @@
 - `crates/protocol/src/generated/tool_schema.rs`
 - `crates/protocol/README.md`
 - `crates/protocol/src/lib.rs`
-- `.github/workflows/ci.yml`
 - `docs/spec/tool-schema.md`
 - `plans/stage-2-excel.md`
 - `PLAN.md`
@@ -111,6 +110,7 @@ git diff --check
 - `crates/protocol/src/generated/tool_schema.rs`
 - `crates/protocol/README.md`
 - `crates/protocol/src/lib.rs`
+- `crates/core/tests/planner_catalog_tests.rs`（CI 行为变化后的必要测试夹具对齐）
 - `docs/spec/tool-schema.md`
 - 计划/PLAN/README/LEDGER 的允许区域
 
@@ -119,13 +119,20 @@ git diff --check
 - `cargo run -p xtask -- verify-schemas` → 6 schemas / 0 error / PASSED。
 - `cargo run -p xtask -- codegen` → ToolSchema 生成物更新；随后 `codegen --check` → 0 drift。
 - `cargo fmt --all --check` → PASSED。
+- `cargo test --workspace --no-fail-fast` → exit 0，全部目标通过；需真实桌面/Paint 的既有测试按标注 ignored。
 - `cargo test -p xtask` → 522 passed / 0 failed。
-- `cargo clippy -p xtask --all-targets -- -D warnings` → exit 0，仅既有 unknown lint 提示。
-- `cargo test -p assistant-protocol` → 10 passed / 0 failed。
-- `cargo clippy -p assistant-protocol --all-targets -- -D warnings` → exit 0，仅既有 unknown lint 提示。
+- `cargo test -p assistant-protocol` → 12 passed / 0 failed。
+- `cargo test -p assistant-core --test planner_catalog_tests` → 2 passed / 0 failed。
+- `cargo clippy --workspace --all-targets -- -D warnings` → exit 0，仅既有 unknown lint 提示。
 - 负向测试覆盖：真实 `write + none_readonly` 反序列化被拒、未知版本、空 capabilities、
-  空 postconditions、缺 `none_readonly` read-only 规则、缺 envelope、未知字段。
-- `hygiene` → 0 error / 172 warning；新增提示为 `xtask/src/render.rs` 747 行超过软阈值。
+  非法/重复 capabilities、空 postconditions、缺失/空 postcondition kind、缺
+  `none_readonly` read-only 规则、缺 envelope、未知字段。
+- `verify-schemas` 单元测试同时锁住 1.0 的必填字段、字段类型、固定枚举、
+  `version=1.0`、output `$ref` 与 `additionalProperties=false`，删字段或放宽结构会失败。
+- `hygiene` → 0 error / 173 warning；新增提示为 `xtask/src/verify_schemas.rs` 超过软阈值，
+  `xtask/src/render.rs` 747 行提示继续存在。
+- `card-check` 0 error；`docscan` 0 error；`check-ledger`、`refscan`、`memory-counts`、
+  `adr-index`、`check-comments`、`cargo deny check` 均 exit 0。
 - PR / CI / merge 与 post-merge main CI 待提交后回填。
 
 ### 4. DoD 逐条核对
@@ -134,13 +141,17 @@ git diff --check
 - [x] `none_readonly` 只允许 read；1.1 meta-schema 明确该约束。
 - [x] `AdapterToolEnvelopeV1` 生成类型包含 ToolSchema、非空 capabilities/postconditions 语义说明。
 - [x] `codegen --check` 零 drift，1.0 文件保留且未改坏。
+- [x] `verify-schemas` 结构门禁锁住 1.0 字段类型、枚举、版本、output 引用与闭集约束。
 - [x] 负向测试覆盖 `write + none_readonly`、未知版本、空集合、缺规则/ envelope、unknown field。
 - [x] 文档明确通用 Adapter validator 与运行时强制仍未实现。
 - [ ] 全部门禁、PR checks、merge 与 post-merge main CI 回填。
 
 ### 5. 偏差
 
-- 无。
+- CI 发现既有 planner catalog 测试以 `version: 9.9` 构造“无效 schema”；新 protocol 门禁现在于
+  serde 阶段 fail-closed，旧夹具无法进入 planner 后置校验。已把版本拒绝保留在 protocol 测试，
+  并从 planner 测试移除该条旧夹具；`crates/core/tests/planner_catalog_tests.rs` 因此属于本次
+  必要测试对齐。生产断言未放宽。
 
 ### 6. 实施中发现的更合理做法（非漂移，已直接落地 + 理由）
 
@@ -151,6 +162,8 @@ git diff --check
 
 - 通用只读 Adapter bundle validator、projection 重新生成、现有四套 pack 收敛仍需后续卡。
 - `xtask/src/render.rs` 因内嵌生成模板达到 747 行；后续可把模板拆分到独立只读资源，避免继续膨胀。
+- `xtask/src/verify_schemas.rs` 因 schema 门禁与负向矩阵超过 600 行软阈值；后续可把测试矩阵
+  拆到独立模块或只读 fixture。
 
 ### 8. 新增长期记忆（FACT / PITFALL / REJECTED 条目原文，若无写“无”）
 
@@ -159,6 +172,8 @@ git diff --check
 ### 9. 给审阅者的关注点（风险最高的 1~3 处）
 
 - 1.1 是加法演进，1.0 文件必须继续保留；当前生成类型指向 1.1。
+- 1.0 结构门禁已从“只查 required/reversibility”收紧到字段类型、固定值、枚举和闭集约束；
+  审阅时重点确认没有因实现 mini-validator 而误伤合法 JSON Schema 形态。
 - `none_readonly` 的跨字段约束同时由 meta-schema `allOf` 与生成类型的 serde `TryFrom` 执行；
   `ToolSchema` 1.0/1.1 兼容窗口需继续在后续卡验证。
 - envelope postconditions 是跨边界 JSON，完整可执行性仍由后续 validator 负责。

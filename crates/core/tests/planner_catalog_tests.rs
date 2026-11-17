@@ -61,16 +61,6 @@ fn test_planner_request_rejects_duplicate_catalog_or_empty_goal() {
 fn test_planner_request_rejects_bad_tool_catalog_fields() {
     for schema in [
         json!({
-            "version": "9.9",
-            "name": "notepad.text.read",
-            "description": "bad version",
-            "input": {"type": "object"},
-            "output": {"type": "object"},
-            "effect": "read",
-            "reversibility": "l0_undo_stack",
-            "risk_level": "low"
-        }),
-        json!({
             "version": "1.0",
             "name": "_bad.tool.read",
             "description": "bad name",

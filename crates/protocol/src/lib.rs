@@ -53,6 +53,27 @@ pub use serde_json;
 mod tests {
     use super::*;
 
+    fn valid_adapter_schema_value() -> serde_json::Value {
+        serde_json::json!({
+            "version": "1.1",
+            "name": "notepad.file.read",
+            "description": "Read a Notepad document.",
+            "input": {"type": "object"},
+            "output": {"type": "object"},
+            "effect": "read",
+            "reversibility": "none_readonly",
+            "risk_level": "low"
+        })
+    }
+
+    fn valid_adapter_envelope_value() -> serde_json::Value {
+        serde_json::json!({
+            "schema": valid_adapter_schema_value(),
+            "capabilities": ["element.read_text"],
+            "postconditions": [{"kind": "state_unchanged"}]
+        })
+    }
+
     /// 不变量 4：13 类
     #[test]
     fn test_error_code_count_is_13() {
@@ -264,52 +285,88 @@ mod tests {
 
     #[test]
     fn test_adapter_tool_envelope_v1_rejects_invalid_cross_field_and_empty_sets() {
-        let write_none = serde_json::json!({
-            "schema": {
-                "version": "1.1",
-                "name": "notepad.file.write",
-                "description": "Invalid write with none_readonly.",
-                "input": {"type": "object"},
-                "output": {"type": "object"},
-                "effect": "write",
-                "reversibility": "none_readonly",
-                "risk_level": "low"
-            },
-            "capabilities": ["element.set_value"],
-            "postconditions": [{"kind": "state_changed"}]
-        });
+        let mut write_none = valid_adapter_envelope_value();
+        write_none
+            .get_mut("schema")
+            .and_then(serde_json::Value::as_object_mut)
+            .expect("schema object")
+            .insert("effect".to_string(), serde_json::json!("write"));
         assert!(serde_json::from_value::<AdapterToolEnvelopeV1>(write_none).is_err());
 
-        let empty_capabilities = serde_json::json!({
-            "schema": {
-                "version": "1.1",
-                "name": "notepad.file.read",
-                "description": "Empty capability set.",
-                "input": {"type": "object"},
-                "output": {"type": "object"},
-                "effect": "read",
-                "reversibility": "none_readonly",
-                "risk_level": "low"
-            },
-            "capabilities": [],
-            "postconditions": [{"kind": "state_unchanged"}]
-        });
+        let mut empty_capabilities = valid_adapter_envelope_value();
+        empty_capabilities
+            .as_object_mut()
+            .expect("envelope object")
+            .insert("capabilities".to_string(), serde_json::json!([]));
         assert!(serde_json::from_value::<AdapterToolEnvelopeV1>(empty_capabilities).is_err());
 
-        let empty_postconditions = serde_json::json!({
-            "schema": {
-                "version": "1.1",
-                "name": "notepad.file.read",
-                "description": "Empty postcondition set.",
-                "input": {"type": "object"},
-                "output": {"type": "object"},
-                "effect": "read",
-                "reversibility": "none_readonly",
-                "risk_level": "low"
-            },
-            "capabilities": ["element.read_text"],
-            "postconditions": []
-        });
+        let mut empty_postconditions = valid_adapter_envelope_value();
+        empty_postconditions
+            .as_object_mut()
+            .expect("envelope object")
+            .insert("postconditions".to_string(), serde_json::json!([]));
         assert!(serde_json::from_value::<AdapterToolEnvelopeV1>(empty_postconditions).is_err());
+    }
+
+    #[test]
+    fn test_tool_schema_rejects_unknown_version_and_field() {
+        let mut unknown_version = valid_adapter_schema_value();
+        unknown_version
+            .as_object_mut()
+            .expect("schema object")
+            .insert("version".to_string(), serde_json::json!("9.9"));
+        assert!(serde_json::from_value::<ToolSchema>(unknown_version).is_err());
+
+        let mut unknown_field = valid_adapter_schema_value();
+        unknown_field
+            .as_object_mut()
+            .expect("schema object")
+            .insert("unexpected".to_string(), serde_json::json!(true));
+        assert!(serde_json::from_value::<ToolSchema>(unknown_field).is_err());
+    }
+
+    #[test]
+    fn test_adapter_tool_envelope_v1_rejects_invalid_capabilities_and_postconditions() {
+        let mut invalid_capability = valid_adapter_envelope_value();
+        invalid_capability
+            .as_object_mut()
+            .expect("envelope object")
+            .insert(
+                "capabilities".to_string(),
+                serde_json::json!(["Element.read_text"]),
+            );
+        assert!(serde_json::from_value::<AdapterToolEnvelopeV1>(invalid_capability).is_err());
+
+        let mut duplicate_capability = valid_adapter_envelope_value();
+        duplicate_capability
+            .as_object_mut()
+            .expect("envelope object")
+            .insert(
+                "capabilities".to_string(),
+                serde_json::json!(["element.read_text", "element.read_text"]),
+            );
+        assert!(serde_json::from_value::<AdapterToolEnvelopeV1>(duplicate_capability).is_err());
+
+        let mut missing_postcondition_kind = valid_adapter_envelope_value();
+        missing_postcondition_kind
+            .as_object_mut()
+            .expect("envelope object")
+            .insert(
+                "postconditions".to_string(),
+                serde_json::json!([{"value": true}]),
+            );
+        assert!(
+            serde_json::from_value::<AdapterToolEnvelopeV1>(missing_postcondition_kind).is_err()
+        );
+
+        let mut empty_postcondition_kind = valid_adapter_envelope_value();
+        empty_postcondition_kind
+            .as_object_mut()
+            .expect("envelope object")
+            .insert(
+                "postconditions".to_string(),
+                serde_json::json!([{"kind": ""}]),
+            );
+        assert!(serde_json::from_value::<AdapterToolEnvelopeV1>(empty_postcondition_kind).is_err());
     }
 }
