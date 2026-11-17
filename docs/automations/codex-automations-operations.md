@@ -1,6 +1,6 @@
 # Codex 原生 scheduled tasks（automations）操作手册
 
-> 状态：Active　版本：**1.20**　日期：**2026-10-29**　变更历史见 §9
+> 状态：Active　版本：**1.21**　日期：**2026-11-17**　变更历史见 §9
 > 上位：**ADR-0029**（自动化的投递机制改回 Codex 官方 scheduled tasks，Supersedes ADR-0018 的「Windows 任务计划程序 + `codex exec`」方案）、`docs/automation-charter.md` §11
 > **用途**：把「Codex 桌面应用的 scheduled tasks / automations 怎么建、怎么改、怎么删、怎么跑、怎么暂停、怎么停」写成可以照着做的操作手册，并且**逐条标明证据强度** —— 哪些是官方写明的、哪些是本机实测的、哪些其实谁都不知道。
 > **适用范围**：本机（Windows + Codex 桌面应用 + 第三方 Responses 兼容端点）。**不覆盖** ChatGPT Work 云端任务；**不覆盖** `codex exec` CLI 路径（那是 ADR-0018 的旧方案，只在 §1 门禁不通过时作为回落手段出现）。
@@ -285,7 +285,8 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 ```text
 【开工第一步 —— 仓库级互斥锁（章程 §11.2 / G8）】
 1. 先看 .automation.lock：不存在 → 建（写清 owner / 起始时间 / 本任务 id）；
-   存在且 < 3 小时 → 视为别人在跑：本轮**不动代码、不提交**，只写 docs/automations/<运行日日期>-skipped.md 后结束；
+   存在且 < 3 小时 → 视为别人在跑：本轮**不动产品代码、不创建 round**，只追加 docs/automations/<运行日日期>-skipped.md
+   并在 JSONL 记录锁证据；该留痕仍须走 docs-only PR 合并后自删；
    存在且 ≥ 3 小时（陈旧）→ 把旧锁内容抄进本轮报告后再接管。
 2. 顺序落盘：先建锁，再改仓库；**结束前必删自己的锁**（失败也要在报告里写明锁是否残留）。
 
@@ -306,14 +307,15 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
    `lock_release` / `self_delete` 事件。日志不得写入仓库、不得写入凭据。
 6. 实际生成 `docs/automations/<运行日日期>-round-<N>.md` 的轮次，最终审计必须证明该文件
    已通过 PR 进入 `origin/main`：JSONL 的 `final_audit` 至少记录 round path、PR 号与 merge commit；
-   只存在工作区、本地分支或永久 JSONL 不算落地。锁冲突的 `-skipped` 分支不生成 round 文件，
-   改在 JSONL 记录 `decision=skipped`、锁证据、skipped path 与 `no_pr_no_merge`，不要求 round 落地。
+   只存在工作区、本地分支或永久 JSONL 不算落地。锁冲突的 `-skipped` 分支记录
+   `decision=skipped`、锁证据、skipped path、skipped PR 与 skipped merge，并显式写 `round_file=absent`；
+   skipped 留痕同样必须进入 `origin/main`，不得用 `no_pr_no_merge` 例外绕过。
 7. 自删前确认本地日志已写入并保留。Codex automation 条目仍必须在最后一步删除；
    仓库外日志**不随 automation 删除**，用于补齐自删后的取证缺口。
 ```
 
 > **建后硬核对（2026-09-28 复发修复）**：automation 创建成功后，不得直接等触发。必须立刻读取 `~/.codex/automations/<id>/automation.toml`，逐项确认 prompt 已包含上列固定块：
-> ① `.automation.lock` 的获取、跳过 / 陈旧接管与释放；② 运行日归属规则（00:00~07:59 归前一天、08:00~23:59 归当日）；③ `git fetch` 后运行 `xtask automation-rounds --run-date <运行日>`，由工具从固定 main 快照计算 `next_round` 与 `N_auto`；禁止再用 `git ls-tree` 手工计数。以 `N_auto`（自每日 08:00、最新人类 prompt 水位、历史 human round 的最晚边界以来 automation 轮次数）判断 `N_auto > N`（现行 5）时只补报告不写代码；命令 FAILED 时先修正缺失机制字段，不能手数兜底；④ 轮次文件禁止覆盖；⑤ 阶段报告触发条件；⑥ 先落地、再自删（锁冲突 skipped 按上述 JSONL 例外）；⑦ 仓库外持久日志路径与事件清单。
+> ① `.automation.lock` 的获取、跳过 / 陈旧接管与释放；② 运行日归属规则（00:00~07:59 归前一天、08:00~23:59 归当日）；③ `git fetch` 后运行 `xtask automation-rounds --run-date <运行日>`，由工具从固定 main 快照计算 `next_round` 与 `N_auto`；禁止再用 `git ls-tree` 手工计数。以 `N_auto`（自每日 08:00、最新人类 prompt 水位、历史 human round 的最晚边界以来 automation 轮次数）判断 `N_auto > N`（现行 5）时只补报告不写代码；命令 FAILED 时先修正缺失机制字段，不能手数兜底；④ 轮次文件禁止覆盖；⑤ 阶段报告触发条件；⑥ 先落地、再自删（round 或 skipped 留痕都必须有 PR/merge evidence）；⑦ 仓库外持久日志路径与事件清单。
 > **任一项缺失 → 立刻 `mode = "update"` 修正，或删除后重建；不得保留一个缺少固定块的 `ACTIVE` automation。** 反例（2026-09-27 运行日）：round-1 有轮次产物，round-2 / round-3 的 prompt 没带固定块，结果两轮都完成了产品工作却没有轮次记录；2026-09-28 已按 ADR-0054 的留痕原则 docs-only 回填。以后“建完就核对”是唯一可靠的收口点。
 
 > **人类会话自动 reset（2026-10-29，supersedes 2026-10-26 手工留痕口径；ADR-0099）**：
@@ -509,7 +511,7 @@ heartbeat 约定 18:04:23 → 实际 **18:04:24（约 +1 s）**。→ 计划时�
 | # | 章程要求（出处） | 在 automation 机制下怎么表达 | 结论 |
 |---|---|---|---|
 | 1 | 「运行日日期」：00:00–07:59 开始的运行归属上一运行日、08:00–23:59 归属当日（§11.3） | 机制没有「运行日」概念 → 把归属规则写进 prompt，由 agent 自己算日期 | ⚠ 可表达但脆弱：+2 分钟抖动（§5）会把贴近 08:00 的触发推过日界。**建议**计划时刻距 08:00 至少 10 分钟（ADR-0046 D5 起为建议、非硬规定） |
-| 2 | 无人值守轮数上限 `N` 由 §6 派生（现行 5）、每次调度运行 ≤2 轮（§11.3） | 轮次命名序号 = `docs/automations/<运行日日期>-round-*.md` 文件数 + 1；运行 `xtask automation-rounds --run-date <date>` 派生 `N_auto`、最近 human reset 和下一轮号 | ✅ 已机器化（ADR-0089；缺失机制字段按 automation fail-closed） |
+| 2 | 无人值守轮数上限 `N` 由 §6 派生（现行 5）、每次调度运行 ≤2 轮（§11.3） | 只运行 `xtask automation-rounds --run-date <date>`，以其 `next_round` 派生下一轮号（现有最大 round + 1），同时派生 `N_auto` 与最近 human reset；禁止手数文件 | ✅ 已机器化（ADR-0089；缺失机制字段按 automation fail-closed） |
 | 3 | `.automation.lock` 互斥（§11.2 / 门禁 G8） | 只能由 prompt 指示 agent 获取与释放 | ❌ **机制缺口**：没有包装脚本的 `try/finally`，agent 中途失败或被 kill 时**锁不会释放**。缓解：保留章程的「3 小时陈旧锁」规则；获取锁优先用 ADR-0028 的 `xtask guard acquire`（自带等待/超时/放弃通报），但 guard 是**文件级**，仓库级互斥仍需 `.automation.lock` |
 | 4 | 只在 `automation/<date>` 分支提交（§0 底线 1） | **local 模式**：要 agent 自己 `git switch -c automation/<date>`（prompt 指令，无强制；官方警告 local 模式会改你正在编辑的文件 `[官方]`）。**worktree 模式**：隔离好，但分支名由 Codex 决定、能否指定 `[未验证]` | ❌ **机制缺口**：无法机器强制分支名。缓解：阶段报告 §① 必须抄 `git log` 的分支与提交清单，人类核对 |
 | 5 | 不合并 main（§0 底线 1） | prompt 禁令 | ❌ 无机器强制。而且官方说组织策略允许时 automation 用 `approval_policy = "never"` `[官方]` → 无人值守时**不会向任何人确认**。缓解：自动化白名单只留文档/测试类可逆工作（章程 §2），沙箱取最窄（官方也是这么建议的 `[官方]`） |
@@ -661,3 +663,4 @@ heartbeat 约定 18:04:23 → 实际 **18:04:24（约 +1 s）**。→ 计划时�
 | 1.18 | 2026-10-29 | **human reset 改为会话自动水位（ADR-0099）**：`automation-rounds` 从 `CODEX_SESSION_ID` rollout 的 `thread_source` 自动区分 human / automation；人类会话写仓库外单文件 `$CODEX_HOME/automations/human-session-reset.v1`，automation 从该水位后累计。§4.1.c 固定块、建后硬核对与 2026-10-26 人工留痕段同步改写；历史 `机制=human` 轮次继续兼容但不再要求手工创建 | 用户 2026-10-29 明确裁决「N_auto 计算错误，每次人类会话都应该重置，而不是需要手工通知重置」；TASK-341 |
 | 1.19 | 2026-10-29 | **补齐每日 08:00 与每次 prompt reset**：§4.1.c 固定块、建后硬核对和 reset 说明改为每日 08:00、`UserPromptSubmit` hook 每条人类消息水位、历史 human round 三者的最晚值；记录 `.codex/hooks.json` / `.codex/hooks/user-prompt-reset.ps1` 与首次持久 trust 要求。1.18 的会话级描述保留为历史节点 | 用户 2026-10-29 最终确认「每天早上8点 N_auto 自动重置」且「和我有对话就自动重置，并不仅限于新开会话」；ADR-0099 / TASK-341 |
 | 1.20 | 2026-10-29 | **PowerShell 强制 guard + OpenAI 文档代理回退**：记录 `PreToolUse` 对所有 Bash 工具调用的显式 PowerShell `-EncodedCommand` 重写、Git 根路径解析与 trust 边界；官方文档直连失败时按环境代理 → 本机代理有界回退，并新增 `tools/fetch-openai-doc.ps1` | 用户 2026-10-29 要求彻底解决频繁误用 bash，并允许 OpenAI 页面直连失败后尝试代理；ADR-0100 / TASK-342 |
+| 1.21 | 2026-11-17 | **main-only 轮次来源收口**：固定 main commit 后只读 `docs/automations/` 直属文件；工具成为 `next_round` / `N_auto` 唯一来源；Git 子进程清空大小写不敏感的 `GIT_*`、禁用 lazy fetch、有界读取并 30 秒超时；round 与 skipped 留痕都必须有 PR/merge evidence | TASK-379 独立 review 发现旧 `git ls-tree` 手数、skipped 自删冲突与 Git 子进程边界后修订 |

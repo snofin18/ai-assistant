@@ -108,14 +108,16 @@ git diff --check
 
 ### 3. 验收输出摘要（命令 → 结果）
 
-- `cargo test -p xtask automation_rounds` → 23 passed / 0 failed。
-- `cargo test -p xtask` → 515 passed / 0 failed。
+- `cargo test -p xtask automation_rounds` → 25 passed / 0 failed。
+- `cargo test -p xtask` → 517 passed / 0 failed。
 - `cargo fmt --all --check` → PASSED；`clippy` → exit 0，仅保留 workspace 既有 `clippy::assert_is_empty` 未知 lint 提示。
 - 真实仓库 `automation-rounds --run-date 2026-11-16` → `rounds=5 / next=6`；临时未跟踪 `round-99` 探针下仍为 `5 / 6`，探针已删除。
 - 临时 git 仓库五类状态：merged=1；untracked/staged/branch-only/deleted-unmerged 均保持 1；`origin/main` 缺失时回退本地 `main`，存在但不可解析为 commit 或两者皆缺均 fail-closed。
-- 所有 Git 子进程清除继承的 `GIT_*`，设置 `GIT_TERMINAL_PROMPT=0`、`GIT_OPTIONAL_LOCKS=0`、`GIT_NO_LAZY_FETCH=1`；stdout/stderr 使用有界流式读取，30 秒超时会终止并 `wait()` 回收。
-- 独立 review 的阻塞项已在 follow-up 修复：promisor/lazy fetch 与污染 `GIT_*`、无界 `output()`/无超时、递归子目录误计、skipped 与最终审计冲突、旧 `git ls-tree` 硬核对均已处理；新增 nested、malformed、stdout-limit、origin 优先于不同 local main 的测试。
-- 文档门禁全部 PASSED：`hygiene` 0/170、`card-check` 0/88、`docscan` 0/175、`refscan` 0/0、`memory-counts` 0/1、`adr-index` 0/0、`check-ledger` 0/0；`git diff --check` 干净。
+- 所有 Git 子进程用 `env_clear()` 后只恢复非 `GIT_*` 环境，设置 `GIT_TERMINAL_PROMPT=0`、`GIT_OPTIONAL_LOCKS=0`、`GIT_NO_LAZY_FETCH=1`；stdout/stderr 有界流式读取，30 秒超时会终止进程树并回收 reader。
+- 大小写变体真实探针：把当前 PowerShell 子进程的 `git_dir` 指到不存在路径后，命令仍按 `-C` 读取仓库并得到 `5 / 6`。
+- 独立 review 两轮阻塞项均在 follow-up 处理：promisor/lazy fetch、大小写 `GIT_*` 污染、无界 `output()`/无超时、递归子目录、skipped 自删冲突、旧硬核对与 legacy suffix 过宽；新增 nested、malformed、unknown non-round、stdout-limit、origin 优先于不同 local main 和大小写环境名测试。
+- `docs/automations/` 只接受 `YYYY-MM-DD-round-N.md`、明确 fixed docs、`report*`、`skipped`、历史 `round-N-run1415` / `round-N-skipped`；其他文件 fail-closed。
+- 文档门禁全部 PASSED：`hygiene` 0/171、`card-check` 0/88、`docscan` 0/175、`refscan` 0/0、`memory-counts` 0/1、`adr-index` 0/0、`check-ledger` 0/0；`git diff --check` 干净。
 - PR checks、merge 与 post-merge main CI 待提交后回填。
 
 ### 4. DoD 逐条核对

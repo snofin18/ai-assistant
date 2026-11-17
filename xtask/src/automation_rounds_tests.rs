@@ -2,13 +2,13 @@
 #![allow(clippy::expect_used, clippy::indexing_slicing)]
 
 use super::{
-    Mechanism, ResetSource, RoundEntry, classify_mechanism, load_main_round_files,
-    parse_round_file_name, run_git_command, summarize, summarize_with_human_reset,
-    validate_run_date,
+    Mechanism, ResetSource, RoundEntry, classify_mechanism, is_git_environment_name,
+    load_main_round_files, parse_round_file_name, run_git_command, summarize,
+    summarize_with_human_reset, validate_run_date,
 };
 use crate::automation_session::{CurrentSession, HumanReset, SessionSource};
+use std::ffi::OsStr;
 use std::path::PathBuf;
-use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 fn entry(path: &str, run_date: &str, round: u32, mechanism: Mechanism) -> RoundEntry {
@@ -269,12 +269,7 @@ impl TempGitRepo {
     }
 
     fn git(&self, arguments: &[&str]) -> String {
-        let output = Command::new("git")
-            .arg("-C")
-            .arg(&self.root)
-            .args(arguments)
-            .output()
-            .expect("start git");
+        let output = run_git_command(&self.root, arguments, 1024 * 1024).expect("run git");
         assert!(
             output.status.success(),
             "git {arguments:?} failed: {}",
@@ -307,7 +302,13 @@ impl TempGitRepo {
 
 impl Drop for TempGitRepo {
     fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.root);
+        if let Err(error) = std::fs::remove_dir_all(&self.root) {
+            assert_eq!(
+                error.kind(),
+                std::io::ErrorKind::NotFound,
+                "cleanup failed: {error}"
+            );
+        }
     }
 }
 
@@ -316,6 +317,10 @@ fn test_main_source_ignores_worktree_index_and_unmerged_branch_only_files() {
     let repo = TempGitRepo::new();
     repo.write_round("2026-11-16-round-1.md", "automation");
     repo.write_round("archive/2026-11-16-round-99.md", "automation");
+    repo.write_round("2026-09-26-round-1-run1415.md", "automation");
+    repo.write_round("2026-11-02-round-5-skipped.md", "automation");
+    repo.write_round("2026-09-26-report.md", "automation");
+    repo.write_round("scheduler-acceptance-test.md", "automation");
     repo.commit_all("merged round");
     repo.git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
 
@@ -365,12 +370,31 @@ fn test_main_fallback_uses_local_main_only_when_origin_main_is_absent() {
 #[test]
 fn test_malformed_round_candidate_fails_closed() {
     let repo = TempGitRepo::new();
-    repo.write_round("2026-11-16-round-bad.md", "automation");
+    repo.write_round("2026-11-16-round-6-typo.md", "automation");
     repo.commit_all("malformed round");
     repo.git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
 
     let error = load_main_round_files(&repo.root).expect_err("malformed round must fail closed");
-    assert!(error.contains("round file name is invalid"), "{error}");
+    assert!(error.contains("unexpected file"), "{error}");
+}
+
+#[test]
+fn test_unexpected_non_round_file_fails_closed() {
+    let repo = TempGitRepo::new();
+    repo.write_round("notes.md", "automation");
+    repo.commit_all("unexpected document");
+    repo.git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
+
+    let error = load_main_round_files(&repo.root).expect_err("unknown file must fail closed");
+    assert!(error.contains("unexpected file"), "{error}");
+}
+
+#[test]
+fn test_git_environment_name_is_case_insensitive() {
+    for name in ["GIT_DIR", "git_dir", "Git_Work_Tree"] {
+        assert!(is_git_environment_name(OsStr::new(name)), "{name}");
+    }
+    assert!(!is_git_environment_name(OsStr::new("PATH")));
 }
 
 #[test]
