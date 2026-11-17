@@ -1,6 +1,6 @@
 # TASK-381 Adapter 六件套通用 validator 实施前契约审计
 
-- 状态：Review
+- 状态：Done
 - 阶段：2　子阶段：2b Adapter contract implementation　批次：1 validator gate　依赖：ADR-0104、TASK-376、TASK-380
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031「一卡一文件」）。
 
@@ -108,7 +108,9 @@ git diff --check
   current_stage=阶段 2。
 - `cargo run -p xtask -- memory-counts` → PASSED，0 error / 1 条既有 paint warning。
 - `git diff --check` → PASSED。
-- PR / CI / merge / post-merge main CI：待创建后回填。
+- PR #755：base=`main`，checks **21 success + 1 skipped**，pending 0 / failed 0，
+  `MERGEABLE` / `CLEAN`；merge `bbefb97cd12e42111a24029922acbcdd3d6c4173`；
+  post-merge main CI `44057360138` success。
 
 ### 4. DoD 逐条核对
 
@@ -116,7 +118,7 @@ git diff --check
 - [x] blocked 项列出缺失字段/算法/闭集及不实现理由。
 - [x] `DRIFT-381-1` 明确停止工作与后续 ADR/spec 建议。
 - [x] 产品代码、protocol、adapters、apps 与 CI 零差异。
-- [ ] 文档门禁、PR checks、merge 与 post-merge main CI 回填。
+- [x] 文档门禁、PR checks、merge 与 post-merge main CI 回填。
 
 ### 5. 偏差
 
