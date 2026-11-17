@@ -1,6 +1,6 @@
 # TASK-376 Adapter 六件套公共 ADR/spec 落地
 
-- 状态：Review
+- 状态：Done
 - 阶段：2　子阶段：2b Adapter contract decision　批次：1 gate　依赖：TASK-372、TASK-373、TASK-374、TASK-375
 
 ---
@@ -135,7 +135,10 @@ git diff --check
   复跑 PASSED（0 error / 1 条既有 paint warning）。
 - `protocol/**`、`adapters/**`、`crates/**`、`apps/**` 与依赖零差异；当前协议 1.0
   未修改，ADR-0104 目标契约与运行时实现边界保持显式。
-- PR checks、merge 与 post-merge main CI 待本实现 PR 完成后追加回填。
+- PR #749：base=`main`，21 success + 1 skipped / 0 failed / 0 pending，
+  `MERGEABLE` / `CLEAN`；merge
+  `f29ae61304b9e8de4314f49ea9ef47390d5bc994`。
+- Post-merge main CI `44015728457`：success。
 
 ### 4. DoD 逐条核对
 
@@ -144,7 +147,7 @@ git diff --check
 - [x] 每项 D1-D6 均有 owner、兼容窗口、fail-closed 负向判据和后续迁移步骤。
 - [x] 未批准项已解除，且没有把 protocol/validator 的未来实现写成当前生效。
 - [x] `protocol/**`、`adapters/**`、`crates/**`、`apps/**` 与产品代码零差异。
-- [ ] PR checks、merge 与 post-merge main CI 待实现 PR 完成后回填。
+- [x] PR checks、merge 与 post-merge main CI 已回填。
 
 ### 5. 偏差
 
