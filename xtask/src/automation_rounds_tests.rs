@@ -380,13 +380,19 @@ fn test_malformed_round_candidate_fails_closed() {
 
 #[test]
 fn test_unexpected_non_round_file_fails_closed() {
-    let repo = TempGitRepo::new();
-    repo.write_round("notes.md", "automation");
-    repo.commit_all("unexpected document");
-    repo.git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    for file_name in [
+        "notes.md",
+        "2026-11-16-report-2.md",
+        "2026-11-16-round-0-skipped.md",
+    ] {
+        let repo = TempGitRepo::new();
+        repo.write_round(file_name, "automation");
+        repo.commit_all("unexpected document");
+        repo.git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
 
-    let error = load_main_round_files(&repo.root).expect_err("unknown file must fail closed");
-    assert!(error.contains("unexpected file"), "{error}");
+        let error = load_main_round_files(&repo.root).expect_err("unknown file must fail closed");
+        assert!(error.contains("unexpected file"), "{file_name}: {error}");
+    }
 }
 
 #[test]

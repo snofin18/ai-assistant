@@ -116,7 +116,7 @@ git diff --check
 - 所有 Git 子进程用 `env_clear()` 后只恢复非 `GIT_*` 环境，设置 `GIT_TERMINAL_PROMPT=0`、`GIT_OPTIONAL_LOCKS=0`、`GIT_NO_LAZY_FETCH=1`；stdout/stderr 有界流式读取，30 秒超时会终止进程树并回收 reader。
 - 大小写变体真实探针：把当前 PowerShell 子进程的 `git_dir` 指到不存在路径后，命令仍按 `-C` 读取仓库并得到 `5 / 6`。
 - 独立 review 两轮阻塞项均在 follow-up 处理：promisor/lazy fetch、大小写 `GIT_*` 污染、无界 `output()`/无超时、递归子目录、skipped 自删冲突、旧硬核对与 legacy suffix 过宽；新增 nested、malformed、unknown non-round、stdout-limit、origin 优先于不同 local main 和大小写环境名测试。
-- `docs/automations/` 只接受 `YYYY-MM-DD-round-N.md`、明确 fixed docs、`report*`、`skipped`、历史 `round-N-run1415` / `round-N-skipped`；其他文件 fail-closed。
+- `docs/automations/` 只接受 `YYYY-MM-DD-round-N.md`、明确 fixed docs、精确 `report` / `report-run1415` / `skipped`，以及两条 ADR-0054 历史例外；`report-2`、`round-0-skipped` 与其他未知文件均 fail-closed。
 - 文档门禁全部 PASSED：`hygiene` 0/171、`card-check` 0/88、`docscan` 0/175、`refscan` 0/0、`memory-counts` 0/1、`adr-index` 0/0、`check-ledger` 0/0；`git diff --check` 干净。
 - PR checks、merge 与 post-merge main CI 待提交后回填。
 
@@ -132,7 +132,11 @@ git diff --check
 
 ### 5. 偏差
 
-- 无。
+- `DRIFT-379-1`（契约澄清）：正文写“non-round 文件 fail-closed”，但 main 中本来就有
+  report / skipped / ADR-0054 历史例外文件，字面执行会让正常仓库失败。
+  影响：需要把“非法文件”与“已定义的合法非 round 文件”区分。
+  决策：实现采用封闭允许集合，未知文件与 `report-2`、非法 skipped 等仍 fail-closed；
+  该裁决已在人类连续授权与两轮独立 review 后落地，不扩展公共接口。
 
 ### 6. 更合理做法
 

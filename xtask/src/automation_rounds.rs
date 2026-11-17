@@ -302,7 +302,7 @@ fn is_allowed_non_round_file(file_name: &str) -> bool {
     else {
         return false;
     };
-    is_iso_date(run_date) && (remainder.starts_with("-report") || remainder == "-skipped")
+    is_iso_date(run_date) && matches!(remainder, "-report" | "-report-run1415" | "-skipped")
 }
 
 fn is_allowed_legacy_round_file(file_name: &str) -> bool {
@@ -319,9 +319,8 @@ fn is_allowed_legacy_round_file(file_name: &str) -> bool {
         return false;
     };
     is_iso_date(run_date)
-        && !round.is_empty()
-        && round.bytes().all(|byte| byte.is_ascii_digit())
-        && matches!(suffix, "run1415" | "skipped")
+        && ((run_date == "2026-09-26" && round == "1" && suffix == "run1415")
+            || (run_date == "2026-11-02" && round == "5" && suffix == "skipped"))
 }
 
 fn resolve_main_ref(root: &Path) -> Result<String, String> {
@@ -557,7 +556,13 @@ fn taskkill_tree(process_id: &str) -> Result<(), String> {
                     "taskkill timed out; kill_error={kill_error:?}; wait_error={wait_error:?}"
                 ));
             }
-            Err(error) => return Err(format!("taskkill wait failed: {error}")),
+            Err(error) => {
+                let kill_error = killer.kill().err();
+                let wait_error = killer.wait().err();
+                return Err(format!(
+                    "taskkill wait failed: {error}; kill_error={kill_error:?}; wait_error={wait_error:?}"
+                ));
+            }
         }
     }
 }
