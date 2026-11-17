@@ -1,6 +1,6 @@
 # TASK-379 automation-rounds main 唯一计数源与轮次产物硬前置
 
-- 状态：Review
+- 状态：Done
 - 阶段：2　子阶段：2b Adapter contract decision　批次：治理池　依赖：ADR-0054、TASK-378　预估：S　难度：M
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031「一卡一文件」）。
 
@@ -118,7 +118,8 @@ git diff --check
 - 独立 review 两轮阻塞项均在 follow-up 处理：promisor/lazy fetch、大小写 `GIT_*` 污染、无界 `output()`/无超时、递归子目录、skipped 自删冲突、旧硬核对与 legacy suffix 过宽；新增 nested、malformed、unknown non-round、stdout-limit、origin 优先于不同 local main 和大小写环境名测试。
 - `docs/automations/` 只接受 `YYYY-MM-DD-round-N.md`、明确 fixed docs、精确 `report` / `report-run1415` / `skipped`，以及两条 ADR-0054 历史例外；`report-2`、`round-0-skipped` 与其他未知文件均 fail-closed。
 - 文档门禁全部 PASSED：`hygiene` 0/171、`card-check` 0/88、`docscan` 0/175、`refscan` 0/0、`memory-counts` 0/1、`adr-index` 0/0、`check-ledger` 0/0；`git diff --check` 干净。
-- PR checks、merge 与 post-merge main CI 待提交后回填。
+- PR #751 checks **21 success + 1 skipped**，failed 0 / pending 0，base=main，`MERGEABLE` / `CLEAN`；
+  merge `fa87cae65b19bde6593dc0b2fd812f98ce7079b6`，post-merge main CI `44030156733` success。
 
 ### 4. DoD 逐条核对
 
@@ -128,7 +129,7 @@ git diff --check
 - [x] human prompt reset 与主命令共享同一 main 快照语义。
 - [x] automation 手册把 round path、PR、merge 纳入自删硬前置。
 - [x] 产品代码、schema、ADR、spec、adapters 与依赖零差异。
-- [ ] 全部门禁、PR checks、merge 与 post-merge main CI 回填。
+- [x] 全部门禁、PR checks、merge 与 post-merge main CI 回填。
 
 ### 5. 偏差
 
@@ -146,6 +147,7 @@ git diff --check
 ### 7. 遗留问题
 
 - 调用方仍必须在运行 automation 前 fetch `origin/main`；网络失败由上层自动化启动门禁报告。
+- 未新增真实“Git 子进程挂起”集成测试；由有界读取、30 秒主超时、Windows 进程树终止和 5 秒清理上限兜底。
 
 ### 8. 新增长期记忆
 
