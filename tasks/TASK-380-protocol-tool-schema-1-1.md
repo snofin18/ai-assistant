@@ -1,6 +1,6 @@
 # TASK-380 protocol ToolSchema 1.1 与 Adapter tool envelope 生成类型
 
-- 状态：Review
+- 状态：Done
 - 阶段：2　子阶段：2b Adapter contract implementation　批次：治理池　依赖：ADR-0104、TASK-376　预估：S　难度：M
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031「一卡一文件」）。
 
@@ -133,7 +133,9 @@ git diff --check
   `xtask/src/render.rs` 747 行提示继续存在。
 - `card-check` 0 error；`docscan` 0 error；`check-ledger`、`refscan`、`memory-counts`、
   `adr-index`、`check-comments`、`cargo deny check` 均 exit 0。
-- PR / CI / merge 与 post-merge main CI 待提交后回填。
+- PR #753 checks **21 success + 1 skipped**，pending 0 / failed 0，base=main，
+  `MERGEABLE` / `CLEAN`；merge `06a7fa9a558a9f5bdd16b42edb7f395b4189070a`；
+  post-merge main CI `44048983726` success。
 
 ### 4. DoD 逐条核对
 
@@ -144,7 +146,7 @@ git diff --check
 - [x] `verify-schemas` 结构门禁锁住 1.0 字段类型、枚举、版本、output 引用与闭集约束。
 - [x] 负向测试覆盖 `write + none_readonly`、未知版本、空集合、缺规则/ envelope、unknown field。
 - [x] 文档明确通用 Adapter validator 与运行时强制仍未实现。
-- [ ] 全部门禁、PR checks、merge 与 post-merge main CI 回填。
+- [x] 全部门禁、PR checks、merge 与 post-merge main CI 回填。
 
 ### 5. 偏差
 
