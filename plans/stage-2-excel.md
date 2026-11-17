@@ -8,7 +8,9 @@
 > 公共 ADR/spec 落地候选卡登记，但因 D1-D6 六项人类裁决尚未给出而保持 **Blocked**；候选卡
 > 已由 PR #742 / merge `5ebbf9c` / main CI `43916429808` 合入。下一动作是完成该裁决，而不是
 > 直接创建 Excel pack、validator 或改公共接口。TASK-377 已完成运行日报告，
-> PR #744 / main CI `43942329504` 已回填。
+> PR #744 / main CI `43942329504` 已回填。TASK-378 已补齐 2026-11-16 五份 automation
+> 轮次证据，并把机器结果从 `0 / 1 / 0` 修正为 `5 / 6 / *`；同时登记
+> `automation-rounds` 读取工作区而非 `origin/main` 的 ADR-0054 D3 实现偏差。
 
 ## In scope
 
@@ -38,6 +40,7 @@
 | 1a.2 | **TASK-375 ✅** | Windows platform/eval | `tasks/TASK-375-excel-com-lifecycle-failure-evidence.md` | Done（PR #740 checks 11/11；merge `c5cb52f`；main CI `43894628610` success；5 场景 ownership/watchdog 回归） |
 | 1 gate | **TASK-376** | 架构/治理 | `tasks/TASK-376-adapter-contract-adr-spec-landing.md` | **Blocked**（PR #742 checks 11/11；merge `5ebbf9c`；main CI `43916429808` success；D1-D6 待人类裁决） |
 | 2b evidence | **TASK-377 ✅** | automation/治理 | `tasks/TASK-377-automation-run-day-report-2026-11-16.md` | Done（PR #744 checks 11/11；merge `9b2b9d8`；main CI `43942329504` success；运行日报告） |
+| 2b evidence | **TASK-378** | automation/治理 | `tasks/TASK-378-automation-round-evidence-backfill-2026-11-16.md` | Review（已补建 round 1~5；automation 来源 `5 / 6 / 5`、人类会话 `5 / 6 / 0`；待 PR/CI/merge 回填） |
 | 1 | 待派单 | 架构/治理 | dispatch 时创建 | 未开始（ADR/spec：Adapter 六件套正式化） |
 | 2 | 待派单 | Windows platform | dispatch 时创建 | 未开始（COM apartment/生命周期/回收与负向测试） |
 | 3 | 待派单 | Excel Adapter | dispatch 时创建 | 未开始（Adapter 数据包 + Protected View/AutoSave/interrupts） |
