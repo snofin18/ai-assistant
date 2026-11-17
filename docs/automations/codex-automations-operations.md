@@ -304,15 +304,16 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 5. 开工后在 `%USERPROFILE%\.codex\automations-logs\<运行日日期>\<automation-id>.jsonl`
    建立本地日志；至少追加 `start` / `gates` / `work` / `pr` / `ci` / `merge` /
    `lock_release` / `self_delete` 事件。日志不得写入仓库、不得写入凭据。
-6. 最终审计必须证明本轮 `docs/automations/<运行日日期>-round-<N>.md` 已通过 PR 进入
-   `origin/main`：JSONL 的 `final_audit` 至少记录 round path、PR 号与 merge commit；
-   只存在工作区、本地分支或永久 JSONL 不算落地。任一项缺失时必须保持 automation 存活并报告失败。
+6. 实际生成 `docs/automations/<运行日日期>-round-<N>.md` 的轮次，最终审计必须证明该文件
+   已通过 PR 进入 `origin/main`：JSONL 的 `final_audit` 至少记录 round path、PR 号与 merge commit；
+   只存在工作区、本地分支或永久 JSONL 不算落地。锁冲突的 `-skipped` 分支不生成 round 文件，
+   改在 JSONL 记录 `decision=skipped`、锁证据、skipped path 与 `no_pr_no_merge`，不要求 round 落地。
 7. 自删前确认本地日志已写入并保留。Codex automation 条目仍必须在最后一步删除；
    仓库外日志**不随 automation 删除**，用于补齐自删后的取证缺口。
 ```
 
 > **建后硬核对（2026-09-28 复发修复）**：automation 创建成功后，不得直接等触发。必须立刻读取 `~/.codex/automations/<id>/automation.toml`，逐项确认 prompt 已包含上列固定块：
-> ① `.automation.lock` 的获取、跳过 / 陈旧接管与释放；② 运行日归属规则（00:00~07:59 归前一天、08:00~23:59 归当日）；③ `git fetch` + `git ls-tree --name-only origin/main -- docs/automations/` 计算轮次命名序号，并运行 `xtask automation-rounds --run-date <运行日>`；以 `N_auto`（自每日 08:00、最新人类 prompt 水位、历史 human round 的最晚边界以来 automation 轮次数）判断 `N_auto > N`（现行 5）时只补报告不写代码；命令 FAILED 时先修正缺失机制字段，不能手数兜底；④ 轮次文件禁止覆盖；⑤ 阶段报告触发条件；⑥ 先落地、再自删；⑦ 仓库外持久日志路径与事件清单。
+> ① `.automation.lock` 的获取、跳过 / 陈旧接管与释放；② 运行日归属规则（00:00~07:59 归前一天、08:00~23:59 归当日）；③ `git fetch` 后运行 `xtask automation-rounds --run-date <运行日>`，由工具从固定 main 快照计算 `next_round` 与 `N_auto`；禁止再用 `git ls-tree` 手工计数。以 `N_auto`（自每日 08:00、最新人类 prompt 水位、历史 human round 的最晚边界以来 automation 轮次数）判断 `N_auto > N`（现行 5）时只补报告不写代码；命令 FAILED 时先修正缺失机制字段，不能手数兜底；④ 轮次文件禁止覆盖；⑤ 阶段报告触发条件；⑥ 先落地、再自删（锁冲突 skipped 按上述 JSONL 例外）；⑦ 仓库外持久日志路径与事件清单。
 > **任一项缺失 → 立刻 `mode = "update"` 修正，或删除后重建；不得保留一个缺少固定块的 `ACTIVE` automation。** 反例（2026-09-27 运行日）：round-1 有轮次产物，round-2 / round-3 的 prompt 没带固定块，结果两轮都完成了产品工作却没有轮次记录；2026-09-28 已按 ADR-0054 的留痕原则 docs-only 回填。以后“建完就核对”是唯一可靠的收口点。
 
 > **人类会话自动 reset（2026-10-29，supersedes 2026-10-26 手工留痕口径；ADR-0099）**：

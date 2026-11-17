@@ -3,7 +3,8 @@
 
 use super::{
     Mechanism, ResetSource, RoundEntry, classify_mechanism, load_main_round_files,
-    parse_round_file_name, summarize, summarize_with_human_reset, validate_run_date,
+    parse_round_file_name, run_git_command, summarize, summarize_with_human_reset,
+    validate_run_date,
 };
 use crate::automation_session::{CurrentSession, HumanReset, SessionSource};
 use std::path::PathBuf;
@@ -283,11 +284,12 @@ impl TempGitRepo {
     }
 
     fn write_round(&self, file_name: &str, mechanism: &str) {
-        std::fs::write(
-            self.root.join("docs/automations").join(file_name),
-            format!("# round\n\n- 机制：{mechanism}（测试）\n"),
-        )
-        .expect("write round file");
+        let path = self.root.join("docs/automations").join(file_name);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).expect("create round parent directory");
+        }
+        std::fs::write(path, format!("# round\n\n- 机制：{mechanism}（测试）\n"))
+            .expect("write round file");
     }
 
     fn commit_all(&self, message: &str) {
@@ -313,6 +315,7 @@ impl Drop for TempGitRepo {
 fn test_main_source_ignores_worktree_index_and_unmerged_branch_only_files() {
     let repo = TempGitRepo::new();
     repo.write_round("2026-11-16-round-1.md", "automation");
+    repo.write_round("archive/2026-11-16-round-99.md", "automation");
     repo.commit_all("merged round");
     repo.git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
 
@@ -341,6 +344,11 @@ fn test_main_fallback_uses_local_main_only_when_origin_main_is_absent() {
     repo.commit_all("local main round");
     repo.git(&["update-ref", "refs/heads/main", "HEAD"]);
 
+    repo.write_round("2026-11-16-round-2.md", "automation");
+    repo.commit_all("origin main round");
+    repo.git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    repo.assert_main_len(2, "origin/main must win over local main");
+
     let tree = repo.git(&["show", "-s", "--format=%T", "HEAD"]);
     repo.git(&["update-ref", "refs/remotes/origin/main", tree.trim()]);
     let error = load_main_round_files(&repo.root)
@@ -352,6 +360,25 @@ fn test_main_fallback_uses_local_main_only_when_origin_main_is_absent() {
     repo.git(&["update-ref", "-d", "refs/remotes/origin/main"]);
 
     repo.assert_main_len(1, "fallback to local main");
+}
+
+#[test]
+fn test_malformed_round_candidate_fails_closed() {
+    let repo = TempGitRepo::new();
+    repo.write_round("2026-11-16-round-bad.md", "automation");
+    repo.commit_all("malformed round");
+    repo.git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
+
+    let error = load_main_round_files(&repo.root).expect_err("malformed round must fail closed");
+    assert!(error.contains("round file name is invalid"), "{error}");
+}
+
+#[test]
+fn test_git_stdout_limit_fails_closed() {
+    let repo = TempGitRepo::new();
+    let error = run_git_command(&repo.root, &["--version"], 1)
+        .expect_err("over-limit git output must fail closed");
+    assert!(error.contains("pipe output exceeded 1 bytes"), "{error}");
 }
 
 #[test]

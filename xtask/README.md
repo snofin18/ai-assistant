@@ -12,7 +12,8 @@
   水位与历史 `机制=human` 轮次的最晚值，再计算 `N_auto` 与下一轮次；缺机制字段按
   automation fail-closed（ADR-0088 / ADR-0089 / ADR-0099）。轮次枚举只读一次解析出的
   `origin/main` commit 快照（仅缺失时回退本地 `main`），使用 `git ls-tree` + `git show`；
-  工作区、index、untracked 和未合并分支不得影响计数（ADR-0054 D3）
+  只读 `docs/automations/` 直属文件，工作区、index、untracked、子目录和未合并分支不得影响计数（ADR-0054 D3）。
+  Git 子进程清除继承的 `GIT_*`、禁用 lazy fetch，输出流有硬上限，30 秒超时会终止并回收。
 - `automation-reset`：供项目级 `UserPromptSubmit` hook 调用的静默 reset 入口；人类每次提交
   prompt 时更新仓库外单文件水位，automation 会话 no-op（ADR-0099）
 - `guard`：文件改写互斥锁（ADR-0028），操作 = `acquire` / `release` / `status` / `reap`

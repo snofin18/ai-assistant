@@ -20,18 +20,23 @@
 //! `docs/adr/0089-unattended-round-cap-derived-and-human-reset.md`、
 //! `docs/automation-charter.md` §11.3、`docs/automations/2026-10-26-round-1.md`。
 
+use std::io::Read;
 use std::path::Path;
-use std::process::{Command, Output};
+use std::process::{Child, Command, ExitStatus, Output, Stdio};
+use std::sync::mpsc::{self, Sender};
+use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
 
 use crate::automation_session::{
     self, CurrentSession, HumanReset, SessionSource, codex_home_from_environment,
 };
 
-const AUTOMATION_DIRECTORY: &str = "docs/automations";
+const AUTOMATION_PATHSPEC: &str = "docs/automations/";
 const MAX_MAIN_TREE_BYTES: usize = 4 * 1024 * 1024;
 const MAX_ROUND_FILES: usize = 8_192;
 const MAX_ROUND_FILE_BYTES: usize = 2 * 1024 * 1024;
 const MAX_GIT_STDERR_BYTES: usize = 64 * 1024;
+const GIT_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// 一个轮次文件的机制。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -220,28 +225,42 @@ fn load_main_round_files(repo_root: &Path) -> Result<Vec<RoundEntry>, String> {
     let main_commit = resolve_main_ref(repo_root)?;
     let args = [
         "ls-tree",
-        "-r",
         "--name-only",
         "-z",
         &main_commit,
         "--",
-        AUTOMATION_DIRECTORY,
+        AUTOMATION_PATHSPEC,
     ];
     let listing = run_git_output(repo_root, &args, MAX_MAIN_TREE_BYTES)?;
     let mut entries = Vec::new();
     let paths = listing
         .split(|byte| *byte == 0)
         .filter(|path| !path.is_empty());
-    for raw_path in paths {
-        if entries.len() >= MAX_ROUND_FILES {
+    for (index, raw_path) in paths.enumerate() {
+        if index >= MAX_ROUND_FILES {
             return Err(format!("main round file count exceeds {MAX_ROUND_FILES}"));
         }
         let path = std::str::from_utf8(raw_path)
             .map_err(|error| format!("git ls-tree returned non-UTF-8 path: {error}"))?;
-        let Some(file_name) = Path::new(path).file_name().and_then(|name| name.to_str()) else {
-            continue;
-        };
+        let file_name = path
+            .strip_prefix("docs/automations/")
+            .filter(|name| !name.contains('/'))
+            .ok_or_else(|| format!("main round path is outside the direct directory: {path}"))?;
         let Some((run_date, round)) = parse_round_file_name(file_name) else {
+            if file_name.contains("-round-") {
+                let is_legacy_suffix = file_name
+                    .split_once("-round-")
+                    .and_then(|(_, tail)| tail.strip_suffix(".md"))
+                    .and_then(|tail| tail.split_once('-'))
+                    .is_some_and(|(round, suffix)| {
+                        !round.is_empty()
+                            && round.bytes().all(|byte| byte.is_ascii_digit())
+                            && !suffix.is_empty()
+                    });
+                if !is_legacy_suffix {
+                    return Err(format!("main round file name is invalid: {path}"));
+                }
+            }
             continue;
         };
         let object = format!("{main_commit}:{path}");
@@ -296,21 +315,136 @@ fn git_ref_exists(root: &Path, reference: &str) -> Result<bool, String> {
 }
 
 fn run_git_command(root: &Path, args: &[&str], max_bytes: usize) -> Result<Output, String> {
-    let output = Command::new("git")
+    let mut command = Command::new("git");
+    for (key, _) in std::env::vars_os() {
+        if key.to_string_lossy().starts_with("GIT_") {
+            command.env_remove(key);
+        }
+    }
+    command
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_OPTIONAL_LOCKS", "0")
+        .env("GIT_NO_LAZY_FETCH", "1")
         .arg("-C")
         .arg(root)
         .args(args)
-        .output()
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = command
+        .spawn()
         .map_err(|error| format!("failed to start git {args:?}: {error}"))?;
-    if output.stderr.len() > MAX_GIT_STDERR_BYTES {
-        return Err(format!("git {args:?} stderr exceeded limit"));
+    let (sender, receiver) = mpsc::channel();
+    let readers = [
+        spawn_bounded_reader(child.stdout.take(), max_bytes, true, sender.clone()),
+        spawn_bounded_reader(child.stderr.take(), MAX_GIT_STDERR_BYTES, false, sender),
+    ];
+    let started = Instant::now();
+    let mut stdout = None;
+    let mut stderr = None;
+    while stdout.is_none() || stderr.is_none() {
+        let remaining = GIT_TIMEOUT.saturating_sub(started.elapsed());
+        match receiver.recv_timeout(remaining) {
+            Ok((is_stdout, Ok(bytes))) if is_stdout && stdout.is_none() => stdout = Some(bytes),
+            Ok((is_stdout, Ok(bytes))) if !is_stdout && stderr.is_none() => stderr = Some(bytes),
+            Ok((_, Ok(_))) => {
+                return Err(abort_git(&mut child, args, "duplicate pipe", readers));
+            }
+            Ok((_, Err(error))) => return Err(abort_git(&mut child, args, &error, readers)),
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                return Err(abort_git(&mut child, args, "timed out", readers));
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                return Err(abort_git(
+                    &mut child,
+                    args,
+                    "pipe readers stopped before completion",
+                    readers,
+                ));
+            }
+        }
     }
-    if output.stdout.len() > max_bytes {
-        return Err(format!("git {args:?} stdout exceeded {max_bytes} bytes"));
+    let status = wait_git(&mut child, started, args, readers)?;
+    Ok(Output {
+        status,
+        stdout: stdout.ok_or_else(|| format!("git {args:?} has no stdout"))?,
+        stderr: stderr.ok_or_else(|| format!("git {args:?} has no stderr"))?,
+    })
+}
+
+fn wait_git(
+    child: &mut Child,
+    started: Instant,
+    args: &[&str],
+    readers: [JoinHandle<()>; 2],
+) -> Result<ExitStatus, String> {
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if started.elapsed() < GIT_TIMEOUT => {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            Ok(None) => {
+                return Err(abort_git(child, args, "timed out", readers));
+            }
+            Err(error) => {
+                return Err(abort_git(
+                    child,
+                    args,
+                    &format!("wait failed: {error}"),
+                    readers,
+                ));
+            }
+        }
+    };
+    for reader in readers {
+        reader
+            .join()
+            .map_err(|_| format!("git {args:?} pipe reader panicked"))?;
     }
-    Ok(output)
+    Ok(status)
+}
+
+fn spawn_bounded_reader<R: Read + Send + 'static>(
+    reader: Option<R>,
+    limit: usize,
+    is_stdout: bool,
+    sender: Sender<(bool, Result<Vec<u8>, String>)>,
+) -> JoinHandle<()> {
+    std::thread::spawn(move || {
+        let mut output = Vec::new();
+        let result = reader.map_or_else(
+            || Err("pipe unavailable".to_owned()),
+            |reader| {
+                reader
+                    .take(limit as u64 + 1)
+                    .read_to_end(&mut output)
+                    .map_err(|error| format!("read failed: {error}"))
+                    .and_then(|_| {
+                        if output.len() > limit {
+                            Err(format!("pipe output exceeded {limit} bytes"))
+                        } else {
+                            Ok(output)
+                        }
+                    })
+            },
+        );
+        let _ = sender.send((is_stdout, result));
+    })
+}
+
+fn abort_git(
+    child: &mut Child,
+    args: &[&str],
+    error: &str,
+    readers: [JoinHandle<()>; 2],
+) -> String {
+    let _ = child.kill();
+    let _ = child.wait();
+    for reader in readers {
+        let _ = reader.join();
+    }
+    format!("git {args:?}: {error}")
 }
 
 fn run_git_output(root: &Path, args: &[&str], max_bytes: usize) -> Result<Vec<u8>, String> {
