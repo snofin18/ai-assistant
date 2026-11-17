@@ -21,10 +21,17 @@
 //! `docs/automation-charter.md` §11.3、`docs/automations/2026-10-26-round-1.md`。
 
 use std::path::Path;
+use std::process::{Command, Output};
 
 use crate::automation_session::{
     self, CurrentSession, HumanReset, SessionSource, codex_home_from_environment,
 };
+
+const AUTOMATION_DIRECTORY: &str = "docs/automations";
+const MAX_MAIN_TREE_BYTES: usize = 4 * 1024 * 1024;
+const MAX_ROUND_FILES: usize = 8_192;
+const MAX_ROUND_FILE_BYTES: usize = 2 * 1024 * 1024;
+const MAX_GIT_STDERR_BYTES: usize = 64 * 1024;
 
 /// 一个轮次文件的机制。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -140,7 +147,7 @@ pub fn run(
     use crate::{EXIT_FINDINGS, EXIT_OK};
 
     validate_run_date(run_date)?;
-    let entries = scan_round_files(&repo_root.join("docs/automations"))?;
+    let entries = load_main_round_files(repo_root)?;
     let current_session = automation_session::current_session_from_environment()?;
     let human_reset = prepare_human_reset(&entries, current_session.as_ref())?;
     let summary = summarize_with_human_reset(
@@ -169,7 +176,7 @@ pub fn record_human_prompt(repo_root: &Path) -> Result<u8, String> {
     if current_session.source == SessionSource::Automation {
         return Ok(crate::EXIT_OK);
     }
-    let entries = scan_round_files(&repo_root.join("docs/automations"))?;
+    let entries = load_main_round_files(repo_root)?;
     let boundary = latest_boundary(&entries);
     let reset = HumanReset {
         session_id: current_session.session_id,
@@ -208,36 +215,114 @@ fn prepare_human_reset(
     }
 }
 
-/// 从目录扫描并排序轮次文件。
-fn scan_round_files(directory: &Path) -> Result<Vec<RoundEntry>, String> {
-    let read_dir = std::fs::read_dir(directory)
-        .map_err(|error| format!("读 {} 失败：{error}", directory.display()))?;
+/// 从固定 main commit 快照读取并排序轮次文件。
+fn load_main_round_files(repo_root: &Path) -> Result<Vec<RoundEntry>, String> {
+    let main_commit = resolve_main_ref(repo_root)?;
+    let args = [
+        "ls-tree",
+        "-r",
+        "--name-only",
+        "-z",
+        &main_commit,
+        "--",
+        AUTOMATION_DIRECTORY,
+    ];
+    let listing = run_git_output(repo_root, &args, MAX_MAIN_TREE_BYTES)?;
     let mut entries = Vec::new();
-    for item in read_dir {
-        let item = item.map_err(|error| format!("遍历 {} 失败：{error}", directory.display()))?;
-        let path = item.path();
-        let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
+    let paths = listing
+        .split(|byte| *byte == 0)
+        .filter(|path| !path.is_empty());
+    for raw_path in paths {
+        if entries.len() >= MAX_ROUND_FILES {
+            return Err(format!("main round file count exceeds {MAX_ROUND_FILES}"));
+        }
+        let path = std::str::from_utf8(raw_path)
+            .map_err(|error| format!("git ls-tree returned non-UTF-8 path: {error}"))?;
+        let Some(file_name) = Path::new(path).file_name().and_then(|name| name.to_str()) else {
             continue;
         };
         let Some((run_date, round)) = parse_round_file_name(file_name) else {
             continue;
         };
-        let content = std::fs::read_to_string(&path)
-            .map_err(|error| format!("读 {} 失败：{error}", path.display()))?;
+        let object = format!("{main_commit}:{path}");
+        let content = run_git_output(repo_root, &["show", &object], MAX_ROUND_FILE_BYTES)?;
+        let content = String::from_utf8(content)
+            .map_err(|error| format!("main file {path} is not valid UTF-8: {error}"))?;
         entries.push(RoundEntry {
-            path: format!("docs/automations/{file_name}"),
+            path: path.to_owned(),
             run_date,
             round,
             mechanism: classify_mechanism(&content),
         });
     }
-    entries.sort_by(|left, right| {
-        (&left.run_date, left.round, &left.path).cmp(&(&right.run_date, right.round, &right.path))
-    });
+    entries.sort_by_key(|entry| (entry.run_date.clone(), entry.round, entry.path.clone()));
     Ok(entries)
 }
 
-/// 汇总最近 human reset 与指定运行日下一轮号。
+fn resolve_main_ref(root: &Path) -> Result<String, String> {
+    let candidate = if git_ref_exists(root, "refs/remotes/origin/main")? {
+        "refs/remotes/origin/main"
+    } else if git_ref_exists(root, "refs/heads/main")? {
+        "refs/heads/main"
+    } else {
+        return Err("no usable main ref: neither origin/main nor main exists".to_owned());
+    };
+    let revision = format!("{candidate}^{{commit}}");
+    let bytes = run_git_output(root, &["rev-parse", "--verify", &revision], 128)
+        .map_err(|error| format!("no usable main ref {candidate}: {error}"))?;
+    let commit = std::str::from_utf8(&bytes)
+        .map_err(|_| format!("no usable main ref {candidate}: non-UTF-8 commit hash"))?
+        .trim();
+    if commit.is_empty() || !commit.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(format!(
+            "no usable main ref {candidate}: invalid commit `{commit}`"
+        ));
+    }
+    Ok(commit.to_owned())
+}
+
+fn git_ref_exists(root: &Path, reference: &str) -> Result<bool, String> {
+    let args = ["show-ref", "--verify", "--quiet", reference];
+    let output = run_git_command(root, &args, 128)?;
+    match output.status.code() {
+        Some(0) => Ok(true),
+        Some(1) if output.stderr.is_empty() => Ok(false),
+        _ => Err(format!(
+            "git {args:?} failed ({}): {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        )),
+    }
+}
+
+fn run_git_command(root: &Path, args: &[&str], max_bytes: usize) -> Result<Output, String> {
+    let output = Command::new("git")
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GIT_OPTIONAL_LOCKS", "0")
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .output()
+        .map_err(|error| format!("failed to start git {args:?}: {error}"))?;
+    if output.stderr.len() > MAX_GIT_STDERR_BYTES {
+        return Err(format!("git {args:?} stderr exceeded limit"));
+    }
+    if output.stdout.len() > max_bytes {
+        return Err(format!("git {args:?} stdout exceeded {max_bytes} bytes"));
+    }
+    Ok(output)
+}
+
+fn run_git_output(root: &Path, args: &[&str], max_bytes: usize) -> Result<Vec<u8>, String> {
+    let output = run_git_command(root, args, max_bytes)?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let status = output.status;
+    if !status.success() {
+        return Err(format!("git {args:?} failed ({status}): {}", stderr.trim()));
+    }
+    Ok(output.stdout)
+}
+
 #[cfg(test)]
 #[must_use]
 pub fn summarize(entries: &[RoundEntry], run_date: &str) -> RoundSummary {

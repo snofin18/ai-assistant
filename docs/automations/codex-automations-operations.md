@@ -290,9 +290,10 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 2. 顺序落盘：先建锁，再改仓库；**结束前必删自己的锁**（失败也要在报告里写明锁是否残留）。
 
 【收尾 —— 轮次产物 + 阶段报告（章程 §11.3 / §11.4）】
-3. 先按 §11.3 计算运行日：本地 **00:00~07:59 → 归属前一天、08:00~23:59 → 归属当日**；再 `git fetch` 后按
-   `git ls-tree --name-only origin/main -- docs/automations/` 计算**轮次命名序号**，并运行
-   `cargo run -p xtask -- automation-rounds --run-date <运行日>`，以命令输出的
+3. 先按 §11.3 计算运行日：本地 **00:00~07:59 → 归属前一天、08:00~23:59 → 归属当日**；再 `git fetch` 后运行
+   `cargo run -p xtask -- automation-rounds --run-date <运行日>`。该命令只读取已解析的
+   `origin/main` commit 快照（仅缺失 `origin/main` 时才回退本地 `main`），不得改数工作区；
+   以命令输出的
    `n_auto` / `next_round` / `latest_human` / `reset_source` / `session_source` / 缺失机制项判断闸门（`N_auto > N`，现行
    `N=⌊2000/400⌋=5`）；命令 FAILED 时不得手数兜底 —— 若超限，本 run
    **只补/校阶段报告，不写代码**；否则写 docs/automations/<运行日日期>-round-<N>.md
@@ -303,7 +304,10 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 5. 开工后在 `%USERPROFILE%\.codex\automations-logs\<运行日日期>\<automation-id>.jsonl`
    建立本地日志；至少追加 `start` / `gates` / `work` / `pr` / `ci` / `merge` /
    `lock_release` / `self_delete` 事件。日志不得写入仓库、不得写入凭据。
-6. 自删前确认本地日志已写入并保留。Codex automation 条目仍必须在最后一步删除；
+6. 最终审计必须证明本轮 `docs/automations/<运行日日期>-round-<N>.md` 已通过 PR 进入
+   `origin/main`：JSONL 的 `final_audit` 至少记录 round path、PR 号与 merge commit；
+   只存在工作区、本地分支或永久 JSONL 不算落地。任一项缺失时必须保持 automation 存活并报告失败。
+7. 自删前确认本地日志已写入并保留。Codex automation 条目仍必须在最后一步删除；
    仓库外日志**不随 automation 删除**，用于补齐自删后的取证缺口。
 ```
 
