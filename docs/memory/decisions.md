@@ -312,3 +312,7 @@
 ## 2026-10-31 追加（ADR-0103，Accepted）
 
 - [2026-10-31][DECISION][src:ADR-0103，人类 2026-10-31“继续下一步”；TASK-353] **form_fill 审批 readback 使用 `ToolEnvelope.evidence.extra` 内部通道**：固定键 `assistant.browser_form_fill.approval_readback.v1`，只含同一 form 的 `form_origin` / `form_action` / 逐字段 `selector,before,after`；公共 `data` / schema 不变。Runtime 严格解析并一次性消费，证据不得进入模型、日志、审计、DB、任务输出或 replay。preview 必须匹配 `form_read` before，原始值不得进入 `DiffPreview::Fields`；当前最小 redactor 将所有非空值替换为 `[redacted:<utf8-bytes>]`。证据缺失、重复、跨 form 或漂移一律不生成可批准 preview。
+
+## 2026-11-17 追加（ADR-0104，Accepted）
+
+- [2026-11-17][DECISION][src:ADR-0104，人类 2026-11-17 一次性批准 TASK-376 D1-D6] **Adapter 六件套采用单入口 bundle 与封闭方言**：`adapter.toml` 六个路径槽全必填并限制在 bundle root；富 App Map 是人工知识源，core App Map v1 必须确定性生成且悬空 source reference/字节漂移失败；selector 只允许 `uia_candidate_chain_v1` 与 `shell_target_v1`，DOM selector 不进入 bundle；tool 使用 `adapter_tool_envelope.v1`，capabilities 非空命中 catalog，postconditions 至少一条，`none_readonly` 仅 effect=read；每个 write 恰有一行 rollback coverage，L0~L2 必须有可执行 recipe，L3 仅允许显式 `no_recovery` + reason + high/critical + 人工批准；interrupt 五动作闭集为 `cancel` / `dismiss_explicitly` / `cancel_unless_declared_by_tool` / `delegate_to_tool` / `ask_human`，禁止危险默认和历史 task-id delegation。目标契约已 Accepted，protocol 1.1、validator 与现有包迁移仍由后续卡实现。

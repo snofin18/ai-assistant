@@ -1,6 +1,6 @@
 # TASK-376 Adapter 六件套公共 ADR/spec 落地
 
-- 状态：Blocked
+- 状态：Review
 - 阶段：2　子阶段：2b Adapter contract decision　批次：1 gate　依赖：TASK-372、TASK-373、TASK-374、TASK-375
 
 ---
@@ -98,45 +98,53 @@ git diff --check
 【疑问】D1-D6 六项均待人类选择，默认处理 = 不编码、保持 Blocked
 ```
 
+#### 1.1 人类裁决与恢复（2026-11-17）
+
+- 人类明确回复“批准。继续下一步”，批准 TASK-376 的 D1-D6 六项建议全部生效。
+- 本卡由 Blocked 恢复为 Review 的唯一依据是该明确批准；草案文本不再只是建议。
+- 2026-11-17 已创建 `ADR-0104` 并同步三份 spec；protocol schema 1.1、通用 validator、
+  现有 Adapter pack 收敛与 Excel pack 仍按 ADR 迁移顺序由后续卡实现。
+
 ### 2. 实际改动文件（逐个核对是否在 In scope 内）
 
-- `tasks/TASK-376-adapter-contract-adr-spec-landing.md`：创建候选卡并记录人类闸门。
-- `plans/stage-2-excel.md`：登记 TASK-376 为 Blocked gate。
-- `PLAN.md`：当前状态块记录下一步阻塞点。
-- `LEDGER.md`：追加 TASK-376 Blocked 事件。
+- `tasks/TASK-376-adapter-contract-adr-spec-landing.md`：恢复状态并记录人类裁决与验收。
+- `docs/adr/0104-adapter-bundle-contract-and-closed-dialects.md`：新增 Accepted ADR。
+- `docs/adr/README.md`：登记 ADR-0104，下一可用号 0105。
+- `docs/spec/tool-schema.md`、`docs/spec/capability-matrix.md`、`docs/spec/naming.md`：
+  同步六件套、tool envelope、capability、rollback 与 interrupt 契约。
+- `docs/memory/decisions.md`：追加 ADR-0104 Accepted 索引。
+- `MEMORY.md`（派生计数例外）：仅把 `decisions.md` 规模行同步为实测 318 行/112 条。
+- `plans/stage-2-excel.md`：把 TASK-376 从 Blocked 更新为 Review，并记录后续顺序。
+- `PLAN.md`：当前状态块改为 ADR-0104/spec Review。
+- `LEDGER.md`：追加 TASK-376 Review 事件。
 
 ### 3. 验收输出摘要（命令 → 结果，全绿 / 失败项）
 
-- `cargo run -p xtask -- automation-rounds --run-date 2026-11-16` → PASSED；
-  `next_round=1 / n_auto=0 / reset_source=daily-0800 / session_source=automation`。
-- Eligible open PR 查询 → `[]`，open PR 0，可 eligible PR 0。
-- `docs/audits/stage-2-adapter-contract-adr-decision-2026-11-16.md` → 状态为
-  Decision Draft，待人类裁决；D1-D6 六项问题均未回答。
+- 人类批准：2026-11-17 回复“批准。继续下一步”，覆盖 D1-D6 全部，无保留项。
 - `cargo run -p xtask -- verify-schemas` → PASSED（5 schemas / 0 error）。
 - `cargo run -p xtask -- codegen --check` → PASSED（0 drift / 0 error）。
+- `cargo run -p xtask -- adr-index` → PASSED（93 files / 0 error / 0 warning）。
 - `cargo run -p xtask -- hygiene` → PASSED（0 error / 168 条既有 warning）。
 - `cargo run -p xtask -- card-check` → PASSED（0 error / 88 条既有 warning）。
 - `cargo run -p xtask -- docscan` → PASSED（0 error / 175 条既有 warning）。
 - `cargo run -p xtask -- refscan` → PASSED（0 error / 0 warning）。
-- `cargo run -p xtask -- memory-counts` → PASSED（0 error / 1 条既有 paint warning）。
-- `cargo run -p xtask -- adr-index` → PASSED（0 error / 0 warning）。
 - `cargo run -p xtask -- check-ledger` → PASSED（0 error / 0 warning）。
 - `git diff --check` → PASSED。
-- 本卡未修改 `docs/adr/**`、`docs/spec/**`、`protocol/**`、`adapters/**`、
-  产品代码或依赖；实现门禁留待闸门解除后运行。
-- 实现 PR #742 checks **11/11 success**，pending 0 / failed 0，base=`main`，
-  `MERGEABLE` / `CLEAN`；merge `5ebbf9c2b285775544058d2ecc6274e4edd4fb7b`。
-- Post-merge main CI `43916429808` attempt 1 的 macOS job 因 runner 排队超时在零 step
-  状态取消；`gh run rerun --failed` 后 attempt 2 全绿，macOS check 7m59s success。
+- `memory-counts` 首次因新增 decisions 条目返回 2 个派生值错误；按 ADR-0030 只把
+  `MEMORY.md` 的 `decisions.md` 规模行从 314/111 更新为 318/112，未改长期记忆正文；
+  复跑 PASSED（0 error / 1 条既有 paint warning）。
+- `protocol/**`、`adapters/**`、`crates/**`、`apps/**` 与依赖零差异；当前协议 1.0
+  未修改，ADR-0104 目标契约与运行时实现边界保持显式。
+- PR checks、merge 与 post-merge main CI 待本实现 PR 完成后追加回填。
 
 ### 4. DoD 逐条核对
 
-- [ ] 六项人类裁决：未取得。
-- [ ] ADR/spec 落地：按契约先行要求停止，未创建 Accepted ADR。
-- [ ] 兼容窗口与负向判据：候选材料已存在，验收文本未冻结。
-- [x] 未批准项保持显式 Blocked，未把建议写成事实。
-- [x] 当前仅新增任务卡与状态文档，产品路径零差异。
-- [ ] PR/main CI：本卡尚未实现，待闸门解除后回填。
+- [x] 六项人类裁决均有明确答案、决策者和裁决日期。
+- [x] ADR-0104 与 spec 文本一致，并被 `adr-index` 登记。
+- [x] 每项 D1-D6 均有 owner、兼容窗口、fail-closed 负向判据和后续迁移步骤。
+- [x] 未批准项已解除，且没有把 protocol/validator 的未来实现写成当前生效。
+- [x] `protocol/**`、`adapters/**`、`crates/**`、`apps/**` 与产品代码零差异。
+- [ ] PR checks、merge 与 post-merge main CI 待实现 PR 完成后回填。
 
 ### 5. 偏差
 
@@ -151,6 +159,18 @@ DRIFT-376-1
 需要人类裁决：D1-D6 六项全部。
 ```
 
+裁决结果（2026-11-17）：人类一次性批准 D1-D6 全部建议，DRIFT-376-1 关闭；本卡恢复为
+Review 并按 ADR/spec-only 范围落地，未借批准扩大产品代码或运行时实现范围。
+
+```text
+DRIFT-376-2
+触发器：⑤ 超出卡片原始 write scope（MEMORY.md 未列入）
+现象：ADR-0104 新增 decisions 条目后，memory-counts 强制要求同步 L0 规模表。
+影响：若不改，文档硬门禁失败；改动仅是两个派生计数，不改变长期记忆正文或事实。
+裁定：按 ADR-0030 + AGENTS §11.1 的强制派生值同步执行；guard 获取后只改对应表格行，
+      复跑 memory-counts 通过。该例外不扩展本卡的产品/公共接口范围。
+```
+
 ### 6. 更合理做法（实施中发现，非漂移）
 
 - 把公共契约裁决与后续 validator/Adapter 实现分成独立卡，避免“先写约束检查器再倒推规范”。
@@ -158,19 +178,19 @@ DRIFT-376-1
 
 ### 7. 遗留问题
 
-- D1 bundle 是否六槽全必填。
-- D2 App Map 是否接受“富源 + 确定性 core projection”。
-- D3 是否接受两种显式 selector model。
-- D4 是否追加 `none_readonly` 并采用 Adapter tool envelope。
-- D5 是否要求所有 write 有 rollback 覆盖行。
-- D6 是否接受 interrupt 五动作闭集并淘汰 task-id delegate。
+- protocol schema 1.1、`none_readonly` 生成类型与 Adapter tool envelope 运行时消费。
+- 通用只读 Adapter validator，以及 Notepad/Paint、Edge/Chrome 两批 pack 收敛。
+- TASK-379：修复 `automation-rounds` 读取工作区而非 `origin/main` 的实现偏差，并把
+  round 产物存在性纳入 automation 最终审计硬前置。
 
 ### 8. 新增长期记忆
 
-- 无。阻塞事实已由 TASK-374 决策审计与 Stage 2 计划记录，不重复添加。
+- 新增 ADR-0104 的 `decisions.md` 索引；其余事实由 ADR/spec 保存。未新增 FACT/PITFALL/
+  REJECTED 条目，未改 `MEMORY.md` 长期记忆正文。
 
 ### 9. 给审阅者的关注点（风险最高的 1~3 处）
 
-- 确认本卡只是候选/Blocked 卡，不能据此宣称公共 Adapter 契约已 Accepted。
-- 确认 `none_readonly`、bundle projection authority 与 rollback 全覆盖没有被默认采用。
-- 确认后续实现卡仍保持 ADR/spec 与产品代码分 PR，不以 validator 行为反向定义契约。
+- 确认 ADR-0104 的所有 D1-D6 都能映射到 spec 中可机器实现的负向判据。
+- 确认 `none_readonly` 只允许 `effect=read`，且 protocol 1.0 兼容归一化没有被冒充为
+  schema 1.1 已执行。
+- 确认本卡零产品代码改动，后续 TASK-379/validator 不把实现偏差反向写回 Accepted 契约。

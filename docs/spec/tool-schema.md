@@ -1,7 +1,7 @@
 # spec: Tool/Adapter/审计事件 schema 单一事实源
 
 > 摘要：Tool / Adapter / 审计事件 JSON Schema 规范。本 spec 是本项目**契约层**的一部分，由 ADR 批准后即作为 xtask 卡实施 + CI 机器校验的权威。
-> 状态：Draft（ADR-0055 已批准本次字段变更）　版本：0.3　日期：2026-09-27
+> 状态：Draft（ADR-0055 与 ADR-0104 已批准字段变更；schema 1.1 实现待后续卡）　版本：0.4　日期：2026-11-17
 > 上位：`AGENTS.md` §5、`docs/governance-ai-agent-execution.md` §5/§6
 > 强制性：**本文档是契约**。违反即 CI 失败（`xtask` 相关子命令）或 Reviewer 拒绝合并。
 > 变更门槛：新增字段或修改类型 → 需 ADR。
@@ -30,15 +30,24 @@ Tool / Adapter / 审计事件三类的 schema 共享同一基类 `EntityRef`：
 
 ```rust
 struct ToolSchema {
+    version: String,         // canonical ToolSchema meta-schema version
     name: String,            // 例: "notepad.file.read"
-    version: SemVer,         // 例: 1.2.0
-    capabilities: Vec<CapabilityId>,  // 来自 capability-matrix
-    inputs: JsonSchema,      // 输入 JSON Schema
-    outputs: JsonSchema,     // 输出 JSON Schema
-    postconditions: Vec<Postcondition>,  // 来自 docs/spec/error-codes.md 的 ErrorCode 列表
-    effect: read | write,    // 权威行为元数据
-    reversibility: l0_undo_stack | l1_snapshot | l2_compensation | l3_irreversible,
-    risk_class: RiskClass,    // L1 / L2 / L3 / L4
+    description: String,
+    input: JsonSchema,
+    output: EnvelopeSchema,
+    effect: read | write,
+    reversibility: l0_undo_stack | l1_snapshot | l2_compensation |
+                   l3_irreversible | none_readonly,
+    risk_level: low | medium | high | critical,
+    requires_approval: bool,
+    idempotent: bool,
+    tags: Vec<String>,
+}
+
+struct AdapterToolEnvelopeV1 {
+    schema: ToolSchema,
+    capabilities: Vec<CapabilityId>,       // >=1，来自 capability catalog
+    postconditions: Vec<Postcondition>,    // >=1，来自 assertion/error-code 契约
 }
 
 struct AdapterSchema {
@@ -67,9 +76,9 @@ struct AuditEventSchema {
 ## 4. 不变量
 
 1. **name 反向 DNS**：`name` 必须 `<app>.<domain>.<action>` 三段式；与 ADR-0021 §3 受控词一致。
-2. **capability 子集**：Tool schema 声明的 capability 必须是 capability-matrix 中**已存在**的；否则报 ErrorCode::CapabilityUndeclared。
-3. **postcondition 必填**：每个 Tool 至少 1 条 postcondition（= 强制可校验）。
-4. **risk_class 单调**：L3+ 必有 `requires_human_approval=true` 字段（policy 引擎强制）。
+2. **capability 子集**：Adapter tool envelope 声明的 capability 必须是 capability catalog 中**已存在**的非空唯一集合；否则报 ErrorCode::CapabilityUndeclared。
+3. **postcondition 必填**：每个 Adapter tool envelope 至少 1 条可执行 postcondition（= 强制可校验）；只把 postcondition 写在注释或模型参数中不算。
+4. **risk_level 单调**：high/critical 或 L3 write 必须 `requires_approval=true`（policy 引擎强制）。
 5. **schema_version 单调递增**：schema 从 1 起；字段重命名 / 类型变化 → 新增 version，旧字段标 `@deprecated` 并保留 ≥2 个版本（= 无破坏性变更）
 6. **必选字段不可为空**：`required` 列出的字段在所有实例中**非 null / 非空字符串 / 非空数组**
 7. **时间戳用 ISO-8601**：所有时间字段一律 UTC + RFC 3339（形如 `2026-09-19T12:34:56Z`）
@@ -84,6 +93,31 @@ struct AuditEventSchema {
 9. **行为元数据权威**：`effect` / `reversibility` 是 ToolSchema 必填字段，只能由工具作者声明。
    Planner 不得采用模型自报的这两个字段；模型输出若包含它们必须拒绝，并由 Planner 从工具目录注入。
    依据：**ADR-0055**、TASK-207 独立 review、`DRIFT-207-1`。
+10. **Adapter envelope**：`capabilities` 与 `postconditions` 属于 `adapter_tool_envelope.v1`
+    外层，不进入 canonical ToolSchema；envelope 与 ToolSchema 均拒绝未知字段。
+    依据：**ADR-0104**、TASK-374、TASK-376。
+11. **`none_readonly` 受控**：只允许 `effect=read`；任何 write 使用它都拒绝。
+    依据：**ADR-0104** D4。
+
+### 4.1 Adapter bundle 与 Tool 文件
+
+`adapter.toml` 的 `[bundle].tools` 必须指向同一 bundle root 内的
+`tools/tools.json`。该文件顶层为 `schema_version/app_id/tools`；每个 `tools[]` 项必须符合
+`adapter_tool_envelope.v1`。六个 bundle 路径全部必填、路径 containment、未知版本/字段和
+悬空引用规则见 **ADR-0104** D1/D4。
+
+### 4.2 兼容窗口
+
+当前 `protocol/tool-schema/tool-schema-1.0.json` 尚未包含 `none_readonly` 和
+Adapter envelope。迁移顺序固定为：
+
+1. ADR-0104/spec（本文件）冻结目标契约；
+2. protocol schema 1.1 + 生成类型 + 通用只读 validator；
+3. Notepad/Paint、Edge/Chrome 两批收敛；
+4. Excel Adapter pack。
+
+在第 2 步完成前，binary 对 `read + none_readonly` 的归一化只是兼容路径，不是运行时已支持
+ADR-0104 全 envelope 的证据。
 
 ---
 
@@ -108,3 +142,4 @@ struct AuditEventSchema {
 | 0.1 | 2026-09-20 | 初稿（项目进度督察后批量补齐 stage-0 DoD #5）|
 | 0.2 | 2026-09-25 | §4 新增**不变量 8**（校验关键字白名单 + `$schema` 方言校验 + 「不支持即拒绝」的显式化）；依据 **TASK-204**（TASK-020 §9 关注点 3 的落地物）|
 | 0.3 | 2026-09-27 | §3 增加权威 `effect` / `reversibility`，§4 增加不变量 9；依据 **ADR-0055**，关闭 TASK-207 `DRIFT-207-1` |
+| 0.4 | 2026-11-17 | §3 对齐 canonical ToolSchema 并把 capabilities/postconditions 归入 `adapter_tool_envelope.v1`；§4 新增不变量 10/11、bundle 与兼容窗口；依据 **ADR-0104** / TASK-376 |
