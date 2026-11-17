@@ -1,6 +1,6 @@
 # spec: 命名与注释规范（naming）
 
-> 状态：Draft（待 ADR 批准）　版本：0.1　日期：2026-09-16
+> 状态：Draft（ADR-0021、ADR-0042、ADR-0104 已批准受控词）　版本：0.2　日期：2026-11-17
 > 上位：`AGENTS.md` §5、`docs/governance-ai-agent-execution.md` §6.1.1/§6.1.2
 > 强制性：**本文档是契约**。违反即 CI 失败（`xtask check-comments`）或 Reviewer 拒绝合并。
 > 变更门槛：新增受控词或修改白名单 → 需 ADR。
@@ -74,7 +74,12 @@ ocr  ttl  http  json  sql  fs  vm  px  ms  us  ns
 | `Tool` | Command / Function / API / Endpoint | 模型可见的单个能力 | v2 §5.1 |
 | `Skill` | Plugin / Extension / Module / Package | 可分发单元（tools + prompts + 权限 + 签名） | v2 §5.1 |
 | `Adapter` | Driver / Connector / Integration / Provider | 某个被控应用的适配包 | v2 §6.8 |
+| `Adapter Bundle` | Package / Kit / Six-Pack | `adapter.toml` 入口下的六路径声明集合 | ADR-0104 |
 | `AppMap` | KnowledgeBase / AppProfile | 应用的静态知识库（命令表/UI 地图/已知坑/undo 能力） | v2 §6.7 |
+| `AppMap Projection` | MemoryCopy / MiniMap | 从富 App Map 确定性生成给 core loader 的只读投影 | ADR-0104 |
+| `Selector Model` | Dialect / AST / MatcherType | selector bundle 的显式形状标识（`uia_candidate_chain_v1` / `shell_target_v1`） | ADR-0104 |
+| `Rollback Coverage` | UndoTable / RecipeMatrix | 每个 write tool 恰好对应一行的恢复覆盖记录 | ADR-0104 |
+| `Interrupt Grammar` | PopupRule / DialogMatcher | interrupt pack 的封闭 match/action 语法 | ADR-0104 |
 | `Lease` | Lock / Mutex / Reservation / Claim | 目标级排他租约 | v2 §8.8 |
 | `Anchor` | Snapshot / Backup / Checkpoint / Mark | 撤销锚点（内容快照 / 影子副本 / undo 预算 / historyState 的统称） | v2 §9.3 |
 | `Fingerprint` | Hash / Digest / Signature / State | 状态指纹 | v2 §7.3 |
@@ -84,7 +89,7 @@ ocr  ttl  http  json  sql  fs  vm  px  ms  us  ns
 | `Egress` | Upload / Send / Network / Outbound | 数据出域 | v2 §12.6 |
 | `Taint` | Dirty / Unsafe / Flagged / Suspect | 污点（不可信内容标记） | v2 §12.4 |
 | `Channel` | Backend / Transport / Route | L1~L5 的能力获取通道 | v2 §2.1 |
-| `Reversibility` | Undoability / Safety | 可逆性级别 L0~L3 | v2 §9.1 |
+| `Reversibility` | Undoability / Safety | 可逆性级别 L0~L3；`none_readonly` 仅用于 read tool | v2 §9.1 / ADR-0104 |
 | `Host` | Worker / Runner / Agent | 执行进程（`automation-host`） | v2 §3.3 |
 | `Postcondition` | Assertion / Check / Verify | 后置条件断言 | v2 §7.4 |
 | `Drift` | Deviation / Detour | 偏离规划的记录 | gov §4.3 |
