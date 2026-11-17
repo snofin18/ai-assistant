@@ -41,7 +41,9 @@ pub use generated::envelope::{
     TruncationReason,
 };
 pub use generated::error_code::{ErrorCategory, ErrorCode, ErrorDefinition};
-pub use generated::tool_schema::{RiskLevel, ToolEffect, ToolReversibility, ToolSchema};
+pub use generated::tool_schema::{
+    AdapterToolEnvelopeV1, RiskLevel, ToolEffect, ToolReversibility, ToolSchema,
+};
 
 /// Re-export `serde_json` for downstream consumers (`audit_event` 的开放字段用得到).
 pub use serde_json;
@@ -212,5 +214,38 @@ mod tests {
         .expect("legacy minimal decision");
         assert!(minimal.scope_options.is_none());
         assert!(minimal.show_diff.is_none());
+    }
+
+    /// `ToolSchema` 1.1 envelope survives the protocol boundary and rejects extra fields.
+    #[test]
+    fn test_adapter_tool_envelope_v1_roundtrip_and_unknown_fields() {
+        let envelope = AdapterToolEnvelopeV1 {
+            schema: ToolSchema {
+                version: "1.1".to_string(),
+                name: "notepad.file.read".to_string(),
+                description: "Read a Notepad document.".to_string(),
+                input: serde_json::json!({"type": "object"}),
+                output: serde_json::json!({"type": "object"}),
+                effect: ToolEffect::Read,
+                reversibility: ToolReversibility::NoneReadonly,
+                risk_level: RiskLevel::Low,
+                requires_approval: false,
+                idempotent: true,
+                tags: vec!["read".to_string()],
+            },
+            capabilities: vec!["element.read_text".to_string()],
+            postconditions: vec![serde_json::json!({"kind": "state_unchanged"})],
+        };
+        let text = serde_json::to_string(&envelope).expect("serialize envelope");
+        let back: AdapterToolEnvelopeV1 =
+            serde_json::from_str(&text).expect("deserialize envelope");
+        assert_eq!(back.schema.reversibility, ToolReversibility::NoneReadonly);
+
+        let mut extra: serde_json::Value =
+            serde_json::from_str(&text).expect("parse envelope test value");
+        if let Some(object) = extra.as_object_mut() {
+            object.insert("unexpected".to_string(), serde_json::json!(true));
+        }
+        assert!(serde_json::from_value::<AdapterToolEnvelopeV1>(extra).is_err());
     }
 }

@@ -1,0 +1,158 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.invalid/protocol/tool-schema-1.1.json",
+  "title": "ToolSchema",
+  "version": "1.1",
+  "description": "ToolSchema v1.1. Adds read-only none_readonly reversibility and the AdapterToolEnvelopeV1 meta-schema from ADR-0104. Runtime enforcement is a later implementation step.",
+  "type": "object",
+  "required": [
+    "version",
+    "name",
+    "description",
+    "input",
+    "output",
+    "effect",
+    "reversibility",
+    "risk_level"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.1"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+      "description": "Tool name = `<app>.<domain>.<action>` per naming.md section 7."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input": {
+      "type": "object",
+      "description": "JSON Schema (draft-07) for the tool input."
+    },
+    "output": {
+      "$ref": "../envelope/envelope-1.0.json",
+      "description": "Every tool returns the unified envelope."
+    },
+    "effect": {
+      "type": "string",
+      "enum": [
+        "read",
+        "write"
+      ],
+      "description": "Authoritative side effect of the tool; never self-reported by the model."
+    },
+    "reversibility": {
+      "type": "string",
+      "enum": [
+        "l0_undo_stack",
+        "l1_snapshot",
+        "l2_compensation",
+        "l3_irreversible",
+        "none_readonly"
+      ],
+      "description": "Authoritative reversibility level. none_readonly is valid only for read tools."
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "description": "Per v2 section 10 and ADR-0021; drives policy gating."
+    },
+    "requires_approval": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, runtime MUST pause for human approval before execution."
+    },
+    "idempotent": {
+      "type": "boolean",
+      "default": false,
+      "description": "Tool is safe to retry with the same args."
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "description": "Tool metadata tags."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "reversibility": {
+            "const": "none_readonly"
+          }
+        },
+        "required": [
+          "reversibility"
+        ]
+      },
+      "then": {
+        "properties": {
+          "effect": {
+            "const": "read"
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false,
+  "definitions": {
+    "CapabilityId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+    },
+    "Postcondition": {
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "description": "Postcondition shape owned by executable assertion contracts; validator-specific fields are checked by the later read-only Adapter validator."
+    },
+    "AdapterToolEnvelopeV1": {
+      "type": "object",
+      "required": [
+        "schema",
+        "capabilities",
+        "postconditions"
+      ],
+      "properties": {
+        "schema": {
+          "$ref": "#"
+        },
+        "capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/CapabilityId"
+          }
+        },
+        "postconditions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/Postcondition"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

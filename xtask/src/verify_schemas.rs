@@ -27,6 +27,7 @@ const EXPECTED_SCHEMAS: &[(&str, &str)] = &[
     ("protocol/error-codes/error-codes-1.0.json", "1.0"),
     ("protocol/envelope/envelope-1.0.json", "1.0"),
     ("protocol/tool-schema/tool-schema-1.0.json", "1.0"),
+    ("protocol/tool-schema/tool-schema-1.1.json", "1.1"),
     ("protocol/capability-matrix/capability-1.0.json", "1.0"),
     ("protocol/audit-event/audit-event-1.0.json", "1.0"),
 ];
@@ -126,6 +127,7 @@ fn check_schema(repo_root: &Path, relative_path: &str, expected_version: &str) -
     let finding = match relative_path {
         "protocol/error-codes/error-codes-1.0.json" => check_error_codes(&value),
         "protocol/capability-matrix/capability-1.0.json" => check_capability_matrix(&value),
+        "protocol/tool-schema/tool-schema-1.1.json" => check_tool_schema_v11(&value),
         _ => None,
     };
     SchemaCheck {
@@ -134,6 +136,87 @@ fn check_schema(repo_root: &Path, relative_path: &str, expected_version: &str) -
         version_ok,
         finding,
     }
+}
+
+/// `ToolSchema` 1.1：支持 `none_readonly`，但只允许与 `effect=read` 组合；
+/// 同时必须在同一 schema 中声明 `AdapterToolEnvelopeV1` 的三个字段。
+fn check_tool_schema_v11(value: &Value) -> Option<String> {
+    let Some(properties) = value.get("properties") else {
+        return Some("missing properties object".to_owned());
+    };
+    let Some(reversibility) = properties
+        .get("reversibility")
+        .and_then(|reversibility| reversibility.get("enum"))
+        .and_then(Value::as_array)
+    else {
+        return Some("missing properties.reversibility.enum".to_owned());
+    };
+    if !reversibility
+        .iter()
+        .any(|entry| entry.as_str() == Some("none_readonly"))
+    {
+        return Some("reversibility enum is missing none_readonly".to_owned());
+    }
+    let none_rule = value
+        .get("allOf")
+        .and_then(Value::as_array)
+        .and_then(|rules| rules.first())
+        .is_some_and(|rule| {
+            rule.get("if")
+                .and_then(|condition| condition.get("properties"))
+                .and_then(|properties| properties.get("reversibility"))
+                .and_then(|reversibility| reversibility.get("const"))
+                .and_then(Value::as_str)
+                == Some("none_readonly")
+                && rule
+                    .get("then")
+                    .and_then(|condition| condition.get("properties"))
+                    .and_then(|properties| properties.get("effect"))
+                    .and_then(|effect| effect.get("const"))
+                    .and_then(Value::as_str)
+                    == Some("read")
+        });
+    if !none_rule {
+        return Some("none_readonly must require effect=read".to_owned());
+    }
+    let Some(envelope) = value
+        .get("definitions")
+        .and_then(|definitions| definitions.get("AdapterToolEnvelopeV1"))
+    else {
+        return Some("missing definitions.AdapterToolEnvelopeV1".to_owned());
+    };
+    let Some(required) = envelope.get("required").and_then(Value::as_array) else {
+        return Some("AdapterToolEnvelopeV1 missing required array".to_owned());
+    };
+    for field in ["schema", "capabilities", "postconditions"] {
+        if !required.iter().any(|entry| entry.as_str() == Some(field)) {
+            return Some(format!(
+                "AdapterToolEnvelopeV1 missing required field {field}"
+            ));
+        }
+    }
+    let Some(properties) = envelope.get("properties") else {
+        return Some("AdapterToolEnvelopeV1 missing properties".to_owned());
+    };
+    let capabilities_min_items = properties
+        .get("capabilities")
+        .and_then(|field| field.get("minItems"))
+        .is_some_and(number_is_one);
+    if !capabilities_min_items {
+        return Some("AdapterToolEnvelopeV1 capabilities minItems must be 1".to_owned());
+    }
+    let postconditions_min_items = properties
+        .get("postconditions")
+        .and_then(|field| field.get("minItems"))
+        .is_some_and(number_is_one);
+    if !postconditions_min_items {
+        return Some("AdapterToolEnvelopeV1 postconditions minItems must be 1".to_owned());
+    }
+    None
+}
+
+const fn number_is_one(value: &Value) -> bool {
+    matches!(value, Value::Number(number) if number.to_bits() == 1.0_f64.to_bits())
 }
 
 /// 不变量 2 + 3：13 项，且数据数组与 schema 的 `enum` 同序逐项一致。
@@ -210,6 +293,8 @@ mod tests {
     /// 用占位符替换而不是 `format!`，避免在 JSON 里逃逸大括号（可读性优先）。
     const ERROR_CODES_TEMPLATE: &str = r#"{"categories":[__DATA__],"properties":{"categories":{"items":{"properties":{"category":{"enum":[__ENUM__]}}}}}}"#;
     const CAPABILITY_TEMPLATE: &str = r#"{"capabilities":[__DATA__]}"#;
+    const TOOL_SCHEMA_V11_TEMPLATE: &str = r#"{"properties":{"reversibility":{"enum":["l0_undo_stack","none_readonly"]}},"allOf":[__RULE__],"definitions":{"AdapterToolEnvelopeV1":{"required":["schema","capabilities","postconditions"],"properties":{"capabilities":{"minItems":1},"postconditions":{"minItems":1}}}}}"#;
+    const NONE_READONLY_RULE: &str = r#"{"if":{"properties":{"reversibility":{"const":"none_readonly"}}},"then":{"properties":{"effect":{"const":"read"}}}}"#;
 
     fn category_entries(names: &[&str]) -> String {
         names
@@ -242,6 +327,11 @@ mod tests {
             .join(",");
         let json = CAPABILITY_TEMPLATE.replace("__DATA__", &data);
         serde_json_lite::parse(&json).expect("测试夹具必须是合法 JSON")
+    }
+
+    fn tool_schema_v11_value() -> Value {
+        let json = TOOL_SCHEMA_V11_TEMPLATE.replace("__RULE__", NONE_READONLY_RULE);
+        serde_json_lite::parse(&json).expect("ToolSchema 1.1 fixture must parse")
     }
 
     /// 13 类且数据数组与 enum 同序 → 无发现项（正向基线，证明断言不是恒真）。
@@ -317,6 +407,32 @@ mod tests {
         let value = capability_value(&["target.list", "target.list"]);
         let finding = check_capability_matrix(&value).expect("重复 id 必须被拦下");
         assert!(finding.contains("duplicate"), "实际：{finding}");
+    }
+
+    /// `ToolSchema` 1.1 正向基线：`none_readonly` 与只读规则、envelope 字段齐全。
+    #[test]
+    fn test_tool_schema_v11_accepts_complete_contract() {
+        assert!(check_tool_schema_v11(&tool_schema_v11_value()).is_none());
+    }
+
+    /// 负向：`write + none_readonly` 的跨字段限制被删掉时必须报错。
+    #[test]
+    fn test_tool_schema_v11_rejects_missing_none_readonly_rule() {
+        let json = TOOL_SCHEMA_V11_TEMPLATE.replace("__RULE__", "{}");
+        let value = serde_json_lite::parse(&json).expect("fixture must parse");
+        let finding = check_tool_schema_v11(&value).expect("missing rule must fail");
+        assert!(finding.contains("effect=read"), "{finding}");
+    }
+
+    /// 负向：envelope 定义缺失时必须报错，不能把“没有 envelope”当成 1.0 兼容通过。
+    #[test]
+    fn test_tool_schema_v11_rejects_missing_adapter_envelope() {
+        let json = TOOL_SCHEMA_V11_TEMPLATE
+            .replace("__RULE__", NONE_READONLY_RULE)
+            .replace("AdapterToolEnvelopeV1", "OtherEnvelope");
+        let value = serde_json_lite::parse(&json).expect("fixture must parse");
+        let finding = check_tool_schema_v11(&value).expect("missing envelope must fail");
+        assert!(finding.contains("AdapterToolEnvelopeV1"), "{finding}");
     }
 
     /// 负向（真仓库形态）：仓库根指向一个不存在的目录 → 5 份 schema 全读不到

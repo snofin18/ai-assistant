@@ -41,5 +41,7 @@ cargo run -p xtask -- codegen --check     # 闭环：必须 0 drift
 
 - 开放字段（`data` / `details` / `target` / `args`）是 `serde_json::Value`，**无大小上限** → 交 TASK-012
 - `protocol/tool-schema` 与 `protocol/audit-event` 里的 `$ref` 目前没有任何校验器解析（TASK-015）
+- ToolSchema 1.1 与 `AdapterToolEnvelopeV1` 已生成类型；通用只读 Adapter validator、
+  runtime loader/registry 消费与现有 pack 迁移仍未实现（TASK-380 / ADR-0104）
 - CI 里 `verify-schemas` / `codegen --check` 仍是 `continue-on-error: true`（转硬需改
   `.github/workflows/ci.yml`，不在 TASK-011 的 write scope 内）

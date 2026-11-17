@@ -1,7 +1,7 @@
 # spec: Tool/Adapter/审计事件 schema 单一事实源
 
 > 摘要：Tool / Adapter / 审计事件 JSON Schema 规范。本 spec 是本项目**契约层**的一部分，由 ADR 批准后即作为 xtask 卡实施 + CI 机器校验的权威。
-> 状态：Draft（ADR-0055 与 ADR-0104 已批准字段变更；schema 1.1 实现待后续卡）　版本：0.4　日期：2026-11-17
+> 状态：Draft（ADR-0055 与 ADR-0104 已批准字段变更；schema 1.1 与生成类型已实现，通用只读 Adapter validator 待后续卡）　版本：0.5　日期：2026-11-17
 > 上位：`AGENTS.md` §5、`docs/governance-ai-agent-execution.md` §5/§6
 > 强制性：**本文档是契约**。违反即 CI 失败（`xtask` 相关子命令）或 Reviewer 拒绝合并。
 > 变更门槛：新增字段或修改类型 → 需 ADR。
@@ -112,12 +112,14 @@ struct AuditEventSchema {
 Adapter envelope。迁移顺序固定为：
 
 1. ADR-0104/spec（本文件）冻结目标契约；
-2. protocol schema 1.1 + 生成类型 + 通用只读 validator；
+2. protocol schema 1.1 + 生成类型（TASK-380 已实现）+ 通用只读 validator（待后续卡）；
 3. Notepad/Paint、Edge/Chrome 两批收敛；
 4. Excel Adapter pack。
 
-在第 2 步完成前，binary 对 `read + none_readonly` 的归一化只是兼容路径，不是运行时已支持
-ADR-0104 全 envelope 的证据。
+ToolSchema 1.1 与 `AdapterToolEnvelopeV1` 生成类型已由 TASK-380 落地；ToolSchema 1.0 作为
+一个版本的兼容窗口继续保留。通用只读 Adapter validator、运行时 loader/registry 消费与现有
+pack 迁移尚未完成，因此 binary 对 `read + none_readonly` 的归一化仍只是兼容路径，不是
+运行时已支持 ADR-0104 全 envelope 的证据。
 
 ---
 
@@ -143,3 +145,4 @@ ADR-0104 全 envelope 的证据。
 | 0.2 | 2026-09-25 | §4 新增**不变量 8**（校验关键字白名单 + `$schema` 方言校验 + 「不支持即拒绝」的显式化）；依据 **TASK-204**（TASK-020 §9 关注点 3 的落地物）|
 | 0.3 | 2026-09-27 | §3 增加权威 `effect` / `reversibility`，§4 增加不变量 9；依据 **ADR-0055**，关闭 TASK-207 `DRIFT-207-1` |
 | 0.4 | 2026-11-17 | §3 对齐 canonical ToolSchema 并把 capabilities/postconditions 归入 `adapter_tool_envelope.v1`；§4 新增不变量 10/11、bundle 与兼容窗口；依据 **ADR-0104** / TASK-376 |
+| 0.5 | 2026-11-17 | ToolSchema 1.1 的 `none_readonly` 与 `AdapterToolEnvelopeV1` 生成类型已实现并纳入 `verify-schemas` / `codegen`；通用只读 validator 明确仍未实现；依据 ADR-0104 / TASK-380 |
