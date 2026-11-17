@@ -247,5 +247,69 @@ mod tests {
             object.insert("unexpected".to_string(), serde_json::json!(true));
         }
         assert!(serde_json::from_value::<AdapterToolEnvelopeV1>(extra).is_err());
+
+        let legacy: ToolSchema = serde_json::from_value(serde_json::json!({
+            "version": "1.0",
+            "name": "notepad.file.read",
+            "description": "Legacy ToolSchema remains readable.",
+            "input": {"type": "object"},
+            "output": {"type": "object"},
+            "effect": "read",
+            "reversibility": "l1_snapshot",
+            "risk_level": "low"
+        }))
+        .expect("ToolSchema 1.0 compatibility");
+        assert_eq!(legacy.version, "1.0");
+    }
+
+    #[test]
+    fn test_adapter_tool_envelope_v1_rejects_invalid_cross_field_and_empty_sets() {
+        let write_none = serde_json::json!({
+            "schema": {
+                "version": "1.1",
+                "name": "notepad.file.write",
+                "description": "Invalid write with none_readonly.",
+                "input": {"type": "object"},
+                "output": {"type": "object"},
+                "effect": "write",
+                "reversibility": "none_readonly",
+                "risk_level": "low"
+            },
+            "capabilities": ["element.set_value"],
+            "postconditions": [{"kind": "state_changed"}]
+        });
+        assert!(serde_json::from_value::<AdapterToolEnvelopeV1>(write_none).is_err());
+
+        let empty_capabilities = serde_json::json!({
+            "schema": {
+                "version": "1.1",
+                "name": "notepad.file.read",
+                "description": "Empty capability set.",
+                "input": {"type": "object"},
+                "output": {"type": "object"},
+                "effect": "read",
+                "reversibility": "none_readonly",
+                "risk_level": "low"
+            },
+            "capabilities": [],
+            "postconditions": [{"kind": "state_unchanged"}]
+        });
+        assert!(serde_json::from_value::<AdapterToolEnvelopeV1>(empty_capabilities).is_err());
+
+        let empty_postconditions = serde_json::json!({
+            "schema": {
+                "version": "1.1",
+                "name": "notepad.file.read",
+                "description": "Empty postcondition set.",
+                "input": {"type": "object"},
+                "output": {"type": "object"},
+                "effect": "read",
+                "reversibility": "none_readonly",
+                "risk_level": "low"
+            },
+            "capabilities": ["element.read_text"],
+            "postconditions": []
+        });
+        assert!(serde_json::from_value::<AdapterToolEnvelopeV1>(empty_postconditions).is_err());
     }
 }

@@ -15,6 +15,7 @@
 - `crates/protocol/src/generated/tool_schema.rs`
 - `crates/protocol/README.md`
 - `crates/protocol/src/lib.rs`
+- `.github/workflows/ci.yml`
 - `docs/spec/tool-schema.md`
 - `plans/stage-2-excel.md`
 - `PLAN.md`
@@ -118,11 +119,13 @@ git diff --check
 - `cargo run -p xtask -- verify-schemas` → 6 schemas / 0 error / PASSED。
 - `cargo run -p xtask -- codegen` → ToolSchema 生成物更新；随后 `codegen --check` → 0 drift。
 - `cargo fmt --all --check` → PASSED。
-- `cargo test -p xtask` → 520 passed / 0 failed。
+- `cargo test -p xtask` → 522 passed / 0 failed。
 - `cargo clippy -p xtask --all-targets -- -D warnings` → exit 0，仅既有 unknown lint 提示。
-- `cargo test -p assistant-protocol` → 9 passed / 0 failed。
+- `cargo test -p assistant-protocol` → 10 passed / 0 failed。
 - `cargo clippy -p assistant-protocol --all-targets -- -D warnings` → exit 0，仅既有 unknown lint 提示。
-- 负向测试覆盖：缺 `none_readonly` read-only 规则、缺 `AdapterToolEnvelopeV1`、envelope 未知字段。
+- 负向测试覆盖：真实 `write + none_readonly` 反序列化被拒、未知版本、空 capabilities、
+  空 postconditions、缺 `none_readonly` read-only 规则、缺 envelope、未知字段。
+- `hygiene` → 0 error / 172 warning；新增提示为 `xtask/src/render.rs` 747 行超过软阈值。
 - PR / CI / merge 与 post-merge main CI 待提交后回填。
 
 ### 4. DoD 逐条核对
@@ -131,7 +134,7 @@ git diff --check
 - [x] `none_readonly` 只允许 read；1.1 meta-schema 明确该约束。
 - [x] `AdapterToolEnvelopeV1` 生成类型包含 ToolSchema、非空 capabilities/postconditions 语义说明。
 - [x] `codegen --check` 零 drift，1.0 文件保留且未改坏。
-- [x] 负向测试覆盖缺 read-only 规则、缺 envelope、unknown field。
+- [x] 负向测试覆盖 `write + none_readonly`、未知版本、空集合、缺规则/ envelope、unknown field。
 - [x] 文档明确通用 Adapter validator 与运行时强制仍未实现。
 - [ ] 全部门禁、PR checks、merge 与 post-merge main CI 回填。
 
@@ -147,6 +150,7 @@ git diff --check
 ### 7. 遗留问题（进 `docs/PARKING_LOT.md` 的编号）
 
 - 通用只读 Adapter bundle validator、projection 重新生成、现有四套 pack 收敛仍需后续卡。
+- `xtask/src/render.rs` 因内嵌生成模板达到 747 行；后续可把模板拆分到独立只读资源，避免继续膨胀。
 
 ### 8. 新增长期记忆（FACT / PITFALL / REJECTED 条目原文，若无写“无”）
 
@@ -155,5 +159,6 @@ git diff --check
 ### 9. 给审阅者的关注点（风险最高的 1~3 处）
 
 - 1.1 是加法演进，1.0 文件必须继续保留；当前生成类型指向 1.1。
-- `none_readonly` 的跨字段约束目前由 meta-schema 的 `allOf` 表达，不是运行时自动校验器。
+- `none_readonly` 的跨字段约束同时由 meta-schema `allOf` 与生成类型的 serde `TryFrom` 执行；
+  `ToolSchema` 1.0/1.1 兼容窗口需继续在后续卡验证。
 - envelope postconditions 是跨边界 JSON，完整可执行性仍由后续 validator 负责。

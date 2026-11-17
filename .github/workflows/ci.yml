@@ -133,7 +133,7 @@ jobs:
       - name: "[HARD #5] arch test（分层依赖方向）"
         run: 'cargo test -p assistant-core arch::'
 
-      # --- 硬门禁 #6：五份 protocol schema 的结构/版本/13 类一致性 ---
+      # --- 硬门禁 #6：六份 protocol schema 的结构/版本/13 类一致性 ---
       # 2026-09-24 转硬（原 [SOFT #6 → TASK-011]）。负向验证：N1 见 xtask/src/verify_schemas.rs
       # 的 tests 模块；N2 见本文件 gate-negative job。
       # gov-gate: 6
