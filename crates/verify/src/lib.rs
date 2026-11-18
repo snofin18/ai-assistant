@@ -89,6 +89,7 @@ mod json_field;
 mod observation;
 mod on_violation;
 mod postcondition;
+mod postcondition_registry;
 mod verdict;
 pub mod visual;
 
@@ -108,6 +109,7 @@ pub use on_violation::{
 pub use postcondition::{
     AssertValue, CompareOp, FileChangeKind, Postcondition, StateField, parse_postconditions,
 };
+pub use postcondition_registry::POSTCONDITION_REGISTRY_JSON;
 pub use verdict::{
     Unevaluable, Verification, VerificationReceipt, VerifyOutcome, Violation,
     verify_postconditions, verify_postconditions_with_receipt,

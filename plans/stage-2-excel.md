@@ -25,6 +25,10 @@
 > JSON、projection manifest、selector typed union、共享 catalog、rollback anchor 与 interrupt
 > action/resume 联合；PR #760 merge `2ae5a19` / main CI `44231680015` success。本卡不实现
 > validator、不迁移现有 pack。
+> TASK-385 正在建立 Verify postcondition machine registry：
+> `crates/verify/src/postcondition-registry-1.0.json` 固定 11 个 Adapter-supported kind，
+> 每个 kind 均由现有 `parse_postconditions` 样例验收；`visual_assert` 以非空 reason 显式排除。
+> registry 合并后由后续 validator implementation 卡改为唯一 catalog 输入。
 
 ## In scope
 
@@ -60,6 +64,7 @@
 | 1 preflight | **TASK-381 ✅** | 架构/治理 | `tasks/TASK-381-adapter-bundle-validator-readiness.md` | Done（审计完成；PR #755 merge `bbefb97`，main CI `44057360138` success；`DRIFT-381-1` 阻塞下游 validator，下一步补 Accepted ADR/spec） |
 | dependency gate | **TASK-382 ✅** | 依赖/治理 | `tasks/TASK-382-rmcp-chrono-rustsec-remediation.md` | Done（固定 `rmcp` commit `a95b8045`；chrono 已移除；PR #758 merge `6679141`；PR #757 merge `67deedf`；main CI `44221880362` success） |
 | validator contract | **TASK-383 ✅** | 契约/架构 | `tasks/TASK-383-adapter-validator-machine-profile.md` | Done（ADR-0105 + `docs/spec/adapter-bundle.md` 冻结 D2-D6；PR #760 merge `2ae5a19`；main CI `44231680015` success） |
+| registry prerequisite | **TASK-385** | Verify/治理 | `tasks/TASK-385-verify-postcondition-registry.md` | Review（machine registry + parser 同步测试；等待 PR checks） |
 | 1 | 待派单 | 架构/治理 | dispatch 时创建 | 未开始（通用只读 Adapter bundle validator） |
 | 2 | 待派单 | Windows platform | dispatch 时创建 | 未开始（COM apartment/生命周期/回收与负向测试） |
 | 3 | 待派单 | Excel Adapter | dispatch 时创建 | 未开始（Adapter 数据包 + Protected View/AutoSave/interrupts） |

@@ -17,6 +17,22 @@
   pHash / dHash, pixel / perceptual-hash tolerances, `confidence_min`, and the structured
   `visual_assert` contract (ADR-0074).
 
+## Adapter postcondition registry
+
+`crates/verify/src/postcondition-registry-1.0.json` is the versioned machine-readable source for
+the 11 postcondition kinds currently representable by Adapter catalog 1.0. The JSON is embedded in
+the crate through `POSTCONDITION_REGISTRY_JSON`; contract tests construct a minimum valid sample
+for every registered kind and require `parse_postconditions` to accept it.
+
+`parse_postconditions` reads the registry for closed fields, required fields, basic field types,
+and the tagged cross-field constraints. The specialized parser code still constructs typed variants
+and owns evaluation semantics; exact contract tests pin the full kind/field/type/effect matrix.
+
+The registry contains only fields parsed by this crate. Adapter-only `description/error_code`
+fields are merged by the generated Adapter catalog. `visual_assert` is listed in
+`excluded_kinds` with a reason because its field/op/tolerance variants need a later Adapter
+schema extension.
+
 ## Boundaries
 
 - **No platform access.** No UIA, no Win32, no AT-SPI, no filesystem, no network, no clock.
