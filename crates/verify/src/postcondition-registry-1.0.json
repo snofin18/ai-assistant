@@ -1,0 +1,153 @@
+{
+  "version": "1.0",
+  "postconditions": [
+    {
+      "kind": "app_reported",
+      "required_fields": ["kind", "key", "value"],
+      "allowed_fields": ["kind", "key", "value"],
+      "field_types": {
+        "key": "non_empty_string",
+        "value": "scalar"
+      },
+      "effect_eligibility": ["read", "write"],
+      "constraints": []
+    },
+    {
+      "kind": "element_exists",
+      "required_fields": ["kind", "selector"],
+      "allowed_fields": ["kind", "selector"],
+      "field_types": {
+        "selector": "non_empty_string"
+      },
+      "effect_eligibility": ["read", "write"],
+      "constraints": []
+    },
+    {
+      "kind": "element_gone",
+      "required_fields": ["kind", "selector"],
+      "allowed_fields": ["kind", "selector"],
+      "field_types": {
+        "selector": "non_empty_string"
+      },
+      "effect_eligibility": ["read", "write"],
+      "constraints": []
+    },
+    {
+      "kind": "file_changed",
+      "required_fields": ["kind", "path", "expect"],
+      "allowed_fields": ["kind", "path", "expect"],
+      "field_types": {
+        "path": "non_empty_string",
+        "expect": "any|size|mtime|digest"
+      },
+      "effect_eligibility": ["write"],
+      "constraints": []
+    },
+    {
+      "kind": "state_assert",
+      "required_fields": ["kind", "field", "op", "value"],
+      "allowed_fields": ["kind", "field", "op", "value"],
+      "field_types": {
+        "field": "title|text|fingerprint",
+        "op": "equals|not_equals|contains|not_contains",
+        "value": "scalar"
+      },
+      "effect_eligibility": ["read", "write"],
+      "constraints": [
+        {
+          "kind": "field_value_type",
+          "field": "field",
+          "value_field": "value",
+          "cases": {
+            "fingerprint": "fingerprint",
+            "text": "string",
+            "title": "string"
+          }
+        },
+        {
+          "kind": "if_field_equals",
+          "field": "field",
+          "equals": "fingerprint",
+          "then_field": "op",
+          "allowed_values": ["equals", "not_equals"]
+        }
+      ]
+    },
+    {
+      "kind": "state_changed",
+      "required_fields": ["kind", "within_ms"],
+      "allowed_fields": ["kind", "fingerprint_scope", "within_ms"],
+      "field_types": {
+        "fingerprint_scope": "optional_string",
+        "within_ms": "positive_integer"
+      },
+      "effect_eligibility": ["write"],
+      "constraints": []
+    },
+    {
+      "kind": "state_unchanged",
+      "required_fields": ["kind"],
+      "allowed_fields": ["kind", "fingerprint_scope"],
+      "field_types": {
+        "fingerprint_scope": "optional_string"
+      },
+      "effect_eligibility": ["read", "write"],
+      "constraints": []
+    },
+    {
+      "kind": "text_contains",
+      "required_fields": ["kind", "value"],
+      "allowed_fields": ["kind", "value"],
+      "field_types": {
+        "value": "string"
+      },
+      "effect_eligibility": ["read", "write"],
+      "constraints": []
+    },
+    {
+      "kind": "text_not_contains",
+      "required_fields": ["kind", "value"],
+      "allowed_fields": ["kind", "value"],
+      "field_types": {
+        "value": "string"
+      },
+      "effect_eligibility": ["read", "write"],
+      "constraints": []
+    },
+    {
+      "kind": "value_equals",
+      "required_fields": ["kind", "name", "value"],
+      "allowed_fields": ["kind", "name", "value"],
+      "field_types": {
+        "name": "non_empty_string",
+        "value": "scalar"
+      },
+      "effect_eligibility": ["read", "write"],
+      "constraints": []
+    },
+    {
+      "kind": "value_in_range",
+      "required_fields": ["kind", "name", "min", "max"],
+      "allowed_fields": ["kind", "name", "min", "max"],
+      "field_types": {
+        "name": "non_empty_string",
+        "min": "number",
+        "max": "number"
+      },
+      "effect_eligibility": ["read", "write"],
+      "constraints": [
+        {
+          "kind": "numeric_less_than_or_equal",
+          "left_field": "min",
+          "right_field": "max"
+        }
+      ]
+    }
+  ],
+  "excluded_kinds": [
+    {
+      "kind": "visual_assert",
+      "reason": "Adapter catalog 1.0 cannot yet encode visual_assert field/op tolerance variants."
+    }
+  ]
+}

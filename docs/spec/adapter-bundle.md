@@ -338,11 +338,17 @@ byte order 升序。
 |---|---|
 | capability id | `protocol/capability-matrix/capability-1.0.json` |
 | ErrorCode | `protocol/error-codes/error-codes-1.0.json` |
-| postcondition kind/schema | `crates/verify/src/postcondition.rs` 对应的 generated machine catalog |
+| postcondition kind/schema | `crates/verify/src/postcondition-registry-1.0.json`（runtime parser 契约 = `postcondition.rs`） |
 
-validator implementation MUST 生成并消费固定路径
+validator implementation MUST 从
+`crates/verify/src/postcondition-registry-1.0.json` 生成并消费固定路径
 `protocol/adapter-catalog/adapter-catalog-1.0.json` 的 reviewed machine catalog；MUST NOT 在
-validator 源码内手写第三套 kind/ErrorCode/capability 枚举。catalog MUST 至少含：
+validator 源码内手写第三套 kind/ErrorCode/capability 枚举。Verify registry 只描述 runtime
+parser 接受的字段；generator MUST 在 required/allowed/field_types 中显式合并 Adapter envelope
+必需的 `description/error_code`。`visual_assert` 若暂不支持，MUST 在 registry 的
+`excluded_kinds` 中带非空 reason 显式记录。generator MUST 把 registry 的 `constraints`
+原样带入 catalog；validator MUST 解释全部 constraint tag，不能忽略未知 tag。catalog MUST
+至少含：
 
 ```json
 {
@@ -355,19 +361,38 @@ validator 源码内手写第三套 kind/ErrorCode/capability 枚举。catalog MU
       "required_fields": ["kind", "fingerprint_scope", "description", "error_code"],
       "allowed_fields": ["kind", "fingerprint_scope", "description", "error_code"],
       "field_types": {
-        "fingerprint_scope": "string",
+        "fingerprint_scope": "optional_string",
         "description": "non_empty_string",
         "error_code": "ErrorCode"
       },
-      "effect_eligibility": ["read"]
+      "effect_eligibility": ["read", "write"],
+      "constraints": []
     }
   ]
 }
 ```
 
 catalog MUST 按 `capabilities/error_codes/postconditions.kind` byte order 排序，未知字段拒绝。
-`codegen --check` MUST 从 protocol catalog、ErrorCode schema 与 Verify assertion registry 重新生成
-并逐字节比较。validator 只读取这个 generated catalog，不直接解析 Rust 源文件。
+`codegen --check` MUST 从 protocol catalog、ErrorCode schema 与上述 Verify registry 重新生成
+并逐字节比较。validator 只读取这个 generated catalog，不直接解析 Rust/Markdown 源文件。
+
+Verify registry 的 `field_types` 闭集语法固定为：`string`、`optional_string`、
+`non_empty_string`、`scalar`、`number`、`positive_integer`、`fingerprint`，以及针对枚举
+字段的精确 `a|b|c` 字符串 union。`ErrorCode` 只由 Adapter catalog generator 在合并
+`error_code` 字段时加入，不属于 Verify registry grammar。
+registry 提供 required/allowed/basic type 的结构来源；跨字段关系（例如
+`state_assert.field/op/value` 与 `value_in_range.min <= max`）由 `postcondition.rs` 继续执行，
+并由 `assistant-verify` 合同测试锁定两边一致。任何冲突都是阻塞缺陷，不得由 generator 猜测。
+跨字段规则本身也由 registry 的 `constraints` 机器标签表达，当前闭集为
+`field_value_type`（按 discriminator case 选择 value type）、`if_field_equals`（条件字段值
+命中后限制另一字段闭集）与 `numeric_less_than_or_equal`。未知 constraint tag、缺失 case
+或违反约束 MUST 在 parser 阶段失败。
+每个 Verify registry postcondition 与 generated catalog postcondition MUST 显式包含
+`constraints` 数组；无跨字段约束时写空数组，不得省略并使用隐式默认。
+
+`effect_eligibility` 表示该 kind **允许出现在**哪些 tool effect 下，不是 D4 的最低矩阵本身。
+例如 `state_unchanged` 允许 `read|write`，但 write tool 仍 MUST 另含至少一个非
+`state_unchanged` 的 executable postcondition；read tool 仍 MUST 含 `state_unchanged`。
 
 ### 6.4 Effect/postcondition matrix
 

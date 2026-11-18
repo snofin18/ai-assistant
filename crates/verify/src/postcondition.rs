@@ -308,6 +308,21 @@ fn parse_kind(
     kind: &str,
     object: &Map<String, JsonValue>,
 ) -> VerifyResult<Postcondition> {
+    if matches!(kind, "target_resolvable" | "capability") {
+        return Err(unsupported(
+            index,
+            kind,
+            "this is a precondition kind (architecture section 5.3), not a postcondition",
+        ));
+    }
+    if !crate::postcondition_registry::is_registered(index, kind)? {
+        return Err(unsupported(
+            index,
+            kind,
+            "unknown kind; the 11 supported kinds are listed in the crate documentation",
+        ));
+    }
+    crate::postcondition_registry::validate_shape(index, kind, object)?;
     match kind {
         "state_assert" => parse_state_assert(index, object),
         "text_contains" => {
@@ -362,11 +377,6 @@ fn parse_kind(
             kind,
             "screenshots, perceptual hashing, tolerance, and `confidence_min` belong to TASK-042 \
              (`crates/verify/src/visual/**`)",
-        )),
-        "target_resolvable" | "capability" => Err(unsupported(
-            index,
-            kind,
-            "this is a precondition kind (architecture section 5.3), not a postcondition",
         )),
         other => Err(unsupported(
             index,
