@@ -67,7 +67,8 @@ TASK-382 已进入 **Review** 的受控 patch 验证：
   - `assistant-tool-bus` all-targets check、workspace 全量测试与 Clippy 全绿；
   - schema、codegen、格式门禁全绿。
 
-该方案仍需在 PR checks 通过后合并；官方 release 发布后必须切回 registry。
+该方案已完成 PR #758 合并与 post-merge main CI；官方 release 发布后必须切回
+registry。
 
 ## 5. 解除条件
 
@@ -76,3 +77,12 @@ TASK-382 已进入 **Review** 的受控 patch 验证：
 1. 官方 `rmcp` 发布包含 chrono-optional / jiff 迁移的版本；
 2. 人类批准固定 contributor fork SHA，并接受来源策略变更；
 3. 人类批准带期限的 advisory 豁免 ADR，并指定到期日和迁移触发条件。
+
+## 6. 收口证据
+
+- PR #758：checks **21 success + 1 skipped**，pending 0 / failed 0，
+  `MERGEABLE` / `CLEAN`；merge `66791411cd2f4fb80c2021de392aa40e72a23914`，
+  post-merge main CI `44219594025` success。
+- PR #757：同步最新 `main` 后 checks **21 success + 1 skipped**，pending 0 / failed 0，
+  `MERGEABLE` / `CLEAN`；merge `67deedf388b93387356d7d28ebc8f5905bbeff74`，
+  post-merge main CI `44221880362` success。
