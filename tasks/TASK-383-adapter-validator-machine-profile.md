@@ -1,6 +1,6 @@
 # TASK-383 Adapter bundle validator machine profile
 
-- 状态：Review
+- 状态：Done
 - 阶段：2　子阶段：2b Adapter contract implementation　批次：validator contract gate　依赖：ADR-0104、TASK-376、TASK-380、TASK-381
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031「一卡一文件」）。
 
@@ -142,6 +142,9 @@ git diff --check
 - `cargo run -p xtask -- memory-counts` → 首轮发现 `decisions.md` 派生值陈旧；同步
   `MEMORY.md` 318/112 → 322/113 后复跑 PASSED，0 error / 1 既有 paint warning。
 - `git diff --check` → PASSED。
+- PR #760：base=`main`，checks **21 success + 1 skipped**，pending 0 / failed 0，
+  `MERGEABLE` / `CLEAN`；merge `2ae5a19f6f4b35decead5d060d97af849973c941`，
+  post-merge main CI `44231680015` success。
 
 ### 4. DoD 逐条核对
 
@@ -152,7 +155,7 @@ git diff --check
 - [x] D5 rollback coverage/anchor 判别联合与引用规则可机器实现。
 - [x] D6 interrupt action/resume/priority 与 human-only 矩阵可机器实现。
 - [x] tool-schema/capability/naming/decisions/计划状态同步。
-- [ ] 文档门禁、PR checks、merge 与 post-merge main CI 回填。
+- [x] 文档门禁、PR checks、merge 与 post-merge main CI 回填。
 - [x] 产品代码、protocol、adapters、apps、CI 与依赖零差异。
 
 ### 5. 偏差
@@ -169,6 +172,9 @@ git diff --check
   `capture_equals | canonical postcondition` 判别联合，使 validator 可只靠结构验证。
 - D3/D5/D6 均使用 typed discriminator 和显式 priority/order，避免 validator 依赖 JSON object
   键序、文件顺序或自然语言描述。
+- closeout 复审进一步固定 D4 generated catalog 为
+  `protocol/adapter-catalog/adapter-catalog-1.0.json`，并修正 interrupt `resume_after` 为
+  `requires_human=true` 时条件必填、false 时禁止的矛盾表述。
 
 ### 7. 遗留问题
 

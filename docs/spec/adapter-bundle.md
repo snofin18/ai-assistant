@@ -135,7 +135,7 @@ validator 先完成路径 containment，再读取 JSON；任何路径失败时�
 - `entries` MUST 非空；`id` 全局唯一，匹配 `^[a-z][a-z0-9_]*$`。
 - `title/content` MUST 非空、单行、无首尾空白、无 NUL/CR/LF。
 - `content` MUST 是作者维护的 projection 内容；MUST NOT 由模型运行时摘要或按关键词猜测。
-- 每个 entry 至少一个 `source_reference`；本文为简化 JSON 用一个字符串，但 MUST 命中引用语法。
+- 每个 entry MUST 恰好有一个 `source_reference` 字符串，并 MUST 命中 §2.2 引用语法。
 - omissions 可为空；每项 MUST 有可解析 source_reference 和非空 reason。
 - entries 和 omissions 的 source coverage 合并后，MUST 覆盖富 App Map 的每个知识域顶层键；
   例外只有 `schema_version/app_id/version_range/projection_manifest`。
@@ -340,9 +340,34 @@ byte order 升序。
 | ErrorCode | `protocol/error-codes/error-codes-1.0.json` |
 | postcondition kind/schema | `crates/verify/src/postcondition.rs` 对应的 generated machine catalog |
 
-validator implementation MUST 生成或消费一个 reviewed machine catalog；MUST NOT 在 validator
-源码内手写第三套 kind/ErrorCode/capability 枚举。catalog generation 的产物路径和 `codegen --check`
-由下一张实现卡冻结并纳入 CI。
+validator implementation MUST 生成并消费固定路径
+`protocol/adapter-catalog/adapter-catalog-1.0.json` 的 reviewed machine catalog；MUST NOT 在
+validator 源码内手写第三套 kind/ErrorCode/capability 枚举。catalog MUST 至少含：
+
+```json
+{
+  "version": "1.0",
+  "capabilities": ["a11y.editable_text"],
+  "error_codes": ["VerifyFailed"],
+  "postconditions": [
+    {
+      "kind": "state_unchanged",
+      "required_fields": ["kind", "fingerprint_scope", "description", "error_code"],
+      "allowed_fields": ["kind", "fingerprint_scope", "description", "error_code"],
+      "field_types": {
+        "fingerprint_scope": "string",
+        "description": "non_empty_string",
+        "error_code": "ErrorCode"
+      },
+      "effect_eligibility": ["read"]
+    }
+  ]
+}
+```
+
+catalog MUST 按 `capabilities/error_codes/postconditions.kind` byte order 排序，未知字段拒绝。
+`codegen --check` MUST 从 protocol catalog、ErrorCode schema 与 Verify assertion registry 重新生成
+并逐字节比较。validator 只读取这个 generated catalog，不直接解析 Rust 源文件。
 
 ### 6.4 Effect/postcondition matrix
 
@@ -440,7 +465,9 @@ coverage：
 
 `default_action` MUST 为 `cancel|dismiss_explicitly|ask_human`。
 
-每条 interrupt MUST 恰好包含：
+每条 interrupt MUST 包含
+`id/priority/match/action/classification/requires_human`，MAY 包含 `resume_after/notes`。
+`resume_after` 当 `requires_human=true` 时 MUST 出现，false 时 MUST 省略；`notes` 始终可选。
 
 ```json
 {
