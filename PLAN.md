@@ -27,7 +27,7 @@ TASK-257     ：**TASK-257 Done（2026-10-20）** —— Paint 形状 / 调色�
 TASK-047     ：**TASK-047 Done（2026-10-20）** —— Stage 1b Paint integration 与 Adapter 复用度审计；技术 **GO**、行政 **条件 GO**。T3.1/T3.2/T3.3 真机合计 **30/30**；六类 `platform/api` 演进均由 ADR-0067/0076/0085/0086/0091/0092+0093 授权；未发现 Paint 专用 trait。TASK-257 Review 与计划表滞后状态保留给独立治理收口。证据：`docs/audits/stage-1b-integration-adapter-reuse-2026-10-20.md`。
 TASK-046     ：**TASK-046 Done（2026-10-20）** —— Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚；真实十次 **10/10 passed**，单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式 `VerifyFailed`；同时修复隐藏 `PopupWindowSiteBridge` flyout 被误判为未保存模态框。证据：`eval/tasks/paint/t3.3/ten-run-summary.json`。
 TASK-323     ：**TASK-323 Done（2026-10-20）** —— TASK-313 同号历史留痕收口：保留现有 selector 正式卡，按 PR #453 / #466 / #468 / #469 的真实 base、merge、CI 与文件范围补全记录；不建第二个同号卡，`PL-117` 由可追溯对账闭环，`PL-115` 限期豁免仍开放。证据：`docs/automations/2026-10-20-round-3.md`。
-更新日期    ：2026-11-17（**TASK-381 Done**：validator 实施前审计合并；PR #755 merge `bbefb97`，main CI `44057360138` success；D2/D6、D3/D4 binder mapping 与 D5 recipe JSON 仍待 Accepted 细化）
+更新日期    ：2026-11-18（**TASK-381 Done**：validator 实施前审计合并；PR #755 merge `bbefb97`，main CI `44057360138` success；D2/D6、D3/D4 binder mapping 与 D5 recipe JSON 仍待 Accepted 细化；2026-11-17 五槽 automation 审计已核对，PR #757 仍被依赖门禁阻塞）
 当前阶段    ：**阶段 2（Excel L1 COM + Adapter 规范化）InProgress**；TASK-372~380 已完成，通用只读 Adapter validator 仍待契约澄清后的实现卡。
 当前任务卡  ：TASK-381 Done（Adapter bundle validator readiness；下游实现待契约澄清）；TASK-380 Done（protocol ToolSchema 1.1 / Adapter tool envelope）；TASK-379 Done（automation-rounds main-only source）；TASK-376 Done（Adapter contract ADR/spec landing）；TASK-378/377/375~372 Done。
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done
