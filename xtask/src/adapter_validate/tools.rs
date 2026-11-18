@@ -613,7 +613,7 @@ fn validate_catalog_field_types(
                 );
                 continue;
             };
-            if !catalog_value_matches(value, field_type, catalog) {
+            if !super::catalog_value_matches(value, field_type, catalog) {
                 push_error(
                     report,
                     "adapter/postcondition",
@@ -672,7 +672,7 @@ fn validate_catalog_constraint(
             validate_if_field_equals_constraint(object, constraint, rule, context, report);
         }
         "numeric_less_than_or_equal" => {
-            validate_numeric_constraint(object, constraint, context, report);
+            super::validate_numeric_constraint(object, constraint, context, report);
         }
         other => push_error(
             report,
@@ -718,7 +718,7 @@ fn validate_field_value_type_constraint(
     }
     if !object
         .get(value_field)
-        .is_some_and(|value| catalog_value_matches(value, case_type, catalog))
+        .is_some_and(|value| super::catalog_value_matches(value, case_type, catalog))
     {
         push_error(
             report,
@@ -859,108 +859,6 @@ fn declared_union_values<'a>(rule: &'a Value, field: &str) -> Option<Vec<&'a str
         return None;
     }
     Some(declaration.split('|').collect())
-}
-
-fn validate_numeric_constraint(
-    object: &BTreeMap<String, Value>,
-    constraint: &Value,
-    pointer: &str,
-    report: &mut Report,
-) {
-    let left_field = constraint
-        .get("left_field")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    let right_field = constraint
-        .get("right_field")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    let left = object.get(left_field);
-    let right = object.get(right_field);
-    if !left
-        .zip(right)
-        .is_some_and(|(left, right)| catalog_number_less_than_or_equal(left, right))
-    {
-        push_error(
-            report,
-            "adapter/postcondition",
-            pointer.to_string(),
-            format!("violates catalog constraint `{left_field} <= {right_field}`"),
-        );
-    }
-}
-
-fn catalog_number_less_than_or_equal(left: &Value, right: &Value) -> bool {
-    match (left, right) {
-        (Value::Integer(left), Value::Integer(right)) => left <= right,
-        (Value::Integer(left), Value::Number(right)) => integer_less_equal_float(*left, *right),
-        (Value::Number(left), Value::Integer(right)) => float_less_equal_integer(*left, *right),
-        (Value::Number(left), Value::Number(right)) => left <= right,
-        _ => false,
-    }
-}
-
-fn integer_less_equal_float(integer: i64, float: f64) -> bool {
-    const I64_UPPER_BOUND: f64 = 9_223_372_036_854_775_808.0;
-    const I64_LOWER_BOUND: f64 = -9_223_372_036_854_775_808.0;
-    if float >= I64_UPPER_BOUND {
-        return true;
-    }
-    if float < I64_LOWER_BOUND {
-        return false;
-    }
-    integral_float_to_i128(float.floor())
-        .is_some_and(|float_floor| i128::from(integer) <= float_floor)
-}
-
-fn float_less_equal_integer(float: f64, integer: i64) -> bool {
-    const I64_UPPER_BOUND: f64 = 9_223_372_036_854_775_808.0;
-    const I64_LOWER_BOUND: f64 = -9_223_372_036_854_775_808.0;
-    if float >= I64_UPPER_BOUND {
-        return false;
-    }
-    if float < I64_LOWER_BOUND {
-        return true;
-    }
-    integral_float_to_i128(float.ceil())
-        .is_some_and(|float_ceiling| float_ceiling <= i128::from(integer))
-}
-
-fn integral_float_to_i128(value: f64) -> Option<i128> {
-    if !value.is_finite() {
-        return None;
-    }
-    format!("{value:.0}").parse::<i128>().ok()
-}
-
-fn catalog_value_matches(value: &Value, field_type: &str, catalog: &Value) -> bool {
-    if field_type.contains('|') {
-        return field_type
-            .split('|')
-            .any(|candidate| value.as_str() == Some(candidate));
-    }
-    match field_type {
-        "non_empty_string" => value.as_str().is_some_and(|text| !text.trim().is_empty()),
-        "optional_string" | "string" => value.as_str().is_some(),
-        "scalar" => !matches!(value, Value::Array(_) | Value::Object(_)),
-        "number" => matches!(value, Value::Integer(_) | Value::Number(_)),
-        "positive_integer" => value.as_integer().is_some_and(|integer| integer > 0),
-        "fingerprint" => value.as_str().is_some_and(is_valid_fingerprint),
-        "ErrorCode" => value
-            .as_str()
-            .is_some_and(|code| catalog_strings(catalog, "error_codes").contains(code)),
-        _ => false,
-    }
-}
-
-fn is_valid_fingerprint(value: &str) -> bool {
-    let Some(digest) = value.strip_prefix("sha256:") else {
-        return false;
-    };
-    digest.len() == 64
-        && digest
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
 }
 
 fn find_rule<'a>(catalog: &'a Value, kind: &str) -> Option<&'a Value> {

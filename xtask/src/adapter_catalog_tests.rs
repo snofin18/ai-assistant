@@ -1,6 +1,7 @@
 //! Unit tests for the generated Adapter validator catalog.
 
 use super::*;
+use crate::adapter_catalog_check::check_adapter_catalog;
 
 const CAPABILITY_SOURCE: &str = r#"{"capabilities":[{"id":"z.capability"},{"id":"a.capability"}]}"#;
 const ERROR_CODE_SOURCE: &str =
@@ -57,6 +58,13 @@ const POSTCONDITION_SOURCE: &str = r#"{
     {"kind": "visual_assert", "reason": "Adapter catalog 1.0 cannot encode visual variants."}
   ]
 }"#;
+
+fn adapter_catalog_value() -> Value {
+    serde_json_lite::parse(include_str!(
+        "../../protocol/adapter-catalog/adapter-catalog-1.0.json"
+    ))
+    .expect("generated adapter catalog must parse")
+}
 
 #[test]
 fn test_render_from_sources_sorts_ids_and_merges_envelope_fields() {
@@ -190,4 +198,68 @@ fn test_render_slice_escapes_string_values() {
     let mut output = String::new();
     render_slice(&mut output, "fields", &["bad\"field"], 2);
     assert!(output.contains("bad\\\"field"), "{output}");
+}
+
+#[test]
+fn test_adapter_catalog_rejects_error_code_as_constraint_case_type() {
+    let mut value = adapter_catalog_value();
+    let Value::Object(root) = &mut value else {
+        panic!("adapter catalog root must be an object");
+    };
+    let Some(Value::Array(postconditions)) = root.get_mut("postconditions") else {
+        panic!("postconditions must be an array");
+    };
+    let Some(Value::Object(state_assert)) = postconditions
+        .iter_mut()
+        .find(|entry| entry.get("kind").and_then(Value::as_str) == Some("state_assert"))
+    else {
+        panic!("state_assert entry must exist");
+    };
+    let Some(Value::Array(constraints)) = state_assert.get_mut("constraints") else {
+        panic!("constraints must be an array");
+    };
+    let Some(Value::Object(field_value_type)) = constraints.first_mut() else {
+        panic!("field_value_type must be an object");
+    };
+    let Some(Value::Object(cases)) = field_value_type.get_mut("cases") else {
+        panic!("cases must be an object");
+    };
+    cases.insert(
+        "fingerprint".to_string(),
+        Value::String("ErrorCode".to_string()),
+    );
+    let finding = check_adapter_catalog(&value).expect("ErrorCode case type must fail");
+    assert!(finding.contains("unknown type `ErrorCode`"), "{finding}");
+}
+
+#[test]
+fn test_adapter_catalog_rejects_incomplete_field_value_type_cases() {
+    let mut value = adapter_catalog_value();
+    let Value::Object(root) = &mut value else {
+        panic!("adapter catalog root must be an object");
+    };
+    let Some(Value::Array(postconditions)) = root.get_mut("postconditions") else {
+        panic!("postconditions must be an array");
+    };
+    let Some(Value::Object(state_assert)) = postconditions
+        .iter_mut()
+        .find(|entry| entry.get("kind").and_then(Value::as_str) == Some("state_assert"))
+    else {
+        panic!("state_assert entry must exist");
+    };
+    let Some(Value::Array(constraints)) = state_assert.get_mut("constraints") else {
+        panic!("constraints must be an array");
+    };
+    let Some(Value::Object(field_value_type)) = constraints.first_mut() else {
+        panic!("field_value_type must be an object");
+    };
+    let Some(Value::Object(cases)) = field_value_type.get_mut("cases") else {
+        panic!("cases must be an object");
+    };
+    cases.remove("text");
+    let finding = check_adapter_catalog(&value).expect("incomplete discriminator cases must fail");
+    assert!(
+        finding.contains("missing discriminator value `text`"),
+        "{finding}"
+    );
 }
