@@ -50,6 +50,7 @@
 | 2b evidence | **TASK-379 ✅** | automation/治理 | `tasks/TASK-379-automation-rounds-main-only-source.md` | Done（PR #751 checks 21 success + 1 skipped；merge `fa87cae6`；main CI `44030156733` success；main-only 快照 + 有界 Git 清理） |
 | Adapter schema | **TASK-380 ✅** | protocol/治理 | `tasks/TASK-380-protocol-tool-schema-1-1.md` | Done（PR #753 checks 21 success + 1 skipped；merge `06a7fa9`；main CI `44048983726` success；validator 后续） |
 | 1 preflight | **TASK-381 ✅** | 架构/治理 | `tasks/TASK-381-adapter-bundle-validator-readiness.md` | Done（审计完成；PR #755 merge `bbefb97`，main CI `44057360138` success；`DRIFT-381-1` 阻塞下游 validator，下一步补 Accepted ADR/spec） |
+| dependency gate | **TASK-382** | 依赖/治理 | `tasks/TASK-382-rmcp-chrono-rustsec-remediation.md` | Review（固定 `rmcp` commit `a95b8045`；chrono 已移除；deny/tests/clippy 全绿；待 PR checks） |
 | 1 | 待派单 | 架构/治理 | dispatch 时创建 | 未开始（通用只读 Adapter bundle validator） |
 | 2 | 待派单 | Windows platform | dispatch 时创建 | 未开始（COM apartment/生命周期/回收与负向测试） |
 | 3 | 待派单 | Excel Adapter | dispatch 时创建 | 未开始（Adapter 数据包 + Protected View/AutoSave/interrupts） |

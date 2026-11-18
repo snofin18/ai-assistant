@@ -43,3 +43,6 @@ deny = [
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# TASK-382: fixed-SHA upstream candidate for RUSTSEC-2026-0543. Replace with an
+# official rmcp release as soon as the chrono-optional change is published.
+allow-git = ["https://github.com/andreinknv/rust-sdk"]
