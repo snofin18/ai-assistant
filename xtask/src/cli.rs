@@ -43,8 +43,10 @@ pub const USAGE: &str = r#"xtask — 仓库护栏与开发任务工具（只读�
   guard <操作>       文件改写互斥锁（ADR-0028）；操作 = acquire | release | status | reap
   write <目标>       命令行唯一写通道（ADR-0066）：stdin → 目标；先取 guard 锁，Windows
                      上再做独占占用探测与退避重试；读取路径不进通道
-  verify-schemas     5 份 JSON schema 校验（存在 + JSON 合法 + version + 13 类 ErrorCode）
+  verify-schemas     7 份 machine JSON 校验（schema/catalog + version + 跨字段约束）
   codegen            从 protocol/*.json 生成 Rust 类型；--check 仅检测 drift 不写
+  adapter-validate <adapter-dir> --report-only
+                     对 Adapter bundle 执行 D1-D6 只读校验；绝不写文件
   replay             用录制的树快照做离线回放回归（骨架 = dry-run 解析 + 校验；
                      `--suite core` 跑 v2 树快照序列 + 树级 diff）
   check-ledger       台账与状态同步的新鲜度检查（ADR-0039 D3：PLAN.md 更新日期 ≥
@@ -82,7 +84,7 @@ guard / write 的选项（其它子命令不接受）：
 ///
 /// 表外的子命令出现第二个位置参数仍然是用法错误 —— 这条行为有测试盯着
 /// （`test_parse_args_second_command_is_usage_error`），**不得**为了图省事把这张表放开成"全部"。
-const COMMANDS_ACCEPTING_OPERANDS: [&str; 3] = ["guard", "replay", "write"];
+const COMMANDS_ACCEPTING_OPERANDS: [&str; 4] = ["adapter-validate", "guard", "replay", "write"];
 
 /// 需要跟一个值的选项（不含前导 `--` 的名字会作为 `Invocation::options` 的键）。
 const VALUE_OPTIONS: [&str; 7] = [
@@ -101,7 +103,7 @@ const VALUE_OPTIONS: [&str; 7] = [
 /// `--check` 给 `codegen`（AGENTS.md §6 的验收命令 `codegen --check`）。
 /// 与 `VALUE_OPTIONS` 一样，这张表是"语法层认识"，语义层（哪个子命令真的用它）
 /// 由 `execute` 决定；表外的选项一律判用法错误。
-const BOOLEAN_FLAGS: [&str; 2] = ["--force", "--check"];
+const BOOLEAN_FLAGS: [&str; 3] = ["--force", "--check", "--report-only"];
 
 /// 一次调用的解析结果。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -497,6 +499,25 @@ mod tests {
     fn test_parse_args_boolean_flag_with_value_is_usage_error() {
         let error = parse_args(&args(&["guard", "--force=yes"])).expect_err("必须报错");
         assert!(error.contains("--force=yes"), "实际：{error}");
+    }
+
+    #[test]
+    fn test_parse_args_adapter_validate_collects_path_and_report_only() {
+        let invocation = parse_args(&args(&[
+            "adapter-validate",
+            "adapters/com.microsoft.notepad",
+            "--report-only",
+        ]))
+        .expect("adapter-validate syntax should parse");
+        assert_eq!(invocation.command.as_deref(), Some("adapter-validate"));
+        assert_eq!(invocation.operands, vec!["adapters/com.microsoft.notepad"]);
+        assert!(invocation.has_flag("report-only"));
+    }
+
+    #[test]
+    fn test_usage_text_documents_adapter_validate() {
+        assert!(USAGE.contains("adapter-validate"));
+        assert!(USAGE.contains("--report-only"));
     }
 
     #[test]

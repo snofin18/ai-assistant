@@ -21,8 +21,8 @@
 - `--list-deferred`：打印**未实现**的子命令与规则，含归属任务卡号
 - `check-comments`：`docs/spec/naming.md` §10 的 8 条注释与命名规则（公共 API 文档、
   模块头、`SAFETY`、`PITFALL` 标签、受控词汇与缩写）
-- 其余子命令（`verify-schemas` / `codegen` / `replay` / `check-ledger` / `card-check`）
-  已登记但**未实现**，运行会以退出码 3 显式失败
+- 机器门禁：`verify-schemas` / `codegen` / `replay` / `check-ledger` / `card-check`
+- `adapter-validate <adapter-dir> --report-only`：ADR-0105 的只读 Adapter 六件套校验
 
 ## 边界（不做什么）
 
@@ -37,6 +37,21 @@
 - **不自动改写文档**：`memory-counts` / `adr-index` 发现不一致时**打印可直接粘贴的正确值**，
   由人来改（ADR-0030 选项 1 已否决「工具自动写回」）。
 - 不做规则以外的判断：例如「这个文件该不该拆」由人决定，工具只报告「它超过了阈值」。
+
+## Adapter bundle validator
+
+`adapter-validate <adapter-dir> --report-only` 按 ADR-0105 检查一个 Adapter 六件套：
+
+- 只读：不创建、修改、删除或自动修复 Adapter 文件；
+- 必须显式携带 `--report-only`，否则按 usage failure 拒绝；
+- D1 path containment / D2 projection / D3 selectors / D4 tools / D5 rollback / D6 interrupts
+  的 Error finding 返回 exit 1；
+- capability、ErrorCode 与 postcondition 只从 generated
+  `protocol/adapter-catalog/adapter-catalog-1.0.json` 读取；
+- generated catalog 的 postcondition kind/字段/type/effect/constraints 只从
+  `crates/verify/src/postcondition-registry-1.0.json` 派生，并显式合并 Adapter envelope
+  必需的 `description/error_code`；
+- 当前四套未迁移 pack 预期失败，命令暂不接入 CI 硬门禁。
 
 ## 不变量（改动前必读）
 
@@ -243,12 +258,17 @@
 ## 运行
 
 ```powershell
-# 三个只读检查（CI 硬门禁）
+# CI 硬门禁
+cargo run -p xtask -- verify-schemas
+cargo run -p xtask -- codegen --check
 cargo run -p xtask -- hygiene
 cargo run -p xtask -- memory-counts
 cargo run -p xtask -- adr-index
 cargo run -p xtask -- hygiene --list-deferred
 cargo run -p xtask -- hygiene --repo <路径>     # 指定仓库根（默认由编译期常量推导）
+
+# 当前四套 Adapter pack 尚未迁移到 ADR-0105，validator 先保持手工 report-only
+cargo run -p xtask -- adapter-validate adapters/com.microsoft.notepad --report-only
 
 # N_auto：每日 08:00 / 每次人类 prompt / 历史 human round 取最晚 reset 边界
 cargo run -p xtask -- automation-rounds --run-date 2026-10-29

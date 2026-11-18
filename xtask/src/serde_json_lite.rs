@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 pub enum Value {
     Null,
     Bool(bool),
+    Integer(i64),
     // 数字载荷当前只有单测读取（schema 校验/生成只消费 string / bool / array / object）。
     // 保留 JSON 数字支持是为了让解析器语义完整 —— 遇到数字必须解析成功，不能当成语法错误。
     #[allow(dead_code)] // 原因见上：产品路径不读数字载荷，测试路径读
@@ -49,11 +50,25 @@ impl Value {
             None
         }
     }
+    pub const fn as_integer(&self) -> Option<i64> {
+        if let Self::Integer(integer) = self {
+            Some(*integer)
+        } else {
+            None
+        }
+    }
     pub const fn as_object(&self) -> Option<&BTreeMap<String, Self>> {
         if let Self::Object(map) = self {
             Some(map)
         } else {
             None
+        }
+    }
+    pub fn as_f64(&self) -> Option<f64> {
+        match self {
+            Self::Integer(integer) => integer.to_string().parse::<f64>().ok(),
+            Self::Number(number) => Some(*number),
+            _ => None,
         }
     }
 }
@@ -240,6 +255,11 @@ impl<'a> Parser<'a> {
             .get(start..self.pos)
             .ok_or_else(|| "invalid number span".to_string())?;
         let text = std::str::from_utf8(raw).map_err(|_| "invalid utf8 in number")?;
+        if !text.contains(['.', 'e', 'E'])
+            && let Ok(integer) = text.parse::<i64>()
+        {
+            return Ok(Value::Integer(integer));
+        }
         text.parse::<f64>()
             .map(Value::Number)
             .map_err(|e| format!("bad number: {e}"))
@@ -281,7 +301,9 @@ impl<'a> Parser<'a> {
             self.skip_ws();
             self.expect(b':')?;
             let value = self.parse_value()?;
-            map.insert(key, value);
+            if map.insert(key.clone(), value).is_some() {
+                return Err(format!("duplicate object key `{key}`"));
+            }
             self.skip_ws();
             match self.peek() {
                 Some(b',') => {
@@ -304,11 +326,7 @@ mod tests {
 
     /// 取 `Value::Number` 的 f64（测试专用；避免直接比较 f64 触发 `clippy::float_cmp`）。
     fn as_number(value: &Value) -> Option<f64> {
-        if let Value::Number(number) = value {
-            Some(*number)
-        } else {
-            None
-        }
+        value.as_f64()
     }
 
     /// 回归测试（2026-09-23 复核发现的静默缺陷）：非 ASCII 必须**原样**保留。
@@ -331,6 +349,22 @@ mod tests {
     fn test_parse_object_key_preserves_non_ascii() {
         let value = parse("{\"键\": 1}").expect("合法 JSON 必须解析成功");
         assert!(value.get("键").is_some(), "非 ASCII 键必须可查");
+    }
+
+    /// 重复 object key 必须 fail-closed，不能由后者静默覆盖前者。
+    #[test]
+    fn test_parse_object_rejects_duplicate_keys() {
+        let error = parse(r#"{"a":1,"a":2}"#).expect_err("duplicate key must fail");
+        assert!(error.contains("duplicate object key"), "{error}");
+    }
+
+    #[test]
+    fn test_parse_number_preserves_integer_vs_float_shape() {
+        let integer = parse("1").expect("integer parses");
+        let float = parse("1.0").expect("float parses");
+        assert_eq!(integer.as_integer(), Some(1));
+        assert_eq!(float.as_integer(), None);
+        assert_eq!(float.as_f64(), Some(1.0));
     }
 
     /// 已知限制（**故意锁住行为**）：反斜杠 `u` 转义不支持，但必须**显式报错**而不是静默写错。

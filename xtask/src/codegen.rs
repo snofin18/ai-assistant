@@ -132,7 +132,85 @@ fn render_all(
             });
         }
     }
+
+    append_adapter_catalog_drift(repo_root, output, &mut drifts, &mut error_count)?;
     Ok((drifts, error_count))
+}
+
+fn append_adapter_catalog_drift(
+    repo_root: &Path,
+    output: &mut dyn std::io::Write,
+    drifts: &mut Vec<DriftReport>,
+    error_count: &mut usize,
+) -> Result<(), String> {
+    match crate::adapter_catalog::render(repo_root) {
+        Ok(generated) => compare_generated_file(
+            repo_root,
+            output,
+            crate::adapter_catalog::CATALOG_PATH,
+            generated,
+            drifts,
+        ),
+        Err(reason) => {
+            writeln!(
+                output,
+                "  [ERROR] {}  render: {reason}",
+                crate::adapter_catalog::CATALOG_PATH
+            )
+            .map_err(|error| error.to_string())?;
+            *error_count += 1;
+            Ok(())
+        }
+    }
+}
+
+fn compare_generated_file(
+    repo_root: &Path,
+    output: &mut dyn std::io::Write,
+    generated_relative_path: &str,
+    generated: String,
+    drifts: &mut Vec<DriftReport>,
+) -> Result<(), String> {
+    let on_disk = if repo_root.join(generated_relative_path).exists() {
+        Some(
+            fs::read_to_string(repo_root.join(generated_relative_path))
+                .map_err(|error| format!("read {generated_relative_path}: {error}"))?,
+        )
+    } else {
+        None
+    };
+    let difference = on_disk
+        .as_deref()
+        .and_then(|disk| first_exact_difference_line(disk, &generated));
+    match (&difference, &on_disk) {
+        (Some(difference), _) => {
+            writeln!(
+                output,
+                "  [DRIFT] {generated_relative_path}  first difference at line {}",
+                difference.line_number
+            )
+            .map_err(|error| error.to_string())?;
+            writeln!(output, "      generated: {}", difference.generated_line)
+                .map_err(|error| error.to_string())?;
+            writeln!(output, "      on disk  : {}", difference.on_disk_line)
+                .map_err(|error| error.to_string())?;
+        }
+        (None, None) => {
+            writeln!(output, "  [DRIFT] {generated_relative_path}  file missing")
+                .map_err(|error| error.to_string())?;
+        }
+        (None, Some(_)) => {
+            writeln!(output, "  [OK] {generated_relative_path}")
+                .map_err(|error| error.to_string())?;
+        }
+    }
+    if difference.is_some() || on_disk.is_none() {
+        drifts.push(DriftReport {
+            relative_path: generated_relative_path.to_string(),
+            generated,
+        });
+    }
+    Ok(())
 }
 
 /// 把 drift 的生成物写回磁盘（不变量 2：只碰 drift 的文件）。
@@ -213,6 +291,40 @@ fn first_difference_line(left: &str, right: &str) -> Option<Difference> {
     }
 }
 
+fn first_exact_difference_line(left: &str, right: &str) -> Option<Difference> {
+    if left == right {
+        return None;
+    }
+    for (index, (left_line, right_line)) in left.split('\n').zip(right.split('\n')).enumerate() {
+        if left_line != right_line {
+            return Some(Difference {
+                line_number: index + 1,
+                generated_line: display_exact_line(right_line),
+                on_disk_line: display_exact_line(left_line),
+            });
+        }
+    }
+    let left_count = left.split('\n').count();
+    let right_count = right.split('\n').count();
+    Some(Difference {
+        line_number: left_count.min(right_count) + 1,
+        generated_line: if right_count > left_count {
+            "<extra generated line>".to_string()
+        } else {
+            "<missing generated line>".to_string()
+        },
+        on_disk_line: if left_count > right_count {
+            "<extra disk line>".to_string()
+        } else {
+            "<missing disk line>".to_string()
+        },
+    })
+}
+
+fn display_exact_line(line: &str) -> String {
+    line.replace('\r', "\\r").replace('\t', "\\t")
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
@@ -270,5 +382,69 @@ mod tests {
             text.contains("FAILED (render error)"),
             "必须显式打印渲染失败，实际输出：{text}"
         );
+    }
+
+    #[test]
+    fn test_tampered_adapter_catalog_is_reported_as_drift() {
+        let root = std::env::temp_dir().join(format!(
+            "xtask-codegen-catalog-drift-{}",
+            std::process::id()
+        ));
+        let catalog_path = root.join(crate::adapter_catalog::CATALOG_PATH);
+        if root.exists() {
+            std::fs::remove_dir_all(&root).expect("清理旧临时仓库");
+        }
+        std::fs::create_dir_all(catalog_path.parent().expect("catalog parent"))
+            .expect("创建 catalog 目录");
+        std::fs::write(&catalog_path, "{\n  \"tampered\": true\n}\n").expect("写入篡改 catalog");
+
+        let generated = "{\n  \"version\": \"1.0\"\n}\n".to_string();
+        let mut output: Vec<u8> = Vec::new();
+        let mut drifts: Vec<DriftReport> = Vec::new();
+        compare_generated_file(
+            &root,
+            &mut output,
+            crate::adapter_catalog::CATALOG_PATH,
+            generated,
+            &mut drifts,
+        )
+        .expect("比较 catalog 不应 IO 失败");
+        std::fs::remove_dir_all(&root).expect("清理临时仓库");
+
+        assert_eq!(drifts.len(), 1, "篡改 generated catalog 必须产生 drift");
+        let text = String::from_utf8(output).expect("输出应为 UTF-8");
+        assert!(
+            text.contains(crate::adapter_catalog::CATALOG_PATH),
+            "drift 输出必须指出 catalog 路径：{text}"
+        );
+    }
+
+    #[test]
+    fn test_adapter_catalog_format_only_change_is_reported_as_drift() {
+        let root = std::env::temp_dir().join(format!(
+            "xtask-codegen-catalog-format-drift-{}",
+            std::process::id()
+        ));
+        let catalog_path = root.join(crate::adapter_catalog::CATALOG_PATH);
+        if root.exists() {
+            std::fs::remove_dir_all(&root).expect("清理旧临时仓库");
+        }
+        std::fs::create_dir_all(catalog_path.parent().expect("catalog parent"))
+            .expect("创建 catalog 目录");
+        let generated = "{\n  \"version\": \"1.0\"\n}\n".to_string();
+        std::fs::write(&catalog_path, generated.replace('\n', "\r\n")).expect("写入 CRLF catalog");
+
+        let mut output: Vec<u8> = Vec::new();
+        let mut drifts: Vec<DriftReport> = Vec::new();
+        compare_generated_file(
+            &root,
+            &mut output,
+            crate::adapter_catalog::CATALOG_PATH,
+            generated,
+            &mut drifts,
+        )
+        .expect("比较 catalog 不应 IO 失败");
+        std::fs::remove_dir_all(&root).expect("清理临时仓库");
+        assert_eq!(drifts.len(), 1, "格式差异也必须按逐字节 drift 拒绝");
     }
 }
