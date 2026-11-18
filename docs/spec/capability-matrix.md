@@ -1,7 +1,7 @@
 # spec: 能力矩阵（capability matrix）
 
 > 摘要：Capability matrix 规范（Host / Skill / Platform 三层 × 资源访问 / 副作用 / 风险级）。本 spec 是本项目**契约层**的一部分，由 ADR 批准后即作为 xtask 卡实施 + CI 机器校验的权威。
-> 状态：Draft（ADR-0042 与 ADR-0104 已批准字段语义）　版本：0.2　日期：2026-11-17
+> 状态：Draft（ADR-0042、ADR-0104 与 ADR-0105 已批准字段语义）　版本：0.3　日期：2026-11-18
 > 上位：`AGENTS.md` §5、`docs/governance-ai-agent-execution.md` §5/§6
 > 强制性：**本文档是契约**。违反即 CI 失败（`xtask` 相关子命令）或 Reviewer 拒绝合并。
 > 变更门槛：新增字段或修改类型 → 需 ADR。
@@ -76,6 +76,21 @@ Adapter tool envelope 的 `capabilities` 是 capability catalog 的**稳定标�
 
 字段与 envelope 的 owner 见 **ADR-0104** D4；机器校验由后续通用 Adapter validator 实现。
 
+## 7. Validator catalog consumption
+
+`docs/spec/adapter-bundle.md` §6 冻结 validator 的 capability 引用规则：
+
+- envelope `capabilities` 必须非空、去重，并按 UTF-8 byte order 升序；
+- 每个 id 必须逐字命中本文件对应的
+  `protocol/capability-matrix/capability-1.0.json#/capabilities/*/id`；
+- validator MUST NOT 从 runtime `CapabilityMatrix` 的 `probed_at/platform/session/channels/
+  degradations` 推断静态授权；
+- validator MUST NOT 维护 Adapter 专用 capability alias 或第二份 catalog。
+
+后续 catalog generation 必须以 protocol catalog 为输入；若该文件变化，validator 侧只能通过
+生成/引用更新，不能手改一份平行枚举。catalog 生成与 `codegen --check` 接入属于 validator
+implementation 卡，不在 TASK-383 冒充完成。
+
 ---
 
 ## 附录：演进记录
@@ -84,3 +99,4 @@ Adapter tool envelope 的 `capabilities` 是 capability catalog 的**稳定标�
 |---|---|---|
 | 0.1 | 2026-09-20 | 初稿（项目进度督察后批量补齐 stage-0 DoD #5）|
 | 0.2 | 2026-11-17 | 新增 §6 Adapter capability 引用；依据 **ADR-0104** / TASK-376 |
+| 0.3 | 2026-11-18 | 新增 §7 validator catalog consumption、排序与禁止 runtime-matrix 推断；依据 ADR-0105 / TASK-383 |

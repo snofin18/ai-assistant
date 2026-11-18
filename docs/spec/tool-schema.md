@@ -1,7 +1,7 @@
 # spec: Tool/Adapter/审计事件 schema 单一事实源
 
 > 摘要：Tool / Adapter / 审计事件 JSON Schema 规范。本 spec 是本项目**契约层**的一部分，由 ADR 批准后即作为 xtask 卡实施 + CI 机器校验的权威。
-> 状态：Draft（ADR-0055 与 ADR-0104 已批准字段变更；schema 1.1 与生成类型已实现，通用只读 Adapter validator 待后续卡）　版本：0.5　日期：2026-11-17
+> 状态：Draft（ADR-0055、ADR-0104 与 ADR-0105 已批准字段变更；schema 1.1 与生成类型已实现，通用只读 Adapter validator 待后续卡）　版本：0.6　日期：2026-11-18
 > 上位：`AGENTS.md` §5、`docs/governance-ai-agent-execution.md` §5/§6
 > 强制性：**本文档是契约**。违反即 CI 失败（`xtask` 相关子命令）或 Reviewer 拒绝合并。
 > 变更门槛：新增字段或修改类型 → 需 ADR。
@@ -121,6 +121,28 @@ ToolSchema 1.1 与 `AdapterToolEnvelopeV1` 生成类型已由 TASK-380 落地；
 pack 迁移尚未完成，因此 binary 对 `read + none_readonly` 的归一化仍只是兼容路径，不是
 运行时已支持 ADR-0104 全 envelope 的证据。
 
+### 4.3 Validator catalog 与 envelope 机器契约
+
+`docs/spec/adapter-bundle.md` 是 Adapter bundle validator 的机器契约：它冻结 envelope
+unknown-field rejection、ToolSchema 1.0/1.1 兼容窗口、read/write postcondition matrix 和
+跨文件引用规则。
+
+validator 的 capability、ErrorCode 与 postcondition kind 只能引用以下共享事实源：
+
+- capability：`protocol/capability-matrix/capability-1.0.json`
+- ErrorCode：`protocol/error-codes/error-codes-1.0.json`
+- postcondition：由现有 assertion 契约与 `crates/verify/src/postcondition.rs` 生成的 reviewed
+  machine catalog
+
+validator MUST NOT 手写第三份 kind、ErrorCode 或 capability 枚举。catalog 的生成命令、产物路径和
+`codegen --check` 集成由紧随其后的 validator implementation 卡实现；在实现卡合并前，不得把
+本节写成“catalog 已生成”或“validator 已通过现有 pack”。
+
+`effect=read` 至少需要一个 canonical `state_unchanged`；输出字段存在、`element_exists` 或自由文本
+描述都不能单独证明无状态变化。`effect=write` 至少需要一个可执行的 canonical postcondition。
+每个 envelope postcondition 必须显式包含 `kind`、非空 `description` 和合法 `error_code`，并按
+kind 的封闭字段集合校验。
+
 ---
 
 ## 5. 与其他 spec 的关系
@@ -146,3 +168,4 @@ pack 迁移尚未完成，因此 binary 对 `read + none_readonly` 的归一化�
 | 0.3 | 2026-09-27 | §3 增加权威 `effect` / `reversibility`，§4 增加不变量 9；依据 **ADR-0055**，关闭 TASK-207 `DRIFT-207-1` |
 | 0.4 | 2026-11-17 | §3 对齐 canonical ToolSchema 并把 capabilities/postconditions 归入 `adapter_tool_envelope.v1`；§4 新增不变量 10/11、bundle 与兼容窗口；依据 **ADR-0104** / TASK-376 |
 | 0.5 | 2026-11-17 | ToolSchema 1.1 的 `none_readonly` 与 `AdapterToolEnvelopeV1` 生成类型已实现并纳入 `verify-schemas` / `codegen`；通用只读 validator 明确仍未实现；依据 ADR-0104 / TASK-380 |
+| 0.6 | 2026-11-18 | 增加 validator catalog 唯一来源、ToolSchema 1.0/1.1 窗口与 read/write postcondition matrix；机器契约转交 `docs/spec/adapter-bundle.md`；依据 ADR-0105 / TASK-383 |

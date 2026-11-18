@@ -21,6 +21,9 @@
 > `a95b8045`，移除 chrono 且未新增 advisory ignore；PR #758 merge `6679141` / main CI
 > `44219594025` success。PR #757 已基于新 main 重跑，checks 21 success + 1 skipped，
 > merge `67deedf` / main CI `44221880362` success。
+> TASK-383 正在关闭 `DRIFT-381-1`：ADR-0105 与 `docs/spec/adapter-bundle.md` 冻结 canonical
+> JSON、projection manifest、selector typed union、共享 catalog、rollback anchor 与 interrupt
+> action/resume 联合；本卡不实现 validator、不迁移现有 pack。
 
 ## In scope
 
@@ -55,6 +58,7 @@
 | Adapter schema | **TASK-380 ✅** | protocol/治理 | `tasks/TASK-380-protocol-tool-schema-1-1.md` | Done（PR #753 checks 21 success + 1 skipped；merge `06a7fa9`；main CI `44048983726` success；validator 后续） |
 | 1 preflight | **TASK-381 ✅** | 架构/治理 | `tasks/TASK-381-adapter-bundle-validator-readiness.md` | Done（审计完成；PR #755 merge `bbefb97`，main CI `44057360138` success；`DRIFT-381-1` 阻塞下游 validator，下一步补 Accepted ADR/spec） |
 | dependency gate | **TASK-382 ✅** | 依赖/治理 | `tasks/TASK-382-rmcp-chrono-rustsec-remediation.md` | Done（固定 `rmcp` commit `a95b8045`；chrono 已移除；PR #758 merge `6679141`；PR #757 merge `67deedf`；main CI `44221880362` success） |
+| validator contract | **TASK-383** | 契约/架构 | `tasks/TASK-383-adapter-validator-machine-profile.md` | Review（ADR-0105 + `docs/spec/adapter-bundle.md` 冻结 D2-D6 机器契约；等待 PR checks） |
 | 1 | 待派单 | 架构/治理 | dispatch 时创建 | 未开始（通用只读 Adapter bundle validator） |
 | 2 | 待派单 | Windows platform | dispatch 时创建 | 未开始（COM apartment/生命周期/回收与负向测试） |
 | 3 | 待派单 | Excel Adapter | dispatch 时创建 | 未开始（Adapter 数据包 + Protected View/AutoSave/interrupts） |

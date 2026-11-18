@@ -316,3 +316,7 @@
 ## 2026-11-17 追加（ADR-0104，Accepted）
 
 - [2026-11-17][DECISION][src:ADR-0104，人类 2026-11-17 一次性批准 TASK-376 D1-D6] **Adapter 六件套采用单入口 bundle 与封闭方言**：`adapter.toml` 六个路径槽全必填并限制在 bundle root；富 App Map 是人工知识源，core App Map v1 必须确定性生成且悬空 source reference/字节漂移失败；selector 只允许 `uia_candidate_chain_v1` 与 `shell_target_v1`，DOM selector 不进入 bundle；tool 使用 `adapter_tool_envelope.v1`，capabilities 非空命中 catalog，postconditions 至少一条，`none_readonly` 仅 effect=read；每个 write 恰有一行 rollback coverage，L0~L2 必须有可执行 recipe，L3 仅允许显式 `no_recovery` + reason + high/critical + 人工批准；interrupt 五动作闭集为 `cancel` / `dismiss_explicitly` / `cancel_unless_declared_by_tool` / `delegate_to_tool` / `ask_human`，禁止危险默认和历史 task-id delegation。目标契约已 Accepted，protocol 1.1、validator 与现有包迁移仍由后续卡实现。
+
+## 2026-11-18 追加（ADR-0105，Accepted）
+
+- [2026-11-18][DECISION][src:ADR-0105，人类 2026-11-18“继续下一步”；TASK-383] **Adapter bundle validator 使用独立机器契约，不改变 ADR-0104 安全语义**：富 App Map 新增作者维护 `projection_manifest`，生成器只排序/复制/计算 token/序列化并逐字节比较，所有知识域必须被 entry 或 omission 覆盖；UIA selector 使用 typed candidate union、结构化 `on_not_found` 与显式 fallback 排序，shell target 只保留非 DOM 的 UIA identity；ToolSchema 1.0/1.1 迁移窗口内只从 protocol capability/error-code 与既有 verify assertion 生成 catalog，read 至少 `state_unchanged`、write 至少一个非 `state_unchanged` executable postcondition；rollback 每个 anchor 固定 capture/restore/post_verify 判别联合，L0/L1/L2 按 level 限型，L3 仅 `no_recovery`；interrupt 使用唯一 priority、typed action、显式 locale 文本和 `requires_human/resume_after` 矩阵。契约落在 `docs/spec/adapter-bundle.md`，validator、catalog generation 与 pack 迁移仍由后续卡实现。
