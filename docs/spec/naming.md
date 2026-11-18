@@ -1,6 +1,6 @@
 # spec: 命名与注释规范（naming）
 
-> 状态：Draft（ADR-0021、ADR-0042、ADR-0104 已批准受控词）　版本：0.2　日期：2026-11-17
+> 状态：Draft（ADR-0021、ADR-0042、ADR-0104、ADR-0105 已批准受控词）　版本：0.3　日期：2026-11-18
 > 上位：`AGENTS.md` §5、`docs/governance-ai-agent-execution.md` §6.1.1/§6.1.2
 > 强制性：**本文档是契约**。违反即 CI 失败（`xtask check-comments`）或 Reviewer 拒绝合并。
 > 变更门槛：新增受控词或修改白名单 → 需 ADR。
@@ -77,6 +77,7 @@ ocr  ttl  http  json  sql  fs  vm  px  ms  us  ns
 | `Adapter Bundle` | Package / Kit / Six-Pack | `adapter.toml` 入口下的六路径声明集合 | ADR-0104 |
 | `AppMap` | KnowledgeBase / AppProfile | 应用的静态知识库（命令表/UI 地图/已知坑/undo 能力） | v2 §6.7 |
 | `AppMap Projection` | MemoryCopy / MiniMap | 从富 App Map 确定性生成给 core loader 的只读投影 | ADR-0104 |
+| `Projection Manifest` | ExportSpec / ProjectionBlueprint | 富 App Map 内唯一决定 projection entries、source references 与 omissions 的作者维护清单 | ADR-0105 |
 | `Selector Model` | Dialect / AST / MatcherType | selector bundle 的显式形状标识（`uia_candidate_chain_v1` / `shell_target_v1`） | ADR-0104 |
 | `Rollback Coverage` | UndoTable / RecipeMatrix | 每个 write tool 恰好对应一行的恢复覆盖记录 | ADR-0104 |
 | `Interrupt Grammar` | PopupRule / DialogMatcher | interrupt pack 的封闭 match/action 语法 | ADR-0104 |
@@ -93,6 +94,7 @@ ocr  ttl  http  json  sql  fs  vm  px  ms  us  ns
 | `Host` | Worker / Runner / Agent | 执行进程（`automation-host`） | v2 §3.3 |
 | `Postcondition` | Assertion / Check / Verify | 后置条件断言 | v2 §7.4 |
 | `Drift` | Deviation / Detour | 偏离规划的记录 | gov §4.3 |
+| `Finding` | Error / Issue / Diagnostic | validator 的只读、稳定 code + authored pointer 报告项；不是运行时 `ErrorCode` | ADR-0105 |
 
 **易混词特别提示**：
 - `Capability`（能做什么）≠ `Permission`（允许做什么）：前者是探测结果，后者是策略结果。
@@ -212,3 +214,25 @@ ocr  ttl  http  json  sql  fs  vm  px  ms  us  ns
 ```
 
 ⑦⑧ 采用**警告而非失败**，避免启发式误报阻塞开发；但同一位置连续两次被警告仍未处理 → Reviewer 必须给出理由。
+
+## 11. Adapter bundle canonical 字段
+
+`docs/spec/adapter-bundle.md` 冻结以下机器键；实现不得使用同义词：
+
+| 概念 | canonical key |
+|---|---|
+| projection 作者清单元数据 | `projection_manifest` |
+| 运行时 provenance 引用 | `source_reference` |
+| rollback 覆盖 | `anchor_strategy` |
+| rollback 回滚后复核 | `post_verify` |
+| interrupt 动作 | `action` |
+| interrupt 人工要求 | `requires_human` |
+| interrupt 恢复条件 | `resume_after` |
+| validator 报告项 | `finding` |
+
+## 12. 版本历史
+
+| 版本 | 日期 | 变更 |
+|---|---|---|
+| 0.2 | 2026-11-17 | 由 ADR-0104 增加 Adapter Bundle、App Map Projection、Selector Model、Rollback Coverage、Interrupt Grammar 等受控词 |
+| 0.3 | 2026-11-18 | 由 ADR-0105 增加 Projection Manifest、Finding 与 Adapter bundle canonical 字段；依据 TASK-383 |

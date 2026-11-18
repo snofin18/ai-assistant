@@ -124,8 +124,9 @@
 | **0102** | `0102-browser-form-submit-observation-fingerprint.md` | **Accepted** | 修订 ADR-0101 的 `form_submit` 输出边界：提交前后观察真实 `location.href` / `document.title` / `performance.timeOrigin`，生成 `cdp_target` identity fingerprint；输出增加 observation 元数据并允许 task package 使用 `state_changed`，不得用结果哈希或放宽 Runtime 规则替代（人类 2026-10-30“继续下一步”与既有预授权；TASK-351） |
 | **0103** | `0103-browser-form-fill-approval-readback-evidence.md` | **Accepted** | 保持 `form_fill` 公共 data/schema 不变，把成功 readback 放入 `ToolEnvelope.evidence.extra` 的固定审批命名空间；所有字段必须同 form，证据一次性消费且不得进入模型、日志、审计、DB、任务输出或 replay；preview 默认全值脱敏（人类 2026-10-31“继续下一步”；TASK-353） |
 | **0104** | `0104-adapter-bundle-contract-and-closed-dialects.md` | **Accepted** | Adapter 六路径 bundle 全必填且 containment；富 App Map 单一源 + 确定性 projection；两个显式 selector model；Adapter tool envelope 必须有 capabilities/postconditions 且 `none_readonly` 仅 read；每个 write 恰一行 rollback coverage；interrupt 五动作闭集并禁止 task-id delegate（人类 2026-11-17 一次性批准 D1-D6；TASK-376） |
+| **0105** | `0105-adapter-bundle-validator-machine-profile.md` | **Accepted** | 只澄清 ADR-0104 的机器形状：canonical JSON/引用、App Map projection manifest 与字节格式、两种 selector typed union、共享 capability/ErrorCode/postcondition catalog、rollback capture/restore/post-verify 联合、interrupt priority/action/resume 联合（人类 2026-11-18“继续下一步”；TASK-383） |
 
-**下一个可用编号：0105**（= §1 与 §2 已用最大号 **0104** + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0106**（= §1 与 §2 已用最大号 **0105** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由

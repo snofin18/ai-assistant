@@ -2,6 +2,7 @@
 
 状态：**Accepted**（2026-11-17，人类一次性批准 TASK-376 D1-D6）
 日期：2026-11-17
+Clarified by：ADR-0105（机器可执行字段、引用、排序与判别联合）
 Supersedes：无
 Superseded by：无
 关联：ADR-0022、ADR-0028、ADR-0031、ADR-0041、ADR-0055、ADR-0062、ADR-0083、
