@@ -66,8 +66,9 @@ rollback anchor 与 interrupt action 没有封闭对象联合。
   `effect=read`。
 - Capability ID 只从 `protocol/capability-matrix/capability-1.0.json` 读取；ErrorCode 只从
   `protocol/error-codes/error-codes-1.0.json` 读取。
-- Postcondition 的 kind/字段/类型由现有 assertion 契约生成 catalog；validator 不得手写第二套
-  kind 列表。所有 envelope postcondition 必须能映射到 catalog kind，并显式携带合法 ErrorCode。
+- Postcondition 的 kind/字段/类型由现有 assertion 契约生成固定 catalog
+  `protocol/adapter-catalog/adapter-catalog-1.0.json`；validator 不得手写第二套 kind 列表。
+  所有 envelope postcondition 必须能映射到 catalog kind，并显式携带合法 ErrorCode。
 - read tool 必须至少有一个可执行 `state_unchanged`；write tool 必须至少有一个非
   `state_unchanged` 的可执行 postcondition。空数组、重复项和仅描述性字符串失败。
 - envelope 必须 `additionalProperties=false`；`requires_approval/idempotent/tags` 在 Adapter
@@ -90,7 +91,7 @@ rollback anchor 与 interrupt action 没有封闭对象联合。
 ### D6：interrupt grammar 使用显式 priority 和 typed action
 
 - 每条 interrupt 必须有唯一 id、正整数 priority、非空 match、typed action、classification、
-  requires_human；人工动作必须声明 resume_after。
+  requires_human；requires_human=true 时必须声明 resume_after，false 时必须省略。
 - priority 降序决定首个规则；priority 相同且 match 可同时命中即歧义失败，不按文件顺序猜。
 - `title_candidates/name_candidates` 每项必须显式 `{value, locale_dependent:true}`，且文本不能
   成为唯一 match；还必须同时存在 class/automation 类非文本条件。
