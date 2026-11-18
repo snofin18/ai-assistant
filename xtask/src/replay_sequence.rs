@@ -340,16 +340,9 @@ fn parse_bounds(values: &[Value]) -> Result<[i64; 4], String> {
     }
     let mut bounds = [0_i64; 4];
     for (index, value) in values.iter().enumerate() {
-        let Value::Number(number) = value else {
-            return Err("node.bounds entries must be numbers".to_string());
-        };
-        if !number.is_finite() || number.fract() != 0.0 {
-            return Err("node.bounds entries must be integers".to_string());
-        }
-        let converted = number
-            .to_string()
-            .parse::<i64>()
-            .map_err(|_| "node.bounds entry does not fit in i64".to_string())?;
+        let converted = value
+            .as_integer()
+            .ok_or_else(|| "node.bounds entries must be integers".to_string())?;
         if let Some(slot) = bounds.get_mut(index) {
             *slot = converted;
         }
@@ -708,16 +701,10 @@ fn optional_u64(object: &BTreeMap<String, Value>, key: &str) -> Result<Option<u6
 }
 
 fn number_to_u64(value: &Value, field: &str) -> Result<u64, String> {
-    let Value::Number(number) = value else {
-        return Err(format!("`{field}` must be an unsigned integer"));
-    };
-    if !number.is_finite() || number.fract() != 0.0 || *number < 0.0 {
-        return Err(format!("`{field}` must be an unsigned integer"));
-    }
-    number
-        .to_string()
-        .parse::<u64>()
-        .map_err(|_| format!("`{field}` does not fit in u64"))
+    value
+        .as_integer()
+        .and_then(|integer| u64::try_from(integer).ok())
+        .ok_or_else(|| format!("`{field}` must be an unsigned integer"))
 }
 
 fn write_line(output: &mut dyn std::io::Write, text: &str) -> Result<(), String> {

@@ -30,6 +30,10 @@
 > 每个 kind 均由现有 `parse_postconditions` 样例验收；`visual_assert` 以非空 reason 显式排除。
 > PR #762 merge `4f92ed8` / main CI `44256975571` success；registry 合并后由后续
 > validator implementation 卡改为唯一 catalog 输入。
+> TASK-384 已恢复为 **Review**：`adapter-validate --report-only`、generated
+> `adapter-catalog-1.0.json` 与 D1-D6 负向矩阵已补强，xtask `574/574`、workspace tests /
+> Clippy 全绿；TASK-385 合并后 catalog 改为直接消费 Verify registry，三种 constraints
+> 已进入 generated catalog 与 validator，`DRIFT-384-1` 关闭；等待 PR checks。
 
 ## In scope
 
@@ -66,6 +70,7 @@
 | dependency gate | **TASK-382 ✅** | 依赖/治理 | `tasks/TASK-382-rmcp-chrono-rustsec-remediation.md` | Done（固定 `rmcp` commit `a95b8045`；chrono 已移除；PR #758 merge `6679141`；PR #757 merge `67deedf`；main CI `44221880362` success） |
 | validator contract | **TASK-383 ✅** | 契约/架构 | `tasks/TASK-383-adapter-validator-machine-profile.md` | Done（ADR-0105 + `docs/spec/adapter-bundle.md` 冻结 D2-D6；PR #760 merge `2ae5a19`；main CI `44231680015` success） |
 | registry prerequisite | **TASK-385 ✅** | Verify/治理 | `tasks/TASK-385-verify-postcondition-registry.md` | Done（machine registry + parser 同步测试；PR #762 merge `4f92ed8`；main CI `44256975571` success） |
+| validator implementation | **TASK-384** | xtask/治理 | `tasks/TASK-384-adapter-validate-report-only.md` | Review（catalog 已从 Verify registry 生成并携带 constraints；51 个 adapter 测试全绿；等待 PR checks） |
 | 1 | 待派单 | 架构/治理 | dispatch 时创建 | 未开始（通用只读 Adapter bundle validator） |
 | 2 | 待派单 | Windows platform | dispatch 时创建 | 未开始（COM apartment/生命周期/回收与负向测试） |
 | 3 | 待派单 | Excel Adapter | dispatch 时创建 | 未开始（Adapter 数据包 + Protected View/AutoSave/interrupts） |

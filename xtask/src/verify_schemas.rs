@@ -20,6 +20,7 @@
 use std::fs;
 use std::path::Path;
 
+use crate::adapter_catalog_check::check_adapter_catalog;
 use crate::serde_json_lite::{self, Value};
 
 /// 期望存在的 schema 文件 + 各自的顶层版本号。
@@ -30,6 +31,7 @@ const EXPECTED_SCHEMAS: &[(&str, &str)] = &[
     ("protocol/tool-schema/tool-schema-1.1.json", "1.1"),
     ("protocol/capability-matrix/capability-1.0.json", "1.0"),
     ("protocol/audit-event/audit-event-1.0.json", "1.0"),
+    ("protocol/adapter-catalog/adapter-catalog-1.0.json", "1.0"),
 ];
 
 /// 不变量 2：v2 §8.7 的错误分类数。
@@ -129,6 +131,7 @@ fn check_schema(repo_root: &Path, relative_path: &str, expected_version: &str) -
         "protocol/capability-matrix/capability-1.0.json" => check_capability_matrix(&value),
         "protocol/tool-schema/tool-schema-1.0.json" => check_tool_schema_v10(&value),
         "protocol/tool-schema/tool-schema-1.1.json" => check_tool_schema_v11(&value),
+        "protocol/adapter-catalog/adapter-catalog-1.0.json" => check_adapter_catalog(&value),
         _ => None,
     };
     SchemaCheck {
@@ -414,7 +417,7 @@ fn check_adapter_envelope_v11(value: &Value) -> Option<String> {
 }
 
 const fn number_is_one(value: &Value) -> bool {
-    matches!(value, Value::Number(number) if number.to_bits() == 1.0_f64.to_bits())
+    matches!(value, Value::Integer(1))
 }
 
 /// 不变量 2 + 3：13 项，且数据数组与 schema 的 `enum` 同序逐项一致。
@@ -528,6 +531,13 @@ mod tests {
         serde_json_lite::parse(&json).expect("测试夹具必须是合法 JSON")
     }
 
+    fn adapter_catalog_value() -> Value {
+        serde_json_lite::parse(include_str!(
+            "../../protocol/adapter-catalog/adapter-catalog-1.0.json"
+        ))
+        .expect("generated adapter catalog must parse")
+    }
+
     fn tool_schema_v11_value() -> Value {
         let json = TOOL_SCHEMA_V11_TEMPLATE.replace("__RULE__", NONE_READONLY_RULE);
         serde_json_lite::parse(&json).expect("ToolSchema 1.1 fixture must parse")
@@ -610,6 +620,167 @@ mod tests {
         let value = capability_value(&["target.list", "target.list"]);
         let finding = check_capability_matrix(&value).expect("重复 id 必须被拦下");
         assert!(finding.contains("duplicate"), "实际：{finding}");
+    }
+
+    #[test]
+    fn test_adapter_catalog_accepts_generated_catalog() {
+        assert!(check_adapter_catalog(&adapter_catalog_value()).is_none());
+    }
+
+    #[test]
+    fn test_adapter_catalog_rejects_missing_capabilities() {
+        let mut value = adapter_catalog_value();
+        let Value::Object(object) = &mut value else {
+            panic!("adapter catalog root must be an object");
+        };
+        object.remove("capabilities");
+        let finding = check_adapter_catalog(&value).expect("missing capabilities must fail");
+        assert!(finding.contains("capabilities"), "{finding}");
+    }
+
+    #[test]
+    fn test_adapter_catalog_rejects_unknown_top_level_field() {
+        let mut value = adapter_catalog_value();
+        let Value::Object(object) = &mut value else {
+            panic!("adapter catalog root must be an object");
+        };
+        object.insert("unknown".to_string(), Value::Bool(true));
+        let finding = check_adapter_catalog(&value).expect("unknown top-level field must fail");
+        assert!(finding.contains("unknown top-level"), "{finding}");
+    }
+
+    #[test]
+    fn test_adapter_catalog_rejects_unsorted_capabilities() {
+        let mut value = adapter_catalog_value();
+        let Value::Object(object) = &mut value else {
+            panic!("adapter catalog root must be an object");
+        };
+        let Some(Value::Array(capabilities)) = object.get_mut("capabilities") else {
+            panic!("capabilities must be an array");
+        };
+        capabilities.swap(0, 1);
+        let finding = check_adapter_catalog(&value).expect("unsorted capabilities must fail");
+        assert!(finding.contains("byte-order sorted"), "{finding}");
+    }
+
+    #[test]
+    fn test_adapter_catalog_rejects_missing_postcondition_kind() {
+        let mut value = adapter_catalog_value();
+        let Value::Object(object) = &mut value else {
+            panic!("adapter catalog root must be an object");
+        };
+        let Some(Value::Array(postconditions)) = object.get_mut("postconditions") else {
+            panic!("postconditions must be an array");
+        };
+        let Some(Value::Object(first)) = postconditions.first_mut() else {
+            panic!("postconditions must contain an object");
+        };
+        first.remove("kind");
+        let finding = check_adapter_catalog(&value).expect("missing kind must fail");
+        assert!(finding.contains("kind"), "{finding}");
+    }
+
+    #[test]
+    fn test_adapter_catalog_rejects_unknown_postcondition_field() {
+        let mut value = adapter_catalog_value();
+        let Value::Object(object) = &mut value else {
+            panic!("adapter catalog root must be an object");
+        };
+        let Some(Value::Array(postconditions)) = object.get_mut("postconditions") else {
+            panic!("postconditions must be an array");
+        };
+        let Some(Value::Object(first)) = postconditions.first_mut() else {
+            panic!("postconditions must contain an object");
+        };
+        first.insert("unexpected".to_string(), Value::Bool(true));
+        let finding = check_adapter_catalog(&value).expect("unknown field must fail");
+        assert!(finding.contains("unknown field"), "{finding}");
+    }
+
+    #[test]
+    fn test_adapter_catalog_rejects_unknown_field_type_vocabulary() {
+        let mut value = adapter_catalog_value();
+        let Value::Object(object) = &mut value else {
+            panic!("adapter catalog root must be an object");
+        };
+        let Some(Value::Array(postconditions)) = object.get_mut("postconditions") else {
+            panic!("postconditions must be an array");
+        };
+        let Some(Value::Object(first)) = postconditions.first_mut() else {
+            panic!("postconditions must contain an object");
+        };
+        let Some(Value::Object(field_types)) = first.get_mut("field_types") else {
+            panic!("field_types must be an object");
+        };
+        let Some(first_type) = field_types.values_mut().next() else {
+            panic!("field_types must be non-empty");
+        };
+        *first_type = Value::String("made_up_type".to_string());
+        let finding = check_adapter_catalog(&value).expect("unknown field type must fail");
+        assert!(finding.contains("not recognized"), "{finding}");
+    }
+
+    #[test]
+    fn test_adapter_catalog_rejects_missing_constraints_array() {
+        let mut value = adapter_catalog_value();
+        let Value::Object(object) = &mut value else {
+            panic!("adapter catalog root must be an object");
+        };
+        let Some(Value::Array(postconditions)) = object.get_mut("postconditions") else {
+            panic!("postconditions must be an array");
+        };
+        let Some(Value::Object(first)) = postconditions.first_mut() else {
+            panic!("postconditions must contain an object");
+        };
+        first.remove("constraints");
+        let finding = check_adapter_catalog(&value).expect("missing constraints must fail");
+        assert!(finding.contains("constraints"), "{finding}");
+    }
+
+    #[test]
+    fn test_adapter_catalog_rejects_unknown_constraint_tag() {
+        let mut value = adapter_catalog_value();
+        let Value::Object(object) = &mut value else {
+            panic!("adapter catalog root must be an object");
+        };
+        let Some(Value::Array(postconditions)) = object.get_mut("postconditions") else {
+            panic!("postconditions must be an array");
+        };
+        let Some(Value::Object(first)) = postconditions.first_mut() else {
+            panic!("postconditions must contain an object");
+        };
+        first.insert(
+            "constraints".to_string(),
+            Value::Array(vec![
+                serde_json_lite::parse(r#"{"kind":"unknown_constraint"}"#)
+                    .expect("constraint fixture"),
+            ]),
+        );
+        let finding = check_adapter_catalog(&value).expect("unknown constraint must fail");
+        assert!(finding.contains("unknown constraint kind"), "{finding}");
+    }
+
+    #[test]
+    fn test_adapter_catalog_accepts_fingerprint_constraint_case_type() {
+        let value = adapter_catalog_value();
+        let state_assert = value
+            .get("postconditions")
+            .and_then(Value::as_array)
+            .and_then(|postconditions| {
+                postconditions
+                    .iter()
+                    .find(|entry| entry.get("kind").and_then(Value::as_str) == Some("state_assert"))
+            })
+            .expect("state_assert catalog entry");
+        let fingerprint_case = state_assert
+            .get("constraints")
+            .and_then(Value::as_array)
+            .and_then(|constraints| constraints.first())
+            .and_then(|constraint| constraint.get("cases"))
+            .and_then(|cases| cases.get("fingerprint"))
+            .and_then(Value::as_str);
+        assert_eq!(fingerprint_case, Some("fingerprint"));
+        assert!(check_adapter_catalog(&value).is_none());
     }
 
     /// `ToolSchema` 1.1 正向基线：`none_readonly` 与只读规则、envelope 字段齐全。

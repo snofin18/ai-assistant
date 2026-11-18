@@ -1,0 +1,201 @@
+{
+  "version": "1.0",
+  "capabilities": [
+    "capability.check",
+    "element.invoke",
+    "element.read_text",
+    "element.set_value",
+    "input.keyboard",
+    "input.mouse",
+    "target.fingerprint",
+    "target.list",
+    "target.resolve",
+    "tree.snapshot",
+    "tree.walk",
+    "window.close"
+  ],
+  "error_codes": [
+    "CapabilityMissing",
+    "Fatal",
+    "ModelInvalidOutput",
+    "ModelNetworkFailure",
+    "PlatformPermission",
+    "PolicyDenied",
+    "TargetAmbiguous",
+    "TargetNotFound",
+    "TargetUnresponsive",
+    "ToolInvalidArgs",
+    "Transient",
+    "UserInteraction",
+    "VerifyFailed"
+  ],
+  "postconditions": [
+    {
+      "kind": "app_reported",
+      "required_fields": [ "kind", "key", "value", "description", "error_code" ],
+      "allowed_fields": [ "kind", "key", "value", "description", "error_code" ],
+      "field_types": {
+        "key": "non_empty_string",
+        "value": "scalar",
+        "description": "non_empty_string",
+        "error_code": "ErrorCode"
+      },
+      "effect_eligibility": [ "read", "write" ],
+      "constraints": []
+    },
+    {
+      "kind": "element_exists",
+      "required_fields": [ "kind", "selector", "description", "error_code" ],
+      "allowed_fields": [ "kind", "selector", "description", "error_code" ],
+      "field_types": {
+        "selector": "non_empty_string",
+        "description": "non_empty_string",
+        "error_code": "ErrorCode"
+      },
+      "effect_eligibility": [ "read", "write" ],
+      "constraints": []
+    },
+    {
+      "kind": "element_gone",
+      "required_fields": [ "kind", "selector", "description", "error_code" ],
+      "allowed_fields": [ "kind", "selector", "description", "error_code" ],
+      "field_types": {
+        "selector": "non_empty_string",
+        "description": "non_empty_string",
+        "error_code": "ErrorCode"
+      },
+      "effect_eligibility": [ "read", "write" ],
+      "constraints": []
+    },
+    {
+      "kind": "file_changed",
+      "required_fields": [ "kind", "path", "expect", "description", "error_code" ],
+      "allowed_fields": [ "kind", "path", "expect", "description", "error_code" ],
+      "field_types": {
+        "expect": "any|size|mtime|digest",
+        "path": "non_empty_string",
+        "description": "non_empty_string",
+        "error_code": "ErrorCode"
+      },
+      "effect_eligibility": [ "write" ],
+      "constraints": []
+    },
+    {
+      "kind": "state_assert",
+      "required_fields": [ "kind", "field", "op", "value", "description", "error_code" ],
+      "allowed_fields": [ "kind", "field", "op", "value", "description", "error_code" ],
+      "field_types": {
+        "field": "title|text|fingerprint",
+        "op": "equals|not_equals|contains|not_contains",
+        "value": "scalar",
+        "description": "non_empty_string",
+        "error_code": "ErrorCode"
+      },
+      "effect_eligibility": [ "read", "write" ],
+      "constraints": [
+        {
+          "cases": {
+            "fingerprint": "fingerprint",
+            "text": "string",
+            "title": "string"
+          },
+          "field": "field",
+          "kind": "field_value_type",
+          "value_field": "value"
+        },
+        {
+          "allowed_values": [
+            "equals",
+            "not_equals"
+          ],
+          "equals": "fingerprint",
+          "field": "field",
+          "kind": "if_field_equals",
+          "then_field": "op"
+        }
+      ]
+    },
+    {
+      "kind": "state_changed",
+      "required_fields": [ "kind", "within_ms", "description", "error_code" ],
+      "allowed_fields": [ "kind", "fingerprint_scope", "within_ms", "description", "error_code" ],
+      "field_types": {
+        "fingerprint_scope": "optional_string",
+        "within_ms": "positive_integer",
+        "description": "non_empty_string",
+        "error_code": "ErrorCode"
+      },
+      "effect_eligibility": [ "write" ],
+      "constraints": []
+    },
+    {
+      "kind": "state_unchanged",
+      "required_fields": [ "kind", "description", "error_code" ],
+      "allowed_fields": [ "kind", "fingerprint_scope", "description", "error_code" ],
+      "field_types": {
+        "fingerprint_scope": "optional_string",
+        "description": "non_empty_string",
+        "error_code": "ErrorCode"
+      },
+      "effect_eligibility": [ "read", "write" ],
+      "constraints": []
+    },
+    {
+      "kind": "text_contains",
+      "required_fields": [ "kind", "value", "description", "error_code" ],
+      "allowed_fields": [ "kind", "value", "description", "error_code" ],
+      "field_types": {
+        "value": "string",
+        "description": "non_empty_string",
+        "error_code": "ErrorCode"
+      },
+      "effect_eligibility": [ "read", "write" ],
+      "constraints": []
+    },
+    {
+      "kind": "text_not_contains",
+      "required_fields": [ "kind", "value", "description", "error_code" ],
+      "allowed_fields": [ "kind", "value", "description", "error_code" ],
+      "field_types": {
+        "value": "string",
+        "description": "non_empty_string",
+        "error_code": "ErrorCode"
+      },
+      "effect_eligibility": [ "read", "write" ],
+      "constraints": []
+    },
+    {
+      "kind": "value_equals",
+      "required_fields": [ "kind", "name", "value", "description", "error_code" ],
+      "allowed_fields": [ "kind", "name", "value", "description", "error_code" ],
+      "field_types": {
+        "name": "non_empty_string",
+        "value": "scalar",
+        "description": "non_empty_string",
+        "error_code": "ErrorCode"
+      },
+      "effect_eligibility": [ "read", "write" ],
+      "constraints": []
+    },
+    {
+      "kind": "value_in_range",
+      "required_fields": [ "kind", "name", "min", "max", "description", "error_code" ],
+      "allowed_fields": [ "kind", "name", "min", "max", "description", "error_code" ],
+      "field_types": {
+        "max": "number",
+        "min": "number",
+        "name": "non_empty_string",
+        "description": "non_empty_string",
+        "error_code": "ErrorCode"
+      },
+      "effect_eligibility": [ "read", "write" ],
+      "constraints": [
+        {
+          "kind": "numeric_less_than_or_equal",
+          "left_field": "min",
+          "right_field": "max"
+        }
+      ]
+    }
+  ]
+}
