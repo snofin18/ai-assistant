@@ -1,6 +1,6 @@
 # TASK-384 adapter-validate report-only
 
-- 状态：Review
+- 状态：Done
 - 阶段：2　子阶段：2b Adapter contract implementation　批次：validator implementation　依赖：ADR-0105、TASK-383
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031「一卡一文件」）。
 
@@ -173,6 +173,9 @@ git diff --check
   `verify-schemas` → PASSED，7 个 machine JSON。
 - 四套真实 pack 复验：Notepad 12 files / Paint 15 / Edge 11 / Chrome 6，均 exit 1 且
   `HASH_UNCHANGED=True`。
+- PR #764：base=`main`，checks **21 success + 1 skipped**，pending 0 / failed 0，
+  `MERGEABLE` / `CLEAN`；merge `6860901e699267bb5c8fb8800ee03258909b3e39`，
+  post-merge main CI `44285258665` success。
 - `hygiene` / `card-check` / `docscan` / `refscan` / `check-ledger` → 均 exit 0，0 error。
 - `git diff --check` → PASSED。
 
@@ -185,7 +188,7 @@ git diff --check
 - [x] 现有四包目录校验前后哈希不变。
 - [x] `cargo fmt`、workspace Clippy、workspace tests 与 xtask 全量测试全绿。
 - [x] 文档门禁全绿。
-- [ ] PR checks、merge 与 post-merge main CI 回填。
+- [x] PR checks、merge 与 post-merge main CI 回填。
 - [x] 产品 runtime、Policy、ToolBus、protocol Rust/TS 生成类型与依赖零改动。
 
 ### 5. 偏差
