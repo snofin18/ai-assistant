@@ -1,6 +1,6 @@
 # TASK-382 rmcp chrono RUSTSEC 依赖修复
 
-- 状态：Review
+- 状态：Done
 - 阶段：2　子阶段：2b Adapter contract implementation　批次：dependency gate　依赖：TASK-381 / PR #757　预估：M　难度：M
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031「一卡一文件」）。
 
@@ -99,6 +99,10 @@ advisories/bans/licenses/sources 全绿；PR #757 重跑后达到既有 merge ga
 
 - `tasks/TASK-382-rmcp-chrono-rustsec-remediation.md`
 - `docs/audits/rmcp-chrono-rustsec-remediation-2026-11-18.md`
+- `crates/tool-bus/Cargo.toml`
+- `Cargo.lock`
+- `deny.toml`
+- `docs/DEPENDENCIES.md`
 - `plans/stage-2-excel.md`
 - `PLAN.md`
 - `README.md`
@@ -132,14 +136,21 @@ advisories/bans/licenses/sources 全绿；PR #757 重跑后达到既有 merge ga
   - `cargo fmt --all --check`、`verify-schemas`、`codegen --check` 通过。
 - 文档门禁：`card-check`、`docscan`、`hygiene`、`refscan`、
   `check-ledger`、`git diff --check` 通过。
+- PR #758：base=`main`，checks **21 success + 1 skipped**，pending 0 / failed 0，
+  `MERGEABLE` / `CLEAN`；merge `66791411cd2f4fb80c2021de392aa40e72a23914`，
+  post-merge main CI `44219594025` success。
+- PR #757 同步最新 `main` 后 head `1bf1a861dcdac626e60799c0203cfa445896f174`：
+  checks **21 success + 1 skipped**，pending 0 / failed 0，`MERGEABLE` / `CLEAN`；
+  merge `67deedf388b93387356d7d28ebc8f5905bbeff74`，
+  post-merge main CI `44221880362` success。
 
 ### 4. DoD 逐条核对
 
 - [x] 依赖修复来源固定为已审查的 commit `a95b8045…`。
 - [x] chrono 从实际 workspace 依赖树移除。
 - [x] `cargo deny check` 无 `RUSTSEC-2026-0543`，未使用临时 ignore。
-- [x] workspace 测试、Clippy、格式、schema/codegen 通过；PR checks 待回填。
-- [ ] PR #757 重跑、合并并记录 post-merge main CI。
+- [x] workspace 测试、Clippy、格式、schema/codegen 与治理门禁通过。
+- [x] PR #757 已在新基线重跑、合并，并记录 post-merge main CI。
 
 ### 5. 偏差
 
@@ -169,7 +180,7 @@ DRIFT-382-1
 ### 7. 遗留问题
 
 - 等待 `modelcontextprotocol/rust-sdk` issue #1469 的正式 PR/release。
-- 本卡 PR 合并后，需要重跑 PR #757，使其基于修复后的 main 通过并完成自动化批次收口。
+- PR #757 已基于修复后的 `main` 通过并完成自动化批次收口。
 - 官方 release 发布后，另开小卡把 Git 依赖切回 crates.io，并删除 `allow-git`。
 
 ### 8. 新增长期记忆

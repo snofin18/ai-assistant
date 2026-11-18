@@ -1,6 +1,6 @@
 # 阶段 2 — Excel L1 COM + Adapter 规范化
 
-> 周期 6~8 周　状态：**InProgress（2026-11-17）**；Stage 1 已完成；TASK-372 真实 Excel
+> 周期 6~8 周　状态：**InProgress（2026-11-18）**；Stage 1 已完成；TASK-372 真实 Excel
 > COM preflight 已通过并以 **GO** 进入 Adapter 契约正式化；TASK-373 六件套就绪审计 Done，
 > PR #736 / main CI `43839388347` 已回填；TASK-374 已把六项缺口收敛为可裁决 ADR/spec 决策包
 > 并完成 PR #738 / main CI `43863545233`；TASK-375 已完成 Excel COM
@@ -17,6 +17,10 @@
 > 到 binder JSON 的 mapping、D5 recipe JSON 联合和 D6 action/human/resume 字段仍需
 > Accepted 细化；`DRIFT-381-1` 只阻塞 validator 产品代码，不影响本次审计收口。下一步先补
 > ADR/spec clarification，再派发 validator implementation。
+> TASK-382 已完成 rmcp/chrono 依赖修复：固定 `rmcp 3.11.0` contributor commit
+> `a95b8045`，移除 chrono 且未新增 advisory ignore；PR #758 merge `6679141` / main CI
+> `44219594025` success。PR #757 已基于新 main 重跑，checks 21 success + 1 skipped，
+> merge `67deedf` / main CI `44221880362` success。
 
 ## In scope
 
@@ -50,7 +54,7 @@
 | 2b evidence | **TASK-379 ✅** | automation/治理 | `tasks/TASK-379-automation-rounds-main-only-source.md` | Done（PR #751 checks 21 success + 1 skipped；merge `fa87cae6`；main CI `44030156733` success；main-only 快照 + 有界 Git 清理） |
 | Adapter schema | **TASK-380 ✅** | protocol/治理 | `tasks/TASK-380-protocol-tool-schema-1-1.md` | Done（PR #753 checks 21 success + 1 skipped；merge `06a7fa9`；main CI `44048983726` success；validator 后续） |
 | 1 preflight | **TASK-381 ✅** | 架构/治理 | `tasks/TASK-381-adapter-bundle-validator-readiness.md` | Done（审计完成；PR #755 merge `bbefb97`，main CI `44057360138` success；`DRIFT-381-1` 阻塞下游 validator，下一步补 Accepted ADR/spec） |
-| dependency gate | **TASK-382** | 依赖/治理 | `tasks/TASK-382-rmcp-chrono-rustsec-remediation.md` | Review（固定 `rmcp` commit `a95b8045`；chrono 已移除；deny/tests/clippy 全绿；待 PR checks） |
+| dependency gate | **TASK-382 ✅** | 依赖/治理 | `tasks/TASK-382-rmcp-chrono-rustsec-remediation.md` | Done（固定 `rmcp` commit `a95b8045`；chrono 已移除；PR #758 merge `6679141`；PR #757 merge `67deedf`；main CI `44221880362` success） |
 | 1 | 待派单 | 架构/治理 | dispatch 时创建 | 未开始（通用只读 Adapter bundle validator） |
 | 2 | 待派单 | Windows platform | dispatch 时创建 | 未开始（COM apartment/生命周期/回收与负向测试） |
 | 3 | 待派单 | Excel Adapter | dispatch 时创建 | 未开始（Adapter 数据包 + Protected View/AutoSave/interrupts） |
