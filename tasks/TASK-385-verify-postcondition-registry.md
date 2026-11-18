@@ -1,6 +1,6 @@
 # TASK-385 Verify postcondition machine registry
 
-- 状态：Review
+- 状态：Done
 - 阶段：2　子阶段：2b Adapter contract implementation　批次：registry prerequisite　依赖：TASK-383、TASK-384
 - 本文件 = 卡片正文 ＋ 执行记录（ADR-0031「一卡一文件」）。
 
@@ -125,6 +125,9 @@ cargo run -p xtask -- check-ledger
 - `cargo clippy --workspace --all-targets -- -D warnings` → exit 0；仅同一既有提示。
 - `hygiene` / `card-check` / `docscan` / `refscan` / `check-ledger` → 均 exit 0。
 - `git diff --check` → PASSED。
+- PR #762：base=`main`，checks **21 success + 1 skipped**，pending 0 / failed 0，
+  `MERGEABLE` / `CLEAN`；merge `4f92ed88120793a7383255863aa55319bba2f02a`，
+  post-merge main CI `44256975571` success。
 
 ### 4. DoD 逐条核对
 
