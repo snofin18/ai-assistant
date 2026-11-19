@@ -205,6 +205,7 @@ fn validate_recipe(
             anchor,
             tools,
             catalog,
+            tool_name,
             &format!("{pointer}/anchor_strategy/{index}"),
             report,
         );
@@ -235,6 +236,7 @@ fn validate_anchor(
     value: &Value,
     tools: &[ToolInfo],
     catalog: &Value,
+    tool_name: &str,
     pointer: &str,
     report: &mut Report,
 ) {
@@ -254,6 +256,51 @@ fn validate_anchor(
         anchor,
         &["level", "mechanism", "capture", "restore", "post_verify"],
     );
+    let Some((capture_kind, restore_kind, expected_source)) =
+        validate_anchor_identity(anchor, pointer, report)
+    else {
+        return;
+    };
+    let observations = validate_capture(
+        anchor.get("capture"),
+        tools,
+        capture_kind,
+        expected_source,
+        pointer,
+        report,
+    );
+    let uses_close_created_target = is_close_created_target(anchor);
+    validate_restore(
+        anchor.get("restore"),
+        tools,
+        tool_name,
+        restore_kind,
+        pointer,
+        report,
+    );
+    if uses_close_created_target && !observations.contains("whole_window_fingerprint") {
+        push_error(
+            report,
+            "adapter/rollback",
+            format!("{pointer}/capture/observations"),
+            "close_created_target requires whole_window_fingerprint",
+        );
+    }
+    validate_post_verify(
+        anchor.get("post_verify"),
+        catalog,
+        &observations,
+        uses_close_created_target,
+        pointer,
+        report,
+    );
+}
+
+fn validate_anchor_identity(
+    anchor: &BTreeMap<String, Value>,
+    pointer: &str,
+    report: &mut Report,
+) -> Option<(&'static str, &'static str, Option<&'static str>)> {
     let level = anchor
         .get("level")
         .and_then(Value::as_str)
@@ -275,25 +322,16 @@ fn validate_anchor(
             "level/mechanism mismatch",
         );
     }
-    let Some((capture_kind, restore_kind, expected_source)) = anchor_kinds(level, mechanism) else {
-        return;
-    };
-    let observations = validate_capture(
-        anchor.get("capture"),
-        tools,
-        capture_kind,
-        expected_source,
-        pointer,
-        report,
-    );
-    validate_restore(anchor.get("restore"), tools, restore_kind, pointer, report);
-    validate_post_verify(
-        anchor.get("post_verify"),
-        catalog,
-        &observations,
-        pointer,
-        report,
-    );
+    anchor_kinds(level, mechanism)
+}
+
+fn is_close_created_target(anchor: &BTreeMap<String, Value>) -> bool {
+    anchor
+        .get("restore")
+        .and_then(Value::as_object)
+        .and_then(|restore| restore.get("kind"))
+        .and_then(Value::as_str)
+        == Some("close_created_target")
 }
 
 fn anchor_kinds(
@@ -312,7 +350,11 @@ fn anchor_kinds(
             "restore_file_shadow_copy",
             Some("builtin:filesystem.shadow_copy"),
         )),
-        ("l2", "compensating_action") => Some(("compensating_state", "invoke_tool", None)),
+        ("l2", "compensating_action") => Some((
+            "compensating_state",
+            "invoke_tool|close_created_target",
+            None,
+        )),
         _ => None,
     }
 }
@@ -451,6 +493,7 @@ fn validate_capture_source(
 fn validate_restore(
     value: Option<&Value>,
     tools: &[ToolInfo],
+    tool_name: &str,
     expected_kind: &str,
     pointer: &str,
     report: &mut Report,
@@ -465,14 +508,37 @@ fn validate_restore(
         );
         return;
     };
+    let actual_kind = restore.get("kind").and_then(Value::as_str);
+    if expected_kind == "invoke_tool|close_created_target"
+        && actual_kind == Some("close_created_target")
+    {
+        validate_close_created_target(restore, tools, tool_name, &restore_pointer, report);
+        return;
+    }
+    let expected_kind = if expected_kind == "invoke_tool|close_created_target" {
+        "invoke_tool"
+    } else {
+        expected_kind
+    };
+    validate_invoke_tool_restore(restore, tools, expected_kind, &restore_pointer, report);
+}
+
+fn validate_invoke_tool_restore(
+    restore: &BTreeMap<String, Value>,
+    tools: &[ToolInfo],
+    expected_kind: &str,
+    restore_pointer: &str,
+    report: &mut Report,
+) {
+    let actual_kind = restore.get("kind").and_then(Value::as_str);
     check_keys(
         report,
         "adapter/rollback",
-        &restore_pointer,
+        restore_pointer,
         restore,
         &["kind", "tool", "times", "until", "arguments"],
     );
-    if restore.get("kind").and_then(Value::as_str) != Some(expected_kind) {
+    if actual_kind != Some(expected_kind) {
         push_error(
             report,
             "adapter/rollback",
@@ -521,10 +587,68 @@ fn validate_restore(
     }
 }
 
+fn validate_close_created_target(
+    restore: &BTreeMap<String, Value>,
+    tools: &[ToolInfo],
+    tool_name: &str,
+    pointer: &str,
+    report: &mut Report,
+) {
+    check_keys(
+        report,
+        "adapter/rollback",
+        pointer,
+        restore,
+        &["kind", "target_kind", "require_empty"],
+    );
+    if restore.get("target_kind").and_then(Value::as_str) != Some("tab") {
+        push_error(
+            report,
+            "adapter/rollback",
+            format!("{pointer}/target_kind"),
+            "close_created_target target_kind must be tab",
+        );
+    }
+    if restore.get("require_empty").and_then(Value::as_bool) != Some(true) {
+        push_error(
+            report,
+            "adapter/rollback",
+            format!("{pointer}/require_empty"),
+            "close_created_target require_empty must be true",
+        );
+    }
+    let Some(tool) = tools.iter().find(|info| info.name == tool_name) else {
+        push_error(
+            report,
+            "adapter/rollback",
+            pointer.to_string(),
+            "close_created_target target tool is not declared",
+        );
+        return;
+    };
+    if tool.effect != "write" || tool.reversibility != "l2_compensation" {
+        push_error(
+            report,
+            "adapter/rollback",
+            pointer.to_string(),
+            "close_created_target target tool must be write + l2_compensation",
+        );
+    }
+    if !tool.tags.contains("tab") || !tool.tags.contains("new") {
+        push_error(
+            report,
+            "adapter/rollback",
+            pointer.to_string(),
+            "close_created_target target tool must carry tab and new tags",
+        );
+    }
+}
+
 fn validate_post_verify(
     value: Option<&Value>,
     catalog: &Value,
     observations: &BTreeSet<String>,
+    requires_whole_window_fingerprint: bool,
     pointer: &str,
     report: &mut Report,
 ) {
@@ -552,6 +676,17 @@ fn validate_post_verify(
                     "adapter/rollback",
                     format!("{verify_pointer}/observation"),
                     "must reference capture observation",
+                );
+            }
+            if requires_whole_window_fingerprint
+                && post_verify.get("observation").and_then(Value::as_str)
+                    != Some("whole_window_fingerprint")
+            {
+                push_error(
+                    report,
+                    "adapter/rollback",
+                    format!("{verify_pointer}/observation"),
+                    "close_created_target requires whole_window_fingerprint post_verify",
                 );
             }
         }

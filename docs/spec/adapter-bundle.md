@@ -2,8 +2,10 @@
 
 > 摘要：定义 `adapter.toml` 六件套在 validator 中的 canonical JSON、引用、判别联合和
 > 运行时 mapping。
-> 状态：Accepted，ADR-0105 澄清 ADR-0104，版本：1.0，日期：2026-11-18。
-> 上位：`AGENTS.md` §2/§5、ADR-0047、ADR-0055、ADR-0062、ADR-0095、ADR-0104、ADR-0105。
+> 状态：Accepted，ADR-0105 澄清 ADR-0104，ADR-0106 增加 rollback-only created-tab builtin；
+> 版本：1.1，日期：2026-11-19。
+> 上位：`AGENTS.md` §2/§5、ADR-0047、ADR-0055、ADR-0062、ADR-0095、ADR-0104、
+> ADR-0105、ADR-0106。
 > 强制性：违反本文 = validator finding + merge block；实现代码仍由后续卡交付。
 
 ---
@@ -452,7 +454,7 @@ coverage：
 | `l0` | `undo_stack` | `undo_budget` | `undo_stack` |
 | `l1` | `content_snapshot` | `content_snapshot` | `restore_content_snapshot` |
 | `l1` | `shadow_copy` | `file_shadow_copy` | `restore_file_shadow_copy` |
-| `l2` | `compensating_action` | `compensating_state` | `invoke_tool` |
+| `l2` | `compensating_action` | `compensating_state` | `invoke_tool` \| `close_created_target` |
 
 - `capture.source` 及出现的 `restore.tool` MUST 为 `tool:<declared-tool-name>` 或 builtin：
   `builtin:app.undo_stack`、`builtin:filesystem.shadow_copy`、
@@ -468,6 +470,26 @@ coverage：
 - `"verified"` 等自由字符串、未声明 observation 和把 capture placeholder 塞进 assertion value
   均永久拒绝。
 - `on_rollback_failure` 唯一值 `publish_incident_and_require_human`。
+
+`close_created_target` 是 ADR-0106 定义的 rollback-only builtin，不进入模型可见 Tool：
+
+```json
+{
+  "kind": "close_created_target",
+  "target_kind": "tab",
+  "require_empty": true
+}
+```
+
+- 只允许 `target_kind=tab` 且 `require_empty=true`；window/dialog/process 等值拒绝。
+- 目标 tool MUST `effect=write`、`reversibility=l2_compensation`，并显式带有 `tab/new`
+  tags；不满足时拒绝。
+- 只允许关闭同一 tool invocation 创建并已记录身份、且仍为空的 tab。身份无法证明、
+  tab 非空或出现保存/覆盖确认时 MUST fail-closed 并升级人工，不得自动 Save/Discard/Close。
+- capture observations MUST 包含 `whole_window_fingerprint`；post_verify MUST 使用
+  `capture_equals` 检查同一 observation。
+- restore object MUST 恰好包含 `kind/target_kind/require_empty`，不得携带 Tool、脚本、
+  自由字符串或未知字段。
 
 ### 7.3 Coverage matrix
 
@@ -594,7 +616,7 @@ validator MUST 按固定顺序执行，以便 finding 稳定：
 | D2 | 无 manifest、重复/乱序 entry、token 估算错误、source 悬空、未覆盖知识域、projection 字节漂移 |
 | D3 | unknown model/kind/role/supports/probe、kind-value 错配、文本 primary、fallback 全空、排序 tie 未按 id |
 | D4 | 未显式 envelope 字段、空 capability/postcondition、catalog 悬空、write+none_readonly、read 无 state_unchanged |
-| D5 | write 缺/重/多覆盖、read 有覆盖、level-mechanism 错配、自由字符串 restore、悬空 tool、L3 无 reason/人工批准 |
+| D5 | write 缺/重/多覆盖、read 有覆盖、level-mechanism 错配、自由字符串 restore、悬空 tool、L3 无 reason/人工批准、close_created_target 非 tab/ nonzero content/缺 tags/缺 fingerprint |
 | D6 | 重复 priority、纯文本 match、human 缺 resume、危险 default、unknown action/classification、delegate 悬空 |
 
 ## 11. 迁移与验收
