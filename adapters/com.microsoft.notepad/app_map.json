@@ -2,11 +2,78 @@
   "schema_version": 1,
   "app_id": "com.microsoft.notepad",
   "version_range": ">=11.2607.14 <12",
+  "identity": {
+    "display_name": "Windows Notepad",
+    "aumid": "Microsoft.WindowsNotepad_8wekyb3d8bbwe!App",
+    "process_model": "packaged_winui3",
+    "window_title_format": "<document-name> - Notepad"
+  },
+  "projection_manifest": {
+    "model": "core_app_map_v1",
+    "entries": [
+      {
+        "id": "editor_selector",
+        "title": "Editor selector",
+        "content": "The editor AutomationId is empty. Prefer Document plus RichEditD2DPT, then legacy Edit plus Edit, then a locale-dependent structural fallback.",
+        "source_reference": "bundle:selectors#/targets/1",
+        "token_estimate": 36
+      },
+      {
+        "id": "identity",
+        "title": "Notepad identity and launch",
+        "content": "Launch Windows Notepad through AUMID Microsoft.WindowsNotepad_8wekyb3d8bbwe!App. The launch PID is not the window-owner PID; resolve windows through EnumWindows and GetWindowThreadProcessId.",
+        "source_reference": "bundle:app_map#/identity",
+        "token_estimate": 48
+      },
+      {
+        "id": "known_pitfalls",
+        "title": "Known pitfalls",
+        "content": "Save As is a cross-process Shell dialog. Closing an unsaved tab opens a three-way Save/Don't Save/Cancel dialog defaulting to Cancel. Large files should use the file channel.",
+        "source_reference": "bundle:app_map#/known_pitfalls",
+        "token_estimate": 44
+      },
+      {
+        "id": "text_conventions",
+        "title": "Text conventions",
+        "content": "UIA read returns bare CR. Canonical form is LF. Normalize CRLF to LF before CR to LF. Compare postconditions only on canonical text.",
+        "source_reference": "bundle:app_map#/text_conventions",
+        "token_estimate": 33
+      },
+      {
+        "id": "undo_capability",
+        "title": "Undo capability",
+        "content": "Ctrl+Z is declared by the adapter, but UIA SetValue is one whole-document action. Capture an L1 content snapshot before writes; Ctrl+Z is not the only rollback path.",
+        "source_reference": "bundle:app_map#/undo_capability",
+        "token_estimate": 42
+      }
+    ],
+    "omissions": [
+      {
+        "source_reference": "bundle:app_map#/commands",
+        "reason": "Commands are executable shortcut declarations and do not enter the core memory projection."
+      },
+      {
+        "source_reference": "bundle:app_map#/ui_map",
+        "reason": "UI map entries support selector and runtime inspection and remain in the rich App Map."
+      },
+      {
+        "source_reference": "bundle:app_map#/workflows",
+        "reason": "Workflow declarations are executable task knowledge and are not copied into core memory."
+      },
+      {
+        "source_reference": "bundle:app_map#/state_machine",
+        "reason": "State transitions remain executable adapter knowledge and are not summarized into memory."
+      }
+    ]
+  },
   "commands": [
     {
       "intent": "save_document",
       "shortcut": "Ctrl+S",
-      "menu_path": ["File", "Save"],
+      "menu_path": [
+        "File",
+        "Save"
+      ],
       "tool": "notepad.file.save",
       "reliable": true
     },
@@ -19,7 +86,10 @@
     {
       "intent": "save_as",
       "shortcut": "Ctrl+Shift+S",
-      "menu_path": ["File", "Save As"],
+      "menu_path": [
+        "File",
+        "Save As"
+      ],
       "tool": "notepad.file.save_as",
       "reliable": false,
       "notes": "Ctrl+Shift+S is not reliable on Win11 modern Notepad; prefer explicit menu invocation."
@@ -37,7 +107,10 @@
       "target": "main_window",
       "role": "Window",
       "class_name": "Notepad",
-      "supports": ["inspect", "foreground"],
+      "supports": [
+        "inspect",
+        "foreground"
+      ],
       "virtualized": false
     },
     {
@@ -45,7 +118,11 @@
       "role": "Document",
       "class_name": "RichEditD2DPT",
       "automation_id": "",
-      "supports": ["read_text", "set_value", "text_pattern"],
+      "supports": [
+        "read_text",
+        "set_value",
+        "text_pattern"
+      ],
       "virtualized": false,
       "notes": "AutomationId is empty. Use class+role and ancestor fallbacks, never visible text as the primary selector."
     },
@@ -54,7 +131,10 @@
       "role": "Tab",
       "automation_id": "Tabs",
       "class_name": "Microsoft.UI.Xaml.Controls.TabView",
-      "supports": ["select_tab", "inspect"],
+      "supports": [
+        "select_tab",
+        "inspect"
+      ],
       "virtualized": false
     },
     {
@@ -62,7 +142,9 @@
       "role": "Button",
       "automation_id": "AddButton",
       "class_name": "Button",
-      "supports": ["invoke"],
+      "supports": [
+        "invoke"
+      ],
       "virtualized": false
     },
     {
@@ -70,15 +152,21 @@
       "role": "MenuItem",
       "automation_id": "File",
       "class_name": "Microsoft.UI.Xaml.Controls.MenuBarItem",
-      "supports": ["invoke"],
+      "supports": [
+        "invoke"
+      ],
       "virtualized": false
     }
   ],
   "workflows": [
     {
       "name": "read_document_text",
-      "steps": ["notepad.file.read_text"],
-      "pitfalls": ["Normalize UIA CR output to LF before comparing with disk text."]
+      "steps": [
+        "notepad.file.read_text"
+      ],
+      "pitfalls": [
+        "Normalize UIA CR output to LF before comparing with disk text."
+      ]
     },
     {
       "name": "replace_and_save",
@@ -94,7 +182,10 @@
     },
     {
       "name": "new_tab_save_as",
-      "steps": ["notepad.tab.new", "notepad.file.save_as"],
+      "steps": [
+        "notepad.tab.new",
+        "notepad.file.save_as"
+      ],
       "pitfalls": [
         "Save As is a cross-process Win32 #32770 dialog.",
         "Never silently overwrite an existing target file."
@@ -121,11 +212,31 @@
       "busy_or_transient_popup"
     ],
     "transitions": [
-      {"from": "document_open_clean", "event": "replace_text", "to": "document_open_dirty"},
-      {"from": "document_open_dirty", "event": "save", "to": "document_open_clean"},
-      {"from": "document_open_dirty", "event": "close_tab", "to": "unsaved_changes_dialog"},
-      {"from": "unsaved_changes_dialog", "event": "cancel", "to": "document_open_dirty"},
-      {"from": "document_open_clean", "event": "save_as", "to": "save_as_dialog"}
+      {
+        "from": "document_open_clean",
+        "event": "replace_text",
+        "to": "document_open_dirty"
+      },
+      {
+        "from": "document_open_dirty",
+        "event": "save",
+        "to": "document_open_clean"
+      },
+      {
+        "from": "document_open_dirty",
+        "event": "close_tab",
+        "to": "unsaved_changes_dialog"
+      },
+      {
+        "from": "unsaved_changes_dialog",
+        "event": "cancel",
+        "to": "document_open_dirty"
+      },
+      {
+        "from": "document_open_clean",
+        "event": "save_as",
+        "to": "save_as_dialog"
+      }
     ]
   },
   "undo_capability": {
@@ -144,7 +255,10 @@
     "canonical_form": "LF",
     "uia_read_eol": "CR",
     "disk_eol_preserved_on_save": true,
-    "normalization_order": ["replace_crlf_with_lf", "replace_cr_with_lf"],
+    "normalization_order": [
+      "replace_crlf_with_lf",
+      "replace_cr_with_lf"
+    ],
     "postcondition_compare_mode": "normalized",
     "binding_self_check_required": true
   }

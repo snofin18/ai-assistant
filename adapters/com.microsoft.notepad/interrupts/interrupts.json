@@ -5,41 +5,45 @@
   "interrupts": [
     {
       "id": "unsaved-changes-dialog",
+      "priority": 300,
       "match": {
         "class_name": "#32770",
-        "title_candidates": ["保存更改", "Save changes", "另存为", "Save As"]
+        "title_candidates": [
+          {"value": "保存更改", "locale_dependent": true},
+          {"value": "Save changes", "locale_dependent": true}
+        ]
       },
+      "action": {"kind": "ask_human"},
       "classification": "unsaved_changes_three_way",
-      "buttons": {
-        "save": ["保存", "Save"],
-        "discard": ["不保存", "Don't Save", "Don't save"],
-        "cancel": ["取消", "Cancel"]
-      },
-      "default_action": "cancel",
-      "forbidden_defaults": ["save", "discard"],
       "requires_human": true,
       "resume_after": "user_decision",
       "notes": [
-        "Never default to Save because it can persist an unintended state.",
-        "Never default to Don't Save because it discards user content."
+        "Never choose Save, Don't Save, or Cancel on the user's behalf.",
+        "Dialog button labels remain application-owned text and are not selectors."
       ]
     },
     {
       "id": "save-as-dialog",
+      "priority": 200,
       "match": {
         "class_name": "#32770",
-        "title_candidates": ["另存为", "Save As"]
+        "title_candidates": [
+          {"value": "另存为", "locale_dependent": true},
+          {"value": "Save As", "locale_dependent": true}
+        ]
       },
+      "action": {"kind": "delegate_to_tool", "tool": "notepad.file.save_as"},
       "classification": "cross_process_shell_dialog",
-      "default_action": "delegate_to_task_038",
       "requires_human": true,
+      "resume_after": "tool_resume",
       "notes": [
         "The dialog belongs to an explorer.exe child process.",
-        "Do not overwrite an existing file without an explicit backup and confirmation."
+        "Never overwrite an existing file without explicit backup and confirmation."
       ]
     },
     {
       "id": "transient-teaching-tip",
+      "priority": 100,
       "match": {
         "automation_id_candidates": [
           "PrivacyTeachingTip",
@@ -48,12 +52,12 @@
         ],
         "class_name_contains": "TeachingTip"
       },
+      "action": {"kind": "dismiss_explicitly"},
       "classification": "transient_popup",
-      "default_action": "dismiss_explicitly",
-      "forbidden_action": "wait_until_it_disappears",
+      "requires_human": false,
       "notes": [
         "ADR-0022 D9 requires explicit dismissal or explicit tolerance.",
-        "Never use a fixed sleep as the handling strategy."
+        "Fixed sleeps and wait-until-disappears are forbidden."
       ]
     }
   ]
