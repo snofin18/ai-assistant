@@ -1,6 +1,6 @@
 # TASK-387 rollback-only created-tab builtin
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Adapter pack convergence A　批次：contract prerequisite
 - 依赖：ADR-0104、ADR-0105、TASK-384、TASK-386
 
@@ -145,6 +145,10 @@ ToolBus、现有 Adapter pack、依赖或 CI。
 - `cargo run -p xtask -- check-ledger` → PASSED，plan date 与 ledger date 均为 2026-11-19。
 - `cargo deny check` → advisories / bans / licenses / sources 全部 ok。
 - `git diff --check` → PASSED，无 whitespace error。
+- PR #777 当前 head checks **11/11 success**，pending 0 / failed 0，base=`main`，
+  `MERGEABLE` / `CLEAN`。
+- merge `a23a344699dacc5f094b5db257c71d73c0b70e99`。
+- post-merge main CI `44476000127` → success。
 
 ### 4. DoD 逐条核对
 
@@ -154,7 +158,8 @@ ToolBus、现有 Adapter pack、依赖或 CI。
 - [x] 正负测试覆盖 7 个路径：合法、非 tab、非空、缺 tags、错误 reversibility、
   缺 fingerprint observation、未知 restore field。
 - [x] 未改模型可见 Tool、protocol schema、Policy、ToolBus 或依赖。
-- [ ] PR checks、merge 与 post-merge main CI 回填。
+- [x] PR #777 checks 11/11 success、merge `a23a344`、post-merge main CI
+  `44476000127` success 已回填。
 
 ### 5. 偏差
 
@@ -166,6 +171,9 @@ ToolBus、现有 Adapter pack、依赖或 CI。
   `decisions.md` 行数/条目派生值 `326 / 114`。
 - 初版新增测试 fixture 使 `adapter_validate_tests.rs` 达到 903 行并触发 900 行硬门禁；
   已拆分 fixture helper 并把文件压回 899 行。
+- PR 首轮 commitlint 因 shell 引号处理导致提交标题缺少冒号空格而失败；已用
+  `--amend` 修正为 `feat: add rollback-only created-tab builtin`，
+  `--force-with-lease` 推送后 commitlint 通过。
 
 ### 6. 更合理做法（实施中发现，非漂移）
 
