@@ -35,6 +35,9 @@
 > Clippy 全绿；TASK-385 合并后 catalog 改为直接消费 Verify registry，三种 constraints
 > 已进入 generated catalog 与 validator，`DRIFT-384-1` 关闭；PR #764 merge `6860901` /
 > main CI `44285258665` success。
+> TASK-387 处于 **Review**：ADR-0106 增加 rollback-only `close_created_target`，validator
+> 已封闭 target kind、empty 条件、write/L2 metadata、tab/new tags 与 whole-window
+> fingerprint；用于解除后续 Notepad `tab.new` 的假 L1 recovery 阻塞。
 
 ## In scope
 
@@ -72,6 +75,7 @@
 | validator contract | **TASK-383 ✅** | 契约/架构 | `tasks/TASK-383-adapter-validator-machine-profile.md` | Done（ADR-0105 + `docs/spec/adapter-bundle.md` 冻结 D2-D6；PR #760 merge `2ae5a19`；main CI `44231680015` success） |
 | registry prerequisite | **TASK-385 ✅** | Verify/治理 | `tasks/TASK-385-verify-postcondition-registry.md` | Done（machine registry + parser 同步测试；PR #762 merge `4f92ed8`；main CI `44256975571` success） |
 | validator implementation | **TASK-384 ✅** | xtask/治理 | `tasks/TASK-384-adapter-validate-report-only.md` | Done（catalog 从 Verify registry 生成并携带 constraints；51 个 adapter 测试全绿；PR #764 merge `6860901`；main CI `44285258665` success） |
+| rollback builtin | **TASK-387** | Adapter contract | `tasks/TASK-387-rollback-created-tab-builtin.md` | Review（ADR-0106 + validator 正负矩阵；不新增模型可见 Tool；PR/CI/merge 待回填） |
 | 1 | 待派单 | 架构/治理 | dispatch 时创建 | 未开始（通用只读 Adapter bundle validator） |
 | 2 | 待派单 | Windows platform | dispatch 时创建 | 未开始（COM apartment/生命周期/回收与负向测试） |
 | 3 | 待派单 | Excel Adapter | dispatch 时创建 | 未开始（Adapter 数据包 + Protected View/AutoSave/interrupts） |

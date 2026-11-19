@@ -320,3 +320,7 @@
 ## 2026-11-18 追加（ADR-0105，Accepted）
 
 - [2026-11-18][DECISION][src:ADR-0105，人类 2026-11-18“继续下一步”；TASK-383] **Adapter bundle validator 使用独立机器契约，不改变 ADR-0104 安全语义**：富 App Map 新增作者维护 `projection_manifest`，生成器只排序/复制/计算 token/序列化并逐字节比较，所有知识域必须被 entry 或 omission 覆盖；UIA selector 使用 typed candidate union、结构化 `on_not_found` 与显式 fallback 排序，shell target 只保留非 DOM 的 UIA identity；ToolSchema 1.0/1.1 迁移窗口内只从 protocol capability/error-code 与既有 verify assertion 生成 catalog，read 至少 `state_unchanged`、write 至少一个非 `state_unchanged` executable postcondition；rollback 每个 anchor 固定 capture/restore/post_verify 判别联合，L0/L1/L2 按 level 限型，L3 仅 `no_recovery`；interrupt 使用唯一 priority、typed action、显式 locale 文本和 `requires_human/resume_after` 矩阵。契约落在 `docs/spec/adapter-bundle.md`，validator、catalog generation 与 pack 迁移仍由后续卡实现。
+
+## 2026-11-19 追加（ADR-0106，Accepted）
+
+- [2026-11-19][DECISION][src:ADR-0106，人类 2026-11-19 批准推荐方案 A；TASK-387] **新增 rollback-only `close_created_target`，不新增模型可见 Tool**：L2 `compensating_action` restore 只允许 `target_kind=tab`、`require_empty=true`，目标 tool 必须 write/L2 且带 `tab`+`new` tags；capture 至少观察 `whole_window_fingerprint`，post-verify 必须对同一 observation 做 `capture_equals`。该 builtin 只能关闭同一 invocation 创建且仍为空的 tab；无法证明身份、tab 非空或出现保存/覆盖/用户内容风险时必须失败并升级人工，禁止自动 Save/Don't Save/Close。该决定解除 Notepad `tab.new` 的假 L1 recovery 阻塞，不改变 ToolSchema、Capability、ErrorCode、Policy、ToolBus 或依赖。
