@@ -238,8 +238,7 @@ fn validate_match(value: Option<&Value>, pointer: &str, report: &mut Report) {
     for field in ["class_name", "automation_id", "class_name_contains"] {
         if matches
             .get(field)
-            .and_then(Value::as_str)
-            .is_none_or(|text| text.trim().is_empty())
+            .is_some_and(|value| value.as_str().is_none_or(|text| text.trim().is_empty()))
         {
             push_error(
                 report,
@@ -606,3 +605,8 @@ fn validate_notes(value: Option<&Value>, pointer: &str, report: &mut Report) {
         }
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
+#[path = "../adapter_validate_interrupt_tests.rs"]
+mod tests;
