@@ -1,6 +1,6 @@
 # TASK-388 interrupt optional match fields
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Adapter pack convergence A　批次：contract repair
 - 依赖：ADR-0104、ADR-0105、TASK-383、TASK-384、TASK-386
 
@@ -123,6 +123,12 @@ git diff --check
 - `cargo run -p xtask -- check-ledger` → PASSED，PLAN/LEDGER 均为 2026-11-19。
 - `cargo deny check` → advisories / bans / licenses / sources 全部 ok。
 - `git diff --check` → PASSED。
+- PR #779 当前 head checks **11/11 success**，pending 0 / failed 0，base=`main`，
+  `MERGEABLE` / `CLEAN`。
+- merge `9d6d5584843c934c300c877f044e83883858b064`。
+- post-merge main CI `44490394734` → success。
+- TASK-386 重基本合并后，`adapter-validate adapters/com.microsoft.notepad
+  --report-only` → `scanned_files=7`、0 error / 0 warning、PASSED。
 
 ### 4. DoD 逐条核对
 
@@ -131,8 +137,9 @@ git diff --check
 - [x] `class_name + title_candidates` 与
   `automation_id_candidates + class_name_contains` 两类合法 union 子集有正向单测。
 - [x] 纯文本候选不得单独成立、候选数组和既有 human matrix 测试未回归。
-- [ ] TASK-386 重基后验证 Notepad pack interrupt finding 归零。
-- [ ] PR checks、merge 与 post-merge main CI 回填。
+- [x] TASK-386 重基后 Notepad pack validator 为 7 files / 0 error / 0 warning / PASSED。
+- [x] PR #779 checks 11/11 success、merge `9d6d558`、post-merge main CI
+  `44490394734` success 已回填。
 
 ### 5. 偏差
 
