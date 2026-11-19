@@ -132,8 +132,11 @@ Notepad 五工具保持原 name/effect/reversibility，runtime 与公共 schema 
   `close_created_target`。
 - `adapters/com.microsoft.notepad/interrupts/interrupts.json`：迁移为 typed
   priority/action/human matrix；不再保留 `delegate_to_task_038` 或自由文本 action。
-- Pack 专属 validator 与 README 仍未修改，原因是通用 validator 仍存在
-  `DRIFT-386-2`。
+- `adapters/com.microsoft.notepad/tests/validate_adapter_pack.py`：新增 pack 专属
+  validator，锁定 projection 字节、九个 target、五个工具、四条 rollback coverage
+  与三条 interrupt。
+- `adapters/com.microsoft.notepad/README.md`：移除过期 contract gaps，补 bundle、
+  canonical postcondition、rollback-only compensation 与验证命令。
 
 ### 3. 验收输出摘要（命令 → 结果，全绿 / 失败项）
 
@@ -145,7 +148,18 @@ Notepad 五工具保持原 name/effect/reversibility，runtime 与公共 schema 
 - 迁移 rollback/interrupt 后重跑：`scanned_files=7`，剩余 **6 个错误**，全部是
   interrupt match 的可选字段被 validator 误当成必填：每个规则都报告缺失未声明的
   `automation_id` / `class_name_contains` / `class_name`；rollback finding 已归零。
-- 未运行全量 Rust/文档门禁，因为本卡仍被 `DRIFT-386-2` 阻塞；不把局部验证冒充全绿。
+- TASK-388 合并后复跑通用 validator：`scanned_files=7`、0 error / 0 warning、
+  PASSED。
+- Pack 专属 validator：`PASSED: app_id=com.microsoft.notepad targets=9 tools=5
+  recipes=4 interrupts=3`。
+- `cargo fmt --all --check`、`cargo clippy --all-targets -- -D warnings`、
+  `cargo test -p assistant-core arch::`、schema/codegen/hygiene/card-check/docscan/
+  refscan/memory-counts/check-ledger/deny 与 `git diff --check` 均通过；hygiene
+  为 0 error / 195 既存 warning。
+- `cargo test --workspace` 失败 1 项：
+  `notepad_targets::tests::test_scope_routes_window_and_element_candidates`。
+  当前 `apps/agent-core/src/notepad_targets.rs` 的 `DeclaredPolicy.on_not_found`
+  仍是 `String`，无法读取 spec §5.2 要求的结构化 object，见 `DRIFT-386-3`。
 
 ### 4. DoD 逐条核对
 
@@ -155,10 +169,12 @@ Notepad 五工具保持原 name/effect/reversibility，runtime 与公共 schema 
 - [x] 五工具 envelope、capabilities、postconditions 与 1.1 `none_readonly` 已迁移并通过。
 - [x] 四个 write 工具已各有一条 rollback coverage；Save As 为显式 `no_recovery`，
   tab.new 为 L2 `close_created_target`。
-- [ ] interrupts 已写成 spec 形状，但通用 validator 的可选 match 字段缺陷阻断验收，
-  见 `DRIFT-386-2`。
-- [ ] Pack 专属 validator、README 与完整验收未完成。
-- [ ] PR / CI / merge 未创建。
+- [x] interrupts 已写成 typed priority/action/human matrix，并通过 TASK-388 修复后的
+  通用 validator。
+- [x] Pack 专属 validator 与 README 已完成并通过。
+- [ ] 完整 workspace 验收未通过：现有 runtime selector loader 与新 policy shape 冲突，
+  见 `DRIFT-386-3`。
+- [ ] PR / CI / merge 未创建；契约冲突裁决前不得合并。
 
 ### 5. 偏差
 
@@ -194,6 +210,24 @@ Notepad 五工具保持原 name/effect/reversibility，runtime 与公共 schema 
   非空、文本候选不得单独成立”的原规则；补所有合法/非法子集测试后，再恢复 TASK-386。
 - 已停工作：未修改 `xtask/**`、公共 schema、ADR/spec、CI 或依赖；未绕过 validator。
 
+`DRIFT-386-2` 已由 TASK-388 / PR #779 关闭：interrupt match 只校验实际出现字段，
+合法 union 子集通过，显式空白值仍拒绝。
+
+**DRIFT-386-3**
+
+- 现象：`selectors/targets.json` 已按 spec §5.2 把 `policy.on_not_found` 写成
+  `{retry_after_ms, then_escalate}` object，但
+  `apps/agent-core/src/notepad_targets.rs` 的 `DeclaredPolicy.on_not_found` 仍为
+  `String`。全量 workspace test 在
+  `test_scope_routes_window_and_element_candidates` 反序列化时失败：
+  `invalid type: map, expected a string at line 7 column 20`。
+- 影响：迁移后的 Notepad pack 无法被当前生产 target catalog loader 读取；即便
+  Adapter validator 全绿，工作区与真实运行装配仍会失败。
+- 建议：新开 runtime loader 迁移卡，把 `DeclaredPolicy` 改为 typed
+  `on_not_found`，保留旧字符串兼容窗口并补 policy mapping 测试；完成后本卡重基复跑。
+- 已停工作：未修改 `apps/**`、公共 schema、ADR/spec、依赖或 CI；未通过改测试断言
+  绕过失败；未创建 PR / merge。
+
 ### 6. 更合理做法（实施中发现，非漂移）
 
 - manifest 使用 omissions 显式声明 commands/ui_map/workflows/state_machine 不进入 core
@@ -203,19 +237,23 @@ Notepad 五工具保持原 name/effect/reversibility，runtime 与公共 schema 
 
 ### 7. 遗留问题
 
-- `DRIFT-386-1` 已关闭；`DRIFT-386-2` 等待前置 validator 修复卡。
-- Pack 专属 validator、README 与完整门禁未完成。
+- `DRIFT-386-1` / `DRIFT-386-2` 已关闭。
+- `DRIFT-386-3` 阻塞 workspace 验收，需 runtime selector loader 迁移卡。
+- Pack 专属 validator、README 与 pack 级门禁已完成；整卡仍为 Blocked。
 - Paint / Edge / Chrome 的三套 pack 迁移仍未开始。
 
 ### 8. 新增长期记忆
 
-- 无；新的阻塞是 validator 实现偏差，不是新 ADR 决策；待修复卡完成后再决定是否记
-  PITFALL。
+- 已追加 `PITFALL`：Adapter selector policy 的结构化迁移必须与
+  `apps/agent-core` 反序列化契约同批，否则 pack validator 通过但 workspace/runtime
+  仍失败。
 
 ### 9. 给审阅者的关注点（风险最高的 1~3 处）
 
 - 重点确认 `notepad.tab.new` 的恢复语义是否必须有新的 Tool，不能仅用 content snapshot
   假装恢复 tab 结构。
-- rollback 已归零；剩余失败集中在 interrupt match 的 validator 实现偏差。
+- rollback 与 interrupt finding 均已归零；TASK-388 已关闭对应的 match 误判。
 - 如果选择新增 Tool，应另拆 runtime handler / policy / approval 影响评估，不能在数据包卡
   内静默扩展。
+- 最高风险是 `DRIFT-386-3`：pack 已是 spec 1.1，但 runtime loader 仍是旧 policy
+  string；审阅时不要只看 adapter-validate，必须复跑 workspace 测试。
