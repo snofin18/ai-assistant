@@ -72,6 +72,7 @@ pub struct ToolInfo {
     pub reversibility: String,
     pub risk_level: String,
     pub requires_approval: bool,
+    pub tags: BTreeSet<String>,
 }
 
 /// Validate one Adapter bundle without modifying any file.

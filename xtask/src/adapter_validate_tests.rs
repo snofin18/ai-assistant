@@ -176,6 +176,112 @@ impl Fixture {
         .expect("write interrupts");
     }
 
+    fn write_created_tab_bundle(&self) {
+        self.write_created_tab_tools();
+        self.write_created_tab_rollback();
+    }
+
+    fn write_created_tab_tools(&self) {
+        std::fs::write(
+            self.adapter.join("tools/tools.json"),
+            r#"{
+  "schema_version": 1,
+  "app_id": "com.example.test",
+  "tools": [
+    {
+      "schema": {
+        "version": "1.1",
+        "name": "test.tab.read_state",
+        "description": "Read tab state.",
+        "input": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+        "output": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+        "effect": "read",
+        "reversibility": "none_readonly",
+        "risk_level": "low",
+        "requires_approval": false,
+        "idempotent": true,
+        "tags": ["tab"]
+      },
+      "capabilities": ["element.read_text"],
+      "postconditions": [
+        {
+          "kind": "state_unchanged",
+          "fingerprint_scope": "whole_window",
+          "description": "Reading tab state does not change the window.",
+          "error_code": "VerifyFailed"
+        }
+      ]
+    },
+    {
+      "schema": {
+        "version": "1.1",
+        "name": "test.tab.new",
+        "description": "Create a new tab.",
+        "input": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+        "output": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+        "effect": "write",
+        "reversibility": "l2_compensation",
+        "risk_level": "low",
+        "requires_approval": false,
+        "idempotent": false,
+        "tags": ["new", "tab"]
+      },
+      "capabilities": ["input.keyboard"],
+      "postconditions": [
+        {
+          "kind": "state_changed",
+          "within_ms": 1000,
+          "description": "Creating a tab changes the window.",
+          "error_code": "VerifyFailed"
+        }
+      ]
+    }
+  ]
+}
+"#,
+        )
+        .expect("write created-tab tools");
+    }
+
+    fn write_created_tab_rollback(&self) {
+        std::fs::write(
+            self.adapter.join("rollback/recipes.json"),
+            r#"{
+  "schema_version": 1,
+  "app_id": "com.example.test",
+  "recipes": [
+    {
+      "tool": "test.tab.new",
+      "coverage": "recipe",
+      "anchor_strategy": [
+        {
+          "level": "l2",
+          "mechanism": "compensating_action",
+          "capture": {
+            "kind": "compensating_state",
+            "source": "tool:test.tab.read_state",
+            "observations": ["whole_window_fingerprint"]
+          },
+          "restore": {
+            "kind": "close_created_target",
+            "target_kind": "tab",
+            "require_empty": true
+          },
+          "post_verify": {
+            "kind": "capture_equals",
+            "observation": "whole_window_fingerprint"
+          }
+        }
+      ],
+      "on_rollback_failure": "publish_incident_and_require_human"
+    }
+  ]
+}
+"#,
+        )
+        .expect("write created-tab rollback");
+    }
+
     fn validate(&self) -> (u8, String) {
         let mut output = Vec::new();
         let code = run(&self.root, "adapters/test", true, &mut output).expect("validator run");
@@ -586,6 +692,109 @@ fn test_adapter_validate_rejects_empty_rollback_anchor_union() {
     assert!(output.contains("capture/kind"), "{output}");
     assert!(output.contains("restore/kind"), "{output}");
     assert!(output.contains("post_verify/kind"), "{output}");
+}
+
+#[test]
+fn test_adapter_validate_accepts_close_created_tab_builtin() {
+    let fixture = Fixture::create("close-created-tab-valid");
+    fixture.write_created_tab_bundle();
+    let (code, output) = fixture.validate();
+    assert_eq!(code, 0, "{output}");
+    assert!(output.contains("verdict: PASSED"), "{output}");
+}
+#[test]
+fn test_adapter_validate_rejects_close_created_non_tab_target() {
+    let fixture = Fixture::create("close-created-window");
+    fixture.write_created_tab_bundle();
+    let path = fixture.adapter.join("rollback/recipes.json");
+    let rollback = std::fs::read_to_string(&path)
+        .expect("read rollback")
+        .replace("\"target_kind\": \"tab\"", "\"target_kind\": \"window\"");
+    std::fs::write(path, rollback).expect("write rollback");
+    let (code, output) = fixture.validate();
+    assert_eq!(code, 1);
+    assert!(output.contains("target_kind must be tab"), "{output}");
+}
+#[test]
+fn test_adapter_validate_rejects_close_created_non_empty_tab() {
+    let fixture = Fixture::create("close-created-non-empty");
+    fixture.write_created_tab_bundle();
+    let path = fixture.adapter.join("rollback/recipes.json");
+    let rollback = std::fs::read_to_string(&path)
+        .expect("read rollback")
+        .replace("\"require_empty\": true", "\"require_empty\": false");
+    std::fs::write(path, rollback).expect("write rollback");
+    let (code, output) = fixture.validate();
+    assert_eq!(code, 1);
+    assert!(output.contains("require_empty must be true"), "{output}");
+}
+#[test]
+fn test_adapter_validate_rejects_close_created_without_tab_new_tags() {
+    let fixture = Fixture::create("close-created-tags");
+    fixture.write_created_tab_bundle();
+    let path = fixture.adapter.join("tools/tools.json");
+    let tools = std::fs::read_to_string(&path)
+        .expect("read tools")
+        .replace("\"tags\": [\"new\", \"tab\"]", "\"tags\": [\"tab\"]");
+    std::fs::write(path, tools).expect("write tools");
+    let (code, output) = fixture.validate();
+    assert_eq!(code, 1);
+    assert!(output.contains("must carry tab and new tags"), "{output}");
+}
+#[test]
+fn test_adapter_validate_rejects_close_created_wrong_reversibility() {
+    let fixture = Fixture::create("close-created-reversibility");
+    fixture.write_created_tab_bundle();
+    let path = fixture.adapter.join("tools/tools.json");
+    let tools = std::fs::read_to_string(&path).expect("read tools").replace(
+        "\"reversibility\": \"l2_compensation\"",
+        "\"reversibility\": \"l1_snapshot\"",
+    );
+    std::fs::write(path, tools).expect("write tools");
+    let (code, output) = fixture.validate();
+    assert_eq!(code, 1);
+    assert!(
+        output.contains("target tool must be write + l2_compensation"),
+        "{output}"
+    );
+}
+
+#[test]
+fn test_adapter_validate_rejects_close_created_without_fingerprint_observation() {
+    let fixture = Fixture::create("close-created-fingerprint");
+    fixture.write_created_tab_bundle();
+    let path = fixture.adapter.join("rollback/recipes.json");
+    let rollback = std::fs::read_to_string(&path)
+        .expect("read rollback")
+        .replace("[\"whole_window_fingerprint\"]", "[\"tab_count\"]")
+        .replace(
+            "\"observation\": \"whole_window_fingerprint\"",
+            "\"observation\": \"tab_count\"",
+        );
+    std::fs::write(path, rollback).expect("write rollback");
+    let (code, output) = fixture.validate();
+    assert_eq!(code, 1);
+    assert!(
+        output.contains("requires whole_window_fingerprint"),
+        "{output}"
+    );
+}
+
+#[test]
+fn test_adapter_validate_rejects_close_created_unknown_restore_field() {
+    let fixture = Fixture::create("close-created-extra-field");
+    fixture.write_created_tab_bundle();
+    let path = fixture.adapter.join("rollback/recipes.json");
+    let rollback = std::fs::read_to_string(&path)
+        .expect("read rollback")
+        .replace(
+            "\"require_empty\": true",
+            "\"require_empty\": true,\n            \"tool\": \"test.tab.new\"",
+        );
+    std::fs::write(path, rollback).expect("write rollback");
+    let (code, output) = fixture.validate();
+    assert_eq!(code, 1);
+    assert!(output.contains("unknown field `tool`"), "{output}");
 }
 
 #[test]

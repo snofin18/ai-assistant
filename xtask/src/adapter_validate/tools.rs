@@ -148,6 +148,14 @@ fn validate_envelope(
             .get("requires_approval")
             .and_then(Value::as_bool)
             .unwrap_or(false),
+        tags: schema
+            .get("tags")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .map(str::to_string)
+            .collect(),
     })
 }
 
