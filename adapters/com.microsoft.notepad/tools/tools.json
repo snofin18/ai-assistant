@@ -195,7 +195,7 @@
           "additionalProperties": false
         },
         "effect": "write",
-        "reversibility": "l1_snapshot",
+        "reversibility": "l2_compensation",
         "risk_level": "low",
         "requires_approval": false,
         "idempotent": false,

@@ -126,8 +126,14 @@ Notepad 五工具保持原 name/effect/reversibility，runtime 与公共 schema 
 - `adapters/com.microsoft.notepad/selectors/targets.json`：迁移到
   `uia_candidate_chain_v1`，补 typed policy、target/candidate probe 与 fallback 字段。
 - `adapters/com.microsoft.notepad/tools/tools.json`：五个工具迁移到 1.1 envelope，
-  补 capability 与 canonical postconditions。
-- 尚未修改 rollback/interrupt、pack validator、README 或治理状态文件。
+  补 capability 与 canonical postconditions；`notepad.tab.new` 改为 L2。
+- `adapters/com.microsoft.notepad/rollback/recipes.json`：迁移为四个 write 工具的
+  canonical coverage；Save As 保持 L3 `no_recovery`，tab.new 使用
+  `close_created_target`。
+- `adapters/com.microsoft.notepad/interrupts/interrupts.json`：迁移为 typed
+  priority/action/human matrix；不再保留 `delegate_to_task_038` 或自由文本 action。
+- Pack 专属 validator 与 README 仍未修改，原因是通用 validator 仍存在
+  `DRIFT-386-2`。
 
 ### 3. 验收输出摘要（命令 → 结果，全绿 / 失败项）
 
@@ -136,7 +142,10 @@ Notepad 五工具保持原 name/effect/reversibility，runtime 与公共 schema 
 - 迁移 manifest / projection / selector / tool envelope 后重跑：`scanned_files=7`，
   manifest、projection、selector、tool finding 均为 0；
   剩余 31 个 finding 全部集中在尚未迁移的 rollback/interrupt。
-- 未运行全量 Rust/文档门禁，因为本卡已命中契约冲突并停止；不把局部验证冒充全绿。
+- 迁移 rollback/interrupt 后重跑：`scanned_files=7`，剩余 **6 个错误**，全部是
+  interrupt match 的可选字段被 validator 误当成必填：每个规则都报告缺失未声明的
+  `automation_id` / `class_name_contains` / `class_name`；rollback finding 已归零。
+- 未运行全量 Rust/文档门禁，因为本卡仍被 `DRIFT-386-2` 阻塞；不把局部验证冒充全绿。
 
 ### 4. DoD 逐条核对
 
@@ -144,8 +153,11 @@ Notepad 五工具保持原 name/effect/reversibility，runtime 与公共 schema 
 - [x] App Map manifest、identity、omission coverage 与 canonical projection 已生成并通过。
 - [x] selector model、policy、target/candidate 字段已迁移且通过 validator。
 - [x] 五工具 envelope、capabilities、postconditions 与 1.1 `none_readonly` 已迁移并通过。
-- [ ] rollback coverage 未能完成，见 `DRIFT-386-1`。
-- [ ] interrupts、Pack 专属 validator、README 与完整验收未进入。
+- [x] 四个 write 工具已各有一条 rollback coverage；Save As 为显式 `no_recovery`，
+  tab.new 为 L2 `close_created_target`。
+- [ ] interrupts 已写成 spec 形状，但通用 validator 的可选 match 字段缺陷阻断验收，
+  见 `DRIFT-386-2`。
+- [ ] Pack 专属 validator、README 与完整验收未完成。
 - [ ] PR / CI / merge 未创建。
 
 ### 5. 偏差
@@ -164,6 +176,24 @@ Notepad 五工具保持原 name/effect/reversibility，runtime 与公共 schema 
   `notepad.tab.new` 暂不进入 bundle。裁决前不修改 D5 或 validator。
 - 已停工作：未修改 rollback/interrupt；未新增 Tool；未放宽 validator；未创建 PR / merge。
 
+`DRIFT-386-1` 已由 TASK-387 / ADR-0106 方案 A 关闭：新增 rollback-only
+`close_created_target`，不新增模型可见 Tool；本卡已将 `notepad.tab.new` 改为 L2。
+
+**DRIFT-386-2**
+
+- 现象：`docs/spec/adapter-bundle.md` §8.2 将 `class_name`、`automation_id`、
+  `automation_id_candidates`、`title_candidates`、`name_candidates`、
+  `class_name_contains` 定义为可选 union 字段，只要求 match 非空；但
+  `xtask/src/adapter_validate/interrupts.rs` 对所有规则无条件要求
+  `class_name`、`automation_id`、`class_name_contains` 三个字符串同时非空。
+  因而合法的 `class_name + title_candidates` 和
+  `automation_id_candidates + class_name_contains` 都被误判为缺字段。
+- 影响：Notepad 三条 interrupt 无法在不通伪造 selector 的前提下通过通用 validator；
+  在 pack 中补不存在的 class/id 会制造与真实 UIA 不匹配的假 selector。
+- 建议：新开前置卡修复 `interrupts.rs`，只校验实际出现的字符串字段，保持“match
+  非空、文本候选不得单独成立”的原规则；补所有合法/非法子集测试后，再恢复 TASK-386。
+- 已停工作：未修改 `xtask/**`、公共 schema、ADR/spec、CI 或依赖；未绕过 validator。
+
 ### 6. 更合理做法（实施中发现，非漂移）
 
 - manifest 使用 omissions 显式声明 commands/ui_map/workflows/state_machine 不进入 core
@@ -173,18 +203,19 @@ Notepad 五工具保持原 name/effect/reversibility，runtime 与公共 schema 
 
 ### 7. 遗留问题
 
-- `DRIFT-386-1` 未裁决。
-- rollback/interrupt、Pack 专属 validator、README 与完整门禁未完成。
+- `DRIFT-386-1` 已关闭；`DRIFT-386-2` 等待前置 validator 修复卡。
+- Pack 专属 validator、README 与完整门禁未完成。
 - Paint / Edge / Chrome 的三套 pack 迁移仍未开始。
 
 ### 8. 新增长期记忆
 
-- 无；阻塞裁决落本卡与 LEDGER，待裁决后再决定是否新增 PITFALL/ADR。
+- 无；新的阻塞是 validator 实现偏差，不是新 ADR 决策；待修复卡完成后再决定是否记
+  PITFALL。
 
 ### 9. 给审阅者的关注点（风险最高的 1~3 处）
 
 - 重点确认 `notepad.tab.new` 的恢复语义是否必须有新的 Tool，不能仅用 content snapshot
   假装恢复 tab 结构。
-- 已迁移的 selector/tool envelope 虽通过通用 validator，但整包仍不可合并。
+- rollback 已归零；剩余失败集中在 interrupt match 的 validator 实现偏差。
 - 如果选择新增 Tool，应另拆 runtime handler / policy / approval 影响评估，不能在数据包卡
   内静默扩展。
