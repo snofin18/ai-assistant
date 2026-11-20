@@ -1,6 +1,6 @@
 # TASK-386 Notepad Adapter bundle convergence
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Adapter pack convergence A　批次：1
 - 依赖：ADR-0104、ADR-0105、TASK-380、TASK-383、TASK-384
 
@@ -165,6 +165,9 @@ Notepad 五工具保持原 name/effect/reversibility，runtime 与公共 schema 
   runtime loader 缺口，记 `DRIFT-386-4`。
 - TASK-390 当前分支合入后，`production_root` 7/7、
   `production_root_t1_2` 10/10、workspace 全部 test target 与 doctest 0 failed。
+- PR #795 checks **11/11 success**，merge
+  `29fb10b9458cca1c7d93b8bf029d3af5c90ebc85`；post-merge main CI
+  `44664709243` success。
 
 ### 4. DoD 逐条核对
 
@@ -179,7 +182,8 @@ Notepad 五工具保持原 name/effect/reversibility，runtime 与公共 schema 
 - [x] Pack 专属 validator 与 README 已完成并通过。
 - [x] TASK-389 / TASK-390 解除 runtime selector 与 ToolSchema 1.1 缺口后，
   完整 workspace 验收通过。
-- [ ] PR / CI / merge 未创建；契约冲突裁决前不得合并。
+- [x] PR #795 checks 11/11、merge `29fb10b` 与 post-merge main CI
+  `44664709243` 已回填。
 
 ### 5. 偏差
 
@@ -248,6 +252,10 @@ Notepad 五工具保持原 name/effect/reversibility，runtime 与公共 schema 
 `DRIFT-386-4` 已由 TASK-390 关闭：ToolBus 从既有 `ToolSchema` 构造 definition，
 registry / planner / task-engine 接受 1.1 `none_readonly`，1.0 旧值仅在 loader 兼容。
 
+- 最终 Done 收口时 `guard release` 返回 `NOT_LOCKED`；写回期间未观察到其他
+  owner 或合并冲突，但 guard 租约未覆盖到最后一批治理写入，记为
+  `PROCESS-TASK386-GUARD-1`，后续同批写入应重新 acquire 后再改。
+
 ### 6. 更合理做法（实施中发现，非漂移）
 
 - manifest 使用 omissions 显式声明 commands/ui_map/workflows/state_machine 不进入 core
@@ -258,8 +266,7 @@ registry / planner / task-engine 接受 1.1 `none_readonly`，1.0 旧值仅在 l
 ### 7. 遗留问题
 
 - `DRIFT-386-1` / `DRIFT-386-2` / `DRIFT-386-3` / `DRIFT-386-4` 均已关闭。
-- Pack 专属 validator、README、workspace 与 pack 级门禁已完成；整卡进入 Review，
-  等待 PR / CI / merge。
+- Pack 专属 validator、README、workspace、pack 级门禁、PR / merge / main CI 均已完成。
 - Paint / Edge / Chrome 的三套 pack 迁移仍未开始。
 
 ### 8. 新增长期记忆
