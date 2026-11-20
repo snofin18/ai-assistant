@@ -42,6 +42,9 @@
 > TASK-388 已完成 **Done**：修复 interrupt match 可选字段被误当成必填的 validator
 > 偏差；PR #779 merge `9d6d558` / main CI `44490394734` success，下游 Notepad pack
 > 重基后已 7 files / 0 error 通过。
+> TASK-386 / TASK-389 / TASK-390 已完成 **Done**：Notepad 六件套迁移到 bundle v1，
+> structured selector policy 与 ToolSchema 1.1 `none_readonly` 已进入生产运行时；
+> PR #795 merge `29fb10b` / main CI `44664709243` success。
 
 ## In scope
 
@@ -82,8 +85,8 @@
 | rollback builtin | **TASK-387 ✅** | Adapter contract | `tasks/TASK-387-rollback-created-tab-builtin.md` | Done（ADR-0106 + validator 正负矩阵；不新增模型可见 Tool；PR #777 merge `a23a344`；main CI `44476000127` success） |
 | interrupt contract repair | **TASK-388 ✅** | xtask/契约 | `tasks/TASK-388-interrupt-optional-match-fields.md` | Done（可选 match 字段 union + 空白字段拒绝测试；PR #779 merge `9d6d558`；main CI `44490394734` success；下游 Notepad pack 0 error） |
 | runtime policy repair | **TASK-389 ✅** | agent-core/契约 | `tasks/TASK-389-runtime-selector-on-not-found.md` | Done（structured `on_not_found` + legacy string 兼容；PR #794 merge `9658bf0`；main CI `44658088616` success） |
-| Notepad bundle convergence | **TASK-386** | Adapter/系统 | `tasks/TASK-386-notepad-adapter-bundle.md` | Review（pack v1 迁移完成；structured policy + ToolSchema 1.1 runtime 已解除两处阻塞） |
-| runtime ToolSchema repair | **TASK-390** | tool-bus/agent-core | `tasks/TASK-390-runtime-tool-schema-1-1.md` | Review（ToolSchema 1.1 + `none_readonly` 深 runtime 消费；生产组合与 workspace 全绿） |
+| Notepad bundle convergence | **TASK-386 ✅** | Adapter/系统 | `tasks/TASK-386-notepad-adapter-bundle.md` | Done（pack v1；PR #795 merge `29fb10b`；main CI `44664709243` success） |
+| runtime ToolSchema repair | **TASK-390 ✅** | tool-bus/agent-core | `tasks/TASK-390-runtime-tool-schema-1-1.md` | Done（ToolSchema 1.1 + `none_readonly` 深 runtime；PR #795 merge `29fb10b`；main CI `44664709243` success） |
 | 1 | 待派单 | 架构/治理 | dispatch 时创建 | 未开始（通用只读 Adapter bundle validator） |
 | 2 | 待派单 | Windows platform | dispatch 时创建 | 未开始（COM apartment/生命周期/回收与负向测试） |
 | 3 | 待派单 | Excel Adapter | dispatch 时创建 | 未开始（Adapter 数据包 + Protected View/AutoSave/interrupts） |

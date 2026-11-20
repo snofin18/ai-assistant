@@ -1,6 +1,6 @@
 # TASK-390 runtime ToolSchema 1.1 consumption
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Adapter pack convergence A　批次：contract repair
 - 依赖：ADR-0104、TASK-380、TASK-389、TASK-386 WIP
 
@@ -133,6 +133,9 @@ Notepad 生产组合测试与 workspace 全绿。
   `unknown lint: clippy::assert_is_empty` 提示。
 - `adapter-validate` → 7 files / 0 error / 0 warning。
 - Pack validator → 9 targets / 5 tools / 4 recipes / 3 interrupts / PASSED。
+- PR #795 checks **11/11 success**，merge
+  `29fb10b9458cca1c7d93b8bf029d3af5c90ebc85`；post-merge main CI
+  `44664709243` success。
 
 ### 4. DoD 逐条核对
 
@@ -140,7 +143,8 @@ Notepad 生产组合测试与 workspace 全绿。
 - [x] 1.1 `read + none_readonly` 原样保留；1.0 旧值只走兼容归一。
 - [x] fingerprint / planner / task-engine token 明确支持 `none_readonly`。
 - [x] Notepad 两个生产组合测试与 workspace 全绿。
-- [ ] PR checks、merge 与 post-merge main CI 待提交后回填。
+- [x] PR #795 checks 11/11、merge `29fb10b` 与 post-merge main CI
+  `44664709243` 已回填。
 
 ### 5. 偏差
 
@@ -148,6 +152,8 @@ Notepad 生产组合测试与 workspace 全绿。
   `crates/core/src/planner.rs` 加入卡面 scope 并修正。
 - 第二次验证暴露 TaskEngine PlanStep 的可逆性 union 缺 `none_readonly`，把
   `crates/task-engine/src/plan.rs` 加入卡面 scope 并修正。
+- 收口准备阶段另有一次只读 `rg` 误填 `shell="bash"`；命令成功但违反 shell 策略，
+  未写仓库，已在 LEDGER 留证。
 
 ### 6. 更合理做法（实施中发现，非漂移）
 
@@ -157,7 +163,7 @@ Notepad 生产组合测试与 workspace 全绿。
 
 ### 7. 遗留问题
 
-- 本卡合并后，TASK-386 可直接重基完成 pack 验收。
+- 本卡已合并，TASK-386 已重基并完成 pack 验收。
 
 ### 8. 新增长期记忆
 
