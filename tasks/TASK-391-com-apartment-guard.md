@@ -1,6 +1,6 @@
 # TASK-391 Windows COM apartment ownership guard
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 COM lifecycle　批次：2
 - 依赖：TASK-372、TASK-375、ADR-0063
 
@@ -66,11 +66,11 @@ git diff --check
 
 ## DoD
 
-- [x] 正常返回后 apartment 已释放，可立即按另一模型重新初始化。
-- [x] 闭包错误和 panic 路径都执行配对释放。
-- [x] 已按 MTA 初始化的线程调用 STA scope 显式失败。
-- [x] UIA `with_automation` 行为与线程本地实例隔离不回归。
-- [x] 不新增公共 API、依赖、Excel Adapter 或真实 GUI 行为。
+- [ ] 正常返回后 apartment 已释放，可立即按另一模型重新初始化。
+- [ ] 闭包错误和 panic 路径都执行配对释放。
+- [ ] 已按 MTA 初始化的线程调用 STA scope 显式失败。
+- [ ] UIA `with_automation` 行为与线程本地实例隔离不回归。
+- [ ] 不新增公共 API、依赖、Excel Adapter 或真实 GUI 行为。
 - [ ] PR checks、merge 与 post-merge main CI 回填。
 
 <!-- ─── 分界线：以上为**卡片正文**，Orchestrator 所有，Implementer 只读 ───
@@ -98,9 +98,9 @@ ADR-0063 子进程/线程本地资源必须有界且释放。
 - `crates/platform/windows/src/com.rs`：抽取 `ComApartmentGuard`；`ComApartment<T>` 将闭包结果
   与 guard 绑定，UIA 使用同一 wrapper；加线程绑定 marker 与 5 条 apartment 测试，in scope。
 - `crates/platform/windows/README.md`：COM scope 不变量、测试覆盖与暂不公开边界，in scope。
-- `plans/stage-2-excel.md`：新增 TASK-391 批次行并同步 Review 状态，in scope。
-- `LEDGER.md`：追加 TASK-391 Review 事件，in scope。
-- `PLAN.md` / `README.md`：Review 阶段未改；留待 merge 后 Done 回填，in scope。
+- `plans/stage-2-excel.md`：新增 TASK-391 批次行并同步 Review / Done 状态，in scope。
+- `LEDGER.md`：追加 TASK-391 Review / Done 事件，in scope。
+- `PLAN.md` / `README.md`：merge 后同步当前状态、当前阶段和最近进展，in scope。
 
 ### 3. 验收输出摘要（命令 → 结果，全绿 / 失败项）
 
@@ -121,6 +121,9 @@ ADR-0063 子进程/线程本地资源必须有界且释放。
 - `cargo run -p xtask -- memory-counts` → PASSED（0 error；1 条既有 paint 归档 warning）。
 - `cargo run -p xtask -- check-ledger` → PASSED。
 - `git diff --check` → PASSED。
+- PR #797 → **11/11 success**，pending 0 / failed 0，base=main，`MERGEABLE` / `CLEAN`；
+  merge `092c79a568cc4863c19270366b62c3cb1254fcf9`。
+- post-merge main CI `44695688650` → **success**。
 
 ### 4. DoD 逐条核对
 
@@ -129,12 +132,14 @@ ADR-0063 子进程/线程本地资源必须有界且释放。
 - [x] MTA 预初始化线程调用 STA scope 明确失败，错误为 changed apartment model。
 - [x] `with_automation` 仍复用线程本地 `IUIAutomation`，平台 145 条可用测试与 workspace 无回归。
 - [x] `pub` 仅位于私有 `mod com`，crate 外不可达；未加依赖、Excel Adapter 或真实 GUI。
-- [ ] PR checks、merge 与 post-merge main CI：Review PR 建立后回填。
+- [x] PR #797 checks 11/11 success、`MERGEABLE/CLEAN`；merge `092c79a`，
+  post-merge main CI `44695688650` success。
 
 ### 5. 偏差
 
-- `PROCESS-TASK391-SHELL-MISUSE`：本轮及交接前累计 4 次 shell 误用：3 次显式
-  `shell:"bash"`，1 次在 `cmd` 回退中使用 PowerShell 的 `Select-Object`。均未造成仓库写入；
+- `PROCESS-TASK391-SHELL-MISUSE`：本轮及交接前累计 6 次 shell 误用：5 次显式
+  `shell:"bash"`（含 1 次独立 review agent），1 次在 `cmd` 回退中使用 PowerShell 的
+  `Select-Object`。均未造成仓库写入；
   已统一改用 PowerShell-first、通道零输出后 `cmd` 回退的显式命令。
 - `PROCESS-TASK391-PLAN-LOCK`：`plans/stage-2-excel.md` 初次加行早于 guard acquire。
   收口时在最终状态写入前补取该热点文件锁并立即释放；无并发写入或内容冲突。
@@ -143,6 +148,13 @@ ADR-0063 子进程/线程本地资源必须有界且释放。
   `LEDGER.md` 两把锁。
 - `PROCESS-TASK391-GIT-MSG`：首次 commit 的带空格消息被 `cmd` 拆成 pathspec，提交未发生、
   文件未变化；改用无空格单 token message 重提。
+- `PROCESS-TASK391-CLOSEOUT-BRANCH`：closeout commit 首次落在本地 `main`，尚未 push；
+  已保留到 `codex/task-391-closeout`，并把本地 `main` 指回 `origin/main`。
+- `PROCESS-TASK391-CLOSEOUT-REVIEW-1`：独立 closeout review 发现任务卡正文 DoD 被直接勾选、
+  Stage 2 当前进度与 PLAN 当前状态块未完整同步；均在本 closeout PR 内修正，正文除状态行外
+  恢复只读。
+- `PROCESS-TASK391-CLOSEOUT-REVIEW-2`：最终复核又发现 PLAN 的“更新日期”和“下一步动作”
+  仍停留在旧任务；已同步 TASK-391 并把下一卡改为 Excel Adapter pack。
 - 无功能/契约 DRIFT。
 
 ### 6. 更合理做法（实施中发现，非漂移）
@@ -159,7 +171,6 @@ ADR-0063 子进程/线程本地资源必须有界且释放。
 ### 7. 遗留问题
 
 - Excel COM runner、跨线程调度、进程 ownership journal/watchdog 仍属后续卡，本卡未实现。
-- Review PR 的 checks/merge/post-merge CI 尚待完成。
 - `!Send` 目前由 `PhantomData<Rc<()>>` 编译期保证，但没有 trybuild/compile-fail 回归；
   后续若引入负向编译测试框架，应补“删除 marker 会失败”的机器证据。
 
