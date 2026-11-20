@@ -31,7 +31,7 @@ use crate::fingerprint::FingerprintEntry;
 use crate::meta::is_reserved_meta_tool_name;
 use crate::schema::collect_unenforceable_constructs;
 
-/// `ToolSchema.version` 的取值：本卡只支持 1.0（tool-schema.md §4 不变量 5 的起点）。
+/// `ToolDefinition::new` 生成的基线版本；1.1 通过 [`ToolDefinition::from_schema`] 接入。
 const TOOL_SCHEMA_VERSION: &str = "1.0";
 
 /// 一个工具的完整声明。
@@ -131,9 +131,79 @@ impl ToolDefinition {
                 }
             })?;
 
+        Self::from_schema(schema)
+    }
+
+    /// 从既有 `ToolSchema` 构造定义，保留 1.0/1.1 的全部权威字段。
+    ///
+    /// 这是 Adapter 1.1 envelope 的运行时入口。它不会重建版本、可逆性、
+    /// idempotent 或 approval 字段，只重复执行注册所需的安全校验。
+    ///
+    /// # Errors
+    /// - 名字不可接受 → [`ToolBusError::InvalidToolName`]
+    /// - input 根不是对象或包含不可强制关键字 → [`ToolBusError::UnsupportedSchemaKeyword`]
+    /// - output 既不是对象也不是 `null` → [`ToolBusError::UnsupportedSchemaKeyword`]
+    /// - 未知 `ToolSchema` 版本 → [`ToolBusError::SchemaAssembly`]
+    /// - `none_readonly` 不是 1.1 read → [`ToolBusError::ToolBehaviorMismatch`]
+    /// - critical / L3 未要求审批 → [`ToolBusError::ToolBehaviorMismatch`]
+    pub fn from_schema(schema: ToolSchema) -> ToolBusResult<Self> {
+        let name = schema.name.clone();
+        if !is_admissible_tool_name(&name) {
+            return Err(ToolBusError::InvalidToolName { name });
+        }
+        if !schema.input.is_object() {
+            return Err(ToolBusError::UnsupportedSchemaKeyword {
+                tool: name,
+                problems: vec![
+                    "`: the root input schema must be a JSON object (MCP `Tool.inputSchema` is an object, not `true`/`false`)".to_owned(),
+                ],
+            });
+        }
+        let problems = collect_unenforceable_constructs(&schema.input);
+        if !problems.is_empty() {
+            return Err(ToolBusError::UnsupportedSchemaKeyword {
+                tool: name,
+                problems,
+            });
+        }
+        if !(schema.output.is_object() || schema.output.is_null()) {
+            return Err(ToolBusError::UnsupportedSchemaKeyword {
+                tool: name,
+                problems: vec!["`: the output schema must be a JSON object or null".to_owned()],
+            });
+        }
+        if schema.version != "1.0" && schema.version != "1.1" {
+            return Err(ToolBusError::SchemaAssembly {
+                tool: name,
+                reason: format!("unsupported ToolSchema version: {}", schema.version),
+            });
+        }
+        if schema.reversibility == ToolReversibility::NoneReadonly
+            && (schema.version != "1.1" || schema.effect != ToolEffect::Read)
+        {
+            return Err(ToolBusError::ToolBehaviorMismatch {
+                tool: name,
+                declared: format!(
+                    "version={} effect={:?} reversibility=none_readonly",
+                    schema.version, schema.effect
+                ),
+                required: "none_readonly requires ToolSchema 1.1 and effect=read".to_owned(),
+            });
+        }
+        if !schema.requires_approval
+            && (matches!(schema.risk_level, RiskLevel::Critical)
+                || schema.reversibility == ToolReversibility::L3Irreversible)
+        {
+            return Err(ToolBusError::ToolBehaviorMismatch {
+                tool: name,
+                declared: "requires_approval=false".to_owned(),
+                required: "requires_approval=true for critical or l3_irreversible".to_owned(),
+            });
+        }
+        let annotations = derive_annotations(schema.risk_level, schema.effect, schema.idempotent);
         Ok(Self {
-            annotations: derive_annotations(risk_level, effect, schema.idempotent),
             schema,
+            annotations,
         })
     }
 
@@ -420,6 +490,7 @@ pub const fn reversibility_token(reversibility: ToolReversibility) -> &'static s
         ToolReversibility::L1Snapshot => "l1_snapshot",
         ToolReversibility::L2Compensation => "l2_compensation",
         ToolReversibility::L3Irreversible => "l3_irreversible",
+        ToolReversibility::NoneReadonly => "none_readonly",
         _ => "unrecognized-tool-reversibility",
     }
 }

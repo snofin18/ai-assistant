@@ -1,6 +1,6 @@
 # TASK-389 runtime selector typed on_not_found
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Adapter pack convergence A　批次：contract repair
 - 依赖：ADR-0105、TASK-383、TASK-386 WIP、TASK-388
 
@@ -119,6 +119,9 @@ validator 与 workspace 复验归 TASK-386 重基后完成。
 - `cargo run -p xtask -- adapter-validate adapters/com.microsoft.notepad --report-only`
   在 TASK-389 自身分支仍针对旧 pack 运行；结构化 Notepad pack 的端到端复验由
   TASK-386 重基后完成。
+- PR #794 最终 checks **11/11 success**，pending 0 / failed 0；merge
+  `9658bf0f735a076792661c494fbea342f15ce21e`；post-merge main CI
+  `44658088616` success。
 
 ### 4. DoD 逐条核对
 
@@ -128,12 +131,17 @@ validator 与 workspace 复验归 TASK-386 重基后完成。
 - [x] 未知 legacy string 返回 `UnsupportedPolicy`；缺 `then_escalate` 的 object
   在反序列化阶段失败。
 - [x] workspace tests、fmt、agent-core Clippy 通过。
-- [ ] PR checks、merge 与 post-merge main CI 待提交后回填。
+- [x] PR #794 checks 11/11、merge `9658bf0` 与 post-merge main CI
+  `44658088616` 已回填。
 
 ### 5. 偏差
 
 - PowerShell 启动阶段两条只读命令 10 秒零输出，终止后按 ADR-0100 回退 `cmd`。
 - 一次只读 `rg` 检查误填 `shell="bash"`，命令成功但违反 shell 策略；未写仓库。
+- `PROCESS-TASK389-AUTO-MERGE`：使用 `gh pr merge --auto` 时仓库立即合并，
+  当时 Windows / Ubuntu / macOS 三项 check 仍为 pending。后续原始 CI 最终 11/11
+  success，post-merge main CI 也 success；未造成代码失败，但违反“pending=0 才合并”
+  的操作顺序。后续禁止用 auto-merge 替代显式门禁核对。
 
 ### 6. 更合理做法（实施中发现，非漂移）
 
@@ -143,8 +151,8 @@ validator 与 workspace 复验归 TASK-386 重基后完成。
 
 ### 7. 遗留问题
 
-- TASK-386 需要在本卡合并后重基，使用 structured Notepad pack 复跑 workspace 与
-  Pack validator；这是本卡的直接下游验收。
+- TASK-386 已在本卡合并后重基，structured pack 与下游 production tests 正在
+  TASK-386 / TASK-390 集成分支验证。
 
 ### 8. 新增长期记忆
 

@@ -4,7 +4,13 @@
   "app_version_range": ">=11.2607.14 <12",
   "policy": {
     "on_ambiguous": "error_and_ask",
-    "on_not_found": "escalate_to_human",
+    "on_not_found": {
+      "retry_after_ms": [
+        100,
+        500
+      ],
+      "then_escalate": true
+    },
     "min_score_to_try": 0.1,
     "max_resolve_ms": 3000
   },
@@ -16,25 +22,41 @@
         {
           "id": "window-class",
           "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "Notepad", "role": "Window"}},
-          "score": 1.0,
-          "locale_dependent": false
+          "value": {
+            "class_and_role": {
+              "class": "Notepad",
+              "role": "Window"
+            }
+          },
+          "score": 1,
+          "locale_dependent": false,
+          "fallback_only": false
         },
         {
           "id": "window-a11y-path",
           "kind": "a11y_path",
-          "value": {"path": ["Notepad"]},
+          "value": {
+            "path": [
+              "Notepad"
+            ]
+          },
           "score": 0.35,
-          "locale_dependent": true
+          "locale_dependent": true,
+          "fallback_only": true
         },
         {
           "id": "window-title-fallback",
           "kind": "title_regex",
-          "value": {"text": " - Notepad"},
+          "value": {
+            "text": " - Notepad"
+          },
           "score": 0.2,
-          "locale_dependent": true
+          "locale_dependent": true,
+          "fallback_only": true
         }
-      ]
+      ],
+      "probe_status": "observed",
+      "allow_fallback_entry": false
     },
     {
       "id": "editor",
@@ -43,25 +65,46 @@
         {
           "id": "editor-modern",
           "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "RichEditD2DPT", "role": "Document"}},
-          "score": 1.0,
-          "locale_dependent": false
+          "value": {
+            "class_and_role": {
+              "class": "RichEditD2DPT",
+              "role": "Document"
+            }
+          },
+          "score": 1,
+          "locale_dependent": false,
+          "fallback_only": false
         },
         {
           "id": "editor-legacy",
           "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "Edit", "role": "Edit"}},
+          "value": {
+            "class_and_role": {
+              "class": "Edit",
+              "role": "Edit"
+            }
+          },
           "score": 0.8,
-          "locale_dependent": false
+          "locale_dependent": false,
+          "fallback_only": false
         },
         {
           "id": "editor-a11y-path",
           "kind": "a11y_path",
-          "value": {"path": ["Notepad", "NotepadTextBox", "文本编辑器"]},
+          "value": {
+            "path": [
+              "Notepad",
+              "NotepadTextBox",
+              "文本编辑器"
+            ]
+          },
           "score": 0.3,
-          "locale_dependent": true
+          "locale_dependent": true,
+          "fallback_only": true
         }
-      ]
+      ],
+      "probe_status": "observed",
+      "allow_fallback_entry": false
     },
     {
       "id": "tab_view",
@@ -70,25 +113,39 @@
         {
           "id": "tab-view-aid",
           "kind": "automation_id",
-          "value": {"text": "Tabs"},
-          "score": 1.0,
-          "locale_dependent": false
+          "value": {
+            "text": "Tabs"
+          },
+          "score": 1,
+          "locale_dependent": false,
+          "fallback_only": false
         },
         {
           "id": "tab-list-aid",
           "kind": "automation_id",
-          "value": {"text": "TabListView"},
+          "value": {
+            "text": "TabListView"
+          },
           "score": 0.8,
-          "locale_dependent": false
+          "locale_dependent": false,
+          "fallback_only": false
         },
         {
           "id": "tab-view-class",
           "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "Microsoft.UI.Xaml.Controls.TabView", "role": "Tab"}},
+          "value": {
+            "class_and_role": {
+              "class": "Microsoft.UI.Xaml.Controls.TabView",
+              "role": "Tab"
+            }
+          },
           "score": 0.6,
-          "locale_dependent": false
+          "locale_dependent": false,
+          "fallback_only": false
         }
-      ]
+      ],
+      "probe_status": "observed",
+      "allow_fallback_entry": false
     },
     {
       "id": "add_tab_button",
@@ -97,25 +154,39 @@
         {
           "id": "add-tab-aid",
           "kind": "automation_id",
-          "value": {"text": "AddButton"},
-          "score": 1.0,
-          "locale_dependent": false
+          "value": {
+            "text": "AddButton"
+          },
+          "score": 1,
+          "locale_dependent": false,
+          "fallback_only": false
         },
         {
           "id": "add-tab-a11y-path",
           "kind": "a11y_path",
-          "value": {"path": ["Tabs", "添加新标签页"]},
+          "value": {
+            "path": [
+              "Tabs",
+              "添加新标签页"
+            ]
+          },
           "score": 0.3,
-          "locale_dependent": true
+          "locale_dependent": true,
+          "fallback_only": true
         },
         {
           "id": "add-tab-name-fallback",
           "kind": "name_regex",
-          "value": {"text": "添加新标签页"},
+          "value": {
+            "text": "添加新标签页"
+          },
           "score": 0.15,
-          "locale_dependent": true
+          "locale_dependent": true,
+          "fallback_only": true
         }
-      ]
+      ],
+      "probe_status": "observed",
+      "allow_fallback_entry": false
     },
     {
       "id": "close_tab_button",
@@ -124,25 +195,39 @@
         {
           "id": "close-tab-aid",
           "kind": "automation_id",
-          "value": {"text": "CloseButton"},
-          "score": 1.0,
-          "locale_dependent": false
+          "value": {
+            "text": "CloseButton"
+          },
+          "score": 1,
+          "locale_dependent": false,
+          "fallback_only": false
         },
         {
           "id": "close-tab-a11y-path",
           "kind": "a11y_path",
-          "value": {"path": ["Tabs", "关闭标签页"]},
+          "value": {
+            "path": [
+              "Tabs",
+              "关闭标签页"
+            ]
+          },
           "score": 0.3,
-          "locale_dependent": true
+          "locale_dependent": true,
+          "fallback_only": true
         },
         {
           "id": "close-tab-name-fallback",
           "kind": "name_regex",
-          "value": {"text": "关闭标签页"},
+          "value": {
+            "text": "关闭标签页"
+          },
           "score": 0.15,
-          "locale_dependent": true
+          "locale_dependent": true,
+          "fallback_only": true
         }
-      ]
+      ],
+      "probe_status": "observed",
+      "allow_fallback_entry": false
     },
     {
       "id": "file_menu",
@@ -151,25 +236,39 @@
         {
           "id": "file-menu-aid",
           "kind": "automation_id",
-          "value": {"text": "File"},
-          "score": 1.0,
-          "locale_dependent": false
+          "value": {
+            "text": "File"
+          },
+          "score": 1,
+          "locale_dependent": false,
+          "fallback_only": false
         },
         {
           "id": "file-menu-a11y-path",
           "kind": "a11y_path",
-          "value": {"path": ["MenuBar", "文件"]},
+          "value": {
+            "path": [
+              "MenuBar",
+              "文件"
+            ]
+          },
           "score": 0.3,
-          "locale_dependent": true
+          "locale_dependent": true,
+          "fallback_only": true
         },
         {
           "id": "file-menu-name-fallback",
           "kind": "name_regex",
-          "value": {"text": "文件"},
+          "value": {
+            "text": "文件"
+          },
           "score": 0.15,
-          "locale_dependent": true
+          "locale_dependent": true,
+          "fallback_only": true
         }
-      ]
+      ],
+      "probe_status": "observed",
+      "allow_fallback_entry": false
     },
     {
       "id": "save_as_dialog",
@@ -178,25 +277,41 @@
         {
           "id": "save-as-class",
           "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "#32770", "role": "Window"}},
-          "score": 1.0,
-          "locale_dependent": false
+          "value": {
+            "class_and_role": {
+              "class": "#32770",
+              "role": "Window"
+            }
+          },
+          "score": 1,
+          "locale_dependent": false,
+          "fallback_only": false
         },
         {
           "id": "save-as-a11y-path",
           "kind": "a11y_path",
-          "value": {"path": ["另存为"]},
+          "value": {
+            "path": [
+              "另存为"
+            ]
+          },
           "score": 0.3,
-          "locale_dependent": true
+          "locale_dependent": true,
+          "fallback_only": true
         },
         {
           "id": "save-as-title-fallback",
           "kind": "title_regex",
-          "value": {"text": "另存为"},
+          "value": {
+            "text": "另存为"
+          },
           "score": 0.15,
-          "locale_dependent": true
+          "locale_dependent": true,
+          "fallback_only": true
         }
-      ]
+      ],
+      "probe_status": "required",
+      "allow_fallback_entry": false
     },
     {
       "id": "save_as_filename",
@@ -205,25 +320,42 @@
         {
           "id": "filename-class-role",
           "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "Edit", "role": "Pane"}},
-          "score": 1.0,
-          "locale_dependent": false
+          "value": {
+            "class_and_role": {
+              "class": "Edit",
+              "role": "Pane"
+            }
+          },
+          "score": 1,
+          "locale_dependent": false,
+          "fallback_only": false
         },
         {
           "id": "filename-a11y-path",
           "kind": "a11y_path",
-          "value": {"path": ["另存为", "文件名"]},
+          "value": {
+            "path": [
+              "另存为",
+              "文件名"
+            ]
+          },
           "score": 0.3,
-          "locale_dependent": true
+          "locale_dependent": true,
+          "fallback_only": true
         },
         {
           "id": "filename-name-fallback",
           "kind": "name_regex",
-          "value": {"text": "文件名"},
+          "value": {
+            "text": "文件名"
+          },
           "score": 0.15,
-          "locale_dependent": true
+          "locale_dependent": true,
+          "fallback_only": true
         }
-      ]
+      ],
+      "probe_status": "required",
+      "allow_fallback_entry": false
     },
     {
       "id": "save_as_save_button",
@@ -232,25 +364,44 @@
         {
           "id": "save-button-class-role",
           "kind": "class_and_role",
-          "value": {"class_and_role": {"class": "Button", "role": "Button"}},
-          "score": 1.0,
-          "locale_dependent": false
+          "value": {
+            "class_and_role": {
+              "class": "Button",
+              "role": "Button"
+            }
+          },
+          "score": 1,
+          "locale_dependent": false,
+          "fallback_only": false
         },
         {
           "id": "save-button-a11y-path",
           "kind": "a11y_path",
-          "value": {"path": ["另存为", "保存"]},
+          "value": {
+            "path": [
+              "另存为",
+              "保存"
+            ]
+          },
           "score": 0.3,
-          "locale_dependent": true
+          "locale_dependent": true,
+          "fallback_only": true
         },
         {
           "id": "save-button-name-fallback",
           "kind": "name_regex",
-          "value": {"text": "保存"},
+          "value": {
+            "text": "保存"
+          },
           "score": 0.15,
-          "locale_dependent": true
+          "locale_dependent": true,
+          "fallback_only": true
         }
-      ]
+      ],
+      "probe_status": "required",
+      "allow_fallback_entry": false
     }
-  ]
+  ],
+  "selector_model": "uia_candidate_chain_v1",
+  "probe_status": "observed"
 }

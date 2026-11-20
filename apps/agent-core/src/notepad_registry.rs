@@ -200,9 +200,9 @@ fn register_declared_tools(
     let mut names = BTreeSet::new();
     for declared_tool in declared.tools {
         let schema = parse_tool_schema(declared_tool.schema)?;
-        if schema.version != "1.0" {
+        if schema.version != "1.0" && schema.version != "1.1" {
             return Err(NotepadRegistryError::Malformed {
-                reason: format!("tool `{}` must use schema version 1.0", schema.name),
+                reason: format!("tool `{}` must use schema version 1.0 or 1.1", schema.name),
             });
         }
         if !expected_tool_names.contains(&schema.name.as_str()) {
@@ -655,18 +655,7 @@ fn invalid_host_arguments(message: &str) -> ReservedHostOperationError {
 }
 
 fn tool_definition(schema: &ToolSchema) -> Result<ToolDefinition, ToolBusError> {
-    ToolDefinition::new(
-        schema.name.clone(),
-        schema.description.clone(),
-        schema.risk_level,
-        schema.effect,
-        schema.reversibility,
-        schema.input.clone(),
-    )?
-    .with_output_schema(schema.output.clone())?
-    .with_idempotent(schema.idempotent)?
-    .with_requires_approval(schema.requires_approval)
-    .map(|definition| definition.with_tags(schema.tags.clone()))
+    ToolDefinition::from_schema(schema.clone())
 }
 
 #[derive(Debug, Deserialize)]
@@ -686,11 +675,11 @@ fn parse_tool_schema(mut value: Value) -> Result<ToolSchema, NotepadRegistryErro
         .ok_or_else(|| NotepadRegistryError::Malformed {
             reason: "tool schema must be a JSON object".to_owned(),
         })?;
-    // PITFALL(app=notepad): the 1a adapter declares `none_readonly` for read-only
-    // tools, while the protocol's closed ToolReversibility enum has no such
-    // variant. Normalize only that exact read-only combination; any other
-    // unknown value still fails deserialization below.
-    if object.get("effect").and_then(Value::as_str) == Some("read")
+    // PITFALL(app=notepad): legacy ToolSchema 1.0 packs use `none_readonly`
+    // before the 1.1 enum variant existed. Keep that compatibility only for 1.0;
+    // 1.1 must preserve the authoritative `none_readonly` value.
+    if object.get("version").and_then(Value::as_str) == Some("1.0")
+        && object.get("effect").and_then(Value::as_str) == Some("read")
         && object.get("reversibility").and_then(Value::as_str) == Some("none_readonly")
     {
         object.insert(
