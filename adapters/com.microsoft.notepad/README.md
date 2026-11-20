@@ -1,4 +1,4 @@
-# com.microsoft.notepad Adapter v0
+# com.microsoft.notepad Adapter v1
 
 This directory is the declarative Notepad adapter pack for Windows 11 modern
 Notepad. It contains data only. Runtime loading, selector resolution, tool
@@ -8,37 +8,39 @@ this card.
 ## Files
 
 - `adapter.toml`: app identity, Win11 version range, UIA channel, health, and
-  safety defaults.
-- `app_map.json`: architecture v2 section 6.7 knowledge pack.
-- `memory/app_map.v1.json`: projection that conforms to the current
-  `assistant-core` App Map v1 loader.
+  safety defaults plus the ADR-0104 bundle envelope.
+- `app_map.json`: authored knowledge pack with the deterministic projection
+  manifest and omission coverage.
+- `memory/app_map.v1.json`: canonical `core_app_map_v1` projection generated
+  only from `projection_manifest.entries`.
 - `selectors/targets.json`: ordered selector candidates for the main window,
-  editor, tabs, file menu, and Save As dialog controls.
+  editor, tabs, file menu, and Save As dialog controls in
+  `uia_candidate_chain_v1`.
 - `tools/tools.json`: the five Notepad tool declarations, including
-  postconditions and rollback metadata.
-- `rollback/recipes.json`: L0 `Ctrl+Z` and L1 content-snapshot rollback paths.
+  ToolSchema 1.1, capabilities, and canonical postconditions.
+- `rollback/recipes.json`: L0 `Ctrl+Z`, L1 content snapshot/shadow copy, and
+  the ADR-0106 rollback-only created-tab compensation.
 - `interrupts/interrupts.json`: unsaved changes, Save As, and transient
-  TeachingTip handling.
+  TeachingTip handling with typed actions and explicit priority.
 
-## Current Contract Gaps
+## Bundle Contract
 
-The stage-2 adapter abstraction is intentionally not implemented yet:
-
-- The current protocol `ToolSchema` does not include `postconditions` and does
-  not expose `none_readonly`. `tools/tools.json` follows architecture v2
-  section 5.2 and keeps those adapter-level fields explicit instead of hiding
-  them.
-- The current core App Map v1 loader is deliberately small. The rich
-  `app_map.json` is the architecture v2 knowledge pack; `memory/app_map.v1.json`
-  is the loadable projection.
-- The selector file uses the adapter-level declaration shape until stage 2
-  formalizes selector-chain schemas.
+- `adapter.toml` declares exactly one six-slot `[bundle]` envelope.
+- The App Map projection is deterministic and byte-checked by the generic
+  validator.
+- Selector candidates use the frozen `uia_candidate_chain_v1` discriminated
+  union. Visible text remains fallback-only and locale-dependent.
+- Every write tool has exactly one rollback coverage row. Save As remains L3
+  with `no_recovery`; `notepad.tab.new` uses the rollback-only
+  `close_created_target` builtin and does not add a model-visible close tool.
+- Interrupts use explicit priority and typed actions. Save, Don't Save, and
+  Cancel remain human decisions.
 
 ## Validation
 
 ```powershell
-python -c "import json, pathlib; [json.loads(p.read_text(encoding='utf-8')) for p in pathlib.Path('adapters/com.microsoft.notepad').rglob('*.json')]"
-python -c "import tomllib, pathlib; tomllib.loads(pathlib.Path('adapters/com.microsoft.notepad/adapter.toml').read_text(encoding='utf-8'))"
+cargo run -p xtask -- adapter-validate adapters/com.microsoft.notepad --report-only
+python adapters/com.microsoft.notepad/tests/validate_adapter_pack.py
 ```
 
 ## Safety Boundaries
@@ -52,3 +54,5 @@ python -c "import tomllib, pathlib; tomllib.loads(pathlib.Path('adapters/com.mic
 - Save As is a cross-process Win32 `#32770` dialog. Existing files are never
   overwritten silently.
 - Large files should use the L1 file channel instead of the UIA text path.
+- The created-tab compensation only closes the same invocation's recorded,
+  still-empty tab. Any content or save prompt fails closed to human handling.

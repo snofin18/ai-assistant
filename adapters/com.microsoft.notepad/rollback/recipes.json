@@ -1,109 +1,103 @@
 {
   "schema_version": 1,
   "app_id": "com.microsoft.notepad",
-  "policy": {
-    "missing_pre_fingerprint": "fail_closed",
-    "missing_post_fingerprint": "fail_closed",
-    "current_state_mismatch": "fail_closed",
-    "prefer_l0_when_supported": true,
-    "require_l1_snapshot_for_text_writes": true
-  },
   "recipes": [
     {
-      "id": "replace-text-l0-l1",
       "tool": "notepad.file.replace_text",
-      "preconditions": [
-        "Active document is resolved.",
-        "Current canonical text is captured before the write.",
-        "Current whole-window fingerprint is captured before the write."
-      ],
+      "coverage": "recipe",
       "anchor_strategy": [
         {
-          "level": "L0",
-          "mechanism": "explicit_undo_shortcut",
-          "shortcut": "Ctrl+Z",
-          "granularity": "per_set_value",
-          "max_attempts": 1,
-          "requires_foreground": true,
-          "post_verify": "canonical_text_equals_pre_snapshot"
+          "level": "l0",
+          "mechanism": "undo_stack",
+          "capture": {
+            "kind": "undo_budget",
+            "source": "builtin:app.undo_stack",
+            "max_steps": 1,
+            "valid_until": "document_close",
+            "observations": ["canonical_text", "whole_window_fingerprint"]
+          },
+          "restore": {
+            "kind": "undo_stack",
+            "times": 1,
+            "until": "captured_pre_fingerprint"
+          },
+          "post_verify": {
+            "kind": "capture_equals",
+            "observation": "canonical_text"
+          }
         },
         {
-          "level": "L1",
+          "level": "l1",
           "mechanism": "content_snapshot",
-          "snapshot": {
-            "source": "notepad.file.read_text",
-            "canonical_form": "LF",
-            "capture_before_write": true
+          "capture": {
+            "kind": "content_snapshot",
+            "source": "builtin:storage.content_snapshot",
+            "observations": ["canonical_text", "whole_window_fingerprint"]
           },
-          "restore": "notepad.file.replace_text",
-          "post_verify": "canonical_text_equals_pre_snapshot"
+          "restore": {
+            "kind": "restore_content_snapshot"
+          },
+          "post_verify": {
+            "kind": "capture_equals",
+            "observation": "canonical_text"
+          }
         }
       ],
-      "on_rollback_failure": "publish_incident_and_require_human",
-      "notes": [
-        "L0 is the first attempt because it preserves the application undo stack.",
-        "L1 is required when L0 evidence is unavailable or the app undo stack is exhausted."
-      ]
+      "on_rollback_failure": "publish_incident_and_require_human"
     },
     {
-      "id": "save-l0-l1",
       "tool": "notepad.file.save",
-      "preconditions": [
-        "Document has a known file path.",
-        "Canonical text and disk content are captured before save.",
-        "File mtime and size are recorded before save."
-      ],
+      "coverage": "recipe",
       "anchor_strategy": [
         {
-          "level": "L0",
-          "mechanism": "explicit_undo_shortcut",
-          "shortcut": "Ctrl+Z",
-          "granularity": "per_set_value",
-          "max_attempts": 1,
-          "requires_foreground": true,
-          "post_verify": "canonical_text_equals_pre_snapshot"
-        },
-        {
-          "level": "L1",
-          "mechanism": "file_content_snapshot",
-          "snapshot": {
-            "source": "filesystem",
-            "capture_before_write": true,
-            "content_address": "assistant-storage-blob"
+          "level": "l1",
+          "mechanism": "shadow_copy",
+          "capture": {
+            "kind": "file_shadow_copy",
+            "source": "builtin:filesystem.shadow_copy",
+            "observations": ["file_digest", "whole_window_fingerprint"]
           },
-          "restore": "write_snapshot_then_verify_content",
-          "post_verify": "disk_bytes_equal_pre_snapshot"
+          "restore": {
+            "kind": "restore_file_shadow_copy"
+          },
+          "post_verify": {
+            "kind": "capture_equals",
+            "observation": "file_digest"
+          }
         }
       ],
-      "on_rollback_failure": "publish_incident_and_require_human",
-      "notes": [
-        "Saving a previously unsaved document must route through save_as first.",
-        "A save operation must never silently replace an unknown disk state."
-      ]
+      "on_rollback_failure": "publish_incident_and_require_human"
     },
     {
-      "id": "new-tab-l1",
+      "tool": "notepad.file.save_as",
+      "coverage": "no_recovery",
+      "reason": "Save As creates or replaces a user-selected external file and requires explicit human review; it must never auto-save, overwrite, or delete the target during rollback.",
+      "on_rollback_failure": "publish_incident_and_require_human"
+    },
+    {
       "tool": "notepad.tab.new",
-      "preconditions": [
-        "Tab count is captured before the operation.",
-        "The active document text is captured before the operation."
-      ],
+      "coverage": "recipe",
       "anchor_strategy": [
         {
-          "level": "L1",
-          "mechanism": "content_snapshot",
-          "snapshot": {
-            "source": "notepad.file.read_text",
-            "capture_before_write": true
+          "level": "l2",
+          "mechanism": "compensating_action",
+          "capture": {
+            "kind": "compensating_state",
+            "source": "tool:notepad.file.read_text",
+            "observations": ["whole_window_fingerprint"]
           },
-          "restore": "close_new_tab_after_confirming_it_is_empty",
-          "post_verify": "tab_count_equals_pre_snapshot"
+          "restore": {
+            "kind": "close_created_target",
+            "target_kind": "tab",
+            "require_empty": true
+          },
+          "post_verify": {
+            "kind": "capture_equals",
+            "observation": "whole_window_fingerprint"
+          }
         }
       ],
-      "on_rollback_failure": "publish_incident_and_require_human",
-      "notes": [
-        "Closing an empty new tab must not choose Save or Don't Save automatically."
-      ]
+      "on_rollback_failure": "publish_incident_and_require_human"
     }
   ]
 }

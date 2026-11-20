@@ -133,6 +133,7 @@ const fn tool_reversibility_token(reversibility: ToolReversibility) -> &'static 
         ToolReversibility::L1Snapshot => "l1_snapshot",
         ToolReversibility::L2Compensation => "l2_compensation",
         ToolReversibility::L3Irreversible => "l3_irreversible",
+        ToolReversibility::NoneReadonly => "none_readonly",
         _ => "unrecognized-tool-reversibility",
     }
 }

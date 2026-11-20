@@ -20,11 +20,14 @@ pub enum StepEffect {
     Write,
 }
 
-/// The four-level reversibility model from architecture v2 section 9.1.
+/// Reversibility model from architecture v2 section 9.1 plus the ADR-0104
+/// read-only sentinel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum Reversibility {
+    /// A read-only operation needs no recovery.
+    NoneReadonly,
     /// Application undo stack.
     L0UndoStack,
     /// Snapshot can restore the state.
@@ -40,6 +43,7 @@ impl Reversibility {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::NoneReadonly => "none_readonly",
             Self::L0UndoStack => "l0_undo_stack",
             Self::L1Snapshot => "l1_snapshot",
             Self::L2Compensation => "l2_compensation",

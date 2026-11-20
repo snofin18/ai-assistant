@@ -10,7 +10,7 @@
 
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 
-use assistant_protocol::{RiskLevel, ToolEffect, ToolReversibility};
+use assistant_protocol::{RiskLevel, ToolEffect, ToolReversibility, ToolSchema};
 use assistant_tool_bus::{ToolBusError, ToolDefinition};
 use rmcp::model::ToolAnnotations;
 use serde_json::{Value, json};
@@ -29,6 +29,23 @@ fn definition() -> ToolDefinition {
         input(),
     )
     .expect("a three-segment name with an object schema must be valid")
+}
+
+fn schema_v11_none_readonly() -> ToolSchema {
+    serde_json::from_value(json!({
+        "version": "1.1",
+        "name": "demo.contract.run",
+        "description": "read-only contract probe",
+        "input": {"type": "object"},
+        "output": {"type": "object"},
+        "effect": "read",
+        "reversibility": "none_readonly",
+        "risk_level": "low",
+        "requires_approval": false,
+        "idempotent": true,
+        "tags": ["read"]
+    }))
+    .expect("valid ToolSchema 1.1")
 }
 
 /// The name rule is the three-segment form plus the two closed meta-tool
@@ -203,4 +220,27 @@ fn test_matching_annotations_are_accepted() {
         ToolReversibility::L0UndoStack
     );
     assert_eq!(with_annotations.input_schema(), &input());
+}
+
+#[test]
+fn test_from_schema_preserves_v11_none_readonly() {
+    let definition =
+        ToolDefinition::from_schema(schema_v11_none_readonly()).expect("ToolSchema 1.1");
+    assert_eq!(definition.schema().version, "1.1");
+    assert_eq!(definition.reversibility(), ToolReversibility::NoneReadonly);
+    assert_eq!(definition.annotations().read_only_hint, Some(true));
+    assert!(definition.is_idempotent());
+    assert_eq!(definition.schema().tags, vec!["read".to_owned()]);
+}
+
+#[test]
+fn test_from_schema_rejects_v10_none_readonly() {
+    let mut schema = schema_v11_none_readonly();
+    schema.version = "1.0".to_owned();
+    let error =
+        ToolDefinition::from_schema(schema).expect_err("none_readonly requires ToolSchema 1.1");
+    assert!(
+        matches!(error, ToolBusError::ToolBehaviorMismatch { .. }),
+        "unexpected error: {error:?}"
+    );
 }

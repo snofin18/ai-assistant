@@ -10,6 +10,15 @@ maintainer = "assistant-project"
 min_assistant_version = "0.1.0"
 aumid = "Microsoft.WindowsNotepad_8wekyb3d8bbwe!App"
 
+[bundle]
+app_map = "app_map.json"
+app_map_projection = "memory/app_map.v1.json"
+app_map_projection_model = "core_app_map_v1"
+selectors = "selectors/targets.json"
+tools = "tools/tools.json"
+rollback = "rollback/recipes.json"
+interrupts = "interrupts/interrupts.json"
+
 [platforms.windows]
 channel = "uia"
 requires = [
