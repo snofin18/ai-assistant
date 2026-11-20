@@ -240,9 +240,31 @@ struct DeclaredTarget {
 #[derive(Debug, Deserialize)]
 struct DeclaredPolicy {
     on_ambiguous: String,
-    on_not_found: String,
+    on_not_found: DeclaredOnNotFound,
     min_score_to_try: f64,
     max_resolve_ms: u64,
+}
+
+/// ADR-0105 的 structured policy is the forward contract. The legacy string
+/// remains accepted only while existing Paint / notepad-like packs migrate.
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum DeclaredOnNotFound {
+    Structured(OnNotFound),
+    Legacy(String),
+}
+
+fn build_on_not_found(declared: &DeclaredOnNotFound) -> Result<OnNotFound, TargetCatalogError> {
+    match declared {
+        DeclaredOnNotFound::Structured(policy) => Ok(policy.clone()),
+        DeclaredOnNotFound::Legacy(value) => match value.as_str() {
+            "escalate_to_human" => Ok(OnNotFound::new(Vec::new(), true)),
+            "return_not_found" => Ok(OnNotFound::new(Vec::new(), false)),
+            other => Err(TargetCatalogError::UnsupportedPolicy {
+                reason: format!("on_not_found=`{other}` is unknown"),
+            }),
+        },
+    }
 }
 
 fn build_resolution_policy(
@@ -256,18 +278,9 @@ fn build_resolution_policy(
             ),
         });
     }
-    let then_escalate = match declared.on_not_found.as_str() {
-        "escalate_to_human" => true,
-        "return_not_found" => false,
-        other => {
-            return Err(TargetCatalogError::UnsupportedPolicy {
-                reason: format!("on_not_found=`{other}` is unknown"),
-            });
-        }
-    };
     ResolutionPolicy::new(
         OnAmbiguous::ErrorAndAsk,
-        OnNotFound::new(Vec::new(), then_escalate),
+        build_on_not_found(&declared.on_not_found)?,
         declared.max_resolve_ms,
         declared.min_score_to_try,
     )
@@ -284,8 +297,8 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
-        EDITOR_TARGET, MAIN_WINDOW_TARGET, NOTEPAD_REQUIRED_TARGETS, NotepadTargetCatalog,
-        SAVE_AS_DIALOG_TARGET,
+        DeclaredOnNotFound, EDITOR_TARGET, MAIN_WINDOW_TARGET, NOTEPAD_REQUIRED_TARGETS,
+        NotepadTargetCatalog, SAVE_AS_DIALOG_TARGET, build_on_not_found,
     };
 
     fn workspace_root() -> PathBuf {
@@ -326,6 +339,50 @@ mod tests {
         assert!(
             dialog.element_candidates().is_empty(),
             "the save-as dialog is window-scoped"
+        );
+    }
+
+    #[test]
+    fn test_structured_on_not_found_preserves_retry_and_escalation() {
+        let declared: DeclaredOnNotFound =
+            serde_json::from_str(r#"{"retry_after_ms":[100,500],"then_escalate":true}"#)
+                .expect("structured on_not_found");
+        let parsed = build_on_not_found(&declared).expect("typed on_not_found");
+        assert_eq!(parsed.retry_after_ms(), [100, 500]);
+        assert!(parsed.then_escalate());
+    }
+
+    #[test]
+    fn test_legacy_on_not_found_strings_remain_compatible() {
+        let escalate: DeclaredOnNotFound =
+            serde_json::from_str(r#""escalate_to_human""#).expect("legacy escalate");
+        let escalate = build_on_not_found(&escalate).expect("legacy escalate policy");
+        assert!(escalate.retry_after_ms().is_empty());
+        assert!(escalate.then_escalate());
+
+        let return_not_found: DeclaredOnNotFound =
+            serde_json::from_str(r#""return_not_found""#).expect("legacy return_not_found");
+        let return_not_found =
+            build_on_not_found(&return_not_found).expect("legacy return-not-found policy");
+        assert!(return_not_found.retry_after_ms().is_empty());
+        assert!(!return_not_found.then_escalate());
+    }
+
+    #[test]
+    fn test_unknown_on_not_found_and_malformed_object_fail_closed() {
+        let unknown: DeclaredOnNotFound =
+            serde_json::from_str(r#""wait_forever""#).expect("legacy unknown string shape");
+        let error = build_on_not_found(&unknown).expect_err("unknown legacy value must fail");
+        assert!(
+            error
+                .to_string()
+                .contains("on_not_found=`wait_forever` is unknown"),
+            "unexpected error: {error}"
+        );
+
+        assert!(
+            serde_json::from_str::<DeclaredOnNotFound>(r#"{"retry_after_ms":[100]}"#).is_err(),
+            "missing then_escalate must fail"
         );
     }
 
