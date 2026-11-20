@@ -1,6 +1,6 @@
 # 阶段 2 — Excel L1 COM + Adapter 规范化
 
-> 周期 6~8 周　状态：**InProgress（2026-11-18）**；Stage 1 已完成；TASK-372 真实 Excel
+> 周期 6~8 周　状态：**InProgress（2026-11-20）**；Stage 1 已完成；TASK-372 真实 Excel
 > COM preflight 已通过并以 **GO** 进入 Adapter 契约正式化；TASK-373 六件套就绪审计 Done，
 > PR #736 / main CI `43839388347` 已回填；TASK-374 已把六项缺口收敛为可裁决 ADR/spec 决策包
 > 并完成 PR #738 / main CI `43863545233`；TASK-375 已完成 Excel COM
@@ -45,6 +45,9 @@
 > TASK-386 / TASK-389 / TASK-390 已完成 **Done**：Notepad 六件套迁移到 bundle v1，
 > structured selector policy 与 ToolSchema 1.1 `none_readonly` 已进入生产运行时；
 > PR #795 merge `29fb10b` / main CI `44664709243` success。
+> TASK-391 已完成 **Done**：Windows COM apartment ownership guard 与 `ComApartment<T>`
+> 同生命周期绑定落地，UIA 线程本地复用；5 类 apartment 测试、反向模型与 !Send 约束通过。
+> PR #797 checks 11/11 success，merge `092c79a` / main CI `44695688650` success。
 
 ## In scope
 
@@ -87,7 +90,7 @@
 | runtime policy repair | **TASK-389 ✅** | agent-core/契约 | `tasks/TASK-389-runtime-selector-on-not-found.md` | Done（structured `on_not_found` + legacy string 兼容；PR #794 merge `9658bf0`；main CI `44658088616` success） |
 | Notepad bundle convergence | **TASK-386 ✅** | Adapter/系统 | `tasks/TASK-386-notepad-adapter-bundle.md` | Done（pack v1；PR #795 merge `29fb10b`；main CI `44664709243` success） |
 | runtime ToolSchema repair | **TASK-390 ✅** | tool-bus/agent-core | `tasks/TASK-390-runtime-tool-schema-1-1.md` | Done（ToolSchema 1.1 + `none_readonly` 深 runtime；PR #795 merge `29fb10b`；main CI `44664709243` success） |
-| COM apartment guard | **TASK-391** | Windows platform | `tasks/TASK-391-com-apartment-guard.md` | Review（`ComApartment<T>` 将值与 guard 绑定；UIA 线程本地复用；`S_OK`/`S_FALSE`/错误/panic 配平、反模型与 !Send；review P2/P3 已修） |
+| COM apartment guard | **TASK-391 ✅** | Windows platform | `tasks/TASK-391-com-apartment-guard.md` | Done（`ComApartment<T>` 将值与 guard 绑定；UIA 线程本地复用；`S_OK`/`S_FALSE`/错误/panic 配平、反模型与 !Send；PR #797 merge `092c79a`；main CI `44695688650` success） |
 | 1 | 待派单 | 架构/治理 | dispatch 时创建 | 未开始（通用只读 Adapter bundle validator） |
 | 2 | 待派单 | Windows platform | dispatch 时创建 | 未开始（COM apartment/生命周期/回收与负向测试） |
 | 3 | 待派单 | Excel Adapter | dispatch 时创建 | 未开始（Adapter 数据包 + Protected View/AutoSave/interrupts） |
