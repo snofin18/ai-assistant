@@ -1,7 +1,8 @@
 //! COM 单元（apartment）与 `IUIAutomation` 的**线程本地**持有（本卡约束 4 / 铁律 8）。
 //!
-//! 职责：给每个调用线程提供**它自己的** `IUIAutomation` 客户端实例，并严格配对
-//! `CoInitializeEx` / `CoUninitialize`。
+//! 职责：提供线程内、确定释放的 STA apartment scope，并给每个调用线程提供
+//! **它自己的** `IUIAutomation` 客户端实例，严格配对 `CoInitializeEx` /
+//! `CoUninitialize`。
 //! 边界：**不做**线程池调度、**不做**跨线程传递、**不做**实例复用（跨线程复用正是本卡禁止的）。
 //!
 //! ## 为什么必须线程本地（实测事实，不是设计偏好）
@@ -18,7 +19,7 @@
 //!
 //! ## 不变量
 //! 1. `CoInitializeEx` 成功（含 `S_FALSE`）后**必定**配对一次 `CoUninitialize`
-//!    （MSDN 明确要求 `S_FALSE` 也要配平）—— 由 `ApartmentGuard::drop` 保证。
+//!    （MSDN 明确要求 `S_FALSE` 也要配平）—— 由 `ComApartmentGuard::drop` 保证。
 //! 2. `CoCreateInstance` 失败时**不**留下半初始化的槽位（`guard` 会被 `?` 提前 drop）。
 //! 3. `with_automation` 的 `action` **不得**重入 `with_automation`（否则 `RefCell` 双借用 panic）；
 //!    本 crate 的所有调用点都满足（每个入口只取一次实例）。
@@ -26,6 +27,8 @@
 //! 相关：架构 v2 §13.2、ADR-0024 D1a、`docs/memory/win32-input-research.md`。
 
 use std::cell::RefCell;
+use std::marker::PhantomData;
+use std::rc::Rc;
 
 use assistant_platform_api::PlatformResult;
 use windows::Win32::System::Com::{
@@ -36,20 +39,30 @@ use windows::Win32::UI::Accessibility::{CUIAutomation, IUIAutomation};
 
 use crate::error;
 
-/// 本线程的 COM apartment：UIA 客户端实例 + 它的释放责任。
-struct ThreadApartment {
-    /// 线程本地 UIA 客户端（**绝不**离开本线程）。
-    automation: IUIAutomation,
+/// Owns one COM apartment guard together with a value created under that apartment.
+///
+/// The value is dropped before the guard because fields drop in declaration order.
+pub struct ComApartment<T> {
+    value: T,
     /// `CoUninitialize` 的配对释放器（只负责 drop 时机）。
-    _guard: ApartmentGuard,
+    _guard: ComApartmentGuard,
+}
+
+impl<T> ComApartment<T> {
+    const fn value(&self) -> &T {
+        &self.value
+    }
 }
 
 /// `CoInitializeEx` 的配对释放器。
 ///
 /// 只在 `CoInitializeEx` **成功**时构造（`S_OK` 与 `S_FALSE` 都算成功，MSDN 要求两者都配平）。
-struct ApartmentGuard;
+pub struct ComApartmentGuard {
+    /// `Rc` is neither `Send` nor `Sync`, so the compiler rejects cross-thread guard moves.
+    _thread_bound: PhantomData<Rc<()>>,
+}
 
-impl ApartmentGuard {
+impl ComApartmentGuard {
     /// 初始化本线程的 COM apartment（单元线程模型）。
     ///
     /// # Errors
@@ -66,22 +79,44 @@ impl ApartmentGuard {
                 "CoInitializeEx(COINIT_APARTMENTTHREADED)",
             ));
         }
-        Ok(Self)
+        Ok(Self {
+            _thread_bound: PhantomData,
+        })
     }
 }
 
-impl Drop for ApartmentGuard {
+impl Drop for ComApartmentGuard {
     fn drop(&mut self) {
-        // SAFETY: 本 guard 只在 `CoInitializeEx` 成功后构造，且每线程至多一个
-        // （它住在 `APARTMENT` 的 `Option` 槽位里），因此这次 `CoUninitialize`
-        // 与那次成功的 `CoInitializeEx` 严格一一配对。
+        // SAFETY: 本 guard 只在一次 `CoInitializeEx` 成功后构造；每个实例在 Drop 时
+        // 恰好执行一次 `CoUninitialize`，与创建它的那次成功调用严格一一配对。
         unsafe { CoUninitialize() };
     }
 }
 
+/// Runs one single-threaded apartment scope and couples its lifetime to the action result.
+///
+/// The guard is borrowed while `action` runs, so it cannot escape by itself. On success, the
+/// returned [`ComApartment`] owns both the value and its guard; dropping that value balances
+/// `CoUninitialize`. Error and panic paths drop the guard before this function returns.
+///
+/// # Errors
+/// - The thread is already initialized with another apartment model → fail closed.
+/// - Other HRESULTs are mapped through [`error::error_from_hresult`].
+/// - `action` errors pass through unchanged.
+pub fn with_com_apartment<T>(
+    action: impl FnOnce(&ComApartmentGuard) -> PlatformResult<T>,
+) -> PlatformResult<ComApartment<T>> {
+    let guard = ComApartmentGuard::initialize()?;
+    let value = action(&guard)?;
+    Ok(ComApartment {
+        value,
+        _guard: guard,
+    })
+}
+
 thread_local! {
     /// 每个线程自己的 COM apartment 与 UIA 客户端实例（惰性创建，线程退出时释放）。
-    static APARTMENT: RefCell<Option<ThreadApartment>> = const { RefCell::new(None) };
+    static APARTMENT: RefCell<Option<ComApartment<IUIAutomation>>> = const { RefCell::new(None) };
 }
 
 /// 在**本线程**的 COM apartment 内执行 `action`，必要时惰性初始化。
@@ -98,12 +133,10 @@ pub fn with_automation<T>(
     APARTMENT.with(|cell| {
         let mut slot = cell.borrow_mut();
         if slot.is_none() {
-            // `?` 提前返回时 `guard` 被 drop → 立刻 `CoUninitialize`，不留下半初始化的槽位。
-            let guard = ApartmentGuard::initialize()?;
-            // SAFETY: `CUIAutomation` 是已注册的进程内 COM 服务器（Both 模型），
-            // `CLSCTX_INPROC_SERVER` 与 `punkOuter = None`（非聚合）都是它的合法用法；
-            // 上一行的 `CoInitializeEx` 已保证本线程有可用 apartment。
-            let automation =
+            *slot = Some(with_com_apartment(|_guard| {
+                // SAFETY: `CUIAutomation` is a registered in-process COM server (Both
+                // threading model); `CLSCTX_INPROC_SERVER` and `punkOuter = None` are valid.
+                // The guard has already initialized an STA on this thread.
                 unsafe { CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER) }.map_err(
                     |failure| {
                         error::error_from_hresult(
@@ -111,11 +144,8 @@ pub fn with_automation<T>(
                             "CoCreateInstance(CLSID_CUIAutomation)",
                         )
                     },
-                )?;
-            *slot = Some(ThreadApartment {
-                automation,
-                _guard: guard,
-            });
+                )
+            })?);
         }
         // `map_or_else` 而不是 `match`：clippy 的 `option_if_let_else`（pedantic）要求这样写。
         slot.as_ref().map_or_else(
@@ -126,7 +156,109 @@ pub fn with_automation<T>(
                     "COM apartment is unavailable on this thread",
                 ))
             },
-            |apartment| action(&apartment.automation),
+            |apartment| action(apartment.value()),
         )
     })
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
+
+    use std::panic::catch_unwind;
+
+    use assistant_platform_api::PlatformResult;
+    use windows::Win32::System::Com::{
+        COINIT_APARTMENTTHREADED, COINIT_MULTITHREADED, CoInitializeEx, CoUninitialize,
+    };
+
+    use super::with_com_apartment;
+
+    fn assert_multithreaded_apartment_can_initialize() {
+        // SAFETY: the helper runs on a dedicated test thread after the guarded STA scope ended.
+        // It balances the successful initialization immediately.
+        let result = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
+        assert!(result.is_ok(), "MTA must be available: {result:?}");
+        // SAFETY: paired with the successful initialization immediately above.
+        unsafe { CoUninitialize() };
+    }
+
+    #[test]
+    fn test_with_com_apartment_releases_after_success() {
+        std::thread::spawn(|| {
+            with_com_apartment(|_guard| Ok(())).expect("STA scope");
+            assert_multithreaded_apartment_can_initialize();
+        })
+        .join()
+        .expect("success-path thread");
+    }
+
+    #[test]
+    fn test_with_com_apartment_balances_s_false_for_existing_sta() {
+        std::thread::spawn(|| {
+            // SAFETY: dedicated test thread; this outer initialization is balanced below.
+            let outer = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
+            assert!(outer.is_ok(), "outer STA setup: {outer:?}");
+
+            // The nested `CoInitializeEx` returns S_FALSE; the scope must balance that call.
+            with_com_apartment(|_guard| Ok(())).expect("nested STA scope");
+
+            // SAFETY: paired with the outer initialization above. If the nested S_FALSE was not
+            // balanced, one apartment count remains and the MTA initialization below fails.
+            unsafe { CoUninitialize() };
+            assert_multithreaded_apartment_can_initialize();
+        })
+        .join()
+        .expect("S_FALSE-path thread");
+    }
+
+    #[test]
+    fn test_with_com_apartment_releases_after_error() {
+        std::thread::spawn(|| {
+            let error = with_com_apartment(|_guard| {
+                Err::<(), _>(crate::error::capability_missing("expected closure error"))
+            })
+            .err()
+            .expect("closure error must pass through");
+            assert!(error.to_string().contains("expected closure error"));
+            assert_multithreaded_apartment_can_initialize();
+        })
+        .join()
+        .expect("error-path thread");
+    }
+
+    #[test]
+    fn test_with_com_apartment_releases_after_panic() {
+        std::thread::spawn(|| {
+            let panic = catch_unwind(|| {
+                let _ = with_com_apartment(|_guard| -> PlatformResult<()> {
+                    panic!("expected apartment panic");
+                });
+            });
+            assert!(panic.is_err(), "closure must panic");
+            assert_multithreaded_apartment_can_initialize();
+        })
+        .join()
+        .expect("panic-path thread");
+    }
+
+    #[test]
+    fn test_with_com_apartment_rejects_thread_initialized_as_mta() {
+        std::thread::spawn(|| {
+            // SAFETY: dedicated test thread; paired immediately after the assertion.
+            let initialized = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
+            assert!(initialized.is_ok(), "MTA setup: {initialized:?}");
+            let error = with_com_apartment(|_guard| Ok(()))
+                .err()
+                .expect("STA scope must reject an MTA-initialized thread");
+            assert!(
+                error.to_string().contains("different COM apartment model"),
+                "unexpected error: {error}"
+            );
+            // SAFETY: paired with this test's successful MTA initialization.
+            unsafe { CoUninitialize() };
+        })
+        .join()
+        .expect("wrong-apartment thread");
+    }
 }

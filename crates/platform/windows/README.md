@@ -31,6 +31,10 @@
    内按尚未 ready 重试；NotFound 继续等待，ACL、非法内容与其他 IO 错误仍显式失败。
    显式 close 和 `Drop` 都走 `taskkill /T /F` + bounded wait reap。root 已进入已 reap
    终态后，`taskkill` 已返回的非零退出码只作诊断；`taskkill` 未能启动或 root 未 reap 仍显式失败。
+8. **COM apartment scope**（`src/com.rs`，TASK-391）：crate-private
+   `with_com_apartment` 在同步闭包内借用 guard，并以 `ComApartment<T>` 把返回值与释放责任
+   绑定；错误或 panic 路径立即配对 `CoUninitialize`，成功值 drop 时再释放。UIA 用同一 wrapper
+   把客户端存入线程本地状态。该能力只在本 crate 内可见，且不创建 Excel 对象。
 
 ## 边界（不做什么）
 
@@ -58,7 +62,8 @@
    `Send` / `Sync`，因此实例住在**线程本地**（`src/com.rs` 的 `APARTMENT`、`src/handles.rs` 的
    `ELEMENTS`）。元素表每线程最多保留 `MAX_THREAD_ELEMENT_HANDLES` 个句柄，超限按 FIFO 淘汰；
    `clear_thread_elements()` 可在任务边界显式释放。在别的线程用元素句柄 → **明确的
-   `TargetNotFound`**，不是静默失败。
+   `TargetNotFound`**，不是静默失败。COM apartment 的初始化责任由 RAII guard 统一配平；
+   线程已按相反 apartment model 初始化时继续 fail-closed。
 3. **写操作必有 postcondition**（铁律 4）：`set_value` / `edit_text` / `invoke_action` /
    `select` / `scroll` 全部回读；不一致 → `VerifyFailed`，**绝不**返回 `Ok`。
 4. **未识别的失败不降级**（铁律 1）：未知 HRESULT / Win32 码 → `Fatal`（**不是** `Transient`，
@@ -77,12 +82,14 @@
 | 位置 | 覆盖 |
 |---|---|
 | `src/**` 的 `#[cfg(test)] mod tests` | 纯逻辑：错误映射、候选排序 / 歧义裁决、control type 正反表**逐项遍历**、句柄编解码、文本编辑偏移（含多字节）、`unsupported` 后端；**TASK-018** 另加：键名 → 虚拟键码（含负向）、组合键顺序与**逆序抬起**、UTF-16 代理对、指针步骤（含 `DragTo` 缺释放点的负向）、DPI → 缩放、显示器**半开区间**命中、混合 DPI 归属（收敛 + 歧义）、虚拟屏幕归一化、`SendInput` 失败分类（UIPI / 87 / 队列被阻塞 / 未识别） |
+| `src/com.rs` 的 `com::tests` | 新线程 `S_OK`、同线程嵌套 `S_FALSE`、闭包错误、panic、MTA 预初始化五类 apartment 路径；`ComApartment<T>` 绑定值/guard 防止单独逃逸，每条释放路径结束后同线程可重新初始化 MTA，且 guard 通过 `PhantomData<Rc<()>>` 禁止跨线程移动 |
 | `tests/handle_discipline.rs` | **铁律 8** 的机器校验（正向 + **负向**，ADR-0019 N1） |
 
 - **不依赖真实应用**：单测只用纯函数 + COM 可用性探测；拿不到 `IUIAutomation` 的用例
   **显式打印跳过原因**（`writeln!(stderr, ...)`），**不静默通过**。
-- **零 `#[allow]`**（唯一例外见「关于 `unsafe_code`」）：`[lints]` 继承 workspace，
-  `unwrap_used` / `expect_used` / `panic` / `indexing_slicing` 都是 `deny`，测试同样受限。
+- **生产代码零 `#[allow]`**（唯一例外见「关于 `unsafe_code`」）：`[lints]` 继承 workspace，
+  `unwrap_used` / `expect_used` / `panic` / `indexing_slicing` 都是 `deny`。少数测试模块仅为
+  panic/unwind 断言显式放开 `expect_used` / `panic` / `unwrap_used`，不影响生产路径。
 - **真机验收**（真实记事本，Windows 11 25H2）是**人类在本机跑的手工验收**（Q4 / Q3 裁决），
   结果贴在 `tasks/TASK-017-platform-windows-uia-provider.md` §3 与
   `tasks/TASK-018-platform-windows-synthetic-input-ime.md` §3，**不作为 CI 门禁**。
@@ -92,6 +99,8 @@
 - **COM 单线程**：所有 UIA 调用必须发生在**解析元素的那个线程**上（线程本地 apartment +
   线程本地元素表）。跨线程使用元素句柄会得到 `TargetNotFound`。**不提供**线程池调度或
   跨线程搬运（那需要显式的 marshal 设计，归后续卡）。
+- **COM apartment scope 暂不公开**：TASK-391 只在 crate 内提供同步 STA scope；
+  Excel COM runner、跨线程调度和可恢复的进程 ownership journal 仍由后续卡/ADR 定义。
 - **UIPI（完整性级别）**：目标进程完整性级别高于本进程时，`ElementFromHandle` 等调用返回
   `E_ACCESSDENIED` → `PlatformPermission`。**不**自动提权、**不**绕过。
 - **无缓存**：每次属性读都是一次跨进程 COM 调用（**未使用** `IUIAutomationCacheRequest`）。
