@@ -434,7 +434,7 @@ fn scope_sort_key(scope: &NamedRangeScope) -> (u8, &str) {
 }
 
 /// Process-wide capacity shared by every ToolBus-isolated registry.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub(crate) struct SessionCapacity {
     active: Arc<AtomicUsize>,
 }
@@ -459,24 +459,23 @@ impl SessionCapacity {
     }
 
     fn release(&self) {
-        let _ = self
-            .active
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| {
-                Some(current.saturating_sub(1))
-            });
+        let mut current = self.active.load(Ordering::Acquire);
+        loop {
+            match self.active.compare_exchange_weak(
+                current,
+                current.saturating_sub(1),
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => return,
+                Err(observed) => current = observed,
+            }
+        }
     }
 
     /// Returns the process-wide active session count.
     pub(crate) fn active_count(&self) -> usize {
         self.active.load(Ordering::Acquire)
-    }
-}
-
-impl Default for SessionCapacity {
-    fn default() -> Self {
-        Self {
-            active: Arc::new(AtomicUsize::new(0)),
-        }
     }
 }
 

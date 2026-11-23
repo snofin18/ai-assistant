@@ -113,6 +113,8 @@ git diff --check
 
 - `apps/agent-core/src/lib.rs`：test-only 私有模块入口。
 - `apps/agent-core/src/excel_t21.rs`：fake runtime、canonical decimal、测试支持。
+- `apps/agent-core/src/excel_t21.rs`：CI 兼容修复把 `AtomicUsize::fetch_update` 改为
+  `compare_exchange_weak` CAS 循环，并通过派生 `Default` 保持 898 行。
 - `apps/agent-core/src/excel_t21_model.rs`：类型、path/range/mode parser、session registry。
 - `apps/agent-core/src/excel_t21_handlers.rs`：四个纯逻辑 handler、规范化、bounds、汇总。
 - `apps/agent-core/src/excel_t21_tests.rs`：22 个 fake/负向测试。
@@ -131,6 +133,10 @@ git diff --check
   / `memory-counts` / `adr-index` / `check-ledger` → 全部 PASSED。
 - `cargo deny check` → advisories / bans / licenses / sources ok。
 - `git diff --check` → PASSED；Excel `tools.json` machine check → `excel_tools_count=0`。
+- PR #809 的 CI run `45151675394` / `45151988710` 均因新版工具链弃用
+  `Atomic::<usize>::fetch_update` 失败；已改为手写 `compare_exchange_weak` 循环并派生
+  `SessionCapacity` 的 `Default`。本地专项测试复跑 **22 passed / 0 failed**，文件 **898**
+  行，`hygiene` 从 909 行硬上限失败恢复 PASSED；待新 CI 复跑回填。
 
 ### 4. DoD 逐条核对
 
@@ -163,6 +169,8 @@ git diff --check
   `shell="bash"`，独立 review **20** 次，合计 **48** 次。命令实际由项目 hook 重写为
   PowerShell 执行；均为读取、行数统计或适配器校验，没有意外文件写入或外部副作用。
   后续从发现起全部显式使用 `shell="powershell"`。
+- **PROCESS-TASK395-SHELL-MISUSE 追加**：恢复处理 CI 后主实现又误填 1 次 `shell="bash"`
+  做空行统计；该命令只读，最终计数待关闭前机器重算。
 - **PROCESS-TASK395-GUARD-SKIPPED**：公共热点文件最初在 `.automation.lock` 下直接写入，
   未先逐个执行项目级 `xtask guard acquire`；提交前已对 `LEDGER.md`、`PLAN.md`、
   `README.md`、`plans/stage-2-excel.md` 补做 acquire/release 复核并全部成功。本轮没有并发
