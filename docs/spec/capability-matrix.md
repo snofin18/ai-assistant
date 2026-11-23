@@ -1,7 +1,7 @@
 # spec: 能力矩阵（capability matrix）
 
 > 摘要：Capability matrix 规范（Host / Skill / Platform 三层 × 资源访问 / 副作用 / 风险级）。本 spec 是本项目**契约层**的一部分，由 ADR 批准后即作为 xtask 卡实施 + CI 机器校验的权威。
-> 状态：Draft（ADR-0042、ADR-0104、ADR-0105 与 ADR-0107 已批准字段语义）　版本：0.4　日期：2026-11-23
+> 状态：Draft（ADR-0042、ADR-0104、ADR-0105、ADR-0107 与 ADR-0108 已批准字段语义）　版本：0.5　日期：2026-11-23
 > 上位：`AGENTS.md` §5、`docs/governance-ai-agent-execution.md` §5/§6
 > 强制性：**本文档是契约**。违反即 CI 失败（`xtask` 相关子命令）或 Reviewer 拒绝合并。
 > 变更门槛：新增字段或修改类型 → 需 ADR。
@@ -131,6 +131,21 @@ ADR-0107 冻结七个 `experimental` / `0.1.0` 的 Excel L1 COM capability：
 永久拒绝 `com.execute`、`com.eval`、`com.invoke`、`com.macro`、`com.raw_dispatch`、
 `com.script`、`office.*` 与作为 alias 的 `spreadsheet.*`。
 
+## 9. Excel T2.1 concrete consumer
+
+ADR-0108 把前述 `com.*` 映射到四个尚未实现的目标 Tool：
+
+| Tool | Capability | Effect / Reversibility | 约束 |
+|---|---|---|---|
+| `excel.workbook.open` | 仅 `com.workbook_open` | write / `l3_irreversible` | high / approval / non-idempotent；`.xlsx` local absolute path；无既有 Excel |
+| `excel.workbook.read` | `com.workbook_read` | read / `none_readonly` | task-scoped session；不读 cell values |
+| `excel.range.read` | `com.range_read` | read / `none_readonly` | 显式 `value2` / `formula` / `text`；最多 4096 cells / 256 KiB |
+| `excel.range.summarize` | `com.range_read` | read / `none_readonly` | 固定 `value2`；确定性 count/sum/min/max |
+
+实现未合入、fake tests 未通过或真机未验收前，`tools.json` 必须保持空数组，ToolBus 不得注册
+这些名称。完整输入输出、session、cleanup 与错误矩阵归
+`docs/spec/excel-t21-readonly-workflow.md`。
+
 ---
 
 ## 附录：演进记录
@@ -141,3 +156,4 @@ ADR-0107 冻结七个 `experimental` / `0.1.0` 的 Excel L1 COM capability：
 | 0.2 | 2026-11-17 | 新增 §6 Adapter capability 引用；依据 **ADR-0104** / TASK-376 |
 | 0.3 | 2026-11-18 | 新增 §7 validator catalog consumption、排序与禁止 runtime-matrix 推断；依据 ADR-0105 / TASK-383 |
 | 0.4 | 2026-11-23 | 新增 §8 Excel L1 COM capability family、风险/审批下限与 broad escape 拒绝；依据 ADR-0107 / TASK-393 |
+| 0.5 | 2026-11-23 | 新增 §9 Excel T2.1 四 Tool consumer 与未实现前空 surface 闸门；依据 ADR-0108 / TASK-394 |
