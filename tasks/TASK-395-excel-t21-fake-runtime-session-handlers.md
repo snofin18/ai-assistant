@@ -145,6 +145,10 @@ git diff --check
 - 后续 CI run `45153800844` / `45153790275` 仍有 4 个 registry 测试失败，根因是
   `opened()` 工厂的 `full_path` 也固定为 Windows 盘符；已统一为
   `CARGO_MANIFEST_DIR` 绝对路径，专项、clippy 与 workspace 再次全绿。
+- PR #809 最终 checks **22**：21 SUCCESS + 1 SKIPPED，pending 0 / failed 0，
+  base=main，`MERGEABLE` / `CLEAN`；merge commit
+  `a7fa10f86f68a4f4d1e159eeed9902f28dc6b802`。post-merge main CI
+  `45156618025` success，head 与 merge commit 一致。
 
 ### 4. DoD 逐条核对
 
@@ -158,7 +162,7 @@ git diff --check
   closing/capacity、open identity 交叉校验、非原点 A1 + worksheet 锚定、open app-content
   untrusted、跨 registry 全局 session capacity、expiry overflow reservation 回滚。
 - [ ] 四个 handler 仍为私有纯逻辑，不是 `ToolHandler`；生产桥接等待 DRIFT 裁决。
-- [ ] WIP PR / CI / merge / post-merge main CI 待回填。
+- [x] WIP PR #809 / CI / merge / post-merge main CI 已回填；状态仍 Blocked。
 
 ### 5. 偏差
 
@@ -182,6 +186,10 @@ git diff --check
 - **PROCESS-TASK395-SHELL-MISUSE 再次追加**：处理 Ubuntu 夹具期间又有 2 次只读
   `shell="bash"`（状态查询与专项测试），均由 hook 重写为 PowerShell 执行；最终计数待关闭前
   机器重算。
+- **PROCESS-TASK395-SHELL-MISUSE 最终机器重算**：按主 rollout 与 review rollout 的
+  `function_call` 参数递归统计，主实现 **37** 次、独立 review **20** 次，合计 **57** 次；
+  `[supersedes:2026-11-23]` 之前 48 次及增量记录。均为只读/build/CI 查询或校验，由 hook
+  实际重写为 PowerShell 执行，无意外仓库写入或外部副作用。
 - **PROCESS-TASK395-GUARD-SKIPPED**：公共热点文件最初在 `.automation.lock` 下直接写入，
   未先逐个执行项目级 `xtask guard acquire`；提交前已对 `LEDGER.md`、`PLAN.md`、
   `README.md`、`plans/stage-2-excel.md` 补做 acquire/release 复核并全部成功。本轮没有并发
