@@ -190,6 +190,9 @@ git diff --check
   `function_call` 参数递归统计，主实现 **37** 次、独立 review **20** 次，合计 **57** 次；
   `[supersedes:2026-11-23]` 之前 48 次及增量记录。均为只读/build/CI 查询或校验，由 hook
   实际重写为 PowerShell 执行，无意外仓库写入或外部副作用。
+- **PROCESS-TASK395-SHELL-MISUSE 关闭后纠正**：closeout PR 加标签与切换纠正分支期间又有
+  2 次只读 `shell="bash"`；最终权威机器重算为主实现 **39** 次 + 独立 review **20** 次，
+  合计 **59** 次，`[supersedes:2026-11-23]` 上一行 57 次。
 - **PROCESS-TASK395-GUARD-SKIPPED**：公共热点文件最初在 `.automation.lock` 下直接写入，
   未先逐个执行项目级 `xtask guard acquire`；提交前已对 `LEDGER.md`、`PLAN.md`、
   `README.md`、`plans/stage-2-excel.md` 补做 acquire/release 复核并全部成功。本轮没有并发
