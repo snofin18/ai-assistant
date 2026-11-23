@@ -201,9 +201,9 @@ git diff --check
 ### 5. 偏差
 
 - 无功能或契约 DRIFT。
-- `PROCESS-TASK393-SHELL-MISUSE`：累计 **69** 次 `shell="bash"` 误填（主实现 61 +
-  独立 review 8）；全部为只读 `rg` / `Select-String` / `git diff` / xtask 门禁查询或
-  workspace test，未写仓库，PowerShell 正常时已切回。
+- `PROCESS-TASK393-SHELL-MISUSE`：累计 **71** 次 `shell="bash"` 误填（主实现 63 +
+  独立 review 8）；其中 61 次为主会话只读/build 查询，另 1 次是 `git commit` 写入本 PR
+  预期提交、1 次是 `gh pr create` 创建 PR #802；无意外文件或外部副作用。
 - 首次 `memory-counts` 按预估写成 116 非空行，机器实测为 115；已按工具输出修正为 330 / 115。
 - 独立 review 发现两项 P1：open capability 可藏在 read Tool，且 range write 的
   formula/value2 语义冲突。已收紧 ADR/spec，并在共享 validator 中强制 open 的
