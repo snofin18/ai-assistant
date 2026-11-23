@@ -324,3 +324,7 @@
 ## 2026-11-19 追加（ADR-0106，Accepted）
 
 - [2026-11-19][DECISION][src:ADR-0106，人类 2026-11-19 批准推荐方案 A；TASK-387] **新增 rollback-only `close_created_target`，不新增模型可见 Tool**：L2 `compensating_action` restore 只允许 `target_kind=tab`、`require_empty=true`，目标 tool 必须 write/L2 且带 `tab`+`new` tags；capture 至少观察 `whole_window_fingerprint`，post-verify 必须对同一 observation 做 `capture_equals`。该 builtin 只能关闭同一 invocation 创建且仍为空的 tab；无法证明身份、tab 非空或出现保存/覆盖/用户内容风险时必须失败并升级人工，禁止自动 Save/Don't Save/Close。该决定解除 Notepad `tab.new` 的假 L1 recovery 阻塞，不改变 ToolSchema、Capability、ErrorCode、Policy、ToolBus 或依赖。
+
+## 2026-11-23 追加（ADR-0107，Accepted）
+
+- [2026-11-23][DECISION][src:ADR-0107，人类 2026-11-23“继续下一步”；TASK-393；独立 review 收紧 P1] **Excel L1 COM 使用七个 experimental `com.*` capability**：`com.workbook_open` Tool 只能包含该一个 capability，并只能是 write/high|critical/requires-approval/non-idempotent/`l3_irreversible`；禁止与其他 capability 混用、藏在 read 或 L1/L2 Tool。T2.1 read Tool 只使用 workbook/range read 并作用于已 open 的 owned workbook。`range_read` 明确 `value2|formula|text`，`range_write` 只允许 bounded scalar literal、固定 `value2`，文字字符串首非空白字符为 `=`/`+`/`-`/`@` 时写入前失败，写后同时用 `.Formula` 证明未生成公式；write 风险下限 L2/required，`allow_unattended=false` 不变。永久拒绝 `com.execute/eval/invoke/macro/raw_dispatch/script`、`office.*`、作为 alias 的 `spreadsheet.*`、UIA/键盘冒充 COM、公式/结构写、宏、外链自动更新、用户进程附着与覆盖导出。catalog 出现 ID 只解除静态词汇阻塞，不表示 COM runner、Tool、真机或 rollback 已实现。

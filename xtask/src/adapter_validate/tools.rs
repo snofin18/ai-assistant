@@ -2,6 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use super::tool_bounds::{tool_info, validate_capability_risk_floor};
 use super::{ToolInfo, catalog_strings, check_keys, push_error, string_array};
 use crate::report::Report;
 use crate::serde_json_lite::Value;
@@ -19,7 +20,6 @@ const TOOL_FIELDS: [&str; 11] = [
     "idempotent",
     "tags",
 ];
-
 pub(super) fn validate(
     value: &Value,
     catalog: &Value,
@@ -111,7 +111,13 @@ fn validate_envelope(
         );
         return None;
     };
-    validate_schema(schema, names, &format!("{pointer}/schema"), report);
+    validate_schema(
+        schema,
+        envelope.get("capabilities"),
+        names,
+        &format!("{pointer}/schema"),
+        report,
+    );
     validate_capabilities(envelope.get("capabilities"), capabilities, pointer, report);
     validate_postconditions(
         envelope.get("postconditions"),
@@ -123,44 +129,12 @@ fn validate_envelope(
         pointer,
         report,
     );
-    Some(ToolInfo {
-        name: schema
-            .get("name")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string(),
-        effect: schema
-            .get("effect")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string(),
-        reversibility: schema
-            .get("reversibility")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string(),
-        risk_level: schema
-            .get("risk_level")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string(),
-        requires_approval: schema
-            .get("requires_approval")
-            .and_then(Value::as_bool)
-            .unwrap_or(false),
-        tags: schema
-            .get("tags")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .filter_map(Value::as_str)
-            .map(str::to_string)
-            .collect(),
-    })
+    Some(tool_info(schema))
 }
 
 fn validate_schema(
     schema: &BTreeMap<String, Value>,
+    capabilities: Option<&Value>,
     names: &mut BTreeSet<String>,
     pointer: &str,
     report: &mut Report,
@@ -178,6 +152,7 @@ fn validate_schema(
     }
     validate_schema_identity(schema, names, pointer, report);
     validate_schema_metadata(schema, pointer, report);
+    validate_capability_risk_floor(schema, capabilities, pointer, report);
 }
 
 fn validate_schema_identity(

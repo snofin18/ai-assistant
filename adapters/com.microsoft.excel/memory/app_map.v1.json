@@ -12,9 +12,9 @@
     {
       "id": "data_semantics",
       "title": "Excel range data semantics",
-      "content": "For every Range, declare value2, formula, or text explicitly. Value2 is the numeric or calculated value, Formula preserves the expression, and Text is display text; never compare an unnamed cell value.",
+      "content": "Range reads must declare value2, formula, or text. Range writes use value2 scalar literals only; text beginning with =, +, -, or @ is rejected, and post-write Formula inspection must prove no formula was created. Never compare an unnamed cell value.",
       "source_reference": "bundle:app_map#/value_semantics",
-      "token_estimate": 51
+      "token_estimate": 63
     },
     {
       "id": "identity",
@@ -40,9 +40,9 @@
     {
       "id": "safety_boundaries",
       "title": "Excel safety shell boundary",
-      "content": "This pack declares zero model-visible tools until spreadsheet or COM capability IDs receive an ADR. It must never be presented as a runnable Excel COM adapter.",
+      "content": "This pack declares zero model-visible tools even though ADR-0107 defines experimental com.* capability IDs. T2.1-T2.3 must still implement fenced COM handlers before any Excel tool is exposed.",
       "source_reference": "bundle:app_map#/safety_boundaries",
-      "token_estimate": 40
+      "token_estimate": 48
     },
     {
       "id": "shell_selectors",

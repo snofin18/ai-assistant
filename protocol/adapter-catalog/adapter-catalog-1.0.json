@@ -2,6 +2,13 @@
   "version": "1.0",
   "capabilities": [
     "capability.check",
+    "com.chart_create",
+    "com.chart_export",
+    "com.range_read",
+    "com.range_write",
+    "com.workbook_open",
+    "com.workbook_read",
+    "com.workbook_save",
     "element.invoke",
     "element.read_text",
     "element.set_value",

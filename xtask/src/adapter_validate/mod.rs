@@ -17,7 +17,13 @@ mod app_map;
 mod interrupts;
 mod rollback;
 mod selectors;
+mod tool_bounds;
 mod tools;
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+#[path = "../adapter_validate_excel_tests.rs"]
+mod excel_tests;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;

@@ -13,8 +13,8 @@ workbook, consume a GUI, or implement T2.1-T2.3.
 - `memory/app_map.v1.json`: canonical `core_app_map_v1` projection.
 - `selectors/targets.json`: provisional UIA shell selectors for the Excel
   window and generic modal dialog only.
-- `tools/tools.json`: intentionally empty until spreadsheet/COM capability IDs
-  receive an ADR.
+- `tools/tools.json`: intentionally empty until T2.1-T2.3 implement the
+  capability-approved COM handlers and exact Tool envelopes.
 - `rollback/recipes.json`: intentionally empty because no model-visible write
   tool is declared yet.
 - `interrupts/interrupts.json`: Protected View, AutoSave/OneDrive, read-only or
@@ -22,11 +22,13 @@ workbook, consume a GUI, or implement T2.1-T2.3.
 
 ## Capability Boundary
 
-The current capability catalog has no Excel COM or spreadsheet capability IDs.
-Using accessibility or keyboard capabilities for COM cell operations would
-misstate the implementation. This pack therefore declares zero model-visible
-tools. A later ADR must approve the required capability vocabulary before a
-real Excel tool surface and rollback recipes can be added.
+ADR-0107 defines seven experimental `com.*` capability IDs for owned Excel
+workbooks: `com.workbook_open`, `com.workbook_read`, `com.range_read`,
+`com.range_write`, `com.workbook_save`, `com.chart_create`, and
+`com.chart_export`. The vocabulary is approved, but the COM runner and
+T2.1-T2.3 Tool implementations do not exist yet. This pack therefore still
+declares zero model-visible tools. Using accessibility or keyboard capabilities
+for COM cell operations remains forbidden.
 
 ## Safety Boundaries
 
@@ -38,6 +40,9 @@ real Excel tool surface and rollback recipes can be added.
 - `DisplayAlerts=false` is permanently forbidden.
 - COM writes cannot use Excel `Application.Undo` as the recovery claim. Future
   write tools must provide L1 value snapshots plus a file shadow copy.
+- Range writes use `value2` scalar literals only. Formula-like text beginning
+  with `=`, `+`, `-`, or `@` is rejected, and post-write inspection must prove
+  `.Formula` did not create a formula.
 - Existing user `EXCEL.EXE` processes are never reused, attached to, or
   terminated.
 - The generic `#32770` dialog class must be bound to the owned Excel process
