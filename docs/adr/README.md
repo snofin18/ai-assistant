@@ -127,8 +127,9 @@
 | **0105** | `0105-adapter-bundle-validator-machine-profile.md` | **Accepted** | 只澄清 ADR-0104 的机器形状：canonical JSON/引用、App Map projection manifest 与字节格式、两种 selector typed union、共享 capability/ErrorCode/postcondition catalog、rollback capture/restore/post-verify 联合、interrupt priority/action/resume 联合（人类 2026-11-18“继续下一步”；TASK-383） |
 | **0106** | `0106-rollback-created-tab-builtin.md` | **Accepted** | L2 rollback restore 增加唯一 `close_created_target` 变体：仅限同一调用创建的空 tab、目标 tool 必须 write/L2 且带 `tab`+`new` tags，capture/post-verify 固定 whole-window fingerprint；该 builtin 不进入模型 Tool surface（人类 2026-11-19 批准；TASK-387） |
 | **0107** | `0107-excel-com-capability-vocabulary.md` | **Accepted** | Excel L1 COM 新增七个 experimental `com.*` capability（open/read/range read/range write/save/chart create/chart export），冻结风险下限、T2.1-T2.3 消费矩阵与 `execute/eval/invoke/macro/raw_dispatch`、legacy alias 的永久拒绝；catalog 出现 ID 不等同 runner/Tool/真机已实现（人类 2026-11-23“继续下一步”；TASK-393） |
+| **0108** | `0108-excel-t21-readonly-tool-contract.md` | **Accepted** | T2.1 只读链路固定为 open + workbook/range read + range summarize 四个 Tool；open 是唯一 L3 approval write Tool，三个 read Tool 使用 task-scoped opaque session、`none_readonly`、4096 cells / 256 KiB bounds；定义 ownership、错误映射与 task-end cleanup，未实现前 tools.json 必须为空（人类 2026-11-23“继续下一步”；TASK-394） |
 
-**下一个可用编号：0108**（= §1 与 §2 已用最大号 **0107** + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0109**（= §1 与 §2 已用最大号 **0108** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由
