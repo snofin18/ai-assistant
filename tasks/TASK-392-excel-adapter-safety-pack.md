@@ -1,6 +1,6 @@
 # TASK-392 Excel Adapter safety shell pack
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel Adapter　批次：3
 - 依赖：TASK-372、TASK-375、TASK-383、TASK-384、TASK-387、TASK-388、TASK-391、
   ADR-0104、ADR-0105、ADR-0106
@@ -121,7 +121,7 @@ Protected View/AutoSave/文件冲突中断契约。
 - `adapters/com.microsoft.excel/tests/validate_adapter_pack.py`：专属数据契约 validator，in scope。
 - `adapters/com.microsoft.excel/tests/test_validate_adapter_pack.py`：8 条安全变异负向回归，in scope。
 - `LEDGER.md`：追加 Review 事件，in scope。
-- `PLAN.md` / `README.md`：Review 阶段未改；留待 merge 后 Done 回填，in scope。
+- `PLAN.md` / `README.md`：Done 回填当前状态、当前阶段与最近进展，in scope。
 
 ### 3. 验收输出摘要（命令 → 结果，全绿 / 失败项）
 
@@ -155,15 +155,18 @@ Protected View/AutoSave/文件冲突中断契约。
   宏警告，六项全部 `ask_human` 且 requires human。
 - [x] tools/rollback 均为空；README、App Map 和专属测试明确锁定 capability ADR 阻塞。
 - [x] 专属 validator、workspace 与全部门禁通过；未创建 COM/GUI/工作簿副作用。
-- [ ] PR checks、merge 与 post-merge main CI：Review PR 建立后回填。
+- [x] PR checks、merge 与 post-merge main CI：PR #799 checks 11/11 success，pending 0 / failed 0，
+  `MERGEABLE` / `CLEAN`；merge `92024e8f221b535c982c97822da996ed51b7d74a`；
+  post-merge main CI `45101893667` success。
 
 ### 5. 偏差
 
 - 无功能或契约 DRIFT。
 - `capability catalog` 当前无 Excel COM/spreadsheet ID，因此本卡按既定边界保持 0 tools /
   0 recipes；不新增 capability，也不以 UIA capability 冒充 COM。
-- `PROCESS-TASK392-SHELL-MISUSE`：实现与审阅期间累计 **44** 次 `shell="bash"` 误填
-  （当前实现 38 次 + 首轮独立 review 5 次 + 复核 1 次）；均未写仓库，PowerShell 正常时已切回。
+- `PROCESS-TASK392-SHELL-MISUSE`：实现、审阅与 closeout 期间累计 **46** 次 `shell="bash"` 误填
+  （当前实现 38 次 + 首轮独立 review 5 次 + 复核 1 次 + closeout 2 次）；均未写仓库，
+  PowerShell 正常时已切回。
 
 ### 6. 更合理做法（实施中发现，非漂移）
 
