@@ -204,8 +204,8 @@ git diff --check
 ### 5. 偏差
 
 - 无功能或契约 DRIFT。
-- `PROCESS-TASK393-SHELL-MISUSE`：最终累计 **80** 次 `shell="bash"` 误填（主实现 72 +
-  独立 review 8）；主会话 72 次中 69 次是只读/build 查询，1 次 `git commit` 写入本 PR
+- `PROCESS-TASK393-SHELL-MISUSE`：最终累计 **85** 次 `shell="bash"` 误填（主实现 77 +
+  独立 review 8）；主会话 77 次中 74 次是只读/build/CI 轮询，1 次 `git commit` 写入本 PR
   预期提交、1 次 `gh pr create` 创建 PR #802、1 次 `git switch -c` 建立 closeout 分支；
   无意外文件或外部副作用。
 - 首次 `memory-counts` 按预估写成 116 非空行，机器实测为 115；已按工具输出修正为 330 / 115。
