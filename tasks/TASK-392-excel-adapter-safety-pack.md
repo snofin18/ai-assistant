@@ -164,8 +164,8 @@ Protected View/AutoSave/文件冲突中断契约。
 - 无功能或契约 DRIFT。
 - `capability catalog` 当前无 Excel COM/spreadsheet ID，因此本卡按既定边界保持 0 tools /
   0 recipes；不新增 capability，也不以 UIA capability 冒充 COM。
-- `PROCESS-TASK392-SHELL-MISUSE`：实现、审阅与 closeout 期间累计 **46** 次 `shell="bash"` 误填
-  （当前实现 38 次 + 首轮独立 review 5 次 + 复核 1 次 + closeout 2 次）；均未写仓库，
+- `PROCESS-TASK392-SHELL-MISUSE`：实现、审阅与 closeout 期间累计 **47** 次 `shell="bash"` 误填
+  （当前实现 38 次 + 首轮独立 review 5 次 + 复核 1 次 + closeout 3 次）；均未写仓库，
   PowerShell 正常时已切回。
 
 ### 6. 更合理做法（实施中发现，非漂移）
