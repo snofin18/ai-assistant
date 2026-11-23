@@ -255,3 +255,8 @@ git diff --check
   `docs/automations/2026-11-23-round-2.md`。
 - 并发 PR #812 已将 shell-misuse 最终计数冻结为 63 并合入 main `b6437df`；本轮 rebase
   后只追加 round 2 evidence，不覆盖该收口结果或 `PROCESS-TASK395-GUARD-CONTENTION`。
+- 本槽证据 PR #813 checks 22（21 SUCCESS + 1 SKIPPED），pending 0 / failed 0，
+  `MERGEABLE` / `CLEAN`，merge `3204f0a3e762d53c349a8f810501d30825000393`；
+  post-merge main CI `45170894012` success。
+- 合并后 `automation-rounds` 为 PASSED：`existing=2`、`next_round=3`、`N_auto=2`、
+  `missing_after_latest_human=0`。任务仍因 `DRIFT-395-1` 保持 Blocked。
