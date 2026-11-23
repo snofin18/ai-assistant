@@ -239,3 +239,19 @@ git diff --check
 - 检查 range cell 完整性、signed min/max、canonical decimal、workbook/range payload bounds
   是否都是整体失败而非截断。
 - 检查非原点 A1（测试 C3:D4）的绝对坐标、返回地址、请求地址与 worksheet identity 锚定。
+
+### 10. 2026-11-23 round 2 复核
+
+- `automation-rounds --run-date 2026-11-23` 给出 `next_round=2`、`N_auto=1`，但初始
+  verdict 为 `FAILED`：round 1 文件存在且被计数，却缺少门禁要求的显式
+  `机制：automation` 声明，因此被 fail-closed 归为 `Missing`。
+- 本槽只在 round 1 报告补显式机制声明，并新增 round 2 报告；不修改产品代码、
+  `adapters/**`、`protocol/**`、公共 API/schema 或依赖。
+- `DRIFT-395-1` 仍是唯一实现阻塞。四个 fake/pure handler 继续为私有 test-only 逻辑，
+  不注册生产 ToolBus；`adapters/com.microsoft.excel/tools/tools.json` 保持 `tools: []`。
+- 未启动 Excel/COM/GUI，未读取真实 `.xlsx`，未执行人类在场验收。
+- 本地专项 22/22、workspace、schema/codegen、hygiene/card/doc/refscan、
+  memory/adr/ledger、deny 与 arch 门禁均通过；详细摘要见
+  `docs/automations/2026-11-23-round-2.md`。
+- 并发 PR #812 已将 shell-misuse 最终计数冻结为 63 并合入 main `b6437df`；本轮 rebase
+  后只追加 round 2 evidence，不覆盖该收口结果或 `PROCESS-TASK395-GUARD-CONTENTION`。
