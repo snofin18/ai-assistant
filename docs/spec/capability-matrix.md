@@ -1,7 +1,7 @@
 # spec: 能力矩阵（capability matrix）
 
 > 摘要：Capability matrix 规范（Host / Skill / Platform 三层 × 资源访问 / 副作用 / 风险级）。本 spec 是本项目**契约层**的一部分，由 ADR 批准后即作为 xtask 卡实施 + CI 机器校验的权威。
-> 状态：Draft（ADR-0042、ADR-0104 与 ADR-0105 已批准字段语义）　版本：0.3　日期：2026-11-18
+> 状态：Draft（ADR-0042、ADR-0104、ADR-0105 与 ADR-0107 已批准字段语义）　版本：0.4　日期：2026-11-23
 > 上位：`AGENTS.md` §5、`docs/governance-ai-agent-execution.md` §5/§6
 > 强制性：**本文档是契约**。违反即 CI 失败（`xtask` 相关子命令）或 Reviewer 拒绝合并。
 > 变更门槛：新增字段或修改类型 → 需 ADR。
@@ -91,6 +91,46 @@ Adapter tool envelope 的 `capabilities` 是 capability catalog 的**稳定标�
 生成/引用更新，不能手改一份平行枚举。catalog 生成与 `codegen --check` 接入属于 validator
 implementation 卡，不在 TASK-383 冒充完成。
 
+## 8. Excel L1 COM capability family
+
+ADR-0107 冻结七个 `experimental` / `0.1.0` 的 Excel L1 COM capability：
+
+| Capability | Resource | Side effect | Risk floor | Approval floor | 允许语义 |
+|---|---|---|---|---|---|
+| `com.workbook_open` | invoke | process spawn / file open | L3 | required | 专用 owned 实例打开明确工作簿并记录身份与回收责任 |
+| `com.workbook_read` | read | none | L1 | auto | 读取 workbook/worksheet identity、命名区域、尺寸和计算元数据 |
+| `com.range_read` | read | none | L1 | auto | 显式 `value2` / `formula` / `text` 有界读取 |
+| `com.range_write` | write | workbook content | L2 | required | 有界 scalar literal 写入；固定 `value2`，公式形态字符串失败；L1 snapshot + shadow copy |
+| `com.workbook_save` | write | disk | L2 | required | 原位保存；冲突检测、影子副本和身份复验 |
+| `com.chart_create` | write | workbook content | L2 | required | 从已确认 Range 创建封闭类型 chart object |
+| `com.chart_export` | write | disk | L2 | required | create-new PNG；不覆盖既有目标 |
+
+不变量：
+
+1. `com.workbook_close` 不是独立 capability；close / Quit / COM release / PID reap 是
+   `com.workbook_open` 的生命周期责任。
+2. 所有读取必须保持 workbook 内容不变；UIA、keyboard、clipboard 或 `element.*` 不得冒充
+   COM range 读写。
+3. 所有写能力的审批下限为 `required`；Stage 2 `allow_unattended=false` 不被本 spec 放宽。
+4. `com.range_write` 当前只允许 bounded scalar literal 且固定 `value2`；以 `=`、`+`、`-`
+   或 `@` 开头的文字字符串必须失败，公式写入、结构修改与任意 COM method/property dispatch
+   必须新 ADR。
+5. `com.chart_export` 只允许 create-new；目标已存在、身份漂移或半文件残留必须失败。
+6. Capability catalog 出现 ID 只表示词汇已批准，不表示 runner 或 Tool 已实现。
+
+消费矩阵：
+
+- `com.workbook_open` Tool 必须**只含该一个 capability**，并位于 write/high|critical/
+  approval/non-idempotent/`l3_irreversible` Tool；不得与其他 capability 混用，也不得藏在
+  read 或 L1/L2 Tool 中。
+- T2.1 read Tool 只可用 workbook/range read，并作用于已 open 且身份可复验的 owned workbook；
+- T2.2 增加 bounded scalar-literal range write + in-place save；
+- T2.3 增加 chart create + create-new PNG export；
+- Tool envelope 仍必须按 ADR-0104/0105 声明非空、去重、排序的精确子集。
+
+永久拒绝 `com.execute`、`com.eval`、`com.invoke`、`com.macro`、`com.raw_dispatch`、
+`com.script`、`office.*` 与作为 alias 的 `spreadsheet.*`。
+
 ---
 
 ## 附录：演进记录
@@ -100,3 +140,4 @@ implementation 卡，不在 TASK-383 冒充完成。
 | 0.1 | 2026-09-20 | 初稿（项目进度督察后批量补齐 stage-0 DoD #5）|
 | 0.2 | 2026-11-17 | 新增 §6 Adapter capability 引用；依据 **ADR-0104** / TASK-376 |
 | 0.3 | 2026-11-18 | 新增 §7 validator catalog consumption、排序与禁止 runtime-matrix 推断；依据 ADR-0105 / TASK-383 |
+| 0.4 | 2026-11-23 | 新增 §8 Excel L1 COM capability family、风险/审批下限与 broad escape 拒绝；依据 ADR-0107 / TASK-393 |

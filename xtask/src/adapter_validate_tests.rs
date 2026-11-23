@@ -2,13 +2,13 @@
 
 use super::*;
 
-struct Fixture {
+pub(super) struct Fixture {
     root: PathBuf,
-    adapter: PathBuf,
+    pub(super) adapter: PathBuf,
 }
 
 impl Fixture {
-    fn create(label: &str) -> Self {
+    pub(super) fn create(label: &str) -> Self {
         let root = std::env::temp_dir().join(format!(
             "xtask-adapter-validate-{}-{}-{}",
             label,
@@ -282,7 +282,7 @@ impl Fixture {
         .expect("write created-tab rollback");
     }
 
-    fn validate(&self) -> (u8, String) {
+    pub(super) fn validate(&self) -> (u8, String) {
         let mut output = Vec::new();
         let code = run(&self.root, "adapters/test", true, &mut output).expect("validator run");
         (code, String::from_utf8(output).expect("utf8 output"))

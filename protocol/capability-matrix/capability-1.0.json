@@ -38,6 +38,13 @@
     { "id": "input.keyboard",     "description": "Synthesize keyboard input (Win32 SendInput).",                                  "stability": "experimental", "version": "0.3.0" },
     { "id": "input.mouse",        "description": "Synthesize mouse input (Win32 SendInput).",                                     "stability": "experimental", "version": "0.3.0" },
     { "id": "window.close",       "description": "Close a target window safely (UIA WindowPattern.Close or PostMessage WM_CLOSE).","stability": "stable",       "version": "1.0.0" },
-    { "id": "capability.check",   "description": "Check whether a capability is supported on a target adapter.",                    "stability": "stable",       "version": "1.0.0" }
+    { "id": "capability.check",   "description": "Check whether a capability is supported on a target adapter.",                    "stability": "stable",       "version": "1.0.0" },
+    { "id": "com.workbook_open",  "description": "Open a caller-declared Excel workbook in a dedicated owned COM process with bounded cleanup.", "stability": "experimental", "version": "0.1.0" },
+    { "id": "com.workbook_read",  "description": "Read Excel workbook and worksheet identity, named ranges, dimensions, and calculation metadata.", "stability": "experimental", "version": "0.1.0" },
+    { "id": "com.range_read",     "description": "Read an explicitly scoped Excel Range through value2, formula, or text semantics.", "stability": "experimental", "version": "0.1.0" },
+    { "id": "com.range_write",    "description": "Write bounded scalar literals through value2 to an explicitly scoped Excel Range with required L1 recovery and formula rejection.", "stability": "experimental", "version": "0.1.0" },
+    { "id": "com.workbook_save",  "description": "Save an owned, identity-stable Excel workbook in place after conflict detection and shadow-copy capture.", "stability": "experimental", "version": "0.1.0" },
+    { "id": "com.chart_create",   "description": "Create a bounded Excel chart from an already resolved Range in an owned workbook.", "stability": "experimental", "version": "0.1.0" },
+    { "id": "com.chart_export",   "description": "Export an identified Excel chart to a create-new PNG destination without overwriting.", "stability": "experimental", "version": "0.1.0" }
   ]
 }

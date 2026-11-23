@@ -52,6 +52,8 @@
 > 以 `XLMAIN/#32770` 两个 provisional selector 和六类 human-only interrupt 冻结安全边界；
 > tools/rollback 保持空数组并锁定 capability ADR 阻塞。PR #799 checks 11/11 success，
 > merge `92024e8` / main CI `45101893667` success。
+> TASK-393 正在 **Review**：ADR-0107 已冻结七个 experimental `com.*` capability、风险下限与
+> T2.1-T2.3 消费边界；catalog 出现 ID 只解除静态词汇阻塞，COM runner/Tool/真机仍未实现。
 
 ## In scope
 
@@ -98,6 +100,7 @@
 | 1 | 待派单 | 架构/治理 | dispatch 时创建 | 未开始（通用只读 Adapter bundle validator） |
 | 2 | 待派单 | Windows platform | dispatch 时创建 | 未开始（COM apartment/生命周期/回收与负向测试） |
 | 3 | **TASK-392 ✅** | Excel Adapter | `tasks/TASK-392-excel-adapter-safety-pack.md` | Done（safety shell bundle + Protected View/AutoSave/interrupts；2 shell targets / 6 interrupts；COM tools 等待 capability ADR；PR #799 merge `92024e8`；main CI `45101893667` success） |
+| 3a | **TASK-393** | 架构/治理 | `tasks/TASK-393-excel-com-capability-vocabulary.md` | Review（七个 experimental `com.*` capability ADR；风险/T2.1-T2.3 消费边界；runner/Tool 仍待实现） |
 | 4 | 待派单 | Excel T2.1 | dispatch 时创建 | 未开始（打开工作簿/读取命名区域/汇总，只读） |
 | 5 | 待派单 | Undo/L1 | dispatch 时创建 | 未开始（文件影子副本 + 值快照 + 冲突检测） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |

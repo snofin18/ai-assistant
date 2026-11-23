@@ -83,6 +83,16 @@ EXPECTED_DANGEROUS_ACTIONS = {
     "update_links",
     "accept_macro",
 }
+EXPECTED_TOOLS_BLOCKER = "excel_com_runner_and_tool_implementations_pending"
+LEGACY_CAPABILITY_PREFIXES = ("office.", "spreadsheet.")
+FORBIDDEN_COM_CAPABILITIES = {
+    "com.execute",
+    "com.eval",
+    "com.invoke",
+    "com.macro",
+    "com.raw_dispatch",
+    "com.script",
+}
 
 
 def check(condition: bool, message: str) -> None:
@@ -246,9 +256,13 @@ def validate_empty_surfaces(
     app_map: dict[str, Any],
     tools_document: dict[str, Any],
     rollback: dict[str, Any],
+    capability_entries: list[dict[str, Any]] | None = None,
 ) -> None:
-    """Prevent fake COM tools before approved capability IDs exist."""
-    check(tools_document.get("tools") == [], "tools must remain empty pending capability ADR")
+    """Prevent fake COM tools before the runner and exact envelopes exist."""
+    check(
+        tools_document.get("tools") == [],
+        "tools must remain empty pending COM runner and Tool implementations",
+    )
     check(rollback.get("recipes") == [], "rollback must remain empty without write tools")
     boundaries = app_map.get("safety_boundaries", {})
     check(
@@ -256,9 +270,8 @@ def validate_empty_surfaces(
         "App Map must declare zero model-visible tools",
     )
     check(
-        boundaries.get("tools_blocked_by")
-        == "spreadsheet_and_com_capability_ids_require_adr",
-        "App Map capability blocker mismatch",
+        boundaries.get("tools_blocked_by") == EXPECTED_TOOLS_BLOCKER,
+        "App Map implementation blocker mismatch",
     )
     safety = adapter.get("safety", {})
     check(safety.get("allow_unattended") is False, "adapter must forbid unattended writes")
@@ -266,28 +279,39 @@ def validate_empty_surfaces(
         safety.get("forbidden_properties") == ["DisplayAlerts=false"],
         "DisplayAlerts=false must remain explicitly forbidden",
     )
-    try:
-        capability_catalog = json.loads(
-            (
-                REPO_ROOT
-                / "protocol/capability-matrix/capability-1.0.json"
-            ).read_text(encoding="utf-8")
-        )
-        capabilities = {
-            entry.get("id")
-            for entry in capability_catalog.get("capabilities", [])
-            if isinstance(entry, dict)
-        }
-    except (OSError, json.JSONDecodeError) as error:
-        check(False, f"capability catalog cannot be read: {error}")
-        capabilities = set()
-    blocked_prefixes = ("com.", "office.", "spreadsheet.")
+    if capability_entries is None:
+        try:
+            capability_catalog = json.loads(
+                (
+                    REPO_ROOT
+                    / "protocol/capability-matrix/capability-1.0.json"
+                ).read_text(encoding="utf-8")
+            )
+            capability_entries = capability_catalog.get("capabilities", [])
+        except (OSError, json.JSONDecodeError) as error:
+            check(False, f"capability catalog cannot be read: {error}")
+            capability_entries = []
+    capabilities = {
+        entry.get("id")
+        for entry in capability_entries
+        if isinstance(entry, dict)
+    }
+    com_capabilities = {
+        capability
+        for capability in capabilities
+        if isinstance(capability, str) and capability.startswith("com.")
+    }
+    check(bool(com_capabilities), "ADR-0107 COM capability vocabulary is missing")
     check(
         not any(
-            isinstance(capability, str) and capability.startswith(blocked_prefixes)
+            isinstance(capability, str) and capability.startswith(LEGACY_CAPABILITY_PREFIXES)
             for capability in capabilities
         ),
-        "capability catalog now has COM/spreadsheet IDs; tools/blocker must be updated",
+        "legacy office/spreadsheet capability aliases are forbidden",
+    )
+    check(
+        not (com_capabilities & FORBIDDEN_COM_CAPABILITIES),
+        "broad COM escape capability is forbidden",
     )
     interrupt_policy = app_map.get("interrupt_policy", {})
     check(
@@ -339,7 +363,7 @@ def validate_empty_surfaces(
         (PACK_ROOT / "README.md").read_text(encoding="utf-8").lower().split()
     )
     check("zero model-visible tools" in readme, "README must disclose the empty tool surface")
-    check("capability" in readme, "README must name the capability ADR blocker")
+    check("adr-0107" in readme, "README must name the approved capability ADR")
 
 
 def validate_interrupts(interrupts: dict[str, Any]) -> None:
