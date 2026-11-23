@@ -29,6 +29,9 @@ mod blob_sink;
 mod browser_handlers;
 pub mod browser_registry;
 mod error;
+#[cfg(test)]
+#[path = "excel_t21.rs"]
+pub mod excel_t21;
 pub(crate) mod handler_support;
 pub mod notepad_files;
 pub mod notepad_handlers;

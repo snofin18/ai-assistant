@@ -39,6 +39,8 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 ---
 
+> **TASK-395 Blocked/WIP（2026-11-23）**：Excel T2.1 test-only fake runtime、ToolBus-isolated session registry、path/range/read-mode parser、四个纯逻辑 handler 与 **22/22** 负向/资源测试已落地；两轮独立 review 的 5 P1 + 4 P2 已修复；`tools.json` 仍为空，未启动 Excel/COM/GUI。生产 ToolBus 包装被 `DRIFT-395-1` 阻塞：现有公共错误枚举无法无损表达 ADR-0108 的全部 `ErrorCode`。
+
 ## 这个项目最特别的一点
 
 它主要由 **AI coding agent**（Codex / opencode / Claude Code）实现，人类负责规划、审阅与裁决。
@@ -92,6 +94,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+> **TASK-395 Blocked/WIP（2026-11-23）**：Excel T2.1 fake runtime、session registry、parser 与四个纯逻辑 handler 已实现并通过 22 个专项测试；两轮独立 review 的 5 P1 + 4 P2 已修复。`tools.json` 仍为空。`DRIFT-395-1` 指出 `ToolBusError` 不能无损承载 `TargetAmbiguous` / `PlatformPermission` 等既有错误码，因此未注册生产 ToolBus。
 > **TASK-394 Done（2026-11-23）**：ADR-0108 冻结 Excel T2.1 四个只读工作流 Tool 与 `none_readonly` 契约；open 是唯一 `com.workbook_open` write/high/L3/approval/non-idempotent Tool，三个 read Tool 使用 ToolBus-isolated opaque session、dedicated STA 串行化与 state_unchanged。补齐 262144-byte / 1024-worksheet / 2048-named-range / 4096-cell / 256-KiB bounds、完整错误矩阵、repo 外 ownership journal 与独立 watchdog cleanup。PR #806 checks 11/11 success，merge `614062a` / main CI `45133625235` success；`tools.json` 保持空，真实 COM/GUI 未执行。
 > **TASK-393 Done（2026-11-23）**：ADR-0107 冻结七个 experimental Excel L1 COM capability：`com.workbook_open/read`、`com.range_read/write`、`com.workbook_save`、`com.chart_create/export`。共享 validator 要求 `workbook_open` 必须 sole capability 且为 write/L3/approval/non-idempotent，并强制四类写能力的最低风险/审批/恢复级别；`range_write` 只接受 `value2` scalar literal 并拒绝公式形态文本。PR #802 checks 11/11 success，merge `c23e76b` / main CI `45115059165` success。
 > **TASK-392 Done（2026-11-23）**：首个 `com.microsoft.excel` Adapter safety shell pack 已落地。bundle 只声明 `XLMAIN` 主窗口与 `#32770` 模态框两个 provisional shell target，六类 Protected View / AutoSave / 冲突 / overwrite / links / macro interrupt 全部要求人工决策；tools 与 rollback 保持显式空数组，等待独立 capability ADR。PR #799 checks 11/11 success，merge `92024e8` / main CI `45101893667` success。
@@ -452,6 +455,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-11-23 TASK-395 Blocked/WIP：Excel T2.1 fake runtime + session registry + pure handlers。** 新增 test-only `ExcelT21Runtime`、opaque session registry、path/range/read-mode parser、canonical decimal、四个 handler 与 22 个 fake/负向测试；覆盖跨 task/ToolBus、TTL close 失败重试/capacity、共享全局 8-session、open ownership/identity/registry 失败清理、非原点 A1 与 worksheet 锚定、4096 cells / 256 KiB / 1024 worksheets / 2048 named ranges、unknown Excel error、fingerprint drift 与 signed summarize。`tools.json` 仍为空；`DRIFT-395-1` 阻塞生产 ToolBus 错误码桥。
 **2026-11-23 TASK-394 Done（Excel T2.1 read-only Tool contract）**：新增 ADR-0108 与 `excel-t21-readonly-workflow` spec，冻结 open + workbook/range read + summarize 四个 Tool、ToolBus-isolated reusable opaque session、dedicated STA 到达顺序线性化、262144-byte workbook bounds、4096-cell / 256-KiB range bounds、完整 ErrorCode 矩阵、repo 外 ownership journal 与独立 watchdog。独立 review 的 3 P1 + 3 P2 + 1 P3 已全部关闭；docs-only 变更，`tools.json` 仍为空。PR #806 checks 11/11 success，merge `614062a` / main CI `45133625235` success。
 **2026-11-23 TASK-393 Done（Excel COM capability vocabulary ADR）**：新增 ADR-0107、七个 experimental `com.*` catalog ID、capability matrix v0.4、共享 Tool 风险下限与 Excel App Map 写语义。`workbook_open` 只能单独出现在 write/high/L3/approval/non-idempotent Tool；`range_write` 固定 `value2` scalar literal，拒绝 `=`/`+`/`-`/`@` 开头文本并要求写后 `.Formula` 证明。12 条 Python contract tests、workspace 587 xtask tests、clippy、deny 与全部文档门禁通过。PR #802 checks 11/11 success，merge `c23e76b` / main CI `45115059165` success。
 **2026-11-23 TASK-392 Done（Excel Adapter safety shell pack）**：新增 `adapters/com.microsoft.excel/**` 七键 bundle，只固定 `XLMAIN/Window` 与 `#32770/Window` shell/modal selector，不声明 cell/grid/row/column；Protected View、AutoSave/OneDrive、只读/占用、覆盖确认、更新链接与宏警告六类 interrupt 全部为 `ask_human`。专属 validator 读取 capability catalog，并以负向变异测试锁定空 tools/rollback 的 ADR 阻塞。PR #799 checks 11/11 success，merge `92024e8` / main CI `45101893667` success。

@@ -25,6 +25,9 @@ TASK-029 的 binary-layer Host 装配库。
   只消费一次且不会扩展成任务级或持久授权；
   显式传入 `--csv-output` + `--csv-base-url` 时，只在这六步全部提交后把 T5.1 三页 DOM
   规范化为固定 60 行 CSV。该模式仍不替代真实 Edge 验收。
+- TASK-395 提供 test-only 的 Excel T2.1 纯逻辑骨架：fake runtime、ToolBus-isolated
+  session registry、`.xlsx`/range/read-mode parser、workbook/range/cell bounds 与四个
+  handler 路径。它不会进入生产 assembly，也不代表 COM runner 或 Tool 已可用。
 
 ## 边界
 
@@ -72,6 +75,9 @@ TASK-029 的 binary-layer Host 装配库。
   当作已满足的能力。装配入口在非 Windows 目标上显式失败，避免 self-check 假阳性。
 - TASK-330 已能为 T5.1 三页 DOM 生成确定性的 60 行 CSV；真实 Edge 10/10、
   专用 profile 与外部 smoke 仍由 TASK-056 的人类在场会话负责。
+- Excel T2.1 的四个 handler 仍停留在 `#[cfg(test)]` 私有实现；`tools.json` 保持空。
+  生产桥接被 `DRIFT-395-1` 阻塞：现有公共 `ToolBusError` 不能无损表达 ADR-0108 的
+  `TargetAmbiguous`、`PlatformPermission` 等既有 `ErrorCode`。不得用其他错误码冒充。
 
 ## 相关文档
 
