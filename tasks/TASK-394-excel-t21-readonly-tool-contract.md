@@ -159,9 +159,10 @@ git diff --check
   按到达顺序线性化，task end / cleanup start / TTL expiry 后立即失效。
 - Stage 2 历史 TASK-392 排期行仍写“COM tools 等待 capability ADR”；按 ADR-0041
   不改历史条目正文，该状态已由 ADR-0107/0108、TASK-393/394 与 Stage 2 当前进度 supersede。
-- `PROCESS-TASK394-SHELL-MISUSE`：最终机器计数 **43** 次（主实现 26 + 独立 review 17），
-  均为 rollout 中显式 `shell="bash"` 的调用；未造成意外产品文件写入或外部副作用。
-  其中合并前 Review 记录冻结为 40，合并后只读状态/结构/门禁查询使最终值升为 43。
+- `PROCESS-TASK394-SHELL-MISUSE`：最终机器计数 **47** 次（主实现 30 + 独立 review 17），
+  均为 rollout 中显式 `shell` 非 `powershell`（`bash` / `powerspace`）的调用；
+  未造成意外产品文件写入或外部副作用。合并前 Review 记录为 40，Done closeout 记录为 43；
+  合并后一次 `powerspace` merge、两次只读 automation 查询与一次锁释放/暂存命令使最终值升为 47。
 
 ### 6. 更合理做法
 
