@@ -1,6 +1,6 @@
 # TASK-393 Excel COM/spreadsheet capability vocabulary ADR
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel Adapter　批次：3a　依赖：TASK-391、TASK-392、ADR-0104、ADR-0105、ADR-0106
 
 ---
@@ -184,7 +184,9 @@ git diff --check
 - `cargo run -p xtask -- memory-counts` → PASSED，0 error / 1 既有 paint archive warning。
 - `cargo run -p xtask -- check-ledger` → PASSED；PLAN / LEDGER 均为 2026-11-23。
 - `git diff --check` → PASSED。
-- PR checks、merge 与 post-merge main CI：Review PR 建立后回填。
+- PR checks、merge 与 post-merge main CI：PR #802 checks 11/11 success，pending 0 / failed 0，
+  `MERGEABLE` / `CLEAN`；merge `c23e76b8b64d5aea7959808f02808e5ec49a8bc4`；
+  post-merge main CI `45115059165` success。
 
 ### 4. DoD 逐条核对
 
@@ -195,15 +197,16 @@ git diff --check
 - [x] `com.execute/eval/invoke/macro/raw_dispatch`、`office.*` 与 `spreadsheet.*` 明确拒绝。
 - [x] Excel App Map、projection、README 与专属 validator 同步到“ADR 已解除、runner 待实现”。
 - [x] 专属 Python 12 条 catalog/safety 回归、workspace 与全部治理门禁通过。
-- [ ] PR checks、merge 与 post-merge main CI 回填。
+- [x] PR checks、merge 与 post-merge main CI 回填：PR #802 checks 11/11 success，
+  merge `c23e76b8b64d5aea7959808f02808e5ec49a8bc4`，main CI `45115059165` success。
 - [x] 零 COM/GUI/工作簿副作用，零新增依赖、公共 API、ToolSchema 或 runtime 改动。
 
 ### 5. 偏差
 
 - 无功能或契约 DRIFT。
-- `PROCESS-TASK393-SHELL-MISUSE`：累计 **71** 次 `shell="bash"` 误填（主实现 63 +
-  独立 review 8）；其中 61 次为主会话只读/build 查询，另 1 次是 `git commit` 写入本 PR
-  预期提交、1 次是 `gh pr create` 创建 PR #802；无意外文件或外部副作用。
+- `PROCESS-TASK393-SHELL-MISUSE`：最终累计 **77** 次 `shell="bash"` 误填（主实现 69 +
+  独立 review 8）；主会话 69 次中 67 次是只读/build 查询，1 次 `git commit` 写入本 PR
+  预期提交，1 次 `gh pr create` 创建 PR #802；无意外文件或外部副作用。
 - 首次 `memory-counts` 按预估写成 116 非空行，机器实测为 115；已按工具输出修正为 330 / 115。
 - 独立 review 发现两项 P1：open capability 可藏在 read Tool，且 range write 的
   formula/value2 语义冲突。已收紧 ADR/spec，并在共享 validator 中强制 open 的
