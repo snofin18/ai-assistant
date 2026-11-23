@@ -66,7 +66,9 @@
 > 真实 COM/GUI 与人类在场 `.xlsx` 验收仍待后续。
 > round 3 已再次核验 `automation-rounds` PASSED（`next_round=3` / `N_auto=2`）；TASK-395
 > 仍由 `DRIFT-395-1` 的公共 ToolBus 错误码桥阻塞。另新增 `DRIFT-395-2`：任务卡 write scope
-> 未包含本轮要求的 `docs/automations/2026-11-23-round-3.md`，报告草稿已撤回并等待人类裁决。
+> 未包含本轮要求的 `docs/automations/2026-11-23-round-3.md`，该报告未创建。状态/漂移证据
+> 已由 PR #815 merge `27761bb` / main CI `45218038608` success 合并；任务仍为 Blocked，等待
+> 人类裁决 `DRIFT-395-1` 与 `DRIFT-395-2`。
 
 ## In scope
 

@@ -286,3 +286,30 @@ git diff --check
   diff-check 均已实际运行并通过。draft PR #815 的 22 个 checks 为 **21 pass + 1 skipped**，
   pending 0 / failed 0，GitHub `mergeStateStatus=CLEAN`；因 `DRIFT-395-2` 未裁决，本轮不提交
   round 3 报告、不合并，也不自删 automation。
+
+### 12. 2026-11-24 00:30 round 3 merge evidence
+
+- `automation-rounds --run-date 2026-11-23` 再次给出 PASSED：`existing=2`、`next_round=3`、
+  `N_auto=2`、`missing_after_latest_human=0`，未触发 `N_auto > 5` 闸门。
+- 既有 draft PR #815 的五个变更文件全部位于本卡 write scope；它只记录 round 3 scope drift
+  与 status evidence，不包含 `docs/automations/2026-11-23-round-3.md`，也不包含产品代码。
+  因此将这份可合并 WIP 独立于仍待裁决的报告路径合并，不改变 `DRIFT-395-2` 的结论。
+- PR #815 合并前 base=main，checks **22**：21 SUCCESS + 1 SKIPPED，pending 0 / failed 0，
+  `MERGEABLE` / `CLEAN`；显式 squash merge 为
+  `27761bb61151baeda8b74811249220b6cb2a585b`。
+- Post-merge main CI `45218038608` success；`check (windows-latest)`、`check (ubuntu-latest)`、
+  `check (macos-latest)`、cargo deny、desktop UI、schema/codegen、hygiene、arch、coverage、
+  replay 与 check-ledger 均通过，commitlint 按平台条件 skipped。
+- 本次复核专项 **22 passed / 0 failed**；`cargo fmt --all --check`、clippy、workspace tests、
+  arch tests、schema/codegen、hygiene、card-check、docscan、refscan、memory-counts、
+  check-ledger、adr-index、`cargo deny check` 与 `git diff --check` 均 exit 0。
+- `adapters/com.microsoft.excel/tools/tools.json` 仍为 `tools: []`；未改产品代码、
+  `adapters/**`、`protocol/**`、公开 API/schema 或依赖，未启动 Excel/COM/GUI。
+- 本槽 8 次只读检索误填 `shell="bash"`，均由项目 hook 实际重写为 Windows PowerShell 执行；
+  按既有口径累计 **79** 次（主实现 59 + review 20），无意外写入或外部副作用。
+- TASK-395 仍为 **Blocked**：`DRIFT-395-1` 必须由人类裁决公共 ToolBus 错误码桥；
+  `DRIFT-395-2` 仍禁止在未扩展 scope 时新增 round 3 报告。本次仅合并状态/漂移证据，
+  不代表四 Tool 或真实 COM runner 已可生产注册。
+- **PROCESS-TASK395-GUARD-SKIPPED**：shell 计数从 7/78 更正为 8/79 时，先写入了
+  `LEDGER.md`、后补 guard；发现后立即重新 acquire/release 并在本卡留痕。期间无并发写入，
+  后续公共热点文件仍须严格先 acquire 后写。
