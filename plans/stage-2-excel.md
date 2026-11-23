@@ -61,8 +61,9 @@
 > TASK-395 已创建并推进到 **Blocked / WIP**：test-only fake runtime、session registry、
 > path/range/read-mode parser、四个纯逻辑 handler 与 22 个负向测试已落地；tools.json 仍为空。
 > `DRIFT-395-1` 阻塞 ToolBus 包装：现有公共错误枚举无法无损表达 ADR-0108 的全部 ErrorCode。
-> round 2 已补齐 round 1 缺失的显式自动机制声明并保留 blocked evidence；未改产品代码或
-> `tools.json`，真实 COM/GUI 与人类在场 `.xlsx` 验收仍待后续。
+> round 2 已补齐 round 1 缺失的显式自动机制声明；PR #813 merge `3204f0a` / main CI
+> `45170894012` success，`automation-rounds` 恢复 PASSED。未改产品代码或 `tools.json`，
+> 真实 COM/GUI 与人类在场 `.xlsx` 验收仍待后续。
 
 ## In scope
 
