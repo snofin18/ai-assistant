@@ -118,6 +118,8 @@ git diff --check
 - `apps/agent-core/src/excel_t21_model.rs`：类型、path/range/mode parser、session registry。
 - `apps/agent-core/src/excel_t21_handlers.rs`：四个纯逻辑 handler、规范化、bounds、汇总。
 - `apps/agent-core/src/excel_t21_tests.rs`：22 个 fake/负向测试。
+- `apps/agent-core/src/excel_t21_tests.rs` / `excel_t21_model.rs`：Ubuntu CI 夹具改为
+  `CARGO_MANIFEST_DIR` 下的平台无关绝对路径；四个 Excel 文件行数为 898/900/900/900。
 - `apps/agent-core/README.md`：职责与已知限制。
 - 本卡、Stage 2、PLAN、README、LEDGER 与 `docs/automations/2026-11-23-round-1.md`。
 - `adapters/com.microsoft.excel/tools/tools.json` 保持 `tools: []`，未修改。
@@ -137,6 +139,9 @@ git diff --check
   `Atomic::<usize>::fetch_update` 失败；已改为手写 `compare_exchange_weak` 循环并派生
   `SessionCapacity` 的 `Default`。本地专项测试复跑 **22 passed / 0 failed**，文件 **898**
   行，`hygiene` 从 909 行硬上限失败恢复 PASSED；待新 CI 复跑回填。
+- 新 CI run `45152960267` / `45152951080` 的 Ubuntu 18 个 Excel 测试因 Windows 盘符
+  夹具失败；测试已改用 `CARGO_MANIFEST_DIR` 绝对路径，并继续用 `.xlsm`、`..`、ADS
+  形状验证拒绝路径。专项 22/22、clippy、workspace 与行数门禁本地通过。
 
 ### 4. DoD 逐条核对
 
@@ -171,6 +176,9 @@ git diff --check
   后续从发现起全部显式使用 `shell="powershell"`。
 - **PROCESS-TASK395-SHELL-MISUSE 追加**：恢复处理 CI 后主实现又误填 1 次 `shell="bash"`
   做空行统计；该命令只读，最终计数待关闭前机器重算。
+- **PROCESS-TASK395-SHELL-MISUSE 再次追加**：处理 Ubuntu 夹具期间又有 2 次只读
+  `shell="bash"`（状态查询与专项测试），均由 hook 重写为 PowerShell 执行；最终计数待关闭前
+  机器重算。
 - **PROCESS-TASK395-GUARD-SKIPPED**：公共热点文件最初在 `.automation.lock` 下直接写入，
   未先逐个执行项目级 `xtask guard acquire`；提交前已对 `LEDGER.md`、`PLAN.md`、
   `README.md`、`plans/stage-2-excel.md` 补做 acquire/release 复核并全部成功。本轮没有并发

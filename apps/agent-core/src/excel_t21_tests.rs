@@ -8,6 +8,8 @@ use serde_json::{Value, json};
 use super::handlers::runtime_cell;
 use super::*;
 
+const TEST_WORKBOOK_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/book.xlsx");
+
 fn test_text_cells_2x2() -> Vec<RuntimeCell> {
     vec![
         runtime_cell(1, 1, CellValueType::Text, "a"),
@@ -33,7 +35,7 @@ fn open_fixture() -> Result<
     let opened = handlers.open(
         &call,
         &arguments(json!({
-            "workbook_path":"C:\\data\\book.xlsx",
+            "workbook_path":TEST_WORKBOOK_PATH,
             "read_only":true
         }))?,
     )?;
@@ -366,7 +368,7 @@ fn test_handler_ttl_expiry_closes_runtime_handle() -> Result<(), ExcelT21Error> 
     let opened = handlers.open(
         &call,
         &arguments(json!({
-            "workbook_path":"C:\\data\\book.xlsx",
+            "workbook_path":TEST_WORKBOOK_PATH,
             "read_only":true
         }))?,
     )?;
@@ -396,7 +398,7 @@ fn test_failed_expiry_close_retains_handle_and_capacity_for_retry() -> Result<()
     let opened = handlers.open(
         &call,
         &arguments(json!({
-            "workbook_path":"C:\\data\\book.xlsx",
+            "workbook_path":TEST_WORKBOOK_PATH,
             "read_only":true
         }))?,
     )?;
@@ -435,7 +437,7 @@ fn test_open_registry_rejection_closes_new_fake_workbook() -> Result<(), ExcelT2
         handlers.open(
             &call,
             &arguments(json!({
-                "workbook_path":"C:\\data\\book.xlsx",
+                "workbook_path":TEST_WORKBOOK_PATH,
                 "read_only":true
             }))?,
         )?;
@@ -446,7 +448,7 @@ fn test_open_registry_rejection_closes_new_fake_workbook() -> Result<(), ExcelT2
             .open(
                 &overflow_call,
                 &arguments(json!({
-                    "workbook_path":"C:\\data\\book.xlsx",
+                    "workbook_path":TEST_WORKBOOK_PATH,
                     "read_only":true
                 }))?,
             )
@@ -466,7 +468,7 @@ fn test_open_registry_rejection_closes_new_fake_workbook() -> Result<(), ExcelT2
 #[test]
 fn test_open_identity_and_ownership_failures_close_new_handle() -> Result<(), ExcelT21Error> {
     let runtime = Arc::new(FakeRuntime::default());
-    runtime.set_opened_identity_override(Some("C:\\data\\other.xlsx".to_owned()))?;
+    runtime.set_opened_identity_override(Some(format!("{TEST_WORKBOOK_PATH}.xlsx")))?;
     let (registry, _clock, _tokens) = test_registry("bus-a")?;
     let handlers = ExcelT21Handlers::new(Arc::clone(&runtime), registry);
     let call = test_context("bus-a", "task-a")?;
@@ -475,7 +477,7 @@ fn test_open_identity_and_ownership_failures_close_new_handle() -> Result<(), Ex
             .open(
                 &call,
                 &arguments(json!({
-                    "workbook_path":"C:\\data\\book.xlsx",
+                    "workbook_path":TEST_WORKBOOK_PATH,
                     "read_only":true
                 }))?,
             )
@@ -495,7 +497,7 @@ fn test_open_identity_and_ownership_failures_close_new_handle() -> Result<(), Ex
             .open(
                 &call,
                 &arguments(json!({
-                    "workbook_path":"C:\\data\\book.xlsx",
+                    "workbook_path":TEST_WORKBOOK_PATH,
                     "read_only":true
                 }))?,
             )
@@ -520,7 +522,7 @@ fn test_open_rejects_false_read_only_and_runtime_existing_process() -> Result<()
             .open(
                 &call,
                 &arguments(json!({
-                    "workbook_path":"C:\\data\\book.xlsx",
+                    "workbook_path":TEST_WORKBOOK_PATH,
                     "read_only":false
                 }))?,
             )
@@ -538,7 +540,7 @@ fn test_open_rejects_false_read_only_and_runtime_existing_process() -> Result<()
             .open(
                 &call,
                 &arguments(json!({
-                    "workbook_path":"C:\\data\\book.xlsx",
+                    "workbook_path":TEST_WORKBOOK_PATH,
                     "read_only":true
                 }))?,
             )
@@ -687,7 +689,7 @@ fn test_range_handlers_reject_shape_unknown_errors_and_no_numbers() -> Result<()
     let opened = handlers.open(
         &call,
         &arguments(json!({
-            "workbook_path":"C:\\data\\book.xlsx",
+            "workbook_path":TEST_WORKBOOK_PATH,
             "read_only":true
         }))?,
     )?;
@@ -806,13 +808,13 @@ fn test_workbook_read_rejects_worksheet_and_named_range_bounds() -> Result<(), E
     let opened = handlers.open(
         &call,
         &arguments(json!({
-            "workbook_path":"C:\\data\\book.xlsx",
+            "workbook_path":TEST_WORKBOOK_PATH,
             "read_only":true
         }))?,
     )?;
     let token = token_from(&opened)?;
     let workbook = WorkbookIdentity {
-        full_path: "C:\\data\\book.xlsx".to_owned(),
+        full_path: TEST_WORKBOOK_PATH.to_owned(),
         read_only: true,
     };
     let worksheets = (1..=MAX_WORKSHEETS + 1)

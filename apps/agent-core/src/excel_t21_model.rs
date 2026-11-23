@@ -877,16 +877,16 @@ fn validate_worksheets(worksheets: &[WorksheetInfo]) -> Result<(), ExcelT21Error
 #[test]
 fn test_workbook_path_parser_rejects_non_local_or_non_xlsx_shapes() -> Result<(), ExcelT21Error> {
     assert_eq!(
-        parse_workbook_path("C:\\data\\book.xlsx")?,
-        PathBuf::from("C:\\data\\book.xlsx")
+        parse_workbook_path(concat!(env!("CARGO_MANIFEST_DIR"), "/book.xlsx"))?,
+        PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/book.xlsx"))
     );
     for invalid in [
         "book.xlsx",
         "\\\\server\\share\\book.xlsx",
         "https://example.com/book.xlsx",
-        "C:\\data\\book.xlsm",
-        "C:\\data\\..\\book.xlsx",
-        "C:\\data\\book.xlsx:stream",
+        concat!(env!("CARGO_MANIFEST_DIR"), "/book.xlsm"),
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../book.xlsx"),
+        concat!(env!("CARGO_MANIFEST_DIR"), "/book.xlsx:stream"),
     ] {
         assert_eq!(
             parse_workbook_path(invalid)
