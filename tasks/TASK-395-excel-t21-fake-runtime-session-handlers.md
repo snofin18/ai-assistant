@@ -193,6 +193,12 @@ git diff --check
 - **PROCESS-TASK395-SHELL-MISUSE 关闭后纠正**：closeout PR 加标签与切换纠正分支期间又有
   2 次只读 `shell="bash"`；最终权威机器重算为主实现 **39** 次 + 独立 review **20** 次，
   合计 **59** 次，`[supersedes:2026-11-23]` 上一行 57 次。
+- **PROCESS-TASK395-SHELL-MISUSE 最终冻结**：后续工作树状态审计与最终状态检查共有 4 次
+  只读 `shell="bash"`；最终权威机器重算为主实现 **43** 次 + 独立 review **20** 次，合计
+  **63** 次，`[supersedes:2026-11-23]` 上一行 59 次。
+- **PROCESS-TASK395-GUARD-CONTENTION**：19:30 automation 并发持有 `LEDGER.md` guard；
+  本会话 acquire 等待后以 exit 5 放弃，未 `--force`。对方释放后已重新 acquire；本卡在
+  LEDGER 追加本行作为 ADR-0028 D5 ④ 要求的放弃通报。
 - **PROCESS-TASK395-GUARD-SKIPPED**：公共热点文件最初在 `.automation.lock` 下直接写入，
   未先逐个执行项目级 `xtask guard acquire`；提交前已对 `LEDGER.md`、`PLAN.md`、
   `README.md`、`plans/stage-2-excel.md` 补做 acquire/release 复核并全部成功。本轮没有并发
