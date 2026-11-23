@@ -283,4 +283,6 @@ git diff --check
 - 本轮 8 次只读检索误填 `shell="bash"`，均由项目 hook 实际重写为 Windows PowerShell 执行；
   按既有口径累计 **71** 次（主实现 51 + review 20），无意外写入或外部副作用。
 - 本地专项为 **22 passed / 0 failed**；workspace、arch、schema/codegen、文档门禁、deny 与
-  diff-check 均已实际运行并通过。因 `DRIFT-395-2` 未裁决，本轮不提交 round 3 报告、不合并。
+  diff-check 均已实际运行并通过。draft PR #815 的 22 个 checks 为 **21 pass + 1 skipped**，
+  pending 0 / failed 0，GitHub `mergeStateStatus=CLEAN`；因 `DRIFT-395-2` 未裁决，本轮不提交
+  round 3 报告、不合并，也不自删 automation。
