@@ -55,8 +55,9 @@
 > TASK-393 已完成 **Done**：ADR-0107 冻结七个 experimental `com.*` capability、风险下限与
 > T2.1-T2.3 消费边界；共享 validator 强制 open sole-capability 与四类 write floor。
 > PR #802 checks 11/11 success，merge `c23e76b` / main CI `45115059165` success。
-> TASK-394 正在 **Review**：ADR-0108 已冻结 T2.1 四个 Tool、opaque session、4096 cells /
-> 256 KiB bounds 与 task-end cleanup；实现前 tools.json 仍为空，真实 COM/GUI 未执行。
+> TASK-394 已完成 **Done**：ADR-0108 冻结 T2.1 四个 Tool、ToolBus-isolated opaque session、
+> 4096 cells / 256 KiB bounds、独立 watchdog 与 task-end cleanup；实现前 tools.json 保持空，
+> 真实 COM/GUI 未执行。PR #806 checks 11/11 success，merge `614062a` / main CI `45133625235` success。
 
 ## In scope
 
@@ -104,7 +105,7 @@
 | 2 | 待派单 | Windows platform | dispatch 时创建 | 未开始（COM apartment/生命周期/回收与负向测试） |
 | 3 | **TASK-392 ✅** | Excel Adapter | `tasks/TASK-392-excel-adapter-safety-pack.md` | Done（safety shell bundle + Protected View/AutoSave/interrupts；2 shell targets / 6 interrupts；COM tools 等待 capability ADR；PR #799 merge `92024e8`；main CI `45101893667` success） |
 | 3a | **TASK-393 ✅** | 架构/治理 | `tasks/TASK-393-excel-com-capability-vocabulary.md` | Done（七个 experimental `com.*` capability ADR；open sole-capability + 四类 write floor；PR #802 merge `c23e76b`；main CI `45115059165` success） |
-| 3b | **TASK-394** | Excel T2.1 contract | `tasks/TASK-394-excel-t21-readonly-tool-contract.md` | Review（四 Tool、task-scoped session、4096 cells / 256 KiB、ownership/cleanup；实现前 tools.json 保持空） |
+| 3b | **TASK-394 ✅** | Excel T2.1 contract | `tasks/TASK-394-excel-t21-readonly-tool-contract.md` | Done（四 Tool、ToolBus-isolated session、4096 cells / 256 KiB、ownership/watchdog/cleanup；PR #806 merge `614062a`；main CI `45133625235` success） |
 | 4 | 待派单 | Excel T2.1 | dispatch 时创建 | 未开始（打开工作簿/读取命名区域/汇总，只读） |
 | 5 | 待派单 | Undo/L1 | dispatch 时创建 | 未开始（文件影子副本 + 值快照 + 冲突检测） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |

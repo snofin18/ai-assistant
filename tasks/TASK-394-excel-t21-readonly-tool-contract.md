@@ -1,6 +1,6 @@
 # TASK-394 Excel T2.1 read-only tool contract
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel T2.1　批次：3b　依赖：TASK-393、ADR-0104、ADR-0105、ADR-0107
 
 ---
@@ -127,7 +127,8 @@ git diff --check
 - `git diff --check` → PASSED。
 - 独立 review `Hume`（`01a20742-4c5e-7cb2-b61c-492795576fac`）：无 P0；3 个 P1、3 个 P2 与
   1 个 P3 均已在 ADR/spec/执行记录中处理。
-- PR checks、merge 与 post-merge main CI：Review PR 建立后回填。
+- PR #806 checks **11/11 success**，pending 0 / failed 0，base=main，`MERGEABLE` / `CLEAN`；
+  merge `614062a8ea8717fab100853516ab11f67a9b15e0`；post-merge main CI `45133625235` success。
 
 ### 4. DoD 逐条核对
 
@@ -136,7 +137,7 @@ git diff --check
 - [x] 三个 read Tool 的 `none_readonly`、state_unchanged 与 bounded payload 契约完整。
 - [x] `.xlsx` 只读打开、无既有进程、无 session 泄漏、无未保存工作簿写入的真机门禁写清。
 - [x] capability-matrix、decisions、ADR 索引与 Stage 2 同步。
-- [ ] 文档门禁、PR、merge 与 post-merge main CI 回填。
+- [x] 文档门禁、PR、merge 与 post-merge main CI 回填。
 - [x] protocol/adapters/Rust/TS 产品代码与依赖零差异。
 
 ### 5. 偏差
@@ -158,8 +159,9 @@ git diff --check
   按到达顺序线性化，task end / cleanup start / TTL expiry 后立即失效。
 - Stage 2 历史 TASK-392 排期行仍写“COM tools 等待 capability ADR”；按 ADR-0041
   不改历史条目正文，该状态已由 ADR-0107/0108、TASK-393/394 与 Stage 2 当前进度 supersede。
-- `PROCESS-TASK394-SHELL-MISUSE`：最终机器计数 **40** 次（主实现 23 + 独立 review 17），
+- `PROCESS-TASK394-SHELL-MISUSE`：最终机器计数 **43** 次（主实现 26 + 独立 review 17），
   均为 rollout 中显式 `shell="bash"` 的调用；未造成意外产品文件写入或外部副作用。
+  其中合并前 Review 记录冻结为 40，合并后只读状态/结构/门禁查询使最终值升为 43。
 
 ### 6. 更合理做法
 
@@ -185,4 +187,4 @@ git diff --check
 - 重点检查 open Tool 是否仍保持 sole capability 与 L3 approval。
 - read Tool 已由独立 review 检查：不能隐藏 open/写入，token 不能跨 task/跨 ToolBus 复用。
 - 4096 cells / 256 KiB、workbook read bounds、完整错误矩阵与 task-end watchdog cleanup
-  已补齐；合并前仍需最终 PR checks 与 merge state 回填。
+  已补齐；PR checks、merge state 与 post-merge main CI 已全部回填。
