@@ -260,3 +260,27 @@ git diff --check
   post-merge main CI `45170894012` success。
 - 合并后 `automation-rounds` 为 PASSED：`existing=2`、`next_round=3`、`N_auto=2`、
   `missing_after_latest_human=0`。任务仍因 `DRIFT-395-1` 保持 Blocked。
+
+### 11. 2026-11-23 round 3 复核
+
+- `automation-rounds --run-date 2026-11-23` 给出 `existing=2`、`next_round=3`、
+  `N_auto=2`、`missing_after_latest_human=0`，verdict PASSED。
+- 当前 Stage 2 无新的 Ready/InProgress 卡；TASK-395 仍因 `DRIFT-395-1` 阻塞。本轮继续同一张卡，
+  只核验既有 WIP，不重复建卡。
+- **DRIFT-395-2**
+  - 现象：automation prompt 要求新增 `docs/automations/2026-11-23-round-3.md` 并同步多项状态，
+    但本卡 `write scope` 只列出 `docs/automations/2026-11-23-round-1.md`；独立 review 判定新增
+    round 3 报告属于 scope 外。
+  - 影响：若直接提交该报告，会把 automation 指令置于卡正文 write scope 之上，违反铁律 9 和
+    AGENTS 的 DRIFT 触发器 ⑤。
+  - 建议：由人类裁决是否授权 automation 轮次报告路径与状态同步文件，或先正式扩展本卡 scope；
+    裁决前不合并 round 3 报告。
+  - 已停工作：已删除未提交的 round 3 报告草稿；未改产品代码、公共 API/schema、依赖或
+    `tools.json`，未注册生产 ToolBus，未启动 Excel/COM/GUI。
+- 未修改产品代码、`adapters/**`、`protocol/**`、公共 API/schema、依赖或测试断言；未注册生产
+  ToolBus，未启动 Excel/COM/GUI，未读取真实 `.xlsx`。
+- `adapters/com.microsoft.excel/tools/tools.json` 仍为 `tools: []`；TASK-395 仍为 Blocked。
+- 本轮 6 次只读检索误填 `shell="bash"`，均由项目 hook 实际重写为 Windows PowerShell 执行；
+  按既有口径累计 **69** 次（主实现 49 + review 20），无意外写入或外部副作用。
+- 本地专项为 **22 passed / 0 failed**；workspace、arch、schema/codegen、文档门禁、deny 与
+  diff-check 均已实际运行并通过。因 `DRIFT-395-2` 未裁决，本轮不提交 round 3 报告、不合并。
