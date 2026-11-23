@@ -1,6 +1,6 @@
 # TASK-396 2026-11-23 自动化运行日收口
 
-- 状态：InProgress
+- 状态：Done
 - 阶段：2　子阶段：2b Automation evidence　批次：治理池　依赖：TASK-395（Blocked/WIP）、ADR-0039、ADR-0041
 - 本文文件 = 卡片正文 + 执行记录（ADR-0031「一卡一文件」）
 
@@ -104,7 +104,7 @@ git diff --check
 - `docs/automations/2026-11-23-round-3.md`：记录 final slot 的机器轮次、范围裁决、门禁与安全边界。
 - `docs/automations/2026-11-23-report.md`：汇总运行日 5 个真实槽位、GitHub 证据与剩余阻塞。
 - `LEDGER.md`：追加本轮 pending 事件。
-- `plans/stage-2-excel.md`、`PLAN.md`、`README.md`：待本卡 Done 后仅同步允许的完成标记与状态块。
+- `plans/stage-2-excel.md`、`PLAN.md`、`README.md`：仅同步允许的完成标记与状态块。
 
 ### 3. 验收输出摘要
 
@@ -130,16 +130,15 @@ git diff --check
 - [x] round 3 与运行日报告依据真实 JSONL、GitHub 元数据和本轮门禁输出生成。
 - [x] TASK-395 的 Blocked 状态与两个 DRIFT 被如实披露，未被报告动作解锁。
 - [x] 产品代码、schema、API、依赖与 `tools.json` 零差异。
-- [ ] 公共热点文件逐个 guard acquire/release；`LEDGER.md` 已完成并补记两次 guard-skipped
-  偏差，其余 Done 同步文件待 closeout。
+- [x] 公共热点文件逐个 guard acquire/release；已补记两次 guard-skipped 偏差。
 - [x] 验收命令全部真实执行并记录关键输出；`git diff --check` 待提交前最终复跑。
-- [ ] PR checks、merge 与 post-merge main CI 回填后关闭本卡。
+- [x] evidence PR #817 checks、merge 与 post-merge main CI 已回填；closeout PR 负责最终 Done 同步。
 
 ### 5. 偏差
 
-- `PROCESS-ROUND3-SHELL-MISUSE`：本轮有 6 次只读证据查询误填 `shell="bash"`，项目 hook
+- `PROCESS-ROUND3-SHELL-MISUSE`：本轮有 10 次只读证据查询误填 `shell="bash"`，项目 hook
   实际以 Windows PowerShell 执行，无仓库写入或外部副作用。此前冻结累计值为 79，本轮后
-  运行日累计为 85。
+  运行日累计为 90。
 - `PROCESS-TASK396-GUARD-SKIPPED`：修正 shell 计数时，`LEDGER.md` 两次在上一批追加后已
   释放 guard 的情况下被直接改写。两次发现后都立即重新 acquire/release 复盘；期间没有并发
   写入证据。
@@ -171,3 +170,15 @@ git diff --check
 - 核对运行日报告是否把 22:00 / 00:30 的实际日志与 `next_round=3` 的机器结论分别陈述。
 - 核对 PR 合并后状态同步只改 Stage 2 完成标记 / 当前进度、`PLAN.md` 四行、README 三处和
   `LEDGER.md` 追加行。
+
+### 10. 2026-11-24 closeout evidence
+
+- `automation-rounds --run-date 2026-11-23` 保持 PASSED：`next_round=3`、`N_auto=2`、
+  `missing_after_latest_human=0`。
+- evidence PR #817 base=main，checks 22：21 SUCCESS + 1 SKIPPED，pending 0 / failed 0，
+  `MERGEABLE` / `CLEAN`；merge `ed1c177104aedfe7724c14eb1b99216374082cdd`。
+- post-merge main CI `45249757927` success；Windows / Ubuntu / macOS 与其余必要 checks 均通过。
+- 合并后 `automation-rounds --run-date 2026-11-23`：`existing=3`、`next_round=4`、
+  `N_auto=3`、`missing_after_latest_human=0`、PASSED。
+- 本 closeout PR 仅同步 TASK-396 Done、Stage 2 完成标记/当前进度、`PLAN.md` 允许状态行、
+  README 三处与 `LEDGER.md` 追加行；不改产品代码或 `tools.json`。
