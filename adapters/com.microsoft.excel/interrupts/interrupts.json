@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "app_id": "com.microsoft.excel",
+  "default_action": "cancel",
+  "interrupts": [
+    {
+      "id": "protected-view",
+      "priority": 600,
+      "match": {
+        "class_name": "XLMAIN",
+        "title_candidates": [
+          {"value": "PROTECTED VIEW", "locale_dependent": true},
+          {"value": "受保护的视图", "locale_dependent": true}
+        ]
+      },
+      "action": {"kind": "ask_human"},
+      "classification": "consent_dialog",
+      "requires_human": true,
+      "resume_after": "user_decision",
+      "notes": [
+        "Enabling editing is a human security decision and must never be automated.",
+        "The adapter must fail closed instead of probing workbook contents through another channel.",
+        "The match is provisional until a real Protected View scenario is observed."
+      ]
+    },
+    {
+      "id": "autosave-network-conflict",
+      "priority": 500,
+      "match": {
+        "class_name": "XLMAIN",
+        "title_candidates": [
+          {"value": "AutoSave Conflict", "locale_dependent": true},
+          {"value": "自动保存冲突", "locale_dependent": true},
+          {"value": "Upload Failed", "locale_dependent": true},
+          {"value": "上传失败", "locale_dependent": true}
+        ]
+      },
+      "action": {"kind": "ask_human"},
+      "classification": "unsupported_network_feature",
+      "requires_human": true,
+      "resume_after": "user_decision",
+      "notes": [
+        "AutoSave or cloud conflict state must be resolved by the user before any write.",
+        "This condition is provisional until a real workbook scenario is observed."
+      ]
+    },
+    {
+      "id": "read-only-or-occupied",
+      "priority": 400,
+      "match": {
+        "class_name": "#32770",
+        "title_candidates": [
+          {"value": "Read-Only", "locale_dependent": true},
+          {"value": "只读", "locale_dependent": true},
+          {"value": "File in Use", "locale_dependent": true},
+          {"value": "文件正在使用", "locale_dependent": true}
+        ]
+      },
+      "action": {"kind": "ask_human"},
+      "classification": "consent_dialog",
+      "requires_human": true,
+      "resume_after": "user_decision",
+      "notes": [
+        "Never choose read-only recovery, notify, or overwrite options automatically.",
+        "The match is provisional until a real read-only or occupied-file scenario is observed."
+      ]
+    },
+    {
+      "id": "overwrite-confirmation",
+      "priority": 350,
+      "match": {
+        "class_name": "#32770",
+        "title_candidates": [
+          {"value": "Confirm Save As", "locale_dependent": true},
+          {"value": "另存为确认", "locale_dependent": true}
+        ]
+      },
+      "action": {"kind": "ask_human"},
+      "classification": "overwrite_confirmation",
+      "requires_human": true,
+      "resume_after": "user_decision",
+      "notes": [
+        "Replace must never be chosen automatically; preserve the existing file until the human decides.",
+        "The match is provisional until a real overwrite scenario is observed."
+      ]
+    },
+    {
+      "id": "update-links",
+      "priority": 300,
+      "match": {
+        "class_name": "#32770",
+        "title_candidates": [
+          {"value": "Update Links", "locale_dependent": true},
+          {"value": "更新链接", "locale_dependent": true}
+        ]
+      },
+      "action": {"kind": "ask_human"},
+      "classification": "consent_dialog",
+      "requires_human": true,
+      "resume_after": "user_decision",
+      "notes": [
+        "Do not update or suppress external links automatically.",
+        "The match is provisional until a real update-links scenario is observed."
+      ]
+    },
+    {
+      "id": "macro-warning",
+      "priority": 200,
+      "match": {
+        "class_name": "#32770",
+        "title_candidates": [
+          {"value": "Security Warning", "locale_dependent": true},
+          {"value": "安全警告", "locale_dependent": true}
+        ]
+      },
+      "action": {"kind": "ask_human"},
+      "classification": "consent_dialog",
+      "requires_human": true,
+      "resume_after": "user_decision",
+      "notes": [
+        "Macros and active content are never enabled by automation.",
+        "The match is provisional until a real macro-warning scenario is observed."
+      ]
+    }
+  ]
+}

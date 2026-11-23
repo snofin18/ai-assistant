@@ -1,0 +1,236 @@
+{
+  "schema_version": 1,
+  "app_id": "com.microsoft.excel",
+  "version_range": ">=16.0 <17",
+  "identity": {
+    "display_name": "Microsoft Excel",
+    "prog_id": "Excel.Application",
+    "executable": "EXCEL.EXE",
+    "process_model": "native_office_com_server",
+    "workbook_identity": [
+      "full_path",
+      "unsaved_workbook_identity"
+    ],
+    "worksheet_identity": [
+      "name",
+      "stable_ordinal"
+    ]
+  },
+  "projection_manifest": {
+    "model": "core_app_map_v1",
+    "entries": [
+      {
+        "id": "connection_boundary",
+        "title": "COM connection boundary",
+        "content": "Use Excel.Application through an isolated COM instance only when no EXCEL.EXE is already running. Record PID, Application.Hwnd, start time, executable path, and release all COM objects on the creating STA thread.",
+        "source_reference": "bundle:app_map#/connection",
+        "token_estimate": 53
+      },
+      {
+        "id": "data_semantics",
+        "title": "Excel range data semantics",
+        "content": "For every Range, declare value2, formula, or text explicitly. Value2 is the numeric or calculated value, Formula preserves the expression, and Text is display text; never compare an unnamed cell value.",
+        "source_reference": "bundle:app_map#/value_semantics",
+        "token_estimate": 51
+      },
+      {
+        "id": "identity",
+        "title": "Excel identity",
+        "content": "Excel Adapter app_id is com.microsoft.excel. Resolve workbook identity by full path or unsaved identity, then worksheet identity by name or stable ordinal; never reuse an existing user Excel process.",
+        "source_reference": "bundle:app_map#/identity",
+        "token_estimate": 50
+      },
+      {
+        "id": "interrupt_boundary",
+        "title": "Excel human interrupt boundary",
+        "content": "Protected View, AutoSave or OneDrive conflicts, read-only or occupied files, overwrite confirmation, update links, and macro warnings require explicit human handling. Never enable editing or choose Save, Discard, Replace, Update, or Accept automatically.",
+        "source_reference": "bundle:app_map#/interrupt_policy",
+        "token_estimate": 64
+      },
+      {
+        "id": "known_pitfalls",
+        "title": "Known Excel pitfalls",
+        "content": "COM writes do not populate the Excel undo stack. DisplayAlerts=false is forbidden. Named ranges are preferred over A1 references. Excel grid UIA is virtualized and must not be used for bulk data reads.",
+        "source_reference": "bundle:app_map#/known_pitfalls",
+        "token_estimate": 51
+      },
+      {
+        "id": "safety_boundaries",
+        "title": "Excel safety shell boundary",
+        "content": "This pack declares zero model-visible tools until spreadsheet or COM capability IDs receive an ADR. It must never be presented as a runnable Excel COM adapter.",
+        "source_reference": "bundle:app_map#/safety_boundaries",
+        "token_estimate": 40
+      },
+      {
+        "id": "shell_selectors",
+        "title": "Excel UIA shell selectors",
+        "content": "Only Excel shell and modal boundaries use UIA: the XLMAIN window and #32770 dialogs. Cell, row, column, grid, and bulk-range traversal remain on COM.",
+        "source_reference": "bundle:selectors#/targets/0",
+        "token_estimate": 38
+      },
+      {
+        "id": "target_identity",
+        "title": "Workbook and worksheet identity",
+        "content": "A target descriptor must include workbook and worksheet identity. Prefer named ranges; A1 references are explicit fallbacks only. Do not let row or column insertion silently retarget a write.",
+        "source_reference": "bundle:app_map#/target_identity",
+        "token_estimate": 48
+      },
+      {
+        "id": "undo_capability",
+        "title": "Excel undo capability",
+        "content": "Programmatic COM changes are not Excel undo steps. Every write requires an L1 value snapshot plus a file shadow copy and conflict detection before save; Excel Application.Undo is not a recovery guarantee.",
+        "source_reference": "bundle:app_map#/undo_capability",
+        "token_estimate": 51
+      }
+    ],
+    "omissions": [
+      {
+        "source_reference": "bundle:app_map#/commands",
+        "reason": "Commands are executable shortcut declarations and do not enter the core memory projection."
+      },
+      {
+        "source_reference": "bundle:app_map#/ui_map",
+        "reason": "UI map entries support selector inspection and remain in the rich App Map."
+      },
+      {
+        "source_reference": "bundle:app_map#/workflows",
+        "reason": "Workflow declarations belong to later T2.1-T2.3 package cards."
+      },
+      {
+        "source_reference": "bundle:app_map#/state_machine",
+        "reason": "Executable state transitions remain in the rich App Map and are not copied into core memory."
+      }
+    ]
+  },
+  "connection": {
+    "channel": "L1_COM",
+    "prog_id": "Excel.Application",
+    "instance_policy": "create_isolated_instance_only",
+    "existing_process_policy": "fail_closed",
+    "ownership_evidence": [
+      "pid",
+      "application_hwnd",
+      "process_start_time",
+      "executable_path"
+    ],
+    "release_thread": "creating_sta_thread",
+    "requires_journal": true,
+    "requires_watchdog": true
+  },
+  "target_identity": {
+    "minimum_scope": [
+      "workbook",
+      "worksheet"
+    ],
+    "reference_priority": [
+      "named_range",
+      "explicit_a1_fallback"
+    ],
+    "workbook_identity": [
+      "full_path",
+      "unsaved_workbook_identity"
+    ],
+    "worksheet_identity": [
+      "name",
+      "stable_ordinal"
+    ],
+    "reject_unscoped_range": true
+  },
+  "value_semantics": {
+    "allowed_read_modes": [
+      "value2",
+      "formula",
+      "text"
+    ],
+    "default_read_mode": null,
+    "postcondition_mode_must_match_request": true,
+    "mixed_mode_comparison_forbidden": true
+  },
+  "commands": [],
+  "ui_map": [
+    {
+      "target": "main_window",
+      "role": "Window",
+      "class_name": "XLMAIN",
+      "supports": [
+        "inspect",
+        "foreground"
+      ],
+      "probe_status": "required",
+      "notes": "Used only for shell and interrupt inspection; grid content remains COM-owned."
+    },
+    {
+      "target": "modal_dialog",
+      "role": "Window",
+      "class_name": "#32770",
+      "supports": [
+        "inspect"
+      ],
+      "probe_status": "required",
+      "notes": "Generic dialog shell; the runtime must also bind it to the owned Excel process identity, match the specific interrupt, and require human handling."
+    }
+  ],
+  "workflows": [],
+  "known_pitfalls": [
+    "COM programmatic changes do not create usable Excel undo history.",
+    "DisplayAlerts=false is permanently forbidden because it suppresses overwrite and save confirmations.",
+    "An existing EXCEL.EXE process may belong to the user and must never be attached to or terminated.",
+    "Protected View changes both the UIA tree and COM availability; Enable Editing requires a human decision.",
+    "AutoSave or OneDrive conflict state must be detected before writes and cannot be auto-resolved.",
+    "Excel grid UIA is virtualized and unsuitable for bulk data reads or cell selectors.",
+    "A generic #32770 dialog must be scoped to the owned Excel process identity before use.",
+    "A1 references can drift after row or column insertion; named ranges are preferred.",
+    "Value2, Formula, and Text are distinct read modes and require explicit assertions.",
+    "COM object release must happen on the creating STA thread before process ownership cleanup."
+  ],
+  "state_machine": {
+    "states": [
+      "no_workbook",
+      "protected_view",
+      "read_only_or_occupied",
+      "autosave_network_conflict",
+      "update_links_pending",
+      "macro_warning",
+      "workbook_ready",
+      "workbook_closed"
+    ],
+    "transitions": []
+  },
+  "undo_capability": {
+    "level": "L1_required",
+    "excel_application_undo": "not_programmatic_recovery",
+    "required_before_write": [
+      "range_value_snapshot",
+      "file_shadow_copy",
+      "conflict_fingerprint"
+    ],
+    "allows_l0_claim": false
+  },
+  "interrupt_policy": {
+    "default_action": "cancel",
+    "human_only_classes": [
+      "protected_view",
+      "autosave_network_conflict",
+      "read_only_or_occupied",
+      "overwrite_confirmation",
+      "update_links",
+      "macro_warning"
+    ],
+    "dangerous_actions_never_automatic": [
+      "enable_editing",
+      "save",
+      "discard",
+      "replace",
+      "update_links",
+      "accept_macro"
+    ]
+  },
+  "safety_boundaries": {
+    "model_visible_tools_declared": false,
+    "tools_blocked_by": "spreadsheet_and_com_capability_ids_require_adr",
+    "display_alerts_false_forbidden": true,
+    "allow_existing_excel_process_reuse": false,
+    "allow_unattended": false,
+    "real_gui_verified": false
+  }
+}

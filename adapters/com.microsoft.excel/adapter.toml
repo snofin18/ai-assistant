@@ -1,0 +1,45 @@
+schema_version = 1
+
+[adapter]
+app_id = "com.microsoft.excel"
+display_name = "Microsoft Excel"
+version_range = ">=16.0 <17"
+os_version_range = ">=10.0.26100"
+capability_level = "L1_com"
+maintainer = "assistant-project"
+min_assistant_version = "0.1.0"
+
+[bundle]
+app_map = "app_map.json"
+app_map_projection = "memory/app_map.v1.json"
+app_map_projection_model = "core_app_map_v1"
+selectors = "selectors/targets.json"
+tools = "tools/tools.json"
+rollback = "rollback/recipes.json"
+interrupts = "interrupts/interrupts.json"
+
+[platforms.windows]
+channel = "com"
+requires = [
+  "com.application",
+  "win32.window_identity",
+  "uia.interrupt_probe",
+]
+elevated_target = false
+requires_dpi_awareness = "per_monitor_v2"
+launch = "isolated_com_instance_only_when_no_excel_process_exists"
+process_ownership = "journal_pid_hwnd_start_time_executable"
+window_discovery = "application_hwnd_and_enum_windows"
+
+[health]
+selector_success_threshold = 0.85
+auto_degrade = false
+reverify_trigger = "app_version_change_or_two_consecutive_selector_failures"
+
+[safety]
+default_interrupt_action = "cancel"
+allow_unattended = false
+forbidden_properties = ["DisplayAlerts=false"]
+requires_human_to_enable_editing = true
+requires_exclusive_process_ownership = true
+allow_existing_excel_process_reuse = false
