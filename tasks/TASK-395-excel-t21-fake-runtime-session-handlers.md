@@ -280,7 +280,7 @@ git diff --check
 - 未修改产品代码、`adapters/**`、`protocol/**`、公共 API/schema、依赖或测试断言；未注册生产
   ToolBus，未启动 Excel/COM/GUI，未读取真实 `.xlsx`。
 - `adapters/com.microsoft.excel/tools/tools.json` 仍为 `tools: []`；TASK-395 仍为 Blocked。
-- 本轮 6 次只读检索误填 `shell="bash"`，均由项目 hook 实际重写为 Windows PowerShell 执行；
-  按既有口径累计 **69** 次（主实现 49 + review 20），无意外写入或外部副作用。
+- 本轮 8 次只读检索误填 `shell="bash"`，均由项目 hook 实际重写为 Windows PowerShell 执行；
+  按既有口径累计 **71** 次（主实现 51 + review 20），无意外写入或外部副作用。
 - 本地专项为 **22 passed / 0 failed**；workspace、arch、schema/codegen、文档门禁、deny 与
   diff-check 均已实际运行并通过。因 `DRIFT-395-2` 未裁决，本轮不提交 round 3 报告、不合并。
