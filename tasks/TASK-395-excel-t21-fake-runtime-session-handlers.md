@@ -142,6 +142,9 @@ git diff --check
 - 新 CI run `45152960267` / `45152951080` 的 Ubuntu 18 个 Excel 测试因 Windows 盘符
   夹具失败；测试已改用 `CARGO_MANIFEST_DIR` 绝对路径，并继续用 `.xlsm`、`..`、ADS
   形状验证拒绝路径。专项 22/22、clippy、workspace 与行数门禁本地通过。
+- 后续 CI run `45153800844` / `45153790275` 仍有 4 个 registry 测试失败，根因是
+  `opened()` 工厂的 `full_path` 也固定为 Windows 盘符；已统一为
+  `CARGO_MANIFEST_DIR` 绝对路径，专项、clippy 与 workspace 再次全绿。
 
 ### 4. DoD 逐条核对
 

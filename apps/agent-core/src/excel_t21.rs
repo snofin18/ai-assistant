@@ -867,7 +867,7 @@ fn opened(handle: u64) -> OpenedWorkbook {
                 .to_owned(),
         },
         workbook: WorkbookIdentity {
-            full_path: "C:\\data\\book.xlsx".to_owned(),
+            full_path: concat!(env!("CARGO_MANIFEST_DIR"), "/book.xlsx").to_owned(),
             read_only: true,
         },
         worksheets: vec![WorksheetInfo {
