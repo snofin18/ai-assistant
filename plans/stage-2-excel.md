@@ -48,6 +48,10 @@
 > TASK-391 已完成 **Done**：Windows COM apartment ownership guard 与 `ComApartment<T>`
 > 同生命周期绑定落地，UIA 线程本地复用；5 类 apartment 测试、反向模型与 !Send 约束通过。
 > PR #797 checks 11/11 success，merge `092c79a` / main CI `44695688650` success。
+> TASK-392 已完成 **Done**：首个 `com.microsoft.excel` safety shell bundle 已落地，
+> 以 `XLMAIN/#32770` 两个 provisional selector 和六类 human-only interrupt 冻结安全边界；
+> tools/rollback 保持空数组并锁定 capability ADR 阻塞。PR #799 checks 11/11 success，
+> merge `92024e8` / main CI `45101893667` success。
 
 ## In scope
 
@@ -93,7 +97,7 @@
 | COM apartment guard | **TASK-391 ✅** | Windows platform | `tasks/TASK-391-com-apartment-guard.md` | Done（`ComApartment<T>` 将值与 guard 绑定；UIA 线程本地复用；`S_OK`/`S_FALSE`/错误/panic 配平、反模型与 !Send；PR #797 merge `092c79a`；main CI `44695688650` success） |
 | 1 | 待派单 | 架构/治理 | dispatch 时创建 | 未开始（通用只读 Adapter bundle validator） |
 | 2 | 待派单 | Windows platform | dispatch 时创建 | 未开始（COM apartment/生命周期/回收与负向测试） |
-| 3 | **TASK-392** | Excel Adapter | `tasks/TASK-392-excel-adapter-safety-pack.md` | Review（safety shell bundle + Protected View/AutoSave/interrupts；2 shell targets / 6 interrupts；COM tools 等待 capability ADR） |
+| 3 | **TASK-392 ✅** | Excel Adapter | `tasks/TASK-392-excel-adapter-safety-pack.md` | Done（safety shell bundle + Protected View/AutoSave/interrupts；2 shell targets / 6 interrupts；COM tools 等待 capability ADR；PR #799 merge `92024e8`；main CI `45101893667` success） |
 | 4 | 待派单 | Excel T2.1 | dispatch 时创建 | 未开始（打开工作簿/读取命名区域/汇总，只读） |
 | 5 | 待派单 | Undo/L1 | dispatch 时创建 | 未开始（文件影子副本 + 值快照 + 冲突检测） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |
