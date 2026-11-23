@@ -93,7 +93,7 @@
 | COM apartment guard | **TASK-391 ✅** | Windows platform | `tasks/TASK-391-com-apartment-guard.md` | Done（`ComApartment<T>` 将值与 guard 绑定；UIA 线程本地复用；`S_OK`/`S_FALSE`/错误/panic 配平、反模型与 !Send；PR #797 merge `092c79a`；main CI `44695688650` success） |
 | 1 | 待派单 | 架构/治理 | dispatch 时创建 | 未开始（通用只读 Adapter bundle validator） |
 | 2 | 待派单 | Windows platform | dispatch 时创建 | 未开始（COM apartment/生命周期/回收与负向测试） |
-| 3 | 待派单 | Excel Adapter | dispatch 时创建 | 未开始（Adapter 数据包 + Protected View/AutoSave/interrupts） |
+| 3 | **TASK-392** | Excel Adapter | `tasks/TASK-392-excel-adapter-safety-pack.md` | Review（safety shell bundle + Protected View/AutoSave/interrupts；2 shell targets / 6 interrupts；COM tools 等待 capability ADR） |
 | 4 | 待派单 | Excel T2.1 | dispatch 时创建 | 未开始（打开工作簿/读取命名区域/汇总，只读） |
 | 5 | 待派单 | Undo/L1 | dispatch 时创建 | 未开始（文件影子副本 + 值快照 + 冲突检测） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |

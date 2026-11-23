@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "app_id": "com.microsoft.excel",
+  "entries": [
+    {
+      "id": "connection_boundary",
+      "title": "COM connection boundary",
+      "content": "Use Excel.Application through an isolated COM instance only when no EXCEL.EXE is already running. Record PID, Application.Hwnd, start time, executable path, and release all COM objects on the creating STA thread.",
+      "source_reference": "bundle:app_map#/connection",
+      "token_estimate": 53
+    },
+    {
+      "id": "data_semantics",
+      "title": "Excel range data semantics",
+      "content": "For every Range, declare value2, formula, or text explicitly. Value2 is the numeric or calculated value, Formula preserves the expression, and Text is display text; never compare an unnamed cell value.",
+      "source_reference": "bundle:app_map#/value_semantics",
+      "token_estimate": 51
+    },
+    {
+      "id": "identity",
+      "title": "Excel identity",
+      "content": "Excel Adapter app_id is com.microsoft.excel. Resolve workbook identity by full path or unsaved identity, then worksheet identity by name or stable ordinal; never reuse an existing user Excel process.",
+      "source_reference": "bundle:app_map#/identity",
+      "token_estimate": 50
+    },
+    {
+      "id": "interrupt_boundary",
+      "title": "Excel human interrupt boundary",
+      "content": "Protected View, AutoSave or OneDrive conflicts, read-only or occupied files, overwrite confirmation, update links, and macro warnings require explicit human handling. Never enable editing or choose Save, Discard, Replace, Update, or Accept automatically.",
+      "source_reference": "bundle:app_map#/interrupt_policy",
+      "token_estimate": 64
+    },
+    {
+      "id": "known_pitfalls",
+      "title": "Known Excel pitfalls",
+      "content": "COM writes do not populate the Excel undo stack. DisplayAlerts=false is forbidden. Named ranges are preferred over A1 references. Excel grid UIA is virtualized and must not be used for bulk data reads.",
+      "source_reference": "bundle:app_map#/known_pitfalls",
+      "token_estimate": 51
+    },
+    {
+      "id": "safety_boundaries",
+      "title": "Excel safety shell boundary",
+      "content": "This pack declares zero model-visible tools until spreadsheet or COM capability IDs receive an ADR. It must never be presented as a runnable Excel COM adapter.",
+      "source_reference": "bundle:app_map#/safety_boundaries",
+      "token_estimate": 40
+    },
+    {
+      "id": "shell_selectors",
+      "title": "Excel UIA shell selectors",
+      "content": "Only Excel shell and modal boundaries use UIA: the XLMAIN window and #32770 dialogs. Cell, row, column, grid, and bulk-range traversal remain on COM.",
+      "source_reference": "bundle:selectors#/targets/0",
+      "token_estimate": 38
+    },
+    {
+      "id": "target_identity",
+      "title": "Workbook and worksheet identity",
+      "content": "A target descriptor must include workbook and worksheet identity. Prefer named ranges; A1 references are explicit fallbacks only. Do not let row or column insertion silently retarget a write.",
+      "source_reference": "bundle:app_map#/target_identity",
+      "token_estimate": 48
+    },
+    {
+      "id": "undo_capability",
+      "title": "Excel undo capability",
+      "content": "Programmatic COM changes are not Excel undo steps. Every write requires an L1 value snapshot plus a file shadow copy and conflict detection before save; Excel Application.Undo is not a recovery guarantee.",
+      "source_reference": "bundle:app_map#/undo_capability",
+      "token_estimate": 51
+    }
+  ]
+}

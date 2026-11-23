@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "app_id": "com.microsoft.excel",
+  "selector_model": "uia_candidate_chain_v1",
+  "app_version_range": ">=16.0 <17",
+  "probe_status": "provisional",
+  "policy": {
+    "on_ambiguous": "error_and_ask",
+    "on_not_found": {
+      "retry_after_ms": [250, 1000],
+      "then_escalate": true
+    },
+    "min_score_to_try": 0.2,
+    "max_resolve_ms": 3500
+  },
+  "targets": [
+    {
+      "id": "main_window",
+      "scope": "window",
+      "probe_status": "required",
+      "allow_fallback_entry": false,
+      "candidates": [
+        {
+          "id": "excel-main-class",
+          "kind": "class_and_role",
+          "value": {
+            "class_and_role": {
+              "class": "XLMAIN",
+              "role": "Window"
+            }
+          },
+          "score": 1,
+          "locale_dependent": false,
+          "fallback_only": false
+        },
+        {
+          "id": "excel-title-fallback",
+          "kind": "title_regex",
+          "value": {
+            "text": "Excel"
+          },
+          "score": 0.2,
+          "locale_dependent": true,
+          "fallback_only": true
+        }
+      ]
+    },
+    {
+      "id": "modal_dialog",
+      "scope": "window",
+      "probe_status": "required",
+      "allow_fallback_entry": false,
+      "candidates": [
+        {
+          "id": "excel-dialog-class",
+          "kind": "class_and_role",
+          "value": {
+            "class_and_role": {
+              "class": "#32770",
+              "role": "Window"
+            }
+          },
+          "score": 1,
+          "locale_dependent": false,
+          "fallback_only": false
+        }
+      ]
+    }
+  ]
+}
