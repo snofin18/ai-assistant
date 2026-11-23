@@ -1,6 +1,9 @@
 # 阶段 2 — Excel L1 COM + Adapter 规范化
 
-> 周期 6~8 周　状态：**InProgress（2026-11-23）**；Stage 1 已完成；TASK-372 真实 Excel
+> 周期 6~8 周　状态：**InProgress（2026-11-24）**；Stage 1 已完成；TASK-396 已完成
+> 2026-11-23 automation 运行日收口，round 3 与运行日报告由 PR #817 merge `ed1c177` /
+> main CI `45249757927` success 合入；产品实现仍由 TASK-395 的 `DRIFT-395-1` 阻塞。
+> TASK-372 真实 Excel
 > COM preflight 已通过并以 **GO** 进入 Adapter 契约正式化；TASK-373 六件套就绪审计 Done，
 > PR #736 / main CI `43839388347` 已回填；TASK-374 已把六项缺口收敛为可裁决 ADR/spec 决策包
 > 并完成 PR #738 / main CI `43863545233`；TASK-375 已完成 Excel COM
@@ -118,6 +121,7 @@
 | 3a | **TASK-393 ✅** | 架构/治理 | `tasks/TASK-393-excel-com-capability-vocabulary.md` | Done（七个 experimental `com.*` capability ADR；open sole-capability + 四类 write floor；PR #802 merge `c23e76b`；main CI `45115059165` success） |
 | 3b | **TASK-394 ✅** | Excel T2.1 contract | `tasks/TASK-394-excel-t21-readonly-tool-contract.md` | Done（四 Tool、ToolBus-isolated session、4096 cells / 256 KiB、ownership/watchdog/cleanup；PR #806 merge `614062a`；main CI `45133625235` success） |
 | 4 | **TASK-395 Blocked/WIP** | Excel T2.1 | `tasks/TASK-395-excel-t21-fake-runtime-session-handlers.md` | Blocked：fake runtime/session/parser/纯逻辑 handlers + 22 tests 已落地；两轮 review 5 P1 + 4 P2 已修复；`DRIFT-395-1` 阻塞 ToolBus 错误码桥 |
+| 4b evidence | **TASK-396 ✅** | automation/治理 | `tasks/TASK-396-automation-run-day-report-2026-11-23.md` | Done（round 3 + 2026-11-23 运行日报告；PR #817 merge `ed1c177`；main CI `45249757927` success；未改产品代码或 `tools.json`） |
 | 5 | 待派单 | Undo/L1 | dispatch 时创建 | 未开始（文件影子副本 + 值快照 + 冲突检测） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |
 | 7 | 待派单 | Excel T2.3 | dispatch 时创建 | 未开始（图表生成/PNG 导出/不覆盖） |
