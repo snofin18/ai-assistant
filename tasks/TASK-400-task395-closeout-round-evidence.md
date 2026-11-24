@@ -194,3 +194,18 @@ git diff --check
   最终重算发现一次只读 run-list 查询仍误填了 `shell="bash"`。
 - 权威计数更新为 **17**；`[supersedes:2026-11-24]` §10 的 12 次。
 - 该命令由项目 hook 实际重写为 Windows PowerShell，执行结果正常，无仓库意外写入。
+
+### 12. Concurrent round drift
+
+- **DRIFT-AUTO-20261124-1**
+  - 现象：本轮 `.automation.lock` 仍由
+    `ai-assistant-task-round-20261124-1700` 持有且年龄小于 3 小时时，工作树在
+    2026-11-24 19:43:10 被切换到本地分支
+    `automation/2026-11-24-round2-skipped`。该分支不是本轮创建。
+  - 影响：19:30 槽位没有按活跃锁跳过，且在同一个 checkout 中切换了工作线；继续释放锁或
+    self-delete 会与另一工作线互相踩写，违反单工作线互斥。
+  - 证据：`git reflog` 显示 checkout；该分支无远端 ref、无 PR，工作树在观察 60 秒后仍
+    clean 且没有新增提交。
+  - 建议：保留本轮 `.automation.lock` 和 automation 条目供人类清理，确认 19:30 槽位已退出后，
+    再释放锁并删除本轮 automation。
+  - 已停工作：不再执行 self-delete，不删除锁，不清理其他 automation 目录。
