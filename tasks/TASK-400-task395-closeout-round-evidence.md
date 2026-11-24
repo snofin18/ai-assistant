@@ -1,6 +1,6 @@
 # TASK-400 TASK-395 closeout and 2026-11-24 round evidence
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：2b Automation evidence　批次：治理池　依赖：TASK-395、TASK-397、TASK-398、TASK-399
 - 本文文件 = 卡片正文 + 执行记录（ADR-0031「一卡一文件」）
 
@@ -135,6 +135,7 @@ git diff --check
 - `adr-index`：scanned=99，0 error / 0 warning，PASSED。
 - `cargo deny check`：advisories / bans / licenses / sources ok。
 - Excel tools machine check：`excel_tools_count=0`。
+- `git diff --check`：PASSED。
 
 ### 4. DoD 逐条核对
 
@@ -175,3 +176,14 @@ git diff --check
   wrapper 或 runner prototype 写成生产完成。
 - 核对 TASK-400 只做 docs-only 收口，产品代码、schema、API、依赖和 `tools.json` 零差异。
 - 核对 round 1 的 PR/CI/merge 字段在本文件提交前仍明确为 pending，没有预填未发生的结果。
+
+### 10. Merge evidence backfill
+
+- 实现/证据 PR #825：base=main，checks **11/11 SUCCESS**，pending 0 / failed 0，
+  `MERGEABLE` / `CLEAN`。
+- merge commit：`d72ed1629ee0ee1eba1fb928fd5adcfe6a226eb2`。
+- post-merge main CI `45366856008`：success；Windows、Ubuntu、macOS 与其余必要 jobs 全绿。
+- `PROCESS-TASK400-SHELL-MISUSE` 最终机器重算为 **12** 次，均为只读/状态查询、
+  分支切换或 gate 调用；
+  项目 hook 实际以 Windows PowerShell 执行；`[supersedes:2026-11-24]` 执行记录 §5 的
+  中途值 5 次。无仓库意外写入或外部副作用。
