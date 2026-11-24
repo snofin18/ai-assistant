@@ -6,7 +6,7 @@
 //!
 //! 相关：`docs/spec/error-codes.md`、架构 v2 §8.7 / §5.3。
 
-use assistant_protocol::ErrorCode;
+use assistant_protocol::{ErrorCode, ErrorDefinition};
 
 /// 本 crate 的 `Result` 别名。
 pub type ToolBusResult<T> = Result<T, ToolBusError>;
@@ -28,6 +28,8 @@ const MCP_USER_INTERACTION: i32 = -32_010;
 ///   [`ErrorCode::Fatal`]。这是**工具作者**的缺陷；把它报成 `ToolInvalidArgs` 会让上层
 ///   去"重试 + 改参数"，永远修不好。
 /// - **调用参数非法** → [`ErrorCode::ToolInvalidArgs`]（且**不进入** handler）。
+/// - **handler 显式失败** → [`ToolBusError::HandlerFailure`]，原样携带既有
+///   [`ErrorCode`]；禁止用 `Mcp` 数字码或 `Transient`/`Fatal` 冒充。
 /// - **工具不存在 / 未挂载** → [`ErrorCode::TargetNotFound`]（"目标找不到"的同类语义）。
 /// - **传输抖动** → [`ErrorCode::Transient`]（可重试）；MCP `method not found` 是
 ///   [`ErrorCode::CapabilityMissing`]（不可重试）。
@@ -92,6 +94,19 @@ pub enum ToolBusError {
         tool: String,
         /// 人可读的原因（JSON pointer + 违反了哪条约束）。
         reason: String,
+    },
+
+    /// handler 用既有错误分类返回的显式失败。
+    ///
+    /// 为什么需要这条：handler 可能面对目标歧义、权限不足、后置条件失败或不可恢复错误；
+    /// 这些语义已经由协议 [`ErrorCode`] 定义，不能用 MCP 数字码或 `Transient`/`Fatal`
+    /// 伪造。`message` 会原样进入失败信封，`code` 由 [`Self::error_code`] 原样返回。
+    #[error("{message}")]
+    HandlerFailure {
+        /// 既有协议错误分类。
+        code: ErrorCode,
+        /// 给调用方的可读失败原因。
+        message: String,
     },
 
     /// 工具未在当前工具集中挂载。
@@ -189,6 +204,19 @@ pub enum ToolBusError {
 }
 
 impl ToolBusError {
+    /// 返回失败信封使用的可读消息。
+    ///
+    /// `HandlerFailure` 的 message 为空或纯空白时，使用该 `ErrorCode` 的规范
+    /// `message_for_model`，避免生成没有错误说明的信封。
+    pub(crate) fn envelope_message(&self) -> String {
+        match self {
+            Self::HandlerFailure { code, message } if message.trim().is_empty() => {
+                ErrorDefinition::for_category(*code).message_for_model
+            }
+            _ => self.to_string(),
+        }
+    }
+
     /// 映射到协议错误码（`assistant_protocol::ErrorCode`）。
     ///
     /// 幂等 / 无副作用：纯函数，只读 `self`。
@@ -208,6 +236,7 @@ impl ToolBusError {
             | Self::AuditEventAssembly { .. }
             | Self::FingerprintSerialization { .. } => ErrorCode::Fatal,
             Self::InvalidArguments { .. } => ErrorCode::ToolInvalidArgs,
+            Self::HandlerFailure { code, .. } => *code,
             Self::ToolNotMounted { .. } | Self::UnknownTool { .. } => ErrorCode::TargetNotFound,
             Self::Transport { .. } => ErrorCode::Transient,
             Self::Mcp { code, .. } => {

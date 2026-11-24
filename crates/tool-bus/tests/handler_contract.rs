@@ -7,8 +7,10 @@
     clippy::unwrap_used
 )]
 
+use assistant_protocol::ErrorCode;
 use assistant_tool_bus::{
-    CallContext, EvidenceDescriptor, SourceDescriptor, ToolBusResult, ToolHandler, ToolOutput,
+    CallContext, EvidenceDescriptor, SourceDescriptor, ToolBusError, ToolBusResult, ToolHandler,
+    ToolOutput,
 };
 use serde_json::{Map, Value, json};
 
@@ -99,4 +101,18 @@ fn test_handler_result_can_propagate_a_tool_error() {
 
     let result: ToolBusResult<ToolOutput> = ToolHandler::call(&handler, &context, &Map::new());
     assert!(result.is_err());
+}
+
+#[test]
+fn test_handler_failure_preserves_every_protocol_error_code_and_message() {
+    for code in ErrorCode::ALL {
+        let message = format!("handler failure for {code:?}");
+        let error = ToolBusError::HandlerFailure {
+            code,
+            message: message.clone(),
+        };
+
+        assert_eq!(error.error_code(), code);
+        assert_eq!(error.to_string(), message);
+    }
 }
