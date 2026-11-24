@@ -336,3 +336,6 @@
 ## 2026-11-24 追加（ADR-0109，Accepted）
 
 - [2026-11-24][DECISION][src:ADR-0109，人类 2026-11-24 批准方案 A；TASK-397] **ToolBus handler 失败使用 typed `HandlerFailure` 无损承载既有 ErrorCode**：在 `ToolBusError` 加法式增加 `HandlerFailure { code: ErrorCode, message: String }`，`error_code()` 原样返回 `code`，server 既有失败信封路径使用 `Display` 返回 `message`；不新增第二套错误桥、不新增 ErrorCode、不改 `ToolHandler`/`ToolOutput`/ToolSchema/protocol schema。13 类 ErrorCode 必须 round-trip，禁止用 `Mcp` 数字码或 `Transient`/`Fatal` 冒充。该变体只用于受信任进程内 handler，不得绕过参数校验、Policy、HITL、cleanup 或真实 COM 验收。
+## 2026-11-24 追加（ADR-0110，Accepted）
+
+- [2026-11-24][DECISION][src:ADR-0110，人类 2026-11-24 确认 ADR-0108 D10 优先；TASK-399] **Excel T2.1 先验证 private COM runner，后开放生产 Tool surface**：固定顺序为 fake runtime/session/parser → 私有 ToolHandler 与 in-process ToolBus 合同测试 → test-only private COM runner prototype/fake tests → 人类在场单次 `.xlsx` 验收 → 重复运行与 process/session/handle 收敛 → 最后才填写生产 `tools.json`、rollback recipe、production assembly 并注册 ToolBus。真实 COM 与重复收敛前生产 `tools.json` 必须保持空；没有生产 caller 的私有 runner 只能由 `#[cfg(test)]` 实际执行，禁止用 `#[allow(dead_code)]` 掩盖无 caller 的生产代码，也不得把 test-only prototype 冒充生产 runner 已完成。

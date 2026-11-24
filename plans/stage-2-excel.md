@@ -1,6 +1,6 @@
 # 阶段 2 — Excel L1 COM + Adapter 规范化
 
-> 周期 6~8 周　状态：**InProgress（2026-11-24）**；Stage 1 已完成；TASK-396 / TASK-397 / TASK-398 已完成。
+> 周期 6~8 周　状态：**InProgress（2026-11-24）**；Stage 1 已完成；TASK-396 / TASK-397 / TASK-398 已完成，TASK-399 Review。
 > 2026-11-23 automation 运行日已由 PR #817 收口；TASK-397 的 typed `HandlerFailure`
 > 错误桥已由 PR #819 merge `2c412d5` / main CI `45305239489` success 合入，TASK-395 恢复 Ready。
 > TASK-372 真实 Excel
@@ -70,7 +70,7 @@
 > `tools.json` 与 production assembly 仍为零改动。
 > TASK-395 已恢复 **Ready**：test-only fake runtime、session registry、path/range/read-mode
 > parser、四个纯逻辑 handler 与 22 个负向测试已落地；`DRIFT-395-1` 已由 ADR-0109 / TASK-397
-> 解除。`tools.json` 仍为空，下一步是 ToolBus handler 包装和生产装配，真实 COM/GUI 与人类
+> 解除。`tools.json` 仍为空；按 ADR-0110，下一步先完成 private COM runner、真实 COM/GUI 与人类
 > 在场 `.xlsx` 验收仍待后续。round 3 的 `DRIFT-395-2` 已由 TASK-396 运行日收口，保留历史记录。
 
 ## In scope
@@ -124,6 +124,7 @@
 | 4b evidence | **TASK-396 ✅** | automation/治理 | `tasks/TASK-396-automation-run-day-report-2026-11-23.md` | Done（round 3 + 2026-11-23 运行日报告；PR #817 merge `ed1c177`；main CI `45249757927` success；未改产品代码或 `tools.json`） |
 | 4c bridge | **TASK-397 ✅** | ToolBus/治理 | `tasks/TASK-397-toolbus-handler-error-bridge.md` | Done（ADR-0109 typed `HandlerFailure`；13 类 ErrorCode round-trip；PR #819 merge `2c412d5`；main CI `45305239489` success） |
 | 4d wrappers | **TASK-398 ✅** | Excel/ToolBus | `tasks/TASK-398-excel-t21-toolbus-handler-wrappers.md` | Done（四 wrapper + registry-derived session id + 13-code mapping；PR #821 merge `0d96d8e`；main CI `45316595521` success；production/tools.json 零改动） |
+| 4e runner prototype | **TASK-399 Review** | Windows platform | `tasks/TASK-399-excel-t21-com-runner-prototype.md` | Review（ADR-0110 gate 顺序；test-only dedicated worker + capacity-1 FIFO + Windows IDispatch 编译后端；8/8 runner tests；tools.json/rollback/ToolBus 零改动） |
 | 5 | 待派单 | Undo/L1 | dispatch 时创建 | 未开始（文件影子副本 + 值快照 + 冲突检测） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |
 | 7 | 待派单 | Excel T2.3 | dispatch 时创建 | 未开始（图表生成/PNG 导出/不覆盖） |
