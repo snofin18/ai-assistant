@@ -1,8 +1,8 @@
 # 阶段 2 — Excel L1 COM + Adapter 规范化
 
-> 周期 6~8 周　状态：**InProgress（2026-11-24）**；Stage 1 已完成；TASK-396 已完成
-> 2026-11-23 automation 运行日收口，round 3 与运行日报告由 PR #817 merge `ed1c177` /
-> main CI `45249757927` success 合入；产品实现仍由 TASK-395 的 `DRIFT-395-1` 阻塞。
+> 周期 6~8 周　状态：**InProgress（2026-11-24）**；Stage 1 已完成；TASK-396 / TASK-397 已完成。
+> 2026-11-23 automation 运行日已由 PR #817 收口；TASK-397 的 typed `HandlerFailure`
+> 错误桥已由 PR #819 merge `2c412d5` / main CI `45305239489` success 合入，TASK-395 恢复 Ready。
 > TASK-372 真实 Excel
 > COM preflight 已通过并以 **GO** 进入 Adapter 契约正式化；TASK-373 六件套就绪审计 Done，
 > PR #736 / main CI `43839388347` 已回填；TASK-374 已把六项缺口收敛为可裁决 ADR/spec 决策包
@@ -61,19 +61,13 @@
 > TASK-394 已完成 **Done**：ADR-0108 冻结 T2.1 四个 Tool、ToolBus-isolated opaque session、
 > 4096 cells / 256 KiB bounds、独立 watchdog 与 task-end cleanup；实现前 tools.json 保持空，
 > 真实 COM/GUI 未执行。PR #806 checks 11/11 success，merge `614062a` / main CI `45133625235` success。
-> TASK-397 正在 **Review**：ADR-0109 以 typed `HandlerFailure` 承载既有 `ErrorCode`，
-> 不建立第二套错误桥；13 类 code round-trip 与 ToolBus error envelope 测试已通过。
-> TASK-395 已创建并推进到 **Blocked / WIP**：test-only fake runtime、session registry、
-> path/range/read-mode parser、四个纯逻辑 handler 与 22 个负向测试已落地；tools.json 仍为空。
-> `DRIFT-395-1` 阻塞 ToolBus 包装：现有公共错误枚举无法无损表达 ADR-0108 的全部 ErrorCode。
-> round 2 已补齐 round 1 缺失的显式自动机制声明；PR #813 merge `3204f0a` / main CI
-> `45170894012` success，`automation-rounds` 恢复 PASSED。未改产品代码或 `tools.json`，
-> 真实 COM/GUI 与人类在场 `.xlsx` 验收仍待后续。
-> round 3 已再次核验 `automation-rounds` PASSED（`next_round=3` / `N_auto=2`）；TASK-395
-> 仍由 `DRIFT-395-1` 的公共 ToolBus 错误码桥阻塞。另新增 `DRIFT-395-2`：任务卡 write scope
-> 未包含本轮要求的 `docs/automations/2026-11-23-round-3.md`，该报告未创建。状态/漂移证据
-> 已由 PR #815 merge `27761bb` / main CI `45218038608` success 合并；任务仍为 Blocked，等待
-> 人类裁决 `DRIFT-395-1` 与 `DRIFT-395-2`。
+> TASK-397 已完成 **Done**：ADR-0109 以 typed `HandlerFailure` 承载既有 `ErrorCode`，
+> 13 类 code round-trip 与 ToolBus error envelope 测试通过；PR #819 merge `2c412d5` /
+> main CI `45305239489` success，不建立第二套错误桥。
+> TASK-395 已恢复 **Ready**：test-only fake runtime、session registry、path/range/read-mode
+> parser、四个纯逻辑 handler 与 22 个负向测试已落地；`DRIFT-395-1` 已由 ADR-0109 / TASK-397
+> 解除。`tools.json` 仍为空，下一步是 ToolBus handler 包装和生产装配，真实 COM/GUI 与人类
+> 在场 `.xlsx` 验收仍待后续。round 3 的 `DRIFT-395-2` 已由 TASK-396 运行日收口，保留历史记录。
 
 ## In scope
 
@@ -122,9 +116,9 @@
 | 3 | **TASK-392 ✅** | Excel Adapter | `tasks/TASK-392-excel-adapter-safety-pack.md` | Done（safety shell bundle + Protected View/AutoSave/interrupts；2 shell targets / 6 interrupts；COM tools 等待 capability ADR；PR #799 merge `92024e8`；main CI `45101893667` success） |
 | 3a | **TASK-393 ✅** | 架构/治理 | `tasks/TASK-393-excel-com-capability-vocabulary.md` | Done（七个 experimental `com.*` capability ADR；open sole-capability + 四类 write floor；PR #802 merge `c23e76b`；main CI `45115059165` success） |
 | 3b | **TASK-394 ✅** | Excel T2.1 contract | `tasks/TASK-394-excel-t21-readonly-tool-contract.md` | Done（四 Tool、ToolBus-isolated session、4096 cells / 256 KiB、ownership/watchdog/cleanup；PR #806 merge `614062a`；main CI `45133625235` success） |
-| 4 | **TASK-395 Blocked/WIP** | Excel T2.1 | `tasks/TASK-395-excel-t21-fake-runtime-session-handlers.md` | Blocked：fake runtime/session/parser/纯逻辑 handlers + 22 tests 已落地；两轮 review 5 P1 + 4 P2 已修复；`DRIFT-395-1` 阻塞 ToolBus 错误码桥 |
+| 4 | **TASK-395 Ready/WIP** | Excel T2.1 | `tasks/TASK-395-excel-t21-fake-runtime-session-handlers.md` | Ready：fake runtime/session/parser/纯逻辑 handlers + 22 tests 已落地；两轮 review 5 P1 + 4 P2 已修复；`DRIFT-395-1` 已由 ADR-0109 / TASK-397 解除 |
 | 4b evidence | **TASK-396 ✅** | automation/治理 | `tasks/TASK-396-automation-run-day-report-2026-11-23.md` | Done（round 3 + 2026-11-23 运行日报告；PR #817 merge `ed1c177`；main CI `45249757927` success；未改产品代码或 `tools.json`） |
-| 4c bridge | **TASK-397** | ToolBus/治理 | `tasks/TASK-397-toolbus-handler-error-bridge.md` | Review（ADR-0109 typed `HandlerFailure`；13 类 ErrorCode round-trip；ToolBus error envelope 保真） |
+| 4c bridge | **TASK-397 ✅** | ToolBus/治理 | `tasks/TASK-397-toolbus-handler-error-bridge.md` | Done（ADR-0109 typed `HandlerFailure`；13 类 ErrorCode round-trip；PR #819 merge `2c412d5`；main CI `45305239489` success） |
 | 5 | 待派单 | Undo/L1 | dispatch 时创建 | 未开始（文件影子副本 + 值快照 + 冲突检测） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |
 | 7 | 待派单 | Excel T2.3 | dispatch 时创建 | 未开始（图表生成/PNG 导出/不覆盖） |

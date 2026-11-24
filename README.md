@@ -7,9 +7,9 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 > **TASK-047 Done（2026-10-20）**：Stage 1b Paint integration 审计结论为技术 **GO**、行政 **条件 GO**；T3.1/T3.2/T3.3 真机合计 **30/30**，六类 `platform/api` 扩展全部 ADR-gated，未出现 Paint 专用 trait。
 > **TASK-046 Done（2026-10-20）**：Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚真机 **10/10 passed**；单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式失败，并修复隐藏 WinUI flyout 被误判为未保存模态框。
 > **TASK-362 Done（2026-11-11）**：升级 `rmcp 3.9.0` 与 `rusqlite 0.41.1` / `libsqlite3-sys 0.39.1`，清除四个新增 RUSTSEC advisory；workspace MSRV 提升到 Rust 1.89，PR #707 与 post-merge main CI 全绿。
-> 状态：**阶段 2（Excel L1 COM + Adapter 规范化）InProgress**；Stage 1 已 closeout；**TASK-396 Done**（2026-11-23 automation 运行日收口；round 3 + 运行日报告；PR #817 merge `ed1c177` / main CI `45249757927` success）；**TASK-394 Done**（Excel T2.1 read-only Tool contract；PR #806 merge `614062a` / main CI `45133625235` success）；**TASK-393 Done**（PR #802）；**TASK-392 Done**（PR #799）；**TASK-391 Done**（PR #797）；TASK-395 仍因 `DRIFT-395-1` 保持 Blocked，`tools.json` 为空。
-> **TASK-395 round 2（2026-11-23）**：round 1 的缺失显式自动机制声明已修复，证据 PR #813 merge `3204f0a` / post-merge main CI `45170894012` success；`automation-rounds` 恢复 PASSED（`next_round=3`、`N_auto=2`）。任务仍因 `DRIFT-395-1` 保持 Blocked，`tools.json` 为空，无真实 COM/GUI 执行。
-> **TASK-395 round 3（2026-11-23）**：复核轮次门禁为 PASSED（`existing=2`、`next_round=3`、`N_auto=2`），22 个 fake 测试仍通过；状态/漂移证据 PR #815 merge `27761bb` / main CI `45218038608` success。调度要求的 round 3 报告仍因 `DRIFT-395-2` 超出任务卡 write scope，未创建，等待人类裁决。
+> 状态：**阶段 2（Excel L1 COM + Adapter 规范化）InProgress**；Stage 1 已 closeout；**TASK-397 Done**（ToolBus handler failure ErrorCode bridge；PR #819 merge `2c412d5` / main CI `45305239489` success）；**TASK-396 Done**（PR #817 merge `ed1c177` / main CI `45249757927` success）；**TASK-394 Done**（PR #806 merge `614062a` / main CI `45133625235` success）；**TASK-393 Done**（PR #802）；**TASK-392 Done**（PR #799）；**TASK-391 Done**（PR #797）；TASK-395 的 `DRIFT-395-1` 已解除并恢复 Ready，`tools.json` 仍为空。
+> **TASK-395 Ready/WIP（2026-11-24）**：Excel T2.1 fake runtime、session registry、parser 与四个纯逻辑 handler 已通过 22 个专项测试；ADR-0109 / TASK-397 已提供无损 typed `HandlerFailure`，下一步是 ToolBus handler 包装与生产装配。
+> **TASK-395 round 3（2026-11-23）**：复核轮次门禁为 PASSED（`existing=2`、`next_round=3`、`N_auto=2`）；状态/漂移证据 PR #815 merge `27761bb` / main CI `45218038608` success。`DRIFT-395-2` 已由 TASK-396 运行日收口并保留历史记录。
 > **真机收口：TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径（形状 / 轮廓 / 填充 / 大小 / 画笔 / 颜色 / 落笔）14 步全部 `Committed`，`1 passed / 0 failed`；stable before/after content address 与画布裁剪证据见 `LEDGER.md` 与 `docs/memory/apps/paint.md` §13.22。
 > **TASK-320 Done（2026-10-20）**：Windows UIA `ClassAndRole` 改为 class-only 搜索后用 `CurrentControlType` 本地过滤，经典 `#32770` 文件对话框中的文件名 Edit 可唯一解析；真实 Paint T3.2 回归 **10/10 passed**，独立坐标误差 **0 px**。
 > **TASK-045 Done（2026-10-20）**：Paint T3.2 打开 PNG → 读尺寸 / 缩放 → 区域标记 → 另存 PNG 全链路完成；真实 10/10、`zoom_ratio=0.5`、坐标误差 0 px，保存文件为 PNG。
@@ -41,7 +41,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 
 ---
 
-> **TASK-395 Blocked/WIP（2026-11-23）**：Excel T2.1 test-only fake runtime、ToolBus-isolated session registry、path/range/read-mode parser、四个纯逻辑 handler 与 **22/22** 负向/资源测试已落地；两轮独立 review 的 5 P1 + 4 P2 已修复；`tools.json` 仍为空，未启动 Excel/COM/GUI。生产 ToolBus 包装被 `DRIFT-395-1` 阻塞：现有公共错误枚举无法无损表达 ADR-0108 的全部 `ErrorCode`。
+> **TASK-395 Ready/WIP（2026-11-24）**：Excel T2.1 test-only fake runtime、ToolBus-isolated session registry、path/range/read-mode parser、四个纯逻辑 handler 与 **22/22** 负向/资源测试已落地；两轮独立 review 的 5 P1 + 4 P2 已修复；`tools.json` 仍为空，未启动 Excel/COM/GUI。`DRIFT-395-1` 已由 ADR-0109 / TASK-397 解除，生产 ToolBus 包装可继续。
 
 ## 这个项目最特别的一点
 
@@ -96,9 +96,9 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
-> **TASK-397 Review（2026-11-24 ToolBus handler error bridge）**：ADR-0109 以 typed `HandlerFailure` 承载既有 `ErrorCode`，13 类 code round-trip 与 ToolBus error envelope 测试通过；合并后解除 TASK-395 的 `DRIFT-395-1`，不提前注册 Excel Tool。
+> **TASK-397 Done（2026-11-24 ToolBus handler error bridge）**：ADR-0109 以 typed `HandlerFailure` 承载既有 `ErrorCode`，13 类 code round-trip 与 ToolBus error envelope 测试通过。PR #819 checks 22（21 success + 1 skipped），merge `2c412d5` / main CI `45305239489` success；`DRIFT-395-1` 已解除。
 > **TASK-396 Done（2026-11-23 automation 运行日收口）**：新增 round 3 与运行日报告，区分机器 `next_round=3` 与外部 5 个真实槽位；明确 TASK-395 仍被 `DRIFT-395-1` 阻塞。PR #817 merge `ed1c177` / main CI `45249757927` success；未改产品代码或 `tools.json`。
-> **TASK-395 Blocked/WIP（2026-11-23）**：Excel T2.1 fake runtime、session registry、parser 与四个纯逻辑 handler 已实现并通过 22 个专项测试；两轮独立 review 的 5 P1 + 4 P2 已修复。`tools.json` 仍为空。`DRIFT-395-1` 指出 `ToolBusError` 不能无损承载 `TargetAmbiguous` / `PlatformPermission` 等既有错误码，因此未注册生产 ToolBus。round 2 已修复自动轮次证据；round 3 状态/漂移证据已由 PR #815 合并，但 round 3 报告路径仍超出卡 write scope，`DRIFT-395-2` 继续等待裁决。
+> **TASK-395 Ready/WIP（2026-11-24）**：Excel T2.1 fake runtime、session registry、parser 与四个纯逻辑 handler 已实现并通过 22 个专项测试；两轮独立 review 的 5 P1 + 4 P2 已修复。`tools.json` 仍为空。`DRIFT-395-1` 已由 ADR-0109 / TASK-397 解除；下一步实现 ToolBus 包装与生产装配。round 3 的 `DRIFT-395-2` 已由 TASK-396 运行日收口并保留历史记录。
 > **TASK-394 Done（2026-11-23）**：ADR-0108 冻结 Excel T2.1 四个只读工作流 Tool 与 `none_readonly` 契约；open 是唯一 `com.workbook_open` write/high/L3/approval/non-idempotent Tool，三个 read Tool 使用 ToolBus-isolated opaque session、dedicated STA 串行化与 state_unchanged。补齐 262144-byte / 1024-worksheet / 2048-named-range / 4096-cell / 256-KiB bounds、完整错误矩阵、repo 外 ownership journal 与独立 watchdog cleanup。PR #806 checks 11/11 success，merge `614062a` / main CI `45133625235` success；`tools.json` 保持空，真实 COM/GUI 未执行。
 > **TASK-393 Done（2026-11-23）**：ADR-0107 冻结七个 experimental Excel L1 COM capability：`com.workbook_open/read`、`com.range_read/write`、`com.workbook_save`、`com.chart_create/export`。共享 validator 要求 `workbook_open` 必须 sole capability 且为 write/L3/approval/non-idempotent，并强制四类写能力的最低风险/审批/恢复级别；`range_write` 只接受 `value2` scalar literal 并拒绝公式形态文本。PR #802 checks 11/11 success，merge `c23e76b` / main CI `45115059165` success。
 > **TASK-392 Done（2026-11-23）**：首个 `com.microsoft.excel` Adapter safety shell pack 已落地。bundle 只声明 `XLMAIN` 主窗口与 `#32770` 模态框两个 provisional shell target，六类 Protected View / AutoSave / 冲突 / overwrite / links / macro interrupt 全部要求人工决策；tools 与 rollback 保持显式空数组，等待独立 capability ADR。PR #799 checks 11/11 success，merge `92024e8` / main CI `45101893667` success。
@@ -461,6 +461,7 @@ codegen --check(#7) / deny / build / hygiene / spike-deny(#8b) / doc-consistency
 ---
 
 ## 最近进展
+**2026-11-24 TASK-397 Done（ToolBus handler failure ErrorCode bridge）**：ADR-0109 以 typed `HandlerFailure { code, message }` 无损承载既有 13 类 `ErrorCode`，server 继续走统一错误信封；空/纯空白 message 回退到 canonical `message_for_model`。PR #819 checks 22（21 success + 1 skipped），merge `2c412d5` / main CI `45305239489` success；TASK-395 的 `DRIFT-395-1` 已解除并恢复 Ready。
 **2026-11-24 TASK-396 Done（2026-11-23 automation 运行日收口）**：新增 `docs/automations/2026-11-23-round-3.md` 与运行日报告，汇总 17:00、19:30、22:00、00:30、03:00 五个真实槽位，并保留机器 `next_round=3` / `N_auto=2` 与外部日志计数差异。TASK-395 仍为 Blocked，`DRIFT-395-1` 未代裁，`DRIFT-395-2` 作为历史发现保留；`tools.json` 保持空。PR #817 checks 22（21 success + 1 skipped），merge `ed1c177` / main CI `45249757927` success。
 **2026-11-23 TASK-395 Blocked/WIP：Excel T2.1 fake runtime + session registry + pure handlers。** 新增 test-only `ExcelT21Runtime`、opaque session registry、path/range/read-mode parser、canonical decimal、四个 handler 与 22 个 fake/负向测试；覆盖跨 task/ToolBus、TTL close 失败重试/capacity、共享全局 8-session、open ownership/identity/registry 失败清理、非原点 A1 与 worksheet 锚定、4096 cells / 256 KiB / 1024 worksheets / 2048 named ranges、unknown Excel error、fingerprint drift 与 signed summarize。`tools.json` 仍为空；`DRIFT-395-1` 阻塞生产 ToolBus 错误码桥。
 **2026-11-23 TASK-394 Done（Excel T2.1 read-only Tool contract）**：新增 ADR-0108 与 `excel-t21-readonly-workflow` spec，冻结 open + workbook/range read + summarize 四个 Tool、ToolBus-isolated reusable opaque session、dedicated STA 到达顺序线性化、262144-byte workbook bounds、4096-cell / 256-KiB range bounds、完整 ErrorCode 矩阵、repo 外 ownership journal 与独立 watchdog。独立 review 的 3 P1 + 3 P2 + 1 P3 已全部关闭；docs-only 变更，`tools.json` 仍为空。PR #806 checks 11/11 success，merge `614062a` / main CI `45133625235` success。
