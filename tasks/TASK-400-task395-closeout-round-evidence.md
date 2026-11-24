@@ -183,7 +183,7 @@ git diff --check
   `MERGEABLE` / `CLEAN`。
 - merge commit：`d72ed1629ee0ee1eba1fb928fd5adcfe6a226eb2`。
 - post-merge main CI `45366856008`：success；Windows、Ubuntu、macOS 与其余必要 jobs 全绿。
-- `PROCESS-TASK400-SHELL-MISUSE` 最终机器重算为 **15** 次，均为只读/状态查询、
+- `PROCESS-TASK400-SHELL-MISUSE` 最终机器重算为 **17** 次，均为只读/状态查询、
   分支切换或 gate 调用；
   项目 hook 实际以 Windows PowerShell 执行；`[supersedes:2026-11-24]` 执行记录 §5 的
   中途值 5 次。无仓库意外写入或外部副作用。
@@ -192,5 +192,5 @@ git diff --check
 
 - 回填 PR #826 merge `bbf263f` / post-merge main CI `45373787116` success 后，
   最终重算发现一次只读 run-list 查询仍误填了 `shell="bash"`。
-- 权威计数更新为 **15**；`[supersedes:2026-11-24]` §10 的 12 次。
+- 权威计数更新为 **17**；`[supersedes:2026-11-24]` §10 的 12 次。
 - 该命令由项目 hook 实际重写为 Windows PowerShell，执行结果正常，无仓库意外写入。
