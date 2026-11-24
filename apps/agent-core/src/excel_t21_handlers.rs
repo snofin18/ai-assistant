@@ -100,7 +100,7 @@ pub(crate) struct ExcelToolResult {
 /// Four Excel T2.1 handlers over one private runtime and one isolated registry.
 pub(crate) struct ExcelT21Handlers<R> {
     runtime: Arc<R>,
-    sessions: Mutex<SessionRegistry>,
+    pub(crate) sessions: Mutex<SessionRegistry>,
 }
 
 impl<R> ExcelT21Handlers<R>
@@ -739,8 +739,12 @@ fn ensure_unchanged(before: &str, after: &str, tool: &str) -> Result<(), ExcelT2
     }
     Ok(())
 }
-
 fn ensure_payload_bound(data: &Value, maximum: usize, tool: &str) -> Result<(), ExcelT21Error> {
+    let code = if tool == TOOL_WORKBOOK_READ {
+        ErrorCode::UserInteraction
+    } else {
+        ErrorCode::ToolInvalidArgs
+    };
     let bytes = serde_json::to_vec(data).map_err(|error| {
         ExcelT21Error::new(
             ErrorCode::Fatal,
@@ -749,13 +753,12 @@ fn ensure_payload_bound(data: &Value, maximum: usize, tool: &str) -> Result<(), 
     })?;
     if bytes.len() > maximum {
         return Err(ExcelT21Error::new(
-            ErrorCode::UserInteraction,
+            code,
             format!("{tool}: payload exceeds {maximum} bytes"),
         ));
     }
     Ok(())
 }
-
 fn ownership_error(error: ExcelT21Error, tool: &str) -> ExcelT21Error {
     if error.code() == ErrorCode::TargetNotFound {
         error
@@ -766,7 +769,6 @@ fn ownership_error(error: ExcelT21Error, tool: &str) -> ExcelT21Error {
         )
     }
 }
-
 fn cell_address(row: u32, column: u32) -> Result<String, ExcelT21Error> {
     let mut value = column;
     let mut letters = Vec::new();
@@ -784,7 +786,6 @@ fn cell_address(row: u32, column: u32) -> Result<String, ExcelT21Error> {
         .map_err(|_| runtime_shape_error("A1 column conversion produced invalid ASCII"))?;
     Ok(format!("{letters}{row}"))
 }
-
 fn is_known_excel_error(value: &str) -> bool {
     matches!(
         value,
@@ -805,7 +806,6 @@ fn is_known_excel_error(value: &str) -> bool {
             | "#BUSY!"
     )
 }
-
 fn reject_unknown_keys(
     arguments: &Map<String, Value>,
     allowed: &[&str],
