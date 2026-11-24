@@ -1,6 +1,6 @@
 # 阶段 2 — Excel L1 COM + Adapter 规范化
 
-> 周期 6~8 周　状态：**InProgress（2026-11-24）**；Stage 1 已完成；TASK-395 / TASK-396 / TASK-397 / TASK-398 / TASK-399 已完成；TASK-400 正在做本轮 docs-only 收口。
+> 周期 6~8 周　状态：**InProgress（2026-11-24）**；Stage 1 已完成；TASK-395 / TASK-396 / TASK-397 / TASK-398 / TASK-399 / TASK-400 已完成。
 > 2026-11-23 automation 运行日已由 PR #817 收口；TASK-397 的 typed `HandlerFailure`
 > 错误桥已由 PR #819 merge `2c412d5` / main CI `45305239489` success 合入，TASK-395 恢复 Ready。
 > TASK-372 真实 Excel
@@ -125,7 +125,7 @@
 | 4c bridge | **TASK-397 ✅** | ToolBus/治理 | `tasks/TASK-397-toolbus-handler-error-bridge.md` | Done（ADR-0109 typed `HandlerFailure`；13 类 ErrorCode round-trip；PR #819 merge `2c412d5`；main CI `45305239489` success） |
 | 4d wrappers | **TASK-398 ✅** | Excel/ToolBus | `tasks/TASK-398-excel-t21-toolbus-handler-wrappers.md` | Done（四 wrapper + registry-derived session id + 13-code mapping；PR #821 merge `0d96d8e`；main CI `45316595521` success；production/tools.json 零改动） |
 | 4e runner prototype | **TASK-399 ✅** | Windows platform | `tasks/TASK-399-excel-t21-com-runner-prototype.md` | Done（ADR-0110 gate 顺序；test-only dedicated worker + capacity-1 FIFO + bounded shutdown/cleanup + Windows IDispatch 编译后端；8/8 runner tests；PR #823 merge `b27ff85` / main CI `45338066396` success；tools.json/rollback/ToolBus 零改动） |
-| 4f evidence | **TASK-400 Review** | automation/治理 | `tasks/TASK-400-task395-closeout-round-evidence.md` | Review（TASK-395 closeout + 2026-11-24 round 1 evidence；docs-only） |
+| 4f evidence | **TASK-400 ✅** | automation/治理 | `tasks/TASK-400-task395-closeout-round-evidence.md` | Done（TASK-395 closeout + 2026-11-24 round 1 evidence；PR #825 merge `d72ed16` / main CI `45366856008` success；docs-only） |
 | 5 | 待派单 | Undo/L1 | dispatch 时创建 | 未开始（文件影子副本 + 值快照 + 冲突检测） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |
 | 7 | 待派单 | Excel T2.3 | dispatch 时创建 | 未开始（图表生成/PNG 导出/不覆盖） |
