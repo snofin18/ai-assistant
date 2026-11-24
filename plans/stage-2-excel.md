@@ -1,6 +1,6 @@
 # 阶段 2 — Excel L1 COM + Adapter 规范化
 
-> 周期 6~8 周　状态：**InProgress（2026-11-24）**；Stage 1 已完成；TASK-396 / TASK-397 已完成，TASK-398 Review。
+> 周期 6~8 周　状态：**InProgress（2026-11-24）**；Stage 1 已完成；TASK-396 / TASK-397 / TASK-398 已完成。
 > 2026-11-23 automation 运行日已由 PR #817 收口；TASK-397 的 typed `HandlerFailure`
 > 错误桥已由 PR #819 merge `2c412d5` / main CI `45305239489` success 合入，TASK-395 恢复 Ready。
 > TASK-372 真实 Excel
@@ -64,9 +64,10 @@
 > TASK-397 已完成 **Done**：ADR-0109 以 typed `HandlerFailure` 承载既有 `ErrorCode`，
 > 13 类 code round-trip 与 ToolBus error envelope 测试通过；PR #819 merge `2c412d5` /
 > main CI `45305239489` success，不建立第二套错误桥。
-> TASK-398 正在 **Review**：四个 Excel T2.1 pure handler 已包装为私有 `ToolHandler`，
+> TASK-398 已完成 **Done**：四个 Excel T2.1 pure handler 已包装为私有 `ToolHandler`，
 > session identity 从 registry 派生，13 类错误无损映射，四成功路径与 typed failure 均经
-> in-process ToolBus 验证；`tools.json` 与 production assembly 仍为零改动。
+> in-process ToolBus 验证；PR #821 merge `0d96d8e` / main CI `45316595521` success。
+> `tools.json` 与 production assembly 仍为零改动。
 > TASK-395 已恢复 **Ready**：test-only fake runtime、session registry、path/range/read-mode
 > parser、四个纯逻辑 handler 与 22 个负向测试已落地；`DRIFT-395-1` 已由 ADR-0109 / TASK-397
 > 解除。`tools.json` 仍为空，下一步是 ToolBus handler 包装和生产装配，真实 COM/GUI 与人类
@@ -122,7 +123,7 @@
 | 4 | **TASK-395 Ready/WIP** | Excel T2.1 | `tasks/TASK-395-excel-t21-fake-runtime-session-handlers.md` | Ready：fake runtime/session/parser/纯逻辑 handlers + 22 tests 已落地；两轮 review 5 P1 + 4 P2 已修复；`DRIFT-395-1` 已由 ADR-0109 / TASK-397 解除 |
 | 4b evidence | **TASK-396 ✅** | automation/治理 | `tasks/TASK-396-automation-run-day-report-2026-11-23.md` | Done（round 3 + 2026-11-23 运行日报告；PR #817 merge `ed1c177`；main CI `45249757927` success；未改产品代码或 `tools.json`） |
 | 4c bridge | **TASK-397 ✅** | ToolBus/治理 | `tasks/TASK-397-toolbus-handler-error-bridge.md` | Done（ADR-0109 typed `HandlerFailure`；13 类 ErrorCode round-trip；PR #819 merge `2c412d5`；main CI `45305239489` success） |
-| 4d wrappers | **TASK-398 Review** | Excel/ToolBus | `tasks/TASK-398-excel-t21-toolbus-handler-wrappers.md` | Review：四 wrapper + registry-derived session id + 13-code mapping；27 个专项测试与真实 in-process ToolBus 成功/失败 envelope 全绿；production/tools.json 零改动 |
+| 4d wrappers | **TASK-398 ✅** | Excel/ToolBus | `tasks/TASK-398-excel-t21-toolbus-handler-wrappers.md` | Done（四 wrapper + registry-derived session id + 13-code mapping；PR #821 merge `0d96d8e`；main CI `45316595521` success；production/tools.json 零改动） |
 | 5 | 待派单 | Undo/L1 | dispatch 时创建 | 未开始（文件影子副本 + 值快照 + 冲突检测） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |
 | 7 | 待派单 | Excel T2.3 | dispatch 时创建 | 未开始（图表生成/PNG 导出/不覆盖） |

@@ -1,6 +1,6 @@
 # TASK-398 Excel T2.1 ToolBus handler wrappers
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel T2.1　批次：4d　依赖：TASK-395、TASK-397、ADR-0108、ADR-0109
 
 ---
@@ -131,6 +131,10 @@ git diff --check
 - `cargo deny check` → advisories / bans / licenses / sources ok。
 - `git diff --check` → PASSED。
 - 独立 review 首轮 P1 + 2 P2 已修复，复核结论 **no findings**。
+- PR #821 checks **22**（21 SUCCESS + 1 SKIPPED），pending 0 / failed 0，base=main，
+  `MERGEABLE` / `CLEAN`；显式 squash merge 为
+  `0d96d8e1b5b58456bb288ca12b17240fa634c977`。
+- Post-merge main CI `45316595521` success，head 与 merge commit 一致。
 
 ### 4. DoD 逐条核对
 
@@ -140,7 +144,7 @@ git diff --check
 - [x] 真实 in-process ToolBus 的 typed failure envelope 保留 `VerifyFailed` code 与 exact message。
 - [x] envelope 前 payload bound 二次校验存在，range 超限为 `ToolInvalidArgs` 并有专项测试。
 - [x] `tools.json`、production assembly、protocol、公共 API、依赖零改动。
-- [ ] 文档门禁、PR、CI、merge 与 post-merge main CI 回填。
+- [x] 文档门禁、PR、CI、merge 与 post-merge main CI 回填。
 
 ### 5. 偏差
 
@@ -150,8 +154,8 @@ git diff --check
   均按 ADR-0108 修正为 `ToolInvalidArgs`；workbook read 保持 `UserInteraction`。
 - 独立 review P2：`ExcelT21Error::Display` 曾添加 code 前缀。现仅输出原始 message，测试改为
   exact equality。
-- `PROCESS-TASK398-SHELL-MISUSE`：主会话 51 次、独立 review 12 次只读/build/CI 命令误填
-  `shell="bash"`，合计 **63** 次，无 `powerspace`；项目 hook 实际以 PowerShell 执行，
+- `PROCESS-TASK398-SHELL-MISUSE`：主会话 52 次、独立 review 12 次只读/build/CI/closeout 命令
+  误填 `shell="bash"`，合计 **64** 次，无 `powerspace`；项目 hook 实际以 PowerShell 执行，
   无意外仓库写入或外部副作用。
 
 ### 6. 更合理做法
@@ -167,7 +171,7 @@ git diff --check
 - `tool_bus_config()` 的配对仍是装配约定；后续 production assembly 必须使用同一方法，不得
   手工传入另一个 session id。
 - production ToolBus 注册、Windows COM runner、ownership journal、独立 watchdog、真实
-  `.xlsx` 与人类在场验收仍属后续卡片。
+  `.xlsx` 与人类在场验收仍属后续卡片；本章节不把 test-only wrapper 写成生产已生效。
 - `tools.json` 必须继续为空，直到 COM runner 与真机收敛门禁通过。
 
 ### 8. 新增长期记忆
