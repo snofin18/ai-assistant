@@ -1,6 +1,6 @@
 # TASK-395 Excel T2.1 fake runtime + session registry + handlers
 
-- 状态：**Blocked**
+- 状态：**Ready**
 - 阶段：2　子阶段：Stage 2 Excel T2.1　批次：4　依赖：TASK-394、ADR-0108
 
 ---
@@ -313,3 +313,14 @@ git diff --check
 - **PROCESS-TASK395-GUARD-SKIPPED**：shell 计数从 7/78 更正为 8/79 时，先写入了
   `LEDGER.md`、后补 guard；发现后立即重新 acquire/release 并在本卡留痕。期间无并发写入，
   后续公共热点文件仍须严格先 acquire 后写。
+
+### 13. 2026-11-24 TASK-397 bridge resolved
+
+- ADR-0109 的 typed `HandlerFailure { code, message }` 已随 PR #819 合入 main
+  （merge `2c412d5d1b1d18f15af22675123726b06d28ead1`，post-merge main CI
+  `45305239489` success）；`ToolBusError::error_code()` 可原样返回既有 typed `ErrorCode`。
+- `DRIFT-395-1` 已解除，本卡状态由 **Blocked** 恢复为 **Ready**。下一步是把四个纯逻辑
+  handler 包装为 `ToolHandler` 并走既有 ToolBus failure envelope，而不是新增第二套错误桥。
+- `DRIFT-395-2` 保持历史审计发现，已由 TASK-396 的运行日收口处理，不阻塞本卡继续实现。
+- 本次只解除公共接口阻塞；`tools.json` 仍为空，未修改 Excel Adapter、未注册生产 ToolBus，
+  未启动 Excel/COM/GUI，也未执行真实 `.xlsx` 或人类在场验收。

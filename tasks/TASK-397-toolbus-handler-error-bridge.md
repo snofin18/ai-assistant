@@ -1,6 +1,6 @@
 # TASK-397 ToolBus handler failure ErrorCode bridge
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：2b ToolBus error bridge　批次：治理　依赖：TASK-020、TASK-394、TASK-395、ADR-0108
 
 ---
@@ -135,6 +135,11 @@ git diff --check
 - 首次新增 server 测试因误写未注册工具名失败；已改为 `demo.ambiguous.run` 后通过。
 - 独立 review 的 P2 指出空/纯空白 message 可产生空错误说明，已在 server 信封边界补
   canonical fallback；P3 已通过 server `ErrorCode::ALL` 遍历测试关闭。
+- PR #819 checks **22**（21 SUCCESS + 1 SKIPPED），pending 0 / failed 0，base=main，
+  `MERGEABLE` / `CLEAN`；显式 squash merge 为
+  `2c412d5d1b1d18f15af22675123726b06d28ead1`。
+- Post-merge main CI `45305239489` success；commit 与 merge commit 一致。
+- 独立 review 最终复核结论为 **no findings**；P2 空消息 fallback 与 P3 全量 ErrorCode 覆盖均已关闭。
 
 ### 4. DoD 逐条核对
 
@@ -144,15 +149,17 @@ git diff --check
 - [x] handler 错误经 ToolBus 返回失败信封时 code/message 保真。
 - [x] `ToolHandler`、`ToolOutput`、ToolSchema、协议 schema 与依赖零变化。
 - [x] Excel `tools.json` 仍为空，未启动 Excel/COM/GUI。
-- [ ] 文档门禁、PR、merge 与 post-merge main CI 回填。
-- [ ] TASK-395 状态行与 `DRIFT-395-1` 解除证据同步（需在 bridge merge 后做）。
+- [x] 文档门禁、PR、merge 与 post-merge main CI 回填。
+- [x] TASK-395 状态行与 `DRIFT-395-1` 解除证据同步（需在 bridge merge 后做）。
 
 ### 5. 偏差
 
 - `DRIFT-395-1` 是本次要解决的公共接口缺失，不是新增功能漂移。
 - 首次 server 合同测试使用错误工具名，导致目标查找失败；这是测试夹具错误，已修复后复跑。
-- `PROCESS-TASK397-SHELL-MISUSE`：本会话仍需在提交前按 rollout 做最终机器重算；
-  目前没有发现产品文件越界或外部副作用。
+- `PROCESS-TASK397-SHELL-MISUSE`：最终权威机器重算为 **56** 次
+  （主实现 48 = 47 次 `bash` + 1 次 `powerspace`，独立 review 8 次 `bash`）。
+  均为只读、build、CI 或 closeout 查询；项目 hook 实际以 Windows PowerShell 执行，
+  没有产品文件越界或外部副作用。
 
 ### 6. 更合理做法
 
@@ -162,8 +169,8 @@ git diff --check
 
 ### 7. 遗留问题
 
-- TASK-395 仍需在 TASK-397 合并后更新 Blocked 状态并解除 `DRIFT-395-1`；Windows COM runner、
-  ownership journal、独立 watchdog 与人类在场 `.xlsx` 验收仍属后续实现。
+- TASK-395 已由 ADR-0109 / TASK-397 解除 `DRIFT-395-1` 并恢复 **Ready**；Windows COM runner、
+  ownership journal、独立 watchdog、ToolBus 生产包装与人类在场 `.xlsx` 验收仍属后续实现。
 
 ### 8. 新增长期记忆
 
@@ -174,4 +181,4 @@ git diff --check
 
 - 确认新增变体只走既有 `error_code()` / `Display` 信封路径，没有改变 server 装配。
 - 确认 `ErrorCode::ALL` 13 类全部 round-trip，且没有新增 ErrorCode 或 schema。
-- 确认 TASK-395 的状态解除会在 bridge merge 后单独回填，不提前伪造 Done。
+- 确认 TASK-395 已恢复 Ready，且不把错误桥完成冒充四 Tool、COM runner 或真机验收完成。
