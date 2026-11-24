@@ -26,6 +26,8 @@ use serde_json::{Map, Value, json};
 pub mod handlers;
 #[path = "excel_t21_model.rs"]
 pub mod model;
+#[path = "excel_t21_tool_handlers.rs"]
+pub mod tool_handlers;
 
 pub(crate) use handlers::{ExcelCallContext, ExcelT21Handlers, ExcelT21Runtime, ExcelToolResult};
 pub(crate) use model::*;

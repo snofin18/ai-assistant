@@ -88,7 +88,7 @@ impl ExcelT21Error {
 
 impl fmt::Display for ExcelT21Error {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{:?}: {}", self.code, self.message)
+        write!(formatter, "{}", self.message)
     }
 }
 
@@ -632,7 +632,7 @@ struct SessionRecord {
 
 /// ToolBus-isolated, bounded, in-memory session registry.
 pub(crate) struct SessionRegistry {
-    tool_bus_session_id: String,
+    pub(crate) tool_bus_session_id: String,
     clock: Arc<dyn SessionClock>,
     token_source: Arc<dyn TokenSource>,
     capacity: SessionCapacity,
