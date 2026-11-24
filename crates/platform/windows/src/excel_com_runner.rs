@@ -153,19 +153,19 @@ where
         match command {
             RunnerCommand::CreateApplication(response) => {
                 let result = state.create_application(&mut backend);
-                if send_response(&response, result.clone()).is_err() {
+                if send_response(&response, result).is_err() {
                     return state.abandon(&mut backend);
                 }
             }
             RunnerCommand::ApplicationProcessId(response) => {
                 let result = state.application_process_id(&mut backend);
-                if send_response(&response, result.clone()).is_err() {
+                if send_response(&response, result).is_err() {
                     return state.abandon(&mut backend);
                 }
             }
             RunnerCommand::QuitApplication(response) => {
                 let result = state.quit_application(&mut backend);
-                if send_response(&response, result.clone()).is_err() {
+                if send_response(&response, result).is_err() {
                     return state.abandon(&mut backend);
                 }
             }
