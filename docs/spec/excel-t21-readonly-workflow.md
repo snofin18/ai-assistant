@@ -286,6 +286,20 @@ task runtime 在任何退出路径执行：
 
 ## 11. Implementation gates
 
+> **ADR-0110 normative correction（2026-11-24）**：ADR-0108 D10 优先。真实 COM、
+> 人类在场单次 `.xlsx` 验收与重复收敛全部通过前，生产
+> `adapters/com.microsoft.excel/tools/tools.json` 必须保持空，生产 ToolBus 不得注册。
+>
+> 有效顺序：
+> 1. fake runtime + session registry + parser；
+> 2. 私有 `ToolHandler` 包装与 in-process ToolBus 合同测试；
+> 3. Windows COM runner 私有原型与 fake tests；
+> 4. 人类在场单次 `.xlsx` 验收；
+> 5. 重复运行与 process/session/handle 收敛；
+> 6. 最后才填写生产 tools/rollback/assembly 并注册四个 Tool。
+>
+> 下方旧 gate 文本仅保留历史内容；与本节冲突时以本节及 ADR-0110 为准。
+
 下一实现卡顺序固定：
 
 1. fake runtime + session registry + input/range parser 与负向测试；

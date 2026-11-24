@@ -69,6 +69,8 @@ mod selector;
 #[cfg(windows)]
 #[cfg(windows)]
 mod com;
+#[cfg(test)]
+mod excel_com_runner;
 #[cfg(windows)]
 mod handles;
 #[cfg(windows)]
