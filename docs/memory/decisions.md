@@ -332,3 +332,7 @@
 ## 2026-11-23 追加（ADR-0108，Accepted）
 
 - [2026-11-23][DECISION][src:ADR-0108，人类 2026-11-23“继续下一步”；TASK-394] **Excel T2.1 先冻结四个只读 Tool 契约，不提前暴露未实现 Tool**：`excel.workbook.open` 是唯一 open/专用 owned Excel Tool，exact capability=`com.workbook_open`，write/high/`l3_irreversible`/approval/non-idempotent，只接受本地绝对 `.xlsx` 与 `read_only=true`，无既有 `EXCEL.EXE`；`excel.workbook.read`、`excel.range.read`、`excel.range.summarize` 分别使用 `com.workbook_read`/`com.range_read`，read/low/`none_readonly`/state_unchanged。read Tool 只消费 task-scoped opaque session，不能隐藏 open；range 引用使用 exactly-one named-range/A1 union，mode 显式 `value2|formula|text`，summary 固定 `value2`。payload 最多 4096 cells / 256 KiB，超限失败不截断。task 结束必须在同一 STA thread release COM、`Workbook.Close(false)`、Quit、按 PID/start ticks/path 回收 owned 进程树并以 0 残留为判据；错误不得新增 ErrorCode。实现卡必须先 fake runtime/session 测试，再人类在场真实 `.xlsx`；全部通过前 tools.json 保持空且不注册 ToolBus。
+
+## 2026-11-24 追加（ADR-0109，Accepted）
+
+- [2026-11-24][DECISION][src:ADR-0109，人类 2026-11-24 批准方案 A；TASK-397] **ToolBus handler 失败使用 typed `HandlerFailure` 无损承载既有 ErrorCode**：在 `ToolBusError` 加法式增加 `HandlerFailure { code: ErrorCode, message: String }`，`error_code()` 原样返回 `code`，server 既有失败信封路径使用 `Display` 返回 `message`；不新增第二套错误桥、不新增 ErrorCode、不改 `ToolHandler`/`ToolOutput`/ToolSchema/protocol schema。13 类 ErrorCode 必须 round-trip，禁止用 `Mcp` 数字码或 `Transient`/`Fatal` 冒充。该变体只用于受信任进程内 handler，不得绕过参数校验、Policy、HITL、cleanup 或真实 COM 验收。

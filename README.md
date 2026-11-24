@@ -96,6 +96,7 @@ Photoshop…）：模型负责理解与规划，所有动作都通过**注册的
 ---
 
 ## 当前阶段
+> **TASK-397 Review（2026-11-24 ToolBus handler error bridge）**：ADR-0109 以 typed `HandlerFailure` 承载既有 `ErrorCode`，13 类 code round-trip 与 ToolBus error envelope 测试通过；合并后解除 TASK-395 的 `DRIFT-395-1`，不提前注册 Excel Tool。
 > **TASK-396 Done（2026-11-23 automation 运行日收口）**：新增 round 3 与运行日报告，区分机器 `next_round=3` 与外部 5 个真实槽位；明确 TASK-395 仍被 `DRIFT-395-1` 阻塞。PR #817 merge `ed1c177` / main CI `45249757927` success；未改产品代码或 `tools.json`。
 > **TASK-395 Blocked/WIP（2026-11-23）**：Excel T2.1 fake runtime、session registry、parser 与四个纯逻辑 handler 已实现并通过 22 个专项测试；两轮独立 review 的 5 P1 + 4 P2 已修复。`tools.json` 仍为空。`DRIFT-395-1` 指出 `ToolBusError` 不能无损承载 `TargetAmbiguous` / `PlatformPermission` 等既有错误码，因此未注册生产 ToolBus。round 2 已修复自动轮次证据；round 3 状态/漂移证据已由 PR #815 合并，但 round 3 报告路径仍超出卡 write scope，`DRIFT-395-2` 继续等待裁决。
 > **TASK-394 Done（2026-11-23）**：ADR-0108 冻结 Excel T2.1 四个只读工作流 Tool 与 `none_readonly` 契约；open 是唯一 `com.workbook_open` write/high/L3/approval/non-idempotent Tool，三个 read Tool 使用 ToolBus-isolated opaque session、dedicated STA 串行化与 state_unchanged。补齐 262144-byte / 1024-worksheet / 2048-named-range / 4096-cell / 256-KiB bounds、完整错误矩阵、repo 外 ownership journal 与独立 watchdog cleanup。PR #806 checks 11/11 success，merge `614062a` / main CI `45133625235` success；`tools.json` 保持空，真实 COM/GUI 未执行。

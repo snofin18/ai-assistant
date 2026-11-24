@@ -9,7 +9,7 @@ mod common;
 
 use std::sync::Arc;
 
-use assistant_protocol::{ErrorCode, TruncationReason};
+use assistant_protocol::{ErrorCode, ErrorDefinition, TruncationReason};
 use assistant_tool_bus::{
     CallContext, EvidenceDescriptor, MountSelection, ToolBus, ToolBusConfig, ToolBusError,
     ToolHandler, ToolOutput, ToolRegistry,
@@ -69,6 +69,123 @@ async fn test_handler_error_returns_failure_envelope_with_error_code() {
         error.message.contains("not mounted"),
         "error message must preserve the handler reason: {:?}",
         error.message
+    );
+
+    bus.shutdown().await.expect("bus must shut down");
+}
+
+/// Every existing protocol `ErrorCode` survives the MCP failure-envelope path.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn test_handler_failure_preserves_every_code_in_error_envelope() {
+    let handler: Arc<dyn ToolHandler> = Arc::new(
+        |_call: &CallContext,
+         arguments: &Map<String, Value>|
+         -> assistant_tool_bus::ToolBusResult<ToolOutput> {
+            let index = arguments
+                .get("index")
+                .and_then(Value::as_u64)
+                .and_then(|value| usize::try_from(value).ok())
+                .ok_or_else(|| ToolBusError::InvalidArguments {
+                    tool: "demo.ambiguous.run".to_owned(),
+                    reason: "index must be a usize".to_owned(),
+                })?;
+            let code = ErrorCode::ALL.get(index).copied().ok_or_else(|| {
+                ToolBusError::InvalidArguments {
+                    tool: "demo.ambiguous.run".to_owned(),
+                    reason: "index must reference ErrorCode::ALL".to_owned(),
+                }
+            })?;
+            Err(ToolBusError::HandlerFailure {
+                code,
+                message: format!("handler failure for {code:?}"),
+            })
+        },
+    );
+
+    let mut registry = ToolRegistry::new();
+    register(
+        &mut registry,
+        demo_definition("ambiguous", "returns a typed handler failure"),
+        handler,
+    );
+
+    let (bus, _report) = ToolBus::start(
+        registry,
+        MountSelection::all(),
+        ToolBusConfig::new("server-handler-failure"),
+        clock(),
+    )
+    .await
+    .expect("in-process bus must start");
+
+    for (index, expected) in ErrorCode::ALL.iter().enumerate() {
+        let envelope = bus
+            .call_tool(
+                "demo.ambiguous.run",
+                arguments(json!({ "index": index })),
+                &CallContext::new("task-handler-failure", "step-handler-failure"),
+            )
+            .await
+            .expect("a typed handler failure must be returned as an envelope");
+
+        assert!(!envelope.ok);
+        let error = envelope
+            .error
+            .as_ref()
+            .expect("a failed envelope must carry an error");
+        assert_eq!(error.code, *expected);
+        assert_eq!(error.message, format!("handler failure for {expected:?}"));
+    }
+
+    bus.shutdown().await.expect("bus must shut down");
+}
+
+/// An empty handler message is replaced by the canonical message for its `ErrorCode`.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn test_handler_failure_empty_message_uses_error_definition() {
+    let handler: Arc<dyn ToolHandler> = Arc::new(
+        |_call: &CallContext,
+         _arguments: &Map<String, Value>|
+         -> assistant_tool_bus::ToolBusResult<ToolOutput> {
+            Err(ToolBusError::HandlerFailure {
+                code: ErrorCode::TargetAmbiguous,
+                message: "   ".to_owned(),
+            })
+        },
+    );
+
+    let mut registry = ToolRegistry::new();
+    register(
+        &mut registry,
+        demo_definition("emptymessage", "returns an empty handler message"),
+        handler,
+    );
+
+    let (bus, _report) = ToolBus::start(
+        registry,
+        MountSelection::all(),
+        ToolBusConfig::new("server-handler-empty-message"),
+        clock(),
+    )
+    .await
+    .expect("in-process bus must start");
+
+    let envelope = bus
+        .call_tool(
+            "demo.emptymessage.run",
+            arguments(json!({})),
+            &CallContext::new("task-empty-message", "step-empty-message"),
+        )
+        .await
+        .expect("an empty handler message must still return an envelope");
+
+    let error = envelope
+        .error
+        .as_ref()
+        .expect("a failed envelope must carry an error");
+    assert_eq!(
+        error.message,
+        ErrorDefinition::for_category(ErrorCode::TargetAmbiguous).message_for_model
     );
 
     bus.shutdown().await.expect("bus must shut down");

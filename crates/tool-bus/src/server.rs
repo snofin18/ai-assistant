@@ -118,12 +118,9 @@ impl ToolBusServer {
         let output = match mounted_tool.handler.call(&call, &arguments) {
             Ok(output) => output,
             Err(error) => {
-                return Ok(error_result(
-                    &tool_name,
-                    &call,
-                    error.error_code(),
-                    &error.to_string(),
-                ));
+                let code = error.error_code();
+                let message = error.envelope_message();
+                return Ok(error_result(&tool_name, &call, code, &message));
             }
         };
         let duration_ms = elapsed_ms(started_ms, self.clock.now_unix_ms());
@@ -149,7 +146,7 @@ impl ToolBusServer {
                 &tool_name,
                 &call,
                 error.error_code(),
-                &error.to_string(),
+                &error.envelope_message(),
             )),
         }
     }

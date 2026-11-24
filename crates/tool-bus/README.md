@@ -16,6 +16,9 @@ TASK-020 的**工具通道**：in-process MCP server + client（`rmcp`）、JSON
   `original_bytes`；截不动就让调用**失败**（fail-closed），绝不静默放过超限载荷。
 - 计算工具集指纹（SHA-256，与挂载顺序无关），提供 `toolset.list` / `toolset.search` 两个
   元工具，单次挂载 > 40 个工具时产出结构化告警 + 未串链审计事件（架构 v2 §5.5）。
+- handler 需要返回目标歧义、权限不足、后置条件失败等既有分类时，使用
+  `ToolBusError::HandlerFailure { code, message }`；`code` 是 typed `ErrorCode`，不得用
+  `Mcp` 数字码或 `Transient`/`Fatal` 冒充。
 
 ## 边界（不做什么）
 
@@ -41,6 +44,8 @@ TASK-020 的**工具通道**：in-process MCP server + client（`rmcp`）、JSON
 6. 零 `unsafe`、零 `#[allow]`（`tests/` 由测试文件自行声明例外，依据 AGENTS.md §5.3）。
 7. **`effect` / `reversibility` 是 ToolSchema 必填权威字段**：`ToolDefinition::new` 不接受
    推断默认值；它们进入工具集指纹，并由 Planner 覆盖模型自报值（ADR-0055）。
+8. **handler 错误码不丢失分类**：`HandlerFailure` 的 `error_code()` 原样返回 typed
+   `ErrorCode`；error envelope 继续使用该 code 与 handler message。
 
 ## 已知限制
 

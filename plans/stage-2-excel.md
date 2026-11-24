@@ -61,6 +61,8 @@
 > TASK-394 已完成 **Done**：ADR-0108 冻结 T2.1 四个 Tool、ToolBus-isolated opaque session、
 > 4096 cells / 256 KiB bounds、独立 watchdog 与 task-end cleanup；实现前 tools.json 保持空，
 > 真实 COM/GUI 未执行。PR #806 checks 11/11 success，merge `614062a` / main CI `45133625235` success。
+> TASK-397 正在 **Review**：ADR-0109 以 typed `HandlerFailure` 承载既有 `ErrorCode`，
+> 不建立第二套错误桥；13 类 code round-trip 与 ToolBus error envelope 测试已通过。
 > TASK-395 已创建并推进到 **Blocked / WIP**：test-only fake runtime、session registry、
 > path/range/read-mode parser、四个纯逻辑 handler 与 22 个负向测试已落地；tools.json 仍为空。
 > `DRIFT-395-1` 阻塞 ToolBus 包装：现有公共错误枚举无法无损表达 ADR-0108 的全部 ErrorCode。
@@ -122,6 +124,7 @@
 | 3b | **TASK-394 ✅** | Excel T2.1 contract | `tasks/TASK-394-excel-t21-readonly-tool-contract.md` | Done（四 Tool、ToolBus-isolated session、4096 cells / 256 KiB、ownership/watchdog/cleanup；PR #806 merge `614062a`；main CI `45133625235` success） |
 | 4 | **TASK-395 Blocked/WIP** | Excel T2.1 | `tasks/TASK-395-excel-t21-fake-runtime-session-handlers.md` | Blocked：fake runtime/session/parser/纯逻辑 handlers + 22 tests 已落地；两轮 review 5 P1 + 4 P2 已修复；`DRIFT-395-1` 阻塞 ToolBus 错误码桥 |
 | 4b evidence | **TASK-396 ✅** | automation/治理 | `tasks/TASK-396-automation-run-day-report-2026-11-23.md` | Done（round 3 + 2026-11-23 运行日报告；PR #817 merge `ed1c177`；main CI `45249757927` success；未改产品代码或 `tools.json`） |
+| 4c bridge | **TASK-397** | ToolBus/治理 | `tasks/TASK-397-toolbus-handler-error-bridge.md` | Review（ADR-0109 typed `HandlerFailure`；13 类 ErrorCode round-trip；ToolBus error envelope 保真） |
 | 5 | 待派单 | Undo/L1 | dispatch 时创建 | 未开始（文件影子副本 + 值快照 + 冲突检测） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |
 | 7 | 待派单 | Excel T2.3 | dispatch 时创建 | 未开始（图表生成/PNG 导出/不覆盖） |
