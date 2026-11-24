@@ -1,6 +1,6 @@
 # TASK-395 Excel T2.1 fake runtime + session registry + handlers
 
-- 状态：**Ready**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel T2.1　批次：4　依赖：TASK-394、ADR-0108
 
 ---
@@ -324,3 +324,23 @@ git diff --check
 - `DRIFT-395-2` 保持历史审计发现，已由 TASK-396 的运行日收口处理，不阻塞本卡继续实现。
 - 本次只解除公共接口阻塞；`tools.json` 仍为空，未修改 Excel Adapter、未注册生产 ToolBus，
   未启动 Excel/COM/GUI，也未执行真实 `.xlsx` 或人类在场验收。
+
+### 14. 2026-11-24 TASK-400 closeout
+
+- TASK-397 的 ADR-0109 typed `HandlerFailure` 已解除 `DRIFT-395-1`；TASK-398 随后在
+  `apps/agent-core/src/excel_t21_tool_handlers.rs` 完成四个私有 `ToolHandler` 包装，
+  以 registry 派生的 ToolBus session identity 调用既有 pure handler，并将 13 类
+  `ExcelT21Error` 原样映射到 `ToolBusError::HandlerFailure`。
+- TASK-398 的成功输出 source、payload bound、跨 task 拒绝与 `VerifyFailed` failure
+  envelope 已由真实 in-process ToolBus 测试覆盖；PR #821 merge `0d96d8e`，
+  post-merge main CI `45316595521` success。
+- TASK-399 进一步验证 test-only dedicated COM worker、capacity-1 FIFO、bounded
+  shutdown/cleanup 与 Windows `IDispatch` 编译边界；PR #823 merge `b27ff85`，
+  post-merge main CI `45338066396` success。该证据不把 prototype 写成生产 runner。
+- 本轮重新运行 `cargo test -p assistant-agent-core --lib excel_t21`：
+  **27 passed / 0 failed**；`cargo test -p assistant-tool-bus --test handler_contract`：
+  **8 passed / 0 failed**。`adapters/com.microsoft.excel/tools/tools.json` 仍为
+  `tools: []`，生产 assembly、protocol、公共 API 与依赖零改动。
+- 因此 TASK-395 的 fake runtime、registry、parser、四 pure handler、错误桥接前置条件与
+  test-only wrapper 证据均已闭环。真实 COM runner 生产接入、人类在场 `.xlsx` 验收、
+  重复收敛与生产 ToolBus 注册仍由 ADR-0110 后续卡负责，不在本卡范围内。
