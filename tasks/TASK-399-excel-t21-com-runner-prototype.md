@@ -1,6 +1,6 @@
 # TASK-399 Excel T2.1 private COM runner prototype
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel T2.1　批次：4e　依赖：TASK-391、TASK-395、TASK-398、ADR-0108、ADR-0110
 
 ---
@@ -153,6 +153,12 @@ git diff --check
   hygiene/comment warning。
 - 独立 review 三轮：首轮 2 P1 + 3 P2；第二轮确认主要 P1 关闭后剩 1 P1 + 2 P2；
   第三轮 **no findings**。
+- Implementation PR #823 checks **22**（21 SUCCESS + 1 SKIPPED），pending 0 / failed 0，
+  base=main，`MERGEABLE` / `CLEAN`；squash merge
+  `b27ff85fb73182f51d6ffc7db997fc6ee5523fa1`；post-merge main CI
+  `45338066396` success。
+- 首轮 PR CI 在 Ubuntu/macOS 暴露 Rust 1.100 `redundant_clone`；已删除三个无效
+  clone 后重跑，最终两套 PR run 22 checks 全绿。
 
 ### 4. DoD 逐条核对
 
@@ -165,7 +171,8 @@ git diff --check
 - [x] Windows 真实 IDispatch 代码编译；测试只验证 idle backend，不创建 Excel。
 - [x] ADR-0110/spec 与 PLAN/Stage/README 顺序一致，生产 `tools.json` 仍为空。
 - [x] 无公共 API、依赖、Adapter、rollback、production assembly、ToolBus 差异。
-- [ ] 独立 review、PR/CI/merge/post-merge main CI 待回填。
+- [x] 独立 review 三轮最终 no findings；PR #823 / CI / merge / post-merge main CI
+  已回填。
 
 ### 5. 偏差
 
@@ -178,8 +185,8 @@ git diff --check
 - 独立 review 首轮：queue-full 测试绕过 `dispatch()`；已改为通过 `dispatch()` 验证
   `TargetUnresponsive`。
 - `PROCESS-TASK399-SHELL-MISUSE`：本轮存在只读/验证命令误填 `shell="bash"`，均由
-  项目 hook 实际改写为 PowerShell 执行；无仓库越界写入或外部副作用，最终计数待
-  closeout 前机器重算。
+  项目 hook 实际改写为 PowerShell 执行；无仓库越界写入或外部副作用。机器重算：
+  主会话 **95** 次、独立 review **18** 次，合计 **113** 次。
 
 ### 6. 更合理做法
 
