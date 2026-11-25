@@ -13,25 +13,35 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use assistant_platform_api::{ErrorCode, PlatformError, PlatformResult};
+#[cfg(windows)]
 use windows::Win32::Foundation::{CloseHandle, ERROR_NO_MORE_FILES, HANDLE};
+#[cfg(windows)]
 use windows::Win32::Storage::FileSystem::GetDriveTypeW;
+#[cfg(windows)]
 use windows::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
 };
+#[cfg(windows)]
 use windows::core::PCWSTR;
 
+#[cfg(windows)]
 use windows::Win32::Foundation::{FILETIME, STILL_ACTIVE};
+#[cfg(windows)]
 use windows::Win32::System::Threading::{
     GetExitCodeProcess, GetProcessTimes, OpenProcess, PROCESS_NAME_FORMAT,
     PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
+#[cfg(windows)]
 use windows::core::PWSTR;
 
+#[cfg(windows)]
 const DRIVE_REMOTE: u32 = 4;
+#[cfg(windows)]
 const MAX_PROCESS_PATH_UNITS: usize = 32_768;
 const MAX_CELL_ADDRESS_BYTES: usize = 32;
 
 /// Stable process ownership evidence captured after creating Excel.
+#[cfg(windows)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExcelProcessIdentity {
     /// Process id observed from `Application.Hwnd`.
@@ -43,11 +53,13 @@ pub struct ExcelProcessIdentity {
 }
 
 /// Fails closed when any Excel process already exists.
+#[cfg(windows)]
 pub fn ensure_no_existing_excel_process() -> PlatformResult<()> {
     let process_ids = excel_process_ids()?;
     fail_if_existing_excel_process(&process_ids)
 }
 
+#[cfg(windows)]
 fn fail_if_existing_excel_process(process_ids: &[u32]) -> PlatformResult<()> {
     if process_ids.is_empty() {
         Ok(())
@@ -62,6 +74,7 @@ fn fail_if_existing_excel_process(process_ids: &[u32]) -> PlatformResult<()> {
 }
 
 /// Returns all current `EXCEL.EXE` process ids.
+#[cfg(windows)]
 pub fn excel_process_ids() -> PlatformResult<Vec<u32>> {
     // SAFETY: the snapshot request has no pointer inputs; the returned handle is
     // owned by SnapshotHandle and closed exactly once.
@@ -111,6 +124,7 @@ pub fn excel_process_ids() -> PlatformResult<Vec<u32>> {
 }
 
 /// Captures the exact identity of one live process.
+#[cfg(windows)]
 pub fn process_identity(process_id: u32) -> PlatformResult<Option<ExcelProcessIdentity>> {
     // SAFETY: query-limited access is read-only for this pid; the returned handle
     // is owned by ProcessHandle and closed exactly once.
@@ -188,6 +202,7 @@ pub fn process_identity(process_id: u32) -> PlatformResult<Option<ExcelProcessId
 }
 
 /// Verifies that a live process still matches the captured identity fields.
+#[cfg(windows)]
 pub fn process_matches(
     process_id: u32,
     start_time_100ns: u64,
@@ -202,6 +217,7 @@ pub fn process_matches(
 }
 
 /// Rejects mapped network drives while allowing ordinary local paths.
+#[cfg(windows)]
 pub fn ensure_local_drive(path: &Path) -> PlatformResult<()> {
     let path_text = path.to_string_lossy();
     let bytes = path_text.as_bytes();
@@ -288,6 +304,7 @@ pub fn validate_workbook_path(path: &Path) -> PlatformResult<PathBuf> {
     let canonical = canonical_text
         .strip_prefix(r"\\?\")
         .map_or_else(|| canonical.clone(), PathBuf::from);
+    #[cfg(windows)]
     ensure_local_drive(&canonical)?;
     Ok(canonical)
 }
@@ -360,6 +377,7 @@ fn is_single_a1_cell(address: &str) -> bool {
         .is_some_and(|value| (1..=1_048_576).contains(&value))
 }
 
+#[cfg(windows)]
 fn process_name(entry: &PROCESSENTRY32W) -> String {
     let name = entry
         .szExeFile
@@ -370,6 +388,7 @@ fn process_name(entry: &PROCESSENTRY32W) -> String {
     String::from_utf16_lossy(&name)
 }
 
+#[cfg(windows)]
 fn classify_first_process_error(error: &windows::core::Error) -> PlatformResult<()> {
     if error.code() == ERROR_NO_MORE_FILES.to_hresult() {
         Ok(())
@@ -381,16 +400,20 @@ fn classify_first_process_error(error: &windows::core::Error) -> PlatformResult<
     }
 }
 
+#[cfg(windows)]
 fn filetime_value(value: FILETIME) -> u64 {
     (u64::from(value.dwHighDateTime) << 32) | u64::from(value.dwLowDateTime)
 }
 
+#[cfg(windows)]
 fn process_error(message: impl Into<String>) -> PlatformError {
     PlatformError::new(ErrorCode::Fatal, message)
 }
 
+#[cfg(windows)]
 struct SnapshotHandle(HANDLE);
 
+#[cfg(windows)]
 impl Drop for SnapshotHandle {
     fn drop(&mut self) {
         // SAFETY: this handle is owned by the wrapper and has not been closed.
@@ -401,8 +424,10 @@ impl Drop for SnapshotHandle {
     }
 }
 
+#[cfg(windows)]
 struct ProcessHandle(HANDLE);
 
+#[cfg(windows)]
 impl Drop for ProcessHandle {
     fn drop(&mut self) {
         // SAFETY: this handle is owned by the wrapper and has not been closed.
@@ -412,7 +437,7 @@ impl Drop for ProcessHandle {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, windows))]
 mod tests {
     #![allow(clippy::expect_used)]
 

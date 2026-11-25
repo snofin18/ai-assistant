@@ -34,7 +34,6 @@ use assistant_platform_api::ErrorCode;
 use super::api::real_com_support::{RealComAcceptanceGuard, verify_real_com_read_surface};
 #[cfg(windows)]
 use super::windows_backend::parse_named_range_scope;
-#[cfg(windows)]
 use super::*;
 #[cfg(windows)]
 use crate::excel_process::{excel_process_ids, process_identity};
@@ -661,6 +660,7 @@ fn test_runner_rejects_invalid_read_selectors_and_snapshot_bounds() {
     std::fs::remove_file(workbook_path).expect("remove workbook");
 }
 
+#[cfg(windows)]
 #[test]
 fn test_named_range_scope_parser_is_explicit() {
     assert_eq!(

@@ -129,6 +129,9 @@ digest 不变与 `EXCEL.EXE=0`。
 - 增加 fake/protocol/真实 COM 测试；真实 fixture 覆盖 numeric、boolean、text、blank、
   `#DIV/0!`、formula、named range、metadata、fingerprint 与 ownership。真实 COM 退出等待
   改为有界 20 秒，以容纳公式/error cell 的释放延迟。
+- 修复 Linux CI 条件编译：fake test 的 `super::*` 恢复为跨平台导入，
+  `excel_process` 改为 `any(windows, test)`，仅 Windows 使用的 process/IDispatch helper
+  按平台裁剪。
 
 ### 3. 门禁输出摘要
 
@@ -141,6 +144,8 @@ digest 不变与 `EXCEL.EXE=0`。
 - `cargo test --workspace`、`cargo clippy --all-targets -- -D warnings`、
   `cargo fmt --all --check`、arch、schema、codegen、hygiene、card/doc/ref/comment、
   memory-counts、adr-index、check-ledger、deny、core replay → 全部 PASSED。
+- `cargo clippy --target x86_64-unknown-linux-gnu -p assistant-platform-windows --all-targets -- -D warnings`
+  → PASSED，修复了 PR #853 首轮 Ubuntu fake-test 编译失败。
 - `cargo llvm-cov --workspace --fail-under-lines 75` → workspace line coverage
   **77.59%**；根目录没有 `package.json`，`pnpm lint/typecheck/test` 不适用。
 

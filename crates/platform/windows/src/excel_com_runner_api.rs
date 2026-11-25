@@ -277,6 +277,7 @@ pub enum ExcelReadMode {
 }
 
 impl ExcelReadMode {
+    #[cfg(windows)]
     pub(super) const fn property_name(self) -> &'static str {
         match self {
             Self::Value2 => "Value2",
@@ -645,6 +646,7 @@ fn fingerprint_material(
     Ok(output)
 }
 
+#[cfg(windows)]
 pub(super) fn range_address(selector: &ExcelRangeSelector) -> PlatformResult<String> {
     match selector {
         ExcelRangeSelector::NamedRange(name) => Ok(name.clone()),
@@ -666,6 +668,7 @@ pub(super) fn range_address(selector: &ExcelRangeSelector) -> PlatformResult<Str
     }
 }
 
+#[cfg(windows)]
 fn column_name(column: u32) -> PlatformResult<String> {
     if !(1..=MAX_EXCEL_COLUMN).contains(&column) {
         return Err(PlatformError::new(
@@ -685,6 +688,7 @@ fn column_name(column: u32) -> PlatformResult<String> {
 }
 
 #[allow(clippy::redundant_pub_crate)]
+#[cfg(windows)]
 pub(crate) fn calculation_mode(value: i32) -> String {
     match value {
         -4105 => "automatic".to_owned(),
@@ -695,6 +699,7 @@ pub(crate) fn calculation_mode(value: i32) -> String {
 }
 
 #[allow(clippy::redundant_pub_crate)]
+#[cfg(windows)]
 pub(crate) fn calculation_state(value: i32) -> String {
     match value {
         0 => "done".to_owned(),
