@@ -1,6 +1,6 @@
 # TASK-401 Excel T2.1 runner injection boundary and real-COM acceptance harness
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel T2.1　批次：4g　依赖：TASK-391、TASK-395、TASK-398、TASK-399、ADR-0108、ADR-0110
 
 ---
@@ -152,6 +152,10 @@ Remove-Item Env:\EXCEL_T21_ACCEPTANCE_WORKBOOK
 - `cargo test --workspace`：通过；xtask 587 passed。
 - schema 7/7、codegen 0 drift、arch 10/10、deny ok、replay 2 steps/0 mismatch。
 - 文档门禁全绿；UI 90 model + 5 Vitest；coverage **78.18%** lines。
+- PR #851 checks **22/22 SUCCESS**，pending 0 / failed 0，base=main，
+  `MERGEABLE` / `CLEAN`；merge
+  `c62943435785d1c749467d0647c3daeb7ef001c8`；post-merge main CI
+  `45533518843` success。
 
 ### 4. DoD 核对
 
@@ -162,7 +166,7 @@ Remove-Item Env:\EXCEL_T21_ACCEPTANCE_WORKBOOK
 - [x] ignored Windows 验收测试可由人工显式运行，并检查 digest 与 owned PID 收敛。
 - [x] agent-core compile-boundary test 能从 app 层引用平台 handle；不注册 ToolBus。
 - [x] `tools.json`、rollback、production assembly、protocol/schema 与依赖零改动。
-- [ ] 全量门禁、PR/CI/merge/post-merge main CI 闭环。
+- [x] 全量门禁、PR/CI/merge/post-merge main CI 闭环。
 
 ### 5. 偏差
 
