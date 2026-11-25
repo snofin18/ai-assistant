@@ -832,6 +832,11 @@ fn parse_runtime_fingerprint(value: &str) -> Result<Fingerprint, ExcelT21Error> 
 fn undo_shape_error(error: &assistant_undo::UndoError) -> ExcelT21Error {
     invalid_arguments(format!("Excel L1 undo anchor shape is invalid: {error}"))
 }
+
+#[cfg(test)]
+#[path = "excel_t21_l1_write.rs"]
+pub(crate) mod write;
+
 #[cfg(test)]
 #[path = "excel_t21_l1_tests.rs"]
 mod tests;

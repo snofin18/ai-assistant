@@ -40,6 +40,10 @@ TASK-029 的 binary-layer Host 装配库。
   既有 `assistant-undo` `L1Snapshot + ShadowCopy` anchor 绑定。写前/写后/回滚前同时校验
   identity 与 fingerprint，并对 anchor 数、影子字节总量和 payload 使用硬上限拒绝策略。
   它不创建真实影子文件，也不执行写或回滚。
+- TASK-405 提供 test-only 私有 scalar write 输入门：只接受有界 JSON
+  `null|boolean|number|string`，number 经现有 `CanonicalDecimal` 规范化，公式形态字符串在
+  写前拒绝；合法 scalar 再复用 TASK-404 anchor 的 single-use pre-fingerprint 检查。
+  它不执行真实 range write、重算、`.Value2/.Formula` 双读、保存或恢复。
 
 ## 边界
 
@@ -75,6 +79,8 @@ TASK-029 的 binary-layer Host 装配库。
 13. Excel L1 anchor 只能在同一 opened workbook identity 与捕获的 pre-fingerprint 上
     准备一次写入；post-fingerprint 只能记录一次，identity/fingerprint 漂移或证据缺失时
     回滚必须 blocked。
+14. Excel scalar write 只接受单一 JSON scalar；array/object、不可规范化 number、
+    公式形态字符串或超过既有 range payload 上限的输入都必须在 anchor 状态变化前失败。
 
 ## 已知限制
 
@@ -95,6 +101,8 @@ TASK-029 的 binary-layer Host 装配库。
   COM 重复验收、ownership/watchdog 与 production ToolBus registration 仍需后续卡。
 - TASK-404 的影子副本是内存模型，仅证明 anchor/digest/conflict 契约；真实文件复制、
   磁盘保留、恢复写入与写入后的 `.Value2/.Formula` 校验仍需人类在场的 T2.2 实现卡。
+- TASK-405 只冻结 scalar 输入门与写前 anchor 状态；真实 range write、重算、
+  `.Value2/.Formula` 双读、保存和恢复仍未实现，production Excel surface 继续为空。
 
 ## 相关文档
 
