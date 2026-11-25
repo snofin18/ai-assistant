@@ -44,6 +44,11 @@ TASK-029 的 binary-layer Host 装配库。
   `null|boolean|number|string`，number 经现有 `CanonicalDecimal` 规范化，公式形态字符串在
   写前拒绝；合法 scalar 再复用 TASK-404 anchor 的 single-use pre-fingerprint 检查。
   它不执行真实 range write、重算、`.Value2/.Formula` 双读、保存或恢复。
+- TASK-406 提供 test-only 私有 scalar range write port：把 anchor 捕获的 canonical
+  address、worksheet、维度与 cell 数绑定到写前 selector，按
+  write → recalculate → `.Value2` → `.Formula` → post-fingerprint 顺序执行一次不可重试的
+  fake 事务；任一端口或双读校验失败都不记录 committed 结果。真实 COM write/save、
+  磁盘影子副本与 production ToolBus 仍未接线。
 
 ## 边界
 
@@ -103,6 +108,8 @@ TASK-029 的 binary-layer Host 装配库。
   磁盘保留、恢复写入与写入后的 `.Value2/.Formula` 校验仍需人类在场的 T2.2 实现卡。
 - TASK-405 只冻结 scalar 输入门与写前 anchor 状态；真实 range write、重算、
   `.Value2/.Formula` 双读、保存和恢复仍未实现，production Excel surface 继续为空。
+- TASK-406 只证明私有 write-port 状态机与 fake 双读契约；真实 COM write/save、文件
+  shadow copy、写后实际语义校准与 production Excel surface 仍未实现。
 
 ## 相关文档
 

@@ -21,23 +21,23 @@ use assistant_protocol::ErrorCode;
 
 /// One validated scalar literal ready to be submitted to a future Excel write port.
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct ExcelL1ScalarLiteral {
+pub(super) struct ExcelL1ScalarLiteral {
     value_type: CellValueType,
     value_text: String,
 }
 
 impl ExcelL1ScalarLiteral {
     /// Returns the closed Excel cell type produced by the JSON scalar.
-    const fn value_type(&self) -> CellValueType {
+    pub(super) const fn value_type(&self) -> CellValueType {
         self.value_type
     }
 
     /// Returns the canonical text that a future `value2` write must reproduce.
-    fn value_text(&self) -> &str {
+    pub(super) fn value_text(&self) -> &str {
         &self.value_text
     }
 
-    fn parse(input_json: &str) -> Result<Self, super::ExcelT21Error> {
+    pub(super) fn parse(input_json: &str) -> Result<Self, super::ExcelT21Error> {
         let input_json = input_json.trim_matches(is_json_whitespace);
         let first = input_json
             .chars()
