@@ -1,6 +1,6 @@
 # TASK-406 Excel T2.2 private scalar range write port
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel T2.2　批次：6　依赖：TASK-403、TASK-404、TASK-405、ADR-0062、ADR-0107、ADR-0108、ADR-0110
 
 ---
@@ -162,8 +162,10 @@ git diff --check
 - [x] `.Value2`/`.Formula` 的 mode、shape、coordinates、type/value 漂移全部 fail-closed。
 - [x] post-fingerprint 只在双读成功后记录一次；重复 post 与 released handle 返回既有 `ErrorCode`。
 - [x] 生产 tools/ToolBus/rollback/assembly、protocol/schema/依赖零改动。
-- [ ] PR/CI/merge/post-merge main CI 证据待 implementation PR 收口。
-- [ ] 外部 automation JSONL 的 PR/CI/merge/main_ci/final 事件待收口。
+- [x] PR #867 checks 22（21 SUCCESS + 1 SKIPPED），pending 0 / failed 0，
+  `MERGEABLE` / `CLEAN`；merge `0426cd60e2cbdb3211a0706679d997b136d743a6`；
+  post-merge main CI `45687778120` success。
+- [x] 外部 automation JSONL 的 PR/CI/merge/main_ci/final 事件已收口。
 
 ### 5. 偏差
 
@@ -193,7 +195,12 @@ git diff --check
 - automation JSONL：
   `C:\Users\fexfe\.codex\automations-logs\2026-11-25\ai-assistant-task-round-20261126-0300.jsonl`
 - round evidence：`docs/automations/2026-11-25-round-3.md`。
-- implementation PR / CI / merge hash / post-merge main CI：待提交后回填。
+- TASK-406 implementation PR #867：
+  https://github.com/snofin18/ai-assistant/pull/867
+- checks **22（21 SUCCESS + 1 SKIPPED）**，pending 0 / failed 0，base=main，
+  `MERGEABLE` / `CLEAN`。
+- merge `0426cd60e2cbdb3211a0706679d997b136d743a6`；post-merge main CI
+  `45687778120` success。
 - 独立 review：首轮 1 P1 + 1 P2 + 1 P3；复审 no P0-P2。
 
 ### 9. 给审阅者的关注点
