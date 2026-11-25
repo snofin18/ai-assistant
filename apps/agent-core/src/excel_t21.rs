@@ -14,7 +14,6 @@
 //! 2. external `ToolBus` registration requires a separate error-mapping decision.
 //!
 //! Related documents: TASK-395, ADR-0108.
-
 use assistant_protocol::ErrorCode;
 use serde_json::{Map, Value, json};
 use std::collections::BTreeSet;
@@ -22,6 +21,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 #[path = "excel_t21_handlers.rs"]
 pub mod handlers;
+#[path = "excel_t21_l1.rs"]
+pub mod l1;
 #[path = "excel_t21_model.rs"]
 pub mod model;
 #[cfg(windows)]
