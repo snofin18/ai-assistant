@@ -28,9 +28,9 @@ TASK-257     ：**TASK-257 Done（2026-10-20）** —— Paint 形状 / 调色�
 TASK-047     ：**TASK-047 Done（2026-10-20）** —— Stage 1b Paint integration 与 Adapter 复用度审计；技术 **GO**、行政 **条件 GO**。T3.1/T3.2/T3.3 真机合计 **30/30**；六类 `platform/api` 演进均由 ADR-0067/0076/0085/0086/0091/0092+0093 授权；未发现 Paint 专用 trait。TASK-257 Review 与计划表滞后状态保留给独立治理收口。证据：`docs/audits/stage-1b-integration-adapter-reuse-2026-10-20.md`。
 TASK-046     ：**TASK-046 Done（2026-10-20）** —— Paint T3.3 绘制 → `Ctrl+Z` → pre snapshot 像素回滚；真实十次 **10/10 passed**，单次矩形 drag 实测 **1 个 undo step**，no-op undo 显式 `VerifyFailed`；同时修复隐藏 `PopupWindowSiteBridge` flyout 被误判为未保存模态框。证据：`eval/tasks/paint/t3.3/ten-run-summary.json`。
 TASK-323     ：**TASK-323 Done（2026-10-20）** —— TASK-313 同号历史留痕收口：保留现有 selector 正式卡，按 PR #453 / #466 / #468 / #469 的真实 base、merge、CI 与文件范围补全记录；不建第二个同号卡，`PL-117` 由可追溯对账闭环，`PL-115` 限期豁免仍开放。证据：`docs/automations/2026-10-20-round-3.md`。
-更新日期    ：2026-11-25（**TASK-401 Review**：ADR-0111 runner injection boundary + 真实 COM 单工作簿验收；生产 `tools.json`/ToolBus 仍为空）
-当前阶段    ：**阶段 2（Excel L1 COM + Adapter 规范化）InProgress（2026-11-25）**；TASK-401 已完成平台 handle 与单次真实 COM smoke，等待 PR/CI 收口；完整域映射和重复收敛前，生产 `tools.json`/ToolBus 仍保持空。
-当前任务卡  ：TASK-401 Review（ADR-0111；窄公共 runner handle；真实 COM 单 `.xlsx` digest 不变且 owned Excel 归零）；TASK-400 Done（PR #825）；TASK-395 Done；TASK-399 Done；TASK-398 Done；TASK-397 Done；TASK-396 Done；TASK-394 Done；更早完成卡见 Stage 2 批次表与 `LEDGER.md`。
+更新日期    ：2026-11-25（**TASK-401 Done**：PR #851 / main CI `45533518843` success；ADR-0111 runner boundary 与真实 COM 单工作簿 smoke 已闭环）
+当前阶段    ：**阶段 2（Excel L1 COM + Adapter 规范化）InProgress（2026-11-25）**；TASK-401 已完成平台 handle 与单次真实 COM smoke；完整域映射和重复收敛前，生产 `tools.json`/ToolBus 仍保持空。
+当前任务卡  ：TASK-401 Done（ADR-0111；`ExcelComRunner` 窄 handle；真实 COM 单 `.xlsx` digest 不变且 owned Excel 归零；PR #851 merge `c629434` / main CI `45533518843` success）；TASK-400 Done；TASK-395 Done；TASK-399 Done；TASK-398 Done；TASK-397 Done；TASK-396 Done；TASK-394 Done；更早完成卡见 Stage 2 批次表与 `LEDGER.md`。
 当前在途卡  ：下一张为 `ExcelT21Runtime` 完整平台映射与重复运行 process/session/handle 收敛卡；生产 `tools.json`/ToolBus 仍不得注册。
                   跨阶段治理卡 **TASK-200 / 201 / 202 / 203 / 204 / 205** 均 Done
 真机收口    ：**TASK-309 / TASK-317 / TASK-318 / TASK-319 Done（2026-10-19）** —— Paint 全工具集真机路径 14 步全部 `Committed`，`1 passed / 0 failed`；新增 `adapters/com.microsoft.paint/tasks/t3.2.full-toolset-path.json` 与 `test_paint_t3_2_full_toolset_path_runs_on_real_paint`，stable before/after content address 与画布裁剪证据见 `LEDGER.md` / `docs/memory/apps/paint.md` §13.22；真机确认画笔选择会切换活动工具、WinUI flyout 展开状态有异步窗口。
