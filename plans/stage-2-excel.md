@@ -1,6 +1,6 @@
 # 阶段 2 — Excel L1 COM + Adapter 规范化
 
-> 周期 6~8 周　状态：**InProgress（2026-11-25）**；Stage 1 已完成；TASK-395 / TASK-396 / TASK-397 / TASK-398 / TASK-399 / TASK-400 / TASK-401 / TASK-402 已完成。
+> 周期 6~8 周　状态：**InProgress（2026-11-25）**；Stage 1 已完成；TASK-395 / TASK-396 / TASK-397 / TASK-398 / TASK-399 / TASK-400 / TASK-401 / TASK-402 已完成；TASK-403 私有平台映射待实现 PR 合入。
 > 2026-11-23 automation 运行日已由 PR #817 收口；TASK-397 的 typed `HandlerFailure`
 > 错误桥已由 PR #819 merge `2c412d5` / main CI `45305239489` success 合入，TASK-395 恢复 Ready。
 > TASK-372 真实 Excel
@@ -72,6 +72,9 @@
 > parser、四个纯逻辑 handler 与 22 个负向测试已落地；`DRIFT-395-1` 已由 ADR-0109 / TASK-397
 > 解除。`tools.json` 仍为空；按 ADR-0110，下一步先完成 private COM runner、真实 COM/GUI 与人类
 > 在场 `.xlsx` 验收仍待后续。round 3 的 `DRIFT-395-2` 已由 TASK-396 运行日收口，保留历史记录。
+> TASK-403 正在把 test-only `ExcelT21Runtime` 私有映射到 `ExcelComRunner`，以 fake port
+> 验证重复 open/read/close 的 handle/worker 收敛；本轮不运行真实 COM，生产 tools/ToolBus
+> 继续为空。
 
 ## In scope
 
@@ -128,6 +131,7 @@
 | 4f evidence | **TASK-400 ✅** | automation/治理 | `tasks/TASK-400-task395-closeout-round-evidence.md` | Done（TASK-395 closeout + 2026-11-24 round 1 evidence；PR #825 merge `d72ed16` / main CI `45366856008` success；docs-only） |
 | 4g injection + smoke | **TASK-401 ✅** | Windows platform / agent-core boundary | `tasks/TASK-401-excel-t21-runner-injection-boundary.md` | Done（ADR-0111 窄公共 runner handle；真实 COM 单 `.xlsx` open/read/close 通过，digest 不变且 `EXCEL.EXE=0`；production tools/ToolBus 零注册；PR #851 merge `c629434` / main CI `45533518843` success） |
 | 4h read surface | **TASK-402 ✅** | Windows platform | `tasks/TASK-402-excel-t21-read-surface.md` | Done（ADR-0112、完整只读 metadata/range/fingerprint/ownership；专项 14 passed / 1 ignored，真实 COM 1 passed、digest 不变且 `EXCEL.EXE=0`；PR #853 merge `d958b52` / main CI `45559864439` success） |
+| 4i private mapping | **TASK-403 Review** | agent-core / Windows runner | `tasks/TASK-403-excel-t21-platform-runtime-mapping.md` | Review（test-only private adapter；fake port 10 passed / 1 ignored；独立 review no P0-P2 findings；真实 COM 尚未执行；生产 tools/ToolBus 保持空） |
 | 5 | 待派单 | Undo/L1 | dispatch 时创建 | 未开始（文件影子副本 + 值快照 + 冲突检测） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |
 | 7 | 待派单 | Excel T2.3 | dispatch 时创建 | 未开始（图表生成/PNG 导出/不覆盖） |
