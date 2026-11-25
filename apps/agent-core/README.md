@@ -28,6 +28,8 @@ TASK-029 的 binary-layer Host 装配库。
 - TASK-395 提供 test-only 的 Excel T2.1 纯逻辑骨架：fake runtime、ToolBus-isolated
   session registry、`.xlsx`/range/read-mode parser、workbook/range/cell bounds 与四个
   handler 路径。它不会进入生产 assembly，也不代表 COM runner 或 Tool 已可用。
+- TASK-401 / ADR-0111 提供 app 层可引用的窄 Windows `ExcelComRunner` 边界与真实 COM
+  单工作簿 smoke；`ExcelT21Runtime` 域映射、ToolBus 注册和 `tools.json` 仍保持未接线。
 
 ## 边界
 
@@ -76,8 +78,8 @@ TASK-029 的 binary-layer Host 装配库。
 - TASK-330 已能为 T5.1 三页 DOM 生成确定性的 60 行 CSV；真实 Edge 10/10、
   专用 profile 与外部 smoke 仍由 TASK-056 的人类在场会话负责。
 - Excel T2.1 的四个 handler 仍停留在 `#[cfg(test)]` 私有实现；`tools.json` 保持空。
-  生产桥接被 `DRIFT-395-1` 阻塞：现有公共 `ToolBusError` 不能无损表达 ADR-0108 的
-  `TargetAmbiguous`、`PlatformPermission` 等既有 `ErrorCode`。不得用其他错误码冒充。
+  ADR-0111 已冻结平台 handle 边界并完成单工作簿真实 COM smoke；完整域映射、
+  ownership/watchdog、重复收敛与 production ToolBus registration 仍需后续卡。
 
 ## 相关文档
 
