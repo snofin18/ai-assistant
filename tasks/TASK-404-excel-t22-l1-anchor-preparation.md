@@ -1,6 +1,6 @@
 # TASK-404 Excel T2.2 L1 anchor preparation
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel T2.2　批次：5　依赖：TASK-403、ADR-0062、ADR-0107、ADR-0108
 
 ---
@@ -148,6 +148,8 @@ git diff --check
 - core replay → 2 steps / 0 mismatch；workspace coverage → **77.90%** line coverage。
 - 独立 review 首轮 3 P1 + 2 P2 + 1 P3；修复后复审补出 2 P1 + 2 P2；再次修复后最终
   review **no P0/P1/P2 findings**。
+- PR CI：22 checks（21 SUCCESS + 1 SKIPPED），pending 0 / failed 0，base=main，
+  `MERGEABLE` / `CLEAN`；post-merge main CI success。
 
 ### 4. DoD 核对
 
@@ -156,8 +158,8 @@ git diff --check
 - [x] anchor 数量、影子字节总量与值快照 payload 有硬上限，超限拒绝且可显式释放。
 - [x] 非法路径/range/cell/payload/digest 均返回既有 `ErrorCode`，无静默降级。
 - [x] 生产 tools/ToolBus/rollback/assembly、protocol/schema/依赖零改动。
-- [ ] 专项、全量门禁与独立 review 完成；PR/CI/merge/post-merge main CI 证据待落地。
-- [ ] 外部 automation JSONL 的 PR/CI/merge/main_ci/final 事件待 PR 后写入。
+- [x] 专项、全量门禁与独立 review 完成；PR/CI/merge/post-merge main CI 证据已落地。
+- [x] 外部 automation JSONL 与 2026-11-25 round 1 证据已写入。
 
 ### 5. 偏差
 
@@ -186,7 +188,13 @@ git diff --check
 
 - automation JSONL：
   `C:\Users\fexfe\.codex\automations-logs\2026-11-25\ai-assistant-task-round-20261125-2200.jsonl`
-  （PR / CI / merge / main CI / shell misuse / final audit 在后续事件中追加）。
+- round evidence：`docs/automations/2026-11-25-round-1.md`。
+- implementation PR #861：checks **22（21 SUCCESS + 1 SKIPPED）**，pending 0 /
+  failed 0，base=main，`MERGEABLE` / `CLEAN`。
+- merge `04354195276828291c0f8be770ee5f80a6f5c60a`；post-merge main CI
+  `45641443101` success。
+- 独立 review 最终 no P0/P1/P2 findings；残余风险为真实 COM、真实文件影子副本与
+  真实恢复未执行。
 
 ### 9. 给审阅者的关注点
 
