@@ -132,6 +132,9 @@ digest 不变与 `EXCEL.EXE=0`。
 - 修复 Linux CI 条件编译：fake test 的 `super::*` 恢复为跨平台导入，
   `excel_process` 改为 `any(windows, test)`，仅 Windows 使用的 process/IDispatch helper
   按平台裁剪。
+- Post-merge main CI `45563273943` 暴露 macOS temp fixture 竞态：同一纳秒/进程下两个
+  fake test 可能生成同名 `.xlsx`，先结束的测试删除后另一个 canonicalize 失败。已追加
+  进程内单调序号，未改产品路径校验语义。
 
 ### 3. 门禁输出摘要
 
@@ -188,6 +191,8 @@ digest 不变与 `EXCEL.EXE=0`。
 - PR #853 checks **22（21 SUCCESS + 1 SKIPPED）**，pending 0 / failed 0，base=main，
   `MERGEABLE` / `CLEAN`；merge `d958b52b73f33e305e2441889f17a58363f311df`；
   post-merge main CI `45559864439` success。
+- 后续 main CI `45563273943` 的 macOS fake-test 竞态修复单独走 fix PR；
+  修复前不把它误记为 main 全绿。
 
 ### 9. 给审阅者的关注点
 

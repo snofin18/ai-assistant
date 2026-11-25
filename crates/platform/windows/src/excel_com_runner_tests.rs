@@ -22,7 +22,7 @@
 )]
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, ThreadId};
@@ -37,6 +37,8 @@ use super::windows_backend::parse_named_range_scope;
 use super::*;
 #[cfg(windows)]
 use crate::excel_process::{excel_process_ids, process_identity};
+
+static NEXT_TEMPORARY_WORKBOOK_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Stage {
@@ -278,11 +280,21 @@ fn temporary_workbook() -> PathBuf {
         .expect("system clock")
         .as_nanos();
     let path = std::env::temp_dir().join(format!(
-        "assistant-task401-{}-{nonce}.xlsx",
+        "assistant-task401-{}-{nonce}-{}.xlsx",
+        NEXT_TEMPORARY_WORKBOOK_ID.fetch_add(1, Ordering::Relaxed),
         std::process::id()
     ));
     std::fs::write(&path, b"task401 fake workbook").expect("write temporary workbook");
     path
+}
+
+#[test]
+fn test_temporary_workbooks_are_unique_within_one_process() {
+    let first = temporary_workbook();
+    let second = temporary_workbook();
+    assert_ne!(first, second);
+    std::fs::remove_file(first).expect("remove first temporary workbook");
+    std::fs::remove_file(second).expect("remove second temporary workbook");
 }
 
 #[test]
