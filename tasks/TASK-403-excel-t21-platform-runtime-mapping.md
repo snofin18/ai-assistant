@@ -164,8 +164,9 @@ git diff --check
   read-only/range shape 错误码不符合 Accepted spec、fake 未验证 selector/mode 透传；
   均已在同一实现 PR 前修复，复审判定 no findings（P0-P2）。
 - 本轮按用户约束未执行真实 COM/`.xlsx`；ignored 入口不能冒充真实收敛证据。
-- exec_command shell misuse：主会话 15 次、独立 reviewer 3 次，共 18 次误填 `bash`；
-  均由项目 hook 重写为 PowerShell，没有 Bash 实际执行；全部为只读/状态命令。
+- exec_command shell misuse：`[supersedes:2026-11-25]` 撤回仓库内已发布的精确派生值。
+  本会话存在 `bash` 误填，均由项目 hook 重写为 PowerShell，没有 Bash 实际执行，且全部为
+  只读/状态命令；精确计数以外部 JSONL `final_audit` 为唯一事实源，避免在仓库内递归复制派生值。
 
 ### 6. 新增长期记忆
 
