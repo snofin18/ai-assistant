@@ -308,6 +308,13 @@ task runtime 在任何退出路径执行：
 > 单工作簿 smoke；完整四 Tool 域映射、ownership journal/watchdog、重复收敛和生产注册
 > 仍由后续卡完成。
 
+> **ADR-0112 read-only runner surface（2026-11-25）**：后续 TASK-402 在
+> `assistant-platform-windows` 内补齐 workbook/worksheet/named-range/calculation metadata、
+> `value2|formula|text` range read、deterministic metadata fingerprint 与 ownership
+> verification。平台结果全部为自包含类型；range 上限 4096 cells，A1 最大
+> `XFD1048576`。fingerprint 只证明 metadata 稳定，不代表文件内容 digest。agent-core
+> 的 `ExcelT21Runtime` 映射和重复运行收敛仍由下一卡完成。
+
 下一实现卡顺序固定：
 
 1. fake runtime + session registry + input/range parser 与负向测试；

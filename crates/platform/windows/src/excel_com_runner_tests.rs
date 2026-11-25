@@ -30,11 +30,14 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use assistant_platform_api::ErrorCode;
 
+#[cfg(windows)]
+use super::api::real_com_support::{RealComAcceptanceGuard, verify_real_com_read_surface};
+#[cfg(windows)]
+use super::windows_backend::parse_named_range_scope;
+#[cfg(windows)]
 use super::*;
 #[cfg(windows)]
-use crate::excel_process::{
-    ExcelProcessIdentity, excel_process_ids, process_identity, process_matches,
-};
+use crate::excel_process::{excel_process_ids, process_identity};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Stage {
@@ -42,6 +45,9 @@ enum Stage {
     ProcessId,
     Open,
     Read,
+    ReadWorkbook,
+    ReadRange,
+    VerifyOwnership,
     Close,
     Quit,
 }
@@ -98,9 +104,9 @@ impl ExcelComBackend for RecordingBackend {
         self.observe(Stage::Create)
     }
 
-    fn application_process_id(&mut self) -> PlatformResult<u32> {
+    fn application_identity(&mut self) -> PlatformResult<ExcelOwnedProcessIdentity> {
         self.observe(Stage::ProcessId)?;
-        Ok(4242)
+        test_identity(4242)
     }
 
     fn open_read_only(&mut self, _path: &Path) -> PlatformResult<()> {
@@ -110,6 +116,43 @@ impl ExcelComBackend for RecordingBackend {
     fn read_active_sheet_text(&self, address: &str) -> PlatformResult<String> {
         self.observe(Stage::Read)?;
         Ok(format!("value@{address}"))
+    }
+
+    fn read_workbook(&mut self, path: &Path) -> PlatformResult<ExcelWorkbookSnapshot> {
+        self.observe(Stage::ReadWorkbook)?;
+        let worksheet =
+            ExcelWorksheetInfo::new("Sheet1".to_owned(), 1, Some("$A$1:$B$2".to_owned()))?;
+        let named_range = ExcelNamedRangeInfo::new(
+            "SalesData".to_owned(),
+            ExcelNamedRangeScope::Workbook,
+            "=Sheet1!$A$1:$B$2".to_owned(),
+        )?;
+        ExcelWorkbookSnapshot::new(
+            path.to_string_lossy().into_owned(),
+            true,
+            vec![worksheet],
+            vec![named_range],
+            ExcelCalculationInfo::new("manual".to_owned(), "done".to_owned()),
+        )
+    }
+
+    fn read_range(
+        &mut self,
+        _selector: &ExcelRangeSelector,
+        mode: ExcelReadMode,
+    ) -> PlatformResult<ExcelRangeSnapshot> {
+        self.observe(Stage::ReadRange)?;
+        let cells = vec![
+            ExcelRuntimeCell::new(1, 1, ExcelCellValueType::Number, "2".to_owned())?,
+            ExcelRuntimeCell::new(1, 2, ExcelCellValueType::Boolean, "true".to_owned())?,
+            ExcelRuntimeCell::new(2, 1, ExcelCellValueType::Text, "hello".to_owned())?,
+            ExcelRuntimeCell::new(2, 2, ExcelCellValueType::Blank, String::new())?,
+        ];
+        ExcelRangeSnapshot::new("$A$1:$B$2".to_owned(), 2, 2, mode, cells)
+    }
+
+    fn verify_ownership(&self, _identity: &ExcelOwnedProcessIdentity) -> PlatformResult<()> {
+        self.observe(Stage::VerifyOwnership)
     }
 
     fn close_workbook(&mut self) -> PlatformResult<()> {
@@ -173,8 +216,8 @@ impl ExcelComBackend for BlockingBackend {
         Ok(())
     }
 
-    fn application_process_id(&mut self) -> PlatformResult<u32> {
-        Ok(77)
+    fn application_identity(&mut self) -> PlatformResult<ExcelOwnedProcessIdentity> {
+        test_identity(77)
     }
 
     fn open_read_only(&mut self, _path: &Path) -> PlatformResult<()> {
@@ -183,6 +226,24 @@ impl ExcelComBackend for BlockingBackend {
 
     fn read_active_sheet_text(&self, _address: &str) -> PlatformResult<String> {
         Ok(String::new())
+    }
+
+    fn read_workbook(&mut self, _path: &Path) -> PlatformResult<ExcelWorkbookSnapshot> {
+        Err(runner_protocol_error(
+            "blocking backend metadata unavailable",
+        ))
+    }
+
+    fn read_range(
+        &mut self,
+        _selector: &ExcelRangeSelector,
+        _mode: ExcelReadMode,
+    ) -> PlatformResult<ExcelRangeSnapshot> {
+        Err(runner_protocol_error("blocking backend range unavailable"))
+    }
+
+    fn verify_ownership(&self, _identity: &ExcelOwnedProcessIdentity) -> PlatformResult<()> {
+        Ok(())
     }
 
     fn close_workbook(&mut self) -> PlatformResult<()> {
@@ -202,6 +263,14 @@ fn recording_runner(
     let (backend, tracker) = RecordingBackend::new(failure, panic_at);
     let runner = ExcelComRunner::spawn(move || backend).expect("runner");
     (runner, tracker)
+}
+
+fn test_identity(process_id: u32) -> PlatformResult<ExcelOwnedProcessIdentity> {
+    ExcelOwnedProcessIdentity::new(
+        process_id,
+        u64::from(process_id),
+        "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE".to_owned(),
+    )
 }
 
 fn temporary_workbook() -> PathBuf {
@@ -279,6 +348,7 @@ fn test_runner_open_read_close_preserves_boundary_and_handle_identity() {
                 runner_id: 1,
                 session_id: 1,
                 canonical_path: workbook_path.clone(),
+                owned_process: test_identity(1).expect("test identity"),
             },
             "A1",
         )
@@ -291,6 +361,7 @@ fn test_runner_open_read_close_preserves_boundary_and_handle_identity() {
         tracker.events,
         vec![
             Stage::Create,
+            Stage::ProcessId,
             Stage::Open,
             Stage::Read,
             Stage::Close,
@@ -310,10 +381,9 @@ fn assert_failure_code_preserved(stage: Stage, code: ErrorCode) {
             assert_eq!(error.code(), code);
         }
         Stage::ProcessId => {
-            runner.create_application().expect("create");
             let error = runner
-                .application_process_id()
-                .expect_err("process failure");
+                .create_application()
+                .expect_err("process identity failure");
             assert_eq!(error.code(), code);
         }
         Stage::Quit => {
@@ -321,33 +391,12 @@ fn assert_failure_code_preserved(stage: Stage, code: ErrorCode) {
             let error = runner.quit_application().expect_err("quit failure");
             assert_eq!(error.code(), code);
         }
-        Stage::Open | Stage::Read | Stage::Close => {
-            runner.create_application().expect("create");
-            let workbook_path = temporary_workbook();
-            let open_result = runner.open_read_only(&workbook_path);
-            match stage {
-                Stage::Open => {
-                    let error = open_result.expect_err("open failure");
-                    assert_eq!(error.code(), code);
-                }
-                Stage::Read => {
-                    let workbook = open_result.expect("open before read failure");
-                    let error = runner
-                        .read_active_sheet_text(&workbook, "A1")
-                        .expect_err("read failure");
-                    assert_eq!(error.code(), code);
-                }
-                Stage::Close => {
-                    let workbook = open_result.expect("open before close failure");
-                    let error = runner.close_workbook(&workbook).expect_err("close failure");
-                    assert_eq!(error.code(), code);
-                }
-                Stage::Create | Stage::ProcessId | Stage::Quit => {
-                    unreachable!("outer match restricts workbook stages")
-                }
-            }
-            std::fs::remove_file(workbook_path).expect("remove temporary workbook");
-        }
+        Stage::Open
+        | Stage::Read
+        | Stage::ReadWorkbook
+        | Stage::ReadRange
+        | Stage::VerifyOwnership
+        | Stage::Close => assert_workbook_failure_code_preserved(&runner, stage, code),
     }
 
     let shutdown = runner.shutdown();
@@ -364,6 +413,65 @@ fn assert_failure_code_preserved(stage: Stage, code: ErrorCode) {
         tracker.failure
     };
     assert_eq!(failure, Some((stage, code)));
+}
+
+fn assert_workbook_failure_code_preserved(runner: &ExcelComRunner, stage: Stage, code: ErrorCode) {
+    runner.create_application().expect("create");
+    let workbook_path = temporary_workbook();
+    let open_result = runner.open_read_only(&workbook_path);
+    match stage {
+        Stage::Open => {
+            let error = open_result.expect_err("open failure");
+            assert_eq!(error.code(), code);
+        }
+        Stage::Read => {
+            let workbook = open_result.expect("open before read failure");
+            let error = runner
+                .read_active_sheet_text(&workbook, "A1")
+                .expect_err("read failure");
+            assert_eq!(error.code(), code);
+        }
+        Stage::ReadWorkbook => {
+            let workbook = open_result.expect("open before workbook failure");
+            let error = runner
+                .read_workbook(&workbook)
+                .expect_err("workbook metadata failure");
+            assert_eq!(error.code(), code);
+        }
+        Stage::ReadRange => {
+            let workbook = open_result.expect("open before range failure");
+            let error = runner
+                .read_range(
+                    &workbook,
+                    ExcelRangeSelector::A1 {
+                        worksheet: ExcelWorksheetSelector::Ordinal(1),
+                        start_row: 1,
+                        start_column: 1,
+                        end_row: 1,
+                        end_column: 1,
+                    },
+                    ExcelReadMode::Value2,
+                )
+                .expect_err("range failure");
+            assert_eq!(error.code(), code);
+        }
+        Stage::VerifyOwnership => {
+            let workbook = open_result.expect("open before ownership failure");
+            let error = runner
+                .verify_ownership(&workbook)
+                .expect_err("ownership failure");
+            assert_eq!(error.code(), code);
+        }
+        Stage::Close => {
+            let workbook = open_result.expect("open before close failure");
+            let error = runner.close_workbook(&workbook).expect_err("close failure");
+            assert_eq!(error.code(), code);
+        }
+        Stage::Create | Stage::ProcessId | Stage::Quit => {
+            unreachable!("outer match restricts workbook stages")
+        }
+    }
+    std::fs::remove_file(workbook_path).expect("remove temporary workbook");
 }
 
 #[test]
@@ -402,6 +510,7 @@ fn test_runner_rejects_invalid_paths_and_cell_addresses_before_dispatch() {
         runner_id: 1,
         session_id: 1,
         canonical_path: std::env::temp_dir().join("book.xlsx"),
+        owned_process: test_identity(1).expect("test identity"),
     };
     for invalid in [
         "1", "A0", "A01", "A1:B2", "$$", "AAAA1", "XFE1", "ZZZ1", "A1048577",
@@ -440,6 +549,133 @@ fn test_runner_rejects_a_workbook_handle_from_another_runner() {
     second.shutdown().expect("second shutdown");
     std::fs::remove_file(first_path).expect("remove first temporary workbook");
     std::fs::remove_file(second_path).expect("remove second temporary workbook");
+}
+
+#[test]
+fn test_runner_full_read_surface_reports_metadata_ranges_and_fingerprint() {
+    let workbook_path = temporary_workbook();
+    let (mut runner, _tracker) = recording_runner(None, None);
+    runner.create_application().expect("create");
+    let workbook = runner
+        .open_read_only(&workbook_path)
+        .expect("open workbook");
+
+    let metadata = runner
+        .read_workbook(&workbook)
+        .expect("read workbook metadata");
+    assert_eq!(metadata.worksheets().len(), 1);
+    assert_eq!(metadata.worksheets()[0].name(), "Sheet1");
+    assert_eq!(metadata.named_ranges().len(), 1);
+    assert_eq!(metadata.calculation().mode(), "manual");
+
+    for mode in [
+        ExcelReadMode::Value2,
+        ExcelReadMode::Formula,
+        ExcelReadMode::Text,
+    ] {
+        let snapshot = runner
+            .read_range(
+                &workbook,
+                ExcelRangeSelector::A1 {
+                    worksheet: ExcelWorksheetSelector::Name("Sheet1".to_owned()),
+                    start_row: 1,
+                    start_column: 1,
+                    end_row: 2,
+                    end_column: 2,
+                },
+                mode,
+            )
+            .expect("read range");
+        assert_eq!(snapshot.rows(), 2);
+        assert_eq!(snapshot.columns(), 2);
+        assert_eq!(snapshot.cells().len(), 4);
+        assert_eq!(snapshot.mode(), mode);
+    }
+
+    let first = runner
+        .fingerprint_workbook(&workbook)
+        .expect("first fingerprint");
+    let second = runner
+        .fingerprint_workbook(&workbook)
+        .expect("second fingerprint");
+    assert_eq!(first, second);
+    runner
+        .verify_ownership(&workbook)
+        .expect("verify ownership");
+    runner.close_workbook(&workbook).expect("close");
+    runner.shutdown().expect("shutdown");
+    std::fs::remove_file(workbook_path).expect("remove workbook");
+}
+
+#[test]
+fn test_runner_rejects_invalid_read_selectors_and_snapshot_bounds() {
+    let (mut runner, _tracker) = recording_runner(None, None);
+    runner.create_application().expect("create");
+    let workbook_path = temporary_workbook();
+    let workbook = runner
+        .open_read_only(&workbook_path)
+        .expect("open workbook");
+
+    for selector in [
+        ExcelRangeSelector::NamedRange(String::new()),
+        ExcelRangeSelector::A1 {
+            worksheet: ExcelWorksheetSelector::Ordinal(0),
+            start_row: 1,
+            start_column: 1,
+            end_row: 1,
+            end_column: 1,
+        },
+        ExcelRangeSelector::A1 {
+            worksheet: ExcelWorksheetSelector::Ordinal(1),
+            start_row: 2,
+            start_column: 1,
+            end_row: 1,
+            end_column: 1,
+        },
+        ExcelRangeSelector::A1 {
+            worksheet: ExcelWorksheetSelector::Ordinal(1),
+            start_row: 1,
+            start_column: 1,
+            end_row: 65,
+            end_column: 64,
+        },
+    ] {
+        let error = runner
+            .read_range(&workbook, selector, ExcelReadMode::Value2)
+            .expect_err("invalid range selector");
+        assert_eq!(error.code(), ErrorCode::ToolInvalidArgs);
+    }
+
+    let snapshot_error = ExcelRangeSnapshot::new(
+        "$A$1".to_owned(),
+        2,
+        2,
+        ExcelReadMode::Value2,
+        vec![ExcelRuntimeCell::new(1, 1, ExcelCellValueType::Blank, String::new()).expect("cell")],
+    )
+    .expect_err("incomplete range must fail");
+    assert_eq!(snapshot_error.code(), ErrorCode::Fatal);
+
+    runner.close_workbook(&workbook).expect("close");
+    runner.shutdown().expect("shutdown");
+    std::fs::remove_file(workbook_path).expect("remove workbook");
+}
+
+#[test]
+fn test_named_range_scope_parser_is_explicit() {
+    assert_eq!(
+        parse_named_range_scope("Sheet1!SalesData").expect("worksheet scope"),
+        (
+            ExcelNamedRangeScope::Worksheet("Sheet1".to_owned()),
+            "SalesData".to_owned()
+        )
+    );
+    assert_eq!(
+        parse_named_range_scope("SalesData").expect("workbook scope"),
+        (ExcelNamedRangeScope::Workbook, "SalesData".to_owned())
+    );
+    let invalid = parse_named_range_scope("!").expect_err("invalid qualified name");
+    assert_eq!(invalid.code(), ErrorCode::Fatal);
 }
 
 #[test]
@@ -563,81 +799,6 @@ fn test_windows_idispatch_backend_starts_without_creating_excel() {
 }
 
 #[cfg(windows)]
-struct RealComAcceptanceGuard {
-    runner: Option<ExcelComRunner>,
-    owned_process: Option<ExcelProcessIdentity>,
-}
-
-#[cfg(windows)]
-impl RealComAcceptanceGuard {
-    fn new(runner: ExcelComRunner) -> Self {
-        Self {
-            runner: Some(runner),
-            owned_process: None,
-        }
-    }
-
-    fn runner(&self) -> &ExcelComRunner {
-        self.runner.as_ref().expect("acceptance runner")
-    }
-
-    fn set_owned_process(&mut self, identity: ExcelProcessIdentity) {
-        self.owned_process = Some(identity);
-    }
-
-    fn shutdown(&mut self) -> PlatformResult<()> {
-        self.runner
-            .take()
-            .expect("acceptance runner before shutdown")
-            .shutdown()
-    }
-}
-
-#[cfg(windows)]
-impl Drop for RealComAcceptanceGuard {
-    fn drop(&mut self) {
-        if let Some(mut runner) = self.runner.take()
-            && runner.shutdown().is_err()
-        {
-            eprintln!("real-COM acceptance runner shutdown failed during Drop");
-        }
-        let Some(identity) = self.owned_process.as_ref() else {
-            return;
-        };
-        match process_matches(identity) {
-            Ok(true) => {
-                let process_id = identity.process_id;
-                match std::process::Command::new("taskkill.exe")
-                    .args(["/PID", &process_id.to_string(), "/T", "/F"])
-                    .status()
-                {
-                    Ok(status) if status.success() => {
-                        eprintln!("real-COM acceptance force-terminated owned Excel {process_id}");
-                    }
-                    Ok(status) => {
-                        eprintln!(
-                            "real-COM acceptance taskkill for owned Excel {process_id} exited with {status}"
-                        );
-                    }
-                    Err(error) => {
-                        eprintln!(
-                            "real-COM acceptance taskkill for owned Excel {process_id} failed: {error}"
-                        );
-                    }
-                }
-            }
-            Ok(false) => {}
-            Err(error) => {
-                eprintln!(
-                    "real-COM acceptance could not verify owned Excel {}: {error}",
-                    identity.process_id
-                );
-            }
-        }
-    }
-}
-
-#[cfg(windows)]
 #[test]
 #[ignore = "TASK-401 human-present real Excel COM acceptance"]
 fn test_windows_excel_real_com_single_workbook_acceptance() {
@@ -680,18 +841,18 @@ fn test_windows_excel_real_com_single_workbook_acceptance() {
         .runner()
         .open_read_only(&workbook_path)
         .expect("open workbook read-only");
-    let _cell_text = guard
-        .runner()
-        .read_active_sheet_text(&workbook, "A1")
-        .expect("read active sheet A1 text");
+    verify_real_com_read_surface(guard.runner(), &workbook);
     guard
         .runner()
         .close_workbook(&workbook)
         .expect("close workbook without saving");
     guard.shutdown().expect("quit and join Excel worker");
 
+    // Excel can take several seconds to release its process after Quit on the
+    // first workbook with error cells. Keep the wait bounded while allowing
+    // normal COM teardown to finish.
     let mut remaining = true;
-    for _attempt in 0..50 {
+    for _attempt in 0..200 {
         if !excel_process_ids()
             .expect("Excel process inventory")
             .contains(&process_id)

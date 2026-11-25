@@ -9,7 +9,8 @@
 //! - this module never starts or terminates a process;
 //! - it never treats a PID alone as ownership evidence.
 
-use std::path::Path;
+use std::io;
+use std::path::{Path, PathBuf};
 
 use assistant_platform_api::{ErrorCode, PlatformError, PlatformResult};
 use windows::Win32::Foundation::{CloseHandle, ERROR_NO_MORE_FILES, HANDLE};
@@ -19,23 +20,19 @@ use windows::Win32::System::Diagnostics::ToolHelp::{
 };
 use windows::core::PCWSTR;
 
-#[cfg(test)]
 use windows::Win32::Foundation::{FILETIME, STILL_ACTIVE};
-#[cfg(test)]
 use windows::Win32::System::Threading::{
     GetExitCodeProcess, GetProcessTimes, OpenProcess, PROCESS_NAME_FORMAT,
     PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
-#[cfg(test)]
 use windows::core::PWSTR;
 
 const DRIVE_REMOTE: u32 = 4;
-#[cfg(test)]
 const MAX_PROCESS_PATH_UNITS: usize = 32_768;
+const MAX_CELL_ADDRESS_BYTES: usize = 32;
 
 /// Stable process ownership evidence captured after creating Excel.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg(test)]
 pub struct ExcelProcessIdentity {
     /// Process id observed from `Application.Hwnd`.
     pub process_id: u32,
@@ -114,7 +111,6 @@ pub fn excel_process_ids() -> PlatformResult<Vec<u32>> {
 }
 
 /// Captures the exact identity of one live process.
-#[cfg(test)]
 pub fn process_identity(process_id: u32) -> PlatformResult<Option<ExcelProcessIdentity>> {
     // SAFETY: query-limited access is read-only for this pid; the returned handle
     // is owned by ProcessHandle and closed exactly once.
@@ -191,17 +187,18 @@ pub fn process_identity(process_id: u32) -> PlatformResult<Option<ExcelProcessId
     }))
 }
 
-/// Verifies that a live process still matches the captured identity.
-#[cfg(test)]
-pub fn process_matches(identity: &ExcelProcessIdentity) -> PlatformResult<bool> {
-    Ok(
-        process_identity(identity.process_id)?.is_some_and(|current| {
-            current.start_time_100ns == identity.start_time_100ns
-                && current
-                    .executable_path
-                    .eq_ignore_ascii_case(&identity.executable_path)
-        }),
-    )
+/// Verifies that a live process still matches the captured identity fields.
+pub fn process_matches(
+    process_id: u32,
+    start_time_100ns: u64,
+    executable_path: &str,
+) -> PlatformResult<bool> {
+    Ok(process_identity(process_id)?.is_some_and(|current| {
+        current.start_time_100ns == start_time_100ns
+            && current
+                .executable_path
+                .eq_ignore_ascii_case(executable_path)
+    }))
 }
 
 /// Rejects mapped network drives while allowing ordinary local paths.
@@ -231,6 +228,138 @@ pub fn ensure_local_drive(path: &Path) -> PlatformResult<()> {
     Ok(())
 }
 
+/// Validates and canonicalizes one local `.xlsx` workbook path.
+pub fn validate_workbook_path(path: &Path) -> PlatformResult<PathBuf> {
+    if !path.is_absolute() {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "Excel workbook path must be absolute",
+        ));
+    }
+    if !has_xlsx_extension(path) {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "Excel workbook path must use the .xlsx extension",
+        ));
+    }
+    if path.components().any(|component| {
+        matches!(
+            component,
+            std::path::Component::CurDir | std::path::Component::ParentDir
+        )
+    }) {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "Excel workbook path must not contain . or .. components",
+        ));
+    }
+    let canonical = std::fs::canonicalize(path).map_err(|error| {
+        let code = if error.kind() == io::ErrorKind::NotFound {
+            ErrorCode::TargetNotFound
+        } else if error.kind() == io::ErrorKind::PermissionDenied {
+            ErrorCode::PlatformPermission
+        } else {
+            ErrorCode::ToolInvalidArgs
+        };
+        PlatformError::new(
+            code,
+            format!("canonicalize Excel workbook path failed: {error}"),
+        )
+    })?;
+    if !canonical.is_file() {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "Excel workbook path must identify a regular file",
+        ));
+    }
+    if !has_xlsx_extension(&canonical) {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "canonical Excel workbook target must use the .xlsx extension",
+        ));
+    }
+    let canonical_text = canonical.to_string_lossy();
+    if canonical_text.starts_with(r"\\?\UNC\") {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "Excel workbook path must be local, not a UNC share",
+        ));
+    }
+    let canonical = canonical_text
+        .strip_prefix(r"\\?\")
+        .map_or_else(|| canonical.clone(), PathBuf::from);
+    ensure_local_drive(&canonical)?;
+    Ok(canonical)
+}
+
+/// Validates and normalizes one bounded A1 cell reference.
+pub fn validate_cell_address(address: &str) -> PlatformResult<String> {
+    let normalized = address.trim().to_ascii_uppercase();
+    if normalized.is_empty()
+        || normalized.len() > MAX_CELL_ADDRESS_BYTES
+        || !is_single_a1_cell(&normalized)
+    {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "Excel cell address must be a bounded single A1 cell reference",
+        ));
+    }
+    Ok(normalized)
+}
+
+fn has_xlsx_extension(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("xlsx"))
+}
+
+fn is_single_a1_cell(address: &str) -> bool {
+    let bytes = address.as_bytes();
+    let mut position = 0;
+    if bytes.get(position) == Some(&b'$') {
+        position += 1;
+    }
+    let column_start = position;
+    while bytes.get(position).is_some_and(u8::is_ascii_uppercase) {
+        position += 1;
+    }
+    let column_length = position.saturating_sub(column_start);
+    if !(1..=3).contains(&column_length) {
+        return false;
+    }
+    let column = bytes
+        .get(column_start..position)
+        .unwrap_or_default()
+        .iter()
+        .fold(0_u32, |value, byte| {
+            value
+                .saturating_mul(26)
+                .saturating_add(u32::from(byte.saturating_sub(b'A') + 1))
+        });
+    if !(1..=16_384).contains(&column) {
+        return false;
+    }
+    if bytes.get(position) == Some(&b'$') {
+        position += 1;
+    }
+    let row_start = position;
+    while bytes.get(position).is_some_and(u8::is_ascii_digit) {
+        position += 1;
+    }
+    let row_length = position.saturating_sub(row_start);
+    if !(1..=7).contains(&row_length)
+        || bytes.get(row_start) == Some(&b'0')
+        || position != bytes.len()
+    {
+        return false;
+    }
+    bytes
+        .get(row_start..position)
+        .and_then(|digits| std::str::from_utf8(digits).ok())
+        .and_then(|digits| digits.parse::<u32>().ok())
+        .is_some_and(|value| (1..=1_048_576).contains(&value))
+}
+
 fn process_name(entry: &PROCESSENTRY32W) -> String {
     let name = entry
         .szExeFile
@@ -252,7 +381,6 @@ fn classify_first_process_error(error: &windows::core::Error) -> PlatformResult<
     }
 }
 
-#[cfg(test)]
 fn filetime_value(value: FILETIME) -> u64 {
     (u64::from(value.dwHighDateTime) << 32) | u64::from(value.dwLowDateTime)
 }
@@ -273,10 +401,8 @@ impl Drop for SnapshotHandle {
     }
 }
 
-#[cfg(test)]
 struct ProcessHandle(HANDLE);
 
-#[cfg(test)]
 impl Drop for ProcessHandle {
     fn drop(&mut self) {
         // SAFETY: this handle is owned by the wrapper and has not been closed.

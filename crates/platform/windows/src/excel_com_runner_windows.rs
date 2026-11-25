@@ -3,11 +3,18 @@
 //! The public handle lives in `excel_com_runner`; this module owns every
 //! Windows COM object on the dedicated worker thread.
 
+#[cfg(windows)]
+use super::api::{calculation_mode, calculation_state};
 use super::{
-    ErrorCode, ExcelComBackend, ExcelComRunner, Path, PlatformError, PlatformResult,
-    REQUEST_QUEUE_CAPACITY, REQUEST_TIMEOUT, WORKER_THREAD_NAME, join_error, mpsc, next_runner_id,
-    run_worker, runner_protocol_error, thread, thread_spawn_error,
+    ErrorCode, ExcelCalculationInfo, ExcelCellValueType, ExcelComBackend, ExcelComRunner,
+    ExcelNamedRangeInfo, ExcelNamedRangeScope, ExcelOwnedProcessIdentity, ExcelRangeSelector,
+    ExcelRangeSnapshot, ExcelReadMode, ExcelRuntimeCell, ExcelWorkbookSnapshot, ExcelWorksheetInfo,
+    ExcelWorksheetSelector, MAX_EXCEL_NAMED_RANGES, MAX_EXCEL_RANGE_CELLS, MAX_EXCEL_WORKSHEETS,
+    Path, PlatformError, PlatformResult, REQUEST_QUEUE_CAPACITY, REQUEST_TIMEOUT,
+    WORKER_THREAD_NAME, join_error, mpsc, next_runner_id, run_worker, runner_protocol_error,
+    thread, thread_spawn_error,
 };
+use std::path::PathBuf;
 
 #[cfg(windows)]
 pub(super) fn spawn_windows_excel_runner() -> PlatformResult<ExcelComRunner> {
@@ -66,6 +73,7 @@ pub(super) fn spawn_windows_excel_runner() -> PlatformResult<ExcelComRunner> {
 struct WindowsExcelComBackend {
     workbook: Option<windows::Win32::System::Com::IDispatch>,
     application: Option<windows::Win32::System::Com::IDispatch>,
+    canonical_path: Option<PathBuf>,
 }
 
 #[cfg(windows)]
@@ -74,6 +82,7 @@ impl WindowsExcelComBackend {
         Self {
             workbook: None,
             application: None,
+            canonical_path: None,
         }
     }
 }
@@ -112,7 +121,7 @@ impl ExcelComBackend for WindowsExcelComBackend {
         Ok(())
     }
 
-    fn application_process_id(&mut self) -> PlatformResult<u32> {
+    fn application_identity(&mut self) -> PlatformResult<ExcelOwnedProcessIdentity> {
         use windows::Win32::Foundation::HWND;
         use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
 
@@ -133,7 +142,14 @@ impl ExcelComBackend for WindowsExcelComBackend {
                 "Excel Application.Hwnd did not map to an owned process id",
             ));
         }
-        Ok(process_id)
+        let identity = crate::excel_process::process_identity(process_id)?.ok_or_else(|| {
+            runner_protocol_error("owned Excel process disappeared before identity capture")
+        })?;
+        ExcelOwnedProcessIdentity::new(
+            identity.process_id,
+            identity.start_time_100ns,
+            identity.executable_path,
+        )
     }
 
     fn quit_application(&mut self) -> PlatformResult<()> {
@@ -174,6 +190,7 @@ impl ExcelComBackend for WindowsExcelComBackend {
             ],
         )?;
         self.workbook = Some(workbook);
+        self.canonical_path = Some(path.to_path_buf());
         Ok(())
     }
 
@@ -187,6 +204,169 @@ impl ExcelComBackend for WindowsExcelComBackend {
         get_string_property(&range, "Text")
     }
 
+    fn read_workbook(&mut self, path: &Path) -> PlatformResult<ExcelWorkbookSnapshot> {
+        let application = self
+            .application
+            .as_ref()
+            .ok_or_else(|| runner_protocol_error("Windows Excel backend has no application"))?;
+        let workbook = self
+            .workbook
+            .as_ref()
+            .ok_or_else(|| runner_protocol_error("Windows Excel backend has no open workbook"))?;
+        let worksheets_dispatch = get_dispatch_property(workbook, "Worksheets")?;
+        let worksheet_count = collection_count(&worksheets_dispatch, "Worksheets")?;
+        if worksheet_count == 0 || worksheet_count > MAX_EXCEL_WORKSHEETS {
+            return Err(PlatformError::new(
+                ErrorCode::UserInteraction,
+                format!(
+                    "Excel workbook worksheet count is {worksheet_count}; maximum is {MAX_EXCEL_WORKSHEETS}"
+                ),
+            ));
+        }
+        let mut worksheets = Vec::with_capacity(worksheet_count);
+        for ordinal in 1..=worksheet_count {
+            let ordinal_i32 = i32::try_from(ordinal)
+                .map_err(|_| runner_protocol_error("worksheet ordinal does not fit i32"))?;
+            let worksheet =
+                get_dispatch_property_with_i4_argument(&worksheets_dispatch, "Item", ordinal_i32)?;
+            let name = get_string_property(&worksheet, "Name")?;
+            let used_range = get_dispatch_property(&worksheet, "UsedRange")?;
+            let used_range_address = get_string_property(&used_range, "Address")?;
+            worksheets.push(ExcelWorksheetInfo::new(
+                name,
+                u32::try_from(ordinal)
+                    .map_err(|_| runner_protocol_error("worksheet ordinal does not fit u32"))?,
+                Some(used_range_address),
+            )?);
+        }
+        let names_dispatch = get_dispatch_property(workbook, "Names")?;
+        let name_count = collection_count(&names_dispatch, "Names")?;
+        if name_count > MAX_EXCEL_NAMED_RANGES {
+            return Err(PlatformError::new(
+                ErrorCode::UserInteraction,
+                format!(
+                    "Excel workbook named range count is {name_count}; maximum is {MAX_EXCEL_NAMED_RANGES}"
+                ),
+            ));
+        }
+        let mut named_ranges = Vec::with_capacity(name_count);
+        for ordinal in 1..=name_count {
+            let ordinal_i32 = i32::try_from(ordinal)
+                .map_err(|_| runner_protocol_error("name ordinal does not fit i32"))?;
+            let range_definition =
+                get_dispatch_property_with_i4_argument(&names_dispatch, "Item", ordinal_i32)?;
+            let qualified_name = get_string_property(&range_definition, "Name")?;
+            let refers_to = get_string_property(&range_definition, "RefersTo")?;
+            let (scope, name) = parse_named_range_scope(&qualified_name)?;
+            named_ranges.push(ExcelNamedRangeInfo::new(name, scope, refers_to)?);
+        }
+        let calculation = ExcelCalculationInfo::new(
+            calculation_mode(get_i4_property(application, "Calculation")?),
+            calculation_state(get_i4_property(application, "CalculationState")?),
+        );
+        ExcelWorkbookSnapshot::new(
+            path.to_string_lossy().into_owned(),
+            true,
+            worksheets,
+            named_ranges,
+            calculation,
+        )
+    }
+
+    fn read_range(
+        &mut self,
+        selector: &ExcelRangeSelector,
+        mode: ExcelReadMode,
+    ) -> PlatformResult<ExcelRangeSnapshot> {
+        let application = self
+            .application
+            .as_ref()
+            .ok_or_else(|| runner_protocol_error("Windows Excel backend has no application"))?;
+        let workbook = self
+            .workbook
+            .as_ref()
+            .ok_or_else(|| runner_protocol_error("Windows Excel backend has no open workbook"))?;
+        let range = match selector {
+            ExcelRangeSelector::NamedRange(name) => {
+                get_dispatch_property_with_string_argument(application, "Range", name)?
+            }
+            ExcelRangeSelector::A1 { worksheet, .. } => {
+                let worksheets = get_dispatch_property(workbook, "Worksheets")?;
+                let worksheet = match worksheet {
+                    ExcelWorksheetSelector::Name(name) => {
+                        get_dispatch_property_with_string_argument(&worksheets, "Item", name)?
+                    }
+                    ExcelWorksheetSelector::Ordinal(ordinal) => {
+                        let ordinal = i32::try_from(*ordinal).map_err(|_| {
+                            PlatformError::new(
+                                ErrorCode::ToolInvalidArgs,
+                                "worksheet ordinal does not fit i32",
+                            )
+                        })?;
+                        get_dispatch_property_with_i4_argument(&worksheets, "Item", ordinal)?
+                    }
+                };
+                let address = super::api::range_address(selector)?;
+                get_dispatch_property_with_string_argument(&worksheet, "Range", &address)?
+            }
+        };
+        let address = get_string_property(&range, "Address")?;
+        let rows_dispatch = get_dispatch_property(&range, "Rows")?;
+        let columns_dispatch = get_dispatch_property(&range, "Columns")?;
+        let rows = u32::try_from(get_i4_property(&rows_dispatch, "Count")?)
+            .map_err(|_| runner_protocol_error("Excel range row count is invalid"))?;
+        let columns = u32::try_from(get_i4_property(&columns_dispatch, "Count")?)
+            .map_err(|_| runner_protocol_error("Excel range column count is invalid"))?;
+        let cell_count = u64::from(rows)
+            .checked_mul(u64::from(columns))
+            .ok_or_else(|| runner_protocol_error("Excel range cell count overflowed"))?;
+        if rows == 0
+            || columns == 0
+            || cell_count > u64::try_from(MAX_EXCEL_RANGE_CELLS).unwrap_or(u64::MAX)
+        {
+            return Err(PlatformError::new(
+                ErrorCode::ToolInvalidArgs,
+                format!("Excel range has {cell_count} cells; maximum is {MAX_EXCEL_RANGE_CELLS}"),
+            ));
+        }
+        let mut cells = Vec::with_capacity(usize::try_from(cell_count).unwrap_or(0));
+        for row in 1..=rows {
+            for column in 1..=columns {
+                let cell = get_dispatch_property_with_two_i4_arguments(
+                    &range,
+                    "Cells",
+                    i32::try_from(row)
+                        .map_err(|_| runner_protocol_error("range row does not fit i32"))?,
+                    i32::try_from(column)
+                        .map_err(|_| runner_protocol_error("range column does not fit i32"))?,
+                )?;
+                let (value_type, value_text) = read_cell_value(&cell, mode)?;
+                cells.push(ExcelRuntimeCell::new(row, column, value_type, value_text)?);
+            }
+        }
+        ExcelRangeSnapshot::new(address, rows, columns, mode, cells)
+    }
+
+    fn verify_ownership(&self, identity: &ExcelOwnedProcessIdentity) -> PlatformResult<()> {
+        if self.workbook.is_none() {
+            return Err(PlatformError::new(
+                ErrorCode::TargetNotFound,
+                "Excel workbook is no longer open",
+            ));
+        }
+        if !crate::excel_process::process_matches(
+            identity.process_id(),
+            identity.start_time_100ns(),
+            identity.executable_path(),
+        )? {
+            return Err(PlatformError::new(
+                ErrorCode::TargetNotFound,
+                "owned Excel process identity changed",
+            ));
+        }
+        Ok(())
+    }
+
     fn close_workbook(&mut self) -> PlatformResult<()> {
         let workbook = self
             .workbook
@@ -194,7 +374,34 @@ impl ExcelComBackend for WindowsExcelComBackend {
             .ok_or_else(|| runner_protocol_error("Windows Excel backend has no open workbook"))?;
         invoke_method_with_arguments(workbook, "Close", vec![variant_from_bool(false)])?;
         self.workbook = None;
+        self.canonical_path = None;
         Ok(())
+    }
+}
+
+#[cfg(windows)]
+pub(super) fn parse_named_range_scope(
+    qualified_name: &str,
+) -> PlatformResult<(ExcelNamedRangeScope, String)> {
+    if let Some((scope_name, range_name)) = qualified_name.split_once('!') {
+        let scope_name = scope_name.trim().trim_matches('\'');
+        let range_name = range_name.trim();
+        if scope_name.is_empty() || range_name.is_empty() {
+            return Err(runner_protocol_error(
+                "Excel named range has an invalid worksheet-qualified name",
+            ));
+        }
+        Ok((
+            ExcelNamedRangeScope::Worksheet(scope_name.to_owned()),
+            range_name.to_owned(),
+        ))
+    } else if qualified_name.trim().is_empty() {
+        Err(runner_protocol_error("Excel named range has an empty name"))
+    } else {
+        Ok((
+            ExcelNamedRangeScope::Workbook,
+            qualified_name.trim().to_owned(),
+        ))
     }
 }
 
@@ -276,6 +483,17 @@ fn variant_from_bool(value: bool) -> ComVariant {
 }
 
 #[cfg(windows)]
+fn collection_count(
+    dispatch: &windows::Win32::System::Com::IDispatch,
+    collection_name: &str,
+) -> PlatformResult<usize> {
+    let count = get_i4_property(dispatch, "Count")?;
+    usize::try_from(count).map_err(|_| {
+        runner_protocol_error(format!("Excel {collection_name}.Count did not fit usize"))
+    })
+}
+
+#[cfg(windows)]
 fn get_dispatch_property(
     dispatch: &windows::Win32::System::Com::IDispatch,
     property_name: &str,
@@ -291,6 +509,53 @@ fn get_dispatch_property(
 }
 
 #[cfg(windows)]
+fn get_dispatch_property_with_i4_argument(
+    dispatch: &windows::Win32::System::Com::IDispatch,
+    property_name: &str,
+    argument: i32,
+) -> PlatformResult<windows::Win32::System::Com::IDispatch> {
+    get_dispatch_property_with_variant_argument(dispatch, property_name, variant_from_i4(argument))
+}
+
+#[cfg(windows)]
+fn get_dispatch_property_with_two_i4_arguments(
+    dispatch: &windows::Win32::System::Com::IDispatch,
+    property_name: &str,
+    first: i32,
+    second: i32,
+) -> PlatformResult<windows::Win32::System::Com::IDispatch> {
+    // Excel marks `Range.Cells` and collection `Item` inconsistently as
+    // property-get or method. Both flags let the server choose the declared
+    // member kind without changing argument order.
+    let result = invoke_dispatch(
+        dispatch,
+        property_name,
+        windows::Win32::System::Com::DISPATCH_PROPERTYGET
+            | windows::Win32::System::Com::DISPATCH_METHOD,
+        vec![variant_from_i4(first), variant_from_i4(second)],
+        true,
+    )?;
+    convert_dispatch_result(result, property_name)
+}
+
+#[cfg(windows)]
+fn get_dispatch_property_with_variant_argument(
+    dispatch: &windows::Win32::System::Com::IDispatch,
+    property_name: &str,
+    argument: ComVariant,
+) -> PlatformResult<windows::Win32::System::Com::IDispatch> {
+    let result = invoke_dispatch(
+        dispatch,
+        property_name,
+        windows::Win32::System::Com::DISPATCH_PROPERTYGET
+            | windows::Win32::System::Com::DISPATCH_METHOD,
+        vec![argument],
+        true,
+    )?;
+    convert_dispatch_result(result, property_name)
+}
+
+#[cfg(windows)]
 fn get_dispatch_property_with_string_argument(
     dispatch: &windows::Win32::System::Com::IDispatch,
     property_name: &str,
@@ -299,11 +564,108 @@ fn get_dispatch_property_with_string_argument(
     let result = invoke_dispatch(
         dispatch,
         property_name,
-        windows::Win32::System::Com::DISPATCH_PROPERTYGET,
+        windows::Win32::System::Com::DISPATCH_PROPERTYGET
+            | windows::Win32::System::Com::DISPATCH_METHOD,
         vec![variant_from_string(argument)],
         true,
     )?;
     convert_dispatch_result(result, property_name)
+}
+
+#[cfg(windows)]
+fn get_variant_property(
+    dispatch: &windows::Win32::System::Com::IDispatch,
+    property_name: &str,
+) -> PlatformResult<ComVariant> {
+    invoke_dispatch(
+        dispatch,
+        property_name,
+        windows::Win32::System::Com::DISPATCH_PROPERTYGET,
+        Vec::new(),
+        true,
+    )?
+    .ok_or_else(|| {
+        runner_protocol_error(format!("Excel property {property_name} returned no value"))
+    })
+}
+
+#[cfg(windows)]
+fn read_cell_value(
+    dispatch: &windows::Win32::System::Com::IDispatch,
+    mode: ExcelReadMode,
+) -> PlatformResult<(ExcelCellValueType, String)> {
+    use windows::Win32::System::Variant::{
+        VT_BOOL, VT_BSTR, VT_EMPTY, VT_ERROR, VT_I4, VT_NULL, VT_R8, VariantClear,
+    };
+
+    let mut variant = get_variant_property(dispatch, mode.property_name())?;
+    // SAFETY: Invoke initialized the VARIANT; fields are read only after checking
+    // the tag, and VariantClear runs exactly once below.
+    let result = unsafe {
+        let inner = &variant.Anonymous.Anonymous;
+        match inner.vt {
+            VT_EMPTY | VT_NULL => Ok((ExcelCellValueType::Blank, String::new())),
+            VT_R8 => {
+                let value = inner.Anonymous.dblVal;
+                if value.is_finite() {
+                    Ok((ExcelCellValueType::Number, value.to_string()))
+                } else {
+                    Err(runner_protocol_error(
+                        "Excel Value2 returned a non-finite number",
+                    ))
+                }
+            }
+            VT_I4 => Ok((ExcelCellValueType::Number, inner.Anonymous.lVal.to_string())),
+            VT_BOOL => Ok((
+                ExcelCellValueType::Boolean,
+                if inner.Anonymous.boolVal.0 == 0 {
+                    "false".to_owned()
+                } else {
+                    "true".to_owned()
+                },
+            )),
+            VT_BSTR => {
+                let text = inner.Anonymous.bstrVal.to_string();
+                if text.is_empty() {
+                    Ok((ExcelCellValueType::Blank, text))
+                } else {
+                    Ok((ExcelCellValueType::Text, text))
+                }
+            }
+            VT_ERROR => Ok((
+                ExcelCellValueType::Error,
+                excel_error_text(inner.Anonymous.scode)?,
+            )),
+            _ => Err(runner_protocol_error(format!(
+                "Excel cell value used unsupported VARIANT type {}",
+                inner.vt.0
+            ))),
+        }
+    };
+    // SAFETY: paired with the successful Invoke above.
+    unsafe { VariantClear(&raw mut variant) }
+        .map_err(|error| crate::error::error_from_hresult(error.code().0, "VariantClear(cell)"))?;
+    result
+}
+
+#[cfg(windows)]
+fn excel_error_text(scode: i32) -> PlatformResult<String> {
+    let code = u32::from_ne_bytes(scode.to_ne_bytes()) & 0xFFFF;
+    let text = match code {
+        2000 => "#NULL!",
+        2007 => "#DIV/0!",
+        2015 => "#VALUE!",
+        2023 => "#REF!",
+        2029 => "#NAME?",
+        2036 => "#NUM!",
+        2042 => "#N/A",
+        _ => {
+            return Err(runner_protocol_error(format!(
+                "Excel cell returned unknown error code {scode:#010x}"
+            )));
+        }
+    };
+    Ok(text.to_owned())
 }
 
 #[cfg(windows)]
