@@ -141,6 +141,7 @@
 | 4i private mapping | **TASK-403 ✅** | agent-core / Windows runner | `tasks/TASK-403-excel-t21-platform-runtime-mapping.md` | Done（test-only private adapter；fake port 10 passed / 1 ignored；独立 review no P0-P2 findings；PR #858 merge `9bb006a` / main CI `45597702500` success；真实 COM 尚未执行；生产 tools/ToolBus 保持空） |
 | 5 | 待派单 | Undo/L1 | dispatch 时创建 | 未开始（文件影子副本 + 值快照 + 冲突检测） |
 | 5a L1 anchor | **TASK-404 ✅** | agent-core / L1 | `tasks/TASK-404-excel-t22-l1-anchor-preparation.md` | Done（opened-workbook identity + absolute cells + value snapshot + in-memory shadow copy + identity/fingerprint conflict；专项 26 passed，最终 review no P0-P2；PR #861 merge `0435419` / main CI `45641443101` success；真实文件副本/恢复与 production 注册未开放） |
+| 6a scalar input gate | **TASK-405 Review** | agent-core / L1 | `tasks/TASK-405-excel-t22-scalar-write-input-gate.md` | Review（test-only 原始 JSON scalar 词法、公式/Default_Ignorable 前缀拒绝、256 KiB 边界与 pre-fingerprint 写前准备；专项 7 passed；最终 review no P0-P2；PR/CI 待收口） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |
 | 7 | 待派单 | Excel T2.3 | dispatch 时创建 | 未开始（图表生成/PNG 导出/不覆盖） |
 
