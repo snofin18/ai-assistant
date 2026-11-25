@@ -15,23 +15,22 @@
 //!
 //! Related documents: TASK-395, ADR-0108.
 
+use assistant_protocol::ErrorCode;
+use serde_json::{Map, Value, json};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-
-use assistant_protocol::ErrorCode;
-use serde_json::{Map, Value, json};
-
 #[path = "excel_t21_handlers.rs"]
 pub mod handlers;
 #[path = "excel_t21_model.rs"]
 pub mod model;
+#[cfg(windows)]
+#[path = "excel_t21_platform_runtime.rs"]
+pub mod platform_runtime;
 #[path = "excel_t21_tool_handlers.rs"]
 pub mod tool_handlers;
-
 pub(crate) use handlers::{ExcelCallContext, ExcelT21Handlers, ExcelT21Runtime, ExcelToolResult};
 pub(crate) use model::*;
-
 /// Maximum accepted canonical-number source text.
 pub(crate) const MAX_NUMERIC_TEXT_BYTES: usize = 256;
 /// Maximum decimal exponent magnitude accepted from a runtime value.

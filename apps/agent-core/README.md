@@ -30,6 +30,10 @@ TASK-029 的 binary-layer Host 装配库。
   handler 路径。它不会进入生产 assembly，也不代表 COM runner 或 Tool 已可用。
 - TASK-401 / ADR-0111 提供 app 层可引用的窄 Windows `ExcelComRunner` 边界与真实 COM
   单工作簿 smoke；`ExcelT21Runtime` 域映射、ToolBus 注册和 `tools.json` 仍保持未接线。
+- TASK-403 提供 test-only 私有 `PlatformExcelT21Runtime`：只把平台自包含 handle/snapshot
+  映射到现有 Excel T2.1 领域类型，并以 fake port 验证 32 次 open/read/close 的 domain
+  handle、单 workbook mapping 与单一 application 收敛。真实 COM ignored 入口仅保留给
+  人类在场后续运行；生产装配与 ToolBus 仍未接线。
 
 ## 边界
 
@@ -77,9 +81,9 @@ TASK-029 的 binary-layer Host 装配库。
   当作已满足的能力。装配入口在非 Windows 目标上显式失败，避免 self-check 假阳性。
 - TASK-330 已能为 T5.1 三页 DOM 生成确定性的 60 行 CSV；真实 Edge 10/10、
   专用 profile 与外部 smoke 仍由 TASK-056 的人类在场会话负责。
-- Excel T2.1 的四个 handler 仍停留在 `#[cfg(test)]` 私有实现；`tools.json` 保持空。
-  ADR-0111 已冻结平台 handle 边界并完成单工作簿真实 COM smoke；完整域映射、
-  ownership/watchdog、重复收敛与 production ToolBus registration 仍需后续卡。
+- Excel T2.1 的四个 handler 与 platform runtime adapter 仍停留在 `#[cfg(test)]` 私有实现；
+  `tools.json` 保持空。TASK-403 已用 fake port 验证私有域映射和重复 handle 收敛，但真实
+  COM 重复验收、ownership/watchdog 与 production ToolBus registration 仍需后续卡。
 
 ## 相关文档
 
