@@ -99,11 +99,26 @@ pub(crate) enum ExcelL1RollbackReadiness {
 /// Validated value snapshot retained alongside the file shadow copy.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ExcelL1ValueSnapshot {
+    address: String,
+    rows: u32,
+    columns: u32,
     selector: Value,
     cells: Vec<RuntimeCell>,
     payload_bytes: usize,
 }
 impl ExcelL1ValueSnapshot {
+    /// Returns the canonical address captured for the range.
+    pub(crate) fn address(&self) -> &str {
+        &self.address
+    }
+    /// Returns the captured row count.
+    pub(crate) const fn rows(&self) -> u32 {
+        self.rows
+    }
+    /// Returns the captured column count.
+    pub(crate) const fn columns(&self) -> u32 {
+        self.columns
+    }
     /// Returns the canonical range selector recorded with the cells.
     pub(crate) const fn selector(&self) -> &Value {
         &self.selector
@@ -416,6 +431,7 @@ fn validate_value_snapshot(
 ) -> Result<ExcelL1ValueSnapshot, ExcelT21Error> {
     let (expected_cells, address_start) = validate_snapshot_bounds(selector, snapshot, worksheets)?;
     let cells = normalize_snapshot_cells(snapshot, expected_cells, address_start)?;
+    let address = write_port::canonical_snapshot_address(selector, snapshot, worksheets)?;
     let selector = selector_value(selector)?;
     let payload = value_snapshot_payload(&selector, snapshot, &cells)?;
     let payload_bytes = serde_json::to_vec(&payload).map_err(|error| {
@@ -430,11 +446,15 @@ fn validate_value_snapshot(
         )));
     }
     Ok(ExcelL1ValueSnapshot {
+        address,
+        rows: snapshot.rows,
+        columns: snapshot.columns,
         selector,
         cells,
         payload_bytes: payload_bytes.len(),
     })
 }
+
 fn validate_snapshot_bounds(
     selector: &RangeSelector,
     snapshot: &RangeSnapshot,
@@ -836,6 +856,10 @@ fn undo_shape_error(error: &assistant_undo::UndoError) -> ExcelT21Error {
 #[cfg(test)]
 #[path = "excel_t21_l1_write.rs"]
 pub(crate) mod write;
+
+#[cfg(test)]
+#[path = "excel_t21_l1_write_port.rs"]
+pub(crate) mod write_port;
 
 #[cfg(test)]
 #[path = "excel_t21_l1_tests.rs"]
