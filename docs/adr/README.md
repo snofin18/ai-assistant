@@ -131,8 +131,9 @@
 | **0109** | `0109-toolbus-handler-error-bridge.md` | **Accepted** | `ToolBusError` 加法式增加 `HandlerFailure { code: ErrorCode, message: String }`：handler 用既有 typed `ErrorCode` 返回显式失败并原样进入 error envelope；不新增 ErrorCode，不建立第二套错误桥，不改 `ToolHandler`/ToolSchema/协议 schema（人类 2026-11-24 批准方案 A；TASK-397） |
 | **0110** | `0110-excel-t21-implementation-order.md` | **Accepted** | ADR-0108 D10 优先：真实 COM、人类在场单次 `.xlsx` 验收与重复收敛全部通过前，生产 `tools.json`/rollback/assembly/ToolBus 保持空；固定顺序改为 fake runtime → 私有 ToolHandler 合同测试 → private COM runner prototype → 单次真机 → 重复收敛 → 最后注册（人类 2026-11-24 确认；TASK-399） |
 | **0111** | `0111-excel-t21-runner-injection-boundary.md` | **Accepted** | `platform-windows` 持有窄公共 Excel COM worker handle，`agent-core` 保留领域适配；TASK-401 只开放 create/PID/read-only open/cell text/read/close/shutdown 与 ignored 真机验收，不向 `platform/api` 增加 Excel 专用 trait，生产 tools/ToolBus 继续为空（人类 2026-11-25 批准 TASK-401） |
+| **0112** | `0112-excel-t21-reader-surface.md` | **Accepted** | TASK-402 在 platform-windows 扩展完整 Excel T2.1 只读面：owned identity、workbook/worksheet/name/calculation snapshot、value2/formula/text range、fingerprint 与 ownership；agent-core 只做私有领域映射，生产 tools/ToolBus 继续为空 |
 
-**下一个可用编号：0112**（= §1 与 §2 已用最大号 **0111** + 1；由 `cargo run -p xtask -- adr-index`
+**下一个可用编号：0113**（= §1 与 §2 已用最大号 **0112** + 1；由 `cargo run -p xtask -- adr-index`
 的 `adr/next-number-wrong` 规则机器校验，写错即红灯）。
 
 **0027 不是新的可用号** —— 它已被“`#[allow]` 的唯一合法位置”这条决策占用；该号现已由

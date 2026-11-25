@@ -343,3 +343,7 @@
 ## 2026-11-25 追加（ADR-0111，Accepted）
 
 - [2026-11-25][DECISION][src:ADR-0111，人类 2026-11-25 批准 TASK-401] **Excel COM runner 由 platform-windows 持有窄公共 handle，agent-core 保留领域适配**：平台层只暴露自包含的 create/PID/read-only open/cell text/read/close/shutdown，不跨线程返回 COM object；`agent-core` 后续把 handle 映射到现有 `ExcelT21Runtime`，不得向 `assistant-platform-api` 增加 Excel 专用 trait。TASK-401 的人工验收只允许 ignored 单工作簿 smoke，运行前不得有既有 `EXCEL.EXE`，运行后必须 owned PID 归零且文件 digest 不变；完整四 Tool 域映射、ownership journal/watchdog、重复收敛以及生产 `tools.json`/ToolBus 注册仍由后续卡完成。
+
+## 2026-11-25 追加（ADR-0112，Accepted）
+
+- [2026-11-25][DECISION][src:ADR-0112，TASK-401 后续批准范围；TASK-402] **Excel T2.1 完整只读面留在 platform-windows，agent-core 只做领域映射**：平台 handle 增加 owned identity、workbook/worksheet/named-range/calculation snapshot、value2/formula/text range、deterministic metadata fingerprint 与 ownership verification；所有结果必须是自包含数据，不返回 IDispatch。range 超过 4096 cells 或 metadata 超过硬上限必须失败，不截断；A1 上限与领域 parser 一致为 XFD1048576。fingerprint 不代表文件 digest，sheet-scoped name 无法可靠解析时必须失败。生产 tools/ToolBus/rollback/assembly 继续为空。

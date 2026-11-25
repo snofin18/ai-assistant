@@ -71,7 +71,7 @@ mod selector;
 mod com;
 #[cfg(any(windows, test))]
 pub mod excel_com_runner;
-#[cfg(windows)]
+#[cfg(any(windows, test))]
 pub(crate) mod excel_process;
 #[cfg(windows)]
 mod handles;

@@ -76,6 +76,14 @@
    测试进程退出可能来不及让 worker 执行 Quit，留下本轮 Excel。生产创建路径必须先通过
    Toolhelp snapshot 拒绝任何既有 `EXCEL.EXE`；测试级 guard 的 Drop 必须 best-effort
    shutdown，仅在 PID + creation FILETIME + executable path 三者仍匹配时才执行进程树清理。
+10. **Excel collection `Item` 不能只用 property-get flag**：TASK-402 在真实 COM 上调用
+    `Worksheets.Item(1)` 遇到 `0x80020003`（`DISP_E_MEMBERNOTFOUND`）；只有同时提供
+    `DISPATCH_PROPERTYGET | DISPATCH_METHOD`，Excel 才会按自身 type metadata 分派
+    `Worksheets.Item`、`Names.Item` 与 `Range.Cells`。
+11. **带公式/error cell 的 workbook 退出需要更长但有界的收敛窗口**：TASK-402 的
+    单工作簿完整读取和校验均已成功，但 5 秒 poll 仍可能看到 Excel 未退出；验收应使用
+    有界 20 秒等待，并在超时后仍按 PID + creation FILETIME + executable path 清理和失败，
+    不能把等待放宽成无限成功。
 
 ## 7. 通道结论
 
