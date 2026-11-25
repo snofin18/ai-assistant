@@ -339,3 +339,7 @@
 ## 2026-11-24 追加（ADR-0110，Accepted）
 
 - [2026-11-24][DECISION][src:ADR-0110，人类 2026-11-24 确认 ADR-0108 D10 优先；TASK-399] **Excel T2.1 先验证 private COM runner，后开放生产 Tool surface**：固定顺序为 fake runtime/session/parser → 私有 ToolHandler 与 in-process ToolBus 合同测试 → test-only private COM runner prototype/fake tests → 人类在场单次 `.xlsx` 验收 → 重复运行与 process/session/handle 收敛 → 最后才填写生产 `tools.json`、rollback recipe、production assembly 并注册 ToolBus。真实 COM 与重复收敛前生产 `tools.json` 必须保持空；没有生产 caller 的私有 runner 只能由 `#[cfg(test)]` 实际执行，禁止用 `#[allow(dead_code)]` 掩盖无 caller 的生产代码，也不得把 test-only prototype 冒充生产 runner 已完成。
+
+## 2026-11-25 追加（ADR-0111，Accepted）
+
+- [2026-11-25][DECISION][src:ADR-0111，人类 2026-11-25 批准 TASK-401] **Excel COM runner 由 platform-windows 持有窄公共 handle，agent-core 保留领域适配**：平台层只暴露自包含的 create/PID/read-only open/cell text/read/close/shutdown，不跨线程返回 COM object；`agent-core` 后续把 handle 映射到现有 `ExcelT21Runtime`，不得向 `assistant-platform-api` 增加 Excel 专用 trait。TASK-401 的人工验收只允许 ignored 单工作簿 smoke，运行前不得有既有 `EXCEL.EXE`，运行后必须 owned PID 归零且文件 digest 不变；完整四 Tool 域映射、ownership journal/watchdog、重复收敛以及生产 `tools.json`/ToolBus 注册仍由后续卡完成。

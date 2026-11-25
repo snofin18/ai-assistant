@@ -17,23 +17,32 @@
     clippy::expect_used,
     clippy::indexing_slicing,
     clippy::panic,
+    clippy::print_stderr,
     clippy::unwrap_used
 )]
 
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, ThreadId};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use assistant_platform_api::ErrorCode;
 
 use super::*;
+#[cfg(windows)]
+use crate::excel_process::{
+    ExcelProcessIdentity, excel_process_ids, process_identity, process_matches,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Stage {
     Create,
     ProcessId,
+    Open,
+    Read,
+    Close,
     Quit,
 }
 
@@ -92,6 +101,19 @@ impl ExcelComBackend for RecordingBackend {
     fn application_process_id(&mut self) -> PlatformResult<u32> {
         self.observe(Stage::ProcessId)?;
         Ok(4242)
+    }
+
+    fn open_read_only(&mut self, _path: &Path) -> PlatformResult<()> {
+        self.observe(Stage::Open)
+    }
+
+    fn read_active_sheet_text(&self, address: &str) -> PlatformResult<String> {
+        self.observe(Stage::Read)?;
+        Ok(format!("value@{address}"))
+    }
+
+    fn close_workbook(&mut self) -> PlatformResult<()> {
+        self.observe(Stage::Close)
     }
 
     fn quit_application(&mut self) -> PlatformResult<()> {
@@ -155,6 +177,18 @@ impl ExcelComBackend for BlockingBackend {
         Ok(77)
     }
 
+    fn open_read_only(&mut self, _path: &Path) -> PlatformResult<()> {
+        Ok(())
+    }
+
+    fn read_active_sheet_text(&self, _address: &str) -> PlatformResult<String> {
+        Ok(String::new())
+    }
+
+    fn close_workbook(&mut self) -> PlatformResult<()> {
+        Ok(())
+    }
+
     fn quit_application(&mut self) -> PlatformResult<()> {
         self.quit_called.store(true, Ordering::SeqCst);
         Ok(())
@@ -168,6 +202,19 @@ fn recording_runner(
     let (backend, tracker) = RecordingBackend::new(failure, panic_at);
     let runner = ExcelComRunner::spawn(move || backend).expect("runner");
     (runner, tracker)
+}
+
+fn temporary_workbook() -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock")
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!(
+        "assistant-task401-{}-{nonce}.xlsx",
+        std::process::id()
+    ));
+    std::fs::write(&path, b"task401 fake workbook").expect("write temporary workbook");
+    path
 }
 
 #[test]
@@ -196,6 +243,64 @@ fn test_runner_preserves_fifo_order_on_dedicated_thread() {
     drop(tracker);
 }
 
+#[test]
+fn test_runner_open_read_close_preserves_boundary_and_handle_identity() {
+    let workbook_path = temporary_workbook();
+    let (mut runner, tracker) = recording_runner(None, None);
+
+    runner.create_application().expect("create");
+    let workbook = runner
+        .open_read_only(&workbook_path)
+        .expect("open read-only workbook");
+    assert_eq!(workbook.session_id(), 1);
+    assert!(workbook.canonical_path().is_absolute());
+    assert_eq!(
+        workbook.canonical_path().file_name(),
+        workbook_path.file_name()
+    );
+    assert_eq!(
+        runner
+            .read_active_sheet_text(&workbook, "a1")
+            .expect("read active sheet text")
+            .value(),
+        "value@A1"
+    );
+    assert_eq!(
+        runner
+            .open_read_only(&workbook_path)
+            .expect_err("second open must fail")
+            .code(),
+        ErrorCode::Fatal
+    );
+    runner.close_workbook(&workbook).expect("close workbook");
+    let stale = runner
+        .read_active_sheet_text(
+            &ExcelWorkbookHandle {
+                runner_id: 1,
+                session_id: 1,
+                canonical_path: workbook_path.clone(),
+            },
+            "A1",
+        )
+        .expect_err("stale handle must fail");
+    assert_eq!(stale.code(), ErrorCode::ToolInvalidArgs);
+    runner.shutdown().expect("shutdown");
+
+    let tracker = tracker.lock().expect("tracker mutex");
+    assert_eq!(
+        tracker.events,
+        vec![
+            Stage::Create,
+            Stage::Open,
+            Stage::Read,
+            Stage::Close,
+            Stage::Quit
+        ]
+    );
+    drop(tracker);
+    std::fs::remove_file(workbook_path).expect("remove temporary workbook");
+}
+
 fn assert_failure_code_preserved(stage: Stage, code: ErrorCode) {
     let (mut runner, tracker) = recording_runner(Some((stage, code)), None);
 
@@ -216,10 +321,37 @@ fn assert_failure_code_preserved(stage: Stage, code: ErrorCode) {
             let error = runner.quit_application().expect_err("quit failure");
             assert_eq!(error.code(), code);
         }
+        Stage::Open | Stage::Read | Stage::Close => {
+            runner.create_application().expect("create");
+            let workbook_path = temporary_workbook();
+            let open_result = runner.open_read_only(&workbook_path);
+            match stage {
+                Stage::Open => {
+                    let error = open_result.expect_err("open failure");
+                    assert_eq!(error.code(), code);
+                }
+                Stage::Read => {
+                    let workbook = open_result.expect("open before read failure");
+                    let error = runner
+                        .read_active_sheet_text(&workbook, "A1")
+                        .expect_err("read failure");
+                    assert_eq!(error.code(), code);
+                }
+                Stage::Close => {
+                    let workbook = open_result.expect("open before close failure");
+                    let error = runner.close_workbook(&workbook).expect_err("close failure");
+                    assert_eq!(error.code(), code);
+                }
+                Stage::Create | Stage::ProcessId | Stage::Quit => {
+                    unreachable!("outer match restricts workbook stages")
+                }
+            }
+            std::fs::remove_file(workbook_path).expect("remove temporary workbook");
+        }
     }
 
     let shutdown = runner.shutdown();
-    if stage == Stage::Quit {
+    if matches!(stage, Stage::Quit | Stage::Close) {
         assert!(
             shutdown.is_err(),
             "shutdown must not hide a failed explicit quit"
@@ -238,7 +370,76 @@ fn assert_failure_code_preserved(stage: Stage, code: ErrorCode) {
 fn test_runner_preserves_backend_error_codes_without_downgrade() {
     assert_failure_code_preserved(Stage::Create, ErrorCode::TargetNotFound);
     assert_failure_code_preserved(Stage::ProcessId, ErrorCode::PlatformPermission);
+    assert_failure_code_preserved(Stage::Open, ErrorCode::ToolInvalidArgs);
+    assert_failure_code_preserved(Stage::Read, ErrorCode::TargetNotFound);
+    assert_failure_code_preserved(Stage::Close, ErrorCode::UserInteraction);
     assert_failure_code_preserved(Stage::Quit, ErrorCode::UserInteraction);
+}
+
+#[test]
+fn test_runner_rejects_invalid_paths_and_cell_addresses_before_dispatch() {
+    let (mut runner, _tracker) = recording_runner(None, None);
+
+    let relative = runner
+        .open_read_only("book.xlsx")
+        .expect_err("relative path must fail");
+    assert_eq!(relative.code(), ErrorCode::ToolInvalidArgs);
+    let wrong_extension = runner
+        .open_read_only(std::env::temp_dir().join("book.xls"))
+        .expect_err("non-xlsx extension must fail");
+    assert_eq!(wrong_extension.code(), ErrorCode::ToolInvalidArgs);
+    let traversing = runner
+        .open_read_only(
+            std::env::temp_dir()
+                .join("sub")
+                .join("..")
+                .join("book.xlsx"),
+        )
+        .expect_err("dot-dot path must fail");
+    assert_eq!(traversing.code(), ErrorCode::ToolInvalidArgs);
+
+    let stale = ExcelWorkbookHandle {
+        runner_id: 1,
+        session_id: 1,
+        canonical_path: std::env::temp_dir().join("book.xlsx"),
+    };
+    for invalid in [
+        "1", "A0", "A01", "A1:B2", "$$", "AAAA1", "XFE1", "ZZZ1", "A1048577",
+    ] {
+        let error = runner
+            .read_active_sheet_text(&stale, invalid)
+            .expect_err("invalid A1 address must fail");
+        assert_eq!(error.code(), ErrorCode::ToolInvalidArgs);
+    }
+    runner.create_application().expect("create");
+    runner.shutdown().expect("shutdown");
+}
+
+#[test]
+fn test_runner_rejects_a_workbook_handle_from_another_runner() {
+    let first_path = temporary_workbook();
+    let second_path = temporary_workbook();
+    let (mut first, _first_tracker) = recording_runner(None, None);
+    let (mut second, _second_tracker) = recording_runner(None, None);
+    first.create_application().expect("first create");
+    second.create_application().expect("second create");
+    let first_workbook = first
+        .open_read_only(&first_path)
+        .expect("first open workbook");
+    second
+        .open_read_only(&second_path)
+        .expect("second open workbook");
+
+    let mismatch = second
+        .read_active_sheet_text(&first_workbook, "A1")
+        .expect_err("foreign runner handle must fail");
+    assert_eq!(mismatch.code(), ErrorCode::ToolInvalidArgs);
+
+    first.close_workbook(&first_workbook).expect("first close");
+    first.shutdown().expect("first shutdown");
+    second.shutdown().expect("second shutdown");
+    std::fs::remove_file(first_path).expect("remove first temporary workbook");
+    std::fs::remove_file(second_path).expect("remove second temporary workbook");
 }
 
 #[test]
@@ -357,6 +558,164 @@ fn test_runner_state_rejects_out_of_order_operations() {
 #[cfg(windows)]
 #[test]
 fn test_windows_idispatch_backend_starts_without_creating_excel() {
-    let mut runner = spawn_windows_excel_runner().expect("Windows COM runner");
+    let mut runner = ExcelComRunner::start().expect("Windows COM runner");
     runner.shutdown().expect("idle Windows runner shutdown");
+}
+
+#[cfg(windows)]
+struct RealComAcceptanceGuard {
+    runner: Option<ExcelComRunner>,
+    owned_process: Option<ExcelProcessIdentity>,
+}
+
+#[cfg(windows)]
+impl RealComAcceptanceGuard {
+    fn new(runner: ExcelComRunner) -> Self {
+        Self {
+            runner: Some(runner),
+            owned_process: None,
+        }
+    }
+
+    fn runner(&self) -> &ExcelComRunner {
+        self.runner.as_ref().expect("acceptance runner")
+    }
+
+    fn set_owned_process(&mut self, identity: ExcelProcessIdentity) {
+        self.owned_process = Some(identity);
+    }
+
+    fn shutdown(&mut self) -> PlatformResult<()> {
+        self.runner
+            .take()
+            .expect("acceptance runner before shutdown")
+            .shutdown()
+    }
+}
+
+#[cfg(windows)]
+impl Drop for RealComAcceptanceGuard {
+    fn drop(&mut self) {
+        if let Some(mut runner) = self.runner.take()
+            && runner.shutdown().is_err()
+        {
+            eprintln!("real-COM acceptance runner shutdown failed during Drop");
+        }
+        let Some(identity) = self.owned_process.as_ref() else {
+            return;
+        };
+        match process_matches(identity) {
+            Ok(true) => {
+                let process_id = identity.process_id;
+                match std::process::Command::new("taskkill.exe")
+                    .args(["/PID", &process_id.to_string(), "/T", "/F"])
+                    .status()
+                {
+                    Ok(status) if status.success() => {
+                        eprintln!("real-COM acceptance force-terminated owned Excel {process_id}");
+                    }
+                    Ok(status) => {
+                        eprintln!(
+                            "real-COM acceptance taskkill for owned Excel {process_id} exited with {status}"
+                        );
+                    }
+                    Err(error) => {
+                        eprintln!(
+                            "real-COM acceptance taskkill for owned Excel {process_id} failed: {error}"
+                        );
+                    }
+                }
+            }
+            Ok(false) => {}
+            Err(error) => {
+                eprintln!(
+                    "real-COM acceptance could not verify owned Excel {}: {error}",
+                    identity.process_id
+                );
+            }
+        }
+    }
+}
+
+#[cfg(windows)]
+#[test]
+#[ignore = "TASK-401 human-present real Excel COM acceptance"]
+fn test_windows_excel_real_com_single_workbook_acceptance() {
+    assert!(
+        excel_process_ids()
+            .expect("Excel process inventory")
+            .is_empty(),
+        "close every EXCEL.EXE before running the human-present acceptance"
+    );
+    let workbook_path = std::env::var_os("EXCEL_T21_ACCEPTANCE_WORKBOOK")
+        .map(PathBuf::from)
+        .expect("EXCEL_T21_ACCEPTANCE_WORKBOOK must name one local .xlsx file");
+    let bytes_before = std::fs::read(&workbook_path).expect("read workbook before acceptance");
+    let digest_before = crate::digest::sha256_hex_bytes(&bytes_before);
+
+    let mut guard = RealComAcceptanceGuard::new(
+        ExcelComRunner::start().expect("start Windows Excel COM runner"),
+    );
+    guard
+        .runner()
+        .create_application()
+        .expect("create owned Excel application");
+    let process_id = guard
+        .runner()
+        .application_process_id()
+        .expect("resolve owned Excel process id");
+    let process_identity = process_identity(process_id)
+        .expect("query owned Excel identity")
+        .expect("owned Excel identity");
+    guard.set_owned_process(process_identity.clone());
+    eprintln!(
+        "TASK-401 acceptance workbook={} pid={} start={} path={} digest_before={}",
+        workbook_path.display(),
+        process_id,
+        process_identity.start_time_100ns,
+        process_identity.executable_path,
+        digest_before
+    );
+    let workbook = guard
+        .runner()
+        .open_read_only(&workbook_path)
+        .expect("open workbook read-only");
+    let _cell_text = guard
+        .runner()
+        .read_active_sheet_text(&workbook, "A1")
+        .expect("read active sheet A1 text");
+    guard
+        .runner()
+        .close_workbook(&workbook)
+        .expect("close workbook without saving");
+    guard.shutdown().expect("quit and join Excel worker");
+
+    let mut remaining = true;
+    for _attempt in 0..50 {
+        if !excel_process_ids()
+            .expect("Excel process inventory")
+            .contains(&process_id)
+        {
+            remaining = false;
+            break;
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    assert!(
+        !remaining,
+        "owned Excel process {process_id} remained alive"
+    );
+    assert!(
+        excel_process_ids()
+            .expect("Excel process inventory")
+            .is_empty(),
+        "acceptance must leave no EXCEL.EXE process"
+    );
+    let bytes_after = std::fs::read(&workbook_path).expect("read workbook after acceptance");
+    let digest_after = crate::digest::sha256_hex_bytes(&bytes_after);
+    eprintln!("TASK-401 acceptance digest_after={digest_after}");
+    assert_eq!(
+        digest_before, digest_after,
+        "read-only acceptance must not modify the workbook"
+    );
 }

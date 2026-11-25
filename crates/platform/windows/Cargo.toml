@@ -28,6 +28,8 @@ windows = { version = "=0.62.2", features = [
     "Win32_Graphics_Gdi",           # EnumDisplayMonitors / GetMonitorInfoW / MonitorFromWindow / MonitorFromPoint
     # ↓ TASK-041 拆分 B 新增（同一已登记依赖的 feature 开关，不是新依赖 —— 见 ADR-0074）
     "Win32_Storage_Xps",            # PrintWindow / PRINT_WINDOW_FLAGS（windows 0.62.2 把 user32 的该函数投影在此模块）
+    "Win32_Storage_FileSystem",     # GetDriveTypeW：拒绝映射网络盘作为本地 .xlsx
+    "Win32_System_Diagnostics_ToolHelp", # CreateToolhelp32Snapshot：创建 COM 前检测既有 EXCEL.EXE
 ] }
 
 [dependencies.assistant-platform-api]

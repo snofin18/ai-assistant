@@ -35,6 +35,11 @@
    `with_com_apartment` 在同步闭包内借用 guard，并以 `ComApartment<T>` 把返回值与释放责任
    绑定；错误或 panic 路径立即配对 `CoUninitialize`，成功值 drop 时再释放。UIA 用同一 wrapper
    把客户端存入线程本地状态。该能力只在本 crate 内可见，且不创建 Excel 对象。
+9. **Excel COM runner boundary**（`src/excel_com_runner.rs`，TASK-401 / ADR-0111）：
+   Windows 构建提供窄公共 `ExcelComRunner` handle；COM object、STA guard 与 `IDispatch`
+   始终留在 dedicated worker。公共面只允许 create/PID/read-only `.xlsx` open/active-sheet
+   text read/close/shutdown；`create_application` 在任何既有 `EXCEL.EXE` 下 fail closed，
+   所有失败返回 typed `PlatformError`，不注册生产 Tool。
 
 ## 边界（不做什么）
 
@@ -99,8 +104,9 @@
 - **COM 单线程**：所有 UIA 调用必须发生在**解析元素的那个线程**上（线程本地 apartment +
   线程本地元素表）。跨线程使用元素句柄会得到 `TargetNotFound`。**不提供**线程池调度或
   跨线程搬运（那需要显式的 marshal 设计，归后续卡）。
-- **COM apartment scope 暂不公开**：TASK-391 只在 crate 内提供同步 STA scope；
-  Excel COM runner、跨线程调度和可恢复的进程 ownership journal 仍由后续卡/ADR 定义。
+- **Excel COM runner 仅 smoke boundary**：TASK-401 已提供公共 handle、真实 COM 单工作簿
+  open/read/close/shutdown 与 ignored 人工验收；完整 `ExcelT21Runtime` 域映射、named
+  ranges、workbook/range/summarize、ownership journal、独立 watchdog 与重复收敛仍由后续卡负责。
 - **UIPI（完整性级别）**：目标进程完整性级别高于本进程时，`ElementFromHandle` 等调用返回
   `E_ACCESSDENIED` → `PlatformPermission`。**不**自动提权、**不**绕过。
 - **无缓存**：每次属性读都是一次跨进程 COM 调用（**未使用** `IUIAutomationCacheRequest`）。

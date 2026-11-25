@@ -1,23 +1,27 @@
-//! Test-only Excel COM runner prototype.
+//! Excel COM runner boundary.
 //!
 //! Responsibilities:
 //! - keep every COM object on one dedicated worker thread;
 //! - serialize requests through a bounded FIFO command channel;
-//! - expose explicit create, process-id, quit, and shutdown operations to tests.
+//! - expose a narrow public handle for create, process identity, read-only open,
+//!   cell text, close, and shutdown.
 //!
 //! Boundaries:
-//! - this module is compiled only for crate tests;
-//! - it is not connected to production assembly, Adapter declarations, or `ToolBus`;
-//! - non-Windows tests use fake backends and never initialize COM.
+//! - this module exposes no model-visible Tool and is not registered in `ToolBus`;
+//! - non-Windows tests use fake backends and never initialize COM;
+//! - the public surface intentionally covers smoke acceptance only. Full Excel
+//!   domain mapping remains in `agent-core` and a follow-up card.
 //!
 //! Invariants:
 //! 1. the backend runs only on the worker thread and never crosses threads;
 //! 2. request capacity is exactly one, and full/disconnected queues fail closed;
 //! 3. backend errors preserve the existing `ErrorCode` without reinterpretation.
 //!
-//! Related documents: ADR-0108, ADR-0110, and TASK-399.
+//! Related documents: ADR-0108, ADR-0110, ADR-0111, TASK-399, TASK-401.
 
 use std::io;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender, TrySendError};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
@@ -27,19 +31,87 @@ use assistant_platform_api::{ErrorCode, PlatformError, PlatformResult};
 const REQUEST_QUEUE_CAPACITY: usize = 1;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 const WORKER_THREAD_NAME: &str = "excel-com-runner";
+const MAX_CELL_ADDRESS_BYTES: usize = 32;
+static NEXT_RUNNER_ID: AtomicU64 = AtomicU64::new(1);
+
+/// Self-contained handle to one workbook owned by an Excel COM runner.
+///
+/// The handle contains no COM pointer. It can cross threads and is validated by
+/// the worker before every workbook operation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExcelWorkbookHandle {
+    runner_id: u64,
+    session_id: u64,
+    canonical_path: PathBuf,
+}
+
+impl ExcelWorkbookHandle {
+    /// Returns the worker-local session id.
+    #[must_use]
+    pub const fn session_id(&self) -> u64 {
+        self.session_id
+    }
+
+    /// Returns the canonical workbook path observed during open.
+    #[must_use]
+    pub fn canonical_path(&self) -> &Path {
+        &self.canonical_path
+    }
+}
+
+/// Text observed from one cell on the active worksheet.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExcelCellText {
+    address: String,
+    value: String,
+}
+
+impl ExcelCellText {
+    /// Returns the normalized input address.
+    #[must_use]
+    pub fn address(&self) -> &str {
+        &self.address
+    }
+
+    /// Returns the Excel `.Text` value.
+    #[must_use]
+    pub fn value(&self) -> &str {
+        &self.value
+    }
+}
 
 /// Private backend executed exclusively by the dedicated runner thread.
 trait ExcelComBackend: 'static {
     fn create_application(&mut self) -> PlatformResult<()>;
     fn application_process_id(&mut self) -> PlatformResult<u32>;
     fn quit_application(&mut self) -> PlatformResult<()>;
+
+    fn open_read_only(&mut self, _path: &Path) -> PlatformResult<()> {
+        Err(runner_protocol_error(
+            "Excel COM backend does not support read-only workbook open",
+        ))
+    }
+
+    fn read_active_sheet_text(&self, _address: &str) -> PlatformResult<String> {
+        Err(runner_protocol_error(
+            "Excel COM backend does not support active-sheet cell text",
+        ))
+    }
+
+    fn close_workbook(&mut self) -> PlatformResult<()> {
+        Err(runner_protocol_error(
+            "Excel COM backend does not support workbook close",
+        ))
+    }
 }
 
 /// One response value produced by the worker.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum RunnerValue {
     Unit,
     ProcessId(u32),
+    WorkbookOpened(ExcelWorkbookHandle),
+    CellText(String),
 }
 
 type RunnerResponse = PlatformResult<RunnerValue>;
@@ -48,30 +120,62 @@ type ResponseSender = SyncSender<RunnerResponse>;
 enum RunnerCommand {
     CreateApplication(ResponseSender),
     ApplicationProcessId(ResponseSender),
+    #[cfg(test)]
     QuitApplication(ResponseSender),
+    OpenReadOnlyWorkbook {
+        path: PathBuf,
+        response: ResponseSender,
+    },
+    ReadActiveSheetText {
+        runner_id: u64,
+        session_id: u64,
+        address: String,
+        response: ResponseSender,
+    },
+    CloseWorkbook {
+        runner_id: u64,
+        session_id: u64,
+        response: ResponseSender,
+    },
     Shutdown(ResponseSender),
 }
 
-/// Cloneable request handle for one dedicated Excel COM worker.
-struct ExcelComRunner {
+/// Request handle for one dedicated Excel COM worker.
+///
+/// COM objects and apartment guards remain on the worker thread. The handle
+/// itself only carries a bounded command channel.
+pub struct ExcelComRunner {
     sender: SyncSender<RunnerCommand>,
     worker: Option<JoinHandle<PlatformResult<()>>>,
     shutdown_started: bool,
 }
 
 impl ExcelComRunner {
+    /// Starts the production Windows Excel runner without creating Excel.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Fatal` when the worker thread or its STA apartment cannot be
+    /// initialized within the bounded readiness window.
+    #[cfg(windows)]
+    pub fn start() -> PlatformResult<Self> {
+        windows_backend::spawn_windows_excel_runner()
+    }
+
     /// Starts a fake or test backend on one dedicated worker thread.
+    #[cfg(test)]
     fn spawn<B, F>(backend_factory: F) -> PlatformResult<Self>
     where
         B: ExcelComBackend,
         F: FnOnce() -> B + Send + 'static,
     {
+        let runner_id = next_runner_id();
         let (sender, receiver) = mpsc::sync_channel(REQUEST_QUEUE_CAPACITY);
         let worker = thread::Builder::new()
             .name(WORKER_THREAD_NAME.to_owned())
             .spawn(move || {
                 let backend = backend_factory();
-                run_worker(backend, &receiver)
+                run_worker(backend, &receiver, runner_id)
             })
             .map_err(|error| thread_spawn_error("Excel COM runner", &error))?;
         Ok(Self {
@@ -81,24 +185,103 @@ impl ExcelComRunner {
         })
     }
 
-    fn create_application(&self) -> PlatformResult<()> {
+    /// Creates one owned Excel application without opening a workbook.
+    ///
+    /// # Errors
+    ///
+    /// Returns the backend failure unchanged. Repeated calls fail explicitly.
+    pub fn create_application(&self) -> PlatformResult<()> {
         expect_unit(self.dispatch(RunnerCommand::CreateApplication))
     }
 
-    fn application_process_id(&self) -> PlatformResult<u32> {
+    /// Returns the process id derived from the owned Excel `Application.Hwnd`.
+    ///
+    /// # Errors
+    ///
+    /// Returns a protocol failure when the application was not created or the
+    /// window does not map to a live process.
+    pub fn application_process_id(&self) -> PlatformResult<u32> {
         match self.dispatch(RunnerCommand::ApplicationProcessId)? {
             RunnerValue::ProcessId(process_id) => Ok(process_id),
-            RunnerValue::Unit => Err(runner_protocol_error(
+            _ => Err(runner_protocol_error(
                 "Excel COM runner returned no process id",
             )),
         }
     }
 
+    /// Opens one local `.xlsx` workbook read-only.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ToolInvalidArgs` for non-absolute, non-local, non-`.xlsx`, or
+    /// non-file paths; backend open failures retain their typed error.
+    pub fn open_read_only(
+        &self,
+        workbook_path: impl AsRef<Path>,
+    ) -> PlatformResult<ExcelWorkbookHandle> {
+        let path = validate_workbook_path(workbook_path.as_ref())?;
+        match self.dispatch(|response| RunnerCommand::OpenReadOnlyWorkbook { path, response })? {
+            RunnerValue::WorkbookOpened(workbook) => Ok(workbook),
+            _ => Err(runner_protocol_error(
+                "Excel COM runner returned no workbook handle",
+            )),
+        }
+    }
+
+    /// Reads `.Text` from one cell on the active worksheet.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ToolInvalidArgs` for malformed addresses, or an explicit backend
+    /// failure when the workbook/session no longer matches.
+    pub fn read_active_sheet_text(
+        &self,
+        workbook: &ExcelWorkbookHandle,
+        address: &str,
+    ) -> PlatformResult<ExcelCellText> {
+        let address = validate_cell_address(address)?;
+        let runner_id = workbook.runner_id;
+        let session_id = workbook.session_id;
+        match self.dispatch(|response| RunnerCommand::ReadActiveSheetText {
+            runner_id,
+            session_id,
+            address: address.clone(),
+            response,
+        })? {
+            RunnerValue::CellText(value) => Ok(ExcelCellText { address, value }),
+            _ => Err(runner_protocol_error(
+                "Excel COM runner returned no cell text",
+            )),
+        }
+    }
+
+    /// Closes one owned workbook without saving.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ToolInvalidArgs` for a stale/mismatched handle or the backend
+    /// close failure unchanged.
+    pub fn close_workbook(&self, workbook: &ExcelWorkbookHandle) -> PlatformResult<()> {
+        expect_unit(self.dispatch(|response| RunnerCommand::CloseWorkbook {
+            runner_id: workbook.runner_id,
+            session_id: workbook.session_id,
+            response,
+        }))
+    }
+
+    #[cfg(test)]
     fn quit_application(&self) -> PlatformResult<()> {
         expect_unit(self.dispatch(RunnerCommand::QuitApplication))
     }
 
-    fn shutdown(&mut self) -> PlatformResult<()> {
+    /// Closes any open workbook, quits Excel, and joins the worker.
+    ///
+    /// # Errors
+    ///
+    /// Returns `TargetUnresponsive` when the shutdown request times out and
+    /// releases the join handle only after explicitly reporting the need for
+    /// process-level cleanup. Repeated shutdown is rejected.
+    pub fn shutdown(&mut self) -> PlatformResult<()> {
         if self.shutdown_started {
             return Err(runner_protocol_error(
                 "Excel COM runner shutdown was already requested",
@@ -144,11 +327,31 @@ impl ExcelComRunner {
     }
 }
 
-fn run_worker<B>(mut backend: B, receiver: &Receiver<RunnerCommand>) -> PlatformResult<()>
+impl Drop for ExcelComRunner {
+    fn drop(&mut self) {
+        if self.shutdown_started || self.worker.is_none() {
+            return;
+        }
+        self.shutdown_started = true;
+        // Drop is the final best-effort path. Explicit `shutdown()` is the only
+        // path that can report cleanup failure to the caller.
+        if self.dispatch(RunnerCommand::Shutdown).is_ok()
+            && let Some(worker) = self.worker.take()
+        {
+            let _join_result = worker.join();
+        }
+    }
+}
+
+fn run_worker<B>(
+    mut backend: B,
+    receiver: &Receiver<RunnerCommand>,
+    runner_id: u64,
+) -> PlatformResult<()>
 where
     B: ExcelComBackend,
 {
-    let mut state = RunnerState::default();
+    let mut state = RunnerState::new(runner_id);
     while let Ok(command) = receiver.recv() {
         match command {
             RunnerCommand::CreateApplication(response) => {
@@ -163,8 +366,37 @@ where
                     return state.abandon(&mut backend);
                 }
             }
+            #[cfg(test)]
             RunnerCommand::QuitApplication(response) => {
                 let result = state.quit_application(&mut backend);
+                if send_response(&response, result).is_err() {
+                    return state.abandon(&mut backend);
+                }
+            }
+            RunnerCommand::OpenReadOnlyWorkbook { path, response } => {
+                let result = state.open_read_only(&mut backend, &path);
+                if send_response(&response, result).is_err() {
+                    return state.abandon(&mut backend);
+                }
+            }
+            RunnerCommand::ReadActiveSheetText {
+                runner_id,
+                session_id,
+                address,
+                response,
+            } => {
+                let result =
+                    state.read_active_sheet_text(&backend, runner_id, session_id, &address);
+                if send_response(&response, result).is_err() {
+                    return state.abandon(&mut backend);
+                }
+            }
+            RunnerCommand::CloseWorkbook {
+                runner_id,
+                session_id,
+                response,
+            } => {
+                let result = state.close_workbook(&mut backend, runner_id, session_id);
                 if send_response(&response, result).is_err() {
                     return state.abandon(&mut backend);
                 }
@@ -185,14 +417,31 @@ fn send_response(sender: &ResponseSender, response: RunnerResponse) -> Result<()
     sender.send(response).map_err(|_| ())
 }
 
-#[derive(Default)]
 struct RunnerState {
+    runner_id: u64,
     created: bool,
     closed: bool,
     process_id: Option<u32>,
+    next_session_id: u64,
+    workbook: Option<OpenWorkbookState>,
+}
+
+struct OpenWorkbookState {
+    session_id: u64,
 }
 
 impl RunnerState {
+    const fn new(runner_id: u64) -> Self {
+        Self {
+            runner_id,
+            created: false,
+            closed: false,
+            process_id: None,
+            next_session_id: 0,
+            workbook: None,
+        }
+    }
+
     fn create_application<B>(&mut self, backend: &mut B) -> RunnerResponse
     where
         B: ExcelComBackend,
@@ -249,42 +498,276 @@ impl RunnerState {
         Ok(RunnerValue::Unit)
     }
 
+    fn open_read_only<B>(&mut self, backend: &mut B, path: &Path) -> RunnerResponse
+    where
+        B: ExcelComBackend,
+    {
+        if !self.created || self.closed {
+            return Err(runner_protocol_error(
+                "Excel COM application must be active before opening a workbook",
+            ));
+        }
+        if self.workbook.is_some() {
+            return Err(runner_protocol_error(
+                "Excel COM runner already owns an open workbook",
+            ));
+        }
+        backend.open_read_only(path)?;
+        let session_id = self
+            .next_session_id
+            .checked_add(1)
+            .ok_or_else(|| runner_protocol_error("Excel workbook session id overflowed"))?;
+        self.next_session_id = session_id;
+        let workbook = ExcelWorkbookHandle {
+            runner_id: self.runner_id,
+            session_id,
+            canonical_path: path.to_path_buf(),
+        };
+        self.workbook = Some(OpenWorkbookState { session_id });
+        Ok(RunnerValue::WorkbookOpened(workbook))
+    }
+
+    fn read_active_sheet_text<B>(
+        &self,
+        backend: &B,
+        runner_id: u64,
+        session_id: u64,
+        address: &str,
+    ) -> RunnerResponse
+    where
+        B: ExcelComBackend,
+    {
+        let workbook = self.workbook.as_ref().ok_or_else(|| {
+            PlatformError::new(
+                ErrorCode::ToolInvalidArgs,
+                "Excel COM runner has no open workbook",
+            )
+        })?;
+        if self.runner_id != runner_id || workbook.session_id != session_id {
+            return Err(PlatformError::new(
+                ErrorCode::ToolInvalidArgs,
+                "Excel COM workbook handle does not match the open workbook",
+            ));
+        }
+        backend
+            .read_active_sheet_text(address)
+            .map(RunnerValue::CellText)
+    }
+
+    fn close_workbook<B>(
+        &mut self,
+        backend: &mut B,
+        runner_id: u64,
+        session_id: u64,
+    ) -> RunnerResponse
+    where
+        B: ExcelComBackend,
+    {
+        let workbook = self.workbook.as_ref().ok_or_else(|| {
+            PlatformError::new(
+                ErrorCode::ToolInvalidArgs,
+                "Excel COM runner has no open workbook",
+            )
+        })?;
+        if self.runner_id != runner_id || workbook.session_id != session_id {
+            return Err(PlatformError::new(
+                ErrorCode::ToolInvalidArgs,
+                "Excel COM workbook handle does not match the open workbook",
+            ));
+        }
+        backend.close_workbook()?;
+        self.workbook = None;
+        Ok(RunnerValue::Unit)
+    }
+
     fn shutdown<B>(&mut self, backend: &mut B) -> RunnerResponse
     where
         B: ExcelComBackend,
     {
-        if self.created {
-            self.quit_application(backend)?;
+        let open_session_id = self.workbook.as_ref().map(|workbook| workbook.session_id);
+        let close_result = open_session_id.map_or(Ok(RunnerValue::Unit), |session_id| {
+            self.close_workbook(backend, self.runner_id, session_id)
+        });
+        let quit_result = if self.created {
+            self.quit_application(backend)
         } else {
             self.closed = true;
+            Ok(RunnerValue::Unit)
+        };
+        match (close_result, quit_result) {
+            (Ok(_), Ok(_)) => Ok(RunnerValue::Unit),
+            (Err(close_error), Ok(_)) => Err(PlatformError::new(
+                ErrorCode::Fatal,
+                format!("Excel workbook close failed during shutdown: {close_error}"),
+            )),
+            (Ok(_), Err(quit_error)) => Err(quit_error),
+            (Err(close_error), Err(quit_error)) => Err(PlatformError::new(
+                ErrorCode::Fatal,
+                format!(
+                    "Excel cleanup failed: workbook close={close_error}; application quit={quit_error}"
+                ),
+            )),
         }
-        Ok(RunnerValue::Unit)
     }
 
     fn abandon<B>(&mut self, backend: &mut B) -> PlatformResult<()>
     where
         B: ExcelComBackend,
     {
-        if !self.created {
+        if !self.created && self.workbook.is_none() {
             return Ok(());
         }
-        match self.quit_application(backend) {
-            Ok(_) => Ok(()),
-            Err(error) => Err(PlatformError::new(
-                ErrorCode::Fatal,
-                format!("Excel COM request receiver disappeared and cleanup failed: {error}"),
-            )),
-        }
+        let cleanup = self.shutdown(backend);
+        cleanup.map_or_else(
+            |error| {
+                Err(PlatformError::new(
+                    ErrorCode::Fatal,
+                    format!("Excel COM request receiver disappeared and cleanup failed: {error}"),
+                ))
+            },
+            |_value| Ok(()),
+        )
     }
 }
 
 fn expect_unit(response: RunnerResponse) -> PlatformResult<()> {
     match response? {
         RunnerValue::Unit => Ok(()),
-        RunnerValue::ProcessId(_) => Err(runner_protocol_error(
+        _ => Err(runner_protocol_error(
             "Excel COM runner returned an unexpected process id",
         )),
     }
+}
+
+fn validate_workbook_path(path: &Path) -> PlatformResult<PathBuf> {
+    if !path.is_absolute() {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "Excel workbook path must be absolute",
+        ));
+    }
+    if !has_xlsx_extension(path) {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "Excel workbook path must use the .xlsx extension",
+        ));
+    }
+    if path.components().any(|component| {
+        matches!(
+            component,
+            std::path::Component::CurDir | std::path::Component::ParentDir
+        )
+    }) {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "Excel workbook path must not contain . or .. components",
+        ));
+    }
+    let canonical = std::fs::canonicalize(path).map_err(|error| {
+        let code = if error.kind() == io::ErrorKind::NotFound {
+            ErrorCode::TargetNotFound
+        } else if error.kind() == io::ErrorKind::PermissionDenied {
+            ErrorCode::PlatformPermission
+        } else {
+            ErrorCode::ToolInvalidArgs
+        };
+        PlatformError::new(
+            code,
+            format!("canonicalize Excel workbook path failed: {error}"),
+        )
+    })?;
+    if !canonical.is_file() {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "Excel workbook path must identify a regular file",
+        ));
+    }
+    if !has_xlsx_extension(&canonical) {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "canonical Excel workbook target must use the .xlsx extension",
+        ));
+    }
+    let canonical_text = canonical.to_string_lossy();
+    if canonical_text.starts_with(r"\\?\UNC\") {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "Excel workbook path must be local, not a UNC share",
+        ));
+    }
+    let canonical = canonical_text
+        .strip_prefix(r"\\?\")
+        .map_or_else(|| canonical.clone(), PathBuf::from);
+    #[cfg(windows)]
+    crate::excel_process::ensure_local_drive(&canonical)?;
+    Ok(canonical)
+}
+
+fn validate_cell_address(address: &str) -> PlatformResult<String> {
+    let normalized = address.trim().to_ascii_uppercase();
+    if normalized.is_empty()
+        || normalized.len() > MAX_CELL_ADDRESS_BYTES
+        || !is_single_a1_cell(&normalized)
+    {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "Excel cell address must be a bounded single A1 cell reference",
+        ));
+    }
+    Ok(normalized)
+}
+
+fn has_xlsx_extension(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("xlsx"))
+}
+
+fn is_single_a1_cell(address: &str) -> bool {
+    let bytes = address.as_bytes();
+    let mut position = 0;
+    if bytes.get(position) == Some(&b'$') {
+        position += 1;
+    }
+    let column_start = position;
+    while bytes.get(position).is_some_and(u8::is_ascii_uppercase) {
+        position += 1;
+    }
+    let column_length = position.saturating_sub(column_start);
+    if !(1..=3).contains(&column_length) {
+        return false;
+    }
+    let column = bytes
+        .get(column_start..position)
+        .unwrap_or_default()
+        .iter()
+        .fold(0_u32, |value, byte| {
+            value
+                .saturating_mul(26)
+                .saturating_add(u32::from(byte.saturating_sub(b'A') + 1))
+        });
+    if !(1..=16_384).contains(&column) {
+        return false;
+    }
+    if bytes.get(position) == Some(&b'$') {
+        position += 1;
+    }
+    let row_start = position;
+    while bytes.get(position).is_some_and(u8::is_ascii_digit) {
+        position += 1;
+    }
+    let row_length = position.saturating_sub(row_start);
+    if !(1..=7).contains(&row_length)
+        || bytes.get(row_start) == Some(&b'0')
+        || position != bytes.len()
+    {
+        return false;
+    }
+    bytes
+        .get(row_start..position)
+        .and_then(|digits| std::str::from_utf8(digits).ok())
+        .and_then(|digits| digits.parse::<u32>().ok())
+        .is_some_and(|value| (1..=1_048_576).contains(&value))
 }
 
 fn queue_error(error: &TrySendError<RunnerCommand>) -> PlatformError {
@@ -330,252 +813,18 @@ fn runner_protocol_error(message: impl Into<String>) -> PlatformError {
     PlatformError::new(ErrorCode::Fatal, message)
 }
 
-#[cfg(windows)]
-fn spawn_windows_excel_runner() -> PlatformResult<ExcelComRunner> {
-    let (sender, receiver) = mpsc::sync_channel(REQUEST_QUEUE_CAPACITY);
-    let (ready_sender, ready_receiver) = mpsc::sync_channel(1);
-    let mut ready_sender = Some(ready_sender);
-    let worker = thread::Builder::new()
-        .name(WORKER_THREAD_NAME.to_owned())
-        .spawn(move || {
-            let initialization = crate::com::with_com_apartment(|_guard| {
-                if let Some(sender) = ready_sender.take() {
-                    sender.send(Ok(())).map_err(|_| {
-                        runner_protocol_error("Excel COM runner readiness receiver disappeared")
-                    })?;
-                }
-                run_worker(WindowsExcelComBackend::new(), &receiver)
-            });
-            match initialization {
-                Ok(_apartment) => Ok(()),
-                Err(error) => {
-                    if let Some(sender) = ready_sender.take() {
-                        // The receiver disappearing means startup already returned;
-                        // the worker is exiting and no further notification is needed.
-                        sender.send(Err(error.clone())).unwrap_or(());
-                    }
-                    Err(error)
-                }
-            }
-        })
-        .map_err(|error| thread_spawn_error("Excel COM runner", &error))?;
-
-    let initialization = ready_receiver
-        .recv_timeout(REQUEST_TIMEOUT)
-        .map_err(|error| {
-            PlatformError::new(
-                ErrorCode::Fatal,
-                format!(
-                    "Excel COM runner initialization failed before readiness: {error}; worker was detached and requires process-level cleanup"
-                ),
-            )
-        })?;
-    if let Err(error) = initialization {
-        let joined = worker.join().map_err(join_error);
-        joined??;
-        return Err(error);
-    }
-    Ok(ExcelComRunner {
-        sender,
-        worker: Some(worker),
-        shutdown_started: false,
-    })
-}
-
-#[cfg(windows)]
-struct WindowsExcelComBackend {
-    application: Option<windows::Win32::System::Com::IDispatch>,
-}
-
-#[cfg(windows)]
-impl WindowsExcelComBackend {
-    const fn new() -> Self {
-        Self { application: None }
-    }
-}
-
-#[cfg(windows)]
-impl ExcelComBackend for WindowsExcelComBackend {
-    fn create_application(&mut self) -> PlatformResult<()> {
-        use windows::Win32::System::Com::{
-            CLSCTX_LOCAL_SERVER, CLSIDFromProgID, CoCreateInstance, IDispatch,
-        };
-        use windows::core::w;
-
-        if self.application.is_some() {
-            return Err(runner_protocol_error(
-                "Windows Excel backend already owns an application",
-            ));
+fn next_runner_id() -> u64 {
+    loop {
+        let runner_id = NEXT_RUNNER_ID.fetch_add(1, Ordering::Relaxed);
+        if runner_id != 0 {
+            return runner_id;
         }
-        // SAFETY: the worker thread holds an STA, the ProgID is static and
-        // NUL-terminated, and the returned interface is retained in this thread.
-        let class_id = unsafe { CLSIDFromProgID(w!("Excel.Application")) }.map_err(|error| {
-            crate::error::error_from_hresult(error.code().0, "CLSIDFromProgID(Excel.Application)")
-        })?;
-        // SAFETY: CLSID resolution succeeded, no aggregation is used, and the
-        // returned IDispatch remains owned by the dedicated STA worker.
-        let application: IDispatch =
-            unsafe { CoCreateInstance(&raw const class_id, None, CLSCTX_LOCAL_SERVER) }.map_err(
-                |error| {
-                    crate::error::error_from_hresult(
-                        error.code().0,
-                        "CoCreateInstance(Excel.Application)",
-                    )
-                },
-            )?;
-        self.application = Some(application);
-        Ok(())
-    }
-
-    fn application_process_id(&mut self) -> PlatformResult<u32> {
-        use windows::Win32::Foundation::HWND;
-        use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
-
-        let application = self
-            .application
-            .as_ref()
-            .ok_or_else(|| runner_protocol_error("Windows Excel backend has no application"))?;
-        let hwnd_value = get_i4_property(application, "Hwnd")?;
-        let pointer_value = isize::try_from(hwnd_value)
-            .map_err(|_| runner_protocol_error("Excel Application.Hwnd did not fit in isize"))?;
-        let hwnd = HWND(pointer_value as *mut core::ffi::c_void);
-        let mut process_id = 0_u32;
-        // SAFETY: the HWND came from the owned Excel application and is only
-        // queried; the out-parameter points to a live stack value.
-        unsafe { GetWindowThreadProcessId(hwnd, Some(&raw mut process_id)) };
-        if process_id == 0 {
-            return Err(runner_protocol_error(
-                "Excel Application.Hwnd did not map to an owned process id",
-            ));
-        }
-        Ok(process_id)
-    }
-
-    fn quit_application(&mut self) -> PlatformResult<()> {
-        let application = self
-            .application
-            .as_ref()
-            .ok_or_else(|| runner_protocol_error("Windows Excel backend has no application"))?;
-        invoke_method(application, "Quit")?;
-        self.application = None;
-        Ok(())
     }
 }
 
 #[cfg(windows)]
-fn get_i4_property(
-    dispatch: &windows::Win32::System::Com::IDispatch,
-    property_name: &str,
-) -> PlatformResult<i32> {
-    use windows::Win32::System::Com::DISPATCH_PROPERTYGET;
-    use windows::Win32::System::Variant::{VARIANT, VT_I4, VariantClear};
-
-    let dispatch_id = member_dispatch_id(dispatch, property_name)?;
-    let parameters = windows::Win32::System::Com::DISPPARAMS::default();
-    let mut result = VARIANT::default();
-    // SAFETY: both the dispatch id and parameter block belong to this STA
-    // worker; the result points to a live VARIANT cleared below.
-    unsafe {
-        dispatch.Invoke(
-            dispatch_id,
-            &windows::core::GUID::zeroed(),
-            0,
-            DISPATCH_PROPERTYGET,
-            &raw const parameters,
-            Some(&raw mut result),
-            None,
-            None,
-        )
-    }
-    .map_err(|error| {
-        crate::error::error_from_hresult(
-            error.code().0,
-            &format!("IDispatch.Invoke({property_name})"),
-        )
-    })?;
-
-    // SAFETY: Invoke initialized the VARIANT; the union is read only after
-    // checking the variant tag, and VariantClear runs exactly once.
-    let value = unsafe {
-        let inner = &result.Anonymous.Anonymous;
-        if inner.vt != VT_I4 {
-            let clear = VariantClear(&raw mut result);
-            return match clear {
-                Ok(()) => Err(runner_protocol_error(format!(
-                    "Excel property {property_name} did not return VT_I4"
-                ))),
-                Err(error) => Err(crate::error::error_from_hresult(
-                    error.code().0,
-                    "VariantClear",
-                )),
-            };
-        }
-        inner.Anonymous.lVal
-    };
-    // SAFETY: paired with the successful Invoke above; no reference escapes.
-    unsafe { VariantClear(&raw mut result) }
-        .map_err(|error| crate::error::error_from_hresult(error.code().0, "VariantClear"))?;
-    Ok(value)
-}
-
-#[cfg(windows)]
-fn invoke_method(
-    dispatch: &windows::Win32::System::Com::IDispatch,
-    method_name: &str,
-) -> PlatformResult<()> {
-    use windows::Win32::System::Com::{DISPATCH_METHOD, DISPPARAMS};
-
-    let dispatch_id = member_dispatch_id(dispatch, method_name)?;
-    let parameters = DISPPARAMS::default();
-    // SAFETY: the call has no arguments and no result; both pointers point to
-    // live stack values on the owning STA worker thread.
-    unsafe {
-        dispatch.Invoke(
-            dispatch_id,
-            &windows::core::GUID::zeroed(),
-            0,
-            DISPATCH_METHOD,
-            &raw const parameters,
-            None,
-            None,
-            None,
-        )
-    }
-    .map_err(|error| {
-        crate::error::error_from_hresult(
-            error.code().0,
-            &format!("IDispatch.Invoke({method_name})"),
-        )
-    })
-}
-
-#[cfg(windows)]
-fn member_dispatch_id(
-    dispatch: &windows::Win32::System::Com::IDispatch,
-    member_name: &str,
-) -> PlatformResult<i32> {
-    use windows::core::PCWSTR;
-
-    let mut wide: Vec<u16> = member_name.encode_utf16().collect();
-    wide.push(0);
-    let name = PCWSTR(wide.as_ptr());
-    let mut dispatch_id = 0_i32;
-    // SAFETY: `name` points to NUL-terminated UTF-16 storage alive for the
-    // synchronous call, and `dispatch_id` is a live out-parameter.
-    unsafe {
-        dispatch.GetIDsOfNames(
-            &windows::core::GUID::zeroed(),
-            &raw const name,
-            1,
-            0,
-            &raw mut dispatch_id,
-        )
-    }
-    .map_err(|error| {
-        crate::error::error_from_hresult(error.code().0, &format!("GetIDsOfNames({member_name})"))
-    })?;
-    Ok(dispatch_id)
-}
+#[path = "excel_com_runner_windows.rs"]
+mod windows_backend;
 
 #[cfg(test)]
 #[path = "excel_com_runner_tests.rs"]

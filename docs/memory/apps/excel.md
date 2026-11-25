@@ -68,6 +68,14 @@
    验证协作取消。生产/取证 runner 必须先用 `Application.Hwnd` 映射并复核 PID、启动时间与
    可执行路径，保存 ownership journal，再由独立 watchdog 对超时子进程和该 Excel 身份做
    有界回收；禁止只按“启动前后 PID 差集”推断所有权或按裸 PID 直接 `taskkill`。
+8. **`Workbook.Workbooks.Open` 不接受 verbatim canonical path**：TASK-401 实机把
+   `std::fs::canonicalize()` 的 `\\?\C:\...` 直接传给 `Workbooks.Open`，Excel 返回
+   `0x800A03EC`。本地 `.xlsx` 必须在 canonical 校验后去掉 `\\?\` 前缀再交给 COM；
+   `\\?\UNC\...` 继续拒绝，不能把网络共享误作本地文件。
+9. **owned Excel 必须用完整身份而非裸 PID 回收**：TASK-401 首轮错误前置断言 panic 后，
+   测试进程退出可能来不及让 worker 执行 Quit，留下本轮 Excel。生产创建路径必须先通过
+   Toolhelp snapshot 拒绝任何既有 `EXCEL.EXE`；测试级 guard 的 Drop 必须 best-effort
+   shutdown，仅在 PID + creation FILETIME + executable path 三者仍匹配时才执行进程树清理。
 
 ## 7. 通道结论
 
@@ -87,7 +95,8 @@
 
 ## 8. 未测项
 
-- 打开、读取和保存真实 `.xlsx/.xlsm/.xlsb` 工作簿。
+- TASK-401 已实测一个本地 `.xlsx` 的 read-only open、active-sheet `.Text` 读取、close 与
+  shutdown；`.xlsm/.xlsb`、保存、多工作簿与完整 Range 语义仍未测。
 - Protected View、只读/占用、AutoSave=true、OneDrive/SharePoint。
 - 多工作簿、多窗口、命名区域解析与 A1 漂移。
 - 模态对话框族、宏警告、更新链接。

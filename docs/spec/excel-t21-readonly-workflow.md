@@ -300,6 +300,14 @@ task runtime 在任何退出路径执行：
 >
 > 下方旧 gate 文本仅保留历史内容；与本节冲突时以本节及 ADR-0110 为准。
 
+> **ADR-0111 runner injection boundary（2026-11-25）**：`assistant-platform-windows`
+> 可以提供窄公共 `ExcelComRunner` handle，但只能暴露自包含、可跨线程请求的
+> create/PID/read-only open/cell text/read/close/shutdown；COM object 和 STA guard 不得
+> 离开 dedicated worker。`agent-core` 继续持有 `ExcelT21Runtime` 领域类型与映射，不得
+> 把 Excel 专用 trait 加入 `assistant-platform-api`。TASK-401 只验证 runner 边界与人工
+> 单工作簿 smoke；完整四 Tool 域映射、ownership journal/watchdog、重复收敛和生产注册
+> 仍由后续卡完成。
+
 下一实现卡顺序固定：
 
 1. fake runtime + session registry + input/range parser 与负向测试；
