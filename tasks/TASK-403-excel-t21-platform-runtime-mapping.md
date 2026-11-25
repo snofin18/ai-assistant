@@ -1,6 +1,6 @@
 # TASK-403 Excel T2.1 platform runtime private mapping
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel T2.1　批次：4i　依赖：TASK-401、TASK-402、ADR-0108、ADR-0111、ADR-0112
 
 ---
@@ -153,8 +153,8 @@ git diff --check
 - [x] open/read/read range/fingerprint/ownership 的成功与 typed failure 路径有测试。
 - [x] platform path/read-only/mode/range/cell shape 二次校验有正负测试。
 - [x] 生产 tools/ToolBus/rollback/assembly、protocol/schema/依赖零改动。
-- [x] 专项、全量门禁与独立 review 完成；PR/CI/merge/post-merge main CI 待本提交后回填。
-- [ ] 外部 automation JSONL 的 PR/CI/merge/main_ci/final 事件待提交与合并后完成。
+- [x] 专项、全量门禁与独立 review 完成；PR/CI/merge/post-merge main CI 已闭环。
+- [x] 外部 automation JSONL 的 PR/CI/merge/main_ci/final 事件随运行日证据完成。
 
 ### 5. 偏差
 
@@ -164,7 +164,7 @@ git diff --check
   read-only/range shape 错误码不符合 Accepted spec、fake 未验证 selector/mode 透传；
   均已在同一实现 PR 前修复，复审判定 no findings（P0-P2）。
 - 本轮按用户约束未执行真实 COM/`.xlsx`；ignored 入口不能冒充真实收敛证据。
-- exec_command shell misuse：主会话 8 次、独立 reviewer 3 次，共 11 次误填 `bash`；
+- exec_command shell misuse：主会话 15 次、独立 reviewer 3 次，共 18 次误填 `bash`；
   均由项目 hook 重写为 PowerShell，没有 Bash 实际执行；全部为只读/状态命令。
 
 ### 6. 新增长期记忆
@@ -187,6 +187,9 @@ git diff --check
   （最终 PR / CI / merge / main CI / shell misuse / final audit 合并后追加）。
 - 独立 reviewer 首轮 findings：open cleanup 终态、error-code 契约、selector/mode fake 真实性。
 - 独立 reviewer 复审：**No findings (P0-P2)**；剩余仅为未运行真实 COM 与 mode echo 语义限制。
+- implementation PR #858：checks **22（21 SUCCESS + 1 SKIPPED）**、pending 0 / failed 0，
+  base=main、`MERGEABLE` / `CLEAN`；merge
+  `9bb006ab71dcf1db1422bbba83b58a65705b8b47`；post-merge main CI `45597702500` success。
 
 ### 9. 给审阅者的关注点
 
