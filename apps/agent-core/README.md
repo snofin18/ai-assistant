@@ -34,6 +34,12 @@ TASK-029 的 binary-layer Host 装配库。
   映射到现有 Excel T2.1 领域类型，并以 fake port 验证 32 次 open/read/close 的 domain
   handle、单 workbook mapping 与单一 application 收敛。真实 COM ignored 入口仅保留给
   人类在场后续运行；生产装配与 ToolBus 仍未接线。
+- TASK-404 提供 test-only 私有 `ExcelL1AnchorStore`：只从 valid `OpenedWorkbook`
+  派生 ToolBus session / task / opaque workbook handle / owned process / workbook /
+  worksheet identity，再把有界 `value2` 值快照、绝对 cell 坐标、调用方提供的原始字节与
+  既有 `assistant-undo` `L1Snapshot + ShadowCopy` anchor 绑定。写前/写后/回滚前同时校验
+  identity 与 fingerprint，并对 anchor 数、影子字节总量和 payload 使用硬上限拒绝策略。
+  它不创建真实影子文件，也不执行写或回滚。
 
 ## 边界
 
@@ -66,6 +72,9 @@ TASK-029 的 binary-layer Host 装配库。
 12. 私有 browser runner 的 step 批准只能绑定一个真实写步骤，并只把 Policy 的
    `AllowWithConfirmation` 转成该步骤的一次放行；未知、只读、无需确认、重复或超量批准
    全部在启动执行前失败。
+13. Excel L1 anchor 只能在同一 opened workbook identity 与捕获的 pre-fingerprint 上
+    准备一次写入；post-fingerprint 只能记录一次，identity/fingerprint 漂移或证据缺失时
+    回滚必须 blocked。
 
 ## 已知限制
 
@@ -84,6 +93,8 @@ TASK-029 的 binary-layer Host 装配库。
 - Excel T2.1 的四个 handler 与 platform runtime adapter 仍停留在 `#[cfg(test)]` 私有实现；
   `tools.json` 保持空。TASK-403 已用 fake port 验证私有域映射和重复 handle 收敛，但真实
   COM 重复验收、ownership/watchdog 与 production ToolBus registration 仍需后续卡。
+- TASK-404 的影子副本是内存模型，仅证明 anchor/digest/conflict 契约；真实文件复制、
+  磁盘保留、恢复写入与写入后的 `.Value2/.Formula` 校验仍需人类在场的 T2.2 实现卡。
 
 ## 相关文档
 

@@ -76,6 +76,11 @@
 > fake port 验证重复 open/read/close 的 handle/worker 收敛；PR #858 checks 22
 >（21 success + 1 skipped），merge `9bb006a` / main CI `45597702500` success；
 > 本轮未运行真实 COM，生产 tools/ToolBus 继续为空。
+> TASK-404 已进入 **Review**：test-only `ExcelL1AnchorStore` 从 opened workbook 派生
+> ToolBus session / task / owned process / workbook / worksheet identity，绑定有界
+> `value2` 值快照、内存 workbook 影子副本与既有 `L1Snapshot + ShadowCopy` anchor；
+> 覆盖绝对 cell 坐标及写前/写后/回滚前 identity + fingerprint 漂移，专项 26 passed。
+> 真实文件复制/恢复、真实写入与 production 注册仍未开放。
 
 ## In scope
 
@@ -134,6 +139,7 @@
 | 4h read surface | **TASK-402 ✅** | Windows platform | `tasks/TASK-402-excel-t21-read-surface.md` | Done（ADR-0112、完整只读 metadata/range/fingerprint/ownership；专项 14 passed / 1 ignored，真实 COM 1 passed、digest 不变且 `EXCEL.EXE=0`；PR #853 merge `d958b52` / main CI `45559864439` success） |
 | 4i private mapping | **TASK-403 ✅** | agent-core / Windows runner | `tasks/TASK-403-excel-t21-platform-runtime-mapping.md` | Done（test-only private adapter；fake port 10 passed / 1 ignored；独立 review no P0-P2 findings；PR #858 merge `9bb006a` / main CI `45597702500` success；真实 COM 尚未执行；生产 tools/ToolBus 保持空） |
 | 5 | 待派单 | Undo/L1 | dispatch 时创建 | 未开始（文件影子副本 + 值快照 + 冲突检测） |
+| 5a L1 anchor | **TASK-404 Review** | agent-core / L1 | `tasks/TASK-404-excel-t22-l1-anchor-preparation.md` | Review（opened-workbook identity + absolute cells + value snapshot + in-memory shadow copy + identity/fingerprint conflict；专项 26 passed；真实文件副本/恢复与 production 注册未开放；PR/CI/merge pending） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |
 | 7 | 待派单 | Excel T2.3 | dispatch 时创建 | 未开始（图表生成/PNG 导出/不覆盖） |
 
