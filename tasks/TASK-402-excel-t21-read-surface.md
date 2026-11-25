@@ -138,8 +138,8 @@ digest 不变与 `EXCEL.EXE=0`。
 
 ### 3. 门禁输出摘要
 
-- `cargo test -p assistant-platform-windows excel_com_runner` → **14 passed / 1 ignored**
-  （真实 COM ignored）。
+- `cargo test -p assistant-platform-windows excel_com_runner` → **15 passed / 1 ignored**
+  （包含临时 workbook 唯一性回归；真实 COM ignored）。
 - `EXCEL_T21_ACCEPTANCE_WORKBOOK=... cargo test -p ... test_windows_excel_real_com_single_workbook_acceptance -- --ignored --nocapture`
   → **1 passed / 0 failed**；PID `34212`，digest before/after
   `c801004c5a350c5af9db06039821f826e46916e14bad97cbc242da74d76692ea`，
