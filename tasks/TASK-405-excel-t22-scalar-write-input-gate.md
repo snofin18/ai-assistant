@@ -1,6 +1,6 @@
 # TASK-405 Excel T2.2 scalar write input gate
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel T2.2　批次：6　依赖：TASK-403、TASK-404、ADR-0062、ADR-0107、ADR-0108
 
 ---
@@ -150,8 +150,10 @@ git diff --check
 - [x] scalar 校验失败不消耗 anchor 状态；成功准备只接受 captured pre-fingerprint 且 single-use。
 - [x] released/unknown handle、identity/fingerprint 漂移均返回既有 `ErrorCode`。
 - [x] 生产 tools/ToolBus/rollback/assembly、protocol/schema/依赖零改动。
-- [ ] PR/CI/merge/post-merge main CI 证据待实现 PR 完成后回填。
-- [ ] 外部 automation JSONL 的最终 PR/CI/merge/main_ci/final 待合并后追加。
+- [x] PR #865 checks 22（21 SUCCESS + 1 SKIPPED），pending 0 / failed 0，
+  `MERGEABLE` / `CLEAN`；merge `a5c55343d8bbd1f527d1cefbd39272d0e9c97938`；
+  post-merge main CI `45665526687` success。
+- [x] 外部 automation JSONL 的 PR/CI/merge/main_ci/final 已追加。
 
 ### 5. 偏差
 
@@ -162,6 +164,9 @@ git diff --check
 - 最终 review：**no P0/P1/P2 findings**。
 - `excel_t21_l1_write.rs` 新增 3 个 soft cyclomatic warning，仍低于 hard gate；
   所有文件长度与函数长度均未新增 hard error。
+- 首轮 PR CI 的 Windows `cargo test` 因 GitHub runner 临时设备错误
+  `os error 433` 失败；保留失败证据并执行 failed-job rerun，最终 22 checks
+  （21 SUCCESS + 1 SKIPPED）全绿。
 - 本卡只完成 scalar 输入门与写前准备，不执行真实 range write、重算、
   `.Value2/.Formula` 双读、保存、恢复或真实 COM/GUI。
 
@@ -184,7 +189,10 @@ git diff --check
 - round evidence：`docs/automations/2026-11-25-round-2.md`。
 - 上一轮修正 PR #864 已 merge `a527759eaa46b9c1f2f525326c43694c72c0ce85`；
   post-merge main CI `45656044930` success。
-- TASK-405 implementation PR / CI / merge / main CI 待回填。
+- TASK-405 implementation PR #865：checks **22（21 SUCCESS + 1 SKIPPED）**，
+  pending 0 / failed 0，base=main，`MERGEABLE` / `CLEAN`；merge
+  `a5c55343d8bbd1f527d1cefbd39272d0e9c97938`；post-merge main CI
+  `45665526687` success。
 
 ### 9. 给审阅者的关注点
 
