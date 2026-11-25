@@ -191,8 +191,9 @@ digest 不变与 `EXCEL.EXE=0`。
 - PR #853 checks **22（21 SUCCESS + 1 SKIPPED）**，pending 0 / failed 0，base=main，
   `MERGEABLE` / `CLEAN`；merge `d958b52b73f33e305e2441889f17a58363f311df`；
   post-merge main CI `45559864439` success。
-- 后续 main CI `45563273943` 的 macOS fake-test 竞态修复单独走 fix PR；
-  修复前不把它误记为 main 全绿。
+- 后续 main CI `45563273943` 的 macOS fake-test 竞态由 fix PR #855 修复；PR checks
+  **11/11 SUCCESS**，merge `a70c62559072d70f6accf36d43844a55e7242b42`，
+  post-merge main CI `45567304098` success。修复前未把它误记为 main 全绿。
 
 ### 9. 给审阅者的关注点
 
