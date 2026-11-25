@@ -1,6 +1,6 @@
 # 阶段 2 — Excel L1 COM + Adapter 规范化
 
-> 周期 6~8 周　状态：**InProgress（2026-11-25）**；Stage 1 已完成；TASK-395 / TASK-396 / TASK-397 / TASK-398 / TASK-399 / TASK-400 / TASK-401 / TASK-402 / TASK-403 / TASK-404 已完成。
+> 周期 6~8 周　状态：**InProgress（2026-11-25）**；Stage 1 已完成；TASK-395 / TASK-396 / TASK-397 / TASK-398 / TASK-399 / TASK-400 / TASK-401 / TASK-402 / TASK-403 / TASK-404 / TASK-405 已完成。
 > 2026-11-23 automation 运行日已由 PR #817 收口；TASK-397 的 typed `HandlerFailure`
 > 错误桥已由 PR #819 merge `2c412d5` / main CI `45305239489` success 合入，TASK-395 恢复 Ready。
 > TASK-372 真实 Excel
@@ -82,6 +82,11 @@
 > 覆盖绝对 cell 坐标及写前/写后/回滚前 identity + fingerprint 漂移，专项 26 passed。
 > PR #861 merge `0435419` / main CI `45641443101` success；真实文件复制/恢复、
 > 真实写入与 production 注册仍未开放。
+> TASK-405 已完成 **Done**：test-only 私有 scalar write 输入门直接解析原始 JSON 词法，
+> 保留 number 精度并拒绝 array/object、公式/Default_Ignorable 前缀、256 KiB 超界输入；
+> 合法 scalar 再复用 TASK-404 的 pre-fingerprint single-use 写前准备。PR #865 checks
+> 22（21 success + 1 skipped），merge `a5c5534` / main CI `45665526687` success；
+> 真实写入/保存/恢复与 production 注册仍未开放。
 
 ## In scope
 
@@ -141,7 +146,7 @@
 | 4i private mapping | **TASK-403 ✅** | agent-core / Windows runner | `tasks/TASK-403-excel-t21-platform-runtime-mapping.md` | Done（test-only private adapter；fake port 10 passed / 1 ignored；独立 review no P0-P2 findings；PR #858 merge `9bb006a` / main CI `45597702500` success；真实 COM 尚未执行；生产 tools/ToolBus 保持空） |
 | 5 | 待派单 | Undo/L1 | dispatch 时创建 | 未开始（文件影子副本 + 值快照 + 冲突检测） |
 | 5a L1 anchor | **TASK-404 ✅** | agent-core / L1 | `tasks/TASK-404-excel-t22-l1-anchor-preparation.md` | Done（opened-workbook identity + absolute cells + value snapshot + in-memory shadow copy + identity/fingerprint conflict；专项 26 passed，最终 review no P0-P2；PR #861 merge `0435419` / main CI `45641443101` success；真实文件副本/恢复与 production 注册未开放） |
-| 6a scalar input gate | **TASK-405 Review** | agent-core / L1 | `tasks/TASK-405-excel-t22-scalar-write-input-gate.md` | Review（test-only 原始 JSON scalar 词法、公式/Default_Ignorable 前缀拒绝、256 KiB 边界与 pre-fingerprint 写前准备；专项 7 passed；最终 review no P0-P2；PR/CI 待收口） |
+| 6a scalar input gate | **TASK-405 ✅** | agent-core / L1 | `tasks/TASK-405-excel-t22-scalar-write-input-gate.md` | Done（test-only 原始 JSON scalar 词法、公式/Default_Ignorable 前缀拒绝、256 KiB 边界与 pre-fingerprint 写前准备；专项 7 passed；最终 review no P0-P2；PR #865 merge `a5c5534` / main CI `45665526687` success） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |
 | 7 | 待派单 | Excel T2.3 | dispatch 时创建 | 未开始（图表生成/PNG 导出/不覆盖） |
 
