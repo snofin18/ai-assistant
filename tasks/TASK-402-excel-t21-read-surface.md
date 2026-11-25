@@ -1,6 +1,6 @@
 # TASK-402 Excel T2.1 read-only runner surface
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel T2.1　批次：4h　依赖：TASK-401、ADR-0108、ADR-0111、ADR-0112
 
 ---
@@ -158,7 +158,7 @@ digest 不变与 `EXCEL.EXE=0`。
 - [x] fingerprint 确定，ownership 使用 PID + creation FILETIME + EXE path。
 - [x] 真实 COM 人工验收通过并记录 digest/进程证据。
 - [x] 生产 tools/ToolBus/assembly/rollback 零注册。
-- [ ] 独立 review、PR、CI 与 merge 闭环（本记录先保持 Review）。
+- [x] 独立 review、PR、CI 与 merge 闭环。
 
 ### 5. 偏差
 
@@ -185,6 +185,9 @@ digest 不变与 `EXCEL.EXE=0`。
 - 最终真实 COM 日志：PID `34212`，EXCEL path
   `C:\Program Files\Microsoft Office\root\Office16\EXCEL.EXE`，前后 digest 相同，
   test result `1 passed`，进程清单归零。
+- PR #853 checks **22（21 SUCCESS + 1 SKIPPED）**，pending 0 / failed 0，base=main，
+  `MERGEABLE` / `CLEAN`；merge `d958b52b73f33e305e2441889f17a58363f311df`；
+  post-merge main CI `45559864439` success。
 
 ### 9. 给审阅者的关注点
 
