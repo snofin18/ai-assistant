@@ -1,6 +1,6 @@
 # 阶段 2 — Excel L1 COM + Adapter 规范化
 
-> 周期 6~8 周　状态：**InProgress（2026-11-26）**；Stage 1 已完成；TASK-395 / TASK-396 / TASK-397 / TASK-398 / TASK-399 / TASK-400 / TASK-401 / TASK-402 / TASK-403 / TASK-404 / TASK-405 / TASK-406 / TASK-407 已完成。
+> 周期 6~8 周　状态：**InProgress（2026-11-26）**；Stage 1 已完成；TASK-395 / TASK-396 / TASK-397 / TASK-398 / TASK-399 / TASK-400 / TASK-401 / TASK-402 / TASK-403 / TASK-404 / TASK-405 / TASK-406 / TASK-407 已完成；TASK-408 rollout 审计修复 Review。
 > 2026-11-23 automation 运行日已由 PR #817 收口；TASK-397 的 typed `HandlerFailure`
 > 错误桥已由 PR #819 merge `2c412d5` / main CI `45305239489` success 合入，TASK-395 恢复 Ready。
 > TASK-372 真实 Excel
@@ -97,6 +97,10 @@
 > 单/双 cell 写入、`.Value2/.Formula` raw 校准、保存 digest 变化、shadow restore 与
 > `EXCEL.EXE=0`。PR #870 merge `fc024e4` / main CI `45743239854` success；production
 > `tools.json`、ToolBus、rollback、assembly 与公共 API 仍零改动。
+> TASK-408 **Review**：新增 `tools/audit-rollout-shell.ps1`，用
+> `FileShare.ReadWrite | Delete` + 严格 UTF-8 流式读取活跃 rollout，按逻辑 `turn_id`
+> 合并多段 `turn_context` 并统计 `exec_command` shell。实测上一 TASK-407 turn 为
+> PowerShell 194 / bash 54 / cmd 0；默认编码和 `ReadAllBytes` 的“损坏”误判已定位。
 
 ## In scope
 
@@ -159,6 +163,7 @@
 | 6a scalar input gate | **TASK-405 ✅** | agent-core / L1 | `tasks/TASK-405-excel-t22-scalar-write-input-gate.md` | Done（test-only 原始 JSON scalar 词法、公式/Default_Ignorable 前缀拒绝、256 KiB 边界与 pre-fingerprint 写前准备；专项 7 passed；最终 review no P0-P2；PR #865 merge `a5c5534` / main CI `45665526687` success） |
 | 6b private write port | **TASK-406 ✅** | agent-core / L1 | `tasks/TASK-406-excel-t22-private-write-port.md` | Done（anchor-bound selector/address/dimensions + single-use write/recalculate/Value2/Formula/post-fingerprint；专项 12 passed，最终 review no P0-P2；PR #867 merge `0426cd6` / main CI `45687778120` success；production Excel surface 仍为空） |
 | 6c real write calibration | **TASK-407 ✅** | Windows platform / Excel COM | `tasks/TASK-407-excel-t22-real-com-write-acceptance.md` | Done（test-only writable open + scalar property put + Calculate + Save；真实 COM 单/双 cell 写入、Value2/Formula 双读、save/restore digest、EXCEL.EXE=0、review no P0-P2；PR #870 checks 11/11，merge `fc024e4` / main CI `45743239854` success） |
+| evidence guard | **TASK-408 Review** | automation/evidence | `tasks/TASK-408-rollout-shell-audit-strict-utf8.md` | Review（严格 UTF-8/共享读取/按 turn shell 审计；TASK-407 turn 精确 bash=54，复审 no P0-P2，待 PR/CI） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |
 | 7 | 待派单 | Excel T2.3 | dispatch 时创建 | 未开始（图表生成/PNG 导出/不覆盖） |
 
