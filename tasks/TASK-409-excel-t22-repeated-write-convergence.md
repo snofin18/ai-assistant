@@ -1,6 +1,6 @@
 # TASK-409 Excel T2.2 repeated write convergence and watchdog evidence
 
-- 状态：**Ready**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel T2.2　批次：6d　依赖：TASK-403、TASK-404、TASK-405、TASK-406、TASK-407、TASK-408、ADR-0063、ADR-0107、ADR-0108、ADR-0110、ADR-0111、ADR-0112
 
 ---
@@ -186,7 +186,7 @@ surface 仍为空。
   core replay → PASSED；hygiene 0 error，coverage **77.88%**。
 - PowerShell AST parse → `PARSE_OK`；最终 normal `EXCEL.EXE=0`、related process 0、
   TASK-409 temp file 0。
-- `git diff --check` 待最终收口时复跑。
+- `git diff --check` → PASSED。
 
 ### 4. DoD 核对
 
@@ -196,7 +196,10 @@ surface 仍为空。
 - [x] after-write failure injection 与 after-open watchdog 有独立证据并最终收敛。
 - [x] fake 注入覆盖 open/write/recalculate/save 失败、close/shutdown 与 stale handle。
 - [x] production tools/ToolBus/rollback/assembly、schema、公共 API、ErrorCode、依赖零改动。
-- [x] 独立 review **No findings (P0-P2)**；PR/CI/merge/post-merge main CI 尚待收口。
+- [x] 独立 review 复审 **No findings (P0-P2)**；PR #874 checks
+  **22（21 SUCCESS + 1 SKIPPED）**，pending 0 / failed 0，base=main，
+  `MERGEABLE` / `CLEAN`；merge `b18603c359e62f92c85791f5713a239a508051ad`；
+  post-merge main CI `45773046164` success。Done 状态由 docs-only backfill 更新。
 
 ### 5. 偏差
 
@@ -240,6 +243,11 @@ surface 仍为空。
   `watchdog-observed-excel.json`、`summary.json`。
 - 源 fixture：
   `C:\Users\fexfe\AppData\Local\Temp\task409-repeated-write-source.xlsx`。
+- implementation PR #874：https://github.com/snofin18/ai-assistant/pull/874
+  checks **22（21 SUCCESS + 1 SKIPPED）**，pending 0 / failed 0，base=main，
+  `MERGEABLE` / `CLEAN`。
+- merge `b18603c359e62f92c85791f5713a239a508051ad`；post-merge main CI
+  `45773046164` success。
 
 ### 9. 给审阅者的关注点
 
