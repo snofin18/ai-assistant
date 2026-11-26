@@ -1,6 +1,6 @@
 # TASK-407 Excel T2.2 human-present real COM write acceptance
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel T2.2　批次：6c　依赖：TASK-403、TASK-404、TASK-405、TASK-406、ADR-0107、ADR-0108、ADR-0110、ADR-0111、ADR-0112
 
 ---
@@ -200,7 +200,10 @@ cargo test -p assistant-platform-windows test_windows_excel_real_com_write_calib
 - [x] 保存后 digest 改变；shadow restore 逐字节恢复，并 read-only 读回原始值。
 - [x] `.Formula` 精确断言以真实读取结果为准。
 - [x] 生产 tools/ToolBus/rollback/assembly、schema、公共 API、ErrorCode、依赖零改动。
-- [ ] 独立 review、PR/CI/merge/post-merge main CI 待完成；Done 状态另行 docs-only backfill。
+- [x] 独立 review 复审 **No findings (P0-P2)**；PR #870 checks **11/11 SUCCESS**，
+  pending 0 / failed 0，base=main，`MERGEABLE` / `CLEAN`；merge
+  `fc024e4a2c6eb3f39213d13838b6664c9941a16e`；post-merge main CI
+  `45743239854` success。Done 状态由 docs-only backfill 更新。
 
 ### 5. 偏差
 
@@ -239,7 +242,10 @@ cargo test -p assistant-platform-windows test_windows_excel_real_com_write_calib
   （Sheet1：A1=2、B1=3、C1=TRUE、D1=`hello`、E1 blank、F1=`=A1+B1`）。
 - 真实 COM final：1 passed / 0 failed / 7.70 s；PID `32060`；source digest 未变；
   `EXCEL.EXE=0`；`assistant-task407-*.xlsx` 临时文件 0。
-- PR/CI/merge/post-merge main CI 待创建。
+- implementation PR #870：https://github.com/snofin18/ai-assistant/pull/870
+  checks **11/11 SUCCESS**，pending 0 / failed 0，base=main，`MERGEABLE` / `CLEAN`。
+- merge `fc024e4a2c6eb3f39213d13838b6664c9941a16e`；post-merge main CI
+  `45743239854` success。
 
 ### 9. 给审阅者的关注点
 
