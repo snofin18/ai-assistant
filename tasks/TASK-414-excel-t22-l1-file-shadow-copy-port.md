@@ -1,6 +1,6 @@
 # TASK-414 Excel T2.2 L1 file shadow-copy port
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel T2.2　批次：6h　依赖：TASK-404、TASK-406、TASK-407、ADR-0062、ADR-0107
 
 ---
@@ -143,7 +143,15 @@ production `tools.json`、ToolBus、rollback、assembly、schema、公共 API �
   `clippy::assert_is_empty` unknown-lint warning。
 - `cargo run -p xtask -- hygiene`：**0 error / 261 warning，PASSED**；新增实现文件 900 行，
   在 900 行硬门禁内。
-- 最终 PR/main CI 与其余门禁在代码 review 后复跑并回填。
+- `cargo test -p assistant-core arch::`、`verify-schemas`、`codegen --check`、`memory-counts`、
+  `adr-index`、`card-check`、`check-ledger`、`check-comments`、`docscan` 与
+  `cargo deny check`：PASSED。
+- PR #884 CI 初轮 macOS 失败源于 `/var` 与 `/private/var` canonical path 测试断言；修正后
+  Windows job 另有既有 TASK-412 child-process fixture 偶发未出现子进程，失败 job 经 evidence
+  rerun 通过，最终 checks **22（21 success + 1 skipped）**，pending 0 / failed 0，
+  base=main，`MERGEABLE` / `CLEAN`。
+- squash merge `8f2bb74fd6d9f29aed83e3c92295c1b368952b85`；post-merge main CI
+  `45870164073` success。
 
 ### 4. DoD 核对
 
@@ -157,8 +165,9 @@ production `tools.json`、ToolBus、rollback、assembly、schema、公共 API �
 - [x] 未改 production Tool/ToolBus、`tools.json`、rollback、assembly、schema、公共 API、
       ErrorCode、Windows runner 或依赖；未启动真实 Excel/GUI。
 - [x] 独立 review 最终 **No findings (P0-P2)**；残余 P3 已记录。
-- [ ] PR/CI/merge/main CI 证据待回填。
-- [ ] 外部 automation JSONL 最终事件与 shell misuse 精确值待回填。
+- [x] PR #884 checks 22（21 success + 1 skipped）、merge `8f2bb74`、main CI
+      `45870164073` success 已回填。
+- [ ] 外部 automation JSONL final 事件待写入；shell misuse 精确值 48 已由 rollout audit 取证。
 
 ### 5. 偏差
 
@@ -168,8 +177,11 @@ production `tools.json`、ToolBus、rollback、assembly、schema、公共 API �
   验收过滤器 0 tests；第二轮又发现 rollback 仍可能删除重现 target、repo root 解析与
   900 行硬门禁问题；第三轮发现 UserInteraction 在组合回滚路径被改写成 Fatal。均已按
   根因修复，最终复审 no P0-P2。
-- 本轮中途多次把只读查询误填为 `shell: "bash"`；最终以 rollout shell 审计值为准，
-  不使用手工估算冒充精确值。
+- PR 首轮 macOS 两 job 均因 `/var` / `/private/var` canonical path 测试断言失败；改为使用
+  同一 canonicalization 后通过。Windows 另有既有 TASK-412 process-tree fixture 未等到子进程，
+  失败 job 保留日志并 evidence rerun 通过；不属于本卡代码路径。
+- 本轮中途多次把只读查询误填为 `shell: "bash"`；rollout audit 精确值为
+  PowerShell 152 / bash 48 / cmd 0 / missing 0 / unknown 0。
 
 ### 6. 新增长期记忆
 
@@ -180,11 +192,16 @@ production `tools.json`、ToolBus、rollback、assembly、schema、公共 API �
 
 - production task 的临时根选择、atomic replacement、异常退出恢复、真实保存后
   `.Value2/.Formula` 复读与 cleanup caller 仍待后续卡。
+- 残余 P3：marker 发布失败可能留下本次新建空根；cleanup 中途失败不是幂等重试；
+  hardlink 发布后的 remove-owned 仍按路径与调用流程认定所有权；600 行软告警待后续拆分。
 - production `tools.json`、ToolBus、rollback recipe、assembly registration 继续为空。
 
 ### 8. 外部证据
 
-- implementation PR / CI / merge / post-merge main CI：待回填。
+- implementation PR #884：<https://github.com/snofin18/ai-assistant/pull/884>；
+  checks 22（21 success + 1 skipped），base=main，`MERGEABLE` / `CLEAN`。
+- squash merge `8f2bb74fd6d9f29aed83e3c92295c1b368952b85`；post-merge main CI
+  `45870164073` success。
 - 外部 automation JSONL：
   `C:\Users\fexfe\.codex\automations-logs\2026-11-26\ai-assistant-task-round-20261127-0030.jsonl`。
 
@@ -196,4 +213,4 @@ production `tools.json`、ToolBus、rollback、assembly、schema、公共 API �
 - 重点核对 test-only 组合入口是否会留下无物理 shadow 的 active anchor，或把 test-only
   文件恢复误解为 production T2.2 已完成。
 - 残余 P3：marker 失败空目录、cleanup 非幂等、hardlink target 身份复核、600 行软警告；
-  不属于本卡 DoD。
+  不属于本卡 DoD。最终 review **No findings (P0-P2)**。
