@@ -167,7 +167,8 @@ production `tools.json`、ToolBus、rollback、assembly、schema、公共 API �
 - [x] 独立 review 最终 **No findings (P0-P2)**；残余 P3 已记录。
 - [x] PR #884 checks 22（21 success + 1 skipped）、merge `8f2bb74`、main CI
       `45870164073` success 已回填。
-- [ ] 外部 automation JSONL final 事件待写入；shell misuse 精确值 48 已由 rollout audit 取证。
+- [ ] 外部 automation JSONL final 事件待写入；shell misuse 最终精确值
+      PowerShell 197 / bash 52 / cmd 0 / missing 0 / unknown 0 已由 rollout audit 取证。
 
 ### 5. 偏差
 
@@ -181,7 +182,7 @@ production `tools.json`、ToolBus、rollback、assembly、schema、公共 API �
   同一 canonicalization 后通过。Windows 另有既有 TASK-412 process-tree fixture 未等到子进程，
   失败 job 保留日志并 evidence rerun 通过；不属于本卡代码路径。
 - 本轮中途多次把只读查询误填为 `shell: "bash"`；rollout audit 精确值为
-  PowerShell 152 / bash 48 / cmd 0 / missing 0 / unknown 0。
+  PowerShell 197 / bash 52 / cmd 0 / missing 0 / unknown 0。
 
 ### 6. 新增长期记忆
 
@@ -202,6 +203,10 @@ production `tools.json`、ToolBus、rollback、assembly、schema、公共 API �
   checks 22（21 success + 1 skipped），base=main，`MERGEABLE` / `CLEAN`。
 - squash merge `8f2bb74fd6d9f29aed83e3c92295c1b368952b85`；post-merge main CI
   `45870164073` success。
+- docs-only Done/merge backfill PR #885：merge
+  `3301db47a903789457b785c1119512993f469a12`；post-merge main CI `45874067143`
+  initial run 命中既有 TASK-411 macOS `worker_reap_deadline` 偶发，failed job evidence rerun
+  后 success。
 - 外部 automation JSONL：
   `C:\Users\fexfe\.codex\automations-logs\2026-11-26\ai-assistant-task-round-20261127-0030.jsonl`。
 
