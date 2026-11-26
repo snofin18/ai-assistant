@@ -169,6 +169,9 @@ git diff --check
 - 独立 review 首轮发现 1 P1（open/shutdown 会话逃逸）、1 P2（expired close 错误码降级）
   与 1 P3（runner mutex poison 状态）；已修复并补回归测试。复审 **No findings (P0-P2)**，
   并发测试重复 20/20 passed；仅保留 runner mutex poison 无专门单测的非阻断测试缺口。
+- PR #882 首轮 macOS CI 暴露测试 gate 可移植性缺陷：同一 `Condvar` 先后绑定 entered/
+  release 两个 mutex，pthread 实现 panic。已拆为两个独立 `Condvar`；该偏差仅在测试
+  基础设施，未改变产品状态机或断言。
 
 ### 6. 新增长期记忆
 

@@ -18,7 +18,8 @@ type TestResult = Result<(), Box<dyn Error>>;
 struct ShutdownGate {
     entered: Mutex<bool>,
     release: Mutex<bool>,
-    changed: Condvar,
+    entered_changed: Condvar,
+    release_changed: Condvar,
 }
 
 impl ShutdownGate {
@@ -26,7 +27,8 @@ impl ShutdownGate {
         Self {
             entered: Mutex::new(false),
             release: Mutex::new(false),
-            changed: Condvar::new(),
+            entered_changed: Condvar::new(),
+            release_changed: Condvar::new(),
         }
     }
 
@@ -44,7 +46,7 @@ impl ShutdownGate {
                 ));
             }
             let (next, _timeout) = self
-                .changed
+                .entered_changed
                 .wait_timeout(entered, remaining)
                 .map_err(|_| io::Error::other("shutdown gate wait is poisoned"))?;
             entered = next;
@@ -58,7 +60,7 @@ impl ShutdownGate {
             .entered
             .lock()
             .map_err(|_| io::Error::other("shutdown gate entered mutex is poisoned"))? = true;
-        self.changed.notify_all();
+        self.entered_changed.notify_all();
         Ok(())
     }
 
@@ -67,7 +69,7 @@ impl ShutdownGate {
             .release
             .lock()
             .map_err(|_| io::Error::other("shutdown gate release mutex is poisoned"))? = true;
-        self.changed.notify_all();
+        self.release_changed.notify_all();
         Ok(())
     }
 
@@ -78,7 +80,7 @@ impl ShutdownGate {
             .map_err(|_| io::Error::other("shutdown gate release mutex is poisoned"))?;
         while !*released {
             released = self
-                .changed
+                .release_changed
                 .wait(released)
                 .map_err(|_| io::Error::other("shutdown gate release wait is poisoned"))?;
         }
