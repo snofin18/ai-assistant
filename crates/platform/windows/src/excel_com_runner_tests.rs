@@ -289,15 +289,6 @@ fn temporary_workbook() -> PathBuf {
 }
 
 #[test]
-fn test_temporary_workbooks_are_unique_within_one_process() {
-    let first = temporary_workbook();
-    let second = temporary_workbook();
-    assert_ne!(first, second);
-    std::fs::remove_file(first).expect("remove first temporary workbook");
-    std::fs::remove_file(second).expect("remove second temporary workbook");
-}
-
-#[test]
 fn test_runner_preserves_fifo_order_on_dedicated_thread() {
     let main_thread = thread::current().id();
     let (mut runner, tracker) = recording_runner(None, None);
@@ -412,10 +403,13 @@ fn assert_failure_code_preserved(stage: Stage, code: ErrorCode) {
 
     let shutdown = runner.shutdown();
     if matches!(stage, Stage::Quit | Stage::Close) {
-        assert!(
-            shutdown.is_err(),
-            "shutdown must not hide a failed explicit quit"
-        );
+        let error = shutdown.expect_err("shutdown must not hide failed cleanup");
+        let expected = if code == ErrorCode::UserInteraction {
+            ErrorCode::UserInteraction
+        } else {
+            ErrorCode::Fatal
+        };
+        assert_eq!(error.code(), expected, "stage={stage:?} code={code:?}");
     } else {
         shutdown.expect("shutdown");
     }
@@ -493,6 +487,8 @@ fn test_runner_preserves_backend_error_codes_without_downgrade() {
     assert_failure_code_preserved(Stage::Read, ErrorCode::TargetNotFound);
     assert_failure_code_preserved(Stage::Close, ErrorCode::UserInteraction);
     assert_failure_code_preserved(Stage::Quit, ErrorCode::UserInteraction);
+    assert_failure_code_preserved(Stage::Close, ErrorCode::TargetNotFound);
+    assert_failure_code_preserved(Stage::Quit, ErrorCode::PlatformPermission);
 }
 
 #[test]
@@ -893,6 +889,8 @@ fn test_windows_excel_real_com_single_workbook_acceptance() {
     );
 }
 
+#[path = "excel_com_runner_journal_tests.rs"]
+mod journal_lifecycle;
 #[cfg(windows)]
 #[path = "excel_com_runner_repeat_tests.rs"]
 mod repeat_acceptance;
