@@ -185,7 +185,9 @@ fn test_file_shadow_capture_restore_and_cleanup() -> TestResult {
     let physical_path = store
         .physical_path(&metadata)
         .map_err(|error| error.to_string())?;
-    assert!(physical_path.starts_with(root.shadow_root()));
+    let canonical_root =
+        canonicalize_local_path(&root.shadow_root()).map_err(|error| error.to_string())?;
+    assert!(physical_path.starts_with(canonical_root));
     assert_eq!(capture.byte_count, original.len());
     assert_eq!(capture.shadow_copy, metadata);
     assert_eq!(store.captures.len(), 1);
