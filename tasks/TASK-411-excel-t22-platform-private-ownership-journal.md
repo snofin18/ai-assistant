@@ -1,6 +1,6 @@
 # TASK-411 Excel T2.2 platform-private ownership journal
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel T2.2　批次：6f　依赖：TASK-401、TASK-402、TASK-403、TASK-409、TASK-410、ADR-0108、ADR-0110、ADR-0111、ADR-0112
 
 ---
@@ -148,7 +148,7 @@ git diff --check
 - [x] 未新增公共 API、schema、ErrorCode、依赖、ToolBus/tools.json/rollback/assembly。
 - [x] 未启动真实 Excel/GUI；专项 fake tests 与全量门禁通过。
 - [x] 独立 review 最终 no P0-P2；仍保留 3 个 test-only P3（见第 9 节）。
-- [ ] PR/CI/merge/main CI 证据待回填。
+- [x] implementation PR #878 checks 22（21 success + 1 skipped），merge `1862df8c9be795f5dd06d8b8abce23f140cb30ba`，post-merge main CI `45798133151` success。
 
 ### 5. 偏差
 
@@ -175,7 +175,7 @@ git diff --check
 
 - 本卡、`crate README`、Stage 2、`PLAN.md`、`README.md`、`LEDGER.md`。
 - 仓库外运行证据：`C:\Users\fexfe\.codex\automations-logs\2026-11-26\ai-assistant-task-round-20261126-1700.jsonl`。
-- implementation PR / CI / merge / post-merge main CI：待回填。
+- implementation PR #878 checks **22（21 success + 1 skipped）**，base=main、`MERGEABLE`、`CLEAN`、pending=0、failed=0；merge `1862df8c9be795f5dd06d8b8abce23f140cb30ba`，post-merge main CI `45798133151` success。
 
 ### 9. 给审阅者的关注点
 
