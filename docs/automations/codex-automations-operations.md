@@ -1,6 +1,6 @@
 # Codex 原生 scheduled tasks（automations）操作手册
 
-> 状态：Active　版本：**1.21**　日期：**2026-11-17**　变更历史见 §9
+> 状态：Active　版本：**1.22**　日期：**2026-11-26**　变更历史见 §9
 > 上位：**ADR-0029**（自动化的投递机制改回 Codex 官方 scheduled tasks，Supersedes ADR-0018 的「Windows 任务计划程序 + `codex exec`」方案）、`docs/automation-charter.md` §11
 > **用途**：把「Codex 桌面应用的 scheduled tasks / automations 怎么建、怎么改、怎么删、怎么跑、怎么暂停、怎么停」写成可以照着做的操作手册，并且**逐条标明证据强度** —— 哪些是官方写明的、哪些是本机实测的、哪些其实谁都不知道。
 > **适用范围**：本机（Windows + Codex 桌面应用 + 第三方 Responses 兼容端点）。**不覆盖** ChatGPT Work 云端任务；**不覆盖** `codex exec` CLI 路径（那是 ADR-0018 的旧方案，只在 §1 门禁不通过时作为回落手段出现）。
@@ -478,6 +478,37 @@ Get-ChildItem -Force -Recurse "$env:USERPROFILE\.codex\automations"
 - **找 id**：读 `$CODEX_HOME/automations/*/automation.toml`，按 `name` 或 `prompt` 匹配 `[实测·声明]`。
 - **UI** `[官方]`：侧边栏 **Scheduled** 视图就是收件箱 —— 有发现的 run 会出现在那里，需要人注意时有未读标记；可查看 active / paused / completed 任务与 recent runs。
 
+### 4.9 Rollout shell misuse 审计（严格 UTF-8、按 turn）
+
+- 工具：`tools/audit-rollout-shell.ps1`。只读；不修改 rollout、thread history 或水位。
+- 脚本要求 **PowerShell 7 / `pwsh`**。PowerShell 5.1 会由 `#requires` 明确拒绝，不静默降级。
+- 活跃 rollout 必须用 `FileShare.ReadWrite | Delete` 打开；`File.ReadAllBytes()` 的默认共享模式
+  会把“Codex 正在写”误报成“文件损坏”。
+- 必须用严格 UTF-8 decoder，不能依赖 `Get-Content` / `ConvertFrom-Json` 的默认输入编码；
+  UTF-16/UTF-32 BOM 与非法字节必须失败，UTF-8 BOM 才允许。
+- JSON 先用 `System.Text.Json.JsonDocument` 严格解析；`ConvertFrom-Json` 只在严格校验通过后
+  做对象投影，因此注释、尾逗号、单引号和 `NaN` 都会被拒绝。
+- `turn_context.payload.turn_id` 是逻辑 turn 边界；同一 `turn_id` 可能出现多个上下文段，
+  工具必须先按 turn id 合并，再统计。
+- `[实测]` 2026-11-26 活跃 rollout：`292,070,878` bytes、`109,905` 行、严格 UTF-8 与 JSON
+  `0` error；默认编码/共享模式的失败是审计方法错误，不是 rollout 损坏。
+- 默认要求读取期间文件不增长；活跃 turn 若需要诊断快照，必须显式加 `-AllowGrowth`。
+  输出会带 `snapshot_complete=false`、`is_latest_turn=true`、`turn_complete=false`，
+  不得把该当前 turn 当作最终精确计数。已完成 turn 只有在存在后续 turn 时才标 `turn_complete=true`。
+- 首个 `turn_context` 前的 `exec_command`、坏 JSON、非法 UTF-8、超长单行、超量 turn/command
+  证据均 fail-closed；不输出“看起来精确但漏项”的总数。
+
+```powershell
+pwsh -NoProfile -File tools/audit-rollout-shell.ps1 -SelfTest
+pwsh -NoProfile -File tools/audit-rollout-shell.ps1 `
+  -RolloutPath '<rollout.jsonl>' -LastTurns 2 -IncludeCommands -AllowGrowth -Format Json
+pwsh -NoProfile -File tools/audit-rollout-shell.ps1 `
+  -RolloutPath '<rollout.jsonl>' -TurnId '<turn-id>' -IncludeCommands
+```
+
+输出按 turn 给出 `powershell` / `bash` / `cmd` / `missing` / `unknown` 计数；`bash` 命令
+带物理行号。非法 UTF-8、坏 JSON、无 `turn_context` 或重复 ID 无法唯一定位时必须非零失败。
+
 ---
 
 ## 5. 磁盘形态（能看，但**不许手改**）
@@ -664,3 +695,4 @@ heartbeat 约定 18:04:23 → 实际 **18:04:24（约 +1 s）**。→ 计划时�
 | 1.19 | 2026-10-29 | **补齐每日 08:00 与每次 prompt reset**：§4.1.c 固定块、建后硬核对和 reset 说明改为每日 08:00、`UserPromptSubmit` hook 每条人类消息水位、历史 human round 三者的最晚值；记录 `.codex/hooks.json` / `.codex/hooks/user-prompt-reset.ps1` 与首次持久 trust 要求。1.18 的会话级描述保留为历史节点 | 用户 2026-10-29 最终确认「每天早上8点 N_auto 自动重置」且「和我有对话就自动重置，并不仅限于新开会话」；ADR-0099 / TASK-341 |
 | 1.20 | 2026-10-29 | **PowerShell 强制 guard + OpenAI 文档代理回退**：记录 `PreToolUse` 对所有 Bash 工具调用的显式 PowerShell `-EncodedCommand` 重写、Git 根路径解析与 trust 边界；官方文档直连失败时按环境代理 → 本机代理有界回退，并新增 `tools/fetch-openai-doc.ps1` | 用户 2026-10-29 要求彻底解决频繁误用 bash，并允许 OpenAI 页面直连失败后尝试代理；ADR-0100 / TASK-342 |
 | 1.21 | 2026-11-17 | **main-only 轮次来源收口**：固定 main commit 后只读 `docs/automations/` 直属文件；工具成为 `next_round` / `N_auto` 唯一来源；Git 子进程清空大小写不敏感的 `GIT_*`、禁用 lazy fetch、有界读取并 30 秒超时；round 与 skipped 留痕都必须有 PR/merge evidence | TASK-379 独立 review 发现旧 `git ls-tree` 手数、skipped 自删冲突与 Git 子进程边界后修订 |
+| 1.22 | 2026-11-26 | **新增 rollout shell misuse 严格审计入口**：§4.9 记录活跃 rollout 的共享只读打开、严格 UTF-8 流式解码、`System.Text.Json` 严格校验、按 `turn_id` 合并上下文与 bash 命令定位；新增 `tools/audit-rollout-shell.ps1`、pwsh 7 selftest 与 PowerShell 5.1 明确拒绝 | TASK-408 根因复核：默认 `Get-Content` 编码、`ReadAllBytes` 共享模式与宽松 JSON 会共同造成误判 |
