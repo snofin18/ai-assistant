@@ -1,6 +1,6 @@
 # 阶段 2 — Excel L1 COM + Adapter 规范化
 
-> 周期 6~8 周　状态：**InProgress（2026-11-26）**；Stage 1 已完成；TASK-395 / TASK-396 / TASK-397 / TASK-398 / TASK-399 / TASK-400 / TASK-401 / TASK-402 / TASK-403 / TASK-404 / TASK-405 / TASK-406 / TASK-407 / TASK-408 / TASK-409 / TASK-410 / TASK-411 / TASK-412 / TASK-413 / TASK-414 已完成。
+> 周期 6~8 周　状态：**InProgress（2026-11-27）**；Stage 1 已完成；TASK-395 / TASK-396 / TASK-397 / TASK-398 / TASK-399 / TASK-400 / TASK-401 / TASK-402 / TASK-403 / TASK-404 / TASK-405 / TASK-406 / TASK-407 / TASK-408 / TASK-409 / TASK-410 / TASK-411 / TASK-412 / TASK-413 / TASK-414 / TASK-415 已完成。
 > 2026-11-23 automation 运行日已由 PR #817 收口；TASK-397 的 typed `HandlerFailure`
 > 错误桥已由 PR #819 merge `2c412d5` / main CI `45305239489` success 合入，TASK-395 恢复 Ready。
 > TASK-372 真实 Excel
@@ -183,6 +183,7 @@
 | 6g watchdog | **TASK-412 ✅** | Windows platform / lifecycle | `tasks/TASK-412-excel-t22-platform-private-watchdog.md` | Done（process-internal watchdog、arm 即 capture + 50 ms tracked-tree refresh、完整 identity 后 verified process-tree termination、256 handles / 8 snapshots 上限、snapshot-time FILETIME ceiling、sticky monitor error、bounded startup quarantine、三层 deadline；专项 196 passed / 8 ignored，workspace tests/doctest、host/Linux/macOS Clippy 与全量门禁全绿；独立 review no P0-P2；PR #880 checks 22（21 success + 1 skipped），merge `0571dce` / main CI `45823476783` success） |
 | 4j task-end shutdown | **TASK-413 ✅** | agent-core / lifecycle | `tasks/TASK-413-excel-t21-private-task-end-shutdown.md` | Done（私有 running/closing/terminal、open 与 session 注册同锁线性化、全部 session 先 closing、runner 独立 mutex 与失败 mapping 保留；专项 6 passed，Excel 域 88 passed / 1 ignored，workspace/doctest、Clippy 与全量门禁全绿；review no P0-P2；PR #882 checks 22（21 success + 1 skipped），merge `58ceb69` / main CI `45845203826` attempt 2 success） |
 | 6h file shadow | **TASK-414 ✅** | agent-core / L1 | `tasks/TASK-414-excel-t22-l1-file-shadow-copy-port.md` | Done（test-only filesystem shadow-copy port、repo-external owned root、create-new + SHA-256、staged target conflict gate、no-replace hard-link restore 与 evidence retention；专项 13 passed，Excel 域 103 passed / 1 ignored，workspace/doctest、Clippy 与全量门禁全绿；独立 review no P0-P2；PR #884 checks 22（21 success + 1 skipped），merge `8f2bb74` / main CI `45870164073` success；production Excel surface 仍为空） |
+| 6i scalar file transaction | **TASK-415 ✅** | agent-core / L1 | `tasks/TASK-415-excel-t22-l1-scalar-file-transaction-coordinator.md` | Done（test-only scalar file-transaction coordinator、捕获前输入门、anchor+write-port+file-shadow 组合、借用 receipt 的 post-fingerprint + saved-file digest 双门回滚、失败证据保留与 cleanup；专项 7 passed，Excel 域 110 passed / 1 ignored，workspace/doctest、Clippy、77.96% coverage 与全量门禁全绿；独立 review no P0-P2；PR #887 checks 22（21 success + 1 skipped），merge `e91ecdf` / main CI `45884850506` success；production Excel surface 仍为空） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |
 | 7 | 待派单 | Excel T2.3 | dispatch 时创建 | 未开始（图表生成/PNG 导出/不覆盖） |
 

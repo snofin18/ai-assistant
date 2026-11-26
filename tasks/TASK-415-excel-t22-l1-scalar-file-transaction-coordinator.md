@@ -1,6 +1,6 @@
 # TASK-415 Excel T2.2 L1 scalar file-transaction coordinator
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel T2.2　批次：6i　依赖：TASK-404、TASK-406、TASK-407、TASK-411、TASK-414、ADR-0062、ADR-0107、ADR-0108、ADR-0111
 
 ---
@@ -156,8 +156,10 @@ rollback、assembly、schema、公共 API 与依赖零改动。
 - [x] 测试使用独立临时目录，成功/失败路径无本卡临时文件静默残留。
 - [x] production Tool/ToolBus、`tools.json`、rollback、assembly、schema、公共 API、ErrorCode、
   Windows runner 与依赖零改动。
-- [x] 独立 review 复审 no P0-P2；PR/CI/merge/main CI 证据待回填。
-- [ ] 外部 automation JSONL final 事件与最终 shell misuse 待回填。
+- [x] 独立 review 复审 no P0-P2。
+- [x] PR #887 checks 22（21 success + 1 skipped），merge `e91ecdfe9d5438aea73f58452a4c838db0695f26`。
+- [x] post-merge main CI `45884850506` success。
+- [ ] 外部 automation JSONL final 事件与最终 shell misuse 待写入。
 
 ### 5. 偏差
 
@@ -179,7 +181,12 @@ rollback、assembly、schema、公共 API 与依赖零改动。
 
 ### 8. 外部证据
 
-- implementation PR / CI / merge / main CI：待回填。
+- implementation PR #887：
+  `https://github.com/snofin18/ai-assistant/pull/887`
+  checks 22（21 success + 1 skipped），pending 0 / failed 0，base=main，
+  `MERGEABLE` / `CLEAN`。
+- merge `e91ecdfe9d5438aea73f58452a4c838db0695f26`；post-merge main CI
+  `45884850506` success。
 - automation JSONL：
   `C:\Users\fexfe\.codex\automations-logs\2026-11-26\ai-assistant-task-round-20261127-0300.jsonl`。
 
