@@ -1,6 +1,6 @@
 # TASK-408 rollout shell-misuse audit strict UTF-8
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 automation evidence guard　批次：evidence guard
 - 依赖：ADR-0100、TASK-342、TASK-345
 
@@ -133,7 +133,10 @@ git diff --check
 - [x] 已完成 TASK-407 turn 的 PowerShell 194 / bash 54 / cmd 0 可复现。
 - [x] 普通路径输出有界；超长行、turn 数、shell 值数与非 powershell 命令证据数有硬上限。
 - [x] 文档同步完成，未修改 rollout 字节。
-- [ ] 独立 review、PR/CI/merge/post-merge main CI 待完成；Done 状态另行 docs-only backfill。
+- [x] 独立 review 复审 **No findings (P0-P2)**；PR #872 checks **11/11 SUCCESS**，
+  pending 0 / failed 0，base=main，`MERGEABLE` / `CLEAN`；merge
+  `b8afc7ad760fa85c475629940b3ed606cd8f8610`；post-merge main CI
+  `45753779989` success。
 
 ### 5. 偏差
 
@@ -168,6 +171,10 @@ git diff --check
 - 当前 active turn 的最终快照：PowerShell `68`、bash `15`、cmd `0`，但
   `turn_complete=false`，只证明快照范围内计数。
 - 独立 review 复审：**No findings (P0-P2)**。
+- implementation PR #872：https://github.com/snofin18/ai-assistant/pull/872
+  checks **11/11 SUCCESS**，pending 0 / failed 0，base=main，`MERGEABLE` / `CLEAN`。
+- merge `b8afc7ad760fa85c475629940b3ed606cd8f8610`；post-merge main CI
+  `45753779989` success。
 
 ### 9. 给审阅者的关注点
 
