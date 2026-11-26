@@ -1,6 +1,6 @@
 # 阶段 2 — Excel L1 COM + Adapter 规范化
 
-> 周期 6~8 周　状态：**InProgress（2026-11-26）**；Stage 1 已完成；TASK-395 / TASK-396 / TASK-397 / TASK-398 / TASK-399 / TASK-400 / TASK-401 / TASK-402 / TASK-403 / TASK-404 / TASK-405 / TASK-406 / TASK-407 / TASK-408 / TASK-409 / TASK-410 已完成；TASK-411 已完成实现与独立 review，进入 Review。
+> 周期 6~8 周　状态：**InProgress（2026-11-26）**；Stage 1 已完成；TASK-395 / TASK-396 / TASK-397 / TASK-398 / TASK-399 / TASK-400 / TASK-401 / TASK-402 / TASK-403 / TASK-404 / TASK-405 / TASK-406 / TASK-407 / TASK-408 / TASK-409 / TASK-410 / TASK-411 已完成。
 > 2026-11-23 automation 运行日已由 PR #817 收口；TASK-397 的 typed `HandlerFailure`
 > 错误桥已由 PR #819 merge `2c412d5` / main CI `45305239489` success 合入，TASK-395 恢复 Ready。
 > TASK-372 真实 Excel
@@ -179,7 +179,7 @@
 | evidence guard | **TASK-408 ✅** | automation/evidence | `tasks/TASK-408-rollout-shell-audit-strict-utf8.md` | Done（严格 UTF-8/共享读取/按 turn shell 审计；TASK-407 turn 精确 bash=54，复审 no P0-P2；PR #872 checks 11/11，merge `b8afc7a` / main CI `45753779989` success） |
 | 6d repeated write convergence | **TASK-409 ✅** | Windows platform / Excel COM | `tasks/TASK-409-excel-t22-repeated-write-convergence.md` | Done（test-only 10/10 真实 COM 重复写入、逐轮 digest/stale handle/process convergence、after-write failure injection、after-open watchdog；review no P0-P2；PR #874 checks 22（21 success + 1 skipped），merge `b18603c` / main CI `45773046164` success） |
 | 6e production cleanup audit | **TASK-410 ✅** | Windows platform / lifecycle | `tasks/TASK-410-excel-t22-production-cleanup-boundary-audit.md` | Done（ADR-0108 D8/D9 对照审计；durable journal/watchdog/unbounded join/cleanup 错误映射/verified termination/task-end caller/creation race/closing 状态缺口；review no P0-P2；PR #876 merge `e6a6696` / main CI `45783616793` success） |
-| 6f ownership journal | **TASK-411 Review** | Windows platform / lifecycle | `tasks/TASK-411-excel-t22-platform-private-ownership-journal.md` | Review（platform-private journal schema v1、MoveFileExW no-replace 原子发布、8-file 上限、session 级 opening/closing 收敛、cleanup 失败保留与 D9 映射；专项 182 passed / 8 ignored，host+Linux/macOS clippy、全量测试与 doctest 全绿；独立 review no P0-P2；PR/CI 待回填） |
+| 6f ownership journal | **TASK-411 ✅** | Windows platform / lifecycle | `tasks/TASK-411-excel-t22-platform-private-ownership-journal.md` | Done（platform-private journal schema v1、MoveFileExW no-replace 原子发布、8-file 上限、session 级 opening/closing 收敛、cleanup 失败保留与 D9 映射；专项 182 passed / 8 ignored，host+Linux/macOS clippy、全量测试与 doctest 全绿；独立 review no P0-P2；PR #878 checks 22（21 success + 1 skipped），merge `1862df8` / main CI `45798133151` success；production Excel surface 仍为空） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |
 | 7 | 待派单 | Excel T2.3 | dispatch 时创建 | 未开始（图表生成/PNG 导出/不覆盖） |
 
