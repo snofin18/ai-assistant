@@ -309,6 +309,41 @@ pub fn validate_workbook_path(path: &Path) -> PlatformResult<PathBuf> {
     Ok(canonical)
 }
 
+/// Validates one local temporary directory before any workbook fixture copy.
+#[cfg(all(windows, test))]
+pub fn validate_local_workbook_directory(path: &Path) -> PlatformResult<PathBuf> {
+    if !path.is_absolute() {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "Excel workbook directory must be absolute",
+        ));
+    }
+    let canonical = std::fs::canonicalize(path).map_err(|error| {
+        PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            format!("canonicalize Excel workbook directory failed: {error}"),
+        )
+    })?;
+    if !canonical.is_dir() {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "Excel workbook directory must identify a directory",
+        ));
+    }
+    let canonical_text = canonical.to_string_lossy();
+    if canonical_text.starts_with(r"\\?\UNC\") {
+        return Err(PlatformError::new(
+            ErrorCode::ToolInvalidArgs,
+            "Excel workbook directory must be local, not a UNC share",
+        ));
+    }
+    let canonical = canonical_text
+        .strip_prefix(r"\\?\")
+        .map_or_else(|| canonical.clone(), PathBuf::from);
+    ensure_local_drive(&canonical)?;
+    Ok(canonical)
+}
+
 /// Validates and normalizes one bounded A1 cell reference.
 pub fn validate_cell_address(address: &str) -> PlatformResult<String> {
     let normalized = address.trim().to_ascii_uppercase();

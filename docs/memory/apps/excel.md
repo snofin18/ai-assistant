@@ -84,6 +84,19 @@
     单工作簿完整读取和校验均已成功，但 5 秒 poll 仍可能看到 Excel 未退出；验收应使用
     有界 20 秒等待，并在超时后仍按 PID + creation FILETIME + executable path 清理和失败，
     不能把等待放宽成无限成功。
+12. **`Range.Value2` scalar put 必须使用 property-put named DISPID**：TASK-407 真实 COM
+    写入使用 `DISPATCH_PROPERTYPUT`、`DISPID_PROPERTYPUT`、`cArgs=1/cNamedArgs=1`；
+    `windows 0.62.2` 的 `VARIANT` 自带 `Drop -> VariantClear`，故参数必须放入
+    `ManuallyDrop` 后才显式清理，确保同步 `Invoke` 期间有效且恰好 `VariantClear` 一次。
+    数字、布尔、文本和空值写入后均可由完整 `.Value2` 读回。
+13. **真实 Excel 的 `.Formula` 读形状按值类型不同，不能从 fake 猜测**：TASK-407 实测
+    数字 `41` -> `"41"`、布尔 `false` -> `"FALSE"`、文本 `TASK-407` -> `"TASK-407"`、
+    空 cell 仍为 `Blank`；真实公式 cell `=A1+B1` 保留公式文本。断言必须分别固定
+    value type 与文本。
+14. **保存后的单次 teardown 可能明显慢于普通只读关闭**：TASK-407 一次多 cell range
+    写入/保存后在 20 秒内未退出，完整身份 guard 已回收；紧随其后的同路径验收在约
+    7.2 秒完成。测试级收敛窗口保持有界 45 秒并持续打印等待进度，超时仍必须失败和
+    清理，不能因一次慢退出放宽为零残留判据。
 
 ## 7. 通道结论
 
@@ -104,10 +117,13 @@
 ## 8. 未测项
 
 - TASK-401 已实测一个本地 `.xlsx` 的 read-only open、active-sheet `.Text` 读取、close 与
-  shutdown；`.xlsm/.xlsb`、保存、多工作簿与完整 Range 语义仍未测。
+  shutdown；TASK-407 已实测临时副本 writable open、单 cell/双 cell scalar write、
+  `Application.Calculate`、完整 `.Value2/.Formula` 双读、`Save`、shadow restore 与
+  进程/临时文件收敛。`.xlsm/.xlsb`、用户工作簿、多工作簿、批量事务与重复 10/10 仍未测。
 - Protected View、只读/占用、AutoSave=true、OneDrive/SharePoint。
 - 多工作簿、多窗口、命名区域解析与 A1 漂移。
 - 模态对话框族、宏警告、更新链接。
 - 大表批量 Range 性能、内存/句柄收敛。
-- L1 文件影子副本与回滚冲突检测。
+- L1 文件影子副本与回滚冲突检测已有单次真实临时副本校准，重复运行、崩溃恢复与
+  ownership journal/watchdog 仍未测。
 - 图表创建和 PNG 导出。

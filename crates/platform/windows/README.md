@@ -40,6 +40,11 @@
    始终留在 dedicated worker。公共面只允许 create/PID/read-only `.xlsx` open/active-sheet
    text read/close/shutdown；`create_application` 在任何既有 `EXCEL.EXE` 下 fail closed，
    所有失败返回 typed `PlatformError`，不注册生产 Tool。
+10. **Excel write calibration is test-only**（`src/excel_com_runner_write.rs`，
+    TASK-407）：crate tests 内另有 writable open、`Range.Value2` scalar property put、
+    `Application.Calculate` 与 `Workbook.Save`；参数只允许 blank/boolean/finite number/
+    bounded non-formula text。该面不进入 production public API、ToolBus、rollback 或
+    assembly，真实验收只操作本地临时副本并用完整 owned-process identity 收敛。
 
 ## 边界（不做什么）
 
@@ -107,6 +112,10 @@
 - **Excel COM runner 仅 smoke boundary**：TASK-401 已提供公共 handle、真实 COM 单工作簿
   open/read/close/shutdown 与 ignored 人工验收；完整 `ExcelT21Runtime` 域映射、named
   ranges、workbook/range/summarize、ownership journal、独立 watchdog 与重复收敛仍由后续卡负责。
+- **Excel write surface 仍不生产化**：TASK-407 的 writable open / scalar put /
+  recalculate / save 只在 `#[cfg(test)]` 校准模块存在；单次真实临时副本验收已覆盖
+  `.Value2/.Formula` raw shape、save digest 与 shadow restore，但重复运行、崩溃恢复、
+  ownership journal 和 production Tool registration 仍未完成。
 - **UIPI（完整性级别）**：目标进程完整性级别高于本进程时，`ElementFromHandle` 等调用返回
   `E_ACCESSDENIED` → `PlatformPermission`。**不**自动提权、**不**绕过。
 - **无缓存**：每次属性读都是一次跨进程 COM 调用（**未使用** `IUIAutomationCacheRequest`）。

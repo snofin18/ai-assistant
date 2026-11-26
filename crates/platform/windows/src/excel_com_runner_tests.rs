@@ -892,3 +892,6 @@ fn test_windows_excel_real_com_single_workbook_acceptance() {
         "read-only acceptance must not modify the workbook"
     );
 }
+
+#[path = "excel_com_runner_write_tests.rs"]
+mod write_acceptance;
