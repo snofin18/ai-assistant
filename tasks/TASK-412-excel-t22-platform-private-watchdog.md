@@ -1,6 +1,6 @@
 # TASK-412 Excel T2.2 platform-private watchdog and verified termination
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel T2.2　批次：6g　依赖：TASK-401、TASK-402、TASK-403、TASK-409、TASK-410、TASK-411、ADR-0108、ADR-0110、ADR-0111、ADR-0112
 
 ---
@@ -175,6 +175,9 @@ git diff --check
 - `cargo deny check`：advisories / bans / licenses / sources 全部 ok。
 - 独立 review 经五轮增量修复后最终 **No findings (P0-P2)**；仍有两个 P3 测试补强建议：
   Force sticky 分支的 armed 保留直断言、snapshot FILETIME ceiling 边界矩阵。
+- implementation PR #880 checks **22（21 SUCCESS + 1 SKIPPED）**，pending 0 / failed 0，
+  base=main，`MERGEABLE` / `CLEAN`；merge
+  `0571dce5295daef8d56a64bd9a5610f0e6cbf19d`；post-merge main CI `45823476783` success。
 
 ### 4. DoD 核对
 
@@ -193,7 +196,7 @@ git diff --check
       成功才清空。
 - [x] 未新增公共 API、schema、ErrorCode、依赖、production Tool/ToolBus/rollback/
       assembly，未启动真实 Excel/GUI。
-- [x] 专项/全量门禁与独立 review 完成；PR/CI/merge/main CI 待 implementation PR 创建后回填。
+- [x] 专项/全量门禁与独立 review 完成；PR #880 / CI / merge / main CI 已回填。
 
 ### 5. 偏差
 
@@ -202,7 +205,7 @@ git diff --check
   late propagation 与 startup quarantine TOCTOU；均已修复并新增/调整测试。
 - 为满足 600/900 行硬门禁，新增 `excel_com_runner_windows_startup.rs` 并把 bounded join
   测试移入 journal lifecycle tests；未改变公共边界。
-- 工具偏差：本轮曾误填 `shell: "bash"`；最终精确计数写入外部 JSONL 与本卡 §8。
+- 工具偏差：本轮误填 `shell: "bash"` **63** 次；精确值已写入外部 JSONL。
 
 ### 6. 新增长期记忆
 
@@ -219,7 +222,11 @@ git diff --check
 
 ### 8. 外部证据
 
-- implementation PR / CI / merge / post-merge main CI：待创建并回填。
+- implementation PR #880：https://github.com/snofin18/ai-assistant/pull/880
+  checks **22（21 SUCCESS + 1 SKIPPED）**，pending 0 / failed 0，base=main，
+  `MERGEABLE` / `CLEAN`。
+- merge `0571dce5295daef8d56a64bd9a5610f0e6cbf19d`；post-merge main CI
+  `45823476783` success。
 - 运行证据：`C:\Users\fexfe\.codex\automations-logs\2026-11-26\ai-assistant-task-round-20261126-1930.jsonl`
   （最终 shell misuse 精确计数与 gates/work/pr/ci/merge/main_ci/final 事件将写在该文件）。
 
