@@ -14,7 +14,9 @@ use std::path::{Path, PathBuf};
 
 use assistant_platform_api::{ErrorCode, PlatformError, PlatformResult};
 #[cfg(windows)]
-use windows::Win32::Foundation::{CloseHandle, ERROR_NO_MORE_FILES, HANDLE};
+use windows::Win32::Foundation::{
+    CloseHandle, ERROR_ACCESS_DENIED, ERROR_INVALID_PARAMETER, ERROR_NO_MORE_FILES, HANDLE,
+};
 #[cfg(windows)]
 use windows::Win32::Storage::FileSystem::GetDriveTypeW;
 #[cfg(windows)]
@@ -28,7 +30,7 @@ use windows::core::PCWSTR;
 use windows::Win32::Foundation::{FILETIME, STILL_ACTIVE};
 #[cfg(windows)]
 use windows::Win32::System::Threading::{
-    GetExitCodeProcess, GetProcessTimes, OpenProcess, PROCESS_NAME_FORMAT,
+    GetExitCodeProcess, GetProcessTimes, OpenProcess, PROCESS_ACCESS_RIGHTS, PROCESS_NAME_FORMAT,
     PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
 #[cfg(windows)]
@@ -39,6 +41,8 @@ const DRIVE_REMOTE: u32 = 4;
 #[cfg(windows)]
 const MAX_PROCESS_PATH_UNITS: usize = 32_768;
 const MAX_CELL_ADDRESS_BYTES: usize = 32;
+#[cfg(windows)]
+const MAX_PROCESS_SNAPSHOT_ENTRIES: usize = 65_536;
 
 /// Stable process ownership evidence captured after creating Excel.
 #[cfg(windows)]
@@ -50,6 +54,18 @@ pub struct ExcelProcessIdentity {
     pub start_time_100ns: u64,
     /// Canonical executable path.
     pub executable_path: String,
+}
+
+/// One bounded entry from the system process snapshot.
+#[cfg(windows)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProcessTreeEntry {
+    /// Process id from Toolhelp.
+    pub process_id: u32,
+    /// Immediate parent process id from the same snapshot.
+    pub parent_process_id: u32,
+    /// Executable file name from the same snapshot.
+    pub process_name: String,
 }
 
 /// Fails closed when any Excel process already exists.
@@ -76,6 +92,16 @@ fn fail_if_existing_excel_process(process_ids: &[u32]) -> PlatformResult<()> {
 /// Returns all current `EXCEL.EXE` process ids.
 #[cfg(windows)]
 pub fn excel_process_ids() -> PlatformResult<Vec<u32>> {
+    Ok(process_tree_snapshot()?
+        .into_iter()
+        .filter(|entry| entry.process_name.eq_ignore_ascii_case("EXCEL.EXE"))
+        .map(|entry| entry.process_id)
+        .collect())
+}
+
+/// Returns a hard-bounded snapshot of process ids, parent ids, and image names.
+#[cfg(windows)]
+pub fn process_tree_snapshot() -> PlatformResult<Vec<ProcessTreeEntry>> {
     // SAFETY: the snapshot request has no pointer inputs; the returned handle is
     // owned by SnapshotHandle and closed exactly once.
     let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) }.map_err(|error| {
@@ -90,22 +116,27 @@ pub fn excel_process_ids() -> PlatformResult<Vec<u32>> {
             .map_err(|_| process_error("PROCESSENTRY32W size does not fit u32"))?,
         ..PROCESSENTRY32W::default()
     };
-    let mut process_ids = Vec::new();
-    // SAFETY: the snapshot handle is live and entry points to initialized writable
-    // storage for the duration of this synchronous call.
+    let mut entries = Vec::new();
     // SAFETY: the snapshot handle is live and entry points to initialized writable
     // storage for the duration of this synchronous call.
     match unsafe { Process32FirstW(snapshot.0, &raw mut entry) } {
         Ok(()) => {}
         Err(error) => {
             classify_first_process_error(&error)?;
-            return Ok(process_ids);
+            return Ok(entries);
         }
     }
     loop {
-        if process_name(&entry).eq_ignore_ascii_case("EXCEL.EXE") {
-            process_ids.push(entry.th32ProcessID);
+        if entries.len() >= MAX_PROCESS_SNAPSHOT_ENTRIES {
+            return Err(process_error(format!(
+                "process snapshot exceeded {MAX_PROCESS_SNAPSHOT_ENTRIES} entries"
+            )));
         }
+        entries.push(ProcessTreeEntry {
+            process_id: entry.th32ProcessID,
+            parent_process_id: entry.th32ParentProcessID,
+            process_name: process_name(&entry),
+        });
         // SAFETY: the snapshot handle remains live and entry is the same
         // initialized PROCESSENTRY32W buffer used by Process32FirstW.
         let next = unsafe { Process32NextW(snapshot.0, &raw mut entry) };
@@ -120,24 +151,46 @@ pub fn excel_process_ids() -> PlatformResult<Vec<u32>> {
             }
         }
     }
-    Ok(process_ids)
+    Ok(entries)
 }
 
 /// Captures the exact identity of one live process.
 #[cfg(windows)]
 pub fn process_identity(process_id: u32) -> PlatformResult<Option<ExcelProcessIdentity>> {
-    // SAFETY: query-limited access is read-only for this pid; the returned handle
-    // is owned by ProcessHandle and closed exactly once.
-    let Ok(process) =
-        (unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id) })
-    else {
+    let Some(process) = open_process_handle(process_id, PROCESS_QUERY_LIMITED_INFORMATION)? else {
         return Ok(None);
     };
     let process = ProcessHandle(process);
+    read_process_identity_from_handle(process.0, process_id)
+}
+
+/// Opens one process handle and distinguishes missing processes from failures.
+#[cfg(windows)]
+pub fn open_process_handle(
+    process_id: u32,
+    access: PROCESS_ACCESS_RIGHTS,
+) -> PlatformResult<Option<HANDLE>> {
+    // SAFETY: the caller supplies a closed access mask and the returned handle is
+    // transferred to the caller for exactly one CloseHandle responsibility.
+    match unsafe { OpenProcess(access, false, process_id) } {
+        Ok(process) => Ok(Some(process)),
+        Err(error) => {
+            classify_open_process_error(process_id, &error)?;
+            Ok(None)
+        }
+    }
+}
+
+/// Reads complete identity from an already-opened process handle.
+#[cfg(windows)]
+pub fn read_process_identity_from_handle(
+    process: HANDLE,
+    process_id: u32,
+) -> PlatformResult<Option<ExcelProcessIdentity>> {
     let mut exit_code = 0_u32;
     // SAFETY: the process handle is live and exit_code points to writable storage
     // for the duration of this synchronous call.
-    if let Err(error) = unsafe { GetExitCodeProcess(process.0, &raw mut exit_code) } {
+    if let Err(error) = unsafe { GetExitCodeProcess(process, &raw mut exit_code) } {
         return Err(process_error(format!(
             "GetExitCodeProcess failed for pid {process_id}: {}",
             error.message()
@@ -157,7 +210,7 @@ pub fn process_identity(process_id: u32) -> PlatformResult<Option<ExcelProcessId
     // process handle grants query access.
     if let Err(error) = unsafe {
         GetProcessTimes(
-            process.0,
+            process,
             &raw mut creation,
             &raw mut exit,
             &raw mut kernel,
@@ -176,7 +229,7 @@ pub fn process_identity(process_id: u32) -> PlatformResult<Option<ExcelProcessId
     // capacity is passed through a live u32 out-parameter.
     if let Err(error) = unsafe {
         QueryFullProcessImageNameW(
-            process.0,
+            process,
             PROCESS_NAME_FORMAT(0),
             PWSTR(path_buffer.as_mut_ptr()),
             &raw mut path_length,
@@ -199,6 +252,28 @@ pub fn process_identity(process_id: u32) -> PlatformResult<Option<ExcelProcessId
         start_time_100ns: filetime_value(creation),
         executable_path,
     }))
+}
+
+#[cfg(windows)]
+fn classify_open_process_error(
+    process_id: u32,
+    error: &windows::core::Error,
+) -> PlatformResult<()> {
+    if error.code() == ERROR_INVALID_PARAMETER.to_hresult() {
+        return Ok(());
+    }
+    let code = if error.code() == ERROR_ACCESS_DENIED.to_hresult() {
+        ErrorCode::PlatformPermission
+    } else {
+        ErrorCode::Fatal
+    };
+    Err(PlatformError::new(
+        code,
+        format!(
+            "OpenProcess failed for pid {process_id}: {}",
+            error.message()
+        ),
+    ))
 }
 
 /// Verifies that a live process still matches the captured identity fields.
@@ -492,5 +567,17 @@ mod tests {
         let denied = windows::core::Error::from_hresult(windows::Win32::Foundation::E_ACCESSDENIED);
         let error = classify_first_process_error(&denied).expect_err("enumeration failure");
         assert_eq!(error.code(), ErrorCode::Fatal);
+    }
+
+    #[test]
+    fn test_open_process_error_classification_is_explicit() {
+        let missing = windows::core::Error::from_hresult(ERROR_INVALID_PARAMETER.to_hresult());
+        classify_open_process_error(42, &missing).expect("missing process");
+        let denied = windows::core::Error::from_hresult(ERROR_ACCESS_DENIED.to_hresult());
+        let denied = classify_open_process_error(42, &denied).expect_err("access denied");
+        assert_eq!(denied.code(), ErrorCode::PlatformPermission);
+        let failed = windows::core::Error::from_hresult(windows::Win32::Foundation::E_FAIL);
+        let failed = classify_open_process_error(42, &failed).expect_err("unexpected error");
+        assert_eq!(failed.code(), ErrorCode::Fatal);
     }
 }

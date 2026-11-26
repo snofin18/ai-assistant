@@ -55,6 +55,16 @@
     每个 phase 使用唯一文件，经 `.tmp + create_new + write_all + sync_all + rename` 发布。
     单 runner 最多保留 4 个活动文件，清理失败时保留 journal，完整 shutdown 成功后才删除。
     该模块不提供 watchdog、进程终止或公共 API，production Tool registration 继续 fail closed。
+13. **Excel process watchdog is platform-private**（`src/excel_process_watchdog*.rs`，
+    TASK-412）：独立线程不初始化 COM，只用完整 owned identity 执行 arm / graceful
+    convergence / force termination / disarm。arm 时立即 capture，并以 50 ms 周期刷新
+    tracked descendants；终止前从同一 process handle 复核 PID、creation FILETIME 与
+    executable path，并在 256-handle / 8-snapshot 上限内收集后代。snapshot-time FILETIME
+    ceiling 拒绝 snapshot 之后复用 PID；monitor error 在当前 armed lifetime 内 sticky。
+    response wait、worker reap、termination wait 与 startup quarantine 分别有界；
+    `OpenProcess` 的进程不存在与 access denied 显式分流，`UserInteraction` 保持，
+    结构/reap/身份失败映射 `Fatal`。该层仍不接 production task runtime、ToolBus 或
+    Host 崩溃后的外进程恢复。
 
 ## 边界（不做什么）
 
@@ -121,15 +131,15 @@
   跨线程搬运（那需要显式的 marshal 设计，归后续卡）。
 - **Excel COM runner 仍非 production Tool boundary**：TASK-401 已提供公共 handle、真实 COM
   单工作簿 open/read/close/shutdown 与 ignored 人工验收；TASK-411 已补 platform-private
-  production ownership journal，但独立 watchdog、verified process-tree termination、
-  creation race、完整 `ExcelT21Runtime` 域映射、named ranges 与
-  workbook/range/summarize 仍由后续卡负责。
+  production ownership journal，TASK-412 已补进程内独立 watchdog、完整身份复核与有界
+  verified process-tree termination。Host 整体崩溃后的 helper-process 恢复、production
+  task-end caller、完整 `ExcelT21Runtime` 域映射与 production Tool registration 仍由后续卡负责。
 - **Excel write surface 仍不生产化**：TASK-407 的 writable open / scalar put /
   recalculate / save 只在 `#[cfg(test)]` 校准模块存在；单次真实临时副本验收已覆盖
   `.Value2/.Formula` raw shape、save digest 与 shadow restore。TASK-409 已补 test-only
-  10/10 重复运行、失败注入、ownership journal 与独立 watchdog；TASK-411 的 production
-  journal 仍没有 watchdog consumer 或 verified termination，崩溃恢复、production
-  Tool registration 和 TASK-412 cleanup 闭环仍未完成。
+  10/10 重复运行、失败注入、ownership journal 与外部 watchdog；TASK-411 的 production
+  journal 与 TASK-412 的进程内 watchdog 已组合为私有 cleanup primitives，但真实 task-end
+  触发、Host 崩溃恢复、production Tool registration 与完整 runtime 装配仍未完成。
 - **UIPI（完整性级别）**：目标进程完整性级别高于本进程时，`ElementFromHandle` 等调用返回
   `E_ACCESSDENIED` → `PlatformPermission`。**不**自动提权、**不**绕过。
 - **无缓存**：每次属性读都是一次跨进程 COM 调用（**未使用** `IUIAutomationCacheRequest`）。
