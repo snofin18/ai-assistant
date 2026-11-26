@@ -893,5 +893,8 @@ fn test_windows_excel_real_com_single_workbook_acceptance() {
     );
 }
 
+#[cfg(windows)]
+#[path = "excel_com_runner_repeat_tests.rs"]
+mod repeat_acceptance;
 #[path = "excel_com_runner_write_tests.rs"]
 mod write_acceptance;

@@ -1,0 +1,122 @@
+[
+  {
+    "id": 37168,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312717382735807,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 35816,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312717419094642,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 37312,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312717459008637,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 22160,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312717496273061,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 20560,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312717532377257,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 30520,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312718141733272,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 22632,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312718180247678,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 19296,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312718789318300,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 16288,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312718829711929,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 7640,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312718877397792,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 32312,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312718924159244,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 39672,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312718957711012,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 4904,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312718994277334,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 27856,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312719038917573,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 39412,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312719084417729,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 25776,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312719134596206,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 24532,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312719168531989,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 9144,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312719207163138,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 37072,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312719241216298,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  },
+  {
+    "id": 33788,
+    "process_name": "EXCEL",
+    "start_time_utc_ticks": 639312719284263984,
+    "executable_path": "C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE"
+  }
+]

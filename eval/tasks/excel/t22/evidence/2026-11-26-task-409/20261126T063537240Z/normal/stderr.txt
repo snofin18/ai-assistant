@@ -1,0 +1,57 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running unittests src\lib.rs (target\debug\deps\assistant_platform_windows-91580712bacd3ac0.exe)
+TASK-409 run 1 raw A1=(Number, "101")/(Text, "101") F1=(Number, "104")/(Text, "=A1+B1")
+TASK-409 run 1 raw A1=(Number, "101")/(Text, "101") F1=(Number, "104")/(Text, "=A1+B1")
+TASK-409 run 1/10 passed pid=37168 start=134401485382735807 written_digest=261502fdab68c1146c7c0e9b114c8b399a71580935dd545879dd1d261a2e7cd0
+TASK-409 run 2 raw A1=(Number, "102")/(Text, "102") F1=(Number, "105")/(Text, "=A1+B1")
+TASK-409 run 2 raw A1=(Number, "102")/(Text, "102") F1=(Number, "105")/(Text, "=A1+B1")
+TASK-409 run 2/10 passed pid=37312 start=134401485459008637 written_digest=b7de0b34b692c745fabd624d20f7f479755a02aac3e1b159d3dbed997d3f257a
+TASK-409 run 3 raw A1=(Number, "103")/(Text, "103") F1=(Number, "106")/(Text, "=A1+B1")
+TASK-409 waiting for owned Excel 20560 teardown: 5s
+TASK-409 waiting for owned Excel 20560 teardown: 10s
+TASK-409 waiting for owned Excel 20560 teardown: 15s
+TASK-409 waiting for owned Excel 20560 teardown: 20s
+TASK-409 waiting for owned Excel 20560 teardown: 25s
+TASK-409 waiting for owned Excel 20560 teardown: 30s
+TASK-409 waiting for owned Excel 20560 teardown: 35s
+TASK-409 waiting for owned Excel 20560 teardown: 40s
+TASK-409 waiting for owned Excel 20560 teardown: 45s
+TASK-409 waiting for owned Excel 20560 teardown: 50s
+TASK-409 run 3 raw A1=(Number, "103")/(Text, "103") F1=(Number, "106")/(Text, "=A1+B1")
+TASK-409 run 3/10 passed pid=20560 start=134401485532377257 written_digest=901f46436d9a8722d51facf770b1b51895960a53775c7e5ed38fecf315a252db
+TASK-409 run 4 raw A1=(Number, "104")/(Text, "104") F1=(Number, "107")/(Text, "=A1+B1")
+TASK-409 waiting for owned Excel 22632 teardown: 5s
+TASK-409 waiting for owned Excel 22632 teardown: 10s
+TASK-409 waiting for owned Excel 22632 teardown: 15s
+TASK-409 waiting for owned Excel 22632 teardown: 20s
+TASK-409 waiting for owned Excel 22632 teardown: 25s
+TASK-409 waiting for owned Excel 22632 teardown: 30s
+TASK-409 waiting for owned Excel 22632 teardown: 35s
+TASK-409 waiting for owned Excel 22632 teardown: 40s
+TASK-409 waiting for owned Excel 22632 teardown: 45s
+TASK-409 waiting for owned Excel 22632 teardown: 50s
+TASK-409 run 4 raw A1=(Number, "104")/(Text, "104") F1=(Number, "107")/(Text, "=A1+B1")
+TASK-409 run 4/10 passed pid=22632 start=134401486180247678 written_digest=3f397b220fa3bed906f89912288e508009d7659c7b554bafd13d96dd7222d394
+TASK-409 run 5 raw A1=(Number, "105")/(Text, "105") F1=(Number, "108")/(Text, "=A1+B1")
+TASK-409 run 5 raw A1=(Number, "105")/(Text, "105") F1=(Number, "108")/(Text, "=A1+B1")
+TASK-409 run 5/10 passed pid=16288 start=134401486829711929 written_digest=087e5fdec47dc390d5f64a7b92501a27520ec344dba05638431437ebd95d40ab
+TASK-409 run 6 raw A1=(Number, "106")/(Text, "106") F1=(Number, "109")/(Text, "=A1+B1")
+TASK-409 run 6 raw A1=(Number, "106")/(Text, "106") F1=(Number, "109")/(Text, "=A1+B1")
+TASK-409 run 6/10 passed pid=32312 start=134401486924159244 written_digest=7ce516a57213e75352775a81c09bdd63e13d060f8e45642082477946a9d6a132
+TASK-409 run 7 raw A1=(Number, "107")/(Text, "107") F1=(Number, "110")/(Text, "=A1+B1")
+TASK-409 run 7 raw A1=(Number, "107")/(Text, "107") F1=(Number, "110")/(Text, "=A1+B1")
+TASK-409 run 7/10 passed pid=4904 start=134401486994277334 written_digest=f11de008ea51dc94ae52c7862ab95adcd40de64f913d98308576e8757c2c76cd
+TASK-409 run 8 raw A1=(Number, "108")/(Text, "108") F1=(Number, "111")/(Text, "=A1+B1")
+TASK-409 run 8 raw A1=(Number, "108")/(Text, "108") F1=(Number, "111")/(Text, "=A1+B1")
+TASK-409 run 8/10 passed pid=39412 start=134401487084417729 written_digest=1ba9c1507d0c20ade3df3968452636d984995054a69465fe23fa12945f5d1651
+TASK-409 run 9 raw A1=(Number, "109")/(Text, "109") F1=(Number, "112")/(Text, "=A1+B1")
+TASK-409 run 9 raw A1=(Number, "109")/(Text, "109") F1=(Number, "112")/(Text, "=A1+B1")
+TASK-409 run 9/10 passed pid=24532 start=134401487168531989 written_digest=61690f2c1e59df7a9a5ea23f763f259bd966e269f2e8ebf8cf9393587dd230ce
+TASK-409 run 10 raw A1=(Number, "110")/(Text, "110") F1=(Number, "113")/(Text, "=A1+B1")
+TASK-409 run 10 raw A1=(Number, "110")/(Text, "110") F1=(Number, "113")/(Text, "=A1+B1")
+TASK-409 waiting for owned Excel 33788 teardown: 5s
+TASK-409 run 10/10 passed pid=37072 start=134401487241216298 written_digest=10619e59004296befabe00fd392d5b2943f511ea6735bfe962b4eb8603e7872f
+     Running tests\cdp_provider_contract.rs (target\debug\deps\cdp_provider_contract-3376c3b045adca1a.exe)
+     Running tests\handle_discipline.rs (target\debug\deps\handle_discipline-2a11eb03188a805c.exe)
+     Running tests\palette_view_fallback.rs (target\debug\deps\palette_view_fallback-8065aad36e80de31.exe)
+     Running tests\synthetic_input_contract.rs (target\debug\deps\synthetic_input_contract-5ee1e3a40dacb17e.exe)

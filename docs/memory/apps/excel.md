@@ -97,6 +97,14 @@
     写入/保存后在 20 秒内未退出，完整身份 guard 已回收；紧随其后的同路径验收在约
     7.2 秒完成。测试级收敛窗口保持有界 45 秒并持续打印等待进度，超时仍必须失败和
     清理，不能因一次慢退出放宽为零残留判据。
+15. **同一路径的 10 次独立进程写入可以稳定收敛，但必须同时保留 journal/watchdog
+    证据**：TASK-409 以 10 个不同 owned PID 完成 10/10 writable open、scalar write、
+    Calculate、`.Value2/.Formula` 双读、Save、Close 与 shutdown；每次 saved digest
+    均改变，shadow restore 均回到源 digest，最终 `EXCEL.EXE=0`。after-write panic 会
+    留下 ownership journal 并由完整身份 guard 回收；after-open 20 秒 hang 由独立
+    PowerShell watchdog 读取 journal，核对 PID + creation FILETIME + executable path
+    后回收。因此重复验收不能只看最终进程数，必须同时保存逐轮摘要、journal、
+    failure/watchdog 日志；这仍是 test-only 证据，不代表 production watchdog 已实现。
 
 ## 7. 通道结论
 
@@ -119,11 +127,14 @@
 - TASK-401 已实测一个本地 `.xlsx` 的 read-only open、active-sheet `.Text` 读取、close 与
   shutdown；TASK-407 已实测临时副本 writable open、单 cell/双 cell scalar write、
   `Application.Calculate`、完整 `.Value2/.Formula` 双读、`Save`、shadow restore 与
-  进程/临时文件收敛。`.xlsm/.xlsb`、用户工作簿、多工作簿、批量事务与重复 10/10 仍未测。
+  进程/临时文件收敛；TASK-409 已补 test-only 10/10 独立进程重复写入、after-write
+  failure injection 与 after-open watchdog。`.xlsm/.xlsb`、用户工作簿、多工作簿、
+  批量事务、production ownership journal/watchdog 与崩溃恢复仍未测。
 - Protected View、只读/占用、AutoSave=true、OneDrive/SharePoint。
 - 多工作簿、多窗口、命名区域解析与 A1 漂移。
 - 模态对话框族、宏警告、更新链接。
 - 大表批量 Range 性能、内存/句柄收敛。
-- L1 文件影子副本与回滚冲突检测已有单次真实临时副本校准，重复运行、崩溃恢复与
-  ownership journal/watchdog 仍未测。
+- L1 文件影子副本与回滚冲突检测已有单次真实临时副本校准与 TASK-409 的 10/10
+  test-only 重复运行；production ownership journal/watchdog、崩溃恢复与真实 task
+  cleanup 仍未测。
 - 图表创建和 PNG 导出。
