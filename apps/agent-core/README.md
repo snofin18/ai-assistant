@@ -59,6 +59,10 @@ TASK-029 的 binary-layer Host 装配库。
   digest 等于记录的 post-write 状态，恢复后复核 anchor digest。anchor 组合入口在物理
   影子发布失败时回收内存容量，并复用既有 pre/post fingerprint 冲突门。该层只操作测试
   临时文件，不启动 Excel/COM，也不代表 production T2.2 保存回滚已开放。
+- TASK-415 提供 test-only Excel L1 scalar file-transaction coordinator：scalar 先校验，
+  再组合 anchor、write-port 与文件影子捕获，成功返回保留 post-fingerprint 和原始文件
+  digest 的待回滚 receipt。回滚同时要求 workbook post-fingerprint 与调用方确认的保存后
+  文件 digest 匹配；失败保留 anchor/shadow 证据，cleanup 后才收敛。该层不保存真实工作簿。
 
 ## 边界
 
@@ -118,6 +122,8 @@ TASK-029 的 binary-layer Host 装配库。
 - TASK-414 的真实文件恢复只覆盖 test-owned 临时工作簿字节；production task 的临时根选择、
   atomic replacement、异常断电恢复、真实保存后 `.Value2/.Formula` 复读与 cleanup caller
   仍未接线。
+- TASK-415 的待回滚 receipt 仍是私有测试编排，调用方必须显式提供保存后文件 digest；
+  production in-place save、真实 COM 写入后的文件落盘与 task-end caller 尚未接线。
 - TASK-404 的影子副本是内存模型，仅证明 anchor/digest/conflict 契约；真实文件复制、
   磁盘保留、恢复写入与写入后的 `.Value2/.Formula` 校验仍需人类在场的 T2.2 实现卡。
 - TASK-405 只冻结 scalar 输入门与写前 anchor 状态；真实 range write、重算、
