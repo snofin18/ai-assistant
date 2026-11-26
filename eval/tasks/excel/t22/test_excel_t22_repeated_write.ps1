@@ -752,7 +752,7 @@ $child = Start-Process `
 $child.WaitForExit()
 exit $child.ExitCode
 '@
-    Write-Utf8File -Path $wrapperPath -Text $wrapperSource
+    Write-Utf8File -Path $wrapperPath -Text ($wrapperSource + "`n")
     $environment = @{
         EXCEL_T22_ACCEPTANCE_WORKBOOK = $sourcePath
         EXCEL_T22_REPEAT_EVIDENCE_DIR = $ScenarioDirectory
