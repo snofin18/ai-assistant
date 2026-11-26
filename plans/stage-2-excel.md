@@ -1,6 +1,6 @@
 # 阶段 2 — Excel L1 COM + Adapter 规范化
 
-> 周期 6~8 周　状态：**InProgress（2026-11-26）**；Stage 1 已完成；TASK-395 / TASK-396 / TASK-397 / TASK-398 / TASK-399 / TASK-400 / TASK-401 / TASK-402 / TASK-403 / TASK-404 / TASK-405 / TASK-406 / TASK-407 / TASK-408 已完成。
+> 周期 6~8 周　状态：**InProgress（2026-11-26）**；Stage 1 已完成；TASK-395 / TASK-396 / TASK-397 / TASK-398 / TASK-399 / TASK-400 / TASK-401 / TASK-402 / TASK-403 / TASK-404 / TASK-405 / TASK-406 / TASK-407 / TASK-408 已完成；TASK-409 重复写入收敛验收进行中。
 > 2026-11-23 automation 运行日已由 PR #817 收口；TASK-397 的 typed `HandlerFailure`
 > 错误桥已由 PR #819 merge `2c412d5` / main CI `45305239489` success 合入，TASK-395 恢复 Ready。
 > TASK-372 真实 Excel
@@ -165,6 +165,7 @@
 | 6b private write port | **TASK-406 ✅** | agent-core / L1 | `tasks/TASK-406-excel-t22-private-write-port.md` | Done（anchor-bound selector/address/dimensions + single-use write/recalculate/Value2/Formula/post-fingerprint；专项 12 passed，最终 review no P0-P2；PR #867 merge `0426cd6` / main CI `45687778120` success；production Excel surface 仍为空） |
 | 6c real write calibration | **TASK-407 ✅** | Windows platform / Excel COM | `tasks/TASK-407-excel-t22-real-com-write-acceptance.md` | Done（test-only writable open + scalar property put + Calculate + Save；真实 COM 单/双 cell 写入、Value2/Formula 双读、save/restore digest、EXCEL.EXE=0、review no P0-P2；PR #870 checks 11/11，merge `fc024e4` / main CI `45743239854` success） |
 | evidence guard | **TASK-408 ✅** | automation/evidence | `tasks/TASK-408-rollout-shell-audit-strict-utf8.md` | Done（严格 UTF-8/共享读取/按 turn shell 审计；TASK-407 turn 精确 bash=54，复审 no P0-P2；PR #872 checks 11/11，merge `b8afc7a` / main CI `45753779989` success） |
+| 6d repeated write convergence | **TASK-409 Ready/WIP** | Windows platform / Excel COM | `tasks/TASK-409-excel-t22-repeated-write-convergence.md` | WIP（test-only 10/10 真实 COM 重复写入、after-write failure injection、after-open watchdog 已落地；待全量门禁、review、PR/CI/merge 收口） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |
 | 7 | 待派单 | Excel T2.3 | dispatch 时创建 | 未开始（图表生成/PNG 导出/不覆盖） |
 

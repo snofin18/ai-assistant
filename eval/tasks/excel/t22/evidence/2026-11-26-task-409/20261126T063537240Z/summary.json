@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "mode": "excel-t22-repeated-write-regression",
+  "result": "passed",
+  "source_workbook": "C:\\Users\\fexfe\\AppData\\Local\\Temp\\task409-repeated-write-source.xlsx",
+  "source_digest_before": "75C44D93C9E5C8678D8585BF18347BB026FC7BE0A2781A893A047EA79F4A1D12",
+  "source_digest_after": "75C44D93C9E5C8678D8585BF18347BB026FC7BE0A2781A893A047EA79F4A1D12",
+  "normal": {
+    "name": "normal",
+    "expected": "pass",
+    "exit_code": 0,
+    "child_process_identity": {
+      "id": 17608,
+      "process_name": "pwsh",
+      "start_time_utc_ticks": 639312717377576397,
+      "executable_path": "C:\\Program Files\\WindowsApps\\OpenAI.CodexPrimaryRuntime.v26-1123-915-0_26.1123.915.0_x64__3k8sg7r9htsxt\\dependencies\\native\\powershell\\pwsh.exe"
+    },
+    "ownership_journal_count": 0,
+    "ownership_cleanup": [],
+    "child_cleanup": {
+      "attempted": false,
+      "error": null,
+      "remaining_job_process_ids": []
+    },
+    "live_excel_identities_after_child_exit": [],
+    "job_process_ids_after_child_exit": [],
+    "remaining_excel_process_ids": [],
+    "temporary_files_removed": 0,
+    "stdout_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\t22\\evidence\\2026-11-26-task-409\\20261126T063537240Z\\normal\\stdout.txt",
+    "stderr_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\t22\\evidence\\2026-11-26-task-409\\20261126T063537240Z\\normal\\stderr.txt"
+  },
+  "failure_injection": {
+    "name": "failure-injection",
+    "expected": "failure",
+    "exit_code": 101,
+    "child_process_identity": {
+      "id": 1876,
+      "process_name": "pwsh",
+      "start_time_utc_ticks": 639312719356727048,
+      "executable_path": "C:\\Program Files\\WindowsApps\\OpenAI.CodexPrimaryRuntime.v26-1123-915-0_26.1123.915.0_x64__3k8sg7r9htsxt\\dependencies\\native\\powershell\\pwsh.exe"
+    },
+    "ownership_journal_count": 1,
+    "ownership_cleanup": [],
+    "child_cleanup": {
+      "attempted": false,
+      "error": null,
+      "remaining_job_process_ids": []
+    },
+    "live_excel_identities_after_child_exit": [
+      {
+        "id": 31132,
+        "process_name": "EXCEL",
+        "start_time_utc_ticks": 639312719361827885,
+        "executable_path": "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE"
+      }
+    ],
+    "job_process_ids_after_child_exit": [],
+    "remaining_excel_process_ids": [],
+    "temporary_files_removed": 0,
+    "stdout_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\t22\\evidence\\2026-11-26-task-409\\20261126T063537240Z\\failure-injection\\stdout.txt",
+    "stderr_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\t22\\evidence\\2026-11-26-task-409\\20261126T063537240Z\\failure-injection\\stderr.txt"
+  },
+  "watchdog_injection": {
+    "name": "watchdog-injection",
+    "expected": "watchdog-timeout",
+    "timed_out": true,
+    "timeout_seconds": 20,
+    "child_process_identity": {
+      "id": 3376,
+      "process_name": "pwsh",
+      "start_time_utc_ticks": 639312719971305305,
+      "executable_path": "C:\\Program Files\\WindowsApps\\OpenAI.CodexPrimaryRuntime.v26-1123-915-0_26.1123.915.0_x64__3k8sg7r9htsxt\\dependencies\\native\\powershell\\pwsh.exe"
+    },
+    "owned_excel_identities": [
+      {
+        "id": 39000,
+        "process_name": "EXCEL",
+        "start_time_utc_ticks": 639312719976242301,
+        "executable_path": "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE"
+      }
+    ],
+    "excel_cleanup": [
+      {
+        "attempted": true,
+        "result_code": 0,
+        "error": null
+      }
+    ],
+    "child_cleanup": {
+      "attempted": true,
+      "error": null,
+      "remaining_job_process_ids": []
+    },
+    "live_owned_excel_identities_before_cleanup": [
+      {
+        "id": 39000,
+        "process_name": "EXCEL",
+        "start_time_utc_ticks": 639312719976242301,
+        "executable_path": "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE"
+      }
+    ],
+    "job_process_ids_before_cleanup": [
+      3376,
+      10256,
+      39372,
+      36748,
+      34676,
+      33236
+    ],
+    "temporary_files_removed": 2,
+    "stdout_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\t22\\evidence\\2026-11-26-task-409\\20261126T063537240Z\\watchdog-injection\\stdout.txt",
+    "stderr_path": "D:\\csart\\ai-assistant\\eval\\tasks\\excel\\t22\\evidence\\2026-11-26-task-409\\20261126T063537240Z\\watchdog-injection\\stderr.txt"
+  },
+  "final_excel_process_ids": [],
+  "final_excel_process_count": 0,
+  "started_at_utc": "20261126T063537240Z",
+  "completed_at_utc": "2026-11-26T06:40:17.5211013Z"
+}

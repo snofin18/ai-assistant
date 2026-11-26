@@ -1,0 +1,8 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running unittests src\lib.rs (target\debug\deps\assistant_platform_windows-91580712bacd3ac0.exe)
+
+thread 'excel_com_runner::tests::repeat_acceptance::test_windows_excel_real_com_repeated_write_acceptance' (23476) panicked at crates\platform\windows\src\excel_com_runner_repeat_tests.rs:404:9:
+TASK-409 injected failure after-write
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TASK-409 ownership journal retained for external watchdog evidence: D:\csart\ai-assistant\eval\tasks\excel\t22\evidence\2026-11-26-task-409\20261126T063537240Z\failure-injection\ownership-run-01-write.json
+error: test failed, to rerun pass `-p assistant-platform-windows --lib`

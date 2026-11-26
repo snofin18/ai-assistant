@@ -5,6 +5,10 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::*;
+#[cfg(windows)]
+use crate::excel_process::ExcelProcessIdentity;
+#[cfg(windows)]
+use windows::Win32::Foundation::CloseHandle;
 
 #[derive(Debug, Clone, PartialEq)]
 enum WriteEvent {
@@ -192,6 +196,202 @@ fn test_write_acceptance_save_failure_preserves_explicit_error() {
         [WriteEvent::OpenWritable]
     );
     std::fs::remove_file(workbook_path).expect("remove temporary workbook");
+}
+
+#[cfg(windows)]
+pub(super) fn terminate_verified_process(identity: &ExcelProcessIdentity) -> PlatformResult<()> {
+    use windows::Win32::System::Threading::{
+        OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE, TerminateProcess,
+    };
+
+    // SAFETY: OpenProcess is called with query/terminate access for one
+    // explicitly identified process and returns an owned handle.
+    let process = unsafe {
+        OpenProcess(
+            PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE,
+            false,
+            identity.process_id,
+        )
+    }
+    .map_err(|error| {
+        PlatformError::new(
+            ErrorCode::Fatal,
+            format!(
+                "OpenProcess failed for owned Excel {}: {}",
+                identity.process_id,
+                error.message()
+            ),
+        )
+    })?;
+    let process = RawProcessHandle(process);
+    let (creation_time, executable_path) =
+        read_process_identity_from_handle(process.0, identity.process_id)?;
+    if creation_time != identity.start_time_100ns
+        || !executable_path.eq_ignore_ascii_case(&identity.executable_path)
+    {
+        return Err(PlatformError::new(
+            ErrorCode::Fatal,
+            format!(
+                "owned Excel identity changed before verified termination: pid={} expected_start={} actual_start={creation_time} expected_path={} actual_path={executable_path}",
+                identity.process_id, identity.start_time_100ns, identity.executable_path
+            ),
+        ));
+    }
+    // SAFETY: the same open handle was verified above and remains live for
+    // this synchronous termination call.
+    unsafe { TerminateProcess(process.0, 1) }.map_err(|error| {
+        PlatformError::new(
+            ErrorCode::Fatal,
+            format!(
+                "TerminateProcess failed for owned Excel {}: {}",
+                identity.process_id,
+                error.message()
+            ),
+        )
+    })
+}
+
+#[cfg(windows)]
+fn read_process_identity_from_handle(
+    process: windows::Win32::Foundation::HANDLE,
+    process_id: u32,
+) -> PlatformResult<(u64, String)> {
+    use windows::Win32::System::Threading::{
+        GetProcessTimes, PROCESS_NAME_FORMAT, QueryFullProcessImageNameW,
+    };
+    use windows::core::PWSTR;
+
+    let mut creation = windows::Win32::Foundation::FILETIME::default();
+    let mut exit = windows::Win32::Foundation::FILETIME::default();
+    let mut kernel = windows::Win32::Foundation::FILETIME::default();
+    let mut user = windows::Win32::Foundation::FILETIME::default();
+    // SAFETY: the process handle grants query access and all FILETIME outputs
+    // point to distinct live stack values.
+    unsafe {
+        GetProcessTimes(
+            process,
+            &raw mut creation,
+            &raw mut exit,
+            &raw mut kernel,
+            &raw mut user,
+        )
+    }
+    .map_err(|error| {
+        PlatformError::new(
+            ErrorCode::Fatal,
+            format!(
+                "GetProcessTimes failed for owned Excel {process_id}: {}",
+                error.message()
+            ),
+        )
+    })?;
+    let mut path_buffer = vec![0_u16; 32_768];
+    let mut path_length = u32::try_from(path_buffer.len()).map_err(|_| {
+        PlatformError::new(
+            ErrorCode::Fatal,
+            "process path buffer length does not fit u32",
+        )
+    })?;
+    // SAFETY: the process handle is live, path_buffer is writable, and its
+    // capacity is passed through a live u32 out-parameter.
+    unsafe {
+        QueryFullProcessImageNameW(
+            process,
+            PROCESS_NAME_FORMAT(0),
+            PWSTR(path_buffer.as_mut_ptr()),
+            &raw mut path_length,
+        )
+    }
+    .map_err(|error| {
+        PlatformError::new(
+            ErrorCode::Fatal,
+            format!(
+                "QueryFullProcessImageNameW failed for owned Excel {process_id}: {}",
+                error.message()
+            ),
+        )
+    })?;
+    let path_length = usize::try_from(path_length).map_err(|_| {
+        PlatformError::new(ErrorCode::Fatal, "process path length does not fit usize")
+    })?;
+    let executable_path =
+        String::from_utf16_lossy(path_buffer.get(..path_length).ok_or_else(|| {
+            PlatformError::new(ErrorCode::Fatal, "process path length exceeded its buffer")
+        })?);
+    let creation_time =
+        (u64::from(creation.dwHighDateTime) << 32) | u64::from(creation.dwLowDateTime);
+    Ok((creation_time, executable_path))
+}
+
+#[cfg(windows)]
+struct RawProcessHandle(windows::Win32::Foundation::HANDLE);
+
+#[cfg(windows)]
+impl Drop for RawProcessHandle {
+    fn drop(&mut self) {
+        // SAFETY: this handle is owned by the wrapper and is closed exactly once.
+        if let Err(error) = unsafe { CloseHandle(self.0) } {
+            eprintln!("TASK-409 process handle close failed: {}", error.message());
+        }
+    }
+}
+
+#[cfg(windows)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum FailureStage {
+    Open,
+    Write,
+    Recalculate,
+    Save,
+}
+
+#[cfg(windows)]
+struct FailureBackend {
+    fail_at: FailureStage,
+}
+
+#[cfg(windows)]
+impl ExcelComBackend for FailureBackend {
+    fn create_application(&mut self) -> PlatformResult<()> {
+        Ok(())
+    }
+
+    fn application_identity(&mut self) -> PlatformResult<ExcelOwnedProcessIdentity> {
+        super::test_identity(409)
+    }
+
+    fn execute_write_acceptance(
+        &mut self,
+        request: &ExcelWriteAcceptanceRequest,
+    ) -> PlatformResult<()> {
+        let stage = match request {
+            ExcelWriteAcceptanceRequest::OpenWritable { .. } => FailureStage::Open,
+            ExcelWriteAcceptanceRequest::WriteScalar { .. } => FailureStage::Write,
+            ExcelWriteAcceptanceRequest::Recalculate { .. } => FailureStage::Recalculate,
+            ExcelWriteAcceptanceRequest::Save { .. } => FailureStage::Save,
+        };
+        if stage == self.fail_at {
+            return Err(PlatformError::new(
+                ErrorCode::Fatal,
+                format!("TASK-409 injected fake {stage:?} failure"),
+            ));
+        }
+        Ok(())
+    }
+
+    fn close_workbook(&mut self) -> PlatformResult<()> {
+        Ok(())
+    }
+
+    fn quit_application(&mut self) -> PlatformResult<()> {
+        Ok(())
+    }
+}
+
+#[cfg(windows)]
+pub(super) fn failure_runner(fail_at: FailureStage) -> PlatformResult<ExcelComRunner> {
+    let backend = FailureBackend { fail_at };
+    ExcelComRunner::spawn(move || backend)
 }
 
 #[cfg(windows)]
