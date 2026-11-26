@@ -49,6 +49,11 @@ TASK-029 的 binary-layer Host 装配库。
   write → recalculate → `.Value2` → `.Formula` → post-fingerprint 顺序执行一次不可重试的
   fake 事务；任一端口或双读校验失败都不记录 committed 结果。真实 COM write/save、
   磁盘影子副本与 production ToolBus 仍未接线。
+- TASK-413 提供 test-only 私有 Excel task-end lifecycle：首次 shutdown 以原子
+  `running -> closing` 立即拒绝新 open/read/summarize，全部 token 先移入 closing；
+  workbook close 成功才释放对应容量，runner 整体收敛成功后才清除剩余 closing 证据。
+  platform adapter 在阻塞 runner shutdown 前发布 closing 并释放 runtime-state mutex，
+  cleanup 失败时保留 workbook mapping；production ToolBus/assembly 仍未接线。
 
 ## 边界
 
@@ -102,8 +107,9 @@ TASK-029 的 binary-layer Host 装配库。
 - TASK-330 已能为 T5.1 三页 DOM 生成确定性的 60 行 CSV；真实 Edge 10/10、
   专用 profile 与外部 smoke 仍由 TASK-056 的人类在场会话负责。
 - Excel T2.1 的四个 handler 与 platform runtime adapter 仍停留在 `#[cfg(test)]` 私有实现；
-  `tools.json` 保持空。TASK-403 已用 fake port 验证私有域映射和重复 handle 收敛，但真实
-  COM 重复验收、ownership/watchdog 与 production ToolBus registration 仍需后续卡。
+  `tools.json` 保持空。TASK-403 已用 fake port 验证私有域映射和重复 handle 收敛，
+  TASK-413 已补私有 task-end closing/失败保留状态机；真实 task assembly、Host 崩溃恢复与
+  production ToolBus registration 仍需后续卡。
 - TASK-404 的影子副本是内存模型，仅证明 anchor/digest/conflict 契约；真实文件复制、
   磁盘保留、恢复写入与写入后的 `.Value2/.Formula` 校验仍需人类在场的 T2.2 实现卡。
 - TASK-405 只冻结 scalar 输入门与写前 anchor 状态；真实 range write、重算、

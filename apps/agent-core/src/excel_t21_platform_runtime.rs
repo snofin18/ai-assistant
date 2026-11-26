@@ -4,7 +4,8 @@
 //! - map self-contained `assistant-platform-windows` values into the existing
 //!   Excel T2.1 domain model;
 //! - keep one bounded domain-handle table for the runner's active workbook;
-//! - preserve typed platform failures and explicitly close incomplete opens.
+//! - preserve typed platform failures and explicitly close incomplete opens;
+//! - publish local closing state before private runner shutdown.
 //!
 //! Boundaries:
 //! - this module is compiled only in tests until repeated real-COM acceptance and
@@ -16,13 +17,15 @@
 //! 1. one runtime owns one runner with at most one open workbook;
 //! 2. a domain handle resolves only to the platform handle stored for that id;
 //! 3. close removes a mapping only after the platform close succeeds;
-//! 4. all platform failures retain their existing `ErrorCode`.
+//! 4. all platform failures retain their existing `ErrorCode`;
+//! 5. task-end shutdown releases the runtime-state lock before blocking runner work
+//!    and retains workbook mappings when convergence fails.
 //!
 //! Related documents: ADR-0108, ADR-0111, ADR-0112, TASK-403.
 
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 use assistant_platform_api::{PlatformError, PlatformResult};
 use assistant_platform_windows::excel_com_runner::{
@@ -87,8 +90,9 @@ struct RuntimeState<R>
 where
     R: ExcelPlatformRunner,
 {
-    runner: Option<R>,
+    runner: Arc<Mutex<R>>,
     is_application_ready: bool,
+    is_closing: bool,
     is_terminal: bool,
     next_handle: u64,
     workbooks: BTreeMap<u64, WorkbookRecord<R::Workbook>>,
@@ -113,8 +117,9 @@ where
     fn with_runner(runner: R) -> Self {
         Self {
             state: Mutex::new(RuntimeState {
-                runner: Some(runner),
+                runner: Arc::new(Mutex::new(runner)),
                 is_application_ready: false,
+                is_closing: false,
                 is_terminal: false,
                 next_handle: 0,
                 workbooks: BTreeMap::new(),
@@ -124,23 +129,34 @@ where
 
     /// Explicitly shuts down the runner and makes this runtime terminal.
     fn shutdown(&self) -> Result<(), ExcelT21Error> {
-        let mut state = self
-            .state
-            .lock()
-            .map_err(|_| ExcelT21Error::new(ErrorCode::Fatal, "Excel runtime state is poisoned"))?;
-        let Some(mut runner) = state.runner.take() else {
-            return Err(ExcelT21Error::new(
-                ErrorCode::Fatal,
-                "Excel runtime was already shut down",
-            ));
+        let runner_slot = {
+            let mut state = self.lock_state()?;
+            if state.is_closing || state.is_terminal {
+                return Err(ExcelT21Error::new(
+                    ErrorCode::Fatal,
+                    "Excel runtime cleanup is already in progress or terminal",
+                ));
+            }
+            state.is_closing = true;
+            Arc::clone(&state.runner)
         };
-        let result = runner
-            .shutdown()
-            .map_err(|error| platform_error("shutdown Excel runner", &error));
-        state.workbooks.clear();
-        state.is_application_ready = false;
+        let result = match lock_runner(&runner_slot) {
+            Ok(mut runner) => {
+                let result = runner
+                    .shutdown()
+                    .map_err(|error| platform_error("shutdown Excel runner", &error));
+                drop(runner);
+                result
+            }
+            Err(error) => Err(error),
+        };
+        let mut state = self.lock_state()?;
+        state.is_closing = false;
         state.is_terminal = true;
-        drop(state);
+        if result.is_ok() {
+            state.workbooks.clear();
+            state.is_application_ready = false;
+        }
         result
     }
 
@@ -165,10 +181,10 @@ where
 {
     fn open_read_only(&self, path: &Path) -> Result<OpenedWorkbook, ExcelT21Error> {
         let mut state = self.lock_state()?;
-        if state.is_terminal {
+        if state.is_closing || state.is_terminal {
             return Err(ExcelT21Error::new(
                 ErrorCode::Fatal,
-                "Excel runtime is terminal after shutdown",
+                "Excel runtime is closing or terminal after shutdown",
             ));
         }
         if !state.workbooks.is_empty() {
@@ -176,7 +192,11 @@ where
                 "Excel runtime already owns an open workbook",
             ));
         }
-        let (platform_workbook, snapshot, owned_process) = prepare_open_workbook(&mut state, path)?;
+        let (platform_workbook, snapshot, owned_process) = {
+            let runner_slot = Arc::clone(&state.runner);
+            let mut runner = lock_runner(&runner_slot)?;
+            prepare_open_workbook(&mut state, &mut runner, path)?
+        };
 
         let handle_value = state.next_handle.checked_add(1).ok_or_else(|| {
             ExcelT21Error::new(ErrorCode::Fatal, "Excel domain workbook handle overflowed")
@@ -201,20 +221,17 @@ where
     }
 
     fn close(&self, handle: WorkbookHandle) -> Result<(), ExcelT21Error> {
-        let mut state = self.lock_state()?;
-        let record = state.workbooks.get(&handle.get()).cloned().ok_or_else(|| {
-            ExcelT21Error::new(
-                ErrorCode::TargetNotFound,
-                "Excel domain workbook handle is unknown or already closed",
-            )
-        })?;
-        let runner = state
-            .runner
-            .as_ref()
-            .ok_or_else(|| ExcelT21Error::new(ErrorCode::Fatal, "Excel runner is unavailable"))?;
+        let (record, runner_slot) = {
+            let state = self.lock_state()?;
+            ensure_runtime_running(&state)?;
+            (workbook_record(&state, handle)?, Arc::clone(&state.runner))
+        };
+        let runner = lock_runner(&runner_slot)?;
         runner
             .close_workbook(&record.platform_workbook)
             .map_err(|error| platform_error("close Excel workbook", &error))?;
+        drop(runner);
+        let mut state = self.lock_state()?;
         if state.workbooks.remove(&handle.get()).is_none() {
             return Err(ExcelT21Error::new(
                 ErrorCode::Fatal,
@@ -230,12 +247,19 @@ where
         handle: WorkbookHandle,
         workbook: &WorkbookIdentity,
     ) -> Result<(), ExcelT21Error> {
-        let state = self.lock_state()?;
-        let record = workbook_record(&state, handle)?;
-        if *record.workbook_identity != *workbook
+        let (record, runner_slot) = {
+            let state = self.lock_state()?;
+            ensure_runtime_running(&state)?;
+            (workbook_record(&state, handle)?, Arc::clone(&state.runner))
+        };
+        let runner = lock_runner(&runner_slot)?;
+        let platform_workbook_path = runner
+            .workbook_path(&record.platform_workbook)
+            .to_string_lossy();
+        if record.workbook_identity != *workbook
             || !workbook_paths_match(
                 Path::new(&record.workbook_identity.full_path),
-                &record.platform_workbook_path.to_string_lossy(),
+                &platform_workbook_path,
             )
         {
             return Err(ExcelT21Error::new(
@@ -243,20 +267,24 @@ where
                 "Excel workbook identity no longer matches the platform handle",
             ));
         }
-        let result = runner(&state)?
-            .verify_ownership(record.platform_workbook)
+        let result = runner
+            .verify_ownership(&record.platform_workbook)
             .map_err(|error| platform_error("verify Excel process ownership", &error));
-        drop(state);
+        drop(runner);
         result
     }
 
     fn fingerprint(&self, handle: WorkbookHandle) -> Result<String, ExcelT21Error> {
-        let state = self.lock_state()?;
-        let record = workbook_record(&state, handle)?;
-        let fingerprint = runner(&state)?
-            .fingerprint(record.platform_workbook)
+        let (record, runner_slot) = {
+            let state = self.lock_state()?;
+            ensure_runtime_running(&state)?;
+            (workbook_record(&state, handle)?, Arc::clone(&state.runner))
+        };
+        let runner = lock_runner(&runner_slot)?;
+        let fingerprint = runner
+            .fingerprint(&record.platform_workbook)
             .map_err(|error| platform_error("fingerprint Excel workbook", &error))?;
-        drop(state);
+        drop(runner);
         if fingerprint.trim().is_empty() {
             return Err(ExcelT21Error::new(
                 ErrorCode::Fatal,
@@ -267,18 +295,22 @@ where
     }
 
     fn read_workbook(&self, handle: WorkbookHandle) -> Result<WorkbookSnapshot, ExcelT21Error> {
-        let state = self.lock_state()?;
-        let record = workbook_record(&state, handle)?;
-        let snapshot = runner(&state)?
-            .read_workbook(record.platform_workbook)
+        let (record, runner_slot) = {
+            let state = self.lock_state()?;
+            ensure_runtime_running(&state)?;
+            (workbook_record(&state, handle)?, Arc::clone(&state.runner))
+        };
+        let runner = lock_runner(&runner_slot)?;
+        let snapshot = runner
+            .read_workbook(&record.platform_workbook)
             .map_err(|error| platform_error("read Excel workbook metadata", &error))?;
-        if snapshot.workbook != *record.workbook_identity {
+        drop(runner);
+        if snapshot.workbook != record.workbook_identity {
             return Err(ExcelT21Error::new(
                 ErrorCode::TargetNotFound,
                 "Excel workbook identity drifted during metadata read",
             ));
         }
-        drop(state);
         Ok(snapshot)
     }
 
@@ -288,33 +320,57 @@ where
         selector: &RangeSelector,
         mode: ReadMode,
     ) -> Result<RangeSnapshot, ExcelT21Error> {
-        let state = self.lock_state()?;
-        let record = workbook_record(&state, handle)?;
-        let snapshot = runner(&state)?
-            .read_range(record.platform_workbook, selector, mode)
+        let (record, runner_slot) = {
+            let state = self.lock_state()?;
+            ensure_runtime_running(&state)?;
+            (workbook_record(&state, handle)?, Arc::clone(&state.runner))
+        };
+        let runner = lock_runner(&runner_slot)?;
+        let snapshot = runner
+            .read_range(&record.platform_workbook, selector, mode)
             .map_err(|error| platform_error("read Excel range", &error))?;
-        drop(state);
+        drop(runner);
         validate_range_shape(&snapshot, selector)?;
         Ok(snapshot)
+    }
+
+    fn shutdown(&self) -> Result<(), ExcelT21Error> {
+        Self::shutdown(self)
+    }
+}
+
+fn ensure_runtime_running<R>(state: &RuntimeState<R>) -> Result<(), ExcelT21Error>
+where
+    R: ExcelPlatformRunner,
+{
+    if state.is_closing || state.is_terminal {
+        Err(ExcelT21Error::new(
+            ErrorCode::Fatal,
+            "Excel runtime is closing or terminal after shutdown",
+        ))
+    } else {
+        Ok(())
     }
 }
 
 fn prepare_open_workbook<R>(
     state: &mut RuntimeState<R>,
+    runner: &mut R,
     path: &Path,
 ) -> Result<(R::Workbook, WorkbookSnapshot, OwnedProcessIdentity), ExcelT21Error>
 where
     R: ExcelPlatformRunner,
 {
-    ensure_application(state)?;
-    let platform_workbook = runner(state)?
+    ensure_application(state, runner)?;
+    let platform_workbook = runner
         .open_read_only(path)
         .map_err(|error| platform_error("open workbook read-only", &error))?;
-    let snapshot = match runner(state)?.read_workbook(&platform_workbook) {
+    let snapshot = match runner.read_workbook(&platform_workbook) {
         Ok(snapshot) => snapshot,
         Err(error) => {
             return Err(cleanup_failed_open(
                 state,
+                runner,
                 &platform_workbook,
                 platform_error("read workbook metadata during open", &error),
             ));
@@ -323,6 +379,7 @@ where
     if !snapshot.workbook.read_only {
         return Err(cleanup_failed_open(
             state,
+            runner,
             &platform_workbook,
             invalid_arguments("platform opened the workbook without read-only mode"),
         ));
@@ -330,13 +387,12 @@ where
     if !workbook_paths_match(path, &snapshot.workbook.full_path)
         || !workbook_paths_match(
             path,
-            &runner(state)?
-                .workbook_path(&platform_workbook)
-                .to_string_lossy(),
+            &runner.workbook_path(&platform_workbook).to_string_lossy(),
         )
     {
         return Err(cleanup_failed_open(
             state,
+            runner,
             &platform_workbook,
             ExcelT21Error::new(
                 ErrorCode::Fatal,
@@ -344,11 +400,12 @@ where
             ),
         ));
     }
-    let owned_process = match runner(state)?.owned_process(&platform_workbook) {
+    let owned_process = match runner.owned_process(&platform_workbook) {
         Ok(identity) => identity,
         Err(error) => {
             return Err(cleanup_failed_open(
                 state,
+                runner,
                 &platform_workbook,
                 platform_error("read owned Excel process identity", &error),
             ));
@@ -357,14 +414,14 @@ where
     Ok((platform_workbook, snapshot, owned_process))
 }
 
-fn ensure_application<R>(state: &mut RuntimeState<R>) -> Result<(), ExcelT21Error>
+fn ensure_application<R>(state: &mut RuntimeState<R>, runner: &mut R) -> Result<(), ExcelT21Error>
 where
     R: ExcelPlatformRunner,
 {
     if state.is_application_ready {
         return Ok(());
     }
-    let result = runner(state)?.create_application();
+    let result = runner.create_application();
     match result {
         Ok(()) => {
             state.is_application_ready = true;
@@ -372,14 +429,8 @@ where
         }
         Err(error) => {
             let create_error = platform_error("create Excel application", &error);
-            let Some(mut runner) = state.runner.take() else {
-                state.is_terminal = true;
-                return Err(ExcelT21Error::new(
-                    ErrorCode::Fatal,
-                    format!("{create_error}; Excel runner disappeared before cleanup"),
-                ));
-            };
             state.is_terminal = true;
+            state.is_application_ready = false;
             match runner.shutdown() {
                 Ok(()) => Err(create_error),
                 Err(cleanup_error) => Err(ExcelT21Error::new(
@@ -396,17 +447,16 @@ where
 
 fn cleanup_failed_open<R>(
     state: &mut RuntimeState<R>,
+    runner: &mut R,
     workbook: &R::Workbook,
     original: ExcelT21Error,
 ) -> ExcelT21Error
 where
     R: ExcelPlatformRunner,
 {
-    let close_result = runner(state).and_then(|runner| {
-        runner
-            .close_workbook(workbook)
-            .map_err(|error| platform_error("cleanup failed Excel open", &error))
-    });
+    let close_result = runner
+        .close_workbook(workbook)
+        .map_err(|error| platform_error("cleanup failed Excel open", &error));
     if close_result.is_ok() {
         return original;
     }
@@ -416,19 +466,9 @@ where
             "Excel open cleanup failed without details",
         )
     });
-    let shutdown_result = state.runner.take().map_or_else(
-        || {
-            Err(ExcelT21Error::new(
-                ErrorCode::Fatal,
-                "Excel runner disappeared during open cleanup",
-            ))
-        },
-        |mut runner| {
-            runner
-                .shutdown()
-                .map_err(|error| platform_error("shutdown failed Excel runner", &error))
-        },
-    );
+    let shutdown_result = runner
+        .shutdown()
+        .map_err(|error| platform_error("shutdown failed Excel runner", &error));
     state.workbooks.clear();
     state.is_application_ready = false;
     state.is_terminal = true;
@@ -448,33 +488,28 @@ where
     }
 }
 
-struct DomainWorkbookRecord<'a, W> {
-    platform_workbook: &'a W,
-    platform_workbook_path: PathBuf,
-    workbook_identity: &'a WorkbookIdentity,
-}
-
 fn workbook_record<R>(
     state: &RuntimeState<R>,
     handle: WorkbookHandle,
-) -> Result<DomainWorkbookRecord<'_, R::Workbook>, ExcelT21Error>
+) -> Result<WorkbookRecord<R::Workbook>, ExcelT21Error>
 where
     R: ExcelPlatformRunner,
 {
-    let record = state.workbooks.get(&handle.get()).ok_or_else(|| {
+    state.workbooks.get(&handle.get()).cloned().ok_or_else(|| {
         ExcelT21Error::new(
             ErrorCode::TargetNotFound,
             "Excel domain workbook handle is unknown or already closed",
         )
-    })?;
-    let runner = runner(state)?;
-    Ok(DomainWorkbookRecord {
-        platform_workbook: &record.platform_workbook,
-        platform_workbook_path: runner
-            .workbook_path(&record.platform_workbook)
-            .to_path_buf(),
-        workbook_identity: &record.workbook_identity,
     })
+}
+
+fn lock_runner<R>(runner: &Arc<Mutex<R>>) -> Result<std::sync::MutexGuard<'_, R>, ExcelT21Error>
+where
+    R: ExcelPlatformRunner,
+{
+    runner
+        .lock()
+        .map_err(|_| ExcelT21Error::new(ErrorCode::Fatal, "Excel runner mutex is poisoned"))
 }
 
 fn validate_range_shape(
@@ -525,16 +560,6 @@ fn validate_range_shape(
 
 fn platform_error(context: &str, error: &PlatformError) -> ExcelT21Error {
     ExcelT21Error::new(error.code(), format!("{context}: {}", error.message()))
-}
-
-fn runner<R>(state: &RuntimeState<R>) -> Result<&R, ExcelT21Error>
-where
-    R: ExcelPlatformRunner,
-{
-    state
-        .runner
-        .as_ref()
-        .ok_or_else(|| ExcelT21Error::new(ErrorCode::Fatal, "Excel runner is unavailable"))
 }
 
 fn workbook_paths_match(left: impl AsRef<Path>, right: &str) -> bool {

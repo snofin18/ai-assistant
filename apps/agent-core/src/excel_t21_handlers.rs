@@ -4,7 +4,8 @@
 //! - parse and validate model-shaped arguments;
 //! - acquire workbook-scoped sessions from the isolated registry;
 //! - invoke the private runtime boundary and revalidate all returned shapes;
-//! - produce bounded JSON payloads and pre/post workbook fingerprints.
+//! - produce bounded JSON payloads and pre/post workbook fingerprints;
+//! - invalidate every session before private task-end runtime cleanup.
 //!
 //! Boundaries:
 //! - these handlers are not registered in a production `ToolBus`;
@@ -16,12 +17,15 @@
 //! 1. a runtime result is never trusted until ownership, identity, shape, and bounds
 //!    pass a second validation;
 //! 2. a read publishes equal pre/post fingerprints or fails;
-//! 3. range payloads and workbook metadata are rejected, not truncated, above bounds.
+//! 3. range payloads and workbook metadata are rejected, not truncated, above bounds;
+//! 4. task-end cleanup is single-use, rejects new work during closing, and retains
+//!    sessions until workbook close or full runtime convergence succeeds.
 //!
 //! Related documents: ADR-0108, `docs/spec/excel-t21-readonly-workflow.md`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Arc, Mutex};
 
 use assistant_protocol::ErrorCode;
@@ -59,6 +63,14 @@ pub(crate) trait ExcelT21Runtime: Send + Sync {
         selector: &RangeSelector,
         mode: ReadMode,
     ) -> Result<RangeSnapshot, ExcelT21Error>;
+
+    /// Stops the private runtime and returns only after cleanup is conclusive.
+    fn shutdown(&self) -> Result<(), ExcelT21Error> {
+        Err(ExcelT21Error::new(
+            ErrorCode::Fatal,
+            "private Excel runtime has no task-end shutdown implementation",
+        ))
+    }
 }
 
 /// Call identity injected by assembly; no public `CallContext` field is added.
@@ -99,9 +111,14 @@ pub(crate) struct ExcelToolResult {
 
 /// Four Excel T2.1 handlers over one private runtime and one isolated registry.
 pub(crate) struct ExcelT21Handlers<R> {
-    runtime: Arc<R>,
+    pub(super) runtime: Arc<R>,
     pub(crate) sessions: Mutex<SessionRegistry>,
+    pub(super) lifecycle: AtomicU8,
 }
+
+pub(super) const LIFECYCLE_RUNNING: u8 = 0;
+pub(super) const LIFECYCLE_CLOSING: u8 = 1;
+pub(super) const LIFECYCLE_TERMINAL: u8 = 2;
 
 impl<R> ExcelT21Handlers<R>
 where
@@ -112,6 +129,7 @@ where
         Self {
             runtime,
             sessions: Mutex::new(sessions),
+            lifecycle: AtomicU8::new(LIFECYCLE_RUNNING),
         }
     }
 
@@ -121,6 +139,7 @@ where
         call: &ExcelCallContext,
         arguments: &Map<String, Value>,
     ) -> Result<ExcelToolResult, ExcelT21Error> {
+        self.ensure_running("excel.workbook.open")?;
         reject_unknown_keys(
             arguments,
             &["workbook_path", "read_only"],
@@ -133,6 +152,9 @@ where
         let path = parse_workbook_path(workbook_path)?;
         let opened = self.runtime.open_read_only(&path)?;
         let handle = opened.handle;
+        if let Err(error) = self.ensure_running(TOOL_WORKBOOK_OPEN) {
+            return self.fail_open_after_cleanup(handle, error);
+        }
         if !workbook_path_matches(&path, &opened.workbook.full_path) {
             return self.fail_open_after_cleanup(
                 handle,
@@ -151,6 +173,10 @@ where
         }
         let registered = {
             let mut sessions = self.lock_sessions(TOOL_WORKBOOK_OPEN)?;
+            if let Err(error) = self.ensure_running(TOOL_WORKBOOK_OPEN) {
+                drop(sessions);
+                return self.fail_open_after_cleanup(handle, error);
+            }
             sessions.register(&call.task_id, opened)
         };
         let registered = match registered {
@@ -194,6 +220,7 @@ where
         call: &ExcelCallContext,
         arguments: &Map<String, Value>,
     ) -> Result<ExcelToolResult, ExcelT21Error> {
+        self.ensure_running(TOOL_WORKBOOK_READ)?;
         reject_unknown_keys(arguments, &["session_id"], TOOL_WORKBOOK_READ)?;
         let token = required_string(arguments, "session_id", TOOL_WORKBOOK_READ)?;
         let access = self.lookup(call, token, TOOL_WORKBOOK_READ)?;
@@ -210,6 +237,7 @@ where
         call: &ExcelCallContext,
         arguments: &Map<String, Value>,
     ) -> Result<ExcelToolResult, ExcelT21Error> {
+        self.ensure_running(TOOL_RANGE_READ)?;
         reject_unknown_keys(arguments, &["session_id", "range", "mode"], TOOL_RANGE_READ)?;
         let token = required_string(arguments, "session_id", TOOL_RANGE_READ)?;
         let selector = arguments
@@ -243,6 +271,7 @@ where
         call: &ExcelCallContext,
         arguments: &Map<String, Value>,
     ) -> Result<ExcelToolResult, ExcelT21Error> {
+        self.ensure_running(TOOL_RANGE_SUMMARIZE)?;
         reject_unknown_keys(
             arguments,
             &["session_id", "range", "mode"],
@@ -282,55 +311,6 @@ where
         });
         ensure_payload_bound(&data, MAX_RANGE_PAYLOAD_BYTES, TOOL_RANGE_SUMMARIZE)?;
         self.publish_after_revalidation(call, token, &access, data)
-    }
-
-    /// Invalidates the task token and closes its runtime handle.
-    pub(crate) fn cleanup_task(&self, task_id: &str) -> Result<(), ExcelT21Error> {
-        self.cleanup_expired_sessions()?;
-        let closing = self
-            .sessions
-            .lock()
-            .map_err(|_| {
-                ExcelT21Error::new(ErrorCode::Fatal, "Excel session registry is poisoned")
-            })?
-            .begin_close_task(task_id);
-        if let Some(closing) = closing {
-            self.runtime.close(closing.handle)?;
-            self.lock_sessions("excel.t21.cleanup")?
-                .finish_close(closing.handle)?;
-        }
-        Ok(())
-    }
-
-    fn fail_open_after_cleanup(
-        &self,
-        handle: WorkbookHandle,
-        error: ExcelT21Error,
-    ) -> Result<ExcelToolResult, ExcelT21Error> {
-        self.runtime.close(handle).map_err(|close_error| {
-            ExcelT21Error::new(
-                ErrorCode::Fatal,
-                format!(
-                    "{TOOL_WORKBOOK_OPEN}: open validation failed and cleanup failed: {close_error}"
-                ),
-            )
-        })?;
-        Err(error)
-    }
-
-    fn cleanup_expired_sessions(&self) -> Result<(), ExcelT21Error> {
-        let expired = self.lock_sessions("excel.t21.cleanup")?.expire_sessions();
-        for session in expired {
-            self.runtime.close(session.handle).map_err(|error| {
-                ExcelT21Error::new(
-                    ErrorCode::Fatal,
-                    format!("expired Excel session cleanup failed: {error}"),
-                )
-            })?;
-            self.lock_sessions("excel.t21.cleanup")?
-                .finish_close(session.handle)?;
-        }
-        Ok(())
     }
 
     fn publish_workbook_snapshot(
@@ -402,6 +382,7 @@ where
         access: &SessionAccess,
         data: Value,
     ) -> Result<ExcelToolResult, ExcelT21Error> {
+        self.ensure_running("excel.t21")?;
         self.cleanup_expired_sessions()?;
         let current = {
             let sessions = self.lock_sessions("excel.t21")?;
@@ -418,6 +399,7 @@ where
                 "Excel session identity changed during the read",
             ));
         }
+        self.ensure_running("excel.t21")?;
         Ok(ExcelToolResult {
             data,
             untrusted: true,
@@ -430,6 +412,7 @@ where
         token: &str,
         tool: &str,
     ) -> Result<SessionAccess, ExcelT21Error> {
+        self.ensure_running(tool)?;
         self.cleanup_expired_sessions()?;
         let access = {
             let sessions = self.lock_sessions(tool)?;
@@ -443,10 +426,12 @@ where
         self.runtime
             .verify_ownership(access.handle, &access.workbook)
             .map_err(|error| ownership_error(error, tool))?;
+        self.ensure_running(tool)?;
         Ok(access)
     }
 
     fn fingerprint(&self, access: &SessionAccess, tool: &str) -> Result<String, ExcelT21Error> {
+        self.ensure_running(tool)?;
         let fingerprint = self.runtime.fingerprint(access.handle)?;
         if fingerprint.trim().is_empty() {
             return Err(ExcelT21Error::new(
@@ -455,6 +440,20 @@ where
             ));
         }
         Ok(fingerprint)
+    }
+
+    fn ensure_running(&self, tool: &str) -> Result<(), ExcelT21Error> {
+        match self.lifecycle.load(Ordering::Acquire) {
+            LIFECYCLE_RUNNING => Ok(()),
+            LIFECYCLE_CLOSING => Err(ExcelT21Error::new(
+                ErrorCode::Fatal,
+                format!("{tool}: Excel task-end cleanup is in progress"),
+            )),
+            _ => Err(ExcelT21Error::new(
+                ErrorCode::Fatal,
+                format!("{tool}: Excel task-end cleanup is terminal"),
+            )),
+        }
     }
 
     fn lock_sessions(

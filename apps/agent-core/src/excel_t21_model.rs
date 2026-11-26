@@ -624,7 +624,7 @@ pub(crate) struct ClosingSession {
 }
 
 #[derive(Debug, Clone)]
-struct SessionRecord {
+pub(super) struct SessionRecord {
     tool_bus_session_id: String,
     task_id: String,
     access: SessionAccess,
@@ -637,7 +637,7 @@ pub(crate) struct SessionRegistry {
     token_source: Arc<dyn TokenSource>,
     capacity: SessionCapacity,
     sessions: BTreeMap<String, SessionRecord>,
-    closing: BTreeMap<u64, SessionRecord>,
+    pub(super) closing: BTreeMap<u64, SessionRecord>,
     active_by_task: BTreeMap<String, String>,
 }
 
@@ -793,6 +793,21 @@ impl SessionRegistry {
         Some(ClosingSession { handle })
     }
 
+    /// Moves every active session, plus retained closing sessions, to task-end cleanup.
+    pub(crate) fn begin_close_all(&mut self) -> Vec<ClosingSession> {
+        for (_, token) in std::mem::take(&mut self.active_by_task) {
+            if let Some(record) = self.sessions.remove(&token) {
+                self.closing.insert(record.access.handle.get(), record);
+            }
+        }
+        self.closing
+            .keys()
+            .copied()
+            .map(WorkbookHandle::new)
+            .map(|handle| ClosingSession { handle })
+            .collect()
+    }
+
     /// Moves expired records into closing state and returns every handle awaiting close.
     pub(crate) fn expire_sessions(&mut self) -> Vec<ClosingSession> {
         let now = self.clock.now_unix_ms();
@@ -827,6 +842,16 @@ impl SessionRegistry {
                 "Excel closing session was not registered",
             ))
         }
+    }
+
+    /// Releases every closing session after the runtime confirms full convergence.
+    pub(crate) fn finish_all_closing(&mut self) -> usize {
+        let released = self.closing.len();
+        self.closing.clear();
+        for _ in 0..released {
+            self.capacity.release();
+        }
+        released
     }
 
     /// Number of active sessions retained by this registry.
@@ -870,31 +895,6 @@ fn validate_worksheets(worksheets: &[WorksheetInfo]) -> Result<(), ExcelT21Error
                 "worksheet names and ordinals must be non-empty and unique",
             ));
         }
-    }
-    Ok(())
-}
-
-#[test]
-fn test_workbook_path_parser_rejects_non_local_or_non_xlsx_shapes() -> Result<(), ExcelT21Error> {
-    assert_eq!(
-        parse_workbook_path(concat!(env!("CARGO_MANIFEST_DIR"), "/book.xlsx"))?,
-        PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/book.xlsx"))
-    );
-    for invalid in [
-        "book.xlsx",
-        "\\\\server\\share\\book.xlsx",
-        "https://example.com/book.xlsx",
-        concat!(env!("CARGO_MANIFEST_DIR"), "/book.xlsm"),
-        concat!(env!("CARGO_MANIFEST_DIR"), "/../book.xlsx"),
-        concat!(env!("CARGO_MANIFEST_DIR"), "/book.xlsx:stream"),
-    ] {
-        assert_eq!(
-            parse_workbook_path(invalid)
-                .err()
-                .ok_or_else(|| invalid_arguments("invalid path unexpectedly parsed"))?
-                .code(),
-            ErrorCode::ToolInvalidArgs
-        );
     }
     Ok(())
 }
