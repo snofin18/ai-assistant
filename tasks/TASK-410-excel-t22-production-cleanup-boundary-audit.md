@@ -1,6 +1,6 @@
 # TASK-410 Excel T2.2 production cleanup boundary audit
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel T2.2　批次：6e　依赖：TASK-401、TASK-402、TASK-403、TASK-409、ADR-0108、ADR-0110、ADR-0111、ADR-0112
 
 ---
@@ -113,6 +113,11 @@ production 代码、公共 API、schema、依赖和 `tools.json` 零改动。
   test-only closing 顺序、ownership creation race、LEDGER 缺失与 journal 唯一路径/phase。
 - 第二轮 review 又修正公共 ownership surface、内外层错误映射与 journal/watchdog
   scope 歧义；最终复审 **No findings (P0-P2)**。
+- implementation PR #876：https://github.com/snofin18/ai-assistant/pull/876
+  checks **22（21 SUCCESS + 1 SKIPPED）**，pending 0 / failed 0，base=main，
+  `MERGEABLE` / `CLEAN`。
+- merge `e6a66965249feaca3d1272a84e706f02e8fa9a9c`；post-merge main CI
+  `45783616793` success。
 
 ### 4. DoD 核对
 
@@ -126,7 +131,7 @@ production 代码、公共 API、schema、依赖和 `tools.json` 零改动。
 - [x] 已明确 journal 原子 publish 必须使用唯一路径/phase 文件。
 - [x] 已给出当前 production Excel Tool/ToolBus/rollback/assembly 的 NO-GO。
 - [x] 已给出后续实现卡顺序。
-- [ ] 文档治理门禁、独立 review、PR/CI/merge/main CI 待收口。
+- [x] 文档治理门禁、独立 review、PR/CI/merge/main CI 已完成。
 
 ### 5. 偏差
 
@@ -157,6 +162,11 @@ production 代码、公共 API、schema、依赖和 `tools.json` 零改动。
   `docs/adr/0108-excel-t21-readonly-tool-contract.md`。
 - Spec：
   `docs/spec/excel-t21-readonly-workflow.md`。
+- implementation PR #876：https://github.com/snofin18/ai-assistant/pull/876
+  checks **22（21 SUCCESS + 1 SKIPPED）**，pending 0 / failed 0，base=main，
+  `MERGEABLE` / `CLEAN`。
+- merge `e6a66965249feaca3d1272a84e706f02e8fa9a9c`；post-merge main CI
+  `45783616793` success。
 
 ### 9. 给审阅者的关注点
 
