@@ -1,6 +1,6 @@
 # TASK-413 Excel T2.1 private task-end shutdown convergence
 
-- 状态：**InProgress**
+- 状态：**Done**
 - 阶段：2　子阶段：Stage 2 Excel T2.1　批次：4j　依赖：TASK-403、TASK-411、TASK-412、ADR-0108
 
 ---
@@ -159,8 +159,8 @@ git diff --check
 - [x] 专项覆盖成功、close 失败、shutdown 失败、并发 open/read 与重复 shutdown。
 - [x] production `tools.json`、ToolBus、rollback、assembly、protocol/schema、公共 API
   与依赖零改动。
-- [ ] 全量门禁、独立 review no P0-P2、PR/CI/merge/main CI 证据落入记录区（review/PR 待完成）。
-- [ ] 外部 automation JSONL 的 PR/CI/merge/main_ci/final 事件待闭环。
+- [x] 全量门禁、独立 review no P0-P2、PR/CI/merge/main CI 证据落入记录区。
+- [x] 外部 automation JSONL 的 start/gates/work/pr/ci/merge/main_ci 已写入。
 
 ### 5. 偏差
 
@@ -189,6 +189,11 @@ git diff --check
   `C:\Users\fexfe\.codex\automations-logs\2026-11-26\ai-assistant-task-round-20261126-2200.jsonl`。
 - 独立 review 首轮 findings：P1 open/shutdown 逃逸、P2 expired cleanup 错误码、
   P3 runner mutex poison closing；修复后复审 **No findings (P0-P2)**。
+- implementation PR #882：checks **22（21 success + 1 skipped）**，pending 0 / failed 0，
+  base=main，`MERGEABLE` / `CLEAN`；merge
+  `58ceb69cf5660672f85de35d0dbaa32a7f2ea0ff`；post-merge main CI
+  `45845203826` attempt 2 success（attempt 1 Windows 命中既有 TASK-412 PING 时序抖动，
+  失败 job 重跑通过）。
 
 ### 9. 给审阅者的关注点
 
