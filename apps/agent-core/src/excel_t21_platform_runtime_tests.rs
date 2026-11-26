@@ -2,7 +2,10 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use assistant_platform_api::{PlatformError, PlatformResult};
 
@@ -33,6 +36,9 @@ struct FakeState {
     fail_fingerprint: Option<ErrorCode>,
     fail_verify_ownership: Option<ErrorCode>,
     fail_close: Option<ErrorCode>,
+    fail_shutdown: Option<ErrorCode>,
+    shutdown_started: Option<Arc<AtomicBool>>,
+    shutdown_release: Option<Arc<AtomicBool>>,
     malformed_workbook: bool,
     malformed_range: bool,
     range_address_override: Option<String>,
@@ -291,11 +297,40 @@ impl ExcelPlatformRunner for FakeRunner {
     }
 
     fn shutdown(&mut self) -> PlatformResult<()> {
+        let (failure, started, release) = {
+            let mut state = self
+                .state
+                .lock()
+                .map_err(|_| platform_failure(ErrorCode::Fatal, "fake state poisoned"))?;
+            state.shutdown_count = state.shutdown_count.saturating_add(1);
+            (
+                state.fail_shutdown,
+                state.shutdown_started.clone(),
+                state.shutdown_release.clone(),
+            )
+        };
+        if let Some(code) = failure {
+            return Err(platform_failure(code, "scripted shutdown failure"));
+        }
+        if let Some(started) = started {
+            started.store(true, Ordering::Release);
+        }
+        if let Some(release) = release {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while !release.load(Ordering::Acquire) {
+                if Instant::now() >= deadline {
+                    return Err(platform_failure(
+                        ErrorCode::Fatal,
+                        "fake shutdown release deadline expired",
+                    ));
+                }
+                thread::sleep(Duration::from_millis(5));
+            }
+        }
         let mut state = self
             .state
             .lock()
             .map_err(|_| platform_failure(ErrorCode::Fatal, "fake state poisoned"))?;
-        state.shutdown_count = state.shutdown_count.saturating_add(1);
         state.is_application_created = false;
         state.workbooks.clear();
         drop(state);
@@ -401,6 +436,67 @@ fn test_excel_t21_platform_runtime_rejects_second_open_and_preserves_close_failu
     ExcelT21Runtime::close(&runtime, opened.handle)?;
     assert_eq!(runtime.active_workbook_count()?, 0);
     runtime.shutdown()?;
+    Ok(())
+}
+
+#[test]
+fn test_excel_t21_platform_runtime_shutdown_preserves_mapping_until_convergence() -> TestResult {
+    let (runner, fake_state) = FakeRunner::pair();
+    let runtime = PlatformExcelT21Runtime::with_runner(runner);
+    let opened = ExcelT21Runtime::open_read_only(&runtime, &workbook_path())?;
+    lock_fake(&fake_state)?.fail_shutdown = Some(ErrorCode::Fatal);
+
+    let failure = ExcelT21Runtime::shutdown(&runtime)
+        .err()
+        .ok_or("scripted shutdown failure unexpectedly passed")?;
+    assert_eq!(failure.code(), ErrorCode::Fatal);
+    assert_eq!(runtime.active_workbook_count()?, 1);
+    assert_eq!(lock_fake(&fake_state)?.shutdown_count, 1);
+
+    let terminal = ExcelT21Runtime::read_workbook(&runtime, opened.handle)
+        .err()
+        .ok_or("terminal runtime unexpectedly read a workbook")?;
+    assert_eq!(terminal.code(), ErrorCode::Fatal);
+    assert!(terminal.to_string().contains("closing or terminal"));
+    Ok(())
+}
+
+#[test]
+fn test_excel_t21_platform_runtime_rejects_reads_while_shutdown_is_blocked() -> TestResult {
+    let (runner, fake_state) = FakeRunner::pair();
+    let runtime = Arc::new(PlatformExcelT21Runtime::with_runner(runner));
+    let opened = ExcelT21Runtime::open_read_only(runtime.as_ref(), &workbook_path())?;
+    let started = Arc::new(AtomicBool::new(false));
+    let release = Arc::new(AtomicBool::new(false));
+    {
+        let mut state = lock_fake(&fake_state)?;
+        state.shutdown_started = Some(Arc::clone(&started));
+        state.shutdown_release = Some(Arc::clone(&release));
+    }
+
+    let shutdown_runtime = Arc::clone(&runtime);
+    let shutdown_thread =
+        thread::spawn(move || ExcelT21Runtime::shutdown(shutdown_runtime.as_ref()));
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while !started.load(Ordering::Acquire) {
+        if Instant::now() >= deadline {
+            return Err("runtime shutdown did not enter the blocked runner".into());
+        }
+        thread::sleep(Duration::from_millis(5));
+    }
+
+    let read_started = Instant::now();
+    let rejected = ExcelT21Runtime::read_workbook(runtime.as_ref(), opened.handle)
+        .err()
+        .ok_or("read during runtime shutdown unexpectedly passed")?;
+    assert_eq!(rejected.code(), ErrorCode::Fatal);
+    assert!(read_started.elapsed() < Duration::from_secs(1));
+
+    release.store(true, Ordering::Release);
+    shutdown_thread
+        .join()
+        .map_err(|_| std::io::Error::other("runtime shutdown test thread panicked"))??;
+    assert_eq!(runtime.active_workbook_count()?, 0);
     Ok(())
 }
 

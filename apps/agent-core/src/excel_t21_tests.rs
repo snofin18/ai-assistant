@@ -8,6 +8,9 @@ use serde_json::{Value, json};
 use super::handlers::runtime_cell;
 use super::*;
 
+#[path = "excel_t21_lifecycle_tests.rs"]
+mod lifecycle;
+
 const TEST_WORKBOOK_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/book.xlsx");
 
 fn test_text_cells_2x2() -> Vec<RuntimeCell> {
@@ -193,22 +196,6 @@ fn test_registry_expires_and_cleanup_invalidates_immediately() -> Result<(), Exc
             .lookup("bus-a", "task-b", &second.token)
             .err()
             .ok_or_else(|| invalid_arguments("cleaned token unexpectedly passed"))?
-            .code(),
-        ErrorCode::ToolInvalidArgs
-    );
-    Ok(())
-}
-
-#[test]
-fn test_registry_rejects_invalid_opaque_token_length() -> Result<(), ExcelT21Error> {
-    let clock = Arc::new(FakeClock::default());
-    let mut registry =
-        SessionRegistry::new("bus-a", clock, Arc::new(FixedTokenSource("short-token")))?;
-    assert_eq!(
-        registry
-            .register("task-a", opened(1))
-            .err()
-            .ok_or_else(|| invalid_arguments("short token unexpectedly passed"))?
             .code(),
         ErrorCode::ToolInvalidArgs
     );
