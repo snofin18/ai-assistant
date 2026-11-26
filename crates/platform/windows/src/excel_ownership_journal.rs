@@ -609,7 +609,6 @@ mod tests {
     #![allow(clippy::expect_used)]
 
     use super::*;
-    use crate::cdp::JsonValue;
     use std::sync::atomic::AtomicU64;
 
     static NEXT_TEST_DIRECTORY: AtomicU64 = AtomicU64::new(1);
@@ -866,7 +865,8 @@ mod tests {
         fs::remove_dir(&journal_path).expect("remove blocking directory");
         directory.cleanup();
     }
-
-    #[path = "../excel_ownership_journal_json_tests.rs"]
-    mod json_tests;
 }
+
+#[cfg(test)]
+#[path = "excel_ownership_journal_json_tests.rs"]
+mod json_tests;

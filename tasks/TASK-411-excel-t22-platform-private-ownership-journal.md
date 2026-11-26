@@ -155,7 +155,7 @@ git diff --check
 - 首轮 review 发现 1 P1 + 2 P2：Windows rename TOCTOU、phase 级 journal 去重跨 session 复用、
   默认测试 root 泄漏。均已修复并复审关闭。
 - 为满足 600/900 行硬门禁，把 runner state 与三类测试拆分到同卡私有模块；未改变公共边界。
-- 工具偏差：本 round 误填 `shell: "bash"` 共 **23** 次（含 2 次被 PreToolUse 拒绝的
+- 工具偏差：本 round 误填 `shell: "bash"` 共 **24** 次（含 2 次被 PreToolUse 拒绝的
   README/stage 查询）；其余命令均显式 PowerShell。最终计数与失败项写入外部 JSONL。
 
 ### 6. 新增长期记忆

@@ -523,7 +523,7 @@ where
                 shutdown_command(&mut state, &mut backend, response)
             }
         };
-        if send_response(&response, result.clone()).is_err() {
+        if send_response(&response, result).is_err() {
             return state.abandon(&mut backend);
         }
         if is_shutdown {
