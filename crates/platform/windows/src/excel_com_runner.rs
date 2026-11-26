@@ -32,6 +32,10 @@ use assistant_platform_api::{ErrorCode, PlatformError, PlatformResult};
 #[cfg(test)]
 use dispatch::write_acceptance_command;
 use dispatch::{send_response, shutdown_command, shutdown_result};
+use excel_ownership_journal::ExcelOwnershipJournalStore;
+#[cfg(test)]
+use state::OpenWorkbookState;
+use state::RunnerState;
 
 #[path = "excel_com_runner_api.rs"]
 mod api;
@@ -252,13 +256,25 @@ impl ExcelComRunner {
         B: ExcelComBackend,
         F: FnOnce() -> B + Send + 'static,
     {
+        Self::spawn_with_journal_store(backend_factory, ExcelOwnershipJournalStore::for_tests()?)
+    }
+
+    #[cfg(test)]
+    fn spawn_with_journal_store<B, F>(
+        backend_factory: F,
+        journal_store: ExcelOwnershipJournalStore,
+    ) -> PlatformResult<Self>
+    where
+        B: ExcelComBackend,
+        F: FnOnce() -> B + Send + 'static,
+    {
         let runner_id = next_runner_id();
         let (sender, receiver) = mpsc::sync_channel(REQUEST_QUEUE_CAPACITY);
         let worker = thread::Builder::new()
             .name(WORKER_THREAD_NAME.to_owned())
             .spawn(move || {
                 let backend = backend_factory();
-                run_worker(backend, &receiver, runner_id)
+                run_worker(backend, &receiver, runner_id, journal_store)
             })
             .map_err(|error| thread_spawn_error("Excel COM runner", &error))?;
         Ok(Self {
@@ -430,11 +446,12 @@ fn run_worker<B>(
     mut backend: B,
     receiver: &Receiver<RunnerCommand>,
     runner_id: u64,
+    journal_store: ExcelOwnershipJournalStore,
 ) -> PlatformResult<()>
 where
     B: ExcelComBackend,
 {
-    let mut state = RunnerState::new(runner_id);
+    let mut state = RunnerState::new(runner_id, journal_store);
     while let Ok(command) = receiver.recv() {
         let (response, result, is_shutdown) = match command {
             RunnerCommand::CreateApplication(response) => {
@@ -506,297 +523,16 @@ where
                 shutdown_command(&mut state, &mut backend, response)
             }
         };
-        if send_response(&response, result.clone()).is_err() {
+        if send_response(&response, result).is_err() {
             return state.abandon(&mut backend);
         }
         if is_shutdown {
-            return shutdown_result(result);
+            // The terminal response is the caller-visible result. Returning it
+            // again from the worker would be joined as a second cleanup failure.
+            return shutdown_result(Ok(RunnerValue::Unit));
         }
     }
     state.abandon(&mut backend)
-}
-
-struct RunnerState {
-    runner_id: u64,
-    created: bool,
-    closed: bool,
-    owned_process: Option<ExcelOwnedProcessIdentity>,
-    next_session_id: u64,
-    workbook: Option<OpenWorkbookState>,
-}
-
-struct OpenWorkbookState {
-    session_id: u64,
-    canonical_path: PathBuf,
-}
-
-impl RunnerState {
-    const fn new(runner_id: u64) -> Self {
-        Self {
-            runner_id,
-            created: false,
-            closed: false,
-            owned_process: None,
-            next_session_id: 0,
-            workbook: None,
-        }
-    }
-
-    fn create_application<B>(&mut self, backend: &mut B) -> RunnerResponse
-    where
-        B: ExcelComBackend,
-    {
-        if self.closed {
-            return Err(runner_protocol_error(
-                "Excel COM runner is closed and cannot create another application",
-            ));
-        }
-        if self.created {
-            return Err(runner_protocol_error(
-                "Excel COM application was already created",
-            ));
-        }
-        backend.create_application()?;
-        let identity = match backend.application_identity() {
-            Ok(identity) => identity,
-            Err(error) => {
-                let cleanup = backend.quit_application();
-                return match cleanup {
-                    Ok(()) => Err(error),
-                    Err(cleanup_error) => Err(PlatformError::new(
-                        ErrorCode::Fatal,
-                        format!(
-                            "Excel process identity failed: {error}; cleanup also failed: {cleanup_error}"
-                        ),
-                    )),
-                };
-            }
-        };
-        self.created = true;
-        self.owned_process = Some(identity);
-        Ok(RunnerValue::Unit)
-    }
-
-    fn application_process_id(&self) -> RunnerResponse {
-        if !self.created {
-            return Err(runner_protocol_error(
-                "Excel COM application must be created before reading its process id",
-            ));
-        }
-        self.owned_process
-            .as_ref()
-            .map(|identity| RunnerValue::ProcessId(identity.process_id()))
-            .ok_or_else(|| runner_protocol_error("Excel COM runner has no owned process identity"))
-    }
-
-    fn quit_application<B>(&mut self, backend: &mut B) -> RunnerResponse
-    where
-        B: ExcelComBackend,
-    {
-        if !self.created {
-            return Err(runner_protocol_error(
-                "Excel COM application must be created before quit",
-            ));
-        }
-        backend.quit_application()?;
-        self.created = false;
-        self.owned_process = None;
-        self.closed = true;
-        Ok(RunnerValue::Unit)
-    }
-
-    fn open_read_only<B>(&mut self, backend: &mut B, path: &Path) -> RunnerResponse
-    where
-        B: ExcelComBackend,
-    {
-        if !self.created || self.closed {
-            return Err(runner_protocol_error(
-                "Excel COM application must be active before opening a workbook",
-            ));
-        }
-        if self.workbook.is_some() {
-            return Err(runner_protocol_error(
-                "Excel COM runner already owns an open workbook",
-            ));
-        }
-        backend.open_read_only(path)?;
-        let session_id = self
-            .next_session_id
-            .checked_add(1)
-            .ok_or_else(|| runner_protocol_error("Excel workbook session id overflowed"))?;
-        self.next_session_id = session_id;
-        let owned_process = self.owned_process.clone().ok_or_else(|| {
-            runner_protocol_error("Excel COM runner has no owned process identity")
-        })?;
-        let workbook = ExcelWorkbookHandle {
-            runner_id: self.runner_id,
-            session_id,
-            canonical_path: path.to_path_buf(),
-            owned_process,
-        };
-        self.workbook = Some(OpenWorkbookState {
-            session_id,
-            canonical_path: path.to_path_buf(),
-        });
-        Ok(RunnerValue::WorkbookOpened(workbook))
-    }
-
-    fn read_active_sheet_text<B>(
-        &self,
-        backend: &B,
-        runner_id: u64,
-        session_id: u64,
-        address: &str,
-    ) -> RunnerResponse
-    where
-        B: ExcelComBackend,
-    {
-        let workbook = self.workbook.as_ref().ok_or_else(|| {
-            PlatformError::new(
-                ErrorCode::ToolInvalidArgs,
-                "Excel COM runner has no open workbook",
-            )
-        })?;
-        if self.runner_id != runner_id || workbook.session_id != session_id {
-            return Err(PlatformError::new(
-                ErrorCode::ToolInvalidArgs,
-                "Excel COM workbook handle does not match the open workbook",
-            ));
-        }
-        backend
-            .read_active_sheet_text(address)
-            .map(RunnerValue::CellText)
-    }
-
-    fn read_workbook<B>(&self, backend: &mut B, runner_id: u64, session_id: u64) -> RunnerResponse
-    where
-        B: ExcelComBackend,
-    {
-        let workbook = self.workbook_for(runner_id, session_id)?;
-        backend
-            .read_workbook(&workbook.canonical_path)
-            .map(RunnerValue::WorkbookSnapshot)
-    }
-
-    fn read_range<B>(
-        &self,
-        backend: &mut B,
-        runner_id: u64,
-        session_id: u64,
-        selector: &ExcelRangeSelector,
-        mode: ExcelReadMode,
-    ) -> RunnerResponse
-    where
-        B: ExcelComBackend,
-    {
-        self.workbook_for(runner_id, session_id)?;
-        backend
-            .read_range(selector, mode)
-            .map(RunnerValue::RangeSnapshot)
-    }
-
-    fn verify_ownership<B>(&self, backend: &B, runner_id: u64, session_id: u64) -> RunnerResponse
-    where
-        B: ExcelComBackend,
-    {
-        self.workbook_for(runner_id, session_id)?;
-        let identity = self.owned_process.as_ref().ok_or_else(|| {
-            runner_protocol_error("Excel COM runner has no owned process identity")
-        })?;
-        backend.verify_ownership(identity)?;
-        Ok(RunnerValue::Unit)
-    }
-
-    fn workbook_for(&self, runner_id: u64, session_id: u64) -> PlatformResult<&OpenWorkbookState> {
-        let workbook = self.workbook.as_ref().ok_or_else(|| {
-            PlatformError::new(
-                ErrorCode::ToolInvalidArgs,
-                "Excel COM runner has no open workbook",
-            )
-        })?;
-        if self.runner_id != runner_id || workbook.session_id != session_id {
-            return Err(PlatformError::new(
-                ErrorCode::ToolInvalidArgs,
-                "Excel COM workbook handle does not match the open workbook",
-            ));
-        }
-        Ok(workbook)
-    }
-
-    fn close_workbook<B>(
-        &mut self,
-        backend: &mut B,
-        runner_id: u64,
-        session_id: u64,
-    ) -> RunnerResponse
-    where
-        B: ExcelComBackend,
-    {
-        let workbook = self.workbook.as_ref().ok_or_else(|| {
-            PlatformError::new(
-                ErrorCode::ToolInvalidArgs,
-                "Excel COM runner has no open workbook",
-            )
-        })?;
-        if self.runner_id != runner_id || workbook.session_id != session_id {
-            return Err(PlatformError::new(
-                ErrorCode::ToolInvalidArgs,
-                "Excel COM workbook handle does not match the open workbook",
-            ));
-        }
-        backend.close_workbook()?;
-        self.workbook = None;
-        Ok(RunnerValue::Unit)
-    }
-
-    fn shutdown<B>(&mut self, backend: &mut B) -> RunnerResponse
-    where
-        B: ExcelComBackend,
-    {
-        let open_session_id = self.workbook.as_ref().map(|workbook| workbook.session_id);
-        let close_result = open_session_id.map_or(Ok(RunnerValue::Unit), |session_id| {
-            self.close_workbook(backend, self.runner_id, session_id)
-        });
-        let quit_result = if self.created {
-            self.quit_application(backend)
-        } else {
-            self.closed = true;
-            Ok(RunnerValue::Unit)
-        };
-        match (close_result, quit_result) {
-            (Ok(_), Ok(_)) => Ok(RunnerValue::Unit),
-            (Err(close_error), Ok(_)) => Err(PlatformError::new(
-                ErrorCode::Fatal,
-                format!("Excel workbook close failed during shutdown: {close_error}"),
-            )),
-            (Ok(_), Err(quit_error)) => Err(quit_error),
-            (Err(close_error), Err(quit_error)) => Err(PlatformError::new(
-                ErrorCode::Fatal,
-                format!(
-                    "Excel cleanup failed: workbook close={close_error}; application quit={quit_error}"
-                ),
-            )),
-        }
-    }
-
-    fn abandon<B>(&mut self, backend: &mut B) -> PlatformResult<()>
-    where
-        B: ExcelComBackend,
-    {
-        if !self.created && self.workbook.is_none() {
-            return Ok(());
-        }
-        let cleanup = self.shutdown(backend);
-        cleanup.map_or_else(
-            |error| {
-                Err(PlatformError::new(
-                    ErrorCode::Fatal,
-                    format!("Excel COM request receiver disappeared and cleanup failed: {error}"),
-                ))
-            },
-            |_value| Ok(()),
-        )
-    }
 }
 
 fn expect_unit(response: RunnerResponse) -> PlatformResult<()> {
@@ -866,6 +602,12 @@ mod windows_backend;
 
 #[path = "excel_com_runner_dispatch.rs"]
 mod dispatch;
+
+#[path = "excel_ownership_journal.rs"]
+mod excel_ownership_journal;
+
+#[path = "excel_com_runner_state.rs"]
+mod state;
 
 #[cfg(test)]
 #[path = "excel_com_runner_tests.rs"]

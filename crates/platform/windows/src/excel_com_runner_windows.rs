@@ -7,12 +7,12 @@
 use super::api::{calculation_mode, calculation_state};
 use super::{
     ErrorCode, ExcelCalculationInfo, ExcelCellValueType, ExcelComBackend, ExcelComRunner,
-    ExcelNamedRangeInfo, ExcelNamedRangeScope, ExcelOwnedProcessIdentity, ExcelRangeSelector,
-    ExcelRangeSnapshot, ExcelReadMode, ExcelRuntimeCell, ExcelWorkbookSnapshot, ExcelWorksheetInfo,
-    ExcelWorksheetSelector, MAX_EXCEL_NAMED_RANGES, MAX_EXCEL_RANGE_CELLS, MAX_EXCEL_WORKSHEETS,
-    Path, PlatformError, PlatformResult, REQUEST_QUEUE_CAPACITY, REQUEST_TIMEOUT,
-    WORKER_THREAD_NAME, join_error, mpsc, next_runner_id, run_worker, runner_protocol_error,
-    thread, thread_spawn_error,
+    ExcelNamedRangeInfo, ExcelNamedRangeScope, ExcelOwnedProcessIdentity,
+    ExcelOwnershipJournalStore, ExcelRangeSelector, ExcelRangeSnapshot, ExcelReadMode,
+    ExcelRuntimeCell, ExcelWorkbookSnapshot, ExcelWorksheetInfo, ExcelWorksheetSelector,
+    MAX_EXCEL_NAMED_RANGES, MAX_EXCEL_RANGE_CELLS, MAX_EXCEL_WORKSHEETS, Path, PlatformError,
+    PlatformResult, REQUEST_QUEUE_CAPACITY, REQUEST_TIMEOUT, WORKER_THREAD_NAME, join_error, mpsc,
+    next_runner_id, run_worker, runner_protocol_error, thread, thread_spawn_error,
 };
 use std::path::PathBuf;
 #[cfg(windows)]
@@ -21,6 +21,10 @@ use variants::{collection_count, variant_from_bool, variant_from_i4, variant_fro
 #[cfg(windows)]
 pub(super) fn spawn_windows_excel_runner() -> PlatformResult<ExcelComRunner> {
     let runner_id = next_runner_id();
+    #[cfg(test)]
+    let journal_store = ExcelOwnershipJournalStore::for_tests()?;
+    #[cfg(not(test))]
+    let journal_store = ExcelOwnershipJournalStore::from_environment()?;
     let (sender, receiver) = mpsc::sync_channel(REQUEST_QUEUE_CAPACITY);
     let (ready_sender, ready_receiver) = mpsc::sync_channel(1);
     let mut ready_sender = Some(ready_sender);
@@ -33,7 +37,12 @@ pub(super) fn spawn_windows_excel_runner() -> PlatformResult<ExcelComRunner> {
                         runner_protocol_error("Excel COM runner readiness receiver disappeared")
                     })?;
                 }
-                run_worker(WindowsExcelComBackend::new(), &receiver, runner_id)
+                run_worker(
+                    WindowsExcelComBackend::new(),
+                    &receiver,
+                    runner_id,
+                    journal_store,
+                )
             });
             match initialization {
                 Ok(_apartment) => Ok(()),

@@ -50,6 +50,11 @@
      ownership journal 在 writable open / Close / Quit 前落盘，外部 PowerShell watchdog
      仅在 PID、creation FILETIME、executable path 全匹配时回收进程树。该 harness 不改变
     production runner API、`tools.json`、ToolBus、rollback 或 assembly。
+12. **Excel production ownership journal is platform-private**（`src/excel_ownership_journal.rs`，
+    TASK-411）：schema v1 记录完整 owned-process identity、runner/session/phase 与非秘密路径；
+    每个 phase 使用唯一文件，经 `.tmp + create_new + write_all + sync_all + rename` 发布。
+    单 runner 最多保留 4 个活动文件，清理失败时保留 journal，完整 shutdown 成功后才删除。
+    该模块不提供 watchdog、进程终止或公共 API，production Tool registration 继续 fail closed。
 
 ## 边界（不做什么）
 
@@ -114,14 +119,17 @@
 - **COM 单线程**：所有 UIA 调用必须发生在**解析元素的那个线程**上（线程本地 apartment +
   线程本地元素表）。跨线程使用元素句柄会得到 `TargetNotFound`。**不提供**线程池调度或
   跨线程搬运（那需要显式的 marshal 设计，归后续卡）。
-- **Excel COM runner 仅 smoke boundary**：TASK-401 已提供公共 handle、真实 COM 单工作簿
-  open/read/close/shutdown 与 ignored 人工验收；完整 `ExcelT21Runtime` 域映射、named
-  ranges、workbook/range/summarize 与 production ownership journal/watchdog 仍由后续卡负责。
+- **Excel COM runner 仍非 production Tool boundary**：TASK-401 已提供公共 handle、真实 COM
+  单工作簿 open/read/close/shutdown 与 ignored 人工验收；TASK-411 已补 platform-private
+  production ownership journal，但独立 watchdog、verified process-tree termination、
+  creation race、完整 `ExcelT21Runtime` 域映射、named ranges 与
+  workbook/range/summarize 仍由后续卡负责。
 - **Excel write surface 仍不生产化**：TASK-407 的 writable open / scalar put /
   recalculate / save 只在 `#[cfg(test)]` 校准模块存在；单次真实临时副本验收已覆盖
   `.Value2/.Formula` raw shape、save digest 与 shadow restore。TASK-409 已补 test-only
-  10/10 重复运行、失败注入、ownership journal 与独立 watchdog；崩溃恢复、production
-  ownership journal/watchdog 和 production Tool registration 仍未完成。
+  10/10 重复运行、失败注入、ownership journal 与独立 watchdog；TASK-411 的 production
+  journal 仍没有 watchdog consumer 或 verified termination，崩溃恢复、production
+  Tool registration 和 TASK-412 cleanup 闭环仍未完成。
 - **UIPI（完整性级别）**：目标进程完整性级别高于本进程时，`ElementFromHandle` 等调用返回
   `E_ACCESSDENIED` → `PlatformPermission`。**不**自动提权、**不**绕过。
 - **无缓存**：每次属性读都是一次跨进程 COM 调用（**未使用** `IUIAutomationCacheRequest`）。
