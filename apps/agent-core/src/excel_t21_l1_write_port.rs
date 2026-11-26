@@ -1,23 +1,27 @@
-//! Test-only Excel T2.2 scalar range write transaction.
+//! Test-only Excel T2.2 scalar range write transaction and file-shadow coordinator.
 //!
 //! Responsibilities:
 //! - bind a validated scalar literal to the selector captured by an L1 anchor;
 //! - execute one fake write, recalculation, and complete `value2`/`formula` readback;
-//! - record the post-write fingerprint only after every readback postcondition passes.
+//! - record the post-write fingerprint only after every readback postcondition passes;
+//! - coordinate the existing in-memory anchor, scalar write port, and filesystem shadow store.
 //!
 //! Boundaries:
-//! - no Excel, COM object, GUI, filesystem shadow copy, save, or restore is touched;
+//! - no Excel, COM object, GUI, or user workbook is touched;
+//! - file operations occur only through the test-owned `ExcelL1FileShadowStore`;
 //! - the port accepts only self-contained workbook identities and closed selectors;
 //! - this module is test-only and is not reachable from production assembly or `ToolBus`.
 //!
 //! Invariants:
 //! 1. scalar parsing and selector binding complete before the anchor is consumed;
 //! 2. a prepared write is single-use, so any port failure cannot be retried on the same anchor;
-//! 3. post-fingerprint is recorded only after both read modes pass complete-shape validation.
+//! 3. post-fingerprint is recorded only after both read modes pass complete-shape validation;
+//! 4. file rollback requires both the recorded post fingerprint and caller-confirmed saved digest.
 //!
-//! Related documents: ADR-0062, ADR-0107, ADR-0108, TASK-404, TASK-405.
+//! Related documents: ADR-0062, ADR-0107, ADR-0108, TASK-404, TASK-405, TASK-414.
 
 use assistant_protocol::ErrorCode;
+use assistant_undo::ContentDigest;
 use std::sync::{Arc, Mutex};
 
 use super::super::{
@@ -27,8 +31,10 @@ use super::super::{
 };
 use super::write::ExcelL1ScalarLiteral;
 use super::{
-    ExcelL1AnchorHandle, ExcelL1AnchorStore, ExcelL1ValueSnapshot, ExcelL1WorkbookIdentity,
-    cell_address, selector_value,
+    ExcelL1AnchorHandle, ExcelL1AnchorStore, ExcelL1CaptureRequest, ExcelL1ValueSnapshot,
+    ExcelL1WorkbookIdentity, cell_address,
+    file_shadow::{ExcelL1FileRestoreOutcome, ExcelL1FileShadowStore},
+    selector_value,
 };
 
 /// One readback carrying the mode requested from the private port.
@@ -84,7 +90,7 @@ pub(super) fn canonical_snapshot_address(
 
 /// Successful result of one fake scalar range write transaction.
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct ExcelL1ScalarWriteReceipt {
+pub struct ExcelL1ScalarWriteReceipt {
     value_type: CellValueType,
     value_text: String,
     formula_text: String,
@@ -190,6 +196,97 @@ where
         cell_count,
         post_fingerprint,
     })
+}
+
+/// A scalar write whose memory anchor and physical shadow are retained for rollback.
+///
+/// This receipt is not a final commit. The caller may return it only after the write path has
+/// completed every value/formula/fingerprint postcondition. A future save adapter must persist the
+/// workbook and provide the resulting file digest before invoking rollback.
+#[derive(Debug, PartialEq, Eq)]
+pub struct ExcelL1ScalarFileWriteReceipt {
+    anchor_handle: ExcelL1AnchorHandle,
+    workbook: ExcelL1WorkbookIdentity,
+    original_file_digest: ContentDigest,
+    write_receipt: ExcelL1ScalarWriteReceipt,
+}
+
+impl ExcelL1ScalarFileWriteReceipt {
+    /// Returns the anchor retained for a possible rollback.
+    pub(crate) const fn anchor_handle(&self) -> ExcelL1AnchorHandle {
+        self.anchor_handle
+    }
+
+    /// Returns the digest of the exact file copied before the write.
+    pub(crate) const fn original_file_digest(&self) -> &ContentDigest {
+        &self.original_file_digest
+    }
+
+    /// Returns the validated scalar write receipt.
+    pub(crate) const fn write_receipt(&self) -> &ExcelL1ScalarWriteReceipt {
+        &self.write_receipt
+    }
+}
+
+/// Captures an L1 file shadow and executes one fully checked scalar write.
+///
+/// Scalar syntax is validated before any anchor or physical file is created. Once capture succeeds,
+/// every later failure returns explicitly and retains the bounded anchor/shadow evidence for
+/// task-end review instead of pretending that the failed transaction can be retried in place.
+fn execute_scalar_write_with_file_shadow<P>(
+    store: &mut ExcelL1AnchorStore,
+    file_shadow_store: &mut ExcelL1FileShadowStore,
+    request: ExcelL1CaptureRequest,
+    input_json: &str,
+    port: &mut P,
+) -> Result<ExcelL1ScalarFileWriteReceipt, ExcelT21Error>
+where
+    P: ExcelL1WritePort,
+{
+    ExcelL1ScalarLiteral::parse(input_json)?;
+    let selector = request.selector.clone();
+    let observed = request.workbook.clone();
+    let handle = store.capture_with_file_shadow(request, file_shadow_store)?;
+    let original_file_digest = store
+        .anchor(handle)?
+        .shadow_copy()
+        .map(|shadow_copy| shadow_copy.expected_digest.clone())
+        .ok_or_else(|| {
+            ExcelT21Error::new(
+                ErrorCode::Fatal,
+                "Excel scalar file transaction has no shadow-copy digest",
+            )
+        })?;
+    let write_receipt =
+        execute_scalar_write(store, handle, &observed, &selector, input_json, port)?;
+    Ok(ExcelL1ScalarFileWriteReceipt {
+        anchor_handle: handle,
+        workbook: observed,
+        original_file_digest,
+        write_receipt,
+    })
+}
+
+/// Rolls back one completed scalar file transaction after an explicit saved-file digest check.
+///
+/// The memory anchor is consumed only after both the anchor's post-write fingerprint and the
+/// caller's saved-file digest pass their gates. The receipt remains available to report retry or
+/// cleanup evidence; a second successful restore therefore fails on the released anchor. The
+/// physical shadow remains available until the transaction owner performs bounded cleanup.
+fn rollback_scalar_write_with_file_shadow(
+    store: &mut ExcelL1AnchorStore,
+    file_shadow_store: &ExcelL1FileShadowStore,
+    receipt: &ExcelL1ScalarFileWriteReceipt,
+    expected_current_file_digest: &ContentDigest,
+) -> Result<ExcelL1FileRestoreOutcome, ExcelT21Error> {
+    let mut observed = receipt.workbook.clone();
+    observed.fingerprint = receipt.write_receipt.post_fingerprint.clone();
+    store.restore_with_file_shadow(
+        receipt.anchor_handle,
+        &observed,
+        expected_current_file_digest,
+        file_shadow_store,
+    )
 }
 
 fn validate_anchor_selector(
@@ -742,3 +839,7 @@ fn fake_formula_value_text(
 #[cfg(test)]
 #[path = "excel_t21_l1_write_port_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "excel_t21_l1_transaction_tests.rs"]
+mod transaction_tests;
