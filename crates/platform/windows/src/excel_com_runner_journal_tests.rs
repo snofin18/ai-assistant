@@ -6,6 +6,9 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use super::super::excel_ownership_journal::ExcelOwnershipJournalStore;
+use super::super::process_watchdog::{ExcelProcessWatchdog, WATCHDOG_RESPONSE_WAIT};
+use super::super::state::RunnerState;
 use super::*;
 use crate::cdp::JsonValue;
 
@@ -47,6 +50,41 @@ fn test_temporary_workbooks_are_unique_within_one_process() {
     assert_ne!(first, second);
     std::fs::remove_file(first).expect("remove first temporary workbook");
     std::fs::remove_file(second).expect("remove second temporary workbook");
+}
+
+#[test]
+fn test_worker_reap_deadline_is_bounded() {
+    let worker = std::thread::spawn(|| {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        Ok(())
+    });
+    let error = join_worker_bounded(worker, std::time::Duration::from_millis(1))
+        .expect_err("join deadline must fail before the worker exits");
+    assert_eq!(error.code(), ErrorCode::Fatal);
+    std::thread::sleep(std::time::Duration::from_millis(60));
+}
+
+#[test]
+fn test_watchdog_arm_failure_retains_identity_and_journal() {
+    let (mut watchdog, controller) = ExcelProcessWatchdog::start_for_tests().expect("watchdog");
+    watchdog
+        .shutdown(WATCHDOG_RESPONSE_WAIT)
+        .expect("stop watchdog before arm");
+
+    let directory = TemporaryDirectory::new();
+    let store =
+        ExcelOwnershipJournalStore::for_tests_with_root(directory.path.clone()).expect("store");
+    let mut state = RunnerState::new(1, store, controller);
+    let mut backend = OrderingBackend {
+        journal_root: directory.path.clone(),
+    };
+    let error = state
+        .create_application(&mut backend)
+        .expect_err("disconnected watchdog arm");
+    assert_eq!(error.code(), ErrorCode::Fatal);
+    assert!(state.created);
+    assert!(state.owned_process.is_some());
+    assert!(journal_phase_exists(&directory.path, "ownership-captured"));
 }
 
 #[test]

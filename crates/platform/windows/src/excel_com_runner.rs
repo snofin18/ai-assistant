@@ -26,13 +26,17 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender, TrySendError};
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use assistant_platform_api::{ErrorCode, PlatformError, PlatformResult};
 #[cfg(test)]
 use dispatch::write_acceptance_command;
 use dispatch::{send_response, shutdown_command, shutdown_result};
 use excel_ownership_journal::ExcelOwnershipJournalStore;
+use process_watchdog::{
+    ExcelProcessWatchdog, ExcelProcessWatchdogController, WATCHDOG_RESPONSE_WAIT,
+    WATCHDOG_TERMINATION_WAIT,
+};
 #[cfg(test)]
 use state::OpenWorkbookState;
 use state::RunnerState;
@@ -51,7 +55,10 @@ use write_acceptance::ExcelWriteAcceptanceRequest;
 
 const REQUEST_QUEUE_CAPACITY: usize = 1;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+const WORKER_REAP_TIMEOUT: Duration = Duration::from_secs(5);
+const DROP_RESPONSE_TIMEOUT: Duration = Duration::from_secs(5);
 const WORKER_THREAD_NAME: &str = "excel-com-runner";
+const WORKER_REAP_POLL_INTERVAL: Duration = Duration::from_millis(20);
 static NEXT_RUNNER_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Self-contained handle to one workbook owned by an Excel COM runner.
@@ -234,6 +241,7 @@ enum RunnerCommand {
 pub struct ExcelComRunner {
     sender: SyncSender<RunnerCommand>,
     worker: Option<JoinHandle<PlatformResult<()>>>,
+    watchdog: Option<ExcelProcessWatchdog>,
     shutdown_started: bool,
 }
 
@@ -269,17 +277,36 @@ impl ExcelComRunner {
         F: FnOnce() -> B + Send + 'static,
     {
         let runner_id = next_runner_id();
+        let (mut watchdog, watchdog_controller) = ExcelProcessWatchdog::start_for_tests()?;
         let (sender, receiver) = mpsc::sync_channel(REQUEST_QUEUE_CAPACITY);
-        let worker = thread::Builder::new()
+        let worker = match thread::Builder::new()
             .name(WORKER_THREAD_NAME.to_owned())
             .spawn(move || {
                 let backend = backend_factory();
-                run_worker(backend, &receiver, runner_id, journal_store)
-            })
-            .map_err(|error| thread_spawn_error("Excel COM runner", &error))?;
+                run_worker(
+                    backend,
+                    &receiver,
+                    runner_id,
+                    journal_store,
+                    watchdog_controller,
+                )
+            }) {
+            Ok(worker) => worker,
+            Err(error) => {
+                let spawn_error = thread_spawn_error("Excel COM runner", &error);
+                if let Err(cleanup_error) = watchdog.shutdown(WATCHDOG_RESPONSE_WAIT) {
+                    return Err(PlatformError::new(
+                        ErrorCode::Fatal,
+                        format!("{spawn_error}; watchdog cleanup failed: {cleanup_error}"),
+                    ));
+                }
+                return Err(spawn_error);
+            }
+        };
         Ok(Self {
             sender,
             worker: Some(worker),
+            watchdog: Some(watchdog),
             shutdown_started: false,
         })
     }
@@ -377,9 +404,8 @@ impl ExcelComRunner {
     ///
     /// # Errors
     ///
-    /// Returns `TargetUnresponsive` when the shutdown request times out and
-    /// releases the join handle only after explicitly reporting the need for
-    /// process-level cleanup. Repeated shutdown is rejected.
+    /// Returns `Fatal` when the bounded shutdown request, verified process
+    /// cleanup, or worker reap deadline expires. Repeated shutdown is rejected.
     pub fn shutdown(&mut self) -> PlatformResult<()> {
         if self.shutdown_started {
             return Err(runner_protocol_error(
@@ -390,24 +416,34 @@ impl ExcelComRunner {
         let response = self.dispatch(RunnerCommand::Shutdown);
         match response {
             Ok(value) => {
-                expect_unit(Ok(value))?;
-                self.worker.take().map_or(Ok(()), join_worker)
+                let worker_result =
+                    expect_unit(Ok(value)).and_then(|()| self.reap_worker_bounded());
+                let watchdog_result = self.shutdown_watchdog();
+                combine_cleanup_results(worker_result, watchdog_result, "runner shutdown")
             }
-            Err(error) if error.code() == ErrorCode::TargetUnresponsive => Err(PlatformError::new(
-                ErrorCode::Fatal,
-                format!(
-                    "{error}; Excel COM worker was detached after shutdown timed out and requires process-level cleanup"
-                ),
-            )),
             Err(error) => {
-                let cleanup = self.worker.take().map_or(Ok(()), join_worker);
-                match cleanup {
-                    Ok(()) => Err(error),
-                    Err(cleanup_error) => Err(PlatformError::new(
+                let public_error = if error.code() == ErrorCode::TargetUnresponsive {
+                    PlatformError::new(
                         ErrorCode::Fatal,
-                        format!("{error}; worker cleanup also failed: {cleanup_error}"),
-                    )),
-                }
+                        format!("Excel cleanup request did not become bounded: {error}"),
+                    )
+                } else {
+                    error
+                };
+                let force_result = self.force_watchdog_cleanup();
+                let force_succeeded = force_result.is_ok();
+                let reap_result = self.reap_worker_bounded();
+                let cleanup_result =
+                    combine_cleanup_results(force_result, reap_result, "forced runner cleanup");
+                let watchdog_result = if force_succeeded {
+                    self.shutdown_watchdog()
+                } else {
+                    // Keep the armed supervisor available for the final Drop retry.
+                    Ok(())
+                };
+                let cleanup_result =
+                    combine_cleanup_results(cleanup_result, watchdog_result, "watchdog shutdown");
+                combine_original_and_cleanup(public_error, cleanup_result)
             }
         }
     }
@@ -416,28 +452,85 @@ impl ExcelComRunner {
         &self,
         command: impl FnOnce(ResponseSender) -> RunnerCommand,
     ) -> PlatformResult<RunnerValue> {
+        self.dispatch_with_timeout(command, REQUEST_TIMEOUT)
+    }
+
+    fn dispatch_with_timeout(
+        &self,
+        command: impl FnOnce(ResponseSender) -> RunnerCommand,
+        timeout: Duration,
+    ) -> PlatformResult<RunnerValue> {
         let (response_sender, response_receiver) = mpsc::sync_channel(1);
         self.sender
             .try_send(command(response_sender))
             .map_err(|error| queue_error(&error))?;
         response_receiver
-            .recv_timeout(REQUEST_TIMEOUT)
+            .recv_timeout(timeout)
             .map_err(response_wait_error)?
+    }
+
+    fn force_watchdog_cleanup(&self) -> PlatformResult<()> {
+        let watchdog = self.watchdog.as_ref().ok_or_else(|| {
+            runner_protocol_error("Excel process watchdog is unavailable during forced cleanup")
+        })?;
+        watchdog
+            .controller()
+            .force_terminate_armed(WATCHDOG_TERMINATION_WAIT, WATCHDOG_RESPONSE_WAIT)
+            .map(|_report| ())
+    }
+
+    fn reap_worker_bounded(&mut self) -> PlatformResult<()> {
+        let Some(worker) = self.worker.as_ref() else {
+            return Ok(());
+        };
+        let deadline = Instant::now() + WORKER_REAP_TIMEOUT;
+        while !worker.is_finished() {
+            if Instant::now() >= deadline {
+                return Err(PlatformError::new(
+                    ErrorCode::Fatal,
+                    "Excel COM worker did not reach its reap deadline",
+                ));
+            }
+            thread::sleep(WORKER_REAP_POLL_INTERVAL);
+        }
+        let worker = self
+            .worker
+            .take()
+            .ok_or_else(|| runner_protocol_error("Excel COM worker handle disappeared"))?;
+        worker.join().map_err(join_error)?
+    }
+
+    fn shutdown_watchdog(&mut self) -> PlatformResult<()> {
+        self.watchdog.take().map_or(Ok(()), |mut watchdog| {
+            watchdog.shutdown(WATCHDOG_RESPONSE_WAIT)
+        })
     }
 }
 
 impl Drop for ExcelComRunner {
     fn drop(&mut self) {
-        if self.shutdown_started || self.worker.is_none() {
+        if self.shutdown_started && self.worker.is_none() && self.watchdog.is_none() {
             return;
         }
         self.shutdown_started = true;
         // Drop is the final best-effort path. Explicit `shutdown()` is the only
         // path that can report cleanup failure to the caller.
-        if self.dispatch(RunnerCommand::Shutdown).is_ok()
-            && let Some(worker) = self.worker.take()
-        {
-            let _join_result = worker.join();
+        let response = self.dispatch_with_timeout(RunnerCommand::Shutdown, DROP_RESPONSE_TIMEOUT);
+        let cleanup_result = match response {
+            Ok(value) => expect_unit(Ok(value)).and_then(|()| self.reap_worker_bounded()),
+            Err(_error) => {
+                let force_result = self.force_watchdog_cleanup();
+                let reap_result = self.reap_worker_bounded();
+                combine_cleanup_results(force_result, reap_result, "Drop forced cleanup")
+            }
+        };
+        let watchdog_result = self.shutdown_watchdog();
+        match combine_cleanup_results(cleanup_result, watchdog_result, "Drop watchdog shutdown") {
+            Ok(()) => {}
+            Err(_error) => {
+                // Drop cannot return an error. Failed cleanup leaves the durable
+                // TASK-411 journal on disk for the incident path.
+            }
         }
     }
 }
@@ -447,11 +540,12 @@ fn run_worker<B>(
     receiver: &Receiver<RunnerCommand>,
     runner_id: u64,
     journal_store: ExcelOwnershipJournalStore,
+    watchdog: ExcelProcessWatchdogController,
 ) -> PlatformResult<()>
 where
     B: ExcelComBackend,
 {
-    let mut state = RunnerState::new(runner_id, journal_store);
+    let mut state = RunnerState::new(runner_id, journal_store, watchdog);
     while let Ok(command) = receiver.recv() {
         let (response, result, is_shutdown) = match command {
             RunnerCommand::CreateApplication(response) => {
@@ -579,7 +673,21 @@ fn join_error(_panic: Box<dyn std::any::Any + Send>) -> PlatformError {
     runner_protocol_error("Excel COM runner worker thread panicked")
 }
 
-fn join_worker(worker: JoinHandle<PlatformResult<()>>) -> PlatformResult<()> {
+#[cfg(test)]
+fn join_worker_bounded(
+    worker: JoinHandle<PlatformResult<()>>,
+    timeout: Duration,
+) -> PlatformResult<()> {
+    let deadline = Instant::now() + timeout;
+    while !worker.is_finished() {
+        if Instant::now() >= deadline {
+            return Err(PlatformError::new(
+                ErrorCode::Fatal,
+                "Excel COM worker did not reach its reap deadline",
+            ));
+        }
+        thread::sleep(WORKER_REAP_POLL_INTERVAL);
+    }
     worker.join().map_err(join_error)?
 }
 
@@ -596,9 +704,45 @@ fn next_runner_id() -> u64 {
     }
 }
 
+fn combine_cleanup_results(
+    first: PlatformResult<()>,
+    second: PlatformResult<()>,
+    context: &str,
+) -> PlatformResult<()> {
+    match (first, second) {
+        (Ok(()), Ok(())) => Ok(()),
+        (Err(error), Ok(())) | (Ok(()), Err(error)) => Err(error),
+        (Err(first_error), Err(second_error)) => Err(PlatformError::new(
+            ErrorCode::Fatal,
+            format!("{context}: {first_error}; cleanup also failed: {second_error}"),
+        )),
+    }
+}
+
+fn combine_original_and_cleanup(
+    original: PlatformError,
+    cleanup: PlatformResult<()>,
+) -> PlatformResult<()> {
+    match cleanup {
+        Ok(()) => Err(original),
+        Err(cleanup_error) => Err(PlatformError::new(
+            ErrorCode::Fatal,
+            format!("{original}; cleanup also failed: {cleanup_error}"),
+        )),
+    }
+}
+
 #[cfg(windows)]
 #[path = "excel_com_runner_windows.rs"]
 mod windows_backend;
+
+#[cfg(any(windows, test))]
+#[path = "excel_process_watchdog.rs"]
+mod process_watchdog;
+
+#[cfg(windows)]
+#[path = "excel_process_watchdog_windows.rs"]
+mod process_watchdog_windows;
 
 #[path = "excel_com_runner_dispatch.rs"]
 mod dispatch;

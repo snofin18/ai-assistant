@@ -13,6 +13,10 @@ use super::excel_ownership_journal::{
     ExcelOwnershipJournalPhase, ExcelOwnershipJournalPublication, ExcelOwnershipJournalStore,
     ExcelOwnershipJournals,
 };
+use super::process_watchdog::{
+    ExcelProcessWatchdogController, WATCHDOG_GRACEFUL_WAIT, WATCHDOG_RESPONSE_WAIT,
+    WATCHDOG_TERMINATION_WAIT,
+};
 use super::{
     ErrorCode, ExcelComBackend, ExcelOwnedProcessIdentity, ExcelRangeSelector, ExcelReadMode,
     ExcelWorkbookHandle, Path, PathBuf, PlatformError, PlatformResult, RunnerResponse, RunnerValue,
@@ -23,6 +27,7 @@ pub(super) struct RunnerState {
     pub(super) runner_id: u64,
     journal_store: ExcelOwnershipJournalStore,
     journals: ExcelOwnershipJournals,
+    watchdog: ExcelProcessWatchdogController,
     pub(super) created: bool,
     pub(super) closed: bool,
     pub(super) owned_process: Option<ExcelOwnedProcessIdentity>,
@@ -36,11 +41,16 @@ pub(super) struct OpenWorkbookState {
 }
 
 impl RunnerState {
-    pub(super) fn new(runner_id: u64, journal_store: ExcelOwnershipJournalStore) -> Self {
+    pub(super) fn new(
+        runner_id: u64,
+        journal_store: ExcelOwnershipJournalStore,
+        watchdog: ExcelProcessWatchdogController,
+    ) -> Self {
         Self {
             runner_id,
             journal_store,
             journals: ExcelOwnershipJournals::default(),
+            watchdog,
             created: false,
             closed: false,
             owned_process: None,
@@ -80,11 +90,20 @@ impl RunnerState {
             }
         };
         self.created = true;
-        self.owned_process = Some(identity);
-        let identity = self
-            .owned_process
-            .clone()
-            .ok_or_else(|| runner_protocol_error("Excel ownership identity disappeared"))?;
+        self.owned_process = Some(identity.clone());
+        if let Err(watchdog_error) = self.watchdog.arm(&identity, WATCHDOG_RESPONSE_WAIT) {
+            let journal_result = self.publish_journal(
+                ExcelOwnershipJournalPhase::OwnershipCaptured,
+                0,
+                None,
+                &identity,
+            );
+            let mut message = format!("Excel process watchdog arm failed: {watchdog_error}");
+            if let Err(error) = journal_result {
+                message = format!("{message}; ownership journal failed: {error}");
+            }
+            return Err(PlatformError::new(ErrorCode::Fatal, message));
+        }
         self.publish_journal(
             ExcelOwnershipJournalPhase::OwnershipCaptured,
             0,
@@ -115,7 +134,18 @@ impl RunnerState {
                 "Excel COM application must be created before quit",
             ));
         }
+        let identity = self.owned_process.clone().ok_or_else(|| {
+            runner_protocol_error("Excel COM runner has no owned process identity")
+        })?;
+        self.watchdog
+            .capture_verified_tree(&identity, WATCHDOG_RESPONSE_WAIT)?;
         backend.quit_application()?;
+        self.watchdog.converge_and_disarm(
+            &identity,
+            WATCHDOG_GRACEFUL_WAIT,
+            WATCHDOG_TERMINATION_WAIT,
+            WATCHDOG_RESPONSE_WAIT,
+        )?;
         self.created = false;
         self.owned_process = None;
         self.closed = true;
