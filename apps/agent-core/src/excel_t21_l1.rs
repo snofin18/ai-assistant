@@ -862,5 +862,9 @@ pub(crate) mod write;
 pub(crate) mod write_port;
 
 #[cfg(test)]
+#[path = "excel_t21_l1_file_shadow.rs"]
+pub(crate) mod file_shadow;
+
+#[cfg(test)]
 #[path = "excel_t21_l1_tests.rs"]
 mod tests;
