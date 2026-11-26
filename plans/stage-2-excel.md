@@ -1,6 +1,6 @@
 # 阶段 2 — Excel L1 COM + Adapter 规范化
 
-> 周期 6~8 周　状态：**InProgress（2026-11-26）**；Stage 1 已完成；TASK-395 / TASK-396 / TASK-397 / TASK-398 / TASK-399 / TASK-400 / TASK-401 / TASK-402 / TASK-403 / TASK-404 / TASK-405 / TASK-406 / TASK-407 / TASK-408 / TASK-409 已完成。
+> 周期 6~8 周　状态：**InProgress（2026-11-26）**；Stage 1 已完成；TASK-395 / TASK-396 / TASK-397 / TASK-398 / TASK-399 / TASK-400 / TASK-401 / TASK-402 / TASK-403 / TASK-404 / TASK-405 / TASK-406 / TASK-407 / TASK-408 / TASK-409 已完成；TASK-410 production cleanup 边界审计进行中。
 > 2026-11-23 automation 运行日已由 PR #817 收口；TASK-397 的 typed `HandlerFailure`
 > 错误桥已由 PR #819 merge `2c412d5` / main CI `45305239489` success 合入，TASK-395 恢复 Ready。
 > TASK-372 真实 Excel
@@ -109,6 +109,9 @@
 > 后终止，Job 成员 6 → 0。PR #874 merge `b18603c` / main CI
 > `45773046164` success；production `tools.json`、ToolBus、rollback、assembly、
 > schema、公共 API 与依赖仍零改动。
+> TASK-410 正在进行 **In Progress**：只读对照 ADR-0108 D8、current production
+> `ExcelComRunner` 与 TASK-409 harness，审计 durable journal、独立 watchdog、
+> verified termination 和 production task-end caller 缺口；本卡不实现产品代码。
 
 ## In scope
 
@@ -173,6 +176,7 @@
 | 6c real write calibration | **TASK-407 ✅** | Windows platform / Excel COM | `tasks/TASK-407-excel-t22-real-com-write-acceptance.md` | Done（test-only writable open + scalar property put + Calculate + Save；真实 COM 单/双 cell 写入、Value2/Formula 双读、save/restore digest、EXCEL.EXE=0、review no P0-P2；PR #870 checks 11/11，merge `fc024e4` / main CI `45743239854` success） |
 | evidence guard | **TASK-408 ✅** | automation/evidence | `tasks/TASK-408-rollout-shell-audit-strict-utf8.md` | Done（严格 UTF-8/共享读取/按 turn shell 审计；TASK-407 turn 精确 bash=54，复审 no P0-P2；PR #872 checks 11/11，merge `b8afc7a` / main CI `45753779989` success） |
 | 6d repeated write convergence | **TASK-409 ✅** | Windows platform / Excel COM | `tasks/TASK-409-excel-t22-repeated-write-convergence.md` | Done（test-only 10/10 真实 COM 重复写入、逐轮 digest/stale handle/process convergence、after-write failure injection、after-open watchdog；review no P0-P2；PR #874 checks 22（21 success + 1 skipped），merge `b18603c` / main CI `45773046164` success） |
+| 6e production cleanup audit | **TASK-410 In Progress** | Windows platform / lifecycle | `tasks/TASK-410-excel-t22-production-cleanup-boundary-audit.md` | In Progress（对照 ADR-0108 D8 审计 durable journal/watchdog/verified termination/task-end caller；docs-only，不注册 production Tool） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |
 | 7 | 待派单 | Excel T2.3 | dispatch 时创建 | 未开始（图表生成/PNG 导出/不覆盖） |
 
