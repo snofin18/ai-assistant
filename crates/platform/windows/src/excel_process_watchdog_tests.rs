@@ -297,8 +297,17 @@ impl ControlledChildTree {
         use std::os::windows::process::CommandExt;
         use windows::Win32::System::Threading::CREATE_NO_WINDOW;
 
-        let mut command = std::process::Command::new("cmd.exe");
-        command.args(["/C", "ping.exe -n 30 127.0.0.1 >NUL"]);
+        let mut command = std::process::Command::new("powershell.exe");
+        command.args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-WindowStyle",
+            "Hidden",
+            "-Command",
+            "$child=Start-Process -FilePath 'ping.exe' -ArgumentList '-n','30','127.0.0.1' -PassThru -WindowStyle Hidden; Start-Sleep -Seconds 30",
+        ]);
+        command.stdout(std::process::Stdio::null());
+        command.stderr(std::process::Stdio::null());
         command.creation_flags(CREATE_NO_WINDOW.0);
         let child = command.spawn().expect("spawn hidden process tree");
         let process_id = child.id();
@@ -321,10 +330,10 @@ impl ControlledChildTree {
         let deadline = std::time::Instant::now() + Duration::from_secs(5);
         loop {
             let entries = process_tree_snapshot().expect("process snapshot");
-            if entries
-                .iter()
-                .any(|entry| entry.parent_process_id == self.identity.process_id())
-            {
+            if entries.iter().any(|entry| {
+                entry.parent_process_id == self.identity.process_id()
+                    && entry.process_name.eq_ignore_ascii_case("PING.EXE")
+            }) {
                 return;
             }
             assert!(
