@@ -1,6 +1,6 @@
 # 阶段 2 — Excel L1 COM + Adapter 规范化
 
-> 周期 6~8 周　状态：**InProgress（2026-11-25）**；Stage 1 已完成；TASK-395 / TASK-396 / TASK-397 / TASK-398 / TASK-399 / TASK-400 / TASK-401 / TASK-402 / TASK-403 / TASK-404 / TASK-405 / TASK-406 已完成。
+> 周期 6~8 周　状态：**InProgress（2026-11-26）**；Stage 1 已完成；TASK-395 / TASK-396 / TASK-397 / TASK-398 / TASK-399 / TASK-400 / TASK-401 / TASK-402 / TASK-403 / TASK-404 / TASK-405 / TASK-406 已完成；TASK-407 真实 COM 写入校准进行中。
 > 2026-11-23 automation 运行日已由 PR #817 收口；TASK-397 的 typed `HandlerFailure`
 > 错误桥已由 PR #819 merge `2c412d5` / main CI `45305239489` success 合入，TASK-395 恢复 Ready。
 > TASK-372 真实 Excel
@@ -92,6 +92,11 @@
 > post-fingerprint，任一端口或双读失败均不记录 post 且禁止同 anchor 重试。PR #867
 > checks 22（21 success + 1 skipped），merge `0426cd6` / main CI `45687778120` success；
 > 真实写入/保存/恢复与 production 注册仍未开放。
+> TASK-407 **In Progress**：新增 `#[cfg(test)]` writable open、`Range.Value2` scalar
+> property put、`Application.Calculate` 与 `Workbook.Save`；真实 COM 临时副本验收已完成
+> 单/双 cell 写入、`.Value2/.Formula` raw 校准、保存 digest 变化、shadow restore 与
+> `EXCEL.EXE=0`。真实 number/boolean/text/blank 的 Formula 形状已记录；production
+> `tools.json`、ToolBus、rollback、assembly 与公共 API 仍零改动。
 
 ## In scope
 
@@ -153,6 +158,7 @@
 | 5a L1 anchor | **TASK-404 ✅** | agent-core / L1 | `tasks/TASK-404-excel-t22-l1-anchor-preparation.md` | Done（opened-workbook identity + absolute cells + value snapshot + in-memory shadow copy + identity/fingerprint conflict；专项 26 passed，最终 review no P0-P2；PR #861 merge `0435419` / main CI `45641443101` success；真实文件副本/恢复与 production 注册未开放） |
 | 6a scalar input gate | **TASK-405 ✅** | agent-core / L1 | `tasks/TASK-405-excel-t22-scalar-write-input-gate.md` | Done（test-only 原始 JSON scalar 词法、公式/Default_Ignorable 前缀拒绝、256 KiB 边界与 pre-fingerprint 写前准备；专项 7 passed；最终 review no P0-P2；PR #865 merge `a5c5534` / main CI `45665526687` success） |
 | 6b private write port | **TASK-406 ✅** | agent-core / L1 | `tasks/TASK-406-excel-t22-private-write-port.md` | Done（anchor-bound selector/address/dimensions + single-use write/recalculate/Value2/Formula/post-fingerprint；专项 12 passed，最终 review no P0-P2；PR #867 merge `0426cd6` / main CI `45687778120` success；production Excel surface 仍为空） |
+| 6c real write calibration | **TASK-407 In Progress** | Windows platform / Excel COM | `tasks/TASK-407-excel-t22-real-com-write-acceptance.md` | Review（test-only writable open + scalar property put + Calculate + Save；真实 COM 单/双 cell 写入、Value2/Formula 双读、save/restore digest 与 EXCEL.EXE=0 已通过，待全量门禁与 PR/CI） |
 | 6 | 待派单 | Excel T2.2 | dispatch 时创建 | 未开始（写入/重算/.Value2 校验/保存） |
 | 7 | 待派单 | Excel T2.3 | dispatch 时创建 | 未开始（图表生成/PNG 导出/不覆盖） |
 

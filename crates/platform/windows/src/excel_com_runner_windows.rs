@@ -15,6 +15,8 @@ use super::{
     thread, thread_spawn_error,
 };
 use std::path::PathBuf;
+#[cfg(windows)]
+use variants::{collection_count, variant_from_bool, variant_from_i4, variant_from_string};
 
 #[cfg(windows)]
 pub(super) fn spawn_windows_excel_runner() -> PlatformResult<ExcelComRunner> {
@@ -84,6 +86,37 @@ impl WindowsExcelComBackend {
             application: None,
             canonical_path: None,
         }
+    }
+
+    fn open_workbook(&mut self, path: &Path, read_only: bool) -> PlatformResult<()> {
+        if self.workbook.is_some() {
+            return Err(runner_protocol_error(
+                "Windows Excel backend already owns an open workbook",
+            ));
+        }
+        let application = self
+            .application
+            .as_ref()
+            .ok_or_else(|| runner_protocol_error("Windows Excel backend has no application"))?;
+        let workbooks = get_dispatch_property(application, "Workbooks")?;
+        let path_text = path.to_str().ok_or_else(|| {
+            PlatformError::new(
+                ErrorCode::ToolInvalidArgs,
+                "Excel workbook path is not valid UTF-8",
+            )
+        })?;
+        let workbook = invoke_method_returning_dispatch(
+            &workbooks,
+            "Open",
+            vec![
+                variant_from_string(path_text),
+                variant_from_i4(0),
+                variant_from_bool(read_only),
+            ],
+        )?;
+        self.workbook = Some(workbook);
+        self.canonical_path = Some(path.to_path_buf());
+        Ok(())
     }
 }
 
@@ -164,34 +197,7 @@ impl ExcelComBackend for WindowsExcelComBackend {
     }
 
     fn open_read_only(&mut self, path: &Path) -> PlatformResult<()> {
-        if self.workbook.is_some() {
-            return Err(runner_protocol_error(
-                "Windows Excel backend already owns an open workbook",
-            ));
-        }
-        let application = self
-            .application
-            .as_ref()
-            .ok_or_else(|| runner_protocol_error("Windows Excel backend has no application"))?;
-        let workbooks = get_dispatch_property(application, "Workbooks")?;
-        let path_text = path.to_str().ok_or_else(|| {
-            PlatformError::new(
-                ErrorCode::ToolInvalidArgs,
-                "Excel workbook path is not valid UTF-8",
-            )
-        })?;
-        let workbook = invoke_method_returning_dispatch(
-            &workbooks,
-            "Open",
-            vec![
-                variant_from_string(path_text),
-                variant_from_i4(0),
-                variant_from_bool(true),
-            ],
-        )?;
-        self.workbook = Some(workbook);
-        self.canonical_path = Some(path.to_path_buf());
-        Ok(())
+        self.open_workbook(path, true)
     }
 
     fn read_active_sheet_text(&self, address: &str) -> PlatformResult<String> {
@@ -367,6 +373,14 @@ impl ExcelComBackend for WindowsExcelComBackend {
         Ok(())
     }
 
+    #[cfg(test)]
+    fn execute_write_acceptance(
+        &mut self,
+        request: &super::ExcelWriteAcceptanceRequest,
+    ) -> PlatformResult<()> {
+        self.execute_write_acceptance_request(request)
+    }
+
     fn close_workbook(&mut self) -> PlatformResult<()> {
         let workbook = self
             .workbook
@@ -404,6 +418,14 @@ pub(super) fn parse_named_range_scope(
         ))
     }
 }
+
+#[cfg(test)]
+#[path = "excel_com_runner_windows_write.rs"]
+mod write_acceptance;
+
+#[cfg(windows)]
+#[path = "excel_com_runner_windows_variants.rs"]
+mod variants;
 
 #[cfg(windows)]
 fn get_i4_property(
@@ -463,35 +485,6 @@ fn get_i4_property(
 
 #[cfg(windows)]
 type ComVariant = windows::Win32::System::Variant::VARIANT;
-
-#[cfg(windows)]
-fn variant_from_string(value: &str) -> ComVariant {
-    use windows::Win32::System::Variant::VARIANT;
-    use windows::core::BSTR;
-
-    VARIANT::from(BSTR::from(value))
-}
-
-#[cfg(windows)]
-fn variant_from_i4(value: i32) -> ComVariant {
-    windows::Win32::System::Variant::VARIANT::from(value)
-}
-
-#[cfg(windows)]
-fn variant_from_bool(value: bool) -> ComVariant {
-    windows::Win32::System::Variant::VARIANT::from(value)
-}
-
-#[cfg(windows)]
-fn collection_count(
-    dispatch: &windows::Win32::System::Com::IDispatch,
-    collection_name: &str,
-) -> PlatformResult<usize> {
-    let count = get_i4_property(dispatch, "Count")?;
-    usize::try_from(count).map_err(|_| {
-        runner_protocol_error(format!("Excel {collection_name}.Count did not fit usize"))
-    })
-}
 
 #[cfg(windows)]
 fn get_dispatch_property(

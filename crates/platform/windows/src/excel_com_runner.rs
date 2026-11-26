@@ -5,6 +5,8 @@
 //! - serialize requests through a bounded FIFO command channel;
 //! - expose a narrow public handle for create, process identity, read-only open,
 //!   cell text, close, and shutdown.
+//! - keep human-present write calibration behind crate tests so it cannot leak
+//!   into the production runner surface.
 //!
 //! Boundaries:
 //! - this module exposes no model-visible Tool and is not registered in `ToolBus`;
@@ -27,6 +29,9 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use assistant_platform_api::{ErrorCode, PlatformError, PlatformResult};
+#[cfg(test)]
+use dispatch::write_acceptance_command;
+use dispatch::{send_response, shutdown_command, shutdown_result};
 
 #[path = "excel_com_runner_api.rs"]
 mod api;
@@ -37,6 +42,8 @@ pub use api::{
     MAX_EXCEL_COLUMN, MAX_EXCEL_NAMED_RANGES, MAX_EXCEL_RANGE_BYTES, MAX_EXCEL_RANGE_CELLS,
     MAX_EXCEL_ROW, MAX_EXCEL_WORKSHEETS,
 };
+#[cfg(test)]
+use write_acceptance::ExcelWriteAcceptanceRequest;
 
 const REQUEST_QUEUE_CAPACITY: usize = 1;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
@@ -145,6 +152,16 @@ trait ExcelComBackend: 'static {
             "Excel COM backend does not support ownership verification",
         ))
     }
+
+    #[cfg(test)]
+    fn execute_write_acceptance(
+        &mut self,
+        _request: &ExcelWriteAcceptanceRequest,
+    ) -> PlatformResult<()> {
+        Err(runner_protocol_error(
+            "Excel COM backend does not support write acceptance",
+        ))
+    }
 }
 
 /// One response value produced by the worker.
@@ -191,6 +208,11 @@ enum RunnerCommand {
     VerifyOwnership {
         runner_id: u64,
         session_id: u64,
+        response: ResponseSender,
+    },
+    #[cfg(test)]
+    WriteAcceptance {
+        request: ExcelWriteAcceptanceRequest,
         response: ResponseSender,
     },
     CloseWorkbook {
@@ -467,6 +489,10 @@ where
                 state.verify_ownership(&backend, runner_id, session_id),
                 false,
             ),
+            #[cfg(test)]
+            RunnerCommand::WriteAcceptance { request, response } => {
+                write_acceptance_command(&mut state, &mut backend, response, &request)
+            }
             RunnerCommand::CloseWorkbook {
                 runner_id,
                 session_id,
@@ -477,22 +503,17 @@ where
                 false,
             ),
             RunnerCommand::Shutdown(response) => {
-                let result = state.shutdown(&mut backend);
-                (response, result, true)
+                shutdown_command(&mut state, &mut backend, response)
             }
         };
         if send_response(&response, result.clone()).is_err() {
             return state.abandon(&mut backend);
         }
         if is_shutdown {
-            return result.map(|_| ());
+            return shutdown_result(result);
         }
     }
     state.abandon(&mut backend)
-}
-
-fn send_response(sender: &ResponseSender, response: RunnerResponse) -> Result<(), ()> {
-    sender.send(response).map_err(|_| ())
 }
 
 struct RunnerState {
@@ -843,6 +864,16 @@ fn next_runner_id() -> u64 {
 #[path = "excel_com_runner_windows.rs"]
 mod windows_backend;
 
+#[path = "excel_com_runner_dispatch.rs"]
+mod dispatch;
+
 #[cfg(test)]
 #[path = "excel_com_runner_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "excel_com_runner_write.rs"]
+mod write_acceptance;
+
+#[cfg(test)]
+pub(crate) use write_acceptance::ExcelScalarValue;
