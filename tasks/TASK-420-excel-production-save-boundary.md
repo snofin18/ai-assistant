@@ -1,6 +1,6 @@
 # TASK-420 Excel T2.2 production save and crash-recovery boundary
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：Stage 2 Excel T2.2 / production boundary decision
 
 ---
@@ -56,10 +56,10 @@ git diff --check
 
 ## DoD
 
-- [ ] 审计列出已满足的 private/real-COM 证据与实际缺口。
-- [ ] 审计给出同一进程 caller 与 helper process 的决策矩阵。
-- [ ] 审计给出推荐方案、ADR/spec 前置和实现顺序。
-- [ ] 明确 production save/ToolBus/tools.json 仍不得开放。
+- [x] 审计列出已满足的 private/real-COM 证据与实际缺口。
+- [x] 审计给出同一进程 caller 与 helper process 的决策矩阵。
+- [x] 审计给出推荐方案、ADR/spec 前置和实现顺序。
+- [x] 明确 production save/ToolBus/tools.json 仍不得开放。
 - [ ] 文档门禁、PR/CI/merge/main CI 证据完成。
 
 ---
@@ -89,6 +89,8 @@ git diff --check
 
 - 审计报告已落盘；待运行 `check-ledger`、`hygiene`、`docscan`、`card-check`、
   `memory-counts`、`adr-index` 与 `git diff --check`。
+- `check-ledger` / `hygiene` / `docscan` / `card-check` / `memory-counts` / `adr-index` /
+  `git diff --check`：PASSED。
 
 ### 4. DoD 核对
 
@@ -109,7 +111,10 @@ git diff --check
 
 ### 8. 外部证据
 
-- 待提交后回填 PR / CI / merge / main CI。
+- implementation PR：`https://github.com/snofin18/ai-assistant/pull/898`
+- PR checks：21 success + 1 skipped，0 failed / 0 pending
+- merge：`e28b7a592de755f0cb77d03fd7511a0e6d14640e`
+- post-merge main CI：`45955451798` success
 
 ### 9. 给审阅者的关注点
 
