@@ -1,6 +1,6 @@
 # TASK-416 Automation round delivery and cadence
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：跨阶段 governance / automation evidence
 
 ---
@@ -104,6 +104,8 @@ git diff --check
 - 清理 `C:\Users\fexfe\.codex\automations` 下两个无 `automation.toml` 的孤儿目录；
   保留 `.run-jitter-salt` 与 `human-session-reset.v1`。
 - 未重建历史 round 文件，未修改 ADR/spec/产品代码/schema/公共 API/依赖。
+- implementation PR [#890](https://github.com/snofin18/ai-assistant/pull/890)，
+  squash merge `a68cd30cf010f3435ab887e8c68c35f86d609553`。
 
 ### 3. 验收记录
 
@@ -114,7 +116,11 @@ git diff --check
 - `cargo run --quiet -p xtask -- card-check`：PASSED，0 error / 387 warning。
 - `cargo run --quiet -p xtask -- docscan`：PASSED，0 error / 175 warning。
 - 外部控制文件：仅保留 `.run-jitter-salt` 与 `human-session-reset.v1`。
-- 待提交后再跑 `check-ledger` 与 `git diff --check`，并在 PR/CI 中补证据。
+- `cargo run --quiet -p xtask -- check-ledger`：PASSED。
+- `git diff --check`：PASSED。
+- PR CI #890：21 success + 1 skipped，0 failed / 0 pending；post-merge main CI
+  `45926038066` 首次 macOS job 命中既有 Excel worker 时序抖动，failed-job rerun 后
+  **success**。
 
 ### 4. DoD 核对
 
@@ -123,7 +129,7 @@ git diff --check
 - [x] 审计报告包含近期槽位数据、最大运行时长和间隔建议。
 - [x] 历史 round 缺失仍保持缺失，不伪造回填。
 - [x] 外部 automation 孤儿目录清理完成，控制文件保留。
-- [ ] 文档门禁全绿并完成 PR / CI / merge。
+- [x] 文档门禁全绿并完成 PR / CI / merge。
 
 ### 5. 偏差
 
@@ -144,7 +150,10 @@ git diff --check
 
 ### 8. 外部证据
 
-- 待提交后回填 implementation PR / CI / merge / main CI。
+- implementation PR：`https://github.com/snofin18/ai-assistant/pull/890`
+- PR checks：21 success + 1 skipped，0 failed / 0 pending
+- merge：`a68cd30cf010f3435ab887e8c68c35f86d609553`
+- post-merge main CI：`45926038066` 最终 success（failed-job rerun 后）
 
 ### 9. 给审阅者的关注点
 
