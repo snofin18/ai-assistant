@@ -523,6 +523,115 @@ fn test_l1_task_end_owner_close_without_active_transaction_fails_closed() -> Tes
 }
 
 #[test]
+fn test_l1_task_end_owner_duplicate_execute_preserves_active_receipt() -> TestResult {
+    let (root, mut owner, workbook_path) = prepared_owner("owner-duplicate-execute")?;
+    let mut port = FakePort::default();
+    require_ok!(
+        owner.execute(
+            capture_request("owner-duplicate-first", &workbook_path),
+            "2",
+            &mut port,
+        ),
+        "first owner execute"
+    );
+    let first_fingerprint = owner
+        .active_receipt()
+        .ok_or_else(|| "owner lost first receipt".to_owned())?
+        .write_receipt()
+        .post_fingerprint()
+        .to_owned();
+    let error = require_error!(
+        owner.execute(
+            capture_request("owner-duplicate-second", &workbook_path),
+            "3",
+            &mut port,
+        ),
+        "duplicate owner execute"
+    );
+    assert_eq!(error.code(), ErrorCode::VerifyFailed);
+    assert_eq!(
+        owner
+            .active_receipt()
+            .ok_or_else(|| "owner lost active receipt after duplicate execute".to_owned())?
+            .write_receipt()
+            .post_fingerprint(),
+        first_fingerprint
+    );
+    require_ok!(owner.close_committed(), "cleanup duplicate owner");
+    assert!(!root.shadow_root().exists());
+    Ok(())
+}
+
+#[test]
+fn test_l1_task_end_owner_rollback_failure_retains_receipt_anchor_and_shadow() -> TestResult {
+    let (root, mut owner, workbook_path) = prepared_owner("owner-rollback-failure")?;
+    let mut port = FakePort::default();
+    require_ok!(
+        owner.execute(
+            capture_request("owner-rollback-failure", &workbook_path),
+            "2",
+            &mut port,
+        ),
+        "owner rollback failure execute"
+    );
+    let handle = owner
+        .active_receipt()
+        .ok_or_else(|| "owner has no receipt before rollback failure".to_owned())?
+        .anchor_handle();
+    let shadow_path = physical_shadow_path(&owner.anchors, handle, &owner.file_shadows)?;
+    write_bytes(&workbook_path, b"task-419-saved-before-drift")?;
+    let saved_digest = content_digest(b"task-419-saved-before-drift")?;
+    write_bytes(&workbook_path, b"task-419-user-drift-after-save")?;
+
+    let error = require_error!(
+        owner.close_rolled_back(&saved_digest),
+        "owner rollback failure"
+    );
+    assert_eq!(error.code(), ErrorCode::VerifyFailed);
+    assert!(owner.active_receipt().is_some());
+    assert!(!owner.is_terminal());
+    assert_eq!(owner.anchors.active_anchor_count(), 1);
+    assert!(shadow_path.exists());
+
+    owner.anchors.shutdown();
+    owner
+        .file_shadows
+        .cleanup()
+        .map_err(|error| format!("cleanup rollback-failure evidence: {error}"))?;
+    assert!(!root.shadow_root().exists());
+    Ok(())
+}
+
+#[test]
+fn test_l1_task_end_owner_cleanup_failure_is_not_terminal_success() -> TestResult {
+    let (root, mut owner, workbook_path) = prepared_owner("owner-cleanup-failure")?;
+    let mut port = FakePort::default();
+    require_ok!(
+        owner.execute(
+            capture_request("owner-cleanup-failure", &workbook_path),
+            "2",
+            &mut port,
+        ),
+        "owner cleanup failure execute"
+    );
+    let handle = owner
+        .active_receipt()
+        .ok_or_else(|| "owner has no receipt before cleanup failure".to_owned())?
+        .anchor_handle();
+    let shadow_path = physical_shadow_path(&owner.anchors, handle, &owner.file_shadows)?;
+    fs::remove_file(&shadow_path)
+        .map_err(|error| format!("remove shadow before cleanup failure: {error}"))?;
+
+    let error = require_error!(owner.close_committed(), "owner cleanup failure");
+    assert_eq!(error.code(), ErrorCode::TargetNotFound);
+    assert!(!owner.is_terminal());
+    assert!(owner.active_receipt().is_none());
+    assert_eq!(owner.anchors.active_anchor_count(), 0);
+    assert!(!root.shadow_root().exists() || fs::read_dir(root.shadow_root()).is_ok());
+    Ok(())
+}
+
+#[test]
 fn test_scalar_file_transaction_invalid_scalar_precedes_capture() -> TestResult {
     let root = TestRoot::create("invalid-before-capture")?;
     let workbook_path = root.workbook_path();
