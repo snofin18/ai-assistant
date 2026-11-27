@@ -1,6 +1,6 @@
 # TASK-419 Excel T2.2 private task-end owner failure paths
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：Stage 2 Excel T2.2 / private task-end hardening
 
 ---
@@ -56,8 +56,8 @@ git diff --check
 - [ ] 重复 execute 返回显式错误且原 receipt 不变。
 - [ ] rollback failure 保留 active receipt、anchor 和 shadow。
 - [ ] cleanup failure 返回错误且 owner 不进入 terminal。
-- [ ] Excel 域、workspace/doctest、fmt/clippy 与文档门禁全绿。
-- [ ] PR/CI/merge/main CI 证据完成。
+- [x] Excel 域、workspace/doctest、fmt/clippy 与文档门禁全绿。
+- [x] PR/CI/merge/main CI 证据完成。
 
 ---
 
@@ -84,15 +84,20 @@ git diff --check
 ### 3. 验收记录
 
 - `cargo test -p assistant-agent-core l1_task_end_owner`：6 passed。
-- Excel 域、workspace/doctest、fmt、clippy 与文档门禁待实现提交前复核。
+- `cargo test -p assistant-agent-core excel_t21`：116 passed / 1 ignored。
+- `cargo test --workspace`：PASSED，doctest PASSED。
+- `cargo fmt --all --check`：PASSED。
+- `cargo clippy --all-targets -- -D warnings`：PASSED；仅有既有
+  `clippy::assert_is_empty` unknown-lint warning。
+- `hygiene` / `card-check` / `docscan` / `check-ledger`：PASSED。
 
 ### 4. DoD 核对
 
 - [x] 重复 execute 返回显式错误且原 receipt 不变。
 - [x] rollback failure 保留 active receipt、anchor 和 shadow。
 - [x] cleanup failure 返回错误且 owner 不进入 terminal。
-- [ ] Excel 域、workspace/doctest、fmt/clippy 与文档门禁待 PR 前复核。
-- [ ] PR/CI/merge/main CI 证据待完成。
+- [x] Excel 域、workspace/doctest、fmt/clippy 与文档门禁通过。
+- [x] PR/CI/merge/main CI 证据完成。
 
 ### 5. 偏差
 
@@ -109,7 +114,11 @@ git diff --check
 
 ### 8. 外部证据
 
-- 待提交后回填 PR / CI / merge / main CI。
+- implementation PR：`https://github.com/snofin18/ai-assistant/pull/896`
+- PR checks：21 success + 1 skipped，0 failed / 0 pending
+- merge：`b1b64212820d5cab3a8d7a02d3de258080ddea25`
+- post-merge main CI：`45945832033` 首次 Windows process-watchdog 夹具失败，
+  两次 failed-job rerun 后 success。
 
 ### 9. 给审阅者的关注点
 
