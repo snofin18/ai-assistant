@@ -54,14 +54,22 @@ fn test_temporary_workbooks_are_unique_within_one_process() {
 
 #[test]
 fn test_worker_reap_deadline_is_bounded() {
-    let worker = std::thread::spawn(|| {
-        std::thread::sleep(std::time::Duration::from_millis(50));
+    let (release_sender, release_receiver) = std::sync::mpsc::channel();
+    let (done_sender, done_receiver) = std::sync::mpsc::channel();
+    let worker = std::thread::spawn(move || -> PlatformResult<()> {
+        let _ = release_receiver.recv();
+        let _ = done_sender.send(());
         Ok(())
     });
     let error = join_worker_bounded(worker, std::time::Duration::from_millis(1))
         .expect_err("join deadline must fail before the worker exits");
     assert_eq!(error.code(), ErrorCode::Fatal);
-    std::thread::sleep(std::time::Duration::from_millis(60));
+    release_sender
+        .send(())
+        .expect("release worker after bounded join deadline");
+    done_receiver
+        .recv_timeout(std::time::Duration::from_secs(1))
+        .expect("worker must finish after release");
 }
 
 #[test]
