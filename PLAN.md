@@ -31,6 +31,7 @@ TASK-323     ：**TASK-323 Done（2026-10-20）** —— TASK-313 同号历史�
 更新日期    ：2026-11-27（**TASK-415 Done**：test-only Excel T2.2 L1 scalar file-transaction coordinator 已合并；PR #887 checks 22（21 success + 1 skipped），merge `e91ecdf` / main CI `45884850506` success）
 治理状态    ：**TASK-416 Done（2026-11-27）**：round 文件硬门禁、建后 `automation.toml` 核对、3h30 五槽建议与外部孤儿目录清理已落盘；PR #890 merge `a68cd30` / failed-job rerun main CI `45926038066` success。
 测试稳定    ：**TASK-417 Done（2026-11-27）**：Excel worker reap deadline 测试改用 release/done channel，保留 1 ms timeout 与 `Fatal` 断言；full-path 循环 50/50、workspace/doctest、fmt/clippy 通过；PR #891 merge `16fa002` / main CI `45928771460` success。
+私有集成    ：**TASK-418 Done（2026-11-27）**：test-only task transaction owner 收敛 anchor/file-shadow 的 running/closing/terminal 生命周期；committed/rollback close 清理资源，专项 3 passed、Excel 域 113 passed / 1 ignored；PR #894 merge `0aa7494` / main CI `45936224728` success。
 当前阶段    ：**阶段 2（Excel L1 COM + Adapter 规范化）InProgress（2026-11-27）**；TASK-411/412 已完成 platform-private journal/watchdog；TASK-413/414/415 已完成私有 task-end lifecycle、文件影子副本与 scalar 文件事务组合，专项分别 6 / 13 / 7 passed；production `tools.json`/ToolBus 仍保持空。
 当前任务卡  ：TASK-415 Done（scalar 捕获前校验、anchor+write-port+file-shadow 组合、post-fingerprint + saved-file digest 双门回滚与 cleanup）；TASK-414 Done；TASK-413 Done；TASK-412 Done；TASK-411 Done；更早完成卡见 Stage 2 批次表与 `LEDGER.md`。
 当前在途卡  ：无；production T2.2 保存回滚 caller、Host 崩溃后的外进程恢复、production task assembly 与 `tools.json`/ToolBus/rollback/assembly registration 仍不得开放。

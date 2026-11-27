@@ -1,6 +1,6 @@
 # TASK-418 Excel T2.2 private task-end transaction owner
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：Stage 2 Excel T2.2 / private task-end integration
 
 ---
@@ -73,7 +73,7 @@ git diff --check
 - [x] rollback close 恢复原文件 digest 后释放 anchor 并清理证据。
 - [x] 无 active transaction 的 close 和 cleanup failure 显式失败。
 - [x] production Tool/ToolBus/tools.json/rollback/assembly/schema/API/依赖零改动。
-- [ ] 文档门禁、PR/CI/merge/main CI 证据完成。
+- [x] 文档门禁、PR/CI/merge/main CI 证据完成。
 
 ---
 
@@ -129,7 +129,10 @@ git diff --check
 
 ### 8. 外部证据
 
-- 待提交后回填 PR / CI / merge / main CI。
+- implementation PR：`https://github.com/snofin18/ai-assistant/pull/894`
+- PR checks：21 success + 1 skipped，0 failed / 0 pending
+- merge：`0aa7494c396b3aedb00f79293084c5084883bedb`
+- post-merge main CI：`45936224728` success
 
 ### 9. 给审阅者的关注点
 
