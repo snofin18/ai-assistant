@@ -23,6 +23,138 @@ type PreparedTransaction = (
     PathBuf,
 );
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ExcelL1TaskPhase {
+    Running,
+    Closing,
+    Terminal,
+}
+
+struct ExcelL1TaskTransactionOwner {
+    anchors: ExcelL1AnchorStore,
+    file_shadows: ExcelL1FileShadowStore,
+    phase: ExcelL1TaskPhase,
+    active: Option<ExcelL1ScalarFileWriteReceipt>,
+}
+
+impl ExcelL1TaskTransactionOwner {
+    fn new(anchors: ExcelL1AnchorStore, file_shadows: ExcelL1FileShadowStore) -> Self {
+        Self {
+            anchors,
+            file_shadows,
+            phase: ExcelL1TaskPhase::Running,
+            active: None,
+        }
+    }
+
+    fn execute<P>(
+        &mut self,
+        request: ExcelL1CaptureRequest,
+        input_json: &str,
+        port: &mut P,
+    ) -> Result<(), ExcelT21Error>
+    where
+        P: ExcelL1WritePort,
+    {
+        self.require_running("execute an Excel task transaction")?;
+        if self.active.is_some() {
+            return Err(ExcelT21Error::new(
+                ErrorCode::VerifyFailed,
+                "Excel task transaction owner already has an active transaction",
+            ));
+        }
+        let receipt = execute_scalar_write_with_file_shadow(
+            &mut self.anchors,
+            &mut self.file_shadows,
+            request,
+            input_json,
+            port,
+        )?;
+        self.active = Some(receipt);
+        Ok(())
+    }
+
+    fn close_committed(&mut self) -> Result<(), ExcelT21Error> {
+        self.begin_closing("close committed Excel task transaction")?;
+        let receipt = self.active.take().ok_or_else(|| {
+            ExcelT21Error::new(
+                ErrorCode::VerifyFailed,
+                "Excel task transaction owner has no active transaction to commit",
+            )
+        })?;
+        if let Err(error) = self.anchors.release(receipt.anchor_handle()) {
+            self.active = Some(receipt);
+            return Err(error);
+        }
+        self.cleanup_after_close()
+    }
+
+    fn close_rolled_back(
+        &mut self,
+        expected_current_file_digest: &ContentDigest,
+    ) -> Result<ExcelL1FileRestoreOutcome, ExcelT21Error> {
+        self.begin_closing("roll back Excel task transaction")?;
+        let receipt = self.active.take().ok_or_else(|| {
+            ExcelT21Error::new(
+                ErrorCode::VerifyFailed,
+                "Excel task transaction owner has no active transaction to roll back",
+            )
+        })?;
+        let result = rollback_scalar_write_with_file_shadow(
+            &mut self.anchors,
+            &self.file_shadows,
+            &receipt,
+            expected_current_file_digest,
+        );
+        match result {
+            Ok(outcome) => {
+                self.cleanup_after_close()?;
+                Ok(outcome)
+            }
+            Err(error) => {
+                self.active = Some(receipt);
+                Err(error)
+            }
+        }
+    }
+
+    fn cleanup_after_close(&mut self) -> Result<(), ExcelT21Error> {
+        self.anchors.shutdown();
+        self.file_shadows.cleanup()?;
+        self.phase = ExcelL1TaskPhase::Terminal;
+        Ok(())
+    }
+
+    fn begin_closing(&mut self, operation: &str) -> Result<(), ExcelT21Error> {
+        if self.phase != ExcelL1TaskPhase::Running {
+            return Err(ExcelT21Error::new(
+                ErrorCode::Fatal,
+                format!("Excel task transaction owner cannot {operation}"),
+            ));
+        }
+        self.phase = ExcelL1TaskPhase::Closing;
+        Ok(())
+    }
+
+    fn require_running(&self, operation: &str) -> Result<(), ExcelT21Error> {
+        if self.phase != ExcelL1TaskPhase::Running {
+            return Err(ExcelT21Error::new(
+                ErrorCode::Fatal,
+                format!("Excel task transaction owner cannot {operation}"),
+            ));
+        }
+        Ok(())
+    }
+
+    fn active_receipt(&self) -> Option<&ExcelL1ScalarFileWriteReceipt> {
+        self.active.as_ref()
+    }
+
+    fn is_terminal(&self) -> bool {
+        self.phase == ExcelL1TaskPhase::Terminal
+    }
+}
+
 static NEXT_TEST_ROOT: AtomicU64 = AtomicU64::new(1);
 
 macro_rules! require_ok {
@@ -303,6 +435,91 @@ fn prepared(label: &str) -> TestResult<PreparedTransaction> {
         original,
         workbook_path,
     ))
+}
+
+fn prepared_owner(label: &str) -> TestResult<(TestRoot, ExcelL1TaskTransactionOwner, PathBuf)> {
+    let root = TestRoot::create(label)?;
+    let workbook_path = root.workbook_path();
+    write_bytes(&workbook_path, b"task-418-original-xlsx-bytes")?;
+    let file_shadows = require_ok!(
+        ExcelL1FileShadowStore::open(root.shadow_root(), 1024),
+        "open owner file shadow store"
+    );
+    Ok((
+        root,
+        ExcelL1TaskTransactionOwner::new(ExcelL1AnchorStore::new(), file_shadows),
+        workbook_path,
+    ))
+}
+
+#[test]
+fn test_l1_task_end_owner_committed_close_cleans_anchor_and_shadow() -> TestResult {
+    let (root, mut owner, workbook_path) = prepared_owner("owner-committed")?;
+    let mut port = FakePort::default();
+    require_ok!(
+        owner.execute(
+            capture_request("owner-committed", &workbook_path),
+            "2",
+            &mut port,
+        ),
+        "owner execute"
+    );
+    assert!(owner.active_receipt().is_some());
+    require_ok!(owner.close_committed(), "owner committed close");
+    assert!(owner.is_terminal());
+    assert!(owner.active_receipt().is_none());
+    assert!(!root.shadow_root().exists());
+
+    let error = require_error!(
+        owner.execute(
+            capture_request("owner-terminal", &workbook_path),
+            "2",
+            &mut port,
+        ),
+        "terminal execute"
+    );
+    assert_eq!(error.code(), ErrorCode::Fatal);
+    Ok(())
+}
+
+#[test]
+fn test_l1_task_end_owner_rollback_close_restores_and_cleans() -> TestResult {
+    let (root, mut owner, workbook_path) = prepared_owner("owner-rollback")?;
+    let original = read_bytes(&workbook_path)?;
+    let mut port = FakePort::default();
+    require_ok!(
+        owner.execute(
+            capture_request("owner-rollback", &workbook_path),
+            "2",
+            &mut port,
+        ),
+        "owner rollback execute"
+    );
+    let saved = b"task-418-saved-xlsx-bytes";
+    write_bytes(&workbook_path, saved)?;
+    let outcome = require_ok!(
+        owner.close_rolled_back(&content_digest(saved)?),
+        "owner rollback close"
+    );
+    assert!(matches!(outcome, ExcelL1FileRestoreOutcome::Restored(_)));
+    assert!(owner.is_terminal());
+    assert_eq!(read_bytes(&workbook_path)?, original);
+    assert!(!root.shadow_root().exists());
+    Ok(())
+}
+
+#[test]
+fn test_l1_task_end_owner_close_without_active_transaction_fails_closed() -> TestResult {
+    let (root, mut owner, _workbook_path) = prepared_owner("owner-empty-close")?;
+    let error = require_error!(owner.close_committed(), "empty committed close");
+    assert_eq!(error.code(), ErrorCode::VerifyFailed);
+    assert!(!owner.is_terminal());
+    owner
+        .file_shadows
+        .cleanup()
+        .map_err(|error| format!("cleanup empty owner shadow store: {error}"))?;
+    assert!(!root.shadow_root().exists());
+    Ok(())
 }
 
 #[test]
