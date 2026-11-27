@@ -1,6 +1,6 @@
 # TASK-417 Stabilize Excel worker reap deadline test
 
-- 状态：**Review**
+- 状态：**Done**
 - 阶段：跨阶段 platform test hardening
 
 ---
@@ -56,11 +56,11 @@ git diff --check
 
 ## DoD
 
-- [ ] worker 在 deadline 断言前不会自然退出。
-- [ ] deadline 仍返回 `Fatal`，断言未被弱化。
-- [ ] 放行后 worker 确定性完成并被观察。
-- [ ] 定向测试循环 50/50 通过。
-- [ ] workspace/CI 全绿，PR/merge/main CI 证据已记录。
+- [x] worker 在 deadline 断言前不会自然退出。
+- [x] deadline 仍返回 `Fatal`，断言未被弱化。
+- [x] 放行后 worker 确定性完成并被观察。
+- [x] 定向测试循环 50/50 通过。
+- [x] workspace/CI 全绿，PR/merge/main CI 证据已记录。
 
 ---
 
@@ -104,7 +104,7 @@ git diff --check
 - [x] deadline 仍返回 `Fatal`，断言未被弱化。
 - [x] 放行后 worker 确定性完成并被观察。
 - [x] 定向测试循环 50/50 通过。
-- [ ] PR/CI/merge/main CI 证据记录。
+- [x] PR/CI/merge/main CI 证据记录。
 
 ### 5. 偏差
 
@@ -121,7 +121,10 @@ git diff --check
 
 ### 8. 外部证据
 
-- 待提交后回填 implementation PR / CI / merge / main CI。
+- implementation PR：`https://github.com/snofin18/ai-assistant/pull/891`
+- PR checks：21 success + 1 skipped，0 failed / 0 pending
+- merge：`16fa00299b45032a3e46d1e8ab1908e34a7e8eb1`
+- post-merge main CI：`45928771460` success
 
 ### 9. 给审阅者的关注点
 
