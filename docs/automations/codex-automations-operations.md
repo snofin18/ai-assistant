@@ -1,12 +1,36 @@
 # Codex 原生 scheduled tasks（automations）操作手册
 
-> 状态：Active　版本：**1.22**　日期：**2026-11-26**　变更历史见 §9
+> 状态：Active　版本：**1.23**　日期：**2026-11-27**　变更历史见 §9
 > 上位：**ADR-0029**（自动化的投递机制改回 Codex 官方 scheduled tasks，Supersedes ADR-0018 的「Windows 任务计划程序 + `codex exec`」方案）、`docs/automation-charter.md` §11
 > **用途**：把「Codex 桌面应用的 scheduled tasks / automations 怎么建、怎么改、怎么删、怎么跑、怎么暂停、怎么停」写成可以照着做的操作手册，并且**逐条标明证据强度** —— 哪些是官方写明的、哪些是本机实测的、哪些其实谁都不知道。
 > **适用范围**：本机（Windows + Codex 桌面应用 + 第三方 Responses 兼容端点）。**不覆盖** ChatGPT Work 云端任务；**不覆盖** `codex exec` CLI 路径（那是 ADR-0018 的旧方案，只在 §1 门禁不通过时作为回落手段出现）。
 > **本手册不是授权**：读完它不等于可以创建 automation。动手前必须先过 §2 的门禁。
 > **适用范围（ADR-0050 / ADR-0052，2026-09-26）**：automation 可在**每天任何时间**运行（**不限于某个时段**）。全文一律用**时间中性**的说法：**自动化**、**运行日**、**阶段报告**；历史记录（§8.2 基线表、§9 变更历史、ADR / LEDGER / 任务卡）里的旧词保留不改。
 > **改名（ADR-0051，2026-09-26）**：本文件所在目录由 **`docs/nightly/`** 改为 **`docs/automations/`**；正文里的章程路径 / 锁名 / 分支名同步换新（`docs/overnight-automation-charter.md` → `docs/automation-charter.md`、`.nightly.lock` → `.automation.lock`、`nightly/<date>` → `automation/<date>`）。**历史记录**（§8.2 基线表、§9 本表既有行、ADR / LEDGER / 任务卡）仍用旧名，不回溯改写。
+
+> **2026-11-27 硬门禁：每个 automation prompt 必须携带 round 文件交付条款。**
+> 2026-11-26 的五个真实槽位都完成了业务任务，但没有任何
+> `docs/automations/<run-date>-round-<N>.md`。因此从本版起，创建 automation 时
+> 必须把下面这段逐字放进 `automation.toml` 的 `prompt`；建后读取
+> `~/.codex/automations/<id>/automation.toml` 核对，缺失则 update 或删除重建，
+> 不得保留缺少该段的 `ACTIVE` automation。该要求不改变 ADR-0054，只补齐其执行链。
+>
+> ```text
+> 【本轮硬交付物：round 文件】
+> 1. 按 ADR-0088 计算 run-date，并运行
+>    cargo run -p xtask -- automation-rounds --run-date <run-date>。
+> 2. 必须创建 docs/automations/<run-date>-round-<N>.md；路径占用则顺延，禁止覆盖。
+> 3. round 文件必须通过 PR 合并到 origin/main，并在 final 审计中记录：
+>    round_file / round_pr / round_merge / round_main_ci。
+> 4. 只有 origin/main 已包含 round 文件及合并证据后才允许执行 self_delete。
+> 5. 若无法落地 round 文件，必须记录 skipped/failed 原因并保留 automation，禁止静默自删。
+> ```
+>
+> **槽位重叠建议**：近期 2026-11-25 / 2026-11-26 两天的可计算槽位中，最大
+> runtime 为 169.8 分钟，最大 planned-to-final 为 202.7 分钟；2.5 小时间隔已经出现
+> 00:30 与 03:00 槽位重叠。新建五槽批次建议使用 **3 小时 30 分间隔**，例如
+> `17:15 -> 20:45 -> 00:15 -> 03:45 -> 07:15`。这只是运行建议，不改变
+> ADR-0046 的 2 小时已决下限；`.automation.lock` 仍是硬互斥判据。
 
 ---
 
@@ -673,6 +697,7 @@ heartbeat 约定 18:04:23 → 实际 **18:04:24（约 +1 s）**。→ 计划时�
 
 | 版本 | 日期 | 变更 | 依据 |
 |---|---|---|---|
+| 1.23 | 2026-11-27 | **round 文件交付硬门禁 + 五槽间隔建议**：创建 automation 时必须把 `round_file / round_pr / round_merge / round_main_ci` 与“未落地 round 禁止自删”写进 prompt；建后逐字核对 `automation.toml`。根据近期十个槽位的 169.8 分钟最大 runtime 与 202.7 分钟最大 planned-to-final，建议五槽默认间隔改为 3h30，并给出 `17:15 / 20:45 / 00:15 / 03:45 / 07:15` 示例；不改变 ADR-0046 的 2h 下限 | 2026-11-26 五个槽位业务完成但 round 文件全部缺失；2026-11-25 22:00 与 2026-11-27 00:30 等槽位已出现 2.5h 间隔重叠；TASK-416 |
 | 1.0 | 2026-09-18 | 初稿：证据分级图例与术语对齐、GATE-0 端点兼容性门禁、两类任务对照、八类操作的逐条做法（建立 cron / 建立 heartbeat / 修改 / 删除 / 立即运行 / 暂停 / 恢复与归档 / 查看）、磁盘形态与「不许手改」纪律、章程 14 条映射（4 ✅ / 6 ⚠ / 4 ❌）、14 条风险、验证清单 P1–P5 与 D1–D8 | ADR-0029；官方文档副本 `cx_automations.md`（2026-09-18 抓取）；ADR-0018 及其 2026-09-17 探针实测；`docs/overnight-automation-charter.md` §11（v1.3）；本轮 `codex --help` 与 `~/.codex/automations/` 目录实测；`docs/memory/facts.md`、`pitfalls.md`、`rejected.md` 的 2026-09-16 / 09-17 条目 |
 | 1.1 | 2026-09-24 | **GATE-0 执行结果回填**：§2 标为**已通过（2026-09-24）** + 追加「投递形态已变」的更新块 + 硬标准三条全中的结论；§4.1 `status` / `projectId`（legacy id）/ `executionEnvironment` 三个字段从 `[未验证]` 升级为 `[实测·探针]`；§4.2 heartbeat 字段清单（`targetThreadId` + `rrule`）从 `[未验证]` 升级为 `[实测·探针]`，并把「额外禁令」写准（验证禁挂主线 / 夜间永久不用）；§4.4 删除路径补实测确认；§4.6 `status` 取值 = `ACTIVE` / `PAUSED`；§5 `automation.toml` schema 与 `memory.md` 补实测、抖动补 2026-09-24 复测值；§6 章程版本引用 v1.3 → v1.5；§7 R1（端点 400）标为「根因已消失」、R2 补复测值、R14 升级为已探明、**新增 R15（沙箱开关在应用 UI）**；§8 标为已执行 + §8.2 追加 18 行基线 + §8.3 写「全绿」分支的执行记录与**未测断言清单** | ADR-0029「验证方式」7①（GATE-0 实测通过 → 状态改 ✅、断言结果落基线）；人类 2026-09-24 授权调试时段并指示「何时排期另行说明」 |
 | 1.2 | 2026-09-25 | **正式排期回填**：§2 的「尚未排期 —— 正式排期由人类另行说明后再创建（2026-09-24 指示）」→「**已排期（2026-09-25）**」并写明 automation 名与参数；文件头版本 1.0 → **1.2**（1.1 行写于 2026-09-24 但当时漏改文件头，属既有漂移，随本次一并追平）；§1~§8 其余内容一字未改 | 人类 chat 2026-09-25 授权「允许你进行夜间自动化做 task-019，020 和 021」；ADR-0029「验证方式」7①（GATE-0 通过即可建正式排期）；`~/.codex/automations/ai-assistant-nightly-task-chain/automation.toml` 实测落盘 |
